@@ -20,7 +20,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { captureException } from "@/lib/observability";
 import {
   CheckCircle2, Circle, Clock, ChefHat, PackageCheck, Truck, MapPin,
-  Sparkles, Users, PartyPopper, ArrowLeftRight, PackageOpen, Flag, Ban, Pause, FileSignature,
+  Sparkles, Users, PartyPopper, ArrowLeftRight, PackageOpen, Flag, Ban, Pause, FileSignature, Droplets,
 } from "lucide-react";
 
 interface OrderForTimeline {
@@ -74,6 +74,15 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen }: Props) {
   const [eventComplete, setEventComplete] = useState<string | null>(null);
   const [equipmentReturned, setEquipmentReturned] = useState<string | null>(null);
   const [hasAttendance, setHasAttendance] = useState(false);
+  // ODOC H.11: the cleaning cycle is its own step in the lifecycle.
+  // cleaning_jobs.triggered_by_event_id ties cleaning rows to orders;
+  // when the first job exists for this order, the cleaning cycle has
+  // started. cleaningCycleDone fires when every cleaning_job for the
+  // order has status='complete' so the timeline shows "fully cleaned
+  // and back in stock" as the closeout milestone.
+  const [cleaningStarted, setCleaningStarted] = useState<string | null>(null);
+  const [cleaningAllDone, setCleaningAllDone] = useState<string | null>(null);
+  const [hasCleaningJobs, setHasCleaningJobs] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -91,6 +100,48 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen }: Props) {
         setEquipmentReturned(earliest(...rows.map((r) => r.equipment_returned_at)));
       } catch (e: any) {
         captureException(e, { tags: { route: "/order/[id]", step: "loadTimelineAttendance", orderId: order.id } });
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [order.id]);
+
+  // ODOC H.11: cleaning cycle signal. Pulls cleaning_jobs linked to
+  // this order via triggered_by_event_id. cleaningStarted = earliest
+  // created_at across all jobs (whether complete or not). cleaningAllDone
+  // = max(actual_end) across all jobs IFF every non-cancelled job is
+  // status='complete' - which is when the equipment is back in stock
+  // and the order can close out.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data } = await (supabase as any)
+          .from("cleaning_jobs")
+          .select("created_at, actual_end, status")
+          .eq("triggered_by_event_id", order.id)
+          .is("deleted_at", null);
+        if (cancelled) return;
+        const rows = (data || []) as Array<{ created_at: string | null; actual_end: string | null; status: string }>;
+        setHasCleaningJobs(rows.length > 0);
+        if (rows.length === 0) {
+          setCleaningStarted(null);
+          setCleaningAllDone(null);
+          return;
+        }
+        // Earliest created_at = cycle started.
+        setCleaningStarted(earliest(...rows.map((r) => r.created_at)));
+        // Every active job complete? Take max actual_end as the cycle-done stamp.
+        const active = rows.filter((r) => r.status !== "cancelled");
+        const allComplete = active.length > 0 && active.every((r) => r.status === "complete");
+        if (allComplete) {
+          const ends = active.map((r) => r.actual_end).filter((e): e is string => !!e);
+          ends.sort();
+          setCleaningAllDone(ends.length > 0 ? ends[ends.length - 1] : null);
+        } else {
+          setCleaningAllDone(null);
+        }
+      } catch (e: any) {
+        captureException(e, { tags: { route: "/order/[id]", step: "loadTimelineCleaning", orderId: order.id } });
       }
     })();
     return () => { cancelled = true; };
@@ -120,17 +171,52 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen }: Props) {
     return () => { supabase.removeChannel(ch); };
   }, [order.id]);
 
+  // ODOC H.11: realtime sub on cleaning_jobs so the cleaning step
+  // ticks live as the cleaning team flips jobs queued -> in_progress
+  // -> complete. Same cheap re-pull pattern as the attendance sub.
+  useEffect(() => {
+    if (!order.id) return;
+    const ch = supabase
+      .channel(`order-timeline-cleaning:${order.id}`)
+      .on("postgres_changes",
+        { event: "*", schema: "public", table: "cleaning_jobs", filter: `triggered_by_event_id=eq.${order.id}` },
+        async () => {
+          const { data } = await (supabase as any)
+            .from("cleaning_jobs")
+            .select("created_at, actual_end, status")
+            .eq("triggered_by_event_id", order.id)
+            .is("deleted_at", null);
+          const rows = (data || []) as Array<{ created_at: string | null; actual_end: string | null; status: string }>;
+          setHasCleaningJobs(rows.length > 0);
+          setCleaningStarted(earliest(...rows.map((r) => r.created_at)));
+          const active = rows.filter((r) => r.status !== "cancelled");
+          const allComplete = active.length > 0 && active.every((r) => r.status === "complete");
+          if (allComplete) {
+            const ends = active.map((r) => r.actual_end).filter((e): e is string => !!e);
+            ends.sort();
+            setCleaningAllDone(ends.length > 0 ? ends[ends.length - 1] : null);
+          } else {
+            setCleaningAllDone(null);
+          }
+        },
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [order.id]);
+
   const cancelled = !!order.cancelled_at;
   const postponed = !!order.postponed_at;
   // Service-phase steps are relevant if the order needs waiters or
   // any waiter has actually checked in. Otherwise they're noise.
   const needsService = !!(order.requires_waiter || order.waiter_service_required || hasAttendance);
   // Equipment-return step shows if there's any equipment-return
-  // signal (a method on the order, an attendance stamp, or the
-  // departed_venue_at field). For most catering jobs there's
-  // something to bring back, so this is conservative.
+  // signal (a method on the order, an attendance stamp, the
+  // departed_venue_at field, or a cleaning_job exists for the order).
+  // For most catering jobs there's something to bring back, so this
+  // is conservative.
   const hasEquipmentSignal = !!(
     equipmentReturned ||
+    hasCleaningJobs ||
     (order.equipment_return_method && order.equipment_return_method !== "none" && order.equipment_return_method !== "client_keeps")
   );
 
@@ -159,7 +245,15 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen }: Props) {
     { key: "service_end",   label: "Service ended",        Icon: Clock,          at: serviceEnded,              show: needsService, lane: "service" },
     { key: "event_done",    label: "Event complete",       Icon: PartyPopper,    at: eventComplete,             show: needsService, lane: "service" },
     { key: "departed",      label: "Departed venue",       Icon: ArrowLeftRight, at: order.departed_venue_at,   lane: "closeout" },
-    { key: "equipment",     label: "Equipment collected",  Icon: PackageCheck,   at: equipmentReturned,         show: hasEquipmentSignal, lane: "closeout" },
+    // ODOC H.11: equipment closeout now spans two steps. First the
+    // driver / waiter brings the gear back from the venue (uses the
+    // existing equipment_returned_at stamp from event_attendance, or
+    // - failing that - the first cleaning_job created_at as a fallback
+    // proof that gear arrived back at base). Then the cleaning team
+    // takes over and the order can't close until every cleaning job
+    // for it lands on status='complete'.
+    { key: "equipment",     label: "Equipment collected",  Icon: PackageCheck,   at: equipmentReturned || cleaningStarted, show: hasEquipmentSignal, lane: "closeout" },
+    { key: "cleaning",      label: "In cleaning cycle",    Icon: Droplets,       at: cleaningAllDone || cleaningStarted,   show: hasEquipmentSignal, lane: "closeout" },
     { key: "completed",     label: "Closed",               Icon: CheckCircle2,   at: order.completed_at,        lane: "closeout" },
   ] as Step[]);
   const steps: Step[] = allSteps.filter((s) => s.show !== false);
@@ -197,7 +291,8 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen }: Props) {
     service_end: 2,     // service ended -> event complete
     event_done: 24,     // event done -> departed venue
     departed: 48,       // departed -> equipment back
-    equipment: 168,     // equipment back -> closed (admin closes)
+    equipment: 72,      // equipment back -> in cleaning cycle
+    cleaning: 168,      // cleaning cycle -> closed (admin closes once stock is back)
   };
   const hoursSince = (iso: string | null | undefined): number | null => {
     if (!iso) return null;
@@ -247,7 +342,8 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen }: Props) {
       case "service_end":   return { role: "Waiter",   tone: "bg-amber-50 text-amber-800 border-amber-200" };
       case "event_done":    return { role: "Waiter",   tone: "bg-amber-50 text-amber-800 border-amber-200" };
       case "departed":      return { role: "Driver",   tone: "bg-indigo-50 text-indigo-800 border-indigo-200" };
-      case "equipment":     return { role: "Cleaning", tone: "bg-cyan-50 text-cyan-800 border-cyan-200" };
+      case "equipment":     return { role: "Driver",   tone: "bg-indigo-50 text-indigo-800 border-indigo-200" };
+      case "cleaning":      return { role: "Cleaning", tone: "bg-cyan-50 text-cyan-800 border-cyan-200" };
       case "completed":     return { role: "Admin",    tone: "bg-slate-100 text-slate-700 border-slate-200" };
       default:              return { role: "—",        tone: "bg-slate-50 text-slate-500 border-slate-200" };
     }
