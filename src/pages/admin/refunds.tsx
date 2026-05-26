@@ -44,6 +44,7 @@ import {
 import { captureException } from "@/lib/observability";
 import Link from "next/link";
 import { useTenantHref } from "@/lib/tenantUrl";
+import { staffOrderHref } from "@/lib/orderUrls";
 
 interface RefundRow {
   id: string;
@@ -680,7 +681,7 @@ function RefundsPage() {
             <span className="text-sm text-slate-700">{kindLabel}</span>
             {r.order_number ? (
               <Link
-                href={withSlug(`/order/${r.order_id || ""}`)}
+                href={r.order_id ? withSlug(staffOrderHref(r.order_id, "admin")) : "#"}
                 className="text-xs text-blue-700 hover:underline"
               >
                 #{r.order_number}
@@ -749,11 +750,11 @@ function RefundsPage() {
           <div className="flex items-center gap-3 mt-1.5 flex-wrap text-xs">
             {r.order_id ? (
               <Link
-                href={withSlug(`/order/${r.order_id}`)}
+                href={withSlug(staffOrderHref(r.order_id, "admin"))}
                 className="inline-flex items-center gap-1 text-slate-600 hover:text-slate-900 hover:underline"
               >
                 <ExternalLink className="w-3 h-3" />
-                View order
+                Open brief
               </Link>
             ) : null}
             {r.client_id ? (
@@ -839,12 +840,12 @@ function RefundsPage() {
   return (
     <>
       <Head>
-        <title>Refunds & Credits | CateringMS</title>
+        <title>Refunds & Credits - CateringMS</title>
         <NoIndexMeta />
       </Head>
-      <div className="min-h-screen bg-slate-50 lg:pl-64 xl:pl-72 pt-16 lg:pt-0">
+      <div className="min-h-screen bg-slate-50 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
         <AdminNav />
-        <div className="max-w-5xl mx-auto px-4 md:px-6 py-6 md:py-8 space-y-6">
+        <div className="max-w-full px-4 md:px-6 py-6 md:py-8 space-y-6">
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl md:text-3xl font-bold text-slate-900 flex items-center gap-2">
@@ -976,7 +977,7 @@ function RefundsPage() {
                     Avg time to refund
                   </p>
                   <p className="text-2xl font-bold tabular-nums text-slate-900 mt-1">
-                    {intel.avgDays > 0 ? `${intel.avgDays.toFixed(1)} days` : <span className="text-slate-400">—</span>}
+                    {intel.avgDays > 0 ? `${intel.avgDays.toFixed(1)} days` : <span className="text-slate-400">-</span>}
                   </p>
                   <p className="text-[11px] text-slate-500 mt-0.5">Raised to processed, rolling 90 days. Anything &gt; 5 days is a manual-EFT queue backlog.</p>
                 </CardContent>
