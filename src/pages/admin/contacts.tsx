@@ -1067,11 +1067,11 @@ function ClientsCRM() {
   return (
     <>
       <NoIndexMeta />
-      <Head><title>Contacts - CateringMS Admin</title></Head>
+      <Head><title>Contacts - CateringMS</title></Head>
       <AdminNav />
 
       <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
-        <div className="px-3 sm:px-4 md:px-6 pt-20 lg:pt-6 pb-6 max-w-screen-2xl">
+        <div className="px-3 sm:px-4 md:px-6 pt-20 lg:pt-6 pb-6 max-w-full">
 
           <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             {/* flex-1 + min-w-0 lets the title block claim the leftover
@@ -1445,7 +1445,7 @@ function ClientsCRM() {
                           <div className="flex items-start justify-between gap-2 mb-1.5">
                             <div className="min-w-0 flex-1">
                               <p className="text-sm font-semibold text-slate-900 truncate">{c.name}</p>
-                              <p className="text-xs text-slate-500 truncate">{c.email || c.phone || c.mobile_number || "—"}</p>
+                              <p className="text-xs text-slate-500 truncate">{c.email || c.phone || c.mobile_number || "-"}</p>
                             </div>
                             <Badge className={`${meta.tone} text-[10px] gap-1 shrink-0`}>
                               <Icon className="w-3 h-3" />
@@ -2089,7 +2089,7 @@ function ComposeDrawer({
       contextLabel="This contact"
       contextRows={[
         { label: "Email",  value: contact.email || "(none)", title: contact.email || "(none)" },
-        { label: "Phone",  value: contact.phone || "—" },
+        { label: "Phone",  value: contact.phone || "-" },
         { label: "Status", value: STATUS_META[contact.status]?.label || contact.status },
         { label: "Orders", value: `${contact.orderCount} (${fmtMoney.format(contact.totalSpent)})` },
         ...(contact.nextEventDate ? [{
