@@ -45,6 +45,7 @@ import { CateringDashGame } from "@/components/games/CateringDashGame";
 import { ChatBot } from "@/components/ChatBot";
 import Link from "next/link";
 import { useTenantHref } from "@/lib/tenantUrl";
+import { staffOrderHref } from "@/lib/orderUrls";
 import { DriverNav } from "@/components/navigation/DriverNav";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { supabase } from "@/integrations/supabase/client";
@@ -552,7 +553,7 @@ function DriverDashboardInner() {
   return (
     <>
       <Head>
-        <title>Driver Dashboard - CateringMS</title>
+        <title>Driver dashboard - CateringMS</title>
       </Head>
       <NoIndexMeta />
 
@@ -564,7 +565,7 @@ function DriverDashboardInner() {
           sidebar offset and container width - matches DriverPageShell
           so the visual rhythm carries across the whole portal. */}
       <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-blue-50 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
-        <div className="px-4 sm:px-6 md:px-8 py-6 sm:py-8 lg:py-12 max-w-screen-2xl">
+        <div className="px-4 sm:px-6 md:px-8 py-6 sm:py-8 lg:py-12 max-w-full">
           {/* Header */}
           <div className="mb-4 sm:mb-6 md:mb-8">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 mb-4 sm:mb-6">
@@ -799,7 +800,7 @@ function DriverDashboardInner() {
                               {getStatusLabel(job.status)}
                             </Badge>
                             <Link
-                              href={withSlug(`/order/${job.id}?role=driver`)}
+                              href={withSlug(staffOrderHref(job.id, "driver"))}
                               className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100"
                               title="Open the driver brief for this order"
                             >
@@ -981,7 +982,7 @@ function DriverDashboardInner() {
                 ) : (
                   <Badge className="bg-amber-100 text-amber-700 border-amber-200">
                     <MapPin className="w-3 h-3 mr-1" />
-                    GPS off — dispatch can't see your live position
+                    GPS off, dispatch can't see your live position
                   </Badge>
                 )}
                 {wakeLockHeld && (

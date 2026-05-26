@@ -12,6 +12,7 @@ import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { DriverNav } from "@/components/navigation/DriverNav";
 import { useTenantHref } from "@/lib/tenantUrl";
+import { staffOrderHref } from "@/lib/orderUrls";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { Footer } from "@/components/Footer";
@@ -130,11 +131,11 @@ export default function DriverDeliveriesPage() {
   return (
     <>
       <NoIndexMeta />
-      <Head><title>All Deliveries - Driver Portal</title></Head>
+      <Head><title>All deliveries - CateringMS</title></Head>
       <DriverNav />
 
       <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-blue-50 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
-        <div className="px-4 py-8 max-w-screen-2xl">
+        <div className="px-4 py-8 max-w-full">
           <div className="mb-8 flex items-center gap-3">
             <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg">
               <Truck className="w-6 h-6 text-white" />
@@ -275,7 +276,7 @@ function DeliveryList({ orders }: { orders: DriverOrder[] }) {
                       doc with venue contact, checklist, leave-by,
                       POD path in one place. */}
                   <Link
-                    href={withSlug(`/order/${o.id}?role=driver`)}
+                    href={withSlug(staffOrderHref(o.id, "driver"))}
                     className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold min-h-[32px]"
                     title="Open the driver brief for this order"
                   >
