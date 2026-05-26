@@ -899,7 +899,7 @@ function RoutePlanningInner() {
                             <div className="flex items-center gap-4 text-xs text-slate-500 flex-wrap">
                               <span className="flex items-center gap-1">
                                 <Clock className="w-3 h-3" />
-                                Due {stop.delivery_time ? new Date(stop.delivery_time).toLocaleString("en-ZA", { dateStyle: "short", timeStyle: "short" }) : "—"}
+                                Due {stop.delivery_time ? new Date(stop.delivery_time).toLocaleString("en-ZA", { dateStyle: "short", timeStyle: "short" }) : "-"}
                               </span>
                               {stop.predicted_arrival_at && (
                                 <span className={`flex items-center gap-1 tabular-nums ${
