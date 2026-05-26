@@ -24,6 +24,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { kitchenPrepService, type KitchenStation } from "@/services/kitchenPrepService";
 import { toLocalISO } from "@/lib/localDate";
 import { useTenantHref } from "@/lib/tenantUrl";
+import { staffOrderHref } from "@/lib/orderUrls";
 import { captureException } from "@/lib/observability";
 import { onOrderUpdated } from "@/lib/events/orderEvents";
 
@@ -570,7 +571,7 @@ export default function KitchenProductionPage() {
 
   return (
     <>
-      <Head><title>Production Timeline - CateringMS</title></Head>
+      <Head><title>Production timeline - CateringMS</title></Head>
       <NoIndexMeta />
       <KitchenNav />
       <main className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 via-white to-orange-50 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
@@ -702,7 +703,7 @@ export default function KitchenProductionPage() {
                 </>
               ) : (
                 <>
-                  <p className="text-2xl font-bold tabular-nums text-slate-400">—</p>
+                  <p className="text-2xl font-bold tabular-nums text-slate-400">-</p>
                   <p className="text-[10px] text-slate-500 mt-0.5">
                     Clock the team in to compare
                   </p>
@@ -799,7 +800,7 @@ export default function KitchenProductionPage() {
                             </p>
                             <p className="text-[11px] text-slate-600 truncate">
                               {ord?.order_number ? `${ord.order_number} · ` : ""}
-                              {ord?.event_name || ord?.event_date || "—"}
+                              {ord?.event_name || ord?.event_date || "-"}
                               {ord?.guest_count ? ` · ${ord.guest_count} guests` : ""}
                               {station ? ` · ${station.name}` : ""}
                             </p>
@@ -988,7 +989,7 @@ export default function KitchenProductionPage() {
                               return (
                                 <Link
                                   key={t.id}
-                                  href={withSlug(`/order/${t.order_id}?role=kitchen_staff#section-kitchen`)}
+                                  href={withSlug(staffOrderHref(t.order_id, "kitchen_staff")) + "#section-kitchen"}
                                   className={`absolute top-2 h-12 rounded-md border-l-4 px-1.5 py-1 text-[11px] cursor-pointer transition-colors block hover:shadow-md hover:ring-2 hover:ring-orange-300 ${tone}`}
                                   style={{
                                     left: `${pos.leftPct}%`,
@@ -1084,7 +1085,7 @@ export default function KitchenProductionPage() {
                           return (
                             <Link
                               key={o.id}
-                              href={withSlug(`/order/${o.id}?role=kitchen_staff`)}
+                              href={withSlug(staffOrderHref(o.id, "kitchen_staff"))}
                               className="block group"
                               title="Open the full order document"
                             >

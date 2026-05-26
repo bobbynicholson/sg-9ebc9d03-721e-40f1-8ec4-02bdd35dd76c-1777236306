@@ -712,11 +712,11 @@ export default function KitchenDutyRosterPage() {
 
   return (
     <>
-      <Head><title>Kitchen Duty Roster - CateringMS</title></Head>
+      <Head><title>Kitchen duty - CateringMS</title></Head>
       <NoIndexMeta />
       <KitchenNav />
       <main className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 via-white to-orange-50 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
-        <div className="px-3 sm:px-4 md:px-6 py-6 sm:py-8 max-w-screen-2xl">
+        <div className="px-3 sm:px-4 md:px-6 py-6 sm:py-8 max-w-full">
           {/* Wave 35: header restyle. Icon-in-gradient-box pattern
               (matches the kitchen suite), live "X on duty" pulse pill
               that animates when anyone is clocked in. */}
@@ -804,7 +804,7 @@ export default function KitchenDutyRosterPage() {
                 <div className="text-[10px] uppercase tracking-wider text-slate-500 flex items-center gap-1">
                   <TrendingUp className="w-3 h-3" /> Avg shift
                 </div>
-                <div className="text-2xl sm:text-3xl font-bold text-slate-900 tabular-nums mt-1">{teamStats.avgShiftHours || "—"}<span className="text-sm font-normal text-slate-500 ml-0.5">h</span></div>
+                <div className="text-2xl sm:text-3xl font-bold text-slate-900 tabular-nums mt-1">{teamStats.avgShiftHours || "-"}<span className="text-sm font-normal text-slate-500 ml-0.5">h</span></div>
               </CardContent>
             </Card>
           </div>

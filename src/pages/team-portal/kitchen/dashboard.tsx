@@ -15,6 +15,7 @@ import {
 import { ChefHat, Clock, CheckCircle, Calendar, Users, Package, AlertTriangle, Truck, ExternalLink, Loader2, Sparkles, Printer } from "lucide-react";
 import Link from "next/link";
 import { useTenantHref } from "@/lib/tenantUrl";
+import { staffOrderHref } from "@/lib/orderUrls";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
@@ -55,7 +56,7 @@ type Order = Database["public"]["Tables"]["orders"]["Row"];
 type InventoryItem = Database["public"]["Tables"]["inventory_items"]["Row"];
 
 function formatCountdown(mins: number): string {
-  if (!isFinite(mins)) return "—";
+  if (!isFinite(mins)) return "-";
   const sign = mins < 0 ? "-" : "";
   const abs = Math.abs(mins);
   const days = Math.floor(abs / 1440);
@@ -947,14 +948,14 @@ export default function KitchenDashboard() {
   return (
     <>
       <Head>
-        <title>Kitchen Dashboard - CateringMS</title>
+        <title>Kitchen dashboard - CateringMS</title>
       </Head>
       <NoIndexMeta />
 
       <DynamicNav userRole={UserRole.KITCHEN_STAFF} />
 
       <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-orange-50 via-red-50 to-pink-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 lg:pl-72 xl:pl-80">
-        <div className="px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8 lg:py-12 max-w-screen-2xl">
+        <div className="px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8 lg:py-12 max-w-full">
           {/* Header */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 mb-6 sm:mb-8">
             <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-xl bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center shadow-lg flex-shrink-0">
@@ -1126,7 +1127,7 @@ export default function KitchenDashboard() {
                                 Ticket lives as a print-only sibling
                                 reachable via the small printer icon. */}
                             <Link
-                              href={withSlug(`/order/${order.id}?role=kitchen_staff`)}
+                              href={withSlug(staffOrderHref(order.id, "kitchen_staff"))}
                               className="inline-flex items-center justify-center gap-1.5 min-h-11 px-3 rounded-md text-sm font-semibold bg-orange-500 text-white hover:bg-orange-600 transition shadow-sm"
                               title="Open the full order document"
                             >
@@ -1209,7 +1210,7 @@ export default function KitchenDashboard() {
                       icon={Sparkles}
                       iconColor={pct == null ? "text-slate-400" : pct >= 75 ? "text-emerald-600" : pct >= 40 ? "text-amber-600" : "text-rose-600"}
                       label="Prep readiness"
-                      value={pct == null ? "—" : `${pct}%`}
+                      value={pct == null ? "-" : `${pct}%`}
                       tooltip={
                         pct == null
                           ? "No prep tasks recorded yet for the active orders. Once the kitchen ticks anything off this rolls up automatically."
@@ -1308,7 +1309,7 @@ export default function KitchenDashboard() {
                   </p>
                 </div>
                 <Link
-                  href={withSlug(`/order/${bottleneckTask.orderId}?role=kitchen_staff`)}
+                  href={withSlug(staffOrderHref(bottleneckTask.orderId, "kitchen_staff"))}
                   className="inline-flex items-center gap-1 text-xs text-orange-700 underline hover:text-orange-900 shrink-0"
                 >
                   Open order
@@ -1761,7 +1762,7 @@ export default function KitchenDashboard() {
                                     = print-only ticket. */}
                                 <div className="mt-2 grid grid-cols-[1fr_auto] gap-1.5">
                                   <Link
-                                    href={withSlug(`/order/${order.id}?role=kitchen_staff`)}
+                                    href={withSlug(staffOrderHref(order.id, "kitchen_staff"))}
                                     className="inline-flex items-center justify-center gap-1.5 min-h-11 px-3 rounded-md text-sm font-semibold bg-orange-500 text-white hover:bg-orange-600 transition shadow-sm"
                                     title="Open the full order document"
                                   >
@@ -2054,7 +2055,7 @@ export default function KitchenDashboard() {
                         {o.status}
                       </td>
                       <td style={{ padding: "5pt 4pt", textAlign: "right", whiteSpace: "nowrap" }}>
-                        {prog.total > 0 ? `${prog.done}/${prog.total}` : "–"}
+                        {prog.total > 0 ? `${prog.done}/${prog.total}` : "-"}
                       </td>
                       <td style={{ padding: "5pt 4pt" }}>
                         {o.dietary_requirements ? (

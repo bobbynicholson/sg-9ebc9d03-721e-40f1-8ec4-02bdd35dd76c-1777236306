@@ -156,7 +156,7 @@ export default function KitchenMenuItemsPage() {
 
   return (
     <>
-      <Head><title>Menu Items - CateringMS</title></Head>
+      <Head><title>Menu items - CateringMS</title></Head>
       <NoIndexMeta />
       <KitchenNav />
       <main className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 via-white to-orange-50 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
