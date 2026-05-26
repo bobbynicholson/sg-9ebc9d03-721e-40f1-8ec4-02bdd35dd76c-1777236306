@@ -1,4 +1,4 @@
-﻿/* eslint-disable @typescript-eslint/ban-ts-comment */
+/* eslint-disable @typescript-eslint/ban-ts-comment */
 // @ts-nocheck
 /**
  * Company profile - the source of truth for the catering company's
@@ -330,7 +330,7 @@ function CompanyProfilePage() {
     return (
       <>
         <NoIndexMeta />
-        <Head><title>Company Profile - CateringMS Admin</title></Head>
+        <Head><title>Company Profile - CateringMS</title></Head>
         <AdminNav />
         <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80 flex items-center justify-center">
           <Loader2 className="w-8 h-8 animate-spin text-slate-400" />
@@ -342,11 +342,11 @@ function CompanyProfilePage() {
   return (
     <>
       <NoIndexMeta />
-      <Head><title>Company Profile - CateringMS Admin</title></Head>
+      <Head><title>Company Profile - CateringMS</title></Head>
       <AdminNav />
 
       <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
-        <div className="px-3 sm:px-4 md:px-6 pt-20 lg:pt-6 pb-6 max-w-screen-2xl">
+        <div className="px-3 sm:px-4 md:px-6 pt-20 lg:pt-6 pb-6 max-w-full">
 
           <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex items-center gap-3 min-w-0">

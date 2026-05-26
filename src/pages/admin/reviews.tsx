@@ -1,4 +1,4 @@
-﻿/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * RVW-A: Client reviews surface.
  *
@@ -12,6 +12,7 @@
  * member who followed up. Region-scoped via the global picker.
  */
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { staffOrderHref } from "@/lib/orderUrls";
 import Head from "next/head";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
@@ -195,7 +196,7 @@ export default function AdminReviewsPage() {
       <NoIndexMeta />
       <AdminNav />
       <main className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 via-white to-amber-50 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
-        <div className="px-3 sm:px-4 md:px-6 py-6 sm:py-8 max-w-screen-2xl">
+        <div className="px-3 sm:px-4 md:px-6 py-6 sm:py-8 max-w-full">
           <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0">
               <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center shadow-md flex-shrink-0">
@@ -302,7 +303,7 @@ export default function AdminReviewsPage() {
                               <span className="text-sm font-semibold text-slate-900">{r.client?.client_name || "Unknown client"}</span>
                               {r.order?.order_number && (
                                 <Link
-                                  href={user?.company_slug ? `/${user.company_slug}/order/${r.order_id}` : `/order/${r.order_id}`}
+                                  href={user?.company_slug ? `/${user.company_slug}${staffOrderHref(r.order_id, "admin")}` : staffOrderHref(r.order_id, "admin")}
                                   className="inline-flex items-center gap-0.5 text-xs text-orange-700 hover:text-orange-800 hover:underline"
                                 >
                                   {r.order.order_number}

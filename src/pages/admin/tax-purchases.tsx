@@ -1,4 +1,4 @@
-﻿/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * /admin/tax-purchases - read-only accountant overview.
  *
@@ -326,12 +326,12 @@ function TaxPurchasesPage() {
   return (
     <>
       <NoIndexMeta />
-      <Head><title>Tax overview | Admin</title></Head>
+      <Head><title>Tax overview - CateringMS</title></Head>
       <AdminNav />
 
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-amber-50/30 to-slate-100">
         <div className="overflow-x-hidden lg:pl-72 xl:pl-80">
-          <div className="px-3 sm:px-4 md:px-6 pt-20 lg:pt-6 pb-24 max-w-screen-2xl">
+          <div className="px-3 sm:px-4 md:px-6 pt-20 lg:pt-6 pb-24 max-w-full">
 
             {/* HEADER */}
             <div className="mb-6">

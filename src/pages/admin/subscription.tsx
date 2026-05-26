@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/router";
 import Head from "next/head";
@@ -246,7 +246,7 @@ function SubscriptionPage() {
       <>
         <NoIndexMeta />
         <Head>
-          <title>Subscription | CateringMS Admin</title>
+          <title>Subscription - CateringMS</title>
         </Head>
         <AdminNav />
         <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
@@ -297,7 +297,7 @@ function SubscriptionPage() {
       <NoIndexMeta />
       <Head>
         <meta name="robots" content="noindex, nofollow" />
-        <title>Subscription Management | CateringMS Admin</title>
+        <title>Subscription Management - CateringMS</title>
       </Head>
 
       <AdminNav />

@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import Head from "next/head";
 import Link from "next/link";
@@ -165,13 +165,13 @@ function ClientSearchPage() {
       <NoIndexMeta />
       <Head>
         <meta name="robots" content="noindex, nofollow" />
-        <title>Client Search | CateringMS Admin</title>
+        <title>Client Search - CateringMS</title>
       </Head>
       
       <AdminNav />
       
       <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 via-white to-slate-50 lg:pl-72 xl:pl-80">
-        <div className="px-4 py-8 max-w-screen-2xl">
+        <div className="px-4 py-8 max-w-full">
           <Link href={withSlug("/admin/dashboard")}>
             <Button variant="ghost" className="mb-4" size="sm">
               <ArrowLeft className="w-4 h-4 mr-2" />

@@ -31,6 +31,7 @@ import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { useAuth } from "@/contexts/AuthContext";
 import Link from "next/link";
 import { useTenantHref } from "@/lib/tenantUrl";
+import { staffOrderHref } from "@/lib/orderUrls";
 import { useRegionFilter } from "@/contexts/RegionFilterContext";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -685,11 +686,11 @@ function DriverSettlementPage() {
   return (
     <>
       <NoIndexMeta />
-      <Head><title>Driver Settlement | Admin</title></Head>
+      <Head><title>Driver Settlement - CateringMS</title></Head>
       <AdminNav />
 
       <div className="min-h-screen bg-slate-50 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
-        <div className="px-4 py-8 max-w-screen-2xl">
+        <div className="px-4 py-8 max-w-full">
           <div className="mb-6">
             <div className="flex items-center gap-3 mb-2">
               <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-orange-500 to-amber-600 flex items-center justify-center shadow-lg">
@@ -1628,7 +1629,7 @@ function FragmentRows({
                         {/* ODOC G.4: each delivery jumps into the
                             doc for reconciliation context. */}
                         <Link
-                          href={withSlug(`/order/${d.order_id}`)}
+                          href={withSlug(staffOrderHref(d.order_id, "admin"))}
                           className="font-mono text-blue-700 hover:underline"
                         >
                           {d.order_id.slice(0, 8)}...

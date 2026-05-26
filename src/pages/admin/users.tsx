@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import { useSortable, type ColumnDef } from "@/lib/useSortable";
 import { SortMenu } from "@/components/ui/sort-menu";
@@ -569,7 +569,7 @@ function AdminUsersPage() {
         <NoIndexMeta />
         <Head>
           <meta name="robots" content="noindex, nofollow" />
-          <title>User Management - CateringMS Admin</title>
+          <title>User Management - CateringMS</title>
         </Head>
         
         <AdminNav />
@@ -594,7 +594,7 @@ function AdminUsersPage() {
         <NoIndexMeta />
         <Head>
           <meta name="robots" content="noindex, nofollow" />
-          <title>User Management - CateringMS Admin</title>
+          <title>User Management - CateringMS</title>
         </Head>
         
         <AdminNav />
@@ -624,7 +624,7 @@ function AdminUsersPage() {
       <NoIndexMeta />
       <Head>
         <meta name="robots" content="noindex, nofollow" />
-        <title>User Management - CateringMS Admin</title>
+        <title>User Management - CateringMS</title>
       </Head>
       
       <AdminNav />

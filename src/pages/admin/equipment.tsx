@@ -15,6 +15,7 @@ import { UserRole } from "@/types/app";
 import { useEffect, useMemo, useState, useRef } from "react";
 import { useRouter } from "next/router";
 import { useSortable, type ColumnDef } from "@/lib/useSortable";
+import { staffOrderHref } from "@/lib/orderUrls";
 import { SortMenu } from "@/components/ui/sort-menu";
 import Head from "next/head";
 import Link from "next/link";
@@ -182,13 +183,13 @@ function EquipmentPage() {
     <>
       <NoIndexMeta />
       <Head>
-        <title>Equipment | CateringMS Admin</title>
+        <title>Equipment - CateringMS</title>
       </Head>
 
       <AdminNav />
 
       <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 lg:pl-72 xl:pl-80">
-        <div className="px-4 py-8 max-w-screen-2xl mx-auto">
+        <div className="px-4 py-8 max-w-full">
           <div className="mb-6 flex items-center gap-3">
             <div className="p-3 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-2xl shadow-lg">
               <Package className="w-7 h-7 text-white" />
@@ -1547,7 +1548,7 @@ function CatalogTab({ companyId }: { companyId: string | null }) {
                       <div className="flex items-center gap-1.5 flex-shrink-0">
                         <span className="text-sm font-bold text-slate-900">x {r.quantity}</span>
                         <Link
-                          href={`${slugPrefix}/order/${r.order_id}`}
+                          href={`${slugPrefix}${staffOrderHref(r.order_id, "admin")}`}
                           className="inline-flex items-center justify-center w-7 h-7 rounded hover:bg-slate-100 text-slate-500 hover:text-slate-700"
                           title="Open order"
                         >

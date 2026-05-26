@@ -395,7 +395,7 @@ function ImportPage() {
     <>
       <NoIndexMeta />
       <Head>
-        <title>AI Import | CateringMS Admin</title>
+        <title>AI Import - CateringMS</title>
       </Head>
       <AdminNav />
 

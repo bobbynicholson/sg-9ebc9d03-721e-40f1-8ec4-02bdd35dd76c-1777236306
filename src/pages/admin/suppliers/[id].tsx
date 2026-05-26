@@ -33,7 +33,9 @@ import { UserRole } from "@/types/app";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { composeEmail } from "@/lib/composeEmail";
-import { toLocalISO } from "@/lib/localDate";import { useTenantHref } from "@/lib/tenantUrl";
+import { toLocalISO } from "@/lib/localDate";
+import { useTenantHref } from "@/lib/tenantUrl";
+import { staffOrderHref } from "@/lib/orderUrls";
 import {
   supplierService, type Supplier, type SupplierProduct,
   type SupplierPurchaseSummary, type SupplierReceiptRow,
@@ -130,11 +132,11 @@ function SupplierDetail() {
   return (
     <>
       <NoIndexMeta />
-      <Head><title>{supplier?.supplier_name || "Supplier"} - CateringMS Admin</title></Head>
+      <Head><title>{supplier?.supplier_name || "Supplier"} - CateringMS</title></Head>
       <AdminNav />
 
       <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
-        <div className="px-3 sm:px-4 md:px-6 pt-20 lg:pt-6 pb-6 max-w-screen-2xl">
+        <div className="px-3 sm:px-4 md:px-6 pt-20 lg:pt-6 pb-6 max-w-full">
 
           <Link
             href={withSlug("/admin/suppliers")}
@@ -326,7 +328,7 @@ function SupplierDetail() {
                               </td>
                               <td className="py-2 px-3">
                                 <Link
-                                  href={withSlug(`/order/${o.id}?role=shopping_staff`)}
+                                  href={withSlug(staffOrderHref(o.id, "shopping_staff"))}
                                   className="text-blue-700 hover:text-blue-900 font-medium inline-flex items-center gap-1"
                                 >
                                   {o.order_number}

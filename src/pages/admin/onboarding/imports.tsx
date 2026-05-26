@@ -201,7 +201,7 @@ function ImportsHistoryPage() {
     <>
       <NoIndexMeta />
       <Head>
-        <title>Imports history | CateringMS Admin</title>
+        <title>Imports history - CateringMS</title>
       </Head>
 
       <AdminNav />

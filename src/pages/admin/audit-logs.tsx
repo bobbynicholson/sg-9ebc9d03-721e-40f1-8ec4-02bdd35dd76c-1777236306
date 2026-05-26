@@ -62,11 +62,13 @@ const fmtTs = (iso: string) =>
     hour: "2-digit", minute: "2-digit", second: "2-digit",
   });
 
+import { staffOrderHref } from "@/lib/orderUrls";
+
 const entityHref = (entityType: string, entityId: string | null): string | null => {
   if (!entityId) return null;
   switch (entityType) {
     case "order":
-      return `/order/${entityId}`;
+      return staffOrderHref(entityId, "admin");
     case "quote":
       return `/admin/quotes/${entityId}`;
     case "driver_shift":
