@@ -924,11 +924,11 @@ function AdminInventory() {
   return (
     <>
       <NoIndexMeta />
-      <Head><title>Inventory - CateringMS Admin</title></Head>
+      <Head><title>Inventory - CateringMS</title></Head>
       <AdminNav />
 
       <div className="min-h-screen overflow-x-hidden bg-slate-50 lg:pl-72 xl:pl-80">
-        <div className="px-4 pt-20 lg:pt-6 pb-6 max-w-screen-2xl">
+        <div className="px-4 pt-20 lg:pt-6 pb-6 max-w-full">
 
           {/* Compressed header */}
           <div className="mb-5 flex items-center justify-between flex-wrap gap-3">
@@ -1089,7 +1089,7 @@ function AdminInventory() {
                 <Activity className="w-4 h-4 text-blue-500" />
               </div>
               <p className="text-2xl font-semibold text-slate-900">
-                {lastActivity ? relativeTime(lastActivity.created_at) : "—"}
+                {lastActivity ? relativeTime(lastActivity.created_at) : "-"}
               </p>
               <p className="text-xs text-slate-500 mt-1 truncate">
                 {lastActivity?.item_name
@@ -1446,10 +1446,10 @@ function AdminInventory() {
                             tenantCurrency.format() for non-ZAR
                             tenants. Hardcoded `R` rendered the wrong
                             symbol on any non-South African company. */}
-                        {item.costPerUnit > 0 ? tenantCurrency.format(item.costPerUnit) : "—"}
+                        {item.costPerUnit > 0 ? tenantCurrency.format(item.costPerUnit) : "-"}
                       </div>
                       <div className="min-w-0 text-sm text-slate-700 truncate">
-                        {item.supplierName || <span className="text-slate-400">—</span>}
+                        {item.supplierName || <span className="text-slate-400">-</span>}
                       </div>
                       <div className="flex items-center justify-end gap-0.5" onClick={e => e.stopPropagation()}>
                         <Button

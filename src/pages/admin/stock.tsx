@@ -47,6 +47,7 @@ import { useRegionFilter } from "@/contexts/RegionFilterContext";
 import { supabase } from "@/integrations/supabase/client";
 import { inventoryService } from "@/services/inventoryService";
 import { useTenantHref } from "@/lib/tenantUrl";
+import { staffOrderHref } from "@/lib/orderUrls";
 import { captureException } from "@/lib/observability";
 import {
   Package, Truck, ShoppingBag, AlertTriangle, Loader2, TrendingUp,
@@ -235,7 +236,7 @@ function StockPage() {
     const last30ISO = toLocalISO(new Date(today.getTime() - 30 * 24 * 3600 * 1000));
 
     try {
-      // ---- Low stock -----------------------------------------------------
+      // Low stock
       const lowItems = await inventoryService.getLowStockItems(companyId);
       type LowItem = { id: string; item_name: string; current_stock: number | null; minimum_stock: number | null; unit_of_measure?: string | null; region_id?: string | null; is_shared?: boolean; preferred_supplier_id?: string | null };
       const filteredLow = (regionFilterId
@@ -252,7 +253,7 @@ function StockPage() {
       }));
       setLowStock({ count: filteredLow.length, top5: top5Low });
 
-      // ---- Equipment commitments next Nd ---------------------------------
+      // Equipment commitments next Nd
       const bookingsSelect = regionFilterId
         ? "id, booked_from, booked_to, quantity, status, equipment_id, equipment:equipment_id(id, name), orders!inner(region_id)"
         : "id, booked_from, booked_to, quantity, status, equipment_id, equipment:equipment_id(id, name)";
@@ -319,7 +320,7 @@ function StockPage() {
       }
       setDoubleBookings(dblBooks);
 
-      // ---- Hire-in pending receipts --------------------------------------
+      // Hire-in pending receipts
       // STK-B: dropped total_cost from the select (was unused on the
       // page, kept the door open to leak finance data to non-finance
       // roles). The cost lives on /admin/shopping where the role gate
@@ -367,7 +368,7 @@ function StockPage() {
       })).sort((a, b) => a.oldestDate.localeCompare(b.oldestDate));
       setAgingHireIns(agingList);
 
-      // ---- Stockout risk (next 7 days) ----------------------------------
+      // Stockout risk (next 7 days)
       // STK-B: inventory_demand_outlook view computes shortfall against
       // upcoming order demand. Status enum lists 'critical', 'warning'
       // etc; we take only those with a real next-7-day shortfall.
@@ -397,7 +398,7 @@ function StockPage() {
         }));
       setStockouts(stockoutList);
 
-      // ---- Per-event readiness (next equipWindow days) -------------------
+      // Per-event readiness (next equipWindow days)
       // STK-B: for each upcoming confirmed order, count short ingredients
       // (from outlook) and pending hire-ins. Composite readiness pct =
       // 100 - (shorts + pending hire-ins clamped). Operators get one
@@ -462,7 +463,7 @@ function StockPage() {
       }
       setEventReadiness(eventReadinessList);
 
-      // ---- Re-order trend (low-stock breaches in last 30 days) -----------
+      // Re-order trend (low-stock breaches in last 30 days)
       // STK-B: an item that keeps slipping below minimum every week
       // signals either the threshold is too tight or the supplier
       // can't keep up. Count adjustment + usage events that pushed
@@ -502,7 +503,7 @@ function StockPage() {
         breachCount: n,
       })));
 
-      // ---- Supplier contribution leaderboard -----------------------------
+      // Supplier contribution leaderboard
       // STK-B: which supplier's items keep going low? Group low-stock
       // items by preferred_supplier_id and rank.
       const lowBySupplier: Record<string, number> = {};
@@ -534,7 +535,7 @@ function StockPage() {
       }
       setSupplierContribution(supplierList.slice(0, 5));
 
-      // ---- Lead-time vs urgency flag -------------------------------------
+      // Lead-time vs urgency flag
       // STK-B: for each low-stock item with a preferred supplier link
       // and a lead_time_days, compare to the days-until-next-event
       // that consumes this item. If lead time > days until need, we're
@@ -572,7 +573,7 @@ function StockPage() {
       }
       setLeadTimeFlags(leadFlags.slice(0, 5));
 
-      // ---- Wastage hints (last 30 days) ----------------------------------
+      // Wastage hints (last 30 days)
       // STK-B: sum waste transactions per item over 30 days. Surfaces
       // "you wrote off 8kg of brisket" so the operator can investigate
       // storage / portioning / shelf-life issues.
@@ -613,7 +614,7 @@ function StockPage() {
       }
       setWastage(wasteList);
 
-      // ---- Unified feed --------------------------------------------------
+      // Unified feed
       const feed: AlertRow[] = [];
 
       for (const i of filteredLow) {
@@ -837,11 +838,11 @@ function StockPage() {
   return (
     <>
       <NoIndexMeta />
-      <Head><title>Stock | CateringMS</title></Head>
+      <Head><title>Stock - CateringMS</title></Head>
       <AdminNav />
 
       <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
-        <div className="px-3 sm:px-4 md:px-6 pt-20 lg:pt-6 pb-6 max-w-screen-2xl">
+        <div className="px-3 sm:px-4 md:px-6 pt-20 lg:pt-6 pb-6 max-w-full">
 
           <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex items-center gap-3 min-w-0">
@@ -1116,7 +1117,7 @@ function StockPage() {
                       : "bg-rose-500";
                     return (
                       <li key={e.orderId}>
-                        <Link href={withSlug(`/order/${e.orderId}?role=shopping_staff`)} className="block hover:bg-slate-50 rounded-md px-1 py-1.5">
+                        <Link href={withSlug(staffOrderHref(e.orderId, "shopping_staff"))} className="block hover:bg-slate-50 rounded-md px-1 py-1.5">
                           <div className="flex items-center justify-between text-xs mb-0.5">
                             <span className="font-medium text-slate-900 truncate flex-1 min-w-0">
                               {dateFmt(e.eventDate)} - {e.clientName}
