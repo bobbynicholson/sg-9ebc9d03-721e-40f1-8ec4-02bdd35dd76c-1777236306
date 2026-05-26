@@ -411,7 +411,7 @@ function SmartShoppingPage() {
     });
   }, [outlook, details, suppliers, earliestEvent, today]);
 
-  // - Buy-now list: shortfalls + below_minimum, urgency-sorted ---------
+  // Buy-now list: shortfalls + below_minimum, urgency-sorted
   // SHOP-C: filter out snoozed + ordered items so they stop firing as
   // shortfall the operator already actioned.
   const buyNow = useMemo(() => {
@@ -1112,11 +1112,11 @@ function SmartShoppingPage() {
   return (
     <>
       <NoIndexMeta />
-      <Head><title>Smart Shopping - CateringMS Admin</title></Head>
+      <Head><title>Shopping - CateringMS</title></Head>
       <AdminNav />
 
       <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
-        <div className="px-3 sm:px-4 md:px-6 pt-20 lg:pt-6 pb-6 max-w-screen-2xl">
+        <div className="px-3 sm:px-4 md:px-6 pt-20 lg:pt-6 pb-6 max-w-full">
 
           {/* Header + cart pill */}
           <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -2344,7 +2344,7 @@ function ItemTable({
                   )}
                   {!hideSupplier && (
                     <td className="py-3 px-3 text-xs text-slate-600 truncate max-w-[180px]">
-                      {r.supplier?.supplier_name || <span className="text-slate-400">—</span>}
+                      {r.supplier?.supplier_name || <span className="text-slate-400">-</span>}
                     </td>
                   )}
                   <td className="py-3 pl-3">
