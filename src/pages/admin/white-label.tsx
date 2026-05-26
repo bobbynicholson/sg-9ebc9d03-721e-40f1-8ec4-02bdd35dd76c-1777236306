@@ -1,4 +1,4 @@
-﻿/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import Head from "next/head";
@@ -446,13 +446,13 @@ function WhiteLabelPage() {
       <NoIndexMeta />
       <Head>
         <meta name="robots" content="noindex, nofollow" />
-        <title>White Label Branding | CateringMS Admin</title>
+        <title>White Label Branding - CateringMS</title>
       </Head>
 
       <AdminNav />
 
       <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 lg:pl-72 xl:pl-80">
-        <div className="px-4 py-8 max-w-screen-2xl">
+        <div className="px-4 py-8 max-w-full">
           <Link href={withSlug("/admin/settings")}>
             <Button variant="ghost" className="mb-4">
               <ArrowLeft className="w-4 h-4 mr-2" />

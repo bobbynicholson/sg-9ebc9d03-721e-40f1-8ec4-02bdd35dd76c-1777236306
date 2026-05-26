@@ -284,7 +284,7 @@ function PackageDetailPage() {
 
   return (
     <>
-      <Head><title>{pkg?.name || "Package"} - Admin</title></Head>
+      <Head><title>{pkg?.name || "Package"} - CateringMS</title></Head>
       <NoIndexMeta />
       <AdminNav />
       <div className="min-h-screen bg-slate-50 lg:pl-72 xl:pl-80">

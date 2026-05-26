@@ -495,7 +495,7 @@ function ProvidersList() {
   return (
     <>
       <NoIndexMeta />
-      <Head><title>Outsource providers | CateringMS</title></Head>
+      <Head><title>Outsource providers - CateringMS</title></Head>
       <AdminNav />
       <div className="min-h-screen bg-slate-50 lg:pl-72 xl:pl-80">
         <div className="py-8 px-4 max-w-6xl">

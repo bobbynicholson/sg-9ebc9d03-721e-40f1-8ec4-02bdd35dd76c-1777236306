@@ -42,7 +42,7 @@ export default function ProtectedMessagingTemplatesRedirect() {
   return (
     <>
       <NoIndexMeta />
-      <Head><title>Messaging Templates | Admin</title></Head>
+      <Head><title>Messaging Templates - CateringMS</title></Head>
       <ProtectedRoute
         allowedRoles={[
           UserRole.SUPER_ADMIN,

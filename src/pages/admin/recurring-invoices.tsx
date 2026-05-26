@@ -219,7 +219,7 @@ export default function RecurringInvoicesPage() {
   return (
     <>
       <NoIndexMeta />
-      <Head><title>Recurring invoices | CateringMS</title></Head>
+      <Head><title>Recurring invoices - CateringMS</title></Head>
       <div className="min-h-screen bg-slate-50 lg:pl-72 xl:pl-80">
         <AdminNav />
         <div className="py-8 px-4 max-w-5xl">

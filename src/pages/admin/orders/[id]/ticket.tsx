@@ -42,6 +42,7 @@ import { UserRole } from "@/types/app";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenantHref } from "@/lib/tenantUrl";
+import { staffOrderHref } from "@/lib/orderUrls";
 
 interface OrderRow {
   id: string;
@@ -452,7 +453,7 @@ function KitchenTicketPage() {
             {/* ODOC G.3: ticket complements the doc - this CTA hops
                 back to the interactive operational surface. */}
             <Link
-              href={withSlug(`/order/${orderId}?role=kitchen_staff`)}
+              href={withSlug(staffOrderHref(orderId, "kitchen_staff"))}
               className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-sm font-semibold text-orange-700 hover:bg-orange-50 border border-orange-200"
             >
               <FileText className="w-4 h-4" />

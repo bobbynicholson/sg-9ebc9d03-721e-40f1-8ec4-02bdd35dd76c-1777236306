@@ -1,4 +1,4 @@
-﻿/**
+/**
  * /admin/fixed-costs - recurring tenant costs (rent, software,
  * vehicles).
  *
@@ -509,13 +509,13 @@ function FixedCostsPage() {
   return (
     <>
       <Head>
-        <title>Fixed costs - Admin</title>
+        <title>Fixed costs - CateringMS</title>
       </Head>
       <NoIndexMeta />
       <AdminNav />
       {/* Match the standard admin layout (AdminNav is a fixed sidebar
-          at lg+). Without lg:ml-64 xl:ml-72 the cards sit behind it. */}
-      <div className="min-h-screen bg-slate-50 lg:ml-64 xl:ml-72">
+          at lg+). Without lg:pl-72 xl:pl-80 the cards sit behind it. */}
+      <div className="min-h-screen bg-slate-50 lg:pl-72 xl:pl-80">
         <div className="max-w-6xl mx-auto px-4 md:px-6 py-8">
           <CashflowContextBanner message="Each fixed cost expands into 30-day occurrences on the forecast. Edit one here to see the chart redraw." />
           <div className="flex items-start justify-between mb-6 gap-3">

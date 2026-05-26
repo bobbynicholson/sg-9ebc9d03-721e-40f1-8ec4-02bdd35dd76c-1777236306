@@ -1,4 +1,4 @@
-﻿/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { UserRole } from "@/types/app";
 import { useState, useEffect, useMemo } from "react";
 import Head from "next/head";
@@ -664,12 +664,12 @@ function RegionsPage() {
     <>
       <NoIndexMeta />
       <Head>
-        <title>Branches | CateringMS Admin</title>
+        <title>Branches - CateringMS</title>
       </Head>
       <AdminNav />
 
       <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
-        <div className="px-4 py-8 max-w-screen-2xl">
+        <div className="px-4 py-8 max-w-full">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center shadow-lg">

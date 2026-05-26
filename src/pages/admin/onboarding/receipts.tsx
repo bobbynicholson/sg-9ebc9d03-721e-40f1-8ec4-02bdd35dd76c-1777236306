@@ -53,7 +53,7 @@ function ReceiptsImportPage() {
     <>
       <NoIndexMeta />
       <Head>
-        <title>Receipt scanner | CateringMS Admin</title>
+        <title>Receipt scanner - CateringMS</title>
       </Head>
       <AdminNav />
 

@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import Head from "next/head";
 import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -362,13 +362,13 @@ function StaffHoursPage() {
       <NoIndexMeta />
       <Head>
         <meta name="robots" content="noindex, nofollow" />
-        <title>Time Clock Log | CateringMS Admin</title>
+        <title>Time Clock Log - CateringMS</title>
       </Head>
 
       <AdminNav />
 
       <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 lg:pl-72 xl:pl-80">
-        <div className="px-4 py-8 max-w-screen-2xl">
+        <div className="px-4 py-8 max-w-full">
           <div className="mb-8 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
             <div>
               {/* STH-D (2026-05-23): page covers the live clock-

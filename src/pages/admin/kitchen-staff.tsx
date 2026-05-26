@@ -544,11 +544,11 @@ function KitchenStaffPage() {
     // consistency. COMPANY_ADMIN was missing - same pattern as
     // ORD-6 / LDS-10 pre-fix.
     <ProtectedRoute allowedRoles={[UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN]}>
-      <Head><title>Staff & rates, CateringMS</title></Head>
+      <Head><title>Staff & rates - CateringMS</title></Head>
       <NoIndexMeta />
       <AdminNav />
       <main className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-orange-50 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
-        <div className="px-3 sm:px-4 md:px-6 pt-20 lg:pt-6 pb-6 max-w-screen-2xl">
+        <div className="px-3 sm:px-4 md:px-6 pt-20 lg:pt-6 pb-6 max-w-full">
 
           {/* Header */}
           <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">

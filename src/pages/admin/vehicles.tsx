@@ -1,4 +1,4 @@
-﻿/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * /admin/vehicles - the catering company's fleet.
  *
@@ -556,11 +556,11 @@ function VehiclesPage() {
   return (
     <>
       <NoIndexMeta />
-      <Head><title>Vehicles - CateringMS Admin</title></Head>
+      <Head><title>Vehicles - CateringMS</title></Head>
       <AdminNav />
 
       <div className="min-h-screen overflow-x-hidden bg-slate-50 lg:pl-72 xl:pl-80">
-        <div className="px-4 pt-20 lg:pt-6 pb-6 max-w-screen-2xl">
+        <div className="px-4 pt-20 lg:pt-6 pb-6 max-w-full">
 
           <div className="mb-5 flex items-center justify-between flex-wrap gap-3">
             <div className="flex items-center gap-3">

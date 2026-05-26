@@ -226,7 +226,7 @@ function KitchenSettingsAdminPage() {
   return (
     <>
       <NoIndexMeta />
-      <Head><title>Kitchen Settings - CateringMS Admin</title></Head>
+      <Head><title>Kitchen Settings - CateringMS</title></Head>
       <AdminNav />
 
       <main className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-orange-50 lg:pl-72 xl:pl-80">

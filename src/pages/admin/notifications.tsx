@@ -23,6 +23,7 @@ import { formatDistanceToNow } from "date-fns";
 import { Bell, Check, X, Clock, AlertCircle, Search, Trash2, CheckCircle, AlertTriangle, Info, ChevronDown, ChevronUp, Eye, Edit3, ExternalLink, Download, RefreshCw, Archive } from "lucide-react";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { isStaleNotification, STALE_NOTIFICATION_DAYS } from "@/lib/notificationDisplay";
+import { staffOrderHref } from "@/lib/orderUrls";
 import { useTenantHref } from "@/lib/tenantUrl";
 
 export default function ProtectedNotificationsPage() {
@@ -562,7 +563,7 @@ function NotificationsPage() {
                                             // bare order page when we only
                                             // have the related_entity_id.
                                             const fallback = notification.related_entity_id
-                                              ? `/order/${encodeURIComponent(notification.related_entity_id)}`
+                                              ? staffOrderHref(notification.related_entity_id, "admin")
                                               : "/admin/orders";
                                             window.location.href = withSlug(notification.link || fallback);
                                           }}
