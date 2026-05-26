@@ -24,6 +24,7 @@ import {
   Clock, TrendingUp, Calendar, Wallet, Truck, Loader2, Route, MapPin, ExternalLink,
 } from "lucide-react";
 import { useTenantHref } from "@/lib/tenantUrl";
+import { staffOrderHref } from "@/lib/orderUrls";
 import { DriverNav } from "@/components/navigation/DriverNav";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { Footer } from "@/components/Footer";
@@ -141,11 +142,11 @@ export default function DriverEarningsPage() {
   return (
     <>
       <NoIndexMeta />
-      <Head><title>My Earnings - Driver Portal</title></Head>
+      <Head><title>My earnings - CateringMS</title></Head>
       <DriverNav />
 
       <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-blue-50 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
-        <div className="px-4 py-8 max-w-screen-2xl">
+        <div className="px-4 py-8 max-w-full">
           <div className="mb-6">
             <div className="flex items-center gap-3 mb-2">
               <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg">
@@ -362,7 +363,7 @@ function DeliveryTable({ summary, formatR, withSlug }: { summary: DriverPaySumma
               <td className="px-4 py-2 text-right font-semibold text-slate-900 tabular-nums">{formatR(d.total)}</td>
               <td className="px-4 py-2 text-right">
                 <Link
-                  href={withSlug(`/order/${d.order_id}?role=driver`)}
+                  href={withSlug(staffOrderHref(d.order_id, "driver"))}
                   className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold min-h-[32px]"
                   title="Open the driver brief for this order"
                 >

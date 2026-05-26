@@ -11,6 +11,7 @@ import {
   UtensilsCrossed, AlertTriangle, ChefHat, Phone, Calendar, ExternalLink,
 } from "lucide-react";
 import { useTenantHref } from "@/lib/tenantUrl";
+import { staffOrderHref } from "@/lib/orderUrls";
 import { useAuth } from "@/contexts/AuthContext";
 import { ChatBot } from "@/components/ChatBot";
 import { DriverPageShell } from "@/components/driver/DriverPageShell";
@@ -513,7 +514,7 @@ function DriverTrackingInner() {
                       the manifest first. */}
                   <div className="p-5 space-y-2">
                     <Link
-                      href={withSlug(`/order/${delivery.orderId}?role=driver`)}
+                      href={withSlug(staffOrderHref(delivery.orderId, "driver"))}
                       className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold min-h-[32px]"
                       title="Open the driver brief for this order"
                     >

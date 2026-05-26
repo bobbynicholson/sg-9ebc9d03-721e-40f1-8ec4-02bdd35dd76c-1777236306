@@ -23,6 +23,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { useTenantHref } from "@/lib/tenantUrl";
+import { staffOrderHref } from "@/lib/orderUrls";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -685,7 +686,7 @@ export default function DriverRoutes() {
                                   gradient background. */}
                               {(currentStop as any).id && (
                                 <Link
-                                  href={withSlug(`/order/${(currentStop as any).id}?role=driver`)}
+                                  href={withSlug(staffOrderHref((currentStop as any).id, "driver"))}
                                   className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-md border border-white/40 bg-white/10 text-white text-sm font-semibold hover:bg-white/20 transition"
                                   title="Open the full driver brief for this order"
                                 >
@@ -827,7 +828,7 @@ export default function DriverRoutes() {
                                   {stop.priority === 1 ? "High" : stop.priority === 3 ? "Low" : "Normal"}
                                 </Badge>
                                 <Link
-                                  href={withSlug(`/order/${stop.order_id}?role=driver`)}
+                                  href={withSlug(staffOrderHref(stop.order_id, "driver"))}
                                   className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold min-h-[32px]"
                                   title="Open the driver brief for this order"
                                 >
