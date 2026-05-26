@@ -1220,28 +1220,36 @@ function NewQuotePage() {
           prevStatus = (cur as any)?.status ?? null;
           prevConvertedOrderId = (cur as any)?.converted_to_order_id ?? null;
         }
-        // Wave 14 audit: when the operator hits Save & Send on an
-        // already-sent / viewed / accepted quote (the "Revise &
-        // resend" flow off /admin/quotes/[id]), the public view
-        // needs to reset to "awaiting your response" - otherwise
-        // the client opens the link and still sees the old
-        // "accepted" / "viewed" state on a quote that has new
-        // numbers. Clear the lifecycle stamps so the public page
-        // re-runs the same lifecycle.
-        if (override.status === "sent" && quoteId) {
+        // ODOC H.14: split the Save & Send branch in two based on
+        // whether the quote already has a linked order.
+        //
+        // Case A - quote NOT yet converted (no prevConvertedOrderId):
+        //   This is the original "Revise & resend" flow. Clear
+        //   accepted_at + viewed_at so the public view resets to
+        //   "awaiting response", auto-address pending change
+        //   requests, fire the quote-sent email so the client re-
+        //   accepts.
+        //
+        // Case B - quote already has a linked order (prevConvertedOrderId):
+        //   This is the "admin edited the booking on the quote"
+        //   path. The order already exists with payment(s) + invoice
+        //   + kitchen prep + equipment bookings. Pre-H.14 this branch
+        //   nuked all of it: cleared lifecycle stamps, void-fired
+        //   cancelOrder() which released equipment + reversed
+        //   inventory + cancelled driver assignments, redirected to
+        //   /admin/quotes where the operator then clicked Accept on
+        //   behalf again and produced a fresh order/invoice/deposit
+        //   row pair - Bobby's "ORD-003832 created" toast. The Wave
+        //   51 trigger (tg_propagate_quote_edits_to_order) already
+        //   mirrors menu / date / venue / totals to the linked order
+        //   on every quote UPDATE; we just have to NOT destroy the
+        //   order ourselves. The public client view still reads from
+        //   the order, not the quote-acceptance state, so leaving
+        //   accepted_at intact doesn't cause confusion.
+        const isAdminEditOfConvertedQuote = override.status === "sent" && !!prevConvertedOrderId;
+        if (override.status === "sent" && !isAdminEditOfConvertedQuote) {
           payload.accepted_at = null;
           payload.viewed_at = null;
-          // Wave 15 audit: if the quote had already been accepted
-          // (so the public accept handler created an order via
-          // convert_quote_to_order and stamped converted_to_order_id),
-          // we must clear that link too. The convert RPC raises
-          // 'quote_already_converted' on a non-NULL link, so the
-          // next client re-accept would silently fail. The cascade
-          // cancel of the linked order happens just after the row
-          // update so we have the prevConvertedOrderId in scope.
-          if (prevConvertedOrderId) {
-            payload.converted_to_order_id = null;
-          }
         }
         const { error } = await supabase.from("quotes").update(payload).eq("id", quoteId);
         if (error) throw error;
@@ -1250,17 +1258,18 @@ function NewQuotePage() {
         // banner clears now that the public view is back in sync.
         setPersistedTotalAtLoad(Number(payload.total ?? payload.total_amount ?? 0));
         if (override.status) setStatus(override.status as any);
-        if (override.status === "sent" && prevStatus !== "sent") {
+        // Case A only: fire the quote-sent email so the client re-
+        // accepts. Skipped on Case B because the client already
+        // accepted and the order is in flight - no re-acceptance
+        // needed, just propagate changes.
+        if (override.status === "sent" && prevStatus !== "sent" && !isAdminEditOfConvertedQuote) {
           void quoteService._fireQuoteSentEmail(quoteId).catch((e) =>
             console.warn("[quotes/new] sent-email fire failed:", e),
           );
         }
-        // Wave 14 audit: when the operator resends a quote that
-        // had pending change requests, the requests are implicitly
-        // addressed - the new quote IS the response. Sweep any
-        // pending requests for this quote into 'addressed' so the
-        // notification chip clears on /admin/quotes/[id] and the
-        // sticky panel collapses to history.
+        // Wave 14 audit: pending change requests auto-address on
+        // both branches - whether the quote is being resent or just
+        // admin-edited, the operator has effectively responded.
         if (override.status === "sent") {
           void (async () => {
             try {
@@ -1277,26 +1286,26 @@ function NewQuotePage() {
             }
           })();
         }
-        // Wave 15 audit: cascade-cancel the previously-converted
-        // order on revise-send. Without this the order row keeps
-        // its old totals, the kitchen prep + invoice + equipment
-        // bookings still reference the pre-revision spec, and the
-        // next time the client accepts via /q/[token] the convert
-        // RPC blows up with quote_already_converted. Cancelling
-        // releases driver/vehicle assignments + reverses inventory
-        // (cancelOrder runs the full cascade), and the next accept
-        // creates a fresh order with the new spec.
-        if (override.status === "sent" && prevConvertedOrderId) {
+        // Case B: surface a clear toast so the operator knows the
+        // edit mirrored to the existing order rather than re-running
+        // the acceptance pipeline. The Wave 51 trigger handles the
+        // actual propagation server-side on the UPDATE above; we
+        // just look up the order number for the receipt.
+        if (isAdminEditOfConvertedQuote && prevConvertedOrderId) {
           void (async () => {
             try {
-              const { cancelOrder } = await import("@/services/order/orderWorkflow");
-              await cancelOrder(prevConvertedOrderId, {
-                reason: "Quote revised after client requested changes",
-                reason_category: "client_cancelled",
-                cancelled_by_user_id: user?.id ?? null as any,
+              const { data: linkedOrd } = await (supabase as any)
+                .from("orders")
+                .select("order_number")
+                .eq("id", prevConvertedOrderId)
+                .maybeSingle();
+              const ordNum = (linkedOrd as any)?.order_number || "the existing order";
+              toast({
+                title: "Order updated",
+                description: `Changes mirrored to ${ordNum}. No new order or invoice was created; the deposit / balance carry over.`,
               });
-            } catch (cancelErr) {
-              console.warn("[quotes/new] linked-order cancel failed:", cancelErr);
+            } catch (descErr) {
+              console.warn("[quotes/new] propagation-summary fetch failed:", descErr);
             }
           })();
         }

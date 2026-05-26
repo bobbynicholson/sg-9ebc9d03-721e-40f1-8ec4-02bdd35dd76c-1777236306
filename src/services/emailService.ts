@@ -512,30 +512,37 @@ export const emailService = {
     let finalBody = payload.body || "";
 
     if (payload.template) {
-      // Phase 4: schema uses (template_type, company_id) - the older
-      // (slug, user_id) pair never existed. Every client-facing path
-      // now goes through resolveEmailTemplate so this branch is dead
-      // weight, but fixing the columns means it'll work if anything
-      // ever calls sendEmail with a template name directly.
-      // Wave 24: use the same resolved `sb` as the rest of this method
-      // so server callers reading email_templates under RLS hit the
-      // service-role path the caller passed in via _client.
-      const { data: templateData, error: templateError } = await (sb
-        .from("email_templates") as any)
-        .select("body, body_html, body_text")
-        .eq("company_id", payload.companyId)
-        .eq("template_type", payload.template)
-        .maybeSingle();
-
-      if (templateError || !templateData) {
-        console.error(`Email template "${payload.template}" not found for company ${payload.companyId}`);
-        return {
-          success: false,
-          error: `Email template "${payload.template}" wasn't found for this company.`,
-          error_code: "unknown",
-        };
-      }
-      finalBody = templateData.body_html || templateData.body || templateData.body_text || "";
+      // ODOC H.14: route through resolveEmailTemplate so the
+      // tenant-override -> global-default -> caller-fallback ladder
+      // fires properly. Pre-H.14 this branch did a single-shot
+      // .from("email_templates").eq("company_id", X).eq("template_type", Y)
+      // query and bailed when no tenant override existed - so the
+      // postCreationCascade "order_confirmed" send returned
+      // success: false on every tenant that hadn't customised the
+      // template, even though a perfectly good global default existed
+      // in the same table with company_id IS NULL. Bobby hit this
+      // when admin-editing an accepted quote re-fired the cascade.
+      const { resolveEmailTemplate } = await import("@/services/email/templateResolver");
+      const resolved = await resolveEmailTemplate({
+        companyId: payload.companyId,
+        templateType: payload.template,
+        variables: payload.variables ?? {},
+        fallback: {
+          subject: payload.subject || "",
+          bodyHtml: payload.body || "",
+        },
+        client: sb,
+      });
+      // We let resolveEmailTemplate carry the substitution itself
+      // (its substitute() is the same shape as this.replaceVariables),
+      // so override finalSubject + finalBody and skip the duplicate
+      // pass below.
+      payload.subject = resolved.subject;
+      finalBody = resolved.bodyHtml;
+      // Track resolution source for the receipt - the cascade reads
+      // this back to know whether the send actually used a real
+      // template or fell back to the caller-supplied placeholder.
+      (payload as any)._templateSource = resolved.source;
     }
 
     const finalSubject = this.replaceVariables(payload.subject, payload.variables || {});
