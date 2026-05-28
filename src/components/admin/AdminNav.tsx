@@ -303,6 +303,15 @@ export function AdminNav({ className }: AdminNavProps) {
     // Restricted admins lose Refunds visibility - acceptable
     // tradeoff for a single financial nucleus. The /admin/refunds
     // page still loads directly for anyone with link access.
+    //
+    // TIGHTEN I.25 (2026-05-27) per admin.md section 7: the four
+    // payroll items (Wages, Staff & rates, Staff hours, Driver
+    // settlement) moved out of MONEY and into PEOPLE. They sit at
+    // the bottom of PEOPLE as a payroll cluster - same items, same
+    // finance gate, but the IA matches the mental model (people
+    // management + payroll are one workflow). MONEY now reads as
+    // "outside money" (revenue, cash, invoices, payables, refunds,
+    // tax) - 7 items instead of 11.
     ...(profile && canAccessFinance(profile.role as UserRole) ? [{
       id: "money",
       title: "Money",
@@ -322,10 +331,6 @@ export function AdminNav({ className }: AdminNavProps) {
         { title: "Payables",            href: "/admin/payables",            icon: FileText,      description: "Supplier invoices owed - feeds cashflow forecast" },
         { title: "Fixed costs",         href: "/admin/fixed-costs",         icon: Wallet,        description: "Recurring rent, software, vehicles - feeds cashflow forecast" },
         { title: "Refunds",             href: "/admin/refunds",             icon: CreditCard,    description: "Cancellation refunds" },
-        { title: "Wages dashboard",     href: "/admin/wages",               icon: Wallet,        description: "Hours x rates with overtime split" },
-        { title: "Staff & rates",       href: "/admin/staff",               icon: Users,         description: "Pay rates per staff member" },
-        { title: "Staff hours",         href: "/admin/staff-hours",         icon: Clock,         description: "Track staff working hours" },
-        { title: "Driver settlement",   href: "/admin/driver-settlement",   icon: DollarSign,    description: "Per-driver pay - hourly + distance + callout" },
         { title: "Tax & purchases",     href: "/admin/tax-purchases",       icon: FileText,      description: "VAT exposure + deductible export" },
       ],
     }] : []),
@@ -356,6 +361,19 @@ export function AdminNav({ className }: AdminNavProps) {
         { title: "Cleaning team",  href: "/admin/teams/cleaning", icon: Sparkles,     description: "Cleaning roster + workflows" },
         { title: "HR solutions",   href: "/admin/hr-solutions",   icon: Briefcase,    description: "Compliance, contracts, HR" },
         { title: "Onboarding",     href: "/admin/onboarding",     icon: Wand2,        description: "Bring clients + orders + slips on board" },
+        // TIGHTEN I.25 - payroll cluster, finance-gated. Sits at
+        // the bottom of People so non-finance roles see a clean
+        // 7-item team-management list and finance-bearing roles
+        // see the same list plus the four pay-rate / wages pages
+        // that used to live in Money. Same canAccessFinance gate
+        // as the original Money section so visibility doesn't
+        // change at the page level.
+        ...(profile && canAccessFinance(profile.role as UserRole) ? [
+          { title: "Wages dashboard",     href: "/admin/wages",             icon: Wallet,     description: "Payroll - hours x rates with overtime split" },
+          { title: "Staff & rates",       href: "/admin/staff",             icon: Users,      description: "Payroll - pay rates per staff member" },
+          { title: "Staff hours",         href: "/admin/staff-hours",       icon: Clock,      description: "Payroll - track staff working hours" },
+          { title: "Driver settlement",   href: "/admin/driver-settlement", icon: DollarSign, description: "Payroll - hourly + distance + callout" },
+        ] : []),
       ],
     },
     // SETTINGS - one nucleus for everything config. Gated to

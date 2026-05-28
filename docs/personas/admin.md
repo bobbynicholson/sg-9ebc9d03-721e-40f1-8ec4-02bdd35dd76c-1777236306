@@ -111,13 +111,14 @@ Current nav (`AdminNav.tsx`):
 ```
 TODAY (4)       - Dashboard, Dispatch, Live ops, Calendar
 PIPELINE (6)    - Contacts, Leads, Quotes, Orders, Packages, Client search
-OPERATIONS (4)  - Plan routes, Vehicles, Regions, Public holidays   [-1 after 3.1]
-MONEY (10)      - Financial, Cashflow, Invoices, Payables, Fixed costs, Refunds,
-                  Wages, Staff, Staff hours, Driver settlement, Tax (gated)
+OPERATIONS (4)  - Plan routes, Vehicles, Regions, Public holidays
+MONEY (7)       - Financial, Cashflow, Invoices, Payables, Fixed costs, Refunds,
+                  Tax (gated)   [-4 after I.25 payroll split]
 CATALOGUE (8)   - Offering, Menu, Stock, Inventory, Equipment, Suppliers,
                   Outsource, Shopping
-PEOPLE (7)      - Teams hub, Full team, Kitchen, Drivers, Cleaning,
-                  HR solutions, Onboarding
+PEOPLE (7+4)    - Teams hub, Full team, Kitchen, Drivers, Cleaning,
+                  HR solutions, Onboarding,
+                  Wages, Staff, Staff hours, Driver settlement (gated)
 SETTINGS (12)   - Company profile, Branding, Kitchen rules, Email, Integrations,
                   Lead forms, Messaging templates, Lifecycle emails,
                   Notifications, Audit log, Smoke test, System (gated)
@@ -126,7 +127,6 @@ PLATFORM (11)   - super_admin only, cross-tenant
 
 **IA observations - deferred to follow-up phases:**
 
-- **MONEY has 10 items.** Payroll concerns (Wages, Staff, Staff hours, Driver settlement) overlap with PEOPLE. A cleaner split would move payroll under a PEOPLE > Payroll sub-cluster, freeing MONEY for pure financial focus. Defer to the People persona phase so the split lands with that phase's other people-flow polish.
 - **SETTINGS has 12 items.** Kitchen rules is operational (lead time, BCEA thresholds) not configuration; arguably belongs as a tab inside the Kitchen team landing page. Defer to the Kitchen persona phase.
 - **Audit log is buried last in SETTINGS.** Acceptable for the persona that rarely uses it, but if compliance becomes a daily concern it surfaces in the wrong place. Defer.
 
@@ -182,8 +182,8 @@ Quick visual pass with the browser dev-tools mobile viewport on the top 10 pages
 
 Tracked here so each lands as a focused PR with its own scope.
 
-1. **Empty/loading/error sweep on money-pages**: `dashboard`, `tracking`, `financial-dashboard`, `cashflow-dashboard`.
+1. **Empty/loading/error sweep on money-pages**: `dashboard`, `tracking`, `financial-dashboard`, `cashflow-dashboard`. Partial: WidgetErrorBoundary now async-aware + 5 widgets adopted (I.22).
 2. **Mobile redesign for `kitchen-schedule` weekly grid + chart-overflow containment.**
-3. **Onboarding routing conflict** - `pages/admin/onboarding.tsx` shadows `pages/admin/onboarding/index.tsx`. Resolve with explicit new-tenant signup test.
-4. **MONEY -> PEOPLE/Payroll split** during the People persona phase.
+3. ~~**Onboarding routing conflict**~~ - resolved before this audit. `pages/admin/onboarding.tsx` no longer exists; `pages/admin/onboarding/index.tsx` owns the route cleanly.
+4. ~~**MONEY -> PEOPLE/Payroll split**~~ - landed in I.25. Four payroll items (Wages, Staff, Staff hours, Driver settlement) now live in PEOPLE behind the same finance gate.
 5. **Kitchen rules -> Kitchen team Settings tab** during the Kitchen persona phase.
