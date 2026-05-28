@@ -23,6 +23,7 @@ import { Footer } from "@/components/Footer";
 import { ChatBot } from "@/components/ChatBot";
 import dynamic from "next/dynamic";
 import { OrderDetailsPanel } from "@/components/tracking/OrderDetailsPanel";
+import { WidgetErrorBoundary } from "@/components/dashboard/WidgetErrorBoundary";
 import { dispatchService, computeRiskScore } from "@/services/dispatchService";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -62,10 +63,24 @@ function parseEventDateTime(eventDate: string, eventTime: string): Date | null {
   return dt;
 }
 
-// Dynamically import the map component with SSR disabled
+// Dynamically import the map component with SSR disabled.
+// TIGHTEN I.27 (admin.md section 5): pre-fix a chunk-load failure on
+// the leaflet bundle blanked the whole map slot with no signal. Now
+// renders a skeleton while loading and surfaces a clear failure
+// message via WidgetErrorBoundary if the chunk import throws.
 const AdminTrackingMap = dynamic(
   () => import("@/components/tracking/AdminTrackingMap").then((mod) => mod.AdminTrackingMap),
-  { ssr: false }
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex h-[600px] items-center justify-center rounded-md border border-slate-200 bg-slate-50">
+        <div className="flex flex-col items-center gap-2 text-slate-500">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
+          <p className="text-sm">Loading live map...</p>
+        </div>
+      </div>
+    ),
+  }
 );
 
 /**
@@ -740,12 +755,19 @@ function AdminTrackingInner() {
                   </CardHeader>
                   <CardContent>
                     <div className="h-[600px] relative">
-                      <AdminTrackingMap
-                        orders={filteredOrders}
-                        driverLocations={driverLocations}
-                        onDriverLocationUpdate={handleDriverLocationUpdate}
-                        companyId={user?.company_id}
-                      />
+                      {/* TIGHTEN I.27: wrap the live map in a
+                          WidgetErrorBoundary so a leaflet render
+                          crash or a chunk-load failure renders an
+                          inline error chip + Retry instead of
+                          blanking the whole 600px area silently. */}
+                      <WidgetErrorBoundary label="Live tracking map">
+                        <AdminTrackingMap
+                          orders={filteredOrders}
+                          driverLocations={driverLocations}
+                          onDriverLocationUpdate={handleDriverLocationUpdate}
+                          companyId={user?.company_id}
+                        />
+                      </WidgetErrorBoundary>
                     </div>
                   </CardContent>
                 </Card>
