@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Inbox, ArrowRight, Mail, Phone } from "lucide-react";
 import { useTenantHref } from "@/lib/tenantUrl";
+import { useReportWidgetError } from "@/components/dashboard/WidgetErrorBoundary";
 
 interface LeadRow {
   id: string;
@@ -37,6 +38,7 @@ const daysAgo = (iso: string | null): number => {
 
 export function LeadAgingWidget({ companyId }: { companyId: string | null }) {
   const { withSlug } = useTenantHref();
+  const { reportError, retryNonce } = useReportWidgetError();
   const [rows, setRows] = useState<LeadRow[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -65,18 +67,23 @@ export function LeadAgingWidget({ companyId }: { companyId: string | null }) {
           .lte("created_at", cutoff)
           .order("created_at", { ascending: true })
           .limit(5);
-        if (error) {
-          console.error("[LeadAgingWidget] leads fetch failed:", error);
+        if (error) throw error;
+        if (!cancelled) {
+          setRows((data || []) as LeadRow[]);
+          reportError(null);
         }
-        if (!cancelled) setRows((data || []) as LeadRow[]);
-      } catch {
-        if (!cancelled) setRows([]);
+      } catch (e: any) {
+        if (!cancelled) {
+          setRows([]);
+          reportError(e?.message || "Could not load lead aging");
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
     })();
     return () => { cancelled = true; };
-  }, [companyId]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyId, retryNonce]);
 
   if (!companyId) return null;
   if (!loading && rows.length === 0) return null;

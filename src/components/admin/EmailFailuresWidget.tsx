@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AlertCircle, ArrowRight, Mail } from "lucide-react";
 import { useTenantHref } from "@/lib/tenantUrl";
+import { useReportWidgetError } from "@/components/dashboard/WidgetErrorBoundary";
 
 interface FailRow {
   id: string;
@@ -39,6 +40,7 @@ const fmtRelative = (iso: string) => {
 
 export function EmailFailuresWidget({ companyId }: { companyId: string | null }) {
   const { withSlug } = useTenantHref();
+  const { reportError, retryNonce } = useReportWidgetError();
   const [rows, setRows] = useState<FailRow[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -56,18 +58,23 @@ export function EmailFailuresWidget({ companyId }: { companyId: string | null })
           .gte("created_at", since)
           .order("created_at", { ascending: false })
           .limit(5);
-        if (error) {
-          console.error("[EmailFailuresWidget] email_automation_log fetch failed:", error);
+        if (error) throw error;
+        if (!cancelled) {
+          setRows((data || []) as FailRow[]);
+          reportError(null);
         }
-        if (!cancelled) setRows((data || []) as FailRow[]);
-      } catch {
-        if (!cancelled) setRows([]);
+      } catch (e: any) {
+        if (!cancelled) {
+          setRows([]);
+          reportError(e?.message || "Could not load email failures");
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
     })();
     return () => { cancelled = true; };
-  }, [companyId]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyId, retryNonce]);
 
   if (!companyId) return null;
   if (!loading && rows.length === 0) return null;
