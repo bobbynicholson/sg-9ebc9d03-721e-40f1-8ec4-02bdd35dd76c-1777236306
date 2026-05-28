@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Clock, ArrowRight } from "lucide-react";
 import { useTenantHref } from "@/lib/tenantUrl";
+import { useReportWidgetError } from "@/components/dashboard/WidgetErrorBoundary";
 
 interface SessionRow {
   id: string;
@@ -41,6 +42,7 @@ const fmtElapsed = (iso: string): string => {
 
 export function ActiveStaffNowWidget({ companyId }: { companyId: string | null }) {
   const { withSlug } = useTenantHref();
+  const { reportError, retryNonce } = useReportWidgetError();
   const [rows, setRows] = useState<SessionRow[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -62,9 +64,7 @@ export function ActiveStaffNowWidget({ companyId }: { companyId: string | null }
           .is("clock_out", null)
           .order("clock_in", { ascending: true })
           .limit(20);
-        if (error) {
-          console.error("[ActiveStaffNowWidget] staff_work_sessions fetch failed:", error);
-        }
+        if (error) throw error;
         const list = ((data || []) as any[])
           .filter((r) => r.kitchen_staff?.company_id === companyId)
           .map((r) => ({
@@ -75,15 +75,22 @@ export function ActiveStaffNowWidget({ companyId }: { companyId: string | null }
             role_title: r.kitchen_staff?.role_title || null,
           }))
           .slice(0, 8);
-        if (!cancelled) setRows(list);
-      } catch {
-        if (!cancelled) setRows([]);
+        if (!cancelled) {
+          setRows(list);
+          reportError(null);
+        }
+      } catch (e: any) {
+        if (!cancelled) {
+          setRows([]);
+          reportError(e?.message || "Could not load active staff");
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
     })();
     return () => { cancelled = true; };
-  }, [companyId]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyId, retryNonce]);
 
   if (!companyId) return null;
   if (!loading && rows.length === 0) return null;

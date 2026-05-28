@@ -19,6 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { Truck, ArrowRight, AlertCircle } from "lucide-react";
 import { toLocalISO } from "@/lib/localDate";
 import { useTenantHref } from "@/lib/tenantUrl";
+import { useReportWidgetError } from "@/components/dashboard/WidgetErrorBoundary";
 
 interface OrderRow {
   id: string;
@@ -34,6 +35,7 @@ const fmtTime = (t: string | null): string => (t ? t.slice(0, 5) : "TBC");
 
 export function DispatchGapWidget({ companyId }: { companyId: string | null }) {
   const { withSlug } = useTenantHref();
+  const { reportError, retryNonce } = useReportWidgetError();
   const [rows, setRows] = useState<OrderRow[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -57,18 +59,23 @@ export function DispatchGapWidget({ companyId }: { companyId: string | null }) {
           .lte("event_date", horizonIso)
           .order("event_date", { ascending: true })
           .limit(8);
-        if (error) {
-          console.error("[DispatchGapWidget] orders fetch failed:", error);
+        if (error) throw error;
+        if (!cancelled) {
+          setRows((data || []) as OrderRow[]);
+          reportError(null);
         }
-        if (!cancelled) setRows((data || []) as OrderRow[]);
-      } catch {
-        if (!cancelled) setRows([]);
+      } catch (e: any) {
+        if (!cancelled) {
+          setRows([]);
+          reportError(e?.message || "Could not load dispatch gaps");
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
     })();
     return () => { cancelled = true; };
-  }, [companyId]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyId, retryNonce]);
 
   if (!companyId) return null;
   if (!loading && rows.length === 0) return null;

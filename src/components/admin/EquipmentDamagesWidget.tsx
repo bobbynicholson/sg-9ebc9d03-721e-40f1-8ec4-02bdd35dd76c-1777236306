@@ -19,6 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { Wrench, ArrowRight } from "lucide-react";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { useTenantHref } from "@/lib/tenantUrl";
+import { useReportWidgetError } from "@/components/dashboard/WidgetErrorBoundary";
 
 interface DamageRow {
   id: string;
@@ -40,6 +41,7 @@ const fmtAge = (iso: string | null): string => {
 
 export function EquipmentDamagesWidget({ companyId }: { companyId: string | null }) {
   const { withSlug } = useTenantHref();
+  const { reportError, retryNonce } = useReportWidgetError();
   const [rows, setRows] = useState<DamageRow[]>([]);
   const [loading, setLoading] = useState(true);
   const tenantCurrency = useTenantCurrency(companyId);
@@ -59,18 +61,23 @@ export function EquipmentDamagesWidget({ companyId }: { companyId: string | null
           .or("resolved.is.null,resolved.eq.false")
           .order("created_at", { ascending: false })
           .limit(5);
-        if (error) {
-          console.error("[EquipmentDamagesWidget] equipment_damages fetch failed:", error);
+        if (error) throw error;
+        if (!cancelled) {
+          setRows((data || []) as DamageRow[]);
+          reportError(null);
         }
-        if (!cancelled) setRows((data || []) as DamageRow[]);
-      } catch {
-        if (!cancelled) setRows([]);
+      } catch (e: any) {
+        if (!cancelled) {
+          setRows([]);
+          reportError(e?.message || "Could not load equipment damages");
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
     })();
     return () => { cancelled = true; };
-  }, [companyId]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyId, retryNonce]);
 
   if (!companyId) return null;
   if (!loading && rows.length === 0) return null;

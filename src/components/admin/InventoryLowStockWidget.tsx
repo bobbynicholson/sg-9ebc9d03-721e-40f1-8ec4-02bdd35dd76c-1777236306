@@ -37,6 +37,7 @@ import {
   AlertTriangle, ArrowRight, ChevronDown, ChevronRight, Package, ShoppingCart, CalendarDays, Info, ExternalLink,
 } from "lucide-react";
 import { useTenantHref } from "@/lib/tenantUrl";
+import { useReportWidgetError } from "@/components/dashboard/WidgetErrorBoundary";
 
 /* ------------------------------------------------------------------ */
 /* Types                                                              */
@@ -128,6 +129,7 @@ function formatQty(n: number, unit: string | null | undefined): string {
 
 export function InventoryLowStockWidget({ companyId }: Props) {
   const { withSlug } = useTenantHref();
+  const { reportError, retryNonce } = useReportWidgetError();
   const [rows, setRows] = useState<OutlookRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<string | null>(null);
@@ -149,9 +151,9 @@ export function InventoryLowStockWidget({ companyId }: Props) {
       .eq("company_id", companyId)
       .limit(500);
     if (error) {
-      console.error("[InventoryLowStockWidget] outlook fetch failed:", error);
       setRows([]);
       setLoading(false);
+      reportError(error.message || "Could not load low-stock outlook");
       return;
     }
     const all = ((data || []) as any[]).map((r): OutlookRow => ({
@@ -196,7 +198,9 @@ export function InventoryLowStockWidget({ companyId }: Props) {
     });
     setRows(eligible.slice(0, LIMIT));
     setLoading(false);
-  }, [companyId]);
+    reportError(null);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyId, retryNonce]);
 
   useEffect(() => { load(); }, [load]);
 

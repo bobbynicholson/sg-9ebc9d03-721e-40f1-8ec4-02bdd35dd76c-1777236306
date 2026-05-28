@@ -22,6 +22,7 @@ import { Badge } from "@/components/ui/badge";
 import { Crown, ArrowRight } from "lucide-react";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { useTenantHref } from "@/lib/tenantUrl";
+import { useReportWidgetError } from "@/components/dashboard/WidgetErrorBoundary";
 
 interface TopClient {
   client_name: string;
@@ -31,6 +32,7 @@ interface TopClient {
 
 export function TopClientsWidget({ companyId }: { companyId: string | null }) {
   const { withSlug } = useTenantHref();
+  const { reportError, retryNonce } = useReportWidgetError();
   const [rows, setRows] = useState<TopClient[]>([]);
   const [loading, setLoading] = useState(true);
   const tenantCurrency = useTenantCurrency(companyId);
@@ -47,9 +49,7 @@ export function TopClientsWidget({ companyId }: { companyId: string | null }) {
           .eq("company_id", companyId)
           .gte("event_date", since)
           .in("status", ["delivered", "completed", "in_transit", "ready", "preparing", "confirmed"]);
-        if (error) {
-          console.error("[TopClientsWidget] orders fetch failed:", error);
-        }
+        if (error) throw error;
         const byClient = new Map<string, TopClient>();
         for (const o of (data || []) as any[]) {
           const name = (o.client_name || "").trim();
@@ -63,15 +63,22 @@ export function TopClientsWidget({ companyId }: { companyId: string | null }) {
           .filter((c) => c.total > 0)
           .sort((a, b) => b.total - a.total)
           .slice(0, 5);
-        if (!cancelled) setRows(sorted);
-      } catch {
-        if (!cancelled) setRows([]);
+        if (!cancelled) {
+          setRows(sorted);
+          reportError(null);
+        }
+      } catch (e: any) {
+        if (!cancelled) {
+          setRows([]);
+          reportError(e?.message || "Could not load top clients");
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
     })();
     return () => { cancelled = true; };
-  }, [companyId]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyId, retryNonce]);
 
   if (!companyId) return null;
   if (!loading && rows.length === 0) return null;

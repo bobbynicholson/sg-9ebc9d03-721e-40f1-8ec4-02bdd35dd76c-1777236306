@@ -18,6 +18,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Star, ArrowRight } from "lucide-react";
 import { useTenantHref } from "@/lib/tenantUrl";
+import { useReportWidgetError } from "@/components/dashboard/WidgetErrorBoundary";
 
 interface RatingRow {
   entity_id: string;
@@ -42,6 +43,7 @@ const fmtAgo = (iso: string): string => {
 
 export function RecentRatingsWidget({ companyId }: { companyId: string | null }) {
   const { withSlug } = useTenantHref();
+  const { reportError, retryNonce } = useReportWidgetError();
   const [rows, setRows] = useState<RatingRow[]>([]);
   const [avg, setAvg] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
@@ -64,9 +66,7 @@ export function RecentRatingsWidget({ companyId }: { companyId: string | null })
           .gte("created_at", since)
           .order("created_at", { ascending: false })
           .limit(200);
-        if (error) {
-          console.error("[RecentRatingsWidget] audit_logs fetch failed:", error);
-        }
+        if (error) throw error;
         const list = (data || []) as any[];
         const seen = new Set<string>();
         const latest: RatingRow[] = [];
@@ -92,14 +92,20 @@ export function RecentRatingsWidget({ companyId }: { companyId: string | null })
         } else {
           setAvg(null);
         }
-      } catch {
-        if (!cancelled) { setRows([]); setAvg(null); }
+        reportError(null);
+      } catch (e: any) {
+        if (!cancelled) {
+          setRows([]);
+          setAvg(null);
+          reportError(e?.message || "Could not load recent ratings");
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
     })();
     return () => { cancelled = true; };
-  }, [companyId]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyId, retryNonce]);
 
   if (!companyId) return null;
   if (!loading && rows.length === 0) return null;

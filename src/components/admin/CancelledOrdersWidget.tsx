@@ -21,6 +21,7 @@ import { Badge } from "@/components/ui/badge";
 import { XCircle, ArrowRight } from "lucide-react";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { useTenantHref } from "@/lib/tenantUrl";
+import { useReportWidgetError } from "@/components/dashboard/WidgetErrorBoundary";
 
 interface CancelRow {
   id: string;
@@ -42,6 +43,7 @@ const fmtAge = (iso: string | null): string => {
 
 export function CancelledOrdersWidget({ companyId }: { companyId: string | null }) {
   const { withSlug } = useTenantHref();
+  const { reportError, retryNonce } = useReportWidgetError();
   const [rows, setRows] = useState<CancelRow[]>([]);
   const [totalLost, setTotalLost] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -61,21 +63,25 @@ export function CancelledOrdersWidget({ companyId }: { companyId: string | null 
           .gte("cancelled_at", since)
           .order("cancelled_at", { ascending: false })
           .limit(50);
-        if (error) {
-          console.error("[CancelledOrdersWidget] orders fetch failed:", error);
-        }
+        if (error) throw error;
         const list = ((data || []) as CancelRow[]).filter((r) => !!r.cancelled_at);
         if (cancelled) return;
         setRows(list.slice(0, 5));
         setTotalLost(list.reduce((s, r) => s + Number(r.total_amount || 0), 0));
-      } catch {
-        if (!cancelled) { setRows([]); setTotalLost(0); }
+        reportError(null);
+      } catch (e: any) {
+        if (!cancelled) {
+          setRows([]);
+          setTotalLost(0);
+          reportError(e?.message || "Could not load cancellations");
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
     })();
     return () => { cancelled = true; };
-  }, [companyId]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyId, retryNonce]);
 
   if (!companyId) return null;
   if (!loading && rows.length === 0) return null;

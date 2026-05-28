@@ -18,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Wallet, ArrowRight } from "lucide-react";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { useTenantHref } from "@/lib/tenantUrl";
+import { useReportWidgetError } from "@/components/dashboard/WidgetErrorBoundary";
 
 interface PaymentRow {
   id: string;
@@ -45,6 +46,7 @@ const fmtRelative = (iso: string | null): string => {
 
 export function RecentPaymentsWidget({ companyId }: { companyId: string | null }) {
   const { withSlug } = useTenantHref();
+  const { reportError, retryNonce } = useReportWidgetError();
   const [rows, setRows] = useState<PaymentRow[]>([]);
   const [loading, setLoading] = useState(true);
   const tenantCurrency = useTenantCurrency(companyId);
@@ -67,18 +69,23 @@ export function RecentPaymentsWidget({ companyId }: { companyId: string | null }
           .gte("created_at", since)
           .order("created_at", { ascending: false })
           .limit(5);
-        if (error) {
-          console.error("[RecentPaymentsWidget] payments fetch failed:", error);
+        if (error) throw error;
+        if (!cancelled) {
+          setRows((data || []) as PaymentRow[]);
+          reportError(null);
         }
-        if (!cancelled) setRows((data || []) as PaymentRow[]);
-      } catch {
-        if (!cancelled) setRows([]);
+      } catch (e: any) {
+        if (!cancelled) {
+          setRows([]);
+          reportError(e?.message || "Could not load recent payments");
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
     })();
     return () => { cancelled = true; };
-  }, [companyId]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyId, retryNonce]);
 
   if (!companyId) return null;
   if (!loading && rows.length === 0) return null;

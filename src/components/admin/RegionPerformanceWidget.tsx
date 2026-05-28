@@ -25,6 +25,7 @@ import { Button } from "@/components/ui/button";
 import { MapPin, ArrowRight } from "lucide-react";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { useTenantHref } from "@/lib/tenantUrl";
+import { useReportWidgetError } from "@/components/dashboard/WidgetErrorBoundary";
 
 interface RegionLite {
   id: string;
@@ -46,6 +47,7 @@ const UNASSIGNED_KEY = "__unassigned";
 
 export function RegionPerformanceWidget({ companyId }: { companyId: string | null }) {
   const { withSlug } = useTenantHref();
+  const { reportError, retryNonce } = useReportWidgetError();
   const [regions, setRegions] = useState<RegionLite[]>([]);
   const [orders, setOrders] = useState<OrderLite[]>([]);
   const [loading, setLoading] = useState(true);
@@ -73,20 +75,25 @@ export function RegionPerformanceWidget({ companyId }: { companyId: string | nul
             .gte("event_date", sinceIso)
             .limit(2000),
         ]);
+        if (regionsRes.error) throw regionsRes.error;
+        if (ordersRes.error) throw ordersRes.error;
         if (cancelled) return;
         setRegions((regionsRes.data || []) as RegionLite[]);
         setOrders((ordersRes.data || []) as OrderLite[]);
-      } catch {
+        reportError(null);
+      } catch (e: any) {
         if (!cancelled) {
           setRegions([]);
           setOrders([]);
+          reportError(e?.message || "Could not load region performance");
         }
       } finally {
         if (!cancelled) setLoading(false);
       }
     })();
     return () => { cancelled = true; };
-  }, [companyId]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyId, retryNonce]);
 
   const entries = useMemo<Entry[]>(() => {
     const map = new Map<string, Entry>();

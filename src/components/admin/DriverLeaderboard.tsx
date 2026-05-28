@@ -16,6 +16,7 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Trophy, Clock, Truck } from "lucide-react";
+import { useReportWidgetError } from "@/components/dashboard/WidgetErrorBoundary";
 
 interface ShiftRow {
   driver_id: string;
@@ -52,6 +53,7 @@ function hoursBetween(start: string | null, end: string | null): number {
 const MEDALS = ["🥇", "🥈", "🥉"];
 
 export function DriverLeaderboard({ companyId }: { companyId: string | null }) {
+  const { reportError, retryNonce } = useReportWidgetError();
   const [entries, setEntries] = useState<Entry[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -115,14 +117,19 @@ export function DriverLeaderboard({ companyId }: { companyId: string | null }) {
         // Rank by hours first, deliveries as tiebreaker.
         rows.sort((a, b) => (b.hours - a.hours) || (b.deliveries - a.deliveries));
         setEntries(rows.slice(0, 5));
-      } catch {
-        setEntries([]);
+        reportError(null);
+      } catch (e: any) {
+        if (!cancelled) {
+          setEntries([]);
+          reportError(e?.message || "Could not load driver leaderboard");
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
     })();
     return () => { cancelled = true; };
-  }, [companyId]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyId, retryNonce]);
 
   const monthLabel = useMemo(
     () => new Date().toLocaleDateString("en-ZA", { month: "long", year: "numeric" }),

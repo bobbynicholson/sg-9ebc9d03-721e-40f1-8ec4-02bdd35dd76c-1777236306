@@ -21,6 +21,7 @@ import Link from "next/link";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { ChefHat, TrendingUp } from "lucide-react";
+import { useReportWidgetError } from "@/components/dashboard/WidgetErrorBoundary";
 
 interface Entry {
   name: string;
@@ -29,6 +30,7 @@ interface Entry {
 }
 
 export function MenuTopSellersWidget({ companyId }: { companyId: string | null }) {
+  const { reportError, retryNonce } = useReportWidgetError();
   const [entries, setEntries] = useState<Entry[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -52,9 +54,7 @@ export function MenuTopSellersWidget({ companyId }: { companyId: string | null }
           .in("orders.status", ["confirmed", "preparing", "ready", "in_transit", "delivered", "completed"])
           .gte("orders.event_date", since)
           .limit(5000);
-        if (error) {
-          console.error("[MenuTopSellersWidget] order_items fetch failed:", error);
-        }
+        if (error) throw error;
 
         const totals = new Map<string, { qty: number; orders: Set<string> }>();
         for (const row of (data || []) as Array<{ item_name: string | null; quantity: number | null; order_id: string }>) {
@@ -70,15 +70,22 @@ export function MenuTopSellersWidget({ companyId }: { companyId: string | null }
           .map(([name, v]) => ({ name, quantity: v.qty, appearances: v.orders.size }))
           .sort((a, b) => b.quantity - a.quantity)
           .slice(0, 5);
-        if (!cancelled) setEntries(ranked);
-      } catch {
-        if (!cancelled) setEntries([]);
+        if (!cancelled) {
+          setEntries(ranked);
+          reportError(null);
+        }
+      } catch (e: any) {
+        if (!cancelled) {
+          setEntries([]);
+          reportError(e?.message || "Could not load top sellers");
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
     })();
     return () => { cancelled = true; };
-  }, [companyId]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyId, retryNonce]);
 
   const topQty = useMemo(() => entries[0]?.quantity || 1, [entries]);
 
