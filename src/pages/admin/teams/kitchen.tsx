@@ -59,7 +59,9 @@ import {
   ChefHat, ArrowLeft, Users, Clock, ClipboardList, BookOpen, Loader2,
   DollarSign, CalendarDays, Wrench, Package, Flame,
   CheckCircle2, ArrowRight, MessageCircle, Printer, FileText,
+  Settings as SettingsIcon, ChevronDown, ChevronUp,
 } from "lucide-react";
+import { KitchenRulesPanel } from "@/components/admin/KitchenRulesPanel";
 
 function startOfWeek(): Date {
   const d = new Date();
@@ -761,6 +763,17 @@ function KitchenTeamPage() {
             kitchen handover history at <Link href={withSlug("/team-portal/kitchen/handovers")} className="text-amber-700 hover:underline">/team-portal/kitchen/handovers</Link>.
           </p>
 
+          {/* TIGHTEN I.30 (admin.md section 7 follow-up #5):
+              Kitchen rules co-located with the kitchen team.
+              Kitchen rules are operational policy (prep timing,
+              BCEA shift thresholds, dietary alerts) - they belong
+              alongside team management, not buried in Settings.
+              The standalone /admin/kitchen-settings page still
+              exists (Settings nav muscle memory + deep-links);
+              both entry points mount the same KitchenRulesPanel
+              and write to companies.kitchen_settings. */}
+          <KitchenRulesSection />
+
           {/* KIT-B (task #211, 2026-05-25): print-only view of today's
               prep schedule. The screen view stays hidden via CSS
               below; window.print() renders just this block. Format
@@ -837,6 +850,50 @@ function KitchenTeamPage() {
         }
       `}</style>
     </>
+  );
+}
+
+// TIGHTEN I.30: collapsible section that mounts KitchenRulesPanel
+// inside the Kitchen team landing. Default collapsed so the kitchen-
+// manager-first audience doesn't scroll past a 600px form to reach
+// the prep + intel cards. Expand on demand.
+function KitchenRulesSection() {
+  const [open, setOpen] = useState(false);
+  return (
+    <Card className="border-slate-200 mt-6 no-print">
+      <CardContent className="p-0">
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left hover:bg-slate-50"
+          aria-expanded={open}
+        >
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-9 h-9 rounded-lg bg-orange-100 text-orange-700 flex items-center justify-center shrink-0">
+              <SettingsIcon className="w-4 h-4" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-slate-900">Kitchen rules</p>
+              <p className="text-xs text-slate-500">
+                Prep timing, BCEA shift thresholds, dietary alerts. Owner / admin only.
+              </p>
+            </div>
+          </div>
+          {open ? (
+            <ChevronUp className="w-4 h-4 text-slate-500 shrink-0" />
+          ) : (
+            <ChevronDown className="w-4 h-4 text-slate-500 shrink-0" />
+          )}
+        </button>
+        {open && (
+          <div className="border-t border-slate-200 p-4 bg-slate-50/40">
+            <KitchenRulesPanel
+              contextNote="Same form as /admin/kitchen-settings. Edits land on companies.kitchen_settings either way."
+            />
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
