@@ -577,6 +577,43 @@ function FinancialDashboardInner() {
     && (metrics?.projectedRevenue30Days || 0) === 0
     && (metrics?.pendingPayments || 0) === 0;
 
+  // TIGHTEN I.29 (admin.md section 5): when the tenant is in the
+  // zero-data state, return a dedicated empty-state page instead
+  // of rendering the inline card alongside the wall of R0 tiles.
+  // Pre-fix the card sat at the top with the entire 90-day
+  // dashboard rendered below it as a stack of zero values,
+  // contradicting the "No financial activity yet" copy. Now: header
+  // + empty-state card only, no tiles, no charts, no R0 confusion.
+  if (isFinancialZero && !loading) {
+    return (
+      <>
+        <Head><title>Financial Dashboard - CateringMS</title></Head>
+        <NoIndexMeta />
+        <AdminNav />
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 to-emerald-50 p-4 md:p-8 lg:pl-72 xl:pl-80">
+          <div className="max-w-2xl mx-auto mt-12 rounded-lg border border-emerald-200 bg-white p-8 shadow-sm text-center">
+            <DollarSign className="w-12 h-12 text-emerald-600 mx-auto mb-3" />
+            <h1 className="text-2xl font-bold text-slate-900 mb-2">Financial Dashboard</h1>
+            <h2 className="text-base font-semibold text-slate-700 mb-2">No financial activity yet</h2>
+            <p className="text-sm text-slate-600 max-w-md mx-auto mb-5">
+              Once you confirm your first order or take your first deposit, this page will fill with
+              revenue, profit margin, and the next 30 / 90 days of projected income. Until then,
+              start by sending a quote.
+            </p>
+            <div className="inline-flex gap-2">
+              <Button asChild className="bg-emerald-600 hover:bg-emerald-700">
+                <Link href={withSlug("/admin/quotes/new")}>Start a quote</Link>
+              </Button>
+              <Button asChild variant="outline">
+                <Link href={withSlug("/admin/orders")}>View orders</Link>
+              </Button>
+            </div>
+          </div>
+        </div>
+      </>
+    );
+  }
+
   return (
     <>
       <Head>
@@ -704,30 +741,11 @@ function FinancialDashboardInner() {
               </div>
             </div>
 
-            {/* Admin persona follow-up (admin.md section 5):
-                zero-data empty state. Slot a "no financial activity
-                yet" card under the header when the load succeeded
-                but the tenant has no orders, no cash, no projected
-                revenue, no pending payments. Stops the page reading
-                as a wall of R0 that looks broken. */}
-            {isFinancialZero && (
-              <div className="mb-6 rounded-lg border border-emerald-200 bg-white p-8 text-center shadow-sm">
-                <DollarSign className="w-10 h-10 text-emerald-600 mx-auto mb-3" />
-                <h2 className="text-lg font-bold text-slate-900 mb-2">No financial activity yet</h2>
-                <p className="text-sm text-slate-600 max-w-md mx-auto">
-                  Once you confirm your first order or take your first deposit, this page will start
-                  showing revenue, profit margin, and the next 30 / 90 days of projected income.
-                </p>
-                <div className="mt-4 inline-flex gap-2">
-                  <Button asChild className="bg-emerald-600 hover:bg-emerald-700">
-                    <Link href={withSlug("/admin/quotes/new")}>Start a quote</Link>
-                  </Button>
-                  <Button asChild variant="outline">
-                    <Link href={withSlug("/admin/orders")}>View orders</Link>
-                  </Button>
-                </div>
-              </div>
-            )}
+            {/* TIGHTEN I.29: the inline zero-data card moved into a
+                dedicated early-return at the top of the component.
+                Renders that take this code path always have at least
+                one of orders / cash / projected / pending non-zero,
+                so the wall-of-R0 problem doesn't surface. */}
 
             {/* Celebration Message */}
             {showCelebration && (
