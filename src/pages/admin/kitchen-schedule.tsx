@@ -767,88 +767,118 @@ function KitchenScheduleGrid() {
                     const gridEnd = addDays(startOfWeek(monthLast), 6);
                     const totalDays = Math.round((gridEnd.getTime() - gridStart.getTime()) / 86400000) + 1;
                     const cells = Array.from({ length: totalDays }, (_, i) => addDays(gridStart, i));
+                    // TIGHTEN I.28 (admin.md section 6 + section 7
+                    // item 2): mobile redesign. Pre-fix the month grid
+                    // wrapped in `overflow-x-auto + min-w-[700px]`,
+                    // which forced a horizontal scroll on every mobile
+                    // viewport. Now: the grid is fluid (no min-width)
+                    // and cell sizing + label visibility tier through
+                    // a few breakpoints so a phone shows compact-but-
+                    // readable cells and a desktop keeps the spacious
+                    // 88px min-height the planner is used to.
                     return (
-                      <div className="overflow-x-auto">
-                        <div className="min-w-[700px]">
-                          <div className="grid grid-cols-7 gap-px bg-slate-200 border border-slate-200 rounded-md overflow-hidden">
-                            {DAY_LABELS.map((lbl) => (
-                              <div key={lbl} className="bg-slate-50 px-2 py-1.5 text-xs uppercase tracking-wider text-slate-500 font-semibold text-center">
-                                {lbl}
-                              </div>
-                            ))}
-                            {cells.map((d) => {
-                              const iso = toLocalISO(d);
-                              const isToday = iso === todayIso;
-                              const inMonth = d.getMonth() === monthCursor.getMonth();
-                              const dayOrders = ordersByDate.get(iso) || [];
-                              const dayShifts = shiftsByDate.get(iso) || [];
-                              const distinctChefs = new Set(dayShifts.map((s) => s.staff_id)).size;
-                              const needsCover = dayOrders.length > 0 && distinctChefs === 0;
-                              return (
-                                <button
-                                  key={iso}
-                                  type="button"
-                                  onClick={() => {
-                                    // Jump into week view for the
-                                    // week containing this day so
-                                    // the operator can roster.
-                                    setWeekStart(startOfWeek(d));
-                                    setViewMode("week");
-                                  }}
-                                  className={`text-left min-h-[88px] p-1.5 transition ${
-                                    !inMonth ? "bg-slate-50 text-slate-400" :
-                                    needsCover ? "bg-rose-50 hover:bg-rose-100 ring-1 ring-inset ring-rose-200" :
-                                    isToday ? "bg-orange-50 hover:bg-orange-100" :
-                                    "bg-white hover:bg-slate-50"
-                                  }`}
-                                  title={`${d.toLocaleDateString("en-ZA", { weekday: "long", day: "numeric", month: "long" })} - click to open the week`}
-                                >
-                                  <div className={`text-xs font-semibold tabular-nums ${isToday ? "text-orange-700" : inMonth ? "text-slate-700" : "text-slate-400"}`}>
-                                    {d.getDate()}
-                                  </div>
-                                  <div className="mt-1 space-y-0.5">
-                                    {dayOrders.slice(0, 2).map((o) => (
-                                      <div
-                                        key={o.id}
-                                        className={`text-[10px] truncate rounded px-1 ${needsCover ? "bg-rose-100 text-rose-900" : "bg-blue-100 text-blue-900"}`}
-                                      >
-                                        {o.client_name || o.order_number || "Event"}
-                                      </div>
-                                    ))}
-                                    {dayOrders.length > 2 && (
-                                      <div className="text-[10px] text-slate-500">+{dayOrders.length - 2} more</div>
-                                    )}
-                                  </div>
-                                  {distinctChefs > 0 && (
-                                    <div className="text-[10px] text-emerald-700 mt-1 inline-flex items-center gap-0.5">
-                                      <Users className="w-2.5 h-2.5" />
-                                      {distinctChefs} chef{distinctChefs === 1 ? "" : "s"}
+                      <div>
+                        <div className="grid grid-cols-7 gap-px bg-slate-200 border border-slate-200 rounded-md overflow-hidden">
+                          {DAY_LABELS.map((lbl) => (
+                            <div key={lbl} className="bg-slate-50 px-1 sm:px-2 py-1.5 text-[10px] sm:text-xs uppercase tracking-wider text-slate-500 font-semibold text-center">
+                              <span className="hidden sm:inline">{lbl}</span>
+                              <span className="sm:hidden">{lbl.slice(0, 1)}</span>
+                            </div>
+                          ))}
+                          {cells.map((d) => {
+                            const iso = toLocalISO(d);
+                            const isToday = iso === todayIso;
+                            const inMonth = d.getMonth() === monthCursor.getMonth();
+                            const dayOrders = ordersByDate.get(iso) || [];
+                            const dayShifts = shiftsByDate.get(iso) || [];
+                            const distinctChefs = new Set(dayShifts.map((s) => s.staff_id)).size;
+                            const needsCover = dayOrders.length > 0 && distinctChefs === 0;
+                            return (
+                              <button
+                                key={iso}
+                                type="button"
+                                onClick={() => {
+                                  // Jump into week view for the
+                                  // week containing this day so
+                                  // the operator can roster.
+                                  setWeekStart(startOfWeek(d));
+                                  setViewMode("week");
+                                }}
+                                className={`text-left min-h-[60px] sm:min-h-[88px] p-1 sm:p-1.5 transition ${
+                                  !inMonth ? "bg-slate-50 text-slate-400" :
+                                  needsCover ? "bg-rose-50 hover:bg-rose-100 ring-1 ring-inset ring-rose-200" :
+                                  isToday ? "bg-orange-50 hover:bg-orange-100" :
+                                  "bg-white hover:bg-slate-50"
+                                }`}
+                                title={`${d.toLocaleDateString("en-ZA", { weekday: "long", day: "numeric", month: "long" })} - click to open the week`}
+                              >
+                                <div className={`text-[11px] sm:text-xs font-semibold tabular-nums ${isToday ? "text-orange-700" : inMonth ? "text-slate-700" : "text-slate-400"}`}>
+                                  {d.getDate()}
+                                </div>
+                                {/* Event labels: 1 row on mobile, up
+                                    to 2 on sm+. The "+N more" overflow
+                                    indicator surfaces the rest. */}
+                                <div className="mt-1 space-y-0.5">
+                                  {dayOrders.slice(0, 1).map((o) => (
+                                    <div
+                                      key={o.id}
+                                      className={`text-[9px] sm:text-[10px] truncate rounded px-1 ${needsCover ? "bg-rose-100 text-rose-900" : "bg-blue-100 text-blue-900"}`}
+                                    >
+                                      {o.client_name || o.order_number || "Event"}
+                                    </div>
+                                  ))}
+                                  {dayOrders.slice(1, 2).map((o) => (
+                                    <div
+                                      key={o.id}
+                                      className={`hidden sm:block text-[10px] truncate rounded px-1 ${needsCover ? "bg-rose-100 text-rose-900" : "bg-blue-100 text-blue-900"}`}
+                                    >
+                                      {o.client_name || o.order_number || "Event"}
+                                    </div>
+                                  ))}
+                                  {/* Overflow indicator: mobile (>=1
+                                      hidden), desktop (>=2 hidden). */}
+                                  {dayOrders.length > 1 && (
+                                    <div className="text-[9px] sm:text-[10px] text-slate-500 sm:hidden">
+                                      +{dayOrders.length - 1} more
                                     </div>
                                   )}
-                                  {needsCover && (
-                                    <div className="text-[10px] text-rose-700 font-medium mt-0.5 inline-flex items-center gap-0.5">
-                                      <AlertTriangle className="w-2.5 h-2.5" /> No cover
+                                  {dayOrders.length > 2 && (
+                                    <div className="hidden sm:block text-[10px] text-slate-500">
+                                      +{dayOrders.length - 2} more
                                     </div>
                                   )}
-                                </button>
-                              );
-                            })}
-                          </div>
-                          <div className="text-[11px] text-slate-500 mt-2 flex flex-wrap gap-3">
-                            <span className="inline-flex items-center gap-1">
-                              <span className="w-2.5 h-2.5 rounded-sm bg-blue-100 border border-blue-200"></span>
-                              Event booked
-                            </span>
-                            <span className="inline-flex items-center gap-1">
-                              <span className="w-2.5 h-2.5 rounded-sm bg-rose-100 border border-rose-200"></span>
-                              Event with no chef rostered
-                            </span>
-                            <span className="inline-flex items-center gap-1">
-                              <span className="w-2.5 h-2.5 rounded-sm bg-orange-50 border border-orange-200"></span>
-                              Today
-                            </span>
-                            <span className="ml-auto text-slate-400">Click a day to open the week and roster shifts.</span>
-                          </div>
+                                </div>
+                                {distinctChefs > 0 && (
+                                  <div className="text-[9px] sm:text-[10px] text-emerald-700 mt-1 inline-flex items-center gap-0.5">
+                                    <Users className="w-2.5 h-2.5" />
+                                    <span className="hidden sm:inline">{distinctChefs} chef{distinctChefs === 1 ? "" : "s"}</span>
+                                    <span className="sm:hidden tabular-nums">{distinctChefs}</span>
+                                  </div>
+                                )}
+                                {needsCover && (
+                                  <div className="text-[9px] sm:text-[10px] text-rose-700 font-medium mt-0.5 inline-flex items-center gap-0.5">
+                                    <AlertTriangle className="w-2.5 h-2.5" />
+                                    <span className="hidden sm:inline"> No cover</span>
+                                  </div>
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+                        <div className="text-[11px] text-slate-500 mt-2 flex flex-wrap gap-3">
+                          <span className="inline-flex items-center gap-1">
+                            <span className="w-2.5 h-2.5 rounded-sm bg-blue-100 border border-blue-200"></span>
+                            Event booked
+                          </span>
+                          <span className="inline-flex items-center gap-1">
+                            <span className="w-2.5 h-2.5 rounded-sm bg-rose-100 border border-rose-200"></span>
+                            No chef rostered
+                          </span>
+                          <span className="inline-flex items-center gap-1">
+                            <span className="w-2.5 h-2.5 rounded-sm bg-orange-50 border border-orange-200"></span>
+                            Today
+                          </span>
+                          <span className="hidden sm:inline ml-auto text-slate-400">Click a day to open the week and roster shifts.</span>
                         </div>
                       </div>
                     );

@@ -182,8 +182,8 @@ Quick visual pass with the browser dev-tools mobile viewport on the top 10 pages
 
 Tracked here so each lands as a focused PR with its own scope.
 
-1. **Empty/loading/error sweep on money-pages**: `dashboard`, `tracking`, `financial-dashboard`, `cashflow-dashboard`. Partial: WidgetErrorBoundary now async-aware + 5 widgets adopted (I.22).
-2. **Mobile redesign for `kitchen-schedule` weekly grid + chart-overflow containment.**
+1. ~~**Empty/loading/error sweep on money-pages**~~: `dashboard`, `tracking`, `financial-dashboard`, `cashflow-dashboard`. Done: WidgetErrorBoundary async-aware (I.22), 26 widgets adopted (I.22 + I.26), tracking map skeleton + boundary (I.27). cashflow-dashboard already had the treatment pre-audit. financial-dashboard zero-data state is a remaining sub-finding tracked separately.
+2. ~~**Mobile redesign for `kitchen-schedule` weekly grid + chart-overflow containment.**~~ Week grid had a mobile card-stack since the Kitchen persona phase; month grid responsivised in I.28 (no more 700px horizontal scroll on phones).
 3. ~~**Onboarding routing conflict**~~ - resolved before this audit. `pages/admin/onboarding.tsx` no longer exists; `pages/admin/onboarding/index.tsx` owns the route cleanly.
 4. ~~**MONEY -> PEOPLE/Payroll split**~~ - landed in I.25. Four payroll items (Wages, Staff, Staff hours, Driver settlement) now live in PEOPLE behind the same finance gate.
 5. **Kitchen rules -> Kitchen team Settings tab** during the Kitchen persona phase.
