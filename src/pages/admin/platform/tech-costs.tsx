@@ -488,11 +488,11 @@ function TechCostsDashboard() {
   return (
     <>
       <NoIndexMeta />
-      <Head><title>Tech-stack costs — CateringMS Platform</title></Head>
+      <Head><title>Tech-stack costs - CateringMS</title></Head>
       <PlatformNav />
 
       <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
-        <div className="px-3 sm:px-4 md:px-6 pt-20 lg:pt-6 pb-12 max-w-screen-2xl">
+        <div className="px-3 sm:px-4 md:px-6 pt-20 lg:pt-6 pb-12 max-w-full">
 
           {/* Header */}
           <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
