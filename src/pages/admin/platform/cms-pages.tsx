@@ -296,13 +296,13 @@ function CMSPageManagement() {
     <>
       <Head>
         <meta name="robots" content="noindex, nofollow" />
-        <title>{editing ? (editingPage ? "Edit page" : "New page") : "Page Management"} | CateringMS</title>
+        <title>{editing ? (editingPage ? "Edit page" : "New page") : "Page Management"} - CateringMS</title>
       </Head>
 
       <PlatformNav />
 
       <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-blue-50 via-white to-indigo-50 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
-        <div className="px-4 py-6 lg:py-8 max-w-screen-2xl mx-auto">
+        <div className="px-4 py-6 lg:py-8 max-w-full">
           {/* Always-visible scope banner */}
           <Alert className="mb-5 border-purple-200 bg-purple-50">
             <AlertTriangle className="h-4 w-4 text-purple-600" />

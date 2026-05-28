@@ -70,7 +70,7 @@ const daysSince = (iso: string | null): number | null => {
 };
 
 const fmtDate = (iso: string | null): string => {
-  if (!iso) return "--";
+  if (!iso) return "-";
   return new Date(iso).toLocaleDateString("en-ZA", {
     day: "numeric",
     month: "short",
@@ -239,13 +239,13 @@ function TenantHealthDashboard() {
   return (
     <>
       <Head>
-        <title>Tenant Health · CateringMS Platform</title>
+        <title>Tenant health - CateringMS</title>
       </Head>
       <NoIndexMeta />
       <PlatformNav />
 
       <div className="min-h-screen bg-slate-50 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
-        <div className="px-4 sm:px-6 lg:px-8 py-8 max-w-screen-2xl">
+        <div className="px-4 sm:px-6 lg:px-8 py-8 max-w-full">
           <div className="flex items-center gap-3 mb-6">
             <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-rose-500 to-orange-500 flex items-center justify-center shadow-lg">
               <Activity className="w-6 h-6 text-white" />
@@ -263,28 +263,28 @@ function TenantHealthDashboard() {
               icon={Clock}
               iconColor="text-amber-600"
               label="Stuck onboarding"
-              value={loading ? "—" : stuckOnboarding.length}
+              value={loading ? "-" : stuckOnboarding.length}
               tooltip={`Tenants signed up >${DAYS_STUCK_ONBOARDING} days ago without onboarding_completed_at.`}
             />
             <MetricCard
               icon={AlertTriangle}
               iconColor="text-red-600"
               label="Dormant"
-              value={loading ? "—" : dormant.length}
+              value={loading ? "-" : dormant.length}
               tooltip={`Onboarded tenants whose last order event was >${DAYS_DORMANT} days ago.`}
             />
             <MetricCard
               icon={CreditCard}
               iconColor="text-blue-600"
               label="No payment gateway"
-              value={loading ? "—" : noPaymentGateway.length}
+              value={loading ? "-" : noPaymentGateway.length}
               tooltip="Onboarded tenants with no active payment_gateways row. Can't take online payments."
             />
             <MetricCard
               icon={Building2}
               iconColor="text-emerald-600"
               label="New signups (7d)"
-              value={loading ? "—" : newSignups.length}
+              value={loading ? "-" : newSignups.length}
               tooltip="Companies created in the last 7 days. Watch for ones that haven't started onboarding."
             />
           </div>

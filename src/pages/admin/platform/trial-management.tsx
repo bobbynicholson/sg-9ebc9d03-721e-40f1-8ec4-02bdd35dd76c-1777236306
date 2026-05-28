@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useSortable, type ColumnDef } from "@/lib/useSortable";
 import { SortHeader } from "@/components/ui/sort-header";
 import { useAuth } from "@/contexts/AuthContext";
@@ -452,7 +452,7 @@ export default function TrialManagementPage() {
                     <TableCell>
                       {company.trial_ends_at
                         ? new Date(company.trial_ends_at).toLocaleDateString()
-                        : "—"}
+                        : "-"}
                     </TableCell>
                     <TableCell>{getUrgencyBadge(company.days_remaining)}</TableCell>
                     <TableCell>

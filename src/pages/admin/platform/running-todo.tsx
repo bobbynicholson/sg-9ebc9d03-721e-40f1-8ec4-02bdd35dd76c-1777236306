@@ -743,13 +743,13 @@ const universalCards: SprintCard[] = [
     items: [
       { title: "U1, Recipe-level allergen + dietary tag engine", detail: "14 UK + 9 US (incl. sesame post-FASTER Act) + SA tags. Auto-roll up to menu items, auto-flag conflicts on guest dietary submissions, printable allergen sheet per order. One build satisfies UK Natasha's Law + US FDA top-9 + SA wedding RSVP imports.", status: "todo" },
       { title: "U2, Per-tenant certificate vault with auto-attach", detail: "Expiry tracking + auto-attach to quote PDF + public verified badge widget. SA: halaal (SANHA/MJC/NIHT), Beth Din kosher, BBBEE, COIDA, liquor licence. UK: KLBD/HMC, FSA hygiene rating, SFBB, Premises Licence. US: OU/Star-K, IFANCA/HMA, ServSafe, ST-119/state exempt certs.", status: "todo" },
-      { title: "U3, Instant quote calculator (public, embeddable)", detail: "Pax + date + menu tier + region/zip --> binding quote with deposit link. The market-disrupting feature, fewer than 5 of 60 surveyed sites show live pricing in any region.", status: "todo" },
+      { title: "U3, Instant quote calculator (public, embeddable)", detail: "Pax + date + menu tier + region/zip ->binding quote with deposit link. The market-disrupting feature, fewer than 5 of 60 surveyed sites show live pricing in any region.", status: "todo" },
       { title: "U4, Multi-jurisdiction tax/VAT engine (Avalara or TaxJar)", detail: "Quote + invoice both auto-rate by venue postal code. US 50-state sales tax + local. UK VAT split (cold zero-rated / hot 20% / B2B ex-VAT vs B2C inc-VAT toggle). SA VAT registration threshold + zero-rated.", status: "todo" },
       { title: "U5, B2B accounts with PO numbers + cost centres + Net-30/60 + ACH/Bacs/EFT", detail: "US corporate AP (Bill.com / Ramp / Coupa). UK GoCardless + Bacs. SA government RFQ + Standard Bank EFT. Same pattern, three integrations.", status: "todo" },
-      { title: "U6, AI menu auto-balancing from dietary roster (the moat)", detail: "Ingest CSV/RSVP/employee list with dietary tags --> existing AI recipe scaler composes menu mix that satisfies kosher + halal + vegan + gluten-free + top-9 allergen exclusions automatically. Forkable does individual meals; nobody does group-menu balancing in any region.", status: "todo" },
-      { title: "U7, Carbon-per-portion menu badges (Foundation Earth or My Emissions)", detail: "Ingredient-level emissions factors --> A-E carbon grade per dish on public menu and quote PDF. UK competitors talk sustainability but ship no per-dish numbers. US ESG procurement now demands. SA corporates tendering. 18-month moat.", status: "todo" },
+      { title: "U6, AI menu auto-balancing from dietary roster (the moat)", detail: "Ingest CSV/RSVP/employee list with dietary tags ->existing AI recipe scaler composes menu mix that satisfies kosher + halal + vegan + gluten-free + top-9 allergen exclusions automatically. Forkable does individual meals; nobody does group-menu balancing in any region.", status: "todo" },
+      { title: "U7, Carbon-per-portion menu badges (Foundation Earth or My Emissions)", detail: "Ingredient-level emissions factors ->A-E carbon grade per dish on public menu and quote PDF. UK competitors talk sustainability but ship no per-dish numbers. US ESG procurement now demands. SA corporates tendering. 18-month moat.", status: "todo" },
       { title: "U8, Surplus-food auto-routing post-event", detail: "Weighs leftover, dispatches nearest charity via API (FareShare UK, City Harvest US, SA Harvest), generates donation receipt PDF for client. PR + tax angle in UK, CSR/ESG narrative in US.", status: "todo" },
-      { title: "U9, Per-tenant timezone + DST handling (UK BST, US DST)", detail: "Today the platform assumes Africa/Johannesburg implicitly because SA has no DST. The UK shifts BST/GMT twice yearly, US states straddle DST, and any cross-border tenant (e.g. UK caterer with a Spain branch) needs proper tz support. Build: tenants table grows tz column (default Africa/Johannesburg); shift / clock-in / event_time / cron schedules render in tenant tz; date-only filters get a tenant-tz formatter (the toLocalISO sweep currently uses browser tz, which is right for the operator but wrong for cron jobs that need to fire at the tenant's 09:00). Critical before UK / US tenant launch — wages calculated against the wrong day during DST week is a legal mess. Also audit kitchenPrepService cron firing times: today they assume server UTC, will need tenant-tz aware schedule.", status: "todo" },
+      { title: "U9, Per-tenant timezone + DST handling (UK BST, US DST)", detail: "Today the platform assumes Africa/Johannesburg implicitly because SA has no DST. The UK shifts BST/GMT twice yearly, US states straddle DST, and any cross-border tenant (e.g. UK caterer with a Spain branch) needs proper tz support. Build: tenants table grows tz column (default Africa/Johannesburg); shift / clock-in / event_time / cron schedules render in tenant tz; date-only filters get a tenant-tz formatter (the toLocalISO sweep currently uses browser tz, which is right for the operator but wrong for cron jobs that need to fire at the tenant's 09:00). Critical before UK / US tenant launch - wages calculated against the wrong day during DST week is a legal mess. Also audit kitchenPrepService cron firing times: today they assume server UTC, will need tenant-tz aware schedule.", status: "todo" },
     ],
   },
 ];
@@ -764,7 +764,7 @@ const saExpansionCards: SprintCard[] = [
     icon: Flag,
     accent: "from-emerald-500 to-yellow-500",
     items: [
-      { title: "EskomSePush integration --> load-shedding-aware delivery autopilot", detail: "Pull schedule per delivery address, flag affected slots on kitchen + driver portals, suggest generator hire as billable line, auto-WhatsApp client on swap. Number-one SA operational risk turned into a service guarantee.", status: "todo" },
+      { title: "EskomSePush integration ->load-shedding-aware delivery autopilot", detail: "Pull schedule per delivery address, flag affected slots on kitchen + driver portals, suggest generator hire as billable line, auto-WhatsApp client on swap. Number-one SA operational risk turned into a service guarantee.", status: "todo" },
       { title: "WhatsApp-first quote bot", detail: "Extend existing WhatsApp framework into structured chat that drops into the lead pipeline + returns PayFast deposit link in-thread. Township + spit-braai + mass-event segments live in WhatsApp.", status: "todo" },
       { title: "Cash-on-delivery + SnapScan + Yoco + Zapper alongside PayFast", detail: "Township and informal-event buyers don't card. Driver portal reconciles cash workflow with photo-of-handover audit trail.", status: "todo" },
       { title: "BBBEE level + Black Ownership % auto-render on every quote PDF + /bbbee public page", detail: "Required on every corporate / mining / government tender. EME / QSE / Generic via sworn affidavit or full cert.", status: "todo" },
@@ -783,7 +783,7 @@ const ukExpansionCards: SprintCard[] = [
     icon: Flag,
     accent: "from-blue-500 to-red-500",
     items: [
-      { title: "Natasha's Law PPDS label generator (the lead-magnet)", detail: "Recipe --> PDF/Zebra label with full ingredient list + 14 allergens emphasised, batch-print per production run. Replaces a £200/month bolt-on (Erudus / Nutritics). Could be the single biggest UK launch hook.", status: "todo" },
+      { title: "Natasha's Law PPDS label generator (the lead-magnet)", detail: "Recipe ->PDF/Zebra label with full ingredient list + 14 allergens emphasised, batch-print per production run. Replaces a £200/month bolt-on (Erudus / Nutritics). Could be the single biggest UK launch hook.", status: "todo" },
       { title: "FSA Food Hygiene Rating widget", detail: "Nightly pull from ratings.food.gov.uk, embed on tenant site + quote PDF, alert on rating change. Wales mandates display by law; Scotland uses FHIS variant.", status: "todo" },
       { title: "Calorie labelling for 250+ staff client orders (April 2022 law)", detail: "kcal stored at recipe level, auto-display on menus + quote PDFs above configurable client-size threshold.", status: "todo" },
       { title: "Postcode-zone delivery + bike-courier API integration", detail: "Stuart, Pedal Me, Gophr APIs. London corporate caterers price per zone (Z1/Z2/Z3/M25), bike couriers handle sub-30-min office drops.", status: "todo" },
@@ -822,7 +822,7 @@ const wowFactorCards: SprintCard[] = [
     icon: Award,
     accent: "from-purple-500 to-pink-500",
     items: [
-      { title: "AI roster-driven menu auto-balancing (extends U6)", detail: "Take 47 employees' dietary profiles --> existing AI recipe engine composes Tuesday's menu mix that hits kosher + halal + vegan + gluten-free + top-9 allergen exclusions automatically, zero manual planner input. Forkable does individual meals, group-menu balancing is a global gap.", status: "todo" },
+      { title: "AI roster-driven menu auto-balancing (extends U6)", detail: "Take 47 employees' dietary profiles ->existing AI recipe engine composes Tuesday's menu mix that hits kosher + halal + vegan + gluten-free + top-9 allergen exclusions automatically, zero manual planner input. Forkable does individual meals, group-menu balancing is a global gap.", status: "todo" },
       { title: "Real-time HACCP cold-chain dashboard for buyers", detail: "Pipe existing GPS + temp probes (hot-bag / cold-bag) into a public link the corporate facilities manager / venue operator watches live: '200-pax lunch is 12 mins out, hot-hold 64C, cold-hold 3C, allergen sheet attached'. Stadium, school, hospital, NHS buyers will pay extra. Zero competitors surface this to the buyer.", status: "todo" },
       { title: "Verified-Caterer marketplace directory at /za/find, /uk/find, /us/find", detail: "Public-facing tenant directory surfacing tenants with valid certs in the vault (U2). Filter by region / dietary / pax / date availability. CateringMS becomes the trust layer for the whole market, demand-gen for the SaaS, network effect, competitor-free space.", status: "todo" },
     ],
@@ -925,7 +925,7 @@ const productNotesCards: SprintCard[] = [
   },
   {
     id: "ai-receipt-scanning",
-    title: "AI receipt + slip scanning --> inventory",
+    title: "AI receipt + slip scanning ->inventory",
     why: "Shopping staff come back from a run with a pile of slips. Manual entry is slow, error-prone, and doesn't happen. AI scanning (like Adobe Scan) pulls line items, quantities, and prices directly into inventory with a manual override step. Eliminates the biggest data-entry bottleneck in the shopping workflow.",
     estimate: "2-3 weeks",
     risk: "Medium",
@@ -1681,7 +1681,7 @@ function AdminRunningTodoPage() {
       <NoIndexMeta />
       <PlatformNav />
       <main className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 via-white to-purple-50 lg:pl-64 xl:pl-72 pt-16 lg:pt-0">
-        <div className="px-3 sm:px-4 md:px-6 pt-20 lg:pt-6 pb-8 max-w-screen-2xl">
+        <div className="px-3 sm:px-4 md:px-6 pt-20 lg:pt-6 pb-8 max-w-full">
           <div className="mb-6">
             <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent flex items-center gap-3">
               <ListChecks className="h-7 w-7 text-purple-600" />

@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/router";
@@ -34,7 +34,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 
 // We treat every company row as a subscription record. This works whether the
-// company is on a free trial, an active paid plan, or cancelled — the source
+// company is on a free trial, an active paid plan, or cancelled - the source
 // of truth is companies.subscription_status / subscription_plan, not a
 // separate subscriptions table (which is optional and currently empty).
 type CompanySubscription = {
@@ -313,7 +313,7 @@ function PlatformSubscriptionManagement() {
     <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 via-white to-slate-50 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
       <PlatformNav />
       <Head>
-        <title>Subscription Management - CateringMS Platform</title>
+        <title>Subscription Management - CateringMS</title>
         <meta name="robots" content="noindex, nofollow" />
       </Head>
 

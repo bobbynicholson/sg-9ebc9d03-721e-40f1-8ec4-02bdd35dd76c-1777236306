@@ -276,7 +276,7 @@ function AuditLogsViewer() {
   return (
     <>
       <Head>
-        <title>Audit logs · Skylight</title>
+        <title>Platform audit logs - CateringMS</title>
       </Head>
       <NoIndexMeta />
       <PlatformNav />

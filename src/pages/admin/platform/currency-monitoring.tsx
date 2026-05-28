@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import Head from "next/head";
 import { PlatformNav } from "@/components/admin/PlatformNav";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -160,7 +160,7 @@ function PlatformCurrencyMonitoringPage() {
     <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 p-4 md:p-8 lg:pl-72 xl:pl-80 pt-20 lg:pt-8">
       <PlatformNav />
       <Head>
-        <title>Currency Monitoring - CateringMS Platform</title>
+        <title>Currency Monitoring - CateringMS</title>
         <meta name="robots" content="noindex, nofollow" />
       </Head>
 
@@ -222,7 +222,7 @@ function PlatformCurrencyMonitoringPage() {
                 <div>
                   <div className="text-3xl font-bold text-slate-900 dark:text-white">
                     {/* Wave 24: prefix with the explicit code so the
-                        platform-internal forex view is unambiguous --
+                        platform-internal forex view is unambiguous;
                         "R 18.45" looked like a tenant-side amount.
                         These rows ARE always ZAR (USD->ZAR rate
                         tracking) so we hardcode the code. */}

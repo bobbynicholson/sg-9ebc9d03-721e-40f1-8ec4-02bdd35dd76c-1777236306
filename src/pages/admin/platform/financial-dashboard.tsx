@@ -98,12 +98,12 @@ function PlatformFinancialDashboard() {
   return (
     <>
       <Head>
-        <title>Platform Financial Dashboard | CateringMS</title>
+        <title>Platform financial dashboard - CateringMS</title>
         <meta name="robots" content="noindex, nofollow" />
       </Head>
       <PlatformNav />
       <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 via-amber-50 to-orange-50 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
-        <div className="px-4 py-8 max-w-screen-2xl mx-auto">
+        <div className="px-4 py-8 max-w-full">
 
           {/* Header */}
           <div className="mb-6 flex items-center justify-between flex-wrap gap-3">
@@ -235,13 +235,13 @@ function CompaniesSortableTable({ companies }: { companies: CompanyRow[] }) {
                             <td className="py-2 px-3 text-slate-600">
                               {c.trial_ends_at
                                 ? new Date(c.trial_ends_at).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })
-                                : "—"}
+                                : "-"}
                             </td>
-                            <td className="py-2 px-3 text-slate-600">{c.currency || "—"}</td>
+                            <td className="py-2 px-3 text-slate-600">{c.currency || "-"}</td>
                             <td className="py-2 px-3 text-slate-500">
                               {c.created_at
                                 ? new Date(c.created_at).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })
-                                : "—"}
+                                : "-"}
                             </td>
                           </tr>
                         );
