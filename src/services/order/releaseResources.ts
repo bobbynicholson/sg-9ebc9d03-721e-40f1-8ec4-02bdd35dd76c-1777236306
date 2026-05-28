@@ -510,6 +510,59 @@ export async function releaseOrderResources(opts: ReleaseOpts): Promise<ReleaseR
     lines.push({ resource: "leads.linked_lost", action: "skipped (mode!=cancel)" });
   }
 
+  // ── 12b. order_amendment_requests (TIGHTEN I.23) ───────────────────
+  // Audit gap: pending amendment requests for this order survived a
+  // cancel, leaving rows that the dashboard "N pending amendment"
+  // chip kept counting forever. Once the order is cancelled the
+  // amendment is moot - no kitchen, no event, nothing to amend.
+  // Filter on status='pending' so a more-specific status set by the
+  // amendment-review flow (approved / rejected / auto_rejected_late /
+  // cancelled_by_client) wins.
+  if (mode === "cancel" || mode === "reject") {
+    await tryUpdate("order_amendment_requests", "rejected", async () => {
+      const { count, error } = await sb
+        .from("order_amendment_requests")
+        .update({
+          status: "rejected",
+          reviewed_at: nowIso,
+          review_notes: mode === "reject"
+            ? "Quote rejected - amendment moot"
+            : "Order cancelled - amendment moot",
+        }, { count: "exact" })
+        .eq("order_id", orderId)
+        .eq("status", "pending");
+      return { error, count };
+    });
+  } else {
+    lines.push({ resource: "order_amendment_requests", action: "skipped (mode!=cancel/reject)" });
+  }
+
+  // ── 12c. cancellation_requests (TIGHTEN I.23) ──────────────────────
+  // Audit gap: when a cancel is fired directly (not via the
+  // cancellation-review approval path), any earlier pending client-
+  // initiated cancellation request stayed 'pending' forever. The
+  // dashboard "N pending cancellation" chip kept counting it. Set to
+  // 'approved' since the cancellation has now happened.
+  // Filter on status='pending' so the proper review flow's explicit
+  // 'approved' / 'rejected' write isn't double-stamped.
+  if (mode === "cancel") {
+    await tryUpdate("cancellation_requests", "approved", async () => {
+      const { count, error } = await sb
+        .from("cancellation_requests")
+        .update({
+          status: "approved",
+          reviewed_at: nowIso,
+          review_notes: "Order cancelled by admin",
+          applied_at: nowIso,
+        }, { count: "exact" })
+        .eq("order_id", orderId)
+        .eq("status", "pending");
+      return { error, count };
+    });
+  } else {
+    lines.push({ resource: "cancellation_requests", action: "skipped (mode!=cancel)" });
+  }
+
   // ── 13. shopping_list_items soft-remove (Wave 70.51a) ──────────────
   // Audit gap (Tier 1 #2 in the cascade audit): shopping list items
   // pushed into a list were the highest perishable-waste leak after
