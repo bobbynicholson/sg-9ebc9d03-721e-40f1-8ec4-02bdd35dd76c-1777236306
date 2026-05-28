@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Sparkles, ArrowRight, Mail, Phone } from "lucide-react";
 import { useTenantHref } from "@/lib/tenantUrl";
+import { useReportWidgetError } from "@/components/dashboard/WidgetErrorBoundary";
 
 interface FreshLead {
   id: string;
@@ -41,6 +42,7 @@ const hoursAgo = (iso: string | null): number => {
 
 export function NewLeadsTodayWidget({ companyId }: { companyId: string | null }) {
   const { withSlug } = useTenantHref();
+  const { reportError, retryNonce } = useReportWidgetError();
   const [rows, setRows] = useState<FreshLead[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -59,18 +61,23 @@ export function NewLeadsTodayWidget({ companyId }: { companyId: string | null })
           .gte("created_at", since)
           .order("created_at", { ascending: false })
           .limit(5);
-        if (error) {
-          console.error("[NewLeadsTodayWidget] leads fetch failed:", error);
+        if (error) throw error;
+        if (!cancelled) {
+          setRows(((data || []) as FreshLead[]));
+          reportError(null);
         }
-        if (!cancelled) setRows(((data || []) as FreshLead[]));
-      } catch {
-        if (!cancelled) setRows([]);
+      } catch (e: any) {
+        if (!cancelled) {
+          setRows([]);
+          reportError(e?.message || "Could not load fresh leads");
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
     })();
     return () => { cancelled = true; };
-  }, [companyId]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyId, retryNonce]);
 
   if (!companyId) return null;
   if (!loading && rows.length === 0) return null;

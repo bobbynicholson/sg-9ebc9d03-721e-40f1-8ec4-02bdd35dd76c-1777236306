@@ -15,6 +15,7 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { CheckCircle, AlertCircle, Clock } from "lucide-react";
+import { useReportWidgetError } from "@/components/dashboard/WidgetErrorBoundary";
 
 interface OrderRow {
   event_date: string | null;
@@ -53,6 +54,7 @@ const median = (nums: number[]): number => {
 };
 
 export function DeliverySlaWidget({ companyId }: { companyId: string | null }) {
+  const { reportError, retryNonce } = useReportWidgetError();
   const [rows, setRows] = useState<OrderRow[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -70,18 +72,23 @@ export function DeliverySlaWidget({ companyId }: { companyId: string | null }) {
           .in("status", ["delivered", "completed"])
           .gte("event_date", sinceIso)
           .limit(2000);
-        if (error) {
-          console.error("[DeliverySlaWidget] orders fetch failed:", error);
+        if (error) throw error;
+        if (!cancelled) {
+          setRows((data || []) as OrderRow[]);
+          reportError(null);
         }
-        if (!cancelled) setRows((data || []) as OrderRow[]);
-      } catch {
-        if (!cancelled) setRows([]);
+      } catch (e: any) {
+        if (!cancelled) {
+          setRows([]);
+          reportError(e?.message || "Could not load delivery SLA");
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
     })();
     return () => { cancelled = true; };
-  }, [companyId]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyId, retryNonce]);
 
   const stats = useMemo<Stats>(() => {
     let onTime = 0;

@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { CalendarClock, ArrowRight, AlertCircle } from "lucide-react";
 import { useTenantHref } from "@/lib/tenantUrl";
+import { useReportWidgetError } from "@/components/dashboard/WidgetErrorBoundary";
 
 interface BatchRow {
   id: string;
@@ -46,6 +47,7 @@ const WINDOW_DAYS = 14;
 
 export function InventoryExpiryWidget({ companyId }: { companyId: string | null }) {
   const { withSlug } = useTenantHref();
+  const { reportError, retryNonce } = useReportWidgetError();
   const [batches, setBatches] = useState<BatchRow[]>([]);
   const [items, setItems] = useState<Record<string, ItemLite>>({});
   const [loading, setLoading] = useState(true);
@@ -66,9 +68,7 @@ export function InventoryExpiryWidget({ companyId }: { companyId: string | null 
           .lte("expiry_date", horizonIso)
           .order("expiry_date", { ascending: true })
           .limit(50);
-        if (batchError) {
-          console.error("[InventoryExpiryWidget] inventory_batches fetch failed:", batchError);
-        }
+        if (batchError) throw batchError;
         if (cancelled) return;
         const rows = (batchData || []) as BatchRow[];
         setBatches(rows);
@@ -79,25 +79,26 @@ export function InventoryExpiryWidget({ companyId }: { companyId: string | null 
             .from("inventory_items")
             .select("id, item_name, unit_of_measure")
             .in("id", itemIds);
-          if (itemError) {
-            console.error("[InventoryExpiryWidget] inventory_items fetch failed:", itemError);
-          }
+          if (itemError) throw itemError;
           if (cancelled) return;
           const map: Record<string, ItemLite> = {};
           for (const i of (itemData || []) as ItemLite[]) map[i.id] = i;
           setItems(map);
         }
-      } catch {
+        if (!cancelled) reportError(null);
+      } catch (e: any) {
         if (!cancelled) {
           setBatches([]);
           setItems({});
+          reportError(e?.message || "Could not load inventory expiry");
         }
       } finally {
         if (!cancelled) setLoading(false);
       }
     })();
     return () => { cancelled = true; };
-  }, [companyId]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyId, retryNonce]);
 
   const entries = useMemo<Entry[]>(() => {
     const today = new Date();

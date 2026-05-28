@@ -17,6 +17,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Package, ArrowUp, ArrowDown, ArrowRight } from "lucide-react";
+import { useReportWidgetError } from "@/components/dashboard/WidgetErrorBoundary";
 
 interface TxRow {
   id: string;
@@ -41,6 +42,7 @@ const fmtRelative = (iso: string | null): string => {
 };
 
 export function RecentInventoryAdjustsWidget({ companyId }: { companyId: string | null }) {
+  const { reportError, retryNonce } = useReportWidgetError();
   const [rows, setRows] = useState<TxRow[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -60,18 +62,23 @@ export function RecentInventoryAdjustsWidget({ companyId }: { companyId: string 
           .gte("created_at", since)
           .order("created_at", { ascending: false })
           .limit(5);
-        if (error) {
-          console.error("[RecentInventoryAdjustsWidget] inventory_transactions fetch failed:", error);
+        if (error) throw error;
+        if (!cancelled) {
+          setRows((data || []) as TxRow[]);
+          reportError(null);
         }
-        if (!cancelled) setRows((data || []) as TxRow[]);
-      } catch {
-        if (!cancelled) setRows([]);
+      } catch (e: any) {
+        if (!cancelled) {
+          setRows([]);
+          reportError(e?.message || "Could not load inventory movements");
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
     })();
     return () => { cancelled = true; };
-  }, [companyId]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyId, retryNonce]);
 
   if (!companyId) return null;
   if (!loading && rows.length === 0) return null;

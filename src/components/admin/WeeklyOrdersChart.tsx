@@ -15,6 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { BarChart3 } from "lucide-react";
 import { toLocalISO } from "@/lib/localDate";
+import { useReportWidgetError } from "@/components/dashboard/WidgetErrorBoundary";
 
 interface OrderRow {
   event_date: string | null;
@@ -32,6 +33,7 @@ interface DayBucket {
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 export function WeeklyOrdersChart({ companyId }: { companyId: string | null }) {
+  const { reportError, retryNonce } = useReportWidgetError();
   const [rows, setRows] = useState<OrderRow[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -59,18 +61,23 @@ export function WeeklyOrdersChart({ companyId }: { companyId: string | null }) {
           .gte("event_date", startIso)
           .lte("event_date", endIso)
           .limit(2000);
-        if (error) {
-          console.error("[WeeklyOrdersChart] orders fetch failed:", error);
+        if (error) throw error;
+        if (!cancelled) {
+          setRows((data || []) as OrderRow[]);
+          reportError(null);
         }
-        if (!cancelled) setRows((data || []) as OrderRow[]);
-      } catch {
-        if (!cancelled) setRows([]);
+      } catch (e: any) {
+        if (!cancelled) {
+          setRows([]);
+          reportError(e?.message || "Could not load order load chart");
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
     })();
     return () => { cancelled = true; };
-  }, [companyId]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyId, retryNonce]);
 
   const buckets = useMemo<DayBucket[]>(() => {
     const today = new Date();

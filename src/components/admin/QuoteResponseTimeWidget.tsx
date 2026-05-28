@@ -20,6 +20,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Eye, CheckCircle, ArrowRight } from "lucide-react";
 import { useTenantHref } from "@/lib/tenantUrl";
+import { useReportWidgetError } from "@/components/dashboard/WidgetErrorBoundary";
 
 interface Row {
   sent_at: string | null;
@@ -37,7 +38,7 @@ const median = (nums: number[]): number => {
 };
 
 const fmtHours = (h: number): string => {
-  if (h <= 0) return "—";
+  if (h <= 0) return "-";
   if (h < 1) return `${Math.round(h * 60)}m`;
   if (h < 48) return `${h.toFixed(1)}h`;
   return `${(h / 24).toFixed(1)}d`;
@@ -45,6 +46,7 @@ const fmtHours = (h: number): string => {
 
 export function QuoteResponseTimeWidget({ companyId }: { companyId: string | null }) {
   const { withSlug } = useTenantHref();
+  const { reportError, retryNonce } = useReportWidgetError();
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -62,18 +64,23 @@ export function QuoteResponseTimeWidget({ companyId }: { companyId: string | nul
           .gte("sent_at", since)
           .not("sent_at", "is", null)
           .limit(2000);
-        if (error) {
-          console.error("[QuoteResponseTimeWidget] quotes fetch failed:", error);
+        if (error) throw error;
+        if (!cancelled) {
+          setRows((data || []) as Row[]);
+          reportError(null);
         }
-        if (!cancelled) setRows((data || []) as Row[]);
-      } catch {
-        if (!cancelled) setRows([]);
+      } catch (e: any) {
+        if (!cancelled) {
+          setRows([]);
+          reportError(e?.message || "Could not load quote response time");
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
     })();
     return () => { cancelled = true; };
-  }, [companyId]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyId, retryNonce]);
 
   const stats = useMemo(() => {
     const viewDeltas: number[] = [];

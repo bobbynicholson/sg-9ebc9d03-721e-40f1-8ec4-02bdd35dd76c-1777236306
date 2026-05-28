@@ -33,6 +33,7 @@ import {
 import { toLocalISO } from "@/lib/localDate";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { useToast } from "@/hooks/use-toast";
+import { useReportWidgetError } from "@/components/dashboard/WidgetErrorBoundary";
 
 interface OrderRow {
   id: string;
@@ -50,6 +51,7 @@ const fmtTime = (t: string | null): string => (t ? t.slice(0, 5) : "TBC");
 export function TomorrowsEventsWidget({ companyId }: { companyId: string | null }) {
   const { withSlug } = useTenantHref();
   const { toast } = useToast();
+  const { reportError, retryNonce } = useReportWidgetError();
   const [rows, setRows] = useState<OrderRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [previewingId, setPreviewingId] = useState<string | null>(null);
@@ -79,21 +81,25 @@ export function TomorrowsEventsWidget({ companyId }: { companyId: string | null 
           .eq("event_date", tomorrowIso)
           .order("event_time", { ascending: true })
           .limit(8);
-        if (error) {
-          console.error("[TomorrowsEventsWidget] orders fetch failed:", error);
+        if (error) throw error;
+        if (!cancelled) {
+          setRows((data || []) as OrderRow[]);
+          reportError(null);
         }
-        if (!cancelled) setRows((data || []) as OrderRow[]);
-      } catch {
-        if (!cancelled) setRows([]);
+      } catch (e: any) {
+        if (!cancelled) {
+          setRows([]);
+          reportError(e?.message || "Could not load tomorrow's events");
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
     })();
     return () => { cancelled = true; };
   // tomorrowIso is derived from `new Date()` so re-evaluating each
-  // render is fine; the dep we actually care about is companyId.
+  // render is fine; the dep we actually care about is companyId + retryNonce.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [companyId]);
+  }, [companyId, retryNonce]);
 
   // View-as-client: mint a fresh token via the SECURITY DEFINER RPC
   // and pop the client-facing view in a new tab. Same path the

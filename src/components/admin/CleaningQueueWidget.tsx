@@ -24,6 +24,7 @@ import {
   type CleaningJobWithEquipment,
   type CleaningMethod,
 } from "@/services/cleaningJobsService";
+import { useReportWidgetError } from "@/components/dashboard/WidgetErrorBoundary";
 
 const METHOD_TONE: Record<CleaningMethod, { label: string; chip: string; icon: any }> = {
   dishwasher: {
@@ -56,6 +57,7 @@ function formatEta(plannedEnd: string): string {
 }
 
 export function CleaningQueueWidget({ companyId }: { companyId: string | null }) {
+  const { reportError, retryNonce } = useReportWidgetError();
   const [rows, setRows] = useState<CleaningJobWithEquipment[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -67,15 +69,22 @@ export function CleaningQueueWidget({ companyId }: { companyId: string | null })
         const data = await listActiveJobs(supabase as any, companyId);
         // Cap at 5 to keep the widget compact - the full queue lives
         // on the cleaning dashboard.
-        if (!cancelled) setRows(data.slice(0, 5));
-      } catch {
-        if (!cancelled) setRows([]);
+        if (!cancelled) {
+          setRows(data.slice(0, 5));
+          reportError(null);
+        }
+      } catch (e: any) {
+        if (!cancelled) {
+          setRows([]);
+          reportError(e?.message || "Could not load cleaning queue");
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
     })();
     return () => { cancelled = true; };
-  }, [companyId]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyId, retryNonce]);
 
   if (!companyId) return null;
   if (!loading && rows.length === 0) return null;

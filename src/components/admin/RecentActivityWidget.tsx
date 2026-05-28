@@ -18,6 +18,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollText, ArrowRight } from "lucide-react";
 import { useTenantHref } from "@/lib/tenantUrl";
+import { staffOrderHref } from "@/lib/orderUrls";
+import { useReportWidgetError } from "@/components/dashboard/WidgetErrorBoundary";
 
 interface AuditRow {
   id: string;
@@ -47,7 +49,7 @@ const fmtRelative = (iso: string): string => {
 const entityHref = (entityType: string, entityId: string | null): string | null => {
   if (!entityId) return null;
   switch (entityType) {
-    case "order": return `/order/${entityId}`;
+    case "order": return staffOrderHref(entityId, "admin");
     case "quote": return `/admin/quotes?quoteId=${entityId}`;
     case "invoice": return `/admin/invoices?invoiceId=${entityId}`;
     case "driver_shift": return `/admin/driver-settlement`;
@@ -57,6 +59,7 @@ const entityHref = (entityType: string, entityId: string | null): string | null 
 
 export function RecentActivityWidget({ companyId }: { companyId: string | null }) {
   const { withSlug } = useTenantHref();
+  const { reportError, retryNonce } = useReportWidgetError();
   const [rows, setRows] = useState<AuditRow[]>([]);
   const [profileMap, setProfileMap] = useState<Record<string, ProfileLite>>({});
   const [loading, setLoading] = useState(true);
@@ -72,9 +75,7 @@ export function RecentActivityWidget({ companyId }: { companyId: string | null }
           .eq("company_id", companyId)
           .order("created_at", { ascending: false })
           .limit(8);
-        if (error) {
-          console.error("[RecentActivityWidget] audit_logs fetch failed:", error);
-        }
+        if (error) throw error;
         if (cancelled) return;
         const list = (data || []) as AuditRow[];
         setRows(list);
@@ -84,22 +85,25 @@ export function RecentActivityWidget({ companyId }: { companyId: string | null }
             .from("profiles")
             .select("id, full_name, email")
             .in("id", userIds);
-          if (profilesError) {
-            console.error("[RecentActivityWidget] profiles fetch failed:", profilesError);
-          }
+          if (profilesError) throw profilesError;
           if (cancelled) return;
           const map: Record<string, ProfileLite> = {};
           for (const p of (profiles || []) as ProfileLite[]) map[p.id] = p;
           setProfileMap(map);
         }
-      } catch {
-        if (!cancelled) setRows([]);
+        if (!cancelled) reportError(null);
+      } catch (e: any) {
+        if (!cancelled) {
+          setRows([]);
+          reportError(e?.message || "Could not load recent activity");
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
     })();
     return () => { cancelled = true; };
-  }, [companyId]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyId, retryNonce]);
 
   if (!companyId) return null;
   if (!loading && rows.length === 0) return null;

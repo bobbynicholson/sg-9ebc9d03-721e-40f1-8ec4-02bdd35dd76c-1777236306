@@ -19,6 +19,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Wrench, Truck, ArrowRight, AlertCircle } from "lucide-react";
 import { useTenantHref } from "@/lib/tenantUrl";
+import { useReportWidgetError } from "@/components/dashboard/WidgetErrorBoundary";
 
 interface VehicleRow {
   id: string;
@@ -33,6 +34,7 @@ const HORIZON_DAYS = 30;
 
 export function VehicleServiceDueWidget({ companyId }: { companyId: string | null }) {
   const { withSlug } = useTenantHref();
+  const { reportError, retryNonce } = useReportWidgetError();
   const [rows, setRows] = useState<VehicleRow[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -53,18 +55,23 @@ export function VehicleServiceDueWidget({ companyId }: { companyId: string | nul
           .lte("next_service_due", horizon)
           .order("next_service_due", { ascending: true })
           .limit(5);
-        if (error) {
-          console.error("[VehicleServiceDueWidget] vehicles fetch failed:", error);
+        if (error) throw error;
+        if (!cancelled) {
+          setRows((data || []) as VehicleRow[]);
+          reportError(null);
         }
-        if (!cancelled) setRows((data || []) as VehicleRow[]);
-      } catch {
-        if (!cancelled) setRows([]);
+      } catch (e: any) {
+        if (!cancelled) {
+          setRows([]);
+          reportError(e?.message || "Could not load fleet service due");
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
     })();
     return () => { cancelled = true; };
-  }, [companyId]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyId, retryNonce]);
 
   if (!companyId) return null;
   if (!loading && rows.length === 0) return null;
