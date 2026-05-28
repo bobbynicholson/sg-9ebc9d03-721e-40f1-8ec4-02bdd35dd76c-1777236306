@@ -330,7 +330,7 @@ function CompanyProfilePage() {
     return (
       <>
         <NoIndexMeta />
-        <Head><title>Company Profile - CateringMS</title></Head>
+        <Head><title>Company profile - CateringMS</title></Head>
         <AdminNav />
         <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80 flex items-center justify-center">
           <Loader2 className="w-8 h-8 animate-spin text-slate-400" />
@@ -342,7 +342,7 @@ function CompanyProfilePage() {
   return (
     <>
       <NoIndexMeta />
-      <Head><title>Company Profile - CateringMS</title></Head>
+      <Head><title>Company profile - CateringMS</title></Head>
       <AdminNav />
 
       <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">

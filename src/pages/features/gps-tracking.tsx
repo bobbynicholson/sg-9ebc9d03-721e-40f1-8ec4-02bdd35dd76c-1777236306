@@ -31,7 +31,7 @@ export default function GPSTrackingPage() {
   return (
     <>
       <Head>
-        <title>GPS Tracking for Real-Time Delivery - CateringMS</title>
+        <title>GPS tracking for real-time delivery - CateringMS</title>
         <meta name="description" content="Live GPS tracking for catering deliveries. Clients track their order in real-time, drivers share location automatically, and admin monitors all deliveries from one dashboard. Reduce tracking calls by 65%." />
         <meta name="keywords" content="GPS tracking catering, delivery tracking, real-time location, driver tracking, catering delivery management" />
         <link rel="canonical" href="https://cateringms.com/features/gps-tracking" />

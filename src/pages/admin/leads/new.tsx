@@ -224,7 +224,7 @@ export default function NewLead() {
       <NoIndexMeta />
       <Head>
         <meta name="robots" content="noindex, nofollow" />
-        <title>New Lead - CateringMS</title>
+        <title>New lead - CateringMS</title>
       </Head>
 
       <AdminNav />

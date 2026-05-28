@@ -281,7 +281,7 @@ function PaymentGatewaysPage() {
       <NoIndexMeta />
       <Head>
         <meta name="robots" content="noindex, nofollow" />
-        <title>Payment Gateways - CateringMS</title>
+        <title>Payment gateways - CateringMS</title>
       </Head>
 
       <AdminNav />

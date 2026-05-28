@@ -228,7 +228,7 @@ export default function MyOrders() {
     <>
       <NoIndexMeta />
       <Head>
-        <title>My Orders - CateringMS</title>
+        <title>My orders - CateringMS</title>
       </Head>
 
       <ClientNav />

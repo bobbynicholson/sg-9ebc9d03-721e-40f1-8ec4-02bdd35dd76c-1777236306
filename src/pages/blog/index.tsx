@@ -83,7 +83,7 @@ export default function BlogPage() {
   return (
     <>
       <Head>
-        <title>Catering Business Insights - CateringMS Blog</title>
+        <title>Catering business insights - CateringMS</title>
         <meta name="description" content="Expert insights on automation, profitability, and growth for catering businesses. Learn strategies to reduce costs, increase margins, and scale operations." />
         <meta name="keywords" content="catering business tips, catering automation, increase catering profits, catering operations, catering business growth" />
         <link rel="canonical" href="https://cateringms.com/blog" />

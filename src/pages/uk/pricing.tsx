@@ -18,7 +18,7 @@ export default function UKPricingPage() {
   return (
     <>
       <Head>
-        <title>UK Pricing - CateringMS Catering Management Software</title>
+        <title>UK pricing - CateringMS</title>
         <meta 
           name="description" 
           content="Affordable pricing for UK caterers. Plans from £128/month. 14-day free trial. No credit card required."

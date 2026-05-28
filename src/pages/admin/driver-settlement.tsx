@@ -686,7 +686,7 @@ function DriverSettlementPage() {
   return (
     <>
       <NoIndexMeta />
-      <Head><title>Driver Settlement - CateringMS</title></Head>
+      <Head><title>Driver settlement - CateringMS</title></Head>
       <AdminNav />
 
       <div className="min-h-screen bg-slate-50 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">

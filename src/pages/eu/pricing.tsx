@@ -14,7 +14,7 @@ export default function EUPricingPage() {
   return (
     <>
       <Head>
-        <title>European Pricing - CateringMS Catering Management Software</title>
+        <title>European pricing - CateringMS</title>
         <meta
           name="description"
           content="Affordable pricing for European caterers. EUR billing. 14-day free trial. No credit card required."

@@ -161,7 +161,7 @@ export default function ContactPage() {
   return (
     <>
       <Head>
-        <title>Contact Us - CateringMS Catering Management Software</title>
+        <title>Contact us - CateringMS</title>
         <meta name="description" content="Get in touch with CateringMS support team. Email, phone, or visit us. We're here to help you succeed with your catering business. Response within 24 hours guaranteed." />
         <meta name="keywords" content="contact cateringms, catering software support, get help, customer service" />
         <link rel="canonical" href="https://cateringms.com/contact" />

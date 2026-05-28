@@ -366,7 +366,7 @@ function RoutePlanningInner() {
     <>
       <NoIndexMeta />
       <Head>
-        <title>Route Planning - CateringMS</title>
+        <title>Route planning - CateringMS</title>
       </Head>
 
       <AdminNav />

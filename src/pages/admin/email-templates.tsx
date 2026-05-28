@@ -68,7 +68,7 @@ function LifecycleEmailsPage() {
     <>
       <NoIndexMeta />
       <Head>
-        <title>Lifecycle Emails - CateringMS</title>
+        <title>Lifecycle emails - CateringMS</title>
       </Head>
 
       <AdminNav />

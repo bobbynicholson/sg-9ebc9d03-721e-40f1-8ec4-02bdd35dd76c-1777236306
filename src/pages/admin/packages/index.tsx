@@ -189,7 +189,7 @@ function PackagesPage() {
 
   return (
     <>
-      <Head><title>Booking Packages - CateringMS</title></Head>
+      <Head><title>Booking packages - CateringMS</title></Head>
       <NoIndexMeta />
       <AdminNav />
       <div className="min-h-screen bg-slate-50 lg:pl-72 xl:pl-80">
