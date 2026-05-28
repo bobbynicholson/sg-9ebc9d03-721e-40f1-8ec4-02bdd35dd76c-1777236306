@@ -1676,7 +1676,7 @@ function AdminRunningTodoPage() {
   return (
     <>
       <Head>
-        <title>Running Todo - CateringMS</title>
+        <title>Running todo - CateringMS</title>
       </Head>
       <NoIndexMeta />
       <PlatformNav />

@@ -551,7 +551,7 @@ function FinancialDashboardInner() {
   if (loadError && !metrics) {
     return (
       <>
-        <Head><title>Financial Dashboard - CateringMS</title></Head>
+        <Head><title>Financial dashboard - CateringMS</title></Head>
         <NoIndexMeta />
         <AdminNav />
         <div className="min-h-screen bg-gradient-to-br from-slate-50 to-rose-50 p-4 md:p-8 lg:pl-72 xl:pl-80">
@@ -587,7 +587,7 @@ function FinancialDashboardInner() {
   if (isFinancialZero && !loading) {
     return (
       <>
-        <Head><title>Financial Dashboard - CateringMS</title></Head>
+        <Head><title>Financial dashboard - CateringMS</title></Head>
         <NoIndexMeta />
         <AdminNav />
         <div className="min-h-screen bg-gradient-to-br from-slate-50 to-emerald-50 p-4 md:p-8 lg:pl-72 xl:pl-80">
@@ -617,7 +617,7 @@ function FinancialDashboardInner() {
   return (
     <>
       <Head>
-        <title>Financial Dashboard - CateringMS</title>
+        <title>Financial dashboard - CateringMS</title>
       </Head>
       <NoIndexMeta />
 

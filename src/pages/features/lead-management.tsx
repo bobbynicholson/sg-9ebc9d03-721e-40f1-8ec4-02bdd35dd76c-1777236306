@@ -25,7 +25,7 @@ export default function LeadManagementPage() {
   return (
     <>
       <Head>
-        <title>Lead Management & Quote Generation - CateringMS</title>
+        <title>Lead management and quote generation - CateringMS</title>
         <meta name="description" content="Capture leads automatically, generate professional quotes in 60 seconds, and track conversion rates in real-time. Increase your quote-to-booking conversion by 2x with CateringMS." />
         <meta name="keywords" content="catering lead management, quote generation, lead tracking, sales pipeline, catering CRM" />
         <link rel="canonical" href="https://cateringms.com/features/lead-management" />

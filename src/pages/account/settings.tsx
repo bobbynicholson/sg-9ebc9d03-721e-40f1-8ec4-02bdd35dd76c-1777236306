@@ -394,7 +394,7 @@ function ProfileSettingsPage() {
     <>
       <NoIndexMeta />
       <Head>
-        <title>Account Settings - CateringMS</title>
+        <title>Account settings - CateringMS</title>
       </Head>
 
       <PortalLayout maxWidth="4xl">

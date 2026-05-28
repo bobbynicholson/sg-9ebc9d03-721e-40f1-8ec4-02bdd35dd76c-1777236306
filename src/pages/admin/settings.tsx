@@ -358,7 +358,7 @@ function SettingsPage() {
       <NoIndexMeta />
       <Head>
         <meta name="robots" content="noindex, nofollow" />
-        <title>System Settings - CateringMS</title>
+        <title>System settings - CateringMS</title>
       </Head>
       
       <AdminNav />

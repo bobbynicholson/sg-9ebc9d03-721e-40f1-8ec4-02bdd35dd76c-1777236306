@@ -122,7 +122,7 @@ export default function StaffJobProgress() {
     <>
       <NoIndexMeta />
       <Head>
-        <title>Job Progress - CateringMS</title>
+        <title>Job progress - CateringMS</title>
       </Head>
 
       {user && <DynamicNav userRole={user.role} />}

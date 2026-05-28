@@ -134,7 +134,7 @@ export default function PlatformSettingsPage() {
       <PlatformNav />
       <NoIndexMeta />
       <Head>
-        <title>Platform Settings - CateringMS</title>
+        <title>Platform settings - CateringMS</title>
       </Head>
 
       <div className="px-4 py-6 sm:py-8 max-w-3xl space-y-6">

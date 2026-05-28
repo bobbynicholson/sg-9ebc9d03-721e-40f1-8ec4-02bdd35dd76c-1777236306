@@ -362,7 +362,7 @@ function StaffHoursPage() {
       <NoIndexMeta />
       <Head>
         <meta name="robots" content="noindex, nofollow" />
-        <title>Time Clock Log - CateringMS</title>
+        <title>Time clock log - CateringMS</title>
       </Head>
 
       <AdminNav />

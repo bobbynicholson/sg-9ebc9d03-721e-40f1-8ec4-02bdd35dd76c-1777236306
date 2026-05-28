@@ -126,7 +126,7 @@ function TaxRulesAdmin() {
   return (
     <>
       <NoIndexMeta />
-      <Head><title>SA Tax Rules - CateringMS</title></Head>
+      <Head><title>SA tax rules - CateringMS</title></Head>
       <AdminNav />
 
       <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">

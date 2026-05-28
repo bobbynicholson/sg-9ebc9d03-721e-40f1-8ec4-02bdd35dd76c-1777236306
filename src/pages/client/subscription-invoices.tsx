@@ -111,7 +111,7 @@ function SubscriptionInvoicesPage() {
   return (
     <>
       <Head>
-        <title>My Subscriptions & Invoices</title>
+        <title>My subscriptions and invoices - CateringMS</title>
       </Head>
       <NoIndexMeta />
       <ClientNav />

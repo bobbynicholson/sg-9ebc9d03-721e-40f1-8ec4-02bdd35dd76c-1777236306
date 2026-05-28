@@ -67,7 +67,7 @@ export default function PrivacyPage() {
   return (
     <>
       <Head>
-        <title>Privacy Policy - CateringMS Catering Management Platform</title>
+        <title>Privacy policy - CateringMS</title>
         <meta name="description" content="Privacy Policy for CateringMS. Learn how we collect, use, protect, and manage your personal information in compliance with POPIA and international data protection laws." />
         <meta name="robots" content="index, follow" />
         <link rel="canonical" href="https://cateringms.com/privacy" />

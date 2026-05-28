@@ -313,7 +313,7 @@ function PlatformSubscriptionManagement() {
     <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 via-white to-slate-50 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
       <PlatformNav />
       <Head>
-        <title>Subscription Management - CateringMS</title>
+        <title>Subscription management - CateringMS</title>
         <meta name="robots" content="noindex, nofollow" />
       </Head>
 

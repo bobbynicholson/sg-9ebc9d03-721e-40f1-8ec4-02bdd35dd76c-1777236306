@@ -31,7 +31,7 @@ export default function EmailAutomationPage() {
   return (
     <>
       <Head>
-        <title>Email Automation & Follow-Ups - CateringMS</title>
+        <title>Email automation and follow-ups - CateringMS</title>
         <meta name="description" content="Automated email sequences for quote follow-ups, post-event reviews, and 12-month after-sales campaigns. Increase repeat bookings by 2x with smart email automation." />
         <meta name="keywords" content="email automation, quote follow-ups, after sales, email marketing, catering automation, client nurture" />
         <link rel="canonical" href="https://cateringms.com/features/email-automation" />

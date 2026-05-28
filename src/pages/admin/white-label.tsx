@@ -446,7 +446,7 @@ function WhiteLabelPage() {
       <NoIndexMeta />
       <Head>
         <meta name="robots" content="noindex, nofollow" />
-        <title>White Label Branding - CateringMS</title>
+        <title>White-label branding - CateringMS</title>
       </Head>
 
       <AdminNav />

@@ -222,7 +222,7 @@ export default function AdminEmbedFormsPage() {
   return (
     <>
       <NoIndexMeta />
-      <Head><title>Lead Capture Forms - CateringMS</title></Head>
+      <Head><title>Lead capture forms - CateringMS</title></Head>
       <AdminNav />
 
       <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 lg:pl-72 xl:pl-80">

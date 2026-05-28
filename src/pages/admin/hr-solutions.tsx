@@ -377,7 +377,7 @@ function AdminHRSolutions() {
     <>
       <NoIndexMeta />
       <Head>
-        <title>HR Solutions - CateringMS</title>
+        <title>HR solutions - CateringMS</title>
       </Head>
 
       <AdminNav />

@@ -397,7 +397,7 @@ function CashflowDashboardInner() {
   if (loadError && !metrics) {
     return (
       <>
-        <Head><title>Cashflow Dashboard - CateringMS</title></Head>
+        <Head><title>Cashflow dashboard - CateringMS</title></Head>
         <NoIndexMeta />
         <AdminNav />
         <div className="min-h-screen bg-gradient-to-br from-slate-50 to-rose-50 p-4 md:p-8 lg:pl-72 xl:pl-80">
@@ -416,7 +416,7 @@ function CashflowDashboardInner() {
   return (
     <>
       <Head>
-        <title>Cashflow Dashboard - CateringMS</title>
+        <title>Cashflow dashboard - CateringMS</title>
       </Head>
       <NoIndexMeta />
 

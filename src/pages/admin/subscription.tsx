@@ -297,7 +297,7 @@ function SubscriptionPage() {
       <NoIndexMeta />
       <Head>
         <meta name="robots" content="noindex, nofollow" />
-        <title>Subscription Management - CateringMS</title>
+        <title>Subscription management - CateringMS</title>
       </Head>
 
       <AdminNav />

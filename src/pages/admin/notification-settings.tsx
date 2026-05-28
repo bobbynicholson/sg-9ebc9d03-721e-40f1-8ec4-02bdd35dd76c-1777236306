@@ -229,7 +229,7 @@ export default function NotificationSettings() {
       <NoIndexMeta />
       <Head>
         <meta name="robots" content="noindex, nofollow" />
-        <title>Notification Settings - CateringMS</title>
+        <title>Notification settings - CateringMS</title>
       </Head>
 
       <AdminNav />

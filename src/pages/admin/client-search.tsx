@@ -165,7 +165,7 @@ function ClientSearchPage() {
       <NoIndexMeta />
       <Head>
         <meta name="robots" content="noindex, nofollow" />
-        <title>Client Search - CateringMS</title>
+        <title>Client search - CateringMS</title>
       </Head>
       
       <AdminNav />

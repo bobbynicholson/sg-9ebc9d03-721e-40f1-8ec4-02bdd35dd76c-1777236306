@@ -569,7 +569,7 @@ function AdminUsersPage() {
         <NoIndexMeta />
         <Head>
           <meta name="robots" content="noindex, nofollow" />
-          <title>User Management - CateringMS</title>
+          <title>User management - CateringMS</title>
         </Head>
         
         <AdminNav />
@@ -594,7 +594,7 @@ function AdminUsersPage() {
         <NoIndexMeta />
         <Head>
           <meta name="robots" content="noindex, nofollow" />
-          <title>User Management - CateringMS</title>
+          <title>User management - CateringMS</title>
         </Head>
         
         <AdminNav />
@@ -624,7 +624,7 @@ function AdminUsersPage() {
       <NoIndexMeta />
       <Head>
         <meta name="robots" content="noindex, nofollow" />
-        <title>User Management - CateringMS</title>
+        <title>User management - CateringMS</title>
       </Head>
       
       <AdminNav />

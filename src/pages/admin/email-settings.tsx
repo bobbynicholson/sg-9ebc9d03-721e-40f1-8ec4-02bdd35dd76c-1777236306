@@ -420,7 +420,7 @@ function EmailSettingsPage() {
   return (
     <>
       <NoIndexMeta />
-      <Head><title>Email Settings - CateringMS</title></Head>
+      <Head><title>Email settings - CateringMS</title></Head>
       <AdminNav />
 
       <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
