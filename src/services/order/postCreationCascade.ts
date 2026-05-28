@@ -54,6 +54,10 @@ export interface PostOrderCascadeOpts {
    *  auto-assignment step. The smoke-test runner and manual operator
    *  flows that want to pick a driver themselves should pass true. */
   skipAutoAssign?: boolean;
+  /** TIGHTEN I.24: opt out of the cleaning-handover anticipation row
+   *  Wave 70.24 added. Default off (handover IS created). Smoke tests
+   *  + flows that don't need the cleaning portal pre-warmed pass true. */
+  skipCleaning?: boolean;
 }
 
 export interface PostOrderCascadeReceipt {
@@ -77,6 +81,19 @@ export interface PostOrderCascadeReceipt {
     driverId?: string | null;
     driverName?: string | null;
     score?: number;
+    skipped?: boolean;
+    reason?: string;
+  };
+  // TIGHTEN I.24: cleaning_event_handover row created in 'expected'
+  // status so the cleaning portal gets the Wave 70.24 anticipation
+  // feature for orders born confirmed via the quote-accept RPC. Before
+  // this, only orders that hit updateOrderStatus(...,'confirmed') got
+  // the row; the canonical convert_quote_to_order path skipped it and
+  // cleaning teams only saw the order at delivered-time (markHandoverReturned
+  // back-fills as a defence).
+  cleaning?: {
+    ok: boolean;
+    handoverId?: string;
     skipped?: boolean;
     reason?: string;
   };
@@ -833,6 +850,59 @@ export async function postOrderCreationCascade(
     }
   } else {
     receipt.shopping = { ok: true, shortfalls: 0, skipped: true, reason: "skipped_by_caller" };
+  }
+
+  // ── Step 7.5: Cleaning handover anticipation (TIGHTEN I.24) ───────
+  // Wave 70.24 introduced cleaning_event_handovers so the cleaning
+  // portal can show "Brown lunch returns at 14:00, expect 80 items"
+  // instead of reacting once items physically arrive. The handover
+  // is created on updateOrderStatus(_, "confirmed"), but the canonical
+  // accept-quote path inserts via convert_quote_to_order RPC at
+  // status='confirmed' directly without going through updateOrderStatus.
+  // Result: every accepted-quote order skipped the anticipation row
+  // and cleaning teams only saw it when the driver dropped equipment.
+  //
+  // Fix: call createExpectedHandover here. Idempotent (the upsert
+  // hits unique constraint on company_id + order_id). Reads
+  // equipment_bookings for the item count, so MUST run after Step 4.
+  if (!opts.skipCleaning) {
+    try {
+      const { data: orderForCleaning, error: cleaningOrderErr } = await (client as any)
+        .from("orders")
+        .select("event_date, event_time, status")
+        .eq("id", orderId)
+        .is("deleted_at", null)
+        .maybeSingle();
+      if (cleaningOrderErr) {
+        console.warn("[postOrderCreationCascade] orders fetch for cleaning failed:", cleaningOrderErr);
+      }
+      const o = orderForCleaning as any;
+      if (!o) {
+        receipt.cleaning = { ok: false, skipped: true, reason: "order_not_found" };
+      } else if (o.status === "cancelled" || o.status === "completed") {
+        // Defensive: cancel/complete races shouldn't fire a fresh
+        // 'expected' row.
+        receipt.cleaning = { ok: false, skipped: true, reason: "order_terminal" };
+      } else {
+        const { createExpectedHandover } = await import("@/services/cleaningHandoverService");
+        const result = await createExpectedHandover(client as any, {
+          companyId,
+          orderId,
+          eventDate: o.event_date || null,
+          eventTime: o.event_time || null,
+        });
+        if (result.ok) {
+          receipt.cleaning = { ok: true, handoverId: result.handoverId };
+        } else {
+          receipt.cleaning = { ok: false, reason: result.error || "createExpectedHandover failed" };
+        }
+      }
+    } catch (e: any) {
+      receipt.cleaning = { ok: false, reason: e?.message || "cleaning step crashed" };
+      console.warn("[postOrderCreationCascade] cleaning step crashed:", { orderId, companyId, error: e });
+    }
+  } else {
+    receipt.cleaning = { ok: true, skipped: true, reason: "skipped_by_caller" };
   }
 
   // Phase 3 #4: persist the receipt onto the order so the admin
