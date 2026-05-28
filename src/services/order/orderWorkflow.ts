@@ -1236,14 +1236,22 @@ export async function pauseOrder(
     // 'paused', but neither was in the CHECK constraint - pause was
     // a no-op for years. CHECK extended in migration
     // 20260518720000.)
+    // TIGHTEN I.33: dropped the .in("trigger_event", ["aftersales",
+    // "pre_event"]) filter. Pre-fix only those two trigger events
+    // were paused; other auto-emails for this order (balance
+    // reminders, confirmation re-sends, anything scheduled future)
+    // kept firing while the order was paused, which contradicted the
+    // operator's "hold tight" intent. Cancel already pauses every
+    // queued auto-email for the order regardless of trigger_event;
+    // pause now mirrors that breadth but with the paused status so
+    // resume can restore them.
     void (async () => {
       try {
         await sb
           .from("outgoing_email_queue")
           .update({ status: "paused", paused_at: nowIso } as any)
           .eq("trigger_ref_id", orderId)
-          .eq("status", "queued")
-          .in("trigger_event", ["aftersales", "pre_event"]);
+          .eq("status", "queued");
       } catch (e) {
         console.warn("[pauseOrder] email queue pause failed:", e);
       }

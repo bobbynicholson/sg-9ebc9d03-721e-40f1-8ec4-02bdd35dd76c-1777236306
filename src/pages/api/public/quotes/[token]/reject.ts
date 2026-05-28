@@ -14,7 +14,7 @@
  *   {
  *     reason?: string,       // optional free-text client note
  *     lost_reason?: string,  // optional structured category (Wave 70.50b)
- *                            // defaults to 'no_response' if missing --
+ *                            // defaults to 'no_response' if missing;
  *                            // the most accurate default for an
  *                            // unprompted decline.
  *   }
