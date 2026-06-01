@@ -89,7 +89,13 @@ export function orderToIcs(order: OrderForIcs): string {
     order.internal_notes && `Internal: ${order.internal_notes}`,
   ].filter(Boolean).join("\n");
 
-  const uid = `${order.order_number || "order"}-${Date.now()}@cateringms`;
+  // TIGHTEN I.59 (2026-06-01): UID must be stable across
+  // re-downloads of the same order so the client's calendar app
+  // updates (rather than duplicates) the entry when the operator
+  // moves the event. Old format included Date.now() - every
+  // re-download was a fresh UID and the client accumulated
+  // duplicate calendar entries.
+  const uid = `order-${(order.order_number || "unknown").toLowerCase()}@cateringms`;
   const dtstamp = fmtIcsDate(new Date()) + "Z";
 
   return [

@@ -426,6 +426,42 @@ export async function propagateQuoteEditToOrder(
       } catch (e: any) {
         receipt.errors.push(`email_queue_restamp_crashed: ${e?.message || e}`);
       }
+      // TIGHTEN I.54-I.57: the four restamp gaps the I.52 audit
+      // surfaced. Each is best-effort - a single failing one doesn't
+      // block the rest of the cascade; the receipt collects errors.
+      try {
+        await _restampCleaningHandover(receipt.orderId!, quote);
+      } catch (e: any) {
+        receipt.errors.push(`cleaning_handover_restamp_crashed: ${e?.message || e}`);
+      }
+      try {
+        await _restampOutsourceAssignments(receipt.orderId!, quote);
+      } catch (e: any) {
+        receipt.errors.push(`outsource_restamp_crashed: ${e?.message || e}`);
+      }
+      try {
+        await _restampDeliveryVehicleBooking(receipt.orderId!, quote);
+      } catch (e: any) {
+        receipt.errors.push(`vehicle_booking_restamp_crashed: ${e?.message || e}`);
+      }
+      try {
+        await _restampAftersalesReminders(receipt.orderId!, quote);
+      } catch (e: any) {
+        receipt.errors.push(`aftersales_restamp_crashed: ${e?.message || e}`);
+      }
+    }
+
+    // TIGHTEN I.58: recalc the linked invoice whenever ANY pricing-
+    // relevant field changed. Without this, the client's invoice keeps
+    // its old total while the order and dashboard show the new one.
+    const PRICING_FIELDS = new Set([
+      "subtotal", "discount_amount", "tax_amount", "tax", "total_amount",
+      "delivery_fee", "delivery_distance_km", "delivery_rate_per_km",
+    ]);
+    const needsInvoiceRecalc = menuChanged
+      || receipt.fieldsChanged.some((f) => PRICING_FIELDS.has(f));
+    if (needsInvoiceRecalc) {
+      await _recalcInvoice(receipt.orderId!, companyId);
     }
 
     // 10. Audit row in order_amendment_requests so the change is
@@ -601,9 +637,21 @@ async function _restampPendingPreEventReminders(orderId: string, quote: any): Pr
 
   for (const row of rows as any[]) {
     let offsetMs = 0;
-    if (row.template_type === "pre_event_week_before") offsetMs = -7 * 24 * 3600 * 1000;
-    else if (row.template_type === "pre_event_day_before") offsetMs = -1 * 24 * 3600 * 1000;
-    else continue;
+    // TIGHTEN I.53 (2026-06-01): the previous strings ("pre_event_
+    // week_before" / "pre_event_day_before") matched nothing in the
+    // live queue. orderWorkflow.ts:ensureScheduledPreEventReminders
+    // writes "event_one_week_reminder" / "event_day_before_reminder".
+    // So when an operator edited an event_date after dispatch, the
+    // queued reminders for the OLD date kept firing on the OLD
+    // schedule. Now accepted both old names for back-compat plus the
+    // actual names emailService writes today.
+    if (row.template_type === "event_one_week_reminder" || row.template_type === "pre_event_week_before") {
+      offsetMs = -7 * 24 * 3600 * 1000;
+    } else if (row.template_type === "event_day_before_reminder" || row.template_type === "pre_event_day_before") {
+      offsetMs = -1 * 24 * 3600 * 1000;
+    } else {
+      continue;
+    }
     const sendAt = new Date(eventTs + offsetMs);
     // Skip if the new send time is already in the past - the queue
     // worker would either fire it immediately or skip it; either is
@@ -613,6 +661,151 @@ async function _restampPendingPreEventReminders(orderId: string, quote: any): Pr
       .from("outgoing_email_queue")
       .update({ scheduled_for: sendAt.toISOString() })
       .eq("id", row.id);
+  }
+}
+
+/** TIGHTEN I.54 (2026-06-01): re-stamp cleaning_event_handovers.
+ *  expected_at when event_date or event_time moves. Formula matches
+ *  cleaningHandoverService.createExpectedHandover (event_date +
+ *  event_time + 4h). Only updates non-completed rows so an actually-
+ *  closed handover stays at its closed timestamp. */
+async function _restampCleaningHandover(orderId: string, quote: any): Promise<void> {
+  if (!quote.event_date) return;
+  const t = quote.event_time ? String(quote.event_time).slice(0, 8) : "12:00:00";
+  const dt = new Date(`${quote.event_date}T${t.length === 5 ? `${t}:00` : t}`);
+  if (isNaN(dt.getTime())) return;
+  const expectedAtIso = new Date(dt.getTime() + 4 * 60 * 60 * 1000).toISOString();
+  await (supabase as any)
+    .from("cleaning_event_handovers")
+    .update({ expected_at: expectedAtIso, updated_at: new Date().toISOString() })
+    .eq("order_id", orderId)
+    .neq("status", "complete");
+}
+
+/** TIGHTEN I.55 (2026-06-01): re-stamp outsource_assignments.
+ *  required_on_site_at when event_date or event_time moves. Formula
+ *  matches postCreationCascade (event_date + event_time, default
+ *  12:00). Skips assignments in terminal states (accepted means the
+ *  provider already committed and the operator should manage any
+ *  re-schedule themselves; declined/cancelled stay frozen). */
+async function _restampOutsourceAssignments(orderId: string, quote: any): Promise<void> {
+  if (!quote.event_date) return;
+  const eventTime = quote.event_time ? String(quote.event_time).slice(0, 5) : "12:00";
+  const requiredOnSiteAt = new Date(`${quote.event_date}T${eventTime}:00`).toISOString();
+  await (supabase as any)
+    .from("outsource_assignments")
+    .update({ required_on_site_at: requiredOnSiteAt, updated_at: new Date().toISOString() })
+    .eq("order_id", orderId)
+    .in("status", ["requested", "accepted"]);
+}
+
+/** TIGHTEN I.56 (2026-06-01): re-window the vehicle_booking that
+ *  was created when the delivery driver was assigned. The delivery
+ *  driver_assignment row itself doesn't store scheduled_for (it
+ *  reads order.event_date live), but the vehicle_bookings row
+ *  carries booked_from / booked_until snapshots that would
+ *  otherwise stay pinned to the old date. Uses
+ *  computeOrderVehicleWindow so the formula stays in lockstep with
+ *  the original booking path. */
+async function _restampDeliveryVehicleBooking(orderId: string, quote: any): Promise<void> {
+  if (!quote.event_date) return;
+  let computeOrderVehicleWindow: any;
+  try {
+    ({ computeOrderVehicleWindow } = await import("../vehicleService"));
+  } catch {
+    // vehicleService not present in this build, nothing to do.
+    return;
+  }
+  const window = computeOrderVehicleWindow({
+    eventDate: quote.event_date,
+    eventTime: quote.event_time || null,
+    requiresWaiter: false,
+  });
+  if (!window?.booked_from || !window?.booked_until) return;
+  await (supabase as any)
+    .from("vehicle_bookings")
+    .update({
+      booked_from: window.booked_from.toISOString(),
+      booked_until: window.booked_until.toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("order_id", orderId)
+    .neq("status", "completed")
+    .neq("status", "cancelled");
+}
+
+/** TIGHTEN I.57 (2026-06-01): re-stamp queued aftersales rows in
+ *  outgoing_email_queue. Each row's scheduled_for = event_date +
+ *  monthsAfterEvent for the matching template. If the new
+ *  scheduled_for falls in the past (event moved earlier and the
+ *  offset would land before today), cancel the row instead of
+ *  re-stamping - firing a "thanks for last week's event!" before
+ *  the event has happened would be embarrassing. */
+async function _restampAftersalesReminders(orderId: string, quote: any): Promise<void> {
+  if (!quote.event_date) return;
+  let defaultAfterSalesTemplates: Array<{ id: string; monthsAfterEvent?: number }>;
+  try {
+    ({ defaultAfterSalesTemplates } = await import("@/lib/afterSalesTemplates"));
+  } catch {
+    return;
+  }
+  const offsetsById = new Map<string, number>();
+  for (const t of defaultAfterSalesTemplates) {
+    offsetsById.set(t.id, t.monthsAfterEvent ?? 0);
+  }
+
+  const { data: rows } = await (supabase as any)
+    .from("outgoing_email_queue")
+    .select("id, template_type")
+    .eq("trigger_event", "aftersales")
+    .eq("trigger_ref_id", orderId)
+    .eq("status", "queued");
+  if (!rows || rows.length === 0) return;
+
+  for (const row of rows as any[]) {
+    const tplType = String(row.template_type || "");
+    if (!tplType.startsWith("aftersales_")) continue;
+    const tplId = tplType.slice("aftersales_".length);
+    const months = offsetsById.get(tplId);
+    if (months == null) continue;
+
+    const sendAt = new Date(quote.event_date);
+    sendAt.setMonth(sendAt.getMonth() + months);
+    if (sendAt.getTime() < Date.now() - 24 * 3600 * 1000) {
+      // Aftersales row for the new date would land in the past -
+      // cancel rather than fire late.
+      await (supabase as any)
+        .from("outgoing_email_queue")
+        .update({ status: "cancelled" })
+        .eq("id", row.id);
+      continue;
+    }
+    await (supabase as any)
+      .from("outgoing_email_queue")
+      .update({ scheduled_for: sendAt.toISOString() })
+      .eq("id", row.id);
+  }
+}
+
+/** TIGHTEN I.58 (2026-06-01): recalculate the linked invoice when
+ *  the quote totals change. Without this the deposit invoice the
+ *  client is paying stays at the old amount even though the order,
+ *  the dashboard and the receivables report all show the new total.
+ *  Real-world impact: client underpays (or overpays), AR aging is
+ *  wrong, accounting sync re-pushes nothing because the row hash
+ *  hasn't changed.
+ *
+ *  Skips invoices in terminal states (paid, void, etc.) - those are
+ *  closed business records and shouldn't be silently re-totalled. */
+async function _recalcInvoice(orderId: string, companyId: string): Promise<void> {
+  try {
+    const { recalcInvoiceForOrder } = await import("../invoiceGenerationService");
+    await recalcInvoiceForOrder(orderId, companyId);
+  } catch (e: any) {
+    // Surface in logs but don't crash the propagation. Operators can
+    // re-trigger the invoice recalc from the invoice detail page.
+    // eslint-disable-next-line no-console
+    console.error(`[propagateQuoteEdit._recalcInvoice] crashed for order ${orderId}:`, e?.message || e);
   }
 }
 

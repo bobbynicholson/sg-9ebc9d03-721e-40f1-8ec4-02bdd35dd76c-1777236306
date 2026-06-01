@@ -153,13 +153,20 @@ export function buildEventIcs(input: IcsEventInput): IcsEventOutput {
     endMinutes % 60,
   );
 
-  // UID per RFC 5545 must be globally unique. We synthesise from
-  // order number + date so a single order produces a stable UID
-  // across re-downloads (calendars dedupe on UID -> a second
-  // download updates the existing entry rather than creating a
-  // duplicate).
+  // UID per RFC 5545 must be globally unique AND stable across
+  // re-downloads of the same logical event. Calendar apps dedupe on
+  // UID, so a second download with the SAME UID updates the existing
+  // entry; a different UID creates a duplicate.
+  //
+  // TIGHTEN I.59 (2026-06-01): the old format folded event_date into
+  // the UID, so when an operator edited an event to a new date the
+  // client downloaded a new ICS, got a NEW UID, and ended up with
+  // BOTH the old and the new events in their calendar. The old event
+  // never auto-deletes. Stable UID is order-number only - if the date
+  // changes, the calendar app overwrites the existing entry with the
+  // new DTSTART, which is the actual desired behaviour.
   const uid = input.uid
-    || `order-${(input.orderNumber || "unknown").toLowerCase()}-${input.eventDate}@cateringms`;
+    || `order-${(input.orderNumber || "unknown").toLowerCase()}@cateringms`;
 
   // Fold the order number into the DESCRIPTION so it's searchable
   // inside the calendar app. CLI-29 spec asked for the order number
