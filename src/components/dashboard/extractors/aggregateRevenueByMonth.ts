@@ -3,13 +3,16 @@
  *
  * Shape: 12 monthly buckets ending at the most recent full month
  * containing event_dates in the input. Each bucket has:
- *   - booked: sum of total_amount on non-cancelled orders
+ *   - booked: sum of total_amount on orders that classify as
+ *     booked or realised per orderRevenueClassification
  *   - collected: sum of paid amount (amount_paid OR fall-through to
  *     deposit_amount + balance_amount when paid flags set)
  *   - orderCount: confirmed bookings
  *
  * Pure function: no side effects, no DB access. Easy to unit-test.
  */
+import { isBookedRevenue } from "@/lib/orderRevenueClassification";
+
 export interface RevenueByMonthInput {
   id: string;
   status: string | null;
@@ -21,6 +24,10 @@ export interface RevenueByMonthInput {
   balance_paid: boolean | null;
   balance_amount: number | null;
   event_date: string | null;
+  /** TIGHTEN I.70: needed by isBookedRevenue to decide pipeline vs
+   *  booked for an active-status order. */
+  confirmed_at?: string | null;
+  cancelled_at?: string | null;
 }
 
 export interface RevenueByMonthBucket {
@@ -76,12 +83,15 @@ export function aggregateRevenueByMonth(
 
   for (const o of orders) {
     if (!o.event_date) continue;
-    if (o.status === "cancelled") continue;
-    // event_date is a date column. Slice "2026-05-14" -> "2026-05" without
-    // timezone shenanigans - the stored value is already a calendar date.
+    // TIGHTEN I.70 (2026-06-01): use the canonical booked predicate.
+    // Previously this widget counted "not cancelled" which silently
+    // included pending orders - so the BI chart showed a bigger
+    // number than the dashboard "Booked Revenue" tile for the same
+    // window. Now both use isBookedRevenue.
+    if (!isBookedRevenue(o)) continue;
     const monthKey = String(o.event_date).slice(0, 7);
     const bucket = buckets.get(monthKey);
-    if (!bucket) continue; // outside the 12-month window, ignore
+    if (!bucket) continue;
     bucket.booked += Number(o.total_amount || 0);
     bucket.collected += collectedFromOrder(o);
     bucket.orderCount += 1;

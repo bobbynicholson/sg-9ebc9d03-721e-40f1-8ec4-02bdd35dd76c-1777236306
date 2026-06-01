@@ -80,8 +80,15 @@ const monthKeyFromDateString = (s: string | null | undefined): string => {
   return s.length >= 7 ? s.slice(0, 7) : "";
 };
 
+// TIGHTEN I.70 (2026-06-01): route through the canonical helper.
+// Previously this widget counted any non-cancelled status as
+// "booked", including pending orders that hadn't yet had a deposit
+// or confirmation. The dashboard "Booked Revenue" tile excluded
+// those, so the YoY card and the dashboard tile disagreed for the
+// same tenant + window. Both now share isBookedRevenue.
+import { isBookedRevenue as isBookedRevenueShared } from "@/lib/orderRevenueClassification";
 const isBookedOrder = (o: RevenueByMonthInput): boolean =>
-  !!o.status && o.status !== "cancelled";
+  isBookedRevenueShared(o as any);
 
 const collectedFromOrder = (o: RevenueByMonthInput): number => {
   if (typeof o.amount_paid === "number" && o.amount_paid > 0) return o.amount_paid;
