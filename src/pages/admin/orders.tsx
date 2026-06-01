@@ -1407,61 +1407,74 @@ function OrderProcessDashboard() {
                   )}
                 </div>
               </div>
-              {/* Wave 24: tightened toolbar. The previous layout had
-                  five equal-width buttons in a single flex row that
-                  wrapped at narrower viewports, dropping the primary
-                  "New Order" CTA onto a second line and burying it
-                  visually below the secondary actions.
-                  New layout, left-to-right:
-                    [view toggle] [refresh icon] [more menu] [New Order]
-                  Less-frequent actions (Delivery sheet, Export CSV)
-                  collapse into a "More" dropdown so the primary CTA
-                  always lands on the first row at any width. */}
-              <div className="flex items-center gap-2 flex-wrap">
-                <div className="flex border rounded-lg overflow-hidden">
-                  <Button
-                    variant={viewMode === "kanban" ? "default" : "ghost"}
-                    size="sm"
+              {/* TIGHTEN I.51 (2026-06-01): toolbar redesign.
+                  Previous version had a heavy dark "Kanban / Timeline"
+                  pill pair that overpowered the actual primary CTA,
+                  plus inconsistent button heights that wrapped onto
+                  two rows at common viewport widths - dumping
+                  "New Quote" below where nobody looked for it.
+                  New layout: macOS-style segmented control for the
+                  view toggle (subtle slate background, white card +
+                  shadow for active state), an icon-button group for
+                  refresh / overflow, then the primary CTA. All
+                  buttons land at the same h-9 height so the row
+                  reads as one unit. flex-nowrap + ml-auto pushes the
+                  whole cluster to the right edge without wrapping at
+                  the awkward in-between widths. */}
+              <div className="flex items-center gap-2 sm:flex-nowrap sm:ml-auto">
+                {/* Segmented view toggle - subtle "inactive on a card
+                    background" pattern so the active state reads as
+                    a single elevated chip, not a dark button. */}
+                <div className="inline-flex items-center rounded-lg bg-slate-100 p-0.5">
+                  <button
+                    type="button"
                     onClick={() => setViewMode("kanban")}
-                    className="rounded-none"
                     aria-pressed={viewMode === "kanban"}
+                    className={`inline-flex items-center gap-1.5 px-3 h-8 rounded-md text-xs font-medium transition-all ${
+                      viewMode === "kanban"
+                        ? "bg-white text-slate-900 shadow-sm"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
                   >
-                    <LayoutGrid className="w-4 h-4 mr-2" />
+                    <LayoutGrid className="w-3.5 h-3.5" />
                     Kanban
-                  </Button>
-                  <Button
-                    variant={viewMode === "timeline" ? "default" : "ghost"}
-                    size="sm"
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => setViewMode("timeline")}
-                    className="rounded-none"
                     aria-pressed={viewMode === "timeline"}
+                    className={`inline-flex items-center gap-1.5 px-3 h-8 rounded-md text-xs font-medium transition-all ${
+                      viewMode === "timeline"
+                        ? "bg-white text-slate-900 shadow-sm"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
                   >
-                    <List className="w-4 h-4 mr-2" />
+                    <List className="w-3.5 h-3.5" />
                     Timeline
-                  </Button>
+                  </button>
                 </div>
-                {/* Phase 27 #9: manual refresh. Realtime channels
-                    cover most updates but the operator wants a
-                    button when expecting a colleague's change to
-                    land. Now icon-only with a tooltip so it stops
-                    eating horizontal space on the toolbar. */}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={loadOrders}
-                  disabled={loading}
-                  title="Refresh orders"
-                  aria-label="Refresh orders"
-                >
-                  <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-                </Button>
-                {/* Wave 24: secondary-actions overflow menu. */}
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="sm" title="More actions" aria-label="More actions">
-                      <MoreHorizontal className="w-4 h-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
+                {/* Icon-action group - refresh + overflow grouped
+                    visually so they read as a single secondary
+                    cluster, not as orphan buttons drifting between
+                    the toggle and the primary CTA. */}
+                <div className="inline-flex items-center gap-1">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={loadOrders}
+                    disabled={loading}
+                    title="Refresh orders"
+                    aria-label="Refresh orders"
+                    className="h-9 w-9 p-0"
+                  >
+                    <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="sm" title="More actions" aria-label="More actions" className="h-9 w-9 p-0">
+                        <MoreHorizontal className="w-4 h-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-48">
                     {/* Phase 13 #1: print-friendly today-only delivery
                         sheet, target=_blank so it opens in its own
@@ -1533,21 +1546,18 @@ function OrderProcessDashboard() {
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
-                {/* Primary CTA - always last so the right edge stays
-                    consistent. Wave 70.94 routed this to /admin/
-                    quotes/new (the quote builder, which becomes an
-                    order on accept). TIGHTEN I.2 (2026-05-26)
-                    follows through on the label: every order
-                    originates from an accepted quote, so the button
-                    is now "New Quote" - matches what the click
-                    actually does and reinforces the lifecycle for
-                    new operators. */}
+                </div>
+                {/* TIGHTEN I.51: primary CTA matches the new h-9
+                    toolbar baseline, gap-2 over mr-2 so the icon
+                    and label align consistently with the other
+                    icon-and-label patterns on the page. Bumped
+                    shadow + active scale for tactile feedback. */}
                 <Link href={withSlug("/admin/quotes/new")}>
                   <Button
                     size="sm"
-                    className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+                    className="h-9 gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-md hover:shadow-lg active:scale-[0.98] transition-all"
                   >
-                    <FileText className="w-4 h-4 mr-2" />
+                    <FileText className="w-4 h-4" />
                     New Quote
                   </Button>
                 </Link>
