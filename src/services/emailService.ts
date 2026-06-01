@@ -642,6 +642,15 @@ export const emailService = {
           attachments: payload.attachments,
           replyTo,
           headers: Object.keys(headers).length > 0 ? headers : undefined,
+          // TIGHTEN I.45: tag every send with company_id so Resend
+          // webhook events can be attributed in email_delivery_events.
+          // Template type goes too so the bounce dashboard can show
+          // "quote_sent bounced for client X" without joining back to
+          // email_automation_log.
+          tags: [
+            { name: "company_id", value: payload.companyId },
+            { name: "template", value: payload.template || "custom" },
+          ],
         });
       } else if (config.provider === 'smtp' && config.smtp_host) {
         const { from } = this.resolveFromAddress(config);
@@ -866,7 +875,11 @@ export const emailService = {
     attachments?: EmailAttachment[];
     replyTo?: string;
     headers?: Record<string, string>;
-  }): Promise<{ ok: true } | { ok: false; status: number; body: any; message: string }> {
+    /** TIGHTEN I.45: passed as Resend tags so the webhook handler
+     *  can attribute delivery events (bounced / complained / etc.)
+     *  back to the company that sent the email. */
+    tags?: Array<{ name: string; value: string }>;
+  }): Promise<{ ok: true; id?: string } | { ok: false; status: number; body: any; message: string }> {
     try {
       // Resend wants attachments as { filename, content } where content
       // is base64 OR a Buffer. JSON-over-HTTP can't carry a raw Buffer,
@@ -887,6 +900,12 @@ export const emailService = {
       // them as a plain object on the `headers` key.
       if (emailData.headers && Object.keys(emailData.headers).length > 0) {
         resendBody.headers = emailData.headers;
+      }
+      // TIGHTEN I.45: tag the send with company_id so Resend webhook
+      // events (delivered / bounced / complained / etc.) can be
+      // attributed back to the tenant in email_delivery_events.
+      if (Array.isArray(emailData.tags) && emailData.tags.length > 0) {
+        resendBody.tags = emailData.tags;
       }
       if (Array.isArray(emailData.attachments) && emailData.attachments.length > 0) {
         resendBody.attachments = emailData.attachments.map((a) => ({
@@ -924,8 +943,15 @@ export const emailService = {
         return { ok: false, status: response.status, body: errorBody, message };
       }
 
-      console.log('Email sent successfully via Resend');
-      return { ok: true };
+      // TIGHTEN I.45: capture Resend's returned id so the webhook
+      // handler can correlate downstream events back to this send.
+      let resendId: string | undefined;
+      try {
+        const okBody = await response.json();
+        resendId = okBody?.id || undefined;
+      } catch { /* harmless if Resend ever omits the body */ }
+      console.log('Email sent successfully via Resend', resendId ? `(id=${resendId})` : "");
+      return { ok: true, id: resendId };
     } catch (error: any) {
       console.error('Error sending via Resend:', error);
       return {

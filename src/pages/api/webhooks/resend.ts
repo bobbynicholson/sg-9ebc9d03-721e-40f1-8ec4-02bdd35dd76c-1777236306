@@ -138,18 +138,87 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   const type = String(event?.type || "");
-  // Only care about delivery failures.
-  if (type !== "email.bounced" && type !== "email.complained") {
-    return res.status(200).json({ ok: true, ignored: true });
-  }
-
   const data = event?.data || {};
+  const supabase = getServiceSupabase();
+
+  // TIGHTEN I.45: pull company_id from Resend tags. emailService now
+  // tags every send with company_id + template, so any event for a
+  // send we originated carries the attribution.
+  const tags = Array.isArray(data?.tags) ? data.tags : [];
+  const tagMap = new Map<string, string>();
+  for (const t of tags) {
+    if (t && typeof t.name === "string" && typeof t.value === "string") {
+      tagMap.set(t.name, t.value);
+    }
+  }
+  const companyId = tagMap.get("company_id") || null;
+
   const recipients: string[] = Array.isArray(data?.to)
     ? data.to
     : typeof data?.to === "string"
       ? [data.to]
       : [];
   const subject: string | null = typeof data?.subject === "string" ? data.subject : null;
+  const resendEmailId: string | null = data?.email_id || data?.id || null;
+  const eventAt: string = event?.created_at || data?.created_at || new Date().toISOString();
+
+  // TIGHTEN I.45: write to email_delivery_events for ALL allowed event
+  // types. This is the proper event log that drives the per-tenant
+  // deliverability panel. We accept the full set so we can compute
+  // delivered-rate, not just bounce/complaint rate.
+  const ALLOWED_EVENTS = new Set([
+    "email.sent",
+    "email.delivered",
+    "email.delivery_delayed",
+    "email.bounced",
+    "email.complained",
+    "email.opened",
+    "email.clicked",
+    "email.failed",
+  ]);
+  if (ALLOWED_EVENTS.has(type)) {
+    // Bounce / complaint detail extraction for the events table.
+    let bounceType: string | null = null;
+    let reason: string | null = null;
+    if (type === "email.bounced") {
+      const bRaw = String(data?.bounce?.type || "").toLowerCase();
+      bounceType = bRaw === "permanent" ? "hard" : bRaw === "transient" ? "soft" : bRaw || null;
+      reason = data?.bounce?.message || data?.bounce?.subType || null;
+    } else if (type === "email.complained") {
+      reason = "spam_complaint";
+    } else if (type === "email.failed" || type === "email.delivery_delayed") {
+      reason = data?.failed?.reason || data?.reason || null;
+    }
+    const normalisedType = type.startsWith("email.") ? type.slice("email.".length) : type;
+    // One row per recipient. Bulk inserts collapse for batch sends.
+    const eventRows = (recipients.length > 0 ? recipients : [null]).slice(0, 50).map((to) => ({
+      event_type: normalisedType,
+      event_at: eventAt,
+      resend_email_id: resendEmailId,
+      company_id: companyId,
+      to_email: to ? String(to).toLowerCase().slice(0, 320) : null,
+      bounce_type: bounceType,
+      reason,
+      raw_payload: event,
+    }));
+    try {
+      await (supabase as any).from("email_delivery_events").insert(eventRows);
+    } catch (err: any) {
+      console.error("[webhooks/resend] email_delivery_events insert failed", err?.message || err);
+      // Don't bail - still try the legacy log insert below so the
+      // failures dashboard stays accurate.
+    }
+  }
+
+  // Legacy back-compat: keep writing bounced/complained to
+  // email_automation_log so the existing EmailFailuresTab keeps
+  // working. Now also stamps user_id (= company_id, legacy misnomer)
+  // when we can read it from tags - which we can for any send the
+  // platform originated post-I.45.
+  if (type !== "email.bounced" && type !== "email.complained") {
+    return res.status(200).json({ ok: true, recorded: "event_only" });
+  }
+
   const errorMsg: string | null =
     type === "email.bounced"
       ? (data?.bounce?.message ||
@@ -163,17 +232,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   const status = type === "email.bounced" ? "bounced" : "complained";
-
-  const supabase = getServiceSupabase();
-
-  // Log a row per recipient so the failures dashboard surfaces each
-  // bad address. user_id is left null because Resend's payload doesn't
-  // tell us which company sent the email - the EmailFailuresTab can
-  // still group by recipient address. If the original send had a
-  // resend_message_id we'd correlate, but the current emailService
-  // doesn't capture that yet; that's a separate enhancement.
   const rows = recipients.slice(0, 50).map((to) => ({
-    user_id: null,
+    user_id: companyId, // I.45: previously null; now attributed when tags present.
     template_type: "webhook",
     recipient_email: String(to).toLowerCase().slice(0, 320),
     recipient_name: null,
@@ -187,8 +247,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     await (supabase as any).from("email_automation_log").insert(rows);
   } catch (err: any) {
     console.error("[webhooks/resend] log insert failed", err?.message || err);
-    // Still 200 - Resend retries on non-2xx and we don't want a
-    // transient db hiccup to spam-loop the webhook.
   }
 
   return res.status(200).json({ ok: true, recorded: rows.length });

@@ -36,6 +36,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { useToast } from "@/hooks/use-toast";
 import { ResendDomainCard } from "@/components/admin/ResendDomainCard";
+import { EmailDeliverabilityPanel } from "@/components/admin/EmailDeliverabilityPanel";
 import { toLocalISO } from "@/lib/localDate";
 import { captureException } from "@/lib/observability";
 
@@ -854,6 +855,12 @@ function EmailSettingsPage() {
               </div>
             </CardContent>
           </Card>
+
+          {/* TIGHTEN I.45: per-tenant deliverability health. Reads
+              email_delivery_events populated by /api/webhooks/resend.
+              Shows delivery rate, bounce rate, complaint rate over
+              the last 30 days plus the recent issues list. */}
+          {companyId && <EmailDeliverabilityPanel companyId={companyId} />}
 
           {/* Auto-attach client links to outgoing email */}
           <Card className="border-0 shadow-lg mb-6">
