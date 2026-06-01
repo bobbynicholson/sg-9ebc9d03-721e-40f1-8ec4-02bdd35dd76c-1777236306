@@ -13,6 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { canAccessFinance } from "@/lib/authGuards";
+import { isBookedRevenue } from "@/lib/orderRevenueClassification";
 import { DashboardDateRange, resolvePreset, DateRange } from "@/components/dashboard/DashboardDateRange";
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import { BusinessIntelligence } from "@/components/dashboard/BusinessIntelligence";
@@ -331,45 +332,33 @@ function AdminDashboardPage() {
       // period generated without opening each invoice.
       let vatCollected = 0;
 
+      // TIGHTEN I.70 (2026-06-01): routed through the canonical
+      // isBookedRevenue helper so the dashboard tile, BI chart, YoY
+      // card and region performance all reach the same answer for
+      // the same row. Auditors flagged 6 divergent "Revenue"
+      // definitions across the platform - this is the first widget
+      // adopting the shared classifier.
       for (const o of orders) {
-        const status = String(o.status || "").toLowerCase();
         const pay    = String(o.payment_status || "").toLowerCase();
         const total  = Number(o.total_amount || 0);
 
-        // Wave 70.52a - Collected calc now runs FIRST, BEFORE the
-        // cancelled `continue`. Previously the continue at this point
-        // skipped cancelled orders entirely, so a cancelled order
-        // with a banked deposit (e.g. R300 paid, then client
-        // cancelled, no refund processed yet) was invisible in the
-        // Collected tile. The cash IS in the bank; it stays in
-        // Collected until a refund payment row is recorded (which
-        // is when it should naturally disappear via the refund being
-        // a negative payment). Booked-side calculation still legitly
-        // excludes cancelled (no kitchen commitment, no VAT due).
+        // Wave 70.52a - Collected calc still runs BEFORE the
+        // cancelled-skip because a cancelled order with a banked
+        // deposit IS cash in the bank; it stays in Collected until a
+        // refund payment row is recorded (negative payment naturally
+        // removes it).
         let received = 0;
         if (Number(o.amount_paid || 0) > 0) {
           received = Number(o.amount_paid);
         } else {
           if (o.deposit_paid && Number(o.deposit_amount || 0) > 0) received += Number(o.deposit_amount);
           if (o.balance_paid && Number(o.balance_amount || 0) > 0) received += Number(o.balance_amount);
-          // If we have nothing recorded but the order is marked fully paid, take total
           if (received === 0 && pay === "paid") received = total;
         }
         if (received > 0) collectedOrders += 1;
         collectedRevenue += received;
 
-        if (status === "cancelled") continue;
-
-        // Booked: client has actually committed to the booking. Gate is
-        // explicit confirmation, not status advancement - either the
-        // deposit's been paid, the admin manually marked confirmed_at,
-        // or money has come in (paid / partial).
-        const isBooked =
-          o.deposit_paid === true ||
-          !!o.confirmed_at ||
-          pay === "paid" ||
-          pay === "partial";
-        if (isBooked) {
+        if (isBookedRevenue(o)) {
           bookedRevenue += total;
           bookedOrders += 1;
           vatCollected += Number(o.tax_amount || 0);

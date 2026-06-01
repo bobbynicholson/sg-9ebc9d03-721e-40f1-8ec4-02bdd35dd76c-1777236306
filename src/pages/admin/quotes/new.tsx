@@ -1135,8 +1135,14 @@ function NewQuotePage() {
     setSaving(true);
     try {
       const payload = buildPayload();
-      // Status overrides: caller tells us when this is a Send.
-      Object.assign(payload, override);
+      // TIGHTEN I.66 followup: strip __skipSentEmail out of the override
+      // before Object.assign. It's a control flag for this function,
+      // not a column on the quotes table; if it bleeds through, the
+      // supabase update errors with "Could not find the '__skipSentEmail'
+      // column". Bobby hit this on the first Save & Send after the
+      // dialog landed.
+      const { __skipSentEmail, ...dbOverride } = override;
+      Object.assign(payload, dbOverride);
       // quotes.region_id is NOT NULL since migration 20260521110000.
       // When the operator didn't pick a region-backed kitchen
       // (e.g. selectedKitchen.source === 'hq'), buildPayload leaves
