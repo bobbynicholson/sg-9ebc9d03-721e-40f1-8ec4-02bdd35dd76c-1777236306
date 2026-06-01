@@ -110,6 +110,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { quoteService } from "@/services/quoteService";
+import { propagateQuoteEditToOrder } from "@/services/quote/propagateQuoteEdit";
 import { toLocalISO } from "@/lib/localDate";
 import { EntityNotesThread } from "@/components/admin/EntityNotesThread";
 
@@ -1253,6 +1254,57 @@ function NewQuotePage() {
         }
         const { error } = await supabase.from("quotes").update(payload).eq("id", quoteId);
         if (error) throw error;
+        // TIGHTEN I.52 (2026-06-01): explicitly fire the JS-side
+        // quote -> order propagation cascade after the quote UPDATE
+        // for Case B (admin edited a converted quote). The block
+        // above explicitly relied on the Wave 51 Postgres trigger
+        // (tg_propagate_quote_edits_to_order) to mirror date / venue /
+        // totals to the linked order, but the trigger functions were
+        // defined in pg_proc without ever being CREATE TRIGGER'd onto
+        // the table. Net: every admin-edit-of-converted-quote
+        // silently desynced the order (and every downstream surface
+        // that reads event_date - kitchen prep, driver assignments,
+        // pre-event reminders, cleaning handovers). Bobby caught this
+        // when an order kept showing 29 May after the quote was moved
+        // to 4 June.
+        //
+        // propagateQuoteEditToOrder rereads the freshly-updated quote,
+        // compares the relevant fields against the linked order, and
+        // mirrors changes including:
+        //   - the 20 booking fields (date, time, venue, client, totals)
+        //   - balance_due_date recompute
+        //   - kitchen_prep_tasks force-replan
+        //   - equipment_bookings re-sync
+        //   - collection driver_assignment re-stamp
+        //   - pending pre_event reminder rows re-stamp
+        //   - audit row in order_amendment_requests
+        //
+        // Post-dispatch refusal is built into the propagator - if the
+        // order is already in_transit/delivered/completed/cancelled
+        // it returns ok:false and opens an amendment_request row
+        // instead of mutating the live in-flight order.
+        if (isAdminEditOfConvertedQuote && prevConvertedOrderId) {
+          try {
+            const receipt = await propagateQuoteEditToOrder(quoteId, null);
+            if (receipt.refusedPostDispatch) {
+              toast({
+                title: "Edit blocked",
+                description: "The order is already in dispatch / delivered. We've opened an amendment request for dispatch review.",
+                variant: "destructive",
+              });
+            }
+          } catch (propErr) {
+            console.error("[quotes/new] propagateQuoteEditToOrder failed:", propErr);
+            // Don't roll back the quote save - the operator's edit
+            // landed correctly; we just couldn't mirror. Surface so
+            // they know to retry.
+            toast({
+              title: "Order not yet mirrored",
+              description: "Quote saved but the linked order didn't pick up the change. Refresh, then click Save once more.",
+              variant: "destructive",
+            });
+          }
+        }
         setSavedAt(new Date());
         // Refresh the persisted-total snapshot so the stale-totals
         // banner clears now that the public view is back in sync.
