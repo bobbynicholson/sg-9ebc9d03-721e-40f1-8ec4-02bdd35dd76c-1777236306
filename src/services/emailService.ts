@@ -729,10 +729,20 @@ export const emailService = {
         const bodyName = String(body?.name || "").toLowerCase();
         const bodyMessage = String(body?.message || "").toLowerCase();
         if (status === 401 || status === 403 || bodyName.includes("api_key")) {
+          // TIGHTEN I.40: include Resend's status + body so the
+          // operator-facing toast can distinguish "key rejected"
+          // (Resend says no) from "key missing on server" (Vercel
+          // env var problem). Both surfaced as resend_auth before -
+          // diagnosing required digging through function logs.
           return {
             success: false,
             error: "The Resend API key is missing or invalid. Ask your platform admin.",
             error_code: "resend_auth",
+            context: {
+              resend_status: status != null ? String(status) : null,
+              resend_body_name: body?.name ?? null,
+              resend_body_message: body?.message ?? null,
+            },
           };
         }
         if (
