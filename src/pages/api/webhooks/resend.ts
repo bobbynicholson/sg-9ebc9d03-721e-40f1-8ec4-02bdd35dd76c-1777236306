@@ -144,11 +144,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   // TIGHTEN I.45: pull company_id from Resend tags. emailService now
   // tags every send with company_id + template, so any event for a
   // send we originated carries the attribution.
-  const tags = Array.isArray(data?.tags) ? data.tags : [];
+  //
+  // TIGHTEN I.46 (2026-06-01): Resend's webhook payload encodes tags
+  // as a flat OBJECT (`{name: value}`), not the array we send them
+  // as (`[{name, value}]`). The old array check never matched a
+  // real payload - every event ingested with company_id=null,
+  // hiding rows behind RLS for the tenant they belonged to. Handle
+  // both shapes.
   const tagMap = new Map<string, string>();
-  for (const t of tags) {
-    if (t && typeof t.name === "string" && typeof t.value === "string") {
-      tagMap.set(t.name, t.value);
+  const rawTags = data?.tags;
+  if (Array.isArray(rawTags)) {
+    for (const t of rawTags) {
+      if (t && typeof t.name === "string" && typeof t.value === "string") {
+        tagMap.set(t.name, t.value);
+      }
+    }
+  } else if (rawTags && typeof rawTags === "object") {
+    for (const [name, value] of Object.entries(rawTags)) {
+      if (typeof value === "string") tagMap.set(name, value);
     }
   }
   const companyId = tagMap.get("company_id") || null;
