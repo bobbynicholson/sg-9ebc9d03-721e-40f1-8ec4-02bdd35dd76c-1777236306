@@ -947,9 +947,22 @@ export async function startDelivery(orderId: string) {
   return updateOrderStatus(orderId, "in_transit");
 }
 
-export async function completeOrder(orderId: string) {
+/**
+ * TIGHTEN I.67 (2026-06-01): renamed completeOrder -> markOrderDelivered
+ * because the old name was actively misleading - the function writes
+ * status='delivered', NOT 'completed'. The terminal 'completed' state
+ * is set by auto-complete-delivered cron or paid-balance webhook.
+ * Auditors flagged this as confusion-bait for future maintainers and
+ * a potential foot-gun for anyone reading the call sites.
+ *
+ * Kept the old export name as a thin alias so any external callers
+ * don't break, but new code should use markOrderDelivered.
+ */
+export async function markOrderDelivered(orderId: string) {
   return updateOrderStatus(orderId, "delivered");
 }
+/** @deprecated use markOrderDelivered - this writes 'delivered', not 'completed'. */
+export const completeOrder = markOrderDelivered;
 
 /**
  * Cancel an order with the full cascade: stamp who/when, release booked
