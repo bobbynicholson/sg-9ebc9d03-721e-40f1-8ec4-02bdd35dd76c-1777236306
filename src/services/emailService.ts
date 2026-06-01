@@ -618,6 +618,22 @@ export const emailService = {
 
       if (config.provider === 'resend' && process.env.RESEND_API_KEY) {
         const { from, replyTo } = this.resolveFromAddress(config);
+        // TIGHTEN I.43 (2026-06-01): inject List-Unsubscribe +
+        // List-Unsubscribe-Post headers so Gmail / Yahoo's 2024
+        // bulk-sender rules treat us as compliant. Missing these
+        // headers is the single biggest reason a fresh shared sender
+        // (send.cateringms.com) lands in spam. Resend signs the
+        // outbound DKIM over the headers we provide, so the
+        // unsubscribe link is part of the authenticated message body
+        // and survives forwarding checks.
+        const headers: Record<string, string> = {};
+        if (recipientLower) {
+          const unsubUrl = buildUnsubscribeUrl(resolveBaseUrl(), recipientLower, payload.companyId);
+          headers["List-Unsubscribe"] = `<${unsubUrl}>`;
+          // One-Click required by Gmail/Yahoo for senders over
+          // 5000/day, harmless below and a clear deliverability win.
+          headers["List-Unsubscribe-Post"] = "List-Unsubscribe=One-Click";
+        }
         providerResult = await this.sendViaResend({
           from,
           to: payload.to,
@@ -625,6 +641,7 @@ export const emailService = {
           html: finalBody,
           attachments: payload.attachments,
           replyTo,
+          headers: Object.keys(headers).length > 0 ? headers : undefined,
         });
       } else if (config.provider === 'smtp' && config.smtp_host) {
         const { from } = this.resolveFromAddress(config);
@@ -848,6 +865,7 @@ export const emailService = {
     html: string;
     attachments?: EmailAttachment[];
     replyTo?: string;
+    headers?: Record<string, string>;
   }): Promise<{ ok: true } | { ok: false; status: number; body: any; message: string }> {
     try {
       // Resend wants attachments as { filename, content } where content
@@ -863,6 +881,12 @@ export const emailService = {
         // Resend accepts either reply_to or replyTo; reply_to is the
         // documented snake_case form.
         resendBody.reply_to = emailData.replyTo;
+      }
+      // TIGHTEN I.43: custom headers (List-Unsubscribe / List-Unsubscribe-Post)
+      // for Gmail/Yahoo bulk-sender compliance. Resend's API takes
+      // them as a plain object on the `headers` key.
+      if (emailData.headers && Object.keys(emailData.headers).length > 0) {
+        resendBody.headers = emailData.headers;
       }
       if (Array.isArray(emailData.attachments) && emailData.attachments.length > 0) {
         resendBody.attachments = emailData.attachments.map((a) => ({
