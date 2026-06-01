@@ -33,6 +33,11 @@ export interface QuoteForYoY {
    *  aggregators so a converted-but-status='sent' quote (legacy data
    *  drift from the I.61 root cause bug) still counts as a win. */
   converted_to_order_id?: string | null;
+  /** TIGHTEN I.71: lost_reason='order_cancelled' marks a won-then-
+   *  cancelled outcome (the I.62 marker for "accepted then order
+   *  cancelled"). Conversion-rate aggregators net these out so wins
+   *  that fell through don't inflate the KPI. */
+  lost_reason?: string | null;
 }
 
 export interface LeadForYoY {
@@ -207,7 +212,14 @@ export function aggregateYoYStrip(
     // TIGHTEN I.61: a linked order is the hard signal that the deal
     // converted. Don't miss revenue from quotes whose status field
     // got desynced to 'sent' by the I.61 root-cause bug.
-    if (q.status !== "accepted" && !q.converted_to_order_id) continue;
+    // TIGHTEN I.71 (2026-06-01): excludes won-then-cancelled from the
+    // conversion rate so the YoY conversion KPI matches the
+    // dashboard tile + funnel definition. Operators want "deals that
+    // actually stuck", not gross win count.
+    const lostReason = (q as any).lost_reason as string | null;
+    const isAccepted = q.status === "accepted" || !!q.converted_to_order_id;
+    const isWonThenCancelled = !!q.converted_to_order_id && lostReason === "order_cancelled";
+    if (!isAccepted || isWonThenCancelled) continue;
     if (inWindow(q.accepted_at, currentStart, currentEnd)) {
       acceptedCurrent += 1;
       const idx = sparkIdxByKey.get(monthKeyFromDateString(q.accepted_at));

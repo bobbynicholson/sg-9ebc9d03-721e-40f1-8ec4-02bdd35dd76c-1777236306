@@ -19,6 +19,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/integrations/supabase/client";
+import { isCountableOrder } from "@/lib/orderRevenueClassification";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { ChefHat, TrendingUp } from "lucide-react";
 import { useReportWidgetError } from "@/components/dashboard/WidgetErrorBoundary";
@@ -44,20 +45,27 @@ export function MenuTopSellersWidget({ companyId }: { companyId: string | null }
         // for the status / event_date / company filter. Each
         // order_items row already has item_name + quantity, so no
         // JSON unwrap needed - one row per dish per order.
+        // TIGHTEN I.70 (2026-06-01): use isCountableOrder. Top
+        // Sellers is about quantity SHIPPED, not revenue. So pending
+        // pre-confirm orders count (food still being made), but
+        // cancelled / excluded do not. Pull cancelled_at + the
+        // classification columns so we can apply the helper in-memory
+        // and stay consistent with the rest of the platform's
+        // status-vs-cancelled_at handling.
         const { data, error } = await (supabase as any)
           .from("order_items")
           .select(
-            "item_name, quantity, order_id, orders!inner(company_id, status, event_date, deleted_at)",
+            "item_name, quantity, order_id, orders!inner(company_id, status, payment_status, deposit_paid, confirmed_at, cancelled_at, event_date, deleted_at)",
           )
           .eq("orders.company_id", companyId)
           .is("orders.deleted_at", null)
-          .in("orders.status", ["confirmed", "preparing", "ready", "in_transit", "delivered", "completed"])
           .gte("orders.event_date", since)
           .limit(5000);
         if (error) throw error;
 
         const totals = new Map<string, { qty: number; orders: Set<string> }>();
-        for (const row of (data || []) as Array<{ item_name: string | null; quantity: number | null; order_id: string }>) {
+        for (const row of (data || []) as Array<{ item_name: string | null; quantity: number | null; order_id: string; orders: any }>) {
+          if (!isCountableOrder(row.orders)) continue;
           const name = String(row.item_name || "").trim();
           if (!name) continue;
           const qty = Number(row.quantity ?? 1);
