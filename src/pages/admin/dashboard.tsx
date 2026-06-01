@@ -397,13 +397,30 @@ function AdminDashboardPage() {
           .map((o: any) => String(o.event_date))
           .sort()[0];
 
-      const completedOrdersInRange = orders.filter((o: any) =>
-        String(o.status || "").toLowerCase() === "completed",
-      ).length;
+      // TIGHTEN I.63 (2026-06-01): the prior completion-rate KPI
+      // counted ONLY status='completed' as completed - which
+      // requires the auto-complete-delivered cron to have run.
+      // 'delivered' is a successful operational outcome too (driver
+      // dropped the food off; the cron just hasn't yet flipped the
+      // status). Every other widget (funnel stage 5, branch spider,
+      // capacity grid, top clients, weekly orders) treats delivered
+      // as positive. The dashboard KPI was the outlier, undercounting
+      // by all freshly-delivered orders not yet auto-completed.
+      //
+      // Also broadened the cancelled check to include cancelled_at
+      // as a defensive OR. Auditors found inconsistency across
+      // widgets - some use status only, some use the stamp, some use
+      // both. Now this KPI uses both so a reverted-status-with-stamp
+      // edge case stays excluded from the denominator.
+      const completedOrdersInRange = orders.filter((o: any) => {
+        const s = String(o.status || "").toLowerCase();
+        return s === "completed" || s === "delivered";
+      }).length;
 
-      const totalOrdersInRange = orders.filter((o: any) =>
-        String(o.status || "").toLowerCase() !== "cancelled",
-      ).length;
+      const totalOrdersInRange = orders.filter((o: any) => {
+        const s = String(o.status || "").toLowerCase();
+        return s !== "cancelled" && !o.cancelled_at;
+      }).length;
 
       const averageOrderValue = bookedOrders > 0 ? bookedRevenue / bookedOrders : 0;
       const completionRate = totalOrdersInRange > 0

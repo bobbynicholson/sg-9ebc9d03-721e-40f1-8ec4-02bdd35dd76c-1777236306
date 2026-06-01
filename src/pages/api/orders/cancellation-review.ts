@@ -321,14 +321,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         //     against the old date and clients got the wrong-day
         //     "see you tomorrow!" emails after a postpone.
         try {
+          // TIGHTEN I.65 (2026-06-01): the prior version only
+          // cancelled queued rows where trigger_event='pre_event'.
+          // Aftersales rows (template_type starting 'aftersales_*',
+          // scheduled at event_date + N months) were left pointing
+          // at the old date - a client whose event was pushed out 6
+          // months would still get "how did your event last week
+          // go?" emails on the original date. Also balance reminders
+          // and any other queued, order-scoped row stamped from
+          // event_date drift. Now: cancel ALL queued/paused rows
+          // tied to this order so the next confirm / propagateQuote
+          // cycle re-queues them against the new date.
           await ssr
             .from("outgoing_email_queue")
             .update({ status: "cancelled" } as any)
             .eq("trigger_ref_id", (request as any).order_id)
-            .eq("trigger_event", "pre_event")
             .in("status", ["queued", "paused"]);
         } catch (e) {
-          console.warn("[postpone] pre_event email cancel failed:", e);
+          console.warn("[postpone] queued email cancel failed:", e);
         }
         // Kitchen prep tasks - delete the existing rows for this
         // order; ensurePrepTasksForOrder will regenerate them against
@@ -341,6 +351,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             .neq("status", "completed");
         } catch (e) {
           console.warn("[postpone] kitchen_prep_tasks delete failed:", e);
+        }
+        // TIGHTEN I.65: kick the kitchen prep regen explicitly so
+        // there's no window where the order has no prep tasks for the
+        // new date. Was relying on "the next time the order is
+        // touched", which could be hours.
+        try {
+          const { kitchenPrepService } = await import("@/services/kitchenPrepService");
+          await (kitchenPrepService as any).ensurePrepTasksForOrder(
+            (request as any).company_id,
+            (request as any).order_id,
+            user.id,
+            undefined,
+            { force: true },
+          );
+        } catch (e) {
+          console.warn("[postpone] kitchen prep regen failed:", e);
         }
       }
 
