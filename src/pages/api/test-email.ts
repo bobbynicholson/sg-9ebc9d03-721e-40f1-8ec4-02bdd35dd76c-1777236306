@@ -76,21 +76,72 @@ export default async function handler(
     // act on the failure (missing RESEND_API_KEY, blocked contact,
     // from-email domain mismatch, etc.) without digging into Vercel
     // logs.
+    // TIGHTEN I.48 (2026-06-01): clean, mobile-first test email body.
+    // Single column, plain-text-leaning, no fixed widths. Renders well
+    // in Gmail's preview pane, Apple Mail (light + dark), Outlook,
+    // and on small phones. Keeps the friendly tone but reads more
+    // like a real CateringMS quote / confirmation, not a 2008 marketing
+    // template.
+    const fromLine = `${config.from_name || "Your team"} <${config.from_email || "your address"}>`;
+    const testEmailBody = `<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>CateringMS test email</title>
+  </head>
+  <body style="margin:0;padding:0;background:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;color:#0f172a;line-height:1.55;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#f8fafc;padding:24px 12px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:520px;background:#ffffff;border-radius:14px;overflow:hidden;box-shadow:0 1px 3px rgba(15,23,42,0.06);">
+            <tr>
+              <td style="padding:24px 28px 8px 28px;">
+                <p style="margin:0;font-size:13px;color:#64748b;letter-spacing:0.04em;text-transform:uppercase;font-weight:600;">CateringMS test email</p>
+                <h1 style="margin:8px 0 0 0;font-size:22px;line-height:1.3;color:#0f172a;font-weight:700;">Your email setup is working.</h1>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:14px 28px 4px 28px;">
+                <p style="margin:0;font-size:15px;color:#334155;">
+                  If you can read this, CateringMS can send quotes, invoices and confirmations to your clients from this address.
+                </p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:20px 28px 4px 28px;">
+                <p style="margin:0;font-size:12px;color:#64748b;letter-spacing:0.04em;text-transform:uppercase;font-weight:600;">From</p>
+                <p style="margin:4px 0 0 0;font-size:14px;color:#0f172a;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;word-break:break-all;">${fromLine}</p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:14px 28px 4px 28px;">
+                <p style="margin:0;font-size:12px;color:#64748b;letter-spacing:0.04em;text-transform:uppercase;font-weight:600;">Sent via</p>
+                <p style="margin:4px 0 0 0;font-size:14px;color:#0f172a;">${config.provider === "resend" ? "CateringMS (Resend)" : (config.provider || "Default")}</p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:24px 28px 28px 28px;">
+                <p style="margin:0;font-size:13px;color:#64748b;">
+                  This is a one-off test from the Email settings page. Real client emails carry the booking link, quote PDF, or invoice.
+                </p>
+              </td>
+            </tr>
+          </table>
+          <p style="margin:16px 0 0 0;font-size:11px;color:#94a3b8;text-align:center;">
+            Sent from CateringMS &middot; <a href="https://cateringms.com" style="color:#94a3b8;text-decoration:underline;">cateringms.com</a>
+          </p>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+
     const result = await emailService.sendEmailDetailed({
       companyId,
       to,
-      subject: "CateringMS - Test Email",
-      body: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <h2 style="color: #8B5CF6;">✅ Email Configuration Test</h2>
-          <p>If you're reading this, your email configuration is working correctly!</p>
-          <div style="background-color: #F3F4F6; padding: 15px; border-radius: 8px; margin: 20px 0;">
-            <p style="margin: 0;"><strong>Provider:</strong> ${config.provider || 'Development Mode'}</p>
-            <p style="margin: 5px 0 0 0;"><strong>From:</strong> ${config.from_name} &lt;${config.from_email}&gt;</p>
-          </div>
-          <p style="color: #6B7280; font-size: 14px;">This is a test email sent from CateringMS.</p>
-        </div>
-      `,
+      subject: "CateringMS test email - your setup is working",
+      body: testEmailBody,
       _client: admin,
     } as any);
 
