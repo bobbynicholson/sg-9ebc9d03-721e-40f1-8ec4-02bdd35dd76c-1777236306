@@ -474,6 +474,83 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     }
 
+    // TIGHTEN I.64 (2026-06-01): mirror the applied amendment back to
+    // the source quote. The auditors flagged that previously the
+    // amendment-approved path mutated the order's totals / menu_items /
+    // equipment_items / venue / guest_count and ran the kitchen / invoice
+    // / inventory cascades - but never touched the source quote. So
+    // after a partial refund or a guest-count change, /admin/quotes/[id]
+    // showed the original quote, /admin/orders/[id] showed the amended
+    // version, and the two diverged silently. The reverse trigger
+    // tg_orders_propagate_to_quote DOES mirror date/time/venue/guests
+    // but NOT menu_items, equipment_items or totals - so menu changes
+    // from an amendment were strictly lost on the quote side.
+    //
+    // Walk orders.quote_id and rewrite the same fields the amendment
+    // changed. Best-effort - amendment commit shouldn't roll back if
+    // the quote mirror fails; we collect into cascade.quote_mirror so
+    // the operator can see the outcome.
+    let quoteMirror: { ok: boolean; reason?: string; skipped?: boolean } = { ok: false, skipped: true };
+    try {
+      const { data: orderForQuote } = await ssr
+        .from("orders")
+        .select("quote_id")
+        .eq("id", (request as any).order_id)
+        .maybeSingle();
+      const linkedQuoteId = (orderForQuote as any)?.quote_id || null;
+      if (!linkedQuoteId) {
+        quoteMirror = { ok: true, skipped: true };
+      } else {
+        const quotePatch: Record<string, any> = { updated_at: nowIso };
+        // Direct field mirrors: shape-equivalent on quotes.
+        for (const k of ["guest_count", "venue_address", "menu_items", "equipment_items", "special_instructions"]) {
+          if (k in toApply) quotePatch[k] = (toApply as any)[k];
+        }
+        // delivery_time on orders -> event_time on quotes.
+        if ("delivery_time" in toApply) {
+          quotePatch.event_time = (toApply as any).delivery_time;
+        }
+        // Totals (only when we recomputed above) - mirror to quote so
+        // the public quote view + invoice generated from quote line
+        // items doesn't drift. Re-fetch the order row to read the
+        // freshly-written totals (the `totals` local is scoped to a
+        // sibling try block). Same "did the amendment touch totals"
+        // test the recompute used.
+        const totalsTouchingKeys = ["guest_count", "menu_items", "equipment_items"];
+        const totalsWereRecomputed = Object.keys(toApply).some((k) => totalsTouchingKeys.includes(k));
+        if (totalsWereRecomputed) {
+          const { data: freshOrder } = await ssr
+            .from("orders")
+            .select("subtotal, tax_amount, total_amount")
+            .eq("id", (request as any).order_id)
+            .maybeSingle();
+          if (freshOrder) {
+            quotePatch.subtotal = (freshOrder as any).subtotal;
+            quotePatch.tax_amount = (freshOrder as any).tax_amount;
+            quotePatch.tax = (freshOrder as any).tax_amount;
+            quotePatch.total = (freshOrder as any).total_amount;
+            quotePatch.total_amount = (freshOrder as any).total_amount;
+          }
+        }
+        if (Object.keys(quotePatch).length > 1) {
+          const { error: mirrorErr } = await ssr
+            .from("quotes")
+            .update(quotePatch as any)
+            .eq("id", linkedQuoteId);
+          if (mirrorErr) {
+            quoteMirror = { ok: false, reason: mirrorErr.message };
+          } else {
+            quoteMirror = { ok: true, skipped: false };
+          }
+        } else {
+          quoteMirror = { ok: true, skipped: true };
+        }
+      }
+    } catch (mirrorErr: any) {
+      quoteMirror = { ok: false, reason: mirrorErr?.message || "quote mirror crashed" };
+      console.warn("[amendment-review] quote mirror failed:", mirrorErr);
+    }
+
     // Persist cascade outcome on the request row so the operator can
     // see at a glance which steps need a retry, and so a future retry
     // endpoint can pick up where this one left off.
@@ -481,7 +558,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       applied_snapshot: {
         before: snapshot,
         applied_keys: Object.keys(toApply),
-        cascade,
+        cascade: { ...cascade, quote_mirror: quoteMirror },
       },
     } as any).eq("id", request_id);
 
