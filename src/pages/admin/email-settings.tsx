@@ -400,6 +400,14 @@ function EmailSettingsPage() {
           const d = json.debug;
           suffix += ` (key_present=${d.resend_key_present} length=${d.resend_key_length} prefix=${d.resend_key_prefix} starts_with_re_=${d.resend_key_starts_with_re_} edge_ws=${d.resend_key_has_whitespace_edges} vercel_env=${d.vercel_env})`;
         }
+        // TIGHTEN I.40: when the resend_auth was from Resend rejecting
+        // the call (not env var missing), surface what Resend said so
+        // the operator can tell rejected-by-Resend apart from
+        // missing-on-server.
+        if (json.context && (json.context.resend_status || json.context.resend_body_message)) {
+          const c = json.context;
+          suffix += ` resend_status=${c.resend_status ?? "?"} resend_says="${c.resend_body_message ?? c.resend_body_name ?? "?"}"`;
+        }
         toast({
           title: "Test failed",
           description: `${detail}${suffix}`,
