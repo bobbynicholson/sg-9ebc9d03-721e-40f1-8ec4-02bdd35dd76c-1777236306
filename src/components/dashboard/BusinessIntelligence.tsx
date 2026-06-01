@@ -156,7 +156,11 @@ export function BusinessIntelligence({ companyId, dateRange }: Props) {
           // accept-time / YoY / conversion-funnel / branch-spider
           // aggregators can fall back to "linked order exists" as
           // the won signal.
-          .select("id, status, total_amount, event_date, created_at, sent_at, accepted_at, region_id, converted_to_order_id")
+          // TIGHTEN I.71: select lost_reason too so the same
+          // aggregators can detect won-then-cancelled
+          // (lost_reason='order_cancelled' + converted_to_order_id
+          // set) and net it out of conversion rates.
+          .select("id, status, total_amount, event_date, created_at, sent_at, accepted_at, region_id, converted_to_order_id, lost_reason")
           .eq("company_id", companyId)
           .is("deleted_at", null)
           .gte("created_at", startISO)

@@ -262,9 +262,18 @@ function AdminDashboardPage() {
         // Phase 12 #6: quote conversion sample. Pull every quote
         // closed (accepted / rejected / expired) in the date range
         // so we can render N accepted of M closed = X% conversion.
+        //
+        // TIGHTEN I.71 (2026-06-01): also fetch lost_reason +
+        // converted_to_order_id so we can separate "clean wins"
+        // from "won then cancelled" (which post-I.62 keeps
+        // status='accepted' + lost_reason='order_cancelled'). The
+        // conversion rate now reports NET of cancellations - i.e.
+        // wins that actually stuck - which matches operator
+        // intuition for "what percentage of my deals turn into
+        // real revenue".
         supabase
           .from("quotes")
-          .select("status")
+          .select("status, lost_reason, converted_to_order_id")
           .eq("company_id", companyId)
           .is("deleted_at", null)
           .in("status", ["accepted", "rejected", "expired"])
@@ -429,13 +438,22 @@ function AdminDashboardPage() {
           && Number(r.current_stock || 0) <= Number(r.minimum_stock || 0),
       ).length;
 
-      // Phase 12 #6: quote conversion. Accepted ÷ (accepted + rejected
-      // + expired) closed in the range. Skipped when the sample is
-      // empty so the rate doesn't show a misleading 0%.
-      const closedQuotes = (conversionRes.data || []) as Array<{ status: string }>;
-      const closedAccepted = closedQuotes.filter((q) => q.status === "accepted").length;
+      // Phase 12 #6 / TIGHTEN I.71: quote conversion = wins that
+      // STUCK divided by all closed quotes. Excludes won-then-
+      // cancelled from the numerator so a tenant whose orders keep
+      // getting cancelled stops seeing inflated win rates. Won-then-
+      // cancelled = status='accepted' + lost_reason='order_cancelled'
+      // (the I.62 marker).
+      const closedQuotes = (conversionRes.data || []) as Array<{
+        status: string;
+        lost_reason: string | null;
+        converted_to_order_id: string | null;
+      }>;
+      const cleanWins = closedQuotes.filter(
+        (q) => q.status === "accepted" && q.lost_reason !== "order_cancelled",
+      ).length;
       const closedTotal = closedQuotes.length;
-      const quoteConversionRate = closedTotal > 0 ? (closedAccepted / closedTotal) * 100 : 0;
+      const quoteConversionRate = closedTotal > 0 ? (cleanWins / closedTotal) * 100 : 0;
       const quoteConversionSample = closedTotal;
 
       // Cancellations + refunds tile data. Pulls cancelled orders in

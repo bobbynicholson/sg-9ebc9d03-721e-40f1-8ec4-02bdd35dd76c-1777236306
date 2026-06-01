@@ -133,15 +133,17 @@ export function aggregateConversionFunnel(
       quotesViewed += 1;
       valueViewed += v;
     }
-    // TIGHTEN I.68 (2026-06-01): with I.62 the cancel cascade no
-    // longer flips quote.status accepted -> rejected. Detect
-    // won-then-cancelled via lost_reason='order_cancelled' AND
-    // converted_to_order_id - these quotes DID accept (count them
-    // here) but should also surface in the churned sidebar (handled
-    // by the order-side loop below). Reads `lost_reason` defensively
-    // even though it's not on the QuoteForYoY interface (the BI fetch
-    // already includes the column for I.61 compatibility).
-    if (q.status === "accepted" || isConverted) {
+    // TIGHTEN I.71 (2026-06-01): accepted bucket now NET of won-
+    // then-cancelled. Those quotes accepted then their order fell
+    // through (lost_reason='order_cancelled' is the I.62 marker).
+    // The funnel's accepted-rate should reflect deals that stuck
+    // to revenue, not deals that booked then cancelled. The
+    // churned sidebar below still surfaces won-then-cancelled
+    // separately via the orders.status='cancelled' check, so the
+    // funnel + sidebar are genuinely additive.
+    const lostReason = (q as any).lost_reason as string | null;
+    const isWonThenCancelled = isConverted && lostReason === "order_cancelled";
+    if ((q.status === "accepted" || isConverted) && !isWonThenCancelled) {
       quotesAccepted += 1;
       valueAccepted += v;
     }
