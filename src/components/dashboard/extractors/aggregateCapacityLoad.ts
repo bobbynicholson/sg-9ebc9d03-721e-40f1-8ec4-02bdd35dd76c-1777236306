@@ -44,7 +44,11 @@ export interface CapacityLoadResult {
 const ACTIVE_ORDER_STATUSES = new Set([
   "confirmed", "preparing", "ready", "in_transit",
 ]);
-const OPEN_QUOTE_STATUSES = new Set(["sent", "viewed", "revised"]);
+// TIGHTEN I.62 (2026-06-01): dropped dead 'viewed' and 'revised'
+// strings. quote_status enum is now (draft, sent, accepted,
+// rejected, expired). 'sent' is the only open-but-not-yet-decided
+// status. The auditors flagged this set as a silent string mismatch.
+const OPEN_QUOTE_STATUSES = new Set(["sent"]);
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const SHORT_DAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];

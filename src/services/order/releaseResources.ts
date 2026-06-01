@@ -450,7 +450,7 @@ export async function releaseOrderResources(opts: ReleaseOpts): Promise<ReleaseR
   // (the same event happens on a new date), reject mode doesn't apply
   // (no order to read quote_id from).
   if (mode === "cancel") {
-    await tryUpdate("quotes.linked_lost", "rejected", async () => {
+    await tryUpdate("quotes.linked_lost", "marked_order_cancelled", async () => {
       // Need the order's quote_id first. Single-row lookup; tolerant
       // of missing FK (order may have been entered manually without
       // a quote, in which case nothing to flip).
@@ -461,14 +461,45 @@ export async function releaseOrderResources(opts: ReleaseOpts): Promise<ReleaseR
         .maybeSingle();
       const quoteId = (orderRow as any)?.quote_id;
       if (!quoteId) {
-        // Treat as a no-op success - not every order has a quote.
         return { count: 0 };
       }
-      // Only flip if quote is still in a non-terminal state. A quote
-      // that was already rejected / expired stays as-is so we don't
-      // clobber a more-specific lost_reason set by an earlier
-      // workflow.
+      // TIGHTEN I.62 (2026-06-01): previously flipped quote.status
+      // from 'accepted' to 'rejected' here. That conflated two very
+      // different outcomes - "client declined the quote" vs "client
+      // accepted but the order was later cancelled" - so the
+      // /admin/quotes Lost tab mixed them, the funnel widget
+      // double-counted, the YoY conversion rate disagreed with
+      // booked revenue.
+      //
+      // New rule: a quote that was accepted stays 'accepted'. We
+      // stamp lost_reason='order_cancelled' as the signal. The
+      // quoteIntelligence bucketing logic detects this via
+      // (lost_reason='order_cancelled' AND converted_to_order_id IS
+      // NOT NULL) and surfaces it in its own "Won, order cancelled"
+      // bucket - separate from won, separate from lost. Same signal
+      // is read by the aggregators so revenue/conversion/funnel
+      // surfaces reconcile.
+      //
+      // Quotes that were NEVER accepted before the linked-order
+      // cancel (status='draft' or 'sent' - rare but possible if the
+      // order was created from a lead skip path) still get flipped
+      // to 'rejected' because their outcome IS lost, not
+      // won-then-cancelled.
       const { count, error } = await sb
+        .from("quotes")
+        .update({
+          // Don't overwrite status='accepted'. Only fall through to
+          // 'rejected' for the non-accepted edge case via a CASE on
+          // the DB side; supabase-js can't express that, so we run
+          // two updates.
+          lost_reason: "order_cancelled",
+        }, { count: "exact" })
+        .eq("id", quoteId)
+        .eq("status", "accepted");
+      if (error) return { error, count };
+      // Edge case: order spawned from a quote that was somehow still
+      // in draft/sent at cancel time. Genuine lost outcome.
+      const { count: count2, error: err2 } = await sb
         .from("quotes")
         .update({
           status: "rejected",
@@ -476,8 +507,8 @@ export async function releaseOrderResources(opts: ReleaseOpts): Promise<ReleaseR
           rejected_at: nowIso,
         }, { count: "exact" })
         .eq("id", quoteId)
-        .in("status", ["draft", "sent", "accepted"]);
-      return { error, count };
+        .in("status", ["draft", "sent"]);
+      return { error: err2, count: (count || 0) + (count2 || 0) };
     });
   } else {
     lines.push({ resource: "quotes.linked_lost", action: "skipped (mode!=cancel)" });
