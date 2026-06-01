@@ -26,6 +26,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { captureException } from "@/lib/observability";
 import { toLocalISO } from "@/lib/localDate";
 import { computeCurrentCashPosition } from "@/lib/cashflowMath";
+import { isPipelineRevenue } from "@/lib/orderRevenueClassification";
 import { fixedCostsService } from "@/services/fixedCostsService";
 import { orderService } from "@/services/orderService";
 import { paymentLedgerService } from "@/services/paymentLedgerService";
@@ -164,9 +165,16 @@ function CashflowDashboardInner() {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       const horizon = new Date(today.getTime() + 30 * 86_400_000);
+      // TIGHTEN I.70 (2026-06-01): use isPipelineRevenue so
+      // projection counts pipeline + booked + realised but excludes
+      // churned. Previously the filter was just "not cancelled",
+      // which is the same set today but locks the semantic in via
+      // the shared helper - future enum drift won't silently change
+      // this projection.
       const projectedRevenue30Days = scopedOrders
         .filter((o) => {
-          if (!o.event_date || o.status === "cancelled") return false;
+          if (!o.event_date) return false;
+          if (!isPipelineRevenue(o as any)) return false;
           const d = new Date(o.event_date);
           return !isNaN(d.getTime()) && d >= today && d <= horizon;
         })

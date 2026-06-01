@@ -15,6 +15,7 @@ import { analyticsService } from "@/services/analyticsService";
 import { aiFinancialService } from "@/services/aiFinancialService";
 import * as currencyUtils from "@/lib/currencyUtils";
 import { formatLocalDate } from "@/lib/localFormat";
+import { isPipelineRevenue } from "@/lib/orderRevenueClassification";
 import { toLocalISO } from "@/lib/localDate";
 import { computeCurrentCashPosition } from "@/lib/cashflowMath";
 import type { Order, Profile } from "@/types";
@@ -390,13 +391,17 @@ function FinancialDashboardInner() {
     const futureDate = new Date(now);
     futureDate.setDate(futureDate.getDate() + days);
 
+    // TIGHTEN I.70: shared canonical helper. Behaviour identical to
+    // the prior "not cancelled" filter but locked in via the
+    // classification module so future enum drift can't silently
+    // change projection numbers.
     return orders
       .filter(o => {
         if (!o.event_date) return false;
+        if (!isPipelineRevenue(o as any)) return false;
         const eventDate = new Date(o.event_date);
         if (isNaN(eventDate.getTime())) return false;
-        // Only count events that haven't happened yet AND fall within the window.
-        return eventDate >= now && eventDate <= futureDate && o.status !== "cancelled";
+        return eventDate >= now && eventDate <= futureDate;
       })
       .reduce((sum, o) => sum + (Number(o.total_amount) || 0), 0);
   };
