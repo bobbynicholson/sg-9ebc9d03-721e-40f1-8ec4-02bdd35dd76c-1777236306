@@ -133,6 +133,14 @@ export function aggregateConversionFunnel(
       quotesViewed += 1;
       valueViewed += v;
     }
+    // TIGHTEN I.68 (2026-06-01): with I.62 the cancel cascade no
+    // longer flips quote.status accepted -> rejected. Detect
+    // won-then-cancelled via lost_reason='order_cancelled' AND
+    // converted_to_order_id - these quotes DID accept (count them
+    // here) but should also surface in the churned sidebar (handled
+    // by the order-side loop below). Reads `lost_reason` defensively
+    // even though it's not on the QuoteForYoY interface (the BI fetch
+    // already includes the column for I.61 compatibility).
     if (q.status === "accepted" || isConverted) {
       quotesAccepted += 1;
       valueAccepted += v;
