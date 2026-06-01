@@ -482,13 +482,13 @@ function EmailSettingsPage() {
             <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center shadow-lg flex-shrink-0">
               <Mail className="w-6 h-6 text-white" />
             </div>
-            <div>
+            <div className="min-w-0">
               <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent flex items-center gap-2 flex-wrap">
-                Email & Integrations
-                <InfoTooltip content={"How CateringMS sends mail on your behalf, Gmail, Microsoft 365, or your own SMTP server, plus the daily send cap on your plan.\n\nDirect-send through your inbox is still being wired up; compose-link send works today."} />
+                Email settings
+                <InfoTooltip content={"How CateringMS sends mail on your behalf.\n\nOut of the box you're already set up via our shared sender. Verify your own domain below to send from your address.\n\nGmail / Microsoft 365 / SMTP live further down under 'Switch provider'."} />
               </h1>
-              <p className="text-sm sm:text-base text-slate-600 mt-1">
-                How CateringMS sends mail for you. <strong>You're already set up</strong> - quotes, invoices and confirmations go out automatically via our shared sender with Reply-To set to your address. Verifying your own domain (below) is an optional upgrade if you want your address on the From line. Gmail, Microsoft 365 and SMTP fallbacks live further down.
+              <p className="text-sm text-slate-600 mt-1">
+                You're already set up to send. Verify your own domain below for full branding, or just edit your sender name and address.
               </p>
             </div>
           </div>
@@ -640,26 +640,134 @@ function EmailSettingsPage() {
             </CardContent>
           </Card>
 
-          {/* Advanced: alternative providers */}
+          {/* TIGHTEN I.49 (2026-06-01): "Sender identity" card extracted
+              out of the old mega "Advanced: alternative providers"
+              card. From name + From address are core settings, not
+              advanced. They get their own dedicated section near the
+              top with the send-test affordance attached so the
+              operator can verify a change without scrolling. */}
           <Card className="border-0 shadow-lg mb-6">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Send className="w-5 h-5 text-purple-600" />
-                Advanced: alternative providers
+                <Mail className="w-5 h-5 text-purple-600" />
+                Sender identity
               </CardTitle>
               <CardDescription>
-                Most caterers should use the verified-domain option above. These options exist for operators who already have a Gmail / Microsoft / SMTP setup they'd rather route through.
+                What clients see in their inbox. Reply-To is set to your From address automatically.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <Label htmlFor="from_name">From name</Label>
+                  <Input
+                    id="from_name"
+                    value={row.from_name || ""}
+                    onChange={(e) => setRow({ ...row, from_name: e.target.value })}
+                    placeholder="Spit Braai Delivery"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="from_email">
+                    From address
+                    <InfoTooltip content={"The address that shows up in the recipient's inbox.\n\nFor Gmail or Outlook sign-in, this is locked to the account you connected."} />
+                  </Label>
+                  <Input
+                    id="from_email"
+                    type="email"
+                    value={row.from_email || ""}
+                    onChange={(e) => setRow({ ...row, from_email: e.target.value })}
+                    placeholder="hello@spitbraaidelivery.co.za"
+                  />
+                </div>
+              </div>
+
+              {row.last_test_error && (
+                <div className="rounded-md border border-rose-200 bg-rose-50 p-3 text-xs text-rose-900 flex items-start gap-2">
+                  <AlertTriangle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+                  <div className="min-w-0">
+                    <p className="font-semibold">Last test failed</p>
+                    <p className="break-words">{row.last_test_error}</p>
+                  </div>
+                </div>
+              )}
+
+              <div className="pt-3 border-t border-slate-100">
+                <Label htmlFor="test_recipient">
+                  Send test to (optional)
+                  <InfoTooltip content={"Leave blank to send the test to your From address. Drop any inbox in here to see what a real client would receive."} />
+                </Label>
+                <Input
+                  id="test_recipient"
+                  type="email"
+                  value={testRecipient}
+                  onChange={(e) => setTestRecipient(e.target.value)}
+                  placeholder={row.from_email || "you@example.com"}
+                />
+              </div>
+
+              <div className="flex items-center justify-between gap-3 pt-2">
+                <p className="text-xs text-slate-500 truncate">
+                  {row.last_test_sent_at && (
+                    <>Last test: {new Date(row.last_test_sent_at).toLocaleString("en-ZA")}</>
+                  )}
+                </p>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <Button
+                    onClick={sendTestEmail}
+                    disabled={testing || saving || !row.from_email}
+                    variant="outline"
+                    className="gap-2"
+                    title={hasUnsavedChanges
+                      ? `Save and send a test to ${testRecipient.trim() || row.from_email}`
+                      : `Send a test email to ${testRecipient.trim() || row.from_email}`}
+                  >
+                    {testing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />}
+                    {hasUnsavedChanges ? "Save & send test" : "Send test"}
+                  </Button>
+                  <Button onClick={save} disabled={saving} className="gap-2">
+                    {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Shield className="w-4 h-4" />}
+                    {hasUnsavedChanges ? "Save" : "Saved"}
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* TIGHTEN I.45 / I.49: per-tenant deliverability health.
+              Moved up from below auto-attach in I.49 - this is the
+              live data the operator most wants to see, putting it
+              under their sender identity is the right reading order. */}
+          {companyId && <EmailDeliverabilityPanel companyId={companyId} />}
+
+          {/* TIGHTEN I.49: "Switch to a different provider" - the
+              alternative-provider tiles + OAuth/SMTP fields + daily
+              cap. Collapsed by default since most tenants don't ever
+              touch this. The Resend (default) tile is always the
+              correct choice unless the operator has a specific reason
+              to route via their own Gmail/365/SMTP. */}
+          <details className="mb-6 rounded-lg border-0 shadow-lg bg-white overflow-hidden">
+            <summary className="cursor-pointer px-6 py-4 select-none flex items-center justify-between gap-3">
+              <span className="flex items-center gap-2 font-semibold text-slate-900">
+                <Server className="w-5 h-5 text-purple-600" />
+                Switch to a different provider
+              </span>
+              <span className="text-xs text-slate-500">
+                Currently: {row.provider === "resend" ? "CateringMS default" : row.provider === "gmail_oauth" ? "Gmail" : row.provider === "ms365_oauth" ? "Microsoft 365" : row.provider === "smtp" ? "Custom SMTP" : "None"}
+              </span>
+            </summary>
+            <div className="px-6 pb-6 pt-2 space-y-4 border-t border-slate-100">
+              <p className="text-xs text-slate-600">
+                Most caterers should stay on the CateringMS default. These options exist for operators who already have a Gmail / Microsoft / SMTP setup they'd rather route through.
+              </p>
               <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                 <ProviderTile
                   active={row.provider === "resend"}
                   onClick={() => setRow({ ...row, provider: "resend" })}
                   icon={Globe}
-                  title="Verified domain"
-                  sub="Through CateringMS (Resend)"
-                  badge="Default"
+                  title="CateringMS default"
+                  sub="Through Resend"
+                  badge="Recommended"
                   badgeTone="bg-purple-100 text-purple-700"
                 />
                 <ProviderTile
@@ -685,33 +793,6 @@ function EmailSettingsPage() {
                 />
               </div>
 
-              {/* From identity */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-3 border-t border-slate-100">
-                <div>
-                  <Label htmlFor="from_name">From name</Label>
-                  <Input
-                    id="from_name"
-                    value={row.from_name || ""}
-                    onChange={(e) => setRow({ ...row, from_name: e.target.value })}
-                    placeholder="Spit Braai Delivery"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="from_email">
-                    From address
-                    <InfoTooltip content={"The address that shows up in the recipient's inbox.\n\nFor Gmail or Outlook sign-in, this is locked to the account you connected."} />
-                  </Label>
-                  <Input
-                    id="from_email"
-                    type="email"
-                    value={row.from_email || ""}
-                    onChange={(e) => setRow({ ...row, from_email: e.target.value })}
-                    placeholder="hello@spitbraaidelivery.co.za"
-                  />
-                </div>
-              </div>
-
-              {/* OAuth: button to start sign-in flow (stub for now) */}
               {(row.provider === "gmail_oauth" || row.provider === "ms365_oauth") && (
                 <div className="pt-3 border-t border-slate-100 space-y-3">
                   {row.is_verified ? (
@@ -743,7 +824,6 @@ function EmailSettingsPage() {
                 </div>
               )}
 
-              {/* SMTP: host/port/user/pass */}
               {row.provider === "smtp" && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-3 border-t border-slate-100">
                   <div>
@@ -772,7 +852,6 @@ function EmailSettingsPage() {
                 </div>
               )}
 
-              {/* Daily cap override */}
               <div className="pt-3 border-t border-slate-100 grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
                   <Label htmlFor="cap">
@@ -790,98 +869,29 @@ function EmailSettingsPage() {
                 </div>
               </div>
 
-              {/* Shared-fallback sender disclosure [P1-06]. Until the
-                  tenant verifies their own domain in Resend, sends fall
-                  back to noreply@send.cateringms.com with Reply-To set
-                  to the tenant's from_email. Operators were stuck
-                  thinking they couldn't send anything until DNS
-                  verified - explicitly tell them the fallback works. */}
-              {row.provider === "resend" && !row.is_verified && row.from_email && (
-                <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                  Domain not yet verified. Emails still go out from
-                  <code className="mx-1 rounded bg-white px-1 py-0.5">noreply@send.cateringms.com</code>
-                  with Reply-To set to {row.from_email}. Verify your domain
-                  to switch to your own sender.
-                </div>
-              )}
-
-              {/* ES-B (task #221, 2026-05-25): surface the last
-                  test error if the most recent test failed. Pre-ES-B
-                  the column was populated server-side but never
-                  shown - so an operator had no breadcrumb when a
-                  test silently failed weeks ago. */}
-              {row.last_test_error && (
-                <div className="rounded-md border border-rose-200 bg-rose-50 p-3 text-xs text-rose-900 flex items-start gap-2">
-                  <AlertTriangle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
-                  <div className="min-w-0">
-                    <p className="font-semibold">Last test failed</p>
-                    <p className="break-words">{row.last_test_error}</p>
-                  </div>
-                </div>
-              )}
-
-              {/* ES-B: custom test-recipient input. Defaults blank
-                  so a quick test still lands in the from address;
-                  fill in any inbox to preview what a real client
-                  sees. */}
-              <div className="pt-3 border-t border-slate-100">
-                <Label htmlFor="test_recipient">
-                  Send test to (optional)
-                  <InfoTooltip content={"Leave blank to send the test to your from address. Drop in any inbox here to see what an actual client would receive."} />
-                </Label>
-                <Input
-                  id="test_recipient"
-                  type="email"
-                  value={testRecipient}
-                  onChange={(e) => setTestRecipient(e.target.value)}
-                  placeholder={row.from_email || "you@example.com"}
-                />
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+                <Button onClick={save} disabled={saving} className="gap-2">
+                  {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Shield className="w-4 h-4" />}
+                  {hasUnsavedChanges ? "Save provider config" : "Saved"}
+                </Button>
               </div>
+            </div>
+          </details>
 
-              <div className="flex items-center justify-between gap-3 pt-3 border-t border-slate-100">
-                <p className="text-xs text-slate-500 truncate">
-                  {row.last_test_sent_at && (
-                    <>Last connection check: {new Date(row.last_test_sent_at).toLocaleString("en-ZA")}</>
-                  )}
-                </p>
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <Button
-                    onClick={sendTestEmail}
-                    disabled={testing || saving || !row.from_email}
-                    variant="outline"
-                    className="gap-2"
-                    title={hasUnsavedChanges
-                      ? `Save and send a test to ${testRecipient.trim() || row.from_email}`
-                      : `Send a test email to ${testRecipient.trim() || row.from_email}`}
-                  >
-                    {testing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />}
-                    {hasUnsavedChanges ? "Save & send test" : "Send test email"}
-                  </Button>
-                  <Button onClick={save} disabled={saving} className="gap-2">
-                    {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Shield className="w-4 h-4" />}
-                    {hasUnsavedChanges ? "Save provider config" : "Saved"}
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* TIGHTEN I.45: per-tenant deliverability health. Reads
-              email_delivery_events populated by /api/webhooks/resend.
-              Shows delivery rate, bounce rate, complaint rate over
-              the last 30 days plus the recent issues list. */}
-          {companyId && <EmailDeliverabilityPanel companyId={companyId} />}
-
-          {/* Auto-attach client links to outgoing email */}
+          {/* TIGHTEN I.49: renamed "Auto-attach client links" to
+              "When to email clients automatically" - matches the
+              operator's mental model better. The old title described
+              the mechanism (attach a link); the new one describes the
+              decision (when do these emails fire). */}
           <Card className="border-0 shadow-lg mb-6">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Send className="w-5 h-5 text-purple-600" />
-                Auto-attach client links
-                <InfoTooltip content={"Pick which moments automatically queue a client email with their secure order link. Repeat clients can also get a 'View all my events' link.\n\nWhile direct-send is being wired up, drafts queue here, you can copy and send any draft from your own inbox in the meantime."} />
+                When to email clients automatically
+                <InfoTooltip content={"Toggle which client emails fire automatically. Each one includes the client's secure order link. Repeat clients can also get a 'View all my events' link.\n\nWhile direct-send is being wired up, drafts queue here, you can copy and send any draft from your own inbox in the meantime."} />
               </CardTitle>
               <CardDescription>
-                Automatically include the client's tokenised order link when these things happen.
+                Pick which moments automatically send a client email with their secure order link.
                 {queuedCount > 0 && (
                   <span className="ml-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">
                     <BarChart3 className="w-3 h-3" /> {queuedCount} queued
@@ -983,13 +993,14 @@ function EmailSettingsPage() {
             </CardContent>
           </Card>
 
-          {/* Status / next steps */}
-          <Card className="border-0 shadow bg-slate-50">
-            <CardContent className="py-4 text-xs text-slate-600 space-y-1">
-              <p><strong>How sends are tracked:</strong> compose-link clicks (Gmail / Outlook / mailto / clipboard) are logged to outgoing_email_log but don't count against your daily cap because they go through your own inbox quota.</p>
-              <p><strong>Direct send:</strong> activates once Gmail OAuth, MS 365 OAuth or SMTP is verified. Until then the Clients CRM uses compose-links only.</p>
-            </CardContent>
-          </Card>
+          {/* TIGHTEN I.49: removed the bottom "Status / next steps"
+              footer card. Both bullets are dead weight:
+                - "How sends are tracked" is the kind of platform-team
+                  explanation that should live in docs, not the
+                  settings page
+                - "Direct send activates once OAuth/SMTP is verified" is
+                  already covered by the OAuth section's amber banner
+                  and the test-failure error state in Sender identity */}
         </div>
       </div>
     </>
