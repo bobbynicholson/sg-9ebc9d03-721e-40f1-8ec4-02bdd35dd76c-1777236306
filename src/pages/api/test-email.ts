@@ -106,6 +106,23 @@ export default async function handler(
       });
     }
 
+    // TIGHTEN I.39 (2026-06-01): diagnostic block. We confirmed Bobby's
+    // Vercel dashboard has RESEND_API_KEY set, scoped to Production +
+    // Preview, but the test keeps reporting resend_auth. Either the
+    // value is empty/whitespace, the runtime isn't picking it up, or
+    // it's set on a different project. Reports presence + length +
+    // prefix only - never the bytes - so we can settle which.
+    const rk = process.env.RESEND_API_KEY;
+    const debug = result.error_code === "resend_auth" ? {
+      resend_key_present: !!rk,
+      resend_key_length: rk ? rk.length : 0,
+      resend_key_prefix: rk ? rk.slice(0, 3) : null,
+      resend_key_starts_with_re_: rk ? rk.startsWith("re_") : false,
+      resend_key_has_whitespace_edges: rk ? (rk.trim() !== rk) : false,
+      node_env: process.env.NODE_ENV || null,
+      vercel_env: process.env.VERCEL_ENV || null,
+    } : undefined;
+
     // Propagate the structured failure so the client toast can show
     // the operator something they can act on.
     return res.status(500).json({
@@ -114,6 +131,7 @@ export default async function handler(
       error_code: result.error_code || null,
       fix_link: result.fix_link || null,
       context: result.context || null,
+      debug,
       config: {
         provider: config.provider,
         from: `${config.from_name} <${config.from_email}>`,

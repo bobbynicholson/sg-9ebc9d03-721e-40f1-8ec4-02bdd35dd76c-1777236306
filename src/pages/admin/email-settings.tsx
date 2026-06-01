@@ -391,11 +391,18 @@ function EmailSettingsPage() {
         // "change the from address") instead of seeing the same
         // useless generic message for every failure mode.
         const detail = json.error || "Could not send test email. Check provider config.";
+        // TIGHTEN I.39: when resend_auth fires but the dashboard
+        // claims the key is set, include the debug block in the toast
+        // so we can tell at a glance whether the runtime is seeing it.
+        let suffix = "";
+        if (json.error_code) suffix = ` [${json.error_code}]`;
+        if (json.debug) {
+          const d = json.debug;
+          suffix += ` (key_present=${d.resend_key_present} length=${d.resend_key_length} prefix=${d.resend_key_prefix} starts_with_re_=${d.resend_key_starts_with_re_} edge_ws=${d.resend_key_has_whitespace_edges} vercel_env=${d.vercel_env})`;
+        }
         toast({
           title: "Test failed",
-          description: json.error_code
-            ? `${detail} [${json.error_code}]`
-            : detail,
+          description: `${detail}${suffix}`,
           variant: "destructive",
         });
         return;
