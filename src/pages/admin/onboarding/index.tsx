@@ -1028,7 +1028,7 @@ function EmailStep({
               </span>
             </div>
             <p className="text-xs text-slate-700 leading-relaxed">
-              Your clients see emails from <code>you@yourdomain.com</code>. Takes 5 minutes to set up. We give you 3 DNS records to add at your domain host (cPanel / Cloudflare / wherever) and verify automatically once they're live.
+              Your clients see emails from <code>you@yourdomain.com</code>. Takes 5 minutes to set up. We give you 3 DNS records to add at your domain host (cPanel / konsoleH / Vercel Domains / wherever) and verify automatically once they're live.
             </p>
             <p className="mt-3 text-xs font-semibold text-purple-700 inline-flex items-center gap-1">
               Set up my domain <ArrowRight className="w-3 h-3" />

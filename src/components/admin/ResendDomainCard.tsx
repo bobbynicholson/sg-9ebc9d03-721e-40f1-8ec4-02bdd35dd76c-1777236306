@@ -827,7 +827,7 @@ export function ResendDomainCard({ companyId, onVerified, compact }: Props) {
             state.records.length > 0 && (
               <>
                 <div className="px-3 py-2 text-xs text-slate-600 bg-white border-b border-slate-200">
-                  Add these DNS records at your domain host (cPanel, Cloudflare, Domains.co.za, etc.) then click <strong>Verify now</strong>.
+                  Add these DNS records at your domain host (cPanel, konsoleH / xneelo, Domains.co.za, Vercel Domains, etc.) then click <strong>Verify now</strong>. If you use konsoleH, read the provider tips below first - MX records need a trailing dot or the record breaks.
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs">
@@ -952,6 +952,52 @@ export function ResendDomainCard({ companyId, onVerified, compact }: Props) {
         </details>
       )}
 
+      {/* PROVIDER-SPECIFIC TIPS - the gotchas we've watched real users
+          run into. Open by default because skipping these is the most
+          common cause of "DNS won't verify". konsoleH (xneelo) is the
+          big one for SA caterers - it appends the zone to MX targets
+          without a trailing dot, breaking the record silently. */}
+      {!verified && state.records.length > 0 && (
+        <details open className="rounded-lg border border-amber-200 bg-amber-50">
+          <summary className="cursor-pointer px-3 py-2 text-xs font-semibold text-amber-900 select-none flex items-center gap-2">
+            <AlertTriangle className="w-3.5 h-3.5" />
+            Provider-specific tips - read before you paste
+          </summary>
+          <div className="px-3 py-3 border-t border-amber-100 space-y-3 text-xs text-amber-900">
+            <div>
+              <p className="font-semibold">konsoleH (xneelo / domains.co.za / host-h.net)</p>
+              <ul className="mt-1 list-disc list-inside space-y-1">
+                <li>
+                  <strong>MX records:</strong> add a trailing dot at the end of the Destination value, e.g.{" "}
+                  <code className="font-mono">feedback-smtp.eu-west-1.amazonses.com.</code> (note the final period).
+                  Without it, konsoleH appends your domain to the value and the record points to a host that doesn't exist.
+                </li>
+                <li>
+                  <strong>TXT records:</strong> paste the value as-is, without wrapping it in double quotes. konsoleH adds the quotes in the zone file for you.
+                </li>
+                <li>
+                  <strong>DKIM hostname:</strong> the Name field is relative to your domain. For the resend DKIM record, use{" "}
+                  <code className="font-mono">resend._domainkey.send</code> - NOT the full <code className="font-mono">.cateringms.com</code> on the end.
+                </li>
+              </ul>
+            </div>
+            <div>
+              <p className="font-semibold">DKIM values longer than 255 characters</p>
+              <p className="mt-1">
+                DNS TXT records have a 255-byte limit per string. The DKIM value above is over that.
+                Most modern panels handle this for you. Some older ones reject the record or silently truncate it.
+                If verification keeps failing on DKIM, split the value into two quoted strings separated by a space:
+              </p>
+              <pre className="mt-2 bg-white border border-amber-200 rounded p-2 font-mono text-[10px] overflow-x-auto whitespace-pre-wrap break-all">{`"p=MIG...first_half_up_to_255_chars" "rest_of_the_value...IDAQAB"`}</pre>
+            </div>
+            <div>
+              <p className="font-semibold">Most other panels (Vercel Domains, Namecheap, GoDaddy, Route 53, Hover, Gandi, Linode)</p>
+              <p className="mt-1">Paste the values exactly as shown above. No trailing dots, no quotes, no splitting needed. Click Save, wait a minute, click Verify now.</p>
+            </div>
+          </div>
+        </details>
+      )}
+
       {/* COMMON MISTAKES CHECKLIST */}
       {!verified && (
         <details className="rounded-lg border border-slate-200 bg-white">
@@ -971,15 +1017,20 @@ export function ResendDomainCard({ companyId, onVerified, compact }: Props) {
               </p>
             </div>
             <div>
-              <p className="font-semibold text-slate-900">2. Did the long DKIM value paste in full?</p>
+              <p className="font-semibold text-slate-900">2. MX value missing a trailing dot?</p>
               <p className="mt-0.5">
-                Some DNS hosts truncate at 255 characters. Open the saved record and check it ends with <code>IDAQAB</code>.
+                Some hosts (notably konsoleH / xneelo) treat MX destinations without a trailing dot as
+                relative names and append your domain to them. The Destination must be
+                <code className="mx-1">feedback-smtp.eu-west-1.amazonses.com.</code>
+                with the period at the end.
               </p>
             </div>
             <div>
-              <p className="font-semibold text-slate-900">3. Cloudflare users - is the proxy (orange cloud) OFF?</p>
+              <p className="font-semibold text-slate-900">3. Did the long DKIM value paste in full?</p>
               <p className="mt-0.5">
-                DNS-only mode is required for email auth. The orange cloud must be grey for these records.
+                Some DNS hosts truncate or refuse values over 255 characters. Open the saved record and
+                check it ends with <code>IDAQAB</code>. If it doesn't, split it into two quoted strings
+                (see Provider-specific tips above).
               </p>
             </div>
             <div>
@@ -991,7 +1042,16 @@ export function ResendDomainCard({ companyId, onVerified, compact }: Props) {
             <div>
               <p className="font-semibold text-slate-900">5. Are there extra quotes or whitespace?</p>
               <p className="mt-0.5">
-                Some hosts wrap TXT values in quotes that break the record. Compare the saved value character-for-character against the source.
+                Some hosts wrap TXT values in quotes that become part of the stored value. Compare the
+                saved value character-for-character against the source.
+              </p>
+            </div>
+            <div>
+              <p className="font-semibold text-slate-900">6. Is your DNS being served through a CDN proxy?</p>
+              <p className="mt-0.5">
+                If your records sit behind a proxy (some hosts wrap A/AAAA records by default), email
+                auth lookups can be blocked. Turn proxy-mode off for these specific records and serve
+                them directly from your nameservers.
               </p>
             </div>
             <div className="pt-2 border-t border-slate-100">
