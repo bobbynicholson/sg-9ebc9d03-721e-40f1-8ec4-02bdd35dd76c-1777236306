@@ -111,6 +111,7 @@ import { useTenantHref } from "@/lib/tenantUrl";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { quoteService } from "@/services/quoteService";
 import { propagateQuoteEditToOrder } from "@/services/quote/propagateQuoteEdit";
+import { QuoteSendDialog } from "@/components/billing/QuoteSendDialog";
 import { toLocalISO } from "@/lib/localDate";
 import { EntityNotesThread } from "@/components/admin/EntityNotesThread";
 
@@ -1128,7 +1129,7 @@ function NewQuotePage() {
   ]);
 
   // First save = INSERT, all subsequent = UPDATE.
-  const persistQuote = useCallback(async (override: { status?: string; sent_at?: string } = {}): Promise<string | null> => {
+  const persistQuote = useCallback(async (override: { status?: string; sent_at?: string; __skipSentEmail?: boolean } = {}): Promise<string | null> => {
     if (!companyId || !user?.id) return null;
     if (!clientName) return null;          // never save an empty husk
     setSaving(true);
@@ -1326,7 +1327,7 @@ function NewQuotePage() {
         // accepts. Skipped on Case B because the client already
         // accepted and the order is in flight - no re-acceptance
         // needed, just propagate changes.
-        if (override.status === "sent" && prevStatus !== "sent" && !isAdminEditOfConvertedQuote) {
+        if (override.status === "sent" && prevStatus !== "sent" && !isAdminEditOfConvertedQuote && !override.__skipSentEmail) {
           void quoteService._fireQuoteSentEmail(quoteId).catch((e) =>
             console.warn("[quotes/new] sent-email fire failed:", e),
           );
@@ -1411,7 +1412,7 @@ function NewQuotePage() {
         // quote) - fire the client email through the existing
         // _fireQuoteSentEmail path. NULL prev-status acts like a
         // transition from draft.
-        if (operatorPressedSend) {
+        if (operatorPressedSend && !override.__skipSentEmail) {
           void quoteService._fireQuoteSentEmail(created.id).catch((e) =>
             console.warn("[quotes/new] sent-email fire failed:", e),
           );
@@ -1488,6 +1489,20 @@ function NewQuotePage() {
     );
   }, [menuItems]);
 
+  // TIGHTEN I.66 (2026-06-01): Save & Send now goes through a
+  // preview dialog so the operator sees and can edit the email body
+  // BEFORE it goes to the client. Bobby flagged that "this popup
+  // dialogue is cool, but I have no idea what I'm sending to the
+  // client. I need to see and be able to edit." Previously the flow
+  // was: click Save & Send -> allergens check -> instant email fire
+  // (no chance to review or edit). Now: click Save & Send ->
+  // allergens check -> persist quote WITHOUT auto-firing the email
+  // -> open QuoteSendDialog (existing component that's used on
+  // /admin/quotes index but wasn't wired to the edit page) ->
+  // operator reviews + edits subject + body -> dialog confirms +
+  // sends + stamps sent_at + status='sent'.
+  const [sendDialogQuote, setSendDialogQuote] = useState<any | null>(null);
+
   const handleSend = async (opts: { bypassAllergenGate?: boolean } = {}) => {
     if (!email || !email.trim()) {
       toast({
@@ -1507,13 +1522,30 @@ function NewQuotePage() {
     }
     setSending(true);
     try {
-      const id = await persistQuote({ status: "sent", sent_at: new Date().toISOString() });
+      // Persist the latest edits but DON'T auto-fire the email -
+      // the preview dialog will fire it when the operator confirms.
+      const id = await persistQuote({
+        status: "sent",
+        sent_at: new Date().toISOString(),
+        __skipSentEmail: true,
+      });
       if (id) {
-        toast({
-          title: "Quote sent",
-          description: `Email queued to ${email}.`,
+        // Open the preview-and-edit dialog with the current quote
+        // state. The dialog resolves the template, lets the operator
+        // edit subject + body, and posts to /api/send-email with the
+        // operator's content verbatim on confirm.
+        setSendDialogQuote({
+          id,
+          quote_number: quoteNumber || id,
+          client_name: clientName || null,
+          client_email: email,
+          total: computed.total,
+          total_amount: computed.total,
+          currency: tenantCurrency.code,
+          event_name: eventName || null,
+          quote_name: eventName || null,
+          user_id: user?.id || null,
         });
-        router.push(withSlug("/admin/quotes"));
       }
     } finally {
       setSending(false);
@@ -2544,11 +2576,33 @@ function NewQuotePage() {
               }}
               className="bg-amber-600 hover:bg-amber-700"
             >
-              Send anyway
+              Review email next
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* TIGHTEN I.66: preview-and-edit dialog. Opens after Save & Send
+          + the allergens check passes. Operator sees the resolved
+          template, edits the subject and body if they want, then
+          clicks Send to actually email the client. If they Cancel,
+          the quote is already persisted (so their content edits
+          aren't lost) but the email doesn't fire. */}
+      {companyId && (
+        <QuoteSendDialog
+          open={!!sendDialogQuote}
+          onOpenChange={(open) => {
+            if (!open) setSendDialogQuote(null);
+          }}
+          companyId={companyId}
+          quote={sendDialogQuote}
+          tenantName={null}
+          onSent={() => {
+            setSendDialogQuote(null);
+            router.push(withSlug("/admin/quotes"));
+          }}
+        />
+      )}
     </>
   );
 }
