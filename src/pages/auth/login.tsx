@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useRouter, NextRouter } from "next/router";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -219,172 +219,182 @@ export default function LoginPage() {
     }
   };
 
+  // Visual style matches the tenant `/{slug}/login` pages: narrow card,
+  // gradient header band with a logo tile, clean white body underneath.
+  // The CateringMS purple-to-pink gradient stands in for the tenant brand
+  // colours since this is the route the user hits when there's no slug yet.
+  // Dev mode keeps a wider card because the role grid needs the space; the
+  // toggle floats top-right of the page (not inside the brand header) so
+  // the chrome stays consistent with the tenant pages.
+  const cardWidth = devMode ? "max-w-4xl" : "max-w-md";
+
   return (
-    <div
-      className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-pink-50 flex items-center justify-center p-4"
-      style={{
-        paddingTop: "max(1rem, env(safe-area-inset-top, 1rem))",
-        paddingBottom: "max(1rem, env(safe-area-inset-bottom, 1rem))",
-      }}
-    >
-      <Card className="w-full max-w-4xl border-0 shadow-2xl">
-        <CardHeader className="space-y-4 px-6 pt-8">
-          <div className="flex items-center justify-between">
+    <>
+      <div
+        className="min-h-screen flex items-center justify-center px-4 py-10 relative"
+        style={{
+          background: "linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)",
+          paddingTop: "max(2.5rem, env(safe-area-inset-top, 2.5rem))",
+          paddingBottom: "max(2.5rem, env(safe-area-inset-bottom, 2.5rem))",
+        }}
+      >
+        {showDevMode && (
+          <Button
+            variant={devMode ? "default" : "outline"}
+            onClick={() => setDevMode(!devMode)}
+            className={`absolute top-4 right-4 ${devMode ? "bg-amber-500 hover:bg-amber-600" : ""}`}
+          >
+            {devMode ? "Normal login" : "Dev mode"}
+          </Button>
+        )}
+
+        <Card className={`w-full ${cardWidth} border-0 shadow-2xl rounded-3xl overflow-hidden`}>
+          <div className="px-7 pt-7 pb-6 bg-gradient-to-br from-purple-500 to-pink-500">
             <div className="flex items-center gap-3">
-              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center shadow-lg">
-                <Mail className="w-8 h-8 text-white" />
+              <div className="w-12 h-12 rounded-xl bg-white/20 backdrop-blur flex items-center justify-center shadow-lg flex-shrink-0">
+                <Mail className="w-6 h-6 text-white" />
               </div>
-              <div>
-                <CardTitle className="text-2xl font-bold text-slate-900">
-                  Welcome Back
-                </CardTitle>
-                <CardDescription className="text-sm text-slate-600">
-                  Sign in, we'll route you to your company portal
-                </CardDescription>
+              <div className="min-w-0">
+                <h1 className="text-lg sm:text-xl font-bold text-white truncate">
+                  Welcome back
+                </h1>
+                <p className="text-xs sm:text-sm text-white/80">
+                  Sign in and we'll route you to your portal
+                </p>
               </div>
             </div>
-            {showDevMode && (
-              <Button
-                variant={devMode ? "default" : "outline"}
-                onClick={() => setDevMode(!devMode)}
-                className={devMode ? "bg-amber-500 hover:bg-amber-600" : ""}
-              >
-                {devMode ? "Normal Login" : "Dev Mode"}
-              </Button>
-            )}
           </div>
-        </CardHeader>
 
-        <CardContent className="px-6 pb-8">
-          {devMode ? (
-            <div className="space-y-4">
-              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
-                <p className="text-sm text-amber-900 font-semibold">
-                  🔧 Dev Mode Active
-                </p>
-                <p className="text-xs text-amber-700 mt-1">
-                  Click a role to sign in instantly. All passwords: Test123!
-                </p>
-              </div>
+          <CardContent className="p-7 sm:p-8">
+            {devMode ? (
+              <div className="space-y-4">
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-2">
+                  <p className="text-sm text-amber-900 font-semibold">
+                    🔧 Dev mode active
+                  </p>
+                  <p className="text-xs text-amber-700 mt-1">
+                    Click a role to sign in instantly. All passwords: Test123!
+                  </p>
+                </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                {DEV_USERS.map((user) => {
-                  const Icon = user.icon;
-                  return (
-                    <button
-                      key={user.email}
-                      onClick={() => handleDevLogin(user.email, user.role)}
-                      disabled={loading}
-                      className="group relative overflow-hidden rounded-xl border-2 border-slate-200 hover:border-slate-300 bg-white p-6 text-left transition-all hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <div className={`w-12 h-12 rounded-lg bg-gradient-to-br ${user.gradient} flex items-center justify-center mb-3`}>
-                        <Icon className="w-6 h-6 text-white" />
-                      </div>
-                      <h3 className="font-semibold text-slate-900 mb-1">
-                        {user.label}
-                      </h3>
-                      <p className="text-xs text-slate-500">
-                        {user.description}
-                      </p>
-                      {loading && (
-                        <div className="absolute inset-0 bg-white/80 flex items-center justify-center">
-                          <Loader2 className="w-5 h-5 animate-spin text-slate-900" />
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {DEV_USERS.map((user) => {
+                    const Icon = user.icon;
+                    return (
+                      <button
+                        key={user.email}
+                        onClick={() => handleDevLogin(user.email, user.role)}
+                        disabled={loading}
+                        className="group relative overflow-hidden rounded-xl border-2 border-slate-200 hover:border-slate-300 bg-white p-6 text-left transition-all hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <div className={`w-12 h-12 rounded-lg bg-gradient-to-br ${user.gradient} flex items-center justify-center mb-3`}>
+                          <Icon className="w-6 h-6 text-white" />
                         </div>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-
-              {error && (
-                <Alert variant="destructive" className="mt-4">
-                  <AlertDescription>{error}</AlertDescription>
-                </Alert>
-              )}
-            </div>
-          ) : (
-            <form onSubmit={handleNormalLogin} className="space-y-6">
-              {error && (
-                <Alert variant="destructive" className="text-sm">
-                  <AlertDescription>{error}</AlertDescription>
-                </Alert>
-              )}
-
-              <div className="space-y-2">
-                <Label htmlFor="email" className="text-slate-700 font-medium text-base">
-                  Email Address
-                </Label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-3.5 h-5 w-5 text-slate-400" />
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="your.email@example.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="pl-10 h-12 text-base"
-                    required
-                    disabled={loading}
-                  />
+                        <h3 className="font-semibold text-slate-900 mb-1">
+                          {user.label}
+                        </h3>
+                        <p className="text-xs text-slate-500">
+                          {user.description}
+                        </p>
+                        {loading && (
+                          <div className="absolute inset-0 bg-white/80 flex items-center justify-center">
+                            <Loader2 className="w-5 h-5 animate-spin text-slate-900" />
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
-              </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="password" className="text-slate-700 font-medium text-base">
-                  Password
-                </Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-3.5 h-5 w-5 text-slate-400" />
-                  <Input
-                    id="password"
-                    type="password"
-                    placeholder="Enter your password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="pl-10 h-12 text-base"
-                    required
-                    disabled={loading}
-                  />
-                </div>
-              </div>
-
-              <Button
-                type="submit"
-                className="w-full h-12 bg-gradient-to-r from-purple-500 to-pink-500 hover:opacity-90 transition-opacity text-white font-semibold text-base"
-                disabled={loading}
-              >
-                {loading ? (
-                  <>
-                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                    Signing in...
-                  </>
-                ) : (
-                  "Sign In"
+                {error && (
+                  <Alert variant="destructive" className="mt-4">
+                    <AlertDescription>{error}</AlertDescription>
+                  </Alert>
                 )}
-              </Button>
-
-              <div className="mt-6 text-center space-y-3">
-                <p className="text-sm text-slate-500">
-                  Don't have an account?{" "}
-                  <Link href="/company-signup" className="text-purple-600 hover:text-purple-700 font-medium">
-                    Sign up for free
-                  </Link>
-                </p>
-                <p className="text-xs text-slate-400 leading-relaxed">
-                  Tip: bookmark the URL in your browser bar after you sign in --
-                  it includes your company name and takes you straight to the right portal next time.
-                </p>
-                <p className="text-xs text-slate-400">
-                  Need help?{" "}
-                  <Link href="/support" className="text-purple-600 hover:text-purple-700 font-medium">
-                    Contact Support
-                  </Link>
-                </p>
               </div>
-            </form>
-          )}
-        </CardContent>
-      </Card>
-    </div>
+            ) : (
+              <form onSubmit={handleNormalLogin} className="space-y-5">
+                {error && (
+                  <Alert variant="destructive" className="text-sm">
+                    <AlertDescription>{error}</AlertDescription>
+                  </Alert>
+                )}
+
+                <div className="space-y-2">
+                  <Label htmlFor="email" className="text-slate-700 font-medium text-sm">
+                    Email address
+                  </Label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-3.5 h-5 w-5 text-slate-400" />
+                    <Input
+                      id="email"
+                      type="email"
+                      placeholder="your.email@example.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="pl-10 h-12 text-base"
+                      required
+                      disabled={loading}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="password" className="text-slate-700 font-medium text-sm">
+                    Password
+                  </Label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-3.5 h-5 w-5 text-slate-400" />
+                    <Input
+                      id="password"
+                      type="password"
+                      placeholder="Enter your password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="pl-10 h-12 text-base"
+                      required
+                      disabled={loading}
+                    />
+                  </div>
+                </div>
+
+                <Button
+                  type="submit"
+                  className="w-full h-12 bg-gradient-to-r from-purple-500 to-pink-500 hover:opacity-90 transition-opacity text-white font-semibold text-base"
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                      Signing in...
+                    </>
+                  ) : (
+                    "Sign in"
+                  )}
+                </Button>
+
+                <div className="mt-2 text-center space-y-3">
+                  <p className="text-sm text-slate-500">
+                    Don't have an account?{" "}
+                    <Link href="/company-signup" className="text-purple-600 hover:text-purple-700 font-medium">
+                      Sign up for free
+                    </Link>
+                  </p>
+                  <p className="text-xs text-slate-400 leading-relaxed">
+                    Tip: bookmark the URL in your browser bar after you sign in. It includes your company name and takes you straight to the right portal next time.
+                  </p>
+                  <p className="text-xs text-slate-400">
+                    Need help?{" "}
+                    <Link href="/support" className="text-purple-600 hover:text-purple-700 font-medium">
+                      Contact support
+                    </Link>
+                  </p>
+                </div>
+              </form>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </>
   );
 }
