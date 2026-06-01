@@ -477,7 +477,7 @@ function EmailSettingsPage() {
                 <InfoTooltip content={"How CateringMS sends mail on your behalf, Gmail, Microsoft 365, or your own SMTP server, plus the daily send cap on your plan.\n\nDirect-send through your inbox is still being wired up; compose-link send works today."} />
               </h1>
               <p className="text-sm sm:text-base text-slate-600 mt-1">
-                How CateringMS sends mail for you. Verify your domain so quotes, invoices and confirmations go out as you@yourdomain.com with proper SPF and DKIM. Gmail, Microsoft 365, and SMTP fallbacks live below.
+                How CateringMS sends mail for you. <strong>You're already set up</strong> - quotes, invoices and confirmations go out automatically via our shared sender with Reply-To set to your address. Verifying your own domain (below) is an optional upgrade if you want your address on the From line. Gmail, Microsoft 365 and SMTP fallbacks live further down.
               </p>
             </div>
           </div>
@@ -557,16 +557,48 @@ function EmailSettingsPage() {
             </CardContent>
           </Card>
 
-          {/* Resend domain verification - primary path */}
+          {/* TIGHTEN I.42 (2026-06-01): make the zero-DNS default path
+              explicit before the upgrade path. Without this, the
+              "Recommended" badge on the domain card below reads as
+              "required" and catering admins assume they must verify
+              their DNS before they can send. Bobby flagged this on
+              spit-braai-delivery's setup. The platform send.cateringms.com
+              subdomain is verified at the Skylight level, so every
+              tenant gets working email out of the box. */}
+          <Card className="border-0 shadow-lg mb-6 bg-gradient-to-br from-emerald-50 to-sky-50">
+            <CardContent className="py-5">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center flex-shrink-0">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-semibold text-slate-900">You're already set up to send</h3>
+                  <p className="text-sm text-slate-700 mt-1 leading-relaxed">
+                    Emails go out from{" "}
+                    <code className="text-xs bg-white px-1.5 py-0.5 rounded border border-slate-200 font-mono">noreply@send.cateringms.com</code>
+                    {" "}with Reply-To set to <strong>{row.from_email || "your address above"}</strong>.
+                    Clients see your From name, and when they hit Reply it lands in your inbox.
+                    <strong className="text-emerald-800"> No DNS setup required.</strong>
+                    {" "}This is what most caterers use.
+                  </p>
+                  <p className="text-xs text-slate-500 mt-2">
+                    Want your address on the From line instead? That's the optional upgrade below - takes about 5 minutes of DNS work.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Resend domain verification - optional upgrade path */}
           <Card className="border-0 shadow-lg mb-6 bg-gradient-to-br from-white to-purple-50/40">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <ShieldCheck className="w-5 h-5 text-purple-600" />
                 Use your own sending domain
-                <span className="ml-1 text-[10px] px-2 py-0.5 rounded-full font-semibold bg-emerald-100 text-emerald-700">Recommended</span>
+                <span className="ml-1 text-[10px] px-2 py-0.5 rounded-full font-semibold bg-purple-100 text-purple-700">Optional upgrade</span>
               </CardTitle>
               <CardDescription>
-                Verify your domain once. After that, every quote, invoice and confirmation goes out as <code>you@yourdomain.com</code> with proper SPF + DKIM. Takes about 5 minutes.
+                Skip this if you're happy with the default sender above. Verify your domain once and every quote, invoice and confirmation goes out as <code>you@yourdomain.com</code> with proper SPF + DKIM. Takes about 5 minutes of DNS work at your domain host.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -591,7 +623,7 @@ function EmailSettingsPage() {
               <div className="rounded-md border border-blue-200 bg-blue-50 p-3 text-xs text-blue-900">
                 <p className="font-semibold mb-1">While your DNS is propagating</p>
                 <p>
-                  Your emails come from <code>noreply@send.cateringms.com</code> with replies routed back to your inbox. Once the DNS records are live (usually within an hour), your emails switch to your own domain automatically.
+                  Nothing breaks - emails keep going out from <code>noreply@send.cateringms.com</code> with replies routed back to your inbox, exactly like before you started. Once the DNS records are live (usually within an hour), your emails switch to your own domain automatically.
                 </p>
               </div>
             </CardContent>
