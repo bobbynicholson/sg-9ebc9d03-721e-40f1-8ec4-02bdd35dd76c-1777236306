@@ -49,8 +49,9 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  getInitialBrandingForSlug,
+  getInitialBrandingForSlugDetailed,
   type InitialBranding,
+  type BrandingLookupReason,
 } from "@/lib/branding/serverBrandingForSlug";
 
 interface CompanyBrand {
@@ -70,6 +71,9 @@ interface PageProps {
   // Each page also reads it directly to seed its own local UI.
   initialBranding: InitialBranding | null;
   slugNotFound: boolean;
+  // TIGHTEN I.34: discriminated failure reason (see staff login).
+  slugFailureReason: BrandingLookupReason | null;
+  slugFailureDebug: string | null;
 }
 
 function brandFromInitial(b: InitialBranding | null): CompanyBrand | null {
@@ -90,13 +94,19 @@ export const getStaticPaths: GetStaticPaths = async () => ({
 export const getStaticProps: GetStaticProps<PageProps> = async (ctx) => {
   const slug =
     typeof ctx.params?.company_slug === "string" ? ctx.params.company_slug : "";
-  const branding = await getInitialBrandingForSlug(slug);
+  const result = await getInitialBrandingForSlugDetailed(slug);
+  // TIGHTEN I.34: when the failure is server-side misconfiguration,
+  // skip the 60s ISR cache so the next request retries.
+  const transientFailure =
+    result.reason === "not_configured" || result.reason === "server_error";
   return {
     props: {
-      initialBranding: branding,
-      slugNotFound: !branding,
+      initialBranding: result.branding,
+      slugNotFound: !result.branding,
+      slugFailureReason: result.reason,
+      slugFailureDebug: result.debug,
     },
-    revalidate: 60,
+    revalidate: transientFailure ? 1 : 60,
   };
 };
 
@@ -130,6 +140,8 @@ function clearCachedEmail(slug: string) {
 export default function CompanyClientLoginPage({
   initialBranding,
   slugNotFound,
+  slugFailureReason,
+  slugFailureDebug,
 }: PageProps) {
   const router = useRouter();
   const { company_slug, email: emailFromQuery, next, message, reason } = router.query;
@@ -269,15 +281,33 @@ export default function CompanyClientLoginPage({
   }
 
   if (companyLookupFailed) {
+    // TIGHTEN I.34: differentiate genuine "bad URL" from server-side
+    // misconfiguration. End-users still get gentle copy; operators
+    // landing here see the actual cause and a debug line.
+    const isMisconfig = slugFailureReason === "not_configured";
+    const isServerErr = slugFailureReason === "server_error";
+    const title = isMisconfig
+      ? "Login portal temporarily unavailable"
+      : isServerErr
+        ? "Couldn't reach the portal"
+        : "Company not found";
+    const body = isMisconfig
+      ? "The server is missing credentials needed to load this portal. Try again shortly, or reach out to the catering team if it persists."
+      : isServerErr
+        ? "We hit a server error trying to load this portal. Try again in a moment."
+        : "We couldn't find the catering company at this URL. Please double-check the link from your confirmation email.";
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 px-4">
         <Card className="w-full max-w-md border-0 shadow-xl">
           <CardContent className="p-10 text-center">
             <Building2 className="w-10 h-10 mx-auto mb-3 text-slate-400" />
-            <h1 className="text-lg font-semibold text-slate-900 mb-1">Company not found</h1>
-            <p className="text-sm text-slate-600">
-              We couldn't find the catering company at this URL. Please double-check the link from your confirmation email.
-            </p>
+            <h1 className="text-lg font-semibold text-slate-900 mb-1">{title}</h1>
+            <p className="text-sm text-slate-600">{body}</p>
+            {slugFailureDebug && (isMisconfig || isServerErr) && (
+              <p className="text-[11px] text-slate-400 mt-3 font-mono break-words">
+                debug: {slugFailureDebug}
+              </p>
+            )}
           </CardContent>
         </Card>
       </div>

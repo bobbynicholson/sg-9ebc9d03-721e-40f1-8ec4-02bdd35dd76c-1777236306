@@ -28,8 +28,9 @@ import { Mail, ArrowRight, Loader2, Building2, Lock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import {
-  getInitialBrandingForSlug,
+  getInitialBrandingForSlugDetailed,
   type InitialBranding,
+  type BrandingLookupReason,
 } from "@/lib/branding/serverBrandingForSlug";
 
 interface CompanyBrand {
@@ -48,6 +49,12 @@ interface PageProps {
   // Each page also reads it directly to seed its own local UI.
   initialBranding: InitialBranding | null;
   slugNotFound: boolean;
+  // TIGHTEN I.34: when slugNotFound, the failure reason so the page
+  // can show the right copy. `null` when branding loaded fine.
+  slugFailureReason: BrandingLookupReason | null;
+  /** Free-text server-side debug message. Surfaced verbatim on the
+   *  "not configured / server error" screens so ops sees the cause. */
+  slugFailureDebug: string | null;
 }
 
 function brandFromInitial(b: InitialBranding | null): CompanyBrand | null {
@@ -68,20 +75,30 @@ export const getStaticPaths: GetStaticPaths = async () => ({
 export const getStaticProps: GetStaticProps<PageProps> = async (ctx) => {
   const slug =
     typeof ctx.params?.company_slug === "string" ? ctx.params.company_slug : "";
-  const branding = await getInitialBrandingForSlug(slug);
+  const result = await getInitialBrandingForSlugDetailed(slug);
+  // TIGHTEN I.34: when the failure is a server-side misconfiguration
+  // (not_configured / server_error), don't cache the bad result for 60s
+  // - serve as plain SSR so the next request retries immediately. Only
+  // legitimate "company doesn't exist" + happy-path branding gets the
+  // 60s ISR cache.
+  const transientFailure =
+    result.reason === "not_configured" || result.reason === "server_error";
   return {
     props: {
-      initialBranding: branding,
-      slugNotFound: !branding,
+      initialBranding: result.branding,
+      slugNotFound: !result.branding,
+      slugFailureReason: result.reason,
+      slugFailureDebug: result.debug,
     },
-    // Branding rarely changes - 60s of staleness after a save is fine.
-    revalidate: 60,
+    revalidate: transientFailure ? 1 : 60,
   };
 };
 
 export default function CompanyStaffLoginPage({
   initialBranding,
   slugNotFound,
+  slugFailureReason,
+  slugFailureDebug,
 }: PageProps) {
   const router = useRouter();
   const { company_slug, message } = router.query;
@@ -231,6 +248,21 @@ export default function CompanyStaffLoginPage({
   }
 
   if (companyLookupFailed) {
+    // TIGHTEN I.34: surface the real reason instead of one generic
+    // "Company not found" for every failure mode. Lets ops tell
+    // misconfiguration apart from a genuine bad URL at a glance.
+    const isMisconfig = slugFailureReason === "not_configured";
+    const isServerErr = slugFailureReason === "server_error";
+    const title = isMisconfig
+      ? "Login portal temporarily unavailable"
+      : isServerErr
+        ? "Couldn't reach the portal"
+        : "Company not found";
+    const body = isMisconfig
+      ? "The server is missing credentials needed to load this portal. Operators: check Vercel's SUPABASE_SERVICE_ROLE_KEY env var (Production + Preview) and that it's the service_role JWT, not the anon key."
+      : isServerErr
+        ? "We hit a server error trying to load this portal. The team has been notified. Try again in a moment."
+        : "We couldn't find the catering company at this URL. Please double-check the link.";
     return (
       <div
         className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 px-4"
@@ -242,10 +274,13 @@ export default function CompanyStaffLoginPage({
         <Card className="w-full max-w-md border-0 shadow-xl">
           <CardContent className="p-10 text-center">
             <Building2 className="w-10 h-10 mx-auto mb-3 text-slate-400" />
-            <h1 className="text-lg font-semibold text-slate-900 mb-1">Company not found</h1>
-            <p className="text-sm text-slate-600">
-              We couldn't find the catering company at this URL. Please double-check the link.
-            </p>
+            <h1 className="text-lg font-semibold text-slate-900 mb-1">{title}</h1>
+            <p className="text-sm text-slate-600">{body}</p>
+            {slugFailureDebug && (isMisconfig || isServerErr) && (
+              <p className="text-[11px] text-slate-400 mt-3 font-mono break-words">
+                debug: {slugFailureDebug}
+              </p>
+            )}
           </CardContent>
         </Card>
       </div>
