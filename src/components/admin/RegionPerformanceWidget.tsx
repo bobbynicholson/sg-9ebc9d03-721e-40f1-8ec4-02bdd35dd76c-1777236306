@@ -25,6 +25,7 @@ import { Button } from "@/components/ui/button";
 import { MapPin, ArrowRight } from "lucide-react";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { useTenantHref } from "@/lib/tenantUrl";
+import { isBookedRevenue } from "@/lib/orderRevenueClassification";
 import { useReportWidgetError } from "@/components/dashboard/WidgetErrorBoundary";
 
 interface RegionLite {
@@ -35,6 +36,11 @@ interface RegionLite {
 interface OrderLite {
   region_id: string | null;
   total_amount: number | null;
+  status: string | null;
+  payment_status: string | null;
+  deposit_paid: boolean | null;
+  confirmed_at: string | null;
+  cancelled_at: string | null;
 }
 interface Entry {
   id: string;
@@ -66,12 +72,17 @@ export function RegionPerformanceWidget({ companyId }: { companyId: string | nul
             .eq("company_id", companyId)
             .eq("is_active", true)
             .order("name", { ascending: true }),
+          // TIGHTEN I.70 (2026-06-01): fetch the extra columns so we
+          // can apply isBookedRevenue in-memory. Previously this
+          // widget's "status IN active" SQL filter counted a
+          // 'confirmed' order with no deposit as booked, while the
+          // dashboard's headline tile excluded the same order.
+          // RegionPerformance and dashboard now agree.
           (supabase as any)
             .from("orders")
-            .select("region_id, total_amount")
+            .select("region_id, total_amount, status, payment_status, deposit_paid, confirmed_at, cancelled_at")
             .eq("company_id", companyId)
             .is("deleted_at", null)
-            .in("status", ["confirmed", "preparing", "ready", "in_transit", "delivered", "completed"])
             .gte("event_date", sinceIso)
             .limit(2000),
         ]);
@@ -103,6 +114,9 @@ export function RegionPerformanceWidget({ companyId }: { companyId: string | nul
     let unassignedRevenue = 0;
     let unassignedCount = 0;
     for (const o of orders) {
+      // TIGHTEN I.70: shared classifier. Matches /admin/dashboard
+      // booked revenue exactly.
+      if (!isBookedRevenue(o)) continue;
       const total = Number(o.total_amount || 0);
       const rid = o.region_id;
       if (rid && map.has(rid)) {

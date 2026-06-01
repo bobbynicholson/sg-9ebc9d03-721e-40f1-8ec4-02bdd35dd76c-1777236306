@@ -16,6 +16,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/integrations/supabase/client";
+import { isBookedRevenue } from "@/lib/orderRevenueClassification";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -43,15 +44,20 @@ export function TopClientsWidget({ companyId }: { companyId: string | null }) {
     (async () => {
       try {
         const since = new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10);
+        // TIGHTEN I.70 (2026-06-01): pull the extra revenue-class
+        // columns so we can apply isBookedRevenue in-memory. Was a
+        // raw status whitelist before, which counted unconfirmed
+        // 'confirmed' orders as revenue while the dashboard tile
+        // excluded them. Top Clients and dashboard now agree.
         const { data, error } = await (supabase as any)
           .from("orders")
-          .select("client_name, total_amount, status, event_date")
+          .select("client_name, total_amount, status, payment_status, deposit_paid, confirmed_at, cancelled_at, event_date")
           .eq("company_id", companyId)
-          .gte("event_date", since)
-          .in("status", ["delivered", "completed", "in_transit", "ready", "preparing", "confirmed"]);
+          .gte("event_date", since);
         if (error) throw error;
         const byClient = new Map<string, TopClient>();
         for (const o of (data || []) as any[]) {
+          if (!isBookedRevenue(o)) continue;
           const name = (o.client_name || "").trim();
           if (!name) continue;
           const prev = byClient.get(name) || { client_name: name, orders: 0, total: 0 };
