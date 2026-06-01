@@ -758,38 +758,68 @@ function EmailSettingsPage() {
             </summary>
             <div className="px-6 pb-6 pt-2 space-y-4 border-t border-slate-100">
               <p className="text-xs text-slate-600">
-                Most caterers should stay on the CateringMS default. These options exist for operators who already have a Gmail / Microsoft / SMTP setup they'd rather route through.
+                Most caterers should stay on the CateringMS default. These options exist for operators who already have a Gmail / Microsoft 365 / SMTP setup they'd rather route through. Pick the one that matches how your business already sends mail.
               </p>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                <ProviderTile
+              {/* TIGHTEN I.50 (2026-06-01): rich provider option cards
+                  replacing the four tiny "title + one-line sub" tiles.
+                  Each option now spells out: what it does, when to
+                  pick it, what setup it needs, and what it costs in
+                  send volume or deliverability. The old tiles said
+                  "Gmail · Sign in once with Google" - a catering admin
+                  has no idea what changes for them when they pick
+                  that. Now they do. */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <ProviderOption
                   active={row.provider === "resend"}
                   onClick={() => setRow({ ...row, provider: "resend" })}
                   icon={Globe}
                   title="CateringMS default"
-                  sub="Through Resend"
-                  badge="Recommended"
-                  badgeTone="bg-purple-100 text-purple-700"
+                  status={{ label: "Active default", tone: "emerald" }}
+                  blurb="Out of the box. Quotes, invoices and confirmations go from noreply@send.cateringms.com with your Reply-To set to your address. Clients see your name. Replies land in your inbox. No setup."
+                  meta={[
+                    { label: "Setup", value: "Done. Optional: verify your own domain (above)." },
+                    { label: "Send volume", value: `${tierCap}/day on your plan` },
+                    { label: "Deliverability", value: "Good. Lifts to excellent once you verify your own domain." },
+                  ]}
                 />
-                <ProviderTile
+                <ProviderOption
                   active={row.provider === "gmail_oauth"}
                   onClick={() => setRow({ ...row, provider: "gmail_oauth" })}
                   icon={Mail}
                   title="Gmail"
-                  sub="Sign in once with Google"
+                  status={{ label: "Coming soon", tone: "amber" }}
+                  blurb="Route every send through your own Gmail or Google Workspace inbox. Each email actually leaves YOUR Gmail Sent folder, so it looks identical to anything you send by hand."
+                  meta={[
+                    { label: "Setup", value: "Sign in once with Google (OAuth)" },
+                    { label: "Send volume", value: "Google's daily limit (~500/day personal, ~2000/day Workspace)" },
+                    { label: "Best for", value: "Caterers already living in Google Workspace who want one Sent folder" },
+                  ]}
                 />
-                <ProviderTile
+                <ProviderOption
                   active={row.provider === "ms365_oauth"}
                   onClick={() => setRow({ ...row, provider: "ms365_oauth" })}
                   icon={Mail}
                   title="Microsoft 365"
-                  sub="Sign in once with Microsoft"
+                  status={{ label: "Coming soon", tone: "amber" }}
+                  blurb="Same shape as Gmail but for Outlook / Office 365. Every send leaves YOUR Outlook Sent folder, indistinguishable from emails you write by hand."
+                  meta={[
+                    { label: "Setup", value: "Sign in once with Microsoft (OAuth)" },
+                    { label: "Send volume", value: "Microsoft's daily limit (~300/day)" },
+                    { label: "Best for", value: "Caterers running Office 365 who want one Sent folder" },
+                  ]}
                 />
-                <ProviderTile
+                <ProviderOption
                   active={row.provider === "smtp"}
                   onClick={() => setRow({ ...row, provider: "smtp" })}
                   icon={Server}
                   title="Custom SMTP"
-                  sub="cPanel, Zoho, Fastmail, etc."
+                  status={{ label: "Advanced", tone: "slate" }}
+                  blurb="For operators who already have a polished email setup with Zoho, cPanel, Fastmail, Postmark, AWS SES or any other SMTP provider. Bring your own host, port, username and password."
+                  meta={[
+                    { label: "Setup", value: "SMTP host / port / username / password" },
+                    { label: "Send volume", value: "Whatever your SMTP provider allows" },
+                    { label: "Best for", value: "Operators who already pay for transactional email and know what SMTP is" },
+                  ]}
                 />
               </div>
 
@@ -1030,26 +1060,80 @@ function ToggleRow({
   );
 }
 
-function ProviderTile({
-  active, onClick, icon: Icon, title, sub, badge, badgeTone,
-}: any) {
+/**
+ * TIGHTEN I.50 (2026-06-01): rich provider option card.
+ *
+ * Replaces the tiny ProviderTile in the "Switch to a different
+ * provider" section. Each card now spells out: what it does
+ * (blurb), what setup it needs, what it costs in send volume,
+ * what it's best for. The previous one-line subtitle ("Sign in
+ * once with Google") gave the operator no information they could
+ * act on.
+ *
+ * Status pill colours:
+ *   emerald = currently active / safe choice
+ *   amber   = not yet built (Gmail / 365 OAuth flow is stubbed)
+ *   slate   = advanced / niche
+ */
+function ProviderOption({
+  active,
+  onClick,
+  icon: Icon,
+  title,
+  status,
+  blurb,
+  meta,
+}: {
+  active: boolean;
+  onClick: () => void;
+  icon: any;
+  title: string;
+  status: { label: string; tone: "emerald" | "amber" | "slate" };
+  blurb: string;
+  meta: Array<{ label: string; value: string }>;
+}) {
+  const statusColour = status.tone === "emerald"
+    ? "bg-emerald-100 text-emerald-800"
+    : status.tone === "amber"
+      ? "bg-amber-100 text-amber-800"
+      : "bg-slate-100 text-slate-700";
   return (
     <button
+      type="button"
       onClick={onClick}
-      className={`relative text-left p-4 rounded-xl border-2 transition-all ${
+      className={`relative text-left rounded-xl border-2 p-4 transition-all flex flex-col gap-3 ${
         active
           ? "border-purple-500 bg-purple-50 shadow-md"
-          : "border-slate-200 hover:border-slate-300"
+          : "border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm"
       }`}
     >
-      {badge && (
-        <span className={`absolute top-2 right-2 text-[10px] px-2 py-0.5 rounded-full font-semibold ${badgeTone}`}>
-          {badge}
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${active ? "bg-purple-100" : "bg-slate-100"}`}>
+            <Icon className={`w-5 h-5 ${active ? "text-purple-600" : "text-slate-600"}`} />
+          </span>
+          <p className={`font-semibold text-sm truncate ${active ? "text-purple-900" : "text-slate-900"}`}>{title}</p>
+        </div>
+        <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold whitespace-nowrap ${statusColour}`}>
+          {status.label}
         </span>
+      </div>
+      <p className="text-xs text-slate-700 leading-relaxed">{blurb}</p>
+      <dl className="mt-1 space-y-1.5 border-t border-slate-200/70 pt-2">
+        {meta.map((m, i) => (
+          <div key={i} className="flex items-baseline gap-2">
+            <dt className="text-[10px] uppercase tracking-wide font-semibold text-slate-500 w-24 flex-shrink-0">
+              {m.label}
+            </dt>
+            <dd className="text-[11px] text-slate-700 leading-snug">{m.value}</dd>
+          </div>
+        ))}
+      </dl>
+      {active && (
+        <div className="absolute top-2 right-2 sm:hidden">
+          <CheckCircle2 className="w-4 h-4 text-purple-600" />
+        </div>
       )}
-      <Icon className={`w-6 h-6 mb-2 ${active ? "text-purple-600" : "text-slate-500"}`} />
-      <p className={`font-semibold text-sm ${active ? "text-purple-900" : "text-slate-900"}`}>{title}</p>
-      <p className="text-xs text-slate-500 mt-0.5">{sub}</p>
     </button>
   );
 }
