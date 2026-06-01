@@ -61,7 +61,9 @@ export function aggregateQuoteAcceptTime(quotes: QuoteForYoY[]): QuoteAcceptTime
   // accepted (status='accepted' AND has both timestamps).
   const samples: number[] = [];
   for (const q of quotes) {
-    if (q.status !== "accepted") continue;
+    // TIGHTEN I.61: also count converted-but-not-status='accepted'
+    // quotes so accept-time samples don't undercount.
+    if (q.status !== "accepted" && !q.converted_to_order_id) continue;
     const acceptedAt = q.accepted_at ? new Date(q.accepted_at) : null;
     const sentAt = q.sent_at ? new Date(q.sent_at) : null;
     if (!acceptedAt || !sentAt) continue;

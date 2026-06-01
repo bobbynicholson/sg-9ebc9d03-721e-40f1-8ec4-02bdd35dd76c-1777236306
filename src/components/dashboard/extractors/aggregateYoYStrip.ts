@@ -27,6 +27,12 @@ export interface QuoteForYoY {
   event_date?: string | null;
   /** Branch ID. Optional because legacy rows may have null. */
   region_id?: string | null;
+  /** TIGHTEN I.61: presence of a linked order is the hard signal that
+   *  the deal converted, regardless of what the status field currently
+   *  says. Used by accept-time / YoY / conversion-funnel / branch-spider
+   *  aggregators so a converted-but-status='sent' quote (legacy data
+   *  drift from the I.61 root cause bug) still counts as a win. */
+  converted_to_order_id?: string | null;
 }
 
 export interface LeadForYoY {
@@ -191,7 +197,10 @@ export function aggregateYoYStrip(
   let acceptedCurrent = 0, acceptedPrior = 0;
   const acceptedSpark = new Array(12).fill(0) as number[];
   for (const q of quotes) {
-    if (q.status !== "accepted") continue;
+    // TIGHTEN I.61: a linked order is the hard signal that the deal
+    // converted. Don't miss revenue from quotes whose status field
+    // got desynced to 'sent' by the I.61 root-cause bug.
+    if (q.status !== "accepted" && !q.converted_to_order_id) continue;
     if (inWindow(q.accepted_at, currentStart, currentEnd)) {
       acceptedCurrent += 1;
       const idx = sparkIdxByKey.get(monthKeyFromDateString(q.accepted_at));

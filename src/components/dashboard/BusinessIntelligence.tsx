@@ -152,7 +152,11 @@ export function BusinessIntelligence({ companyId, dateRange }: Props) {
 
         const quotesBase = supabase
           .from("quotes")
-          .select("id, status, total_amount, event_date, created_at, sent_at, accepted_at, region_id")
+          // TIGHTEN I.61: select converted_to_order_id so the
+          // accept-time / YoY / conversion-funnel / branch-spider
+          // aggregators can fall back to "linked order exists" as
+          // the won signal.
+          .select("id, status, total_amount, event_date, created_at, sent_at, accepted_at, region_id, converted_to_order_id")
           .eq("company_id", companyId)
           .is("deleted_at", null)
           .gte("created_at", startISO)
