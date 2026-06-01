@@ -378,11 +378,24 @@ function EmailSettingsPage() {
       const json = await res.json();
       if (!res.ok || !json.success) {
         captureException(new Error(json.error || `HTTP ${res.status}`), {
-          tags: { route: "/admin/email-settings", step: "send-test", companyId },
+          tags: {
+            route: "/admin/email-settings",
+            step: "send-test",
+            companyId,
+            error_code: json.error_code || "unknown",
+          },
         });
+        // TIGHTEN I.38: surface the structured error_code so operators
+        // can act on the failure (e.g. resend_auth = "platform key
+        // missing, ask support" vs from_email_domain_mismatch =
+        // "change the from address") instead of seeing the same
+        // useless generic message for every failure mode.
+        const detail = json.error || "Could not send test email. Check provider config.";
         toast({
           title: "Test failed",
-          description: json.error || "Could not send test email. Check provider config.",
+          description: json.error_code
+            ? `${detail} [${json.error_code}]`
+            : detail,
           variant: "destructive",
         });
         return;

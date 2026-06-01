@@ -69,8 +69,14 @@ export default async function handler(
       });
     }
 
-    // Send test email
-    const result = await emailService.sendEmail({
+    // TIGHTEN I.38 (2026-06-01): switched from sendEmail (boolean) to
+    // sendEmailDetailed so the toast can surface the actual reason
+    // instead of a generic "Failed to send test email". The detailed
+    // path carries error_code + fix_link + context so the operator can
+    // act on the failure (missing RESEND_API_KEY, blocked contact,
+    // from-email domain mismatch, etc.) without digging into Vercel
+    // logs.
+    const result = await emailService.sendEmailDetailed({
       companyId,
       to,
       subject: "CateringMS - Test Email",
@@ -88,7 +94,7 @@ export default async function handler(
       _client: admin,
     } as any);
 
-    if (result) {
+    if (result.success) {
       return res.status(200).json({
         success: true,
         message: "Test email sent successfully! Check your inbox.",
@@ -98,17 +104,22 @@ export default async function handler(
           enabled: config.enabled,
         },
       });
-    } else {
-      return res.status(500).json({
-        success: false,
-        error: "Failed to send test email",
-        config: {
-          provider: config.provider,
-          from: `${config.from_name} <${config.from_email}>`,
-          enabled: config.enabled,
-        },
-      });
     }
+
+    // Propagate the structured failure so the client toast can show
+    // the operator something they can act on.
+    return res.status(500).json({
+      success: false,
+      error: result.error || "Failed to send test email",
+      error_code: result.error_code || null,
+      fix_link: result.fix_link || null,
+      context: result.context || null,
+      config: {
+        provider: config.provider,
+        from: `${config.from_name} <${config.from_email}>`,
+        enabled: config.enabled,
+      },
+    });
   } catch (error) {
     console.error("Test email error:", error);
     return res.status(500).json({

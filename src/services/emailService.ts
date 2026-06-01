@@ -247,6 +247,13 @@ export const emailService = {
       resend_domain_status: (data as any).resend_domain_status || null,
       resend_domain_verified_at: (data as any).resend_domain_verified_at || null,
       resend_dns_records: (data as any).resend_dns_records || null,
+      // TIGHTEN I.38: column was selected but never mapped onto the
+      // returned EmailSettings, so resolveFromAddress's
+      // `config.force_platform_sender` check was always undefined and
+      // the LCF-N operator override silently no-opped. Latent until a
+      // tenant verifies their own domain - the unverified fallback
+      // path masked it.
+      force_platform_sender: !!(data as any).force_platform_sender,
       created_at: (data as any).created_at,
       updated_at: (data as any).updated_at,
     };
