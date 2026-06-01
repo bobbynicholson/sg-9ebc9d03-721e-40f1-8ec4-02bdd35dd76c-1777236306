@@ -18,12 +18,13 @@ import type { Quote } from "@/types";
 // catering team thinks in.
 export type QuoteBucket =
   | "all"
-  | "action_needed"   // draft (manual + client request), expiring within 3d
-  | "in_play"         // sent / viewed, waiting on the client
-  | "stale"           // sent > 7d ago, no reply
-  | "won"             // accepted (with or without converted order)
-  | "lost"            // rejected
-  | "expired";        // expired
+  | "action_needed"        // draft (manual + client request), expiring within 3d
+  | "in_play"              // sent / viewed, waiting on the client
+  | "stale"                // sent > 7d ago, no reply
+  | "won"                  // accepted (with or without converted order)
+  | "won_then_cancelled"   // accepted + order later cancelled - own outcome
+  | "lost"                 // rejected (client said no, never converted)
+  | "expired";             // expired
 
 export interface QuoteIntelligence {
   bucket: Exclude<QuoteBucket, "all">;
@@ -115,12 +116,40 @@ export function deriveQuoteIntelligence(q: any): QuoteIntelligence {
   // accepted_at + converted_to_order_id both populated, but its
   // status string says 'sent'. Without this guard, the SENT branch
   // below buckets it into action_needed because it's about to
-  // expire. Bobby caught this on the spit-braai quote that had been
-  // converted to an order and then edited - it showed in the
-  // Action-needed tab instead of Won.
+  // expire.
   //
-  // A linked order is the hard signal that the deal is won. Always
-  // honour it first.
+  // TIGHTEN I.62 (2026-06-01): "won then cancelled" is its OWN
+  // outcome. Previously the cancel cascade flipped quote.status from
+  // 'accepted' to 'rejected' with lost_reason='order_cancelled', so
+  // the quote showed in Lost - indistinguishable from a quote the
+  // client genuinely declined. That's wrong. The auditors flagged
+  // that the same event was counted as won, lost, churned and
+  // double-counted across different surfaces. Now: a quote that was
+  // accepted + converted + later had its order cancelled gets its
+  // own bucket with its own colour and label, so the operator
+  // (and every aggregator) can tell it apart.
+  //
+  // Detection: status='rejected' + lost_reason='order_cancelled' +
+  // converted_to_order_id IS NOT NULL is the unambiguous signature.
+  // For new data after I.62 we'll stop flipping the status at all,
+  // but the lost_reason + converted_to_order_id pair stays the
+  // canonical signal so this also catches legacy rows.
+  const lostReason = (q.lost_reason as string | null) || null;
+  const isWonThenCancelled =
+    !!convertedOrderId && (status === "rejected" || lostReason === "order_cancelled");
+  if (isWonThenCancelled) {
+    return {
+      bucket: "won_then_cancelled",
+      tone: "warm",
+      label: "Won, order cancelled",
+      reason: "Was accepted; the linked order was later cancelled",
+      daysSinceTouch: daysBetween(accepted) ?? daysSinceTouch,
+      lastTouchAt: accepted || lastTouchAt,
+      isClientRequest,
+      daysUntilExpiry,
+      ageDays,
+    };
+  }
   if (convertedOrderId) {
     return {
       bucket: "won",
@@ -404,6 +433,7 @@ export interface BucketCounts {
   in_play: number;
   stale: number;
   won: number;
+  won_then_cancelled: number;
   lost: number;
   expired: number;
 }
@@ -415,6 +445,7 @@ export function countByBucket(rows: QuoteRowState[]): BucketCounts {
     in_play: 0,
     stale: 0,
     won: 0,
+    won_then_cancelled: 0,
     lost: 0,
     expired: 0,
   };

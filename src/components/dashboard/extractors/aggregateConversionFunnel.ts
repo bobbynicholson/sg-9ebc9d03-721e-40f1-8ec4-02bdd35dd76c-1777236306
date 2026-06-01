@@ -121,11 +121,15 @@ export function aggregateConversionFunnel(
     // viewed + accepted counts robust to quotes whose status field got
     // desynced to 'sent' by the I.61 root-cause bug.
     const isConverted = !!(q as any).converted_to_order_id;
-    if (q.status === "viewed" || q.status === "revised" || q.status === "accepted" || q.status === "rejected" || q.status === "expired" || isConverted) {
-      // A quote that reached viewed/revised/accepted/rejected/expired
-      // necessarily passed through "viewed" once the client opened the
-      // public link. We don't have a discrete "viewed_count" but we
-      // do count anything past sent as having been viewed.
+    // TIGHTEN I.62 (2026-06-01): removed dead 'viewed' and 'revised'
+    // string-matches. The current quote_status enum is (draft, sent,
+    // accepted, rejected, expired) - 'viewed' and 'revised' were
+    // dropped in migration 20260506140000. Old logic was checking
+    // status strings that can never match. The viewed-stage count is
+    // now "anything that moved past sent to a terminal outcome OR
+    // got converted" which is the actual definition the funnel
+    // wants.
+    if (q.status === "accepted" || q.status === "rejected" || q.status === "expired" || isConverted) {
       quotesViewed += 1;
       valueViewed += v;
     }

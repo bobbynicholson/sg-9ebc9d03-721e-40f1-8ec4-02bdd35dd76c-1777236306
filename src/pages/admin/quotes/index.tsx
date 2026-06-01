@@ -164,12 +164,17 @@ const PIPELINE_COLUMNS: Array<{
   tone: string;
   Icon: any;
 }> = [
-  { bucket: "action_needed", title: "Action needed", tone: "border-rose-300 bg-rose-50",       Icon: Flame },
-  { bucket: "in_play",       title: "In play",       tone: "border-blue-300 bg-blue-50",       Icon: Sparkles },
-  { bucket: "stale",         title: "Stale",         tone: "border-amber-300 bg-amber-50",     Icon: Clock },
-  { bucket: "won",           title: "Won",           tone: "border-emerald-300 bg-emerald-50", Icon: Crown },
-  { bucket: "expired",       title: "Expired",       tone: "border-orange-300 bg-orange-50",   Icon: AlertTriangle },
-  { bucket: "lost",          title: "Lost",          tone: "border-slate-300 bg-slate-50",     Icon: Snowflake },
+  { bucket: "action_needed",      title: "Action needed",      tone: "border-rose-300 bg-rose-50",       Icon: Flame },
+  { bucket: "in_play",            title: "In play",            tone: "border-blue-300 bg-blue-50",       Icon: Sparkles },
+  { bucket: "stale",              title: "Stale",              tone: "border-amber-300 bg-amber-50",     Icon: Clock },
+  { bucket: "won",                title: "Won",                tone: "border-emerald-300 bg-emerald-50", Icon: Crown },
+  // TIGHTEN I.62: distinct bucket so "won then cancelled" isn't
+  // silently lumped in with either Won (overstating conversion) or
+  // Lost (mixing with genuinely-declined quotes). Warm-amber palette
+  // signals "outcome notable but recoverable".
+  { bucket: "won_then_cancelled", title: "Won, order cancelled", tone: "border-amber-300 bg-amber-50",    Icon: AlertTriangle },
+  { bucket: "expired",            title: "Expired",            tone: "border-orange-300 bg-orange-50",   Icon: AlertTriangle },
+  { bucket: "lost",               title: "Lost",               tone: "border-slate-300 bg-slate-50",     Icon: Snowflake },
 ];
 
 function PipelineBoard({
@@ -1543,9 +1548,14 @@ function AdminQuotesInner() {
               { id: "action_needed",  label: "Action needed", icon: Flame,          tone: "bg-rose-100 text-rose-700 border-rose-200" },
               { id: "in_play",        label: "In play",       icon: Sparkles,       tone: "bg-blue-100 text-blue-700 border-blue-200" },
               { id: "stale",          label: "Stale",         icon: Clock,          tone: "bg-amber-100 text-amber-700 border-amber-200" },
-              { id: "won",            label: "Won",           icon: Crown,          tone: "bg-emerald-100 text-emerald-700 border-emerald-200" },
-              { id: "expired",        label: "Expired",       icon: AlertTriangle,  tone: "bg-orange-100 text-orange-700 border-orange-200" },
-              { id: "lost",           label: "Lost",          icon: Snowflake,      tone: "bg-slate-100 text-slate-600 border-slate-200" },
+              { id: "won",                label: "Won",                  icon: Crown,         tone: "bg-emerald-100 text-emerald-700 border-emerald-200" },
+              // TIGHTEN I.62: dedicated pill for won-then-cancelled
+              // so operators can see at a glance how many deals
+              // converted-then-fell-through, separate from genuine
+              // declines (Lost) and currently-active wins (Won).
+              { id: "won_then_cancelled", label: "Won, order cancelled", icon: AlertTriangle, tone: "bg-amber-100 text-amber-700 border-amber-200" },
+              { id: "expired",            label: "Expired",              icon: AlertTriangle, tone: "bg-orange-100 text-orange-700 border-orange-200" },
+              { id: "lost",               label: "Lost",                 icon: Snowflake,     tone: "bg-slate-100 text-slate-600 border-slate-200" },
             ] as const).map((pill) => {
               const Icon = pill.icon;
               const active = bucket === pill.id;
@@ -2492,11 +2502,18 @@ function AdminQuotesInner() {
                 setQuotes((prev) => prev.map((q) =>
                   q.id === composeQuote.id ? ({ ...q, ...patch } as Quote) : q,
                 ));
+                // TIGHTEN I.62 (2026-06-01): the prior copy claimed
+                // "Status flipped to revised" but 'revised' was
+                // dropped from the enum in migration 20260506140000.
+                // The sweetener-apply patch doesn't write a status
+                // change at all (see the patch object built above) -
+                // it just adjusts totals + a discount note. New copy
+                // matches what actually happens.
                 toast({
                   title: "Sweetener applied to the quote",
                   description: offer.discountKind === "perk"
-                    ? `Perk noted on the quote. Status flipped to revised.`
-                    : `Total dropped from ${fmtMoney.format(oldTotal)} to ${fmtMoney.format(newTotal)}. Status flipped to revised.`,
+                    ? "Perk noted on the quote. Send the updated version to the client when you're ready."
+                    : `Total dropped from ${fmtMoney.format(oldTotal)} to ${fmtMoney.format(newTotal)}. Send the updated version to the client when you're ready.`,
                 });
               } catch (err: any) {
                 toast({
