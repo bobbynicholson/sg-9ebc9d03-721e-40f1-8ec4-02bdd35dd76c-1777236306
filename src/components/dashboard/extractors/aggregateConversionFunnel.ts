@@ -116,7 +116,12 @@ export function aggregateConversionFunnel(
     const v = Number(q.total_amount || 0);
     quotesSent += 1;
     valueSent += v;
-    if (q.status === "viewed" || q.status === "revised" || q.status === "accepted" || q.status === "rejected" || q.status === "expired") {
+    // TIGHTEN I.61: converted_to_order_id is the hard signal that the
+    // deal reached the bottom of the funnel. Used here to make
+    // viewed + accepted counts robust to quotes whose status field got
+    // desynced to 'sent' by the I.61 root-cause bug.
+    const isConverted = !!(q as any).converted_to_order_id;
+    if (q.status === "viewed" || q.status === "revised" || q.status === "accepted" || q.status === "rejected" || q.status === "expired" || isConverted) {
       // A quote that reached viewed/revised/accepted/rejected/expired
       // necessarily passed through "viewed" once the client opened the
       // public link. We don't have a discrete "viewed_count" but we
@@ -124,7 +129,7 @@ export function aggregateConversionFunnel(
       quotesViewed += 1;
       valueViewed += v;
     }
-    if (q.status === "accepted") {
+    if (q.status === "accepted" || isConverted) {
       quotesAccepted += 1;
       valueAccepted += v;
     }

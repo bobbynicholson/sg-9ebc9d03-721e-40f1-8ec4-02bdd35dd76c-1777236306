@@ -108,6 +108,35 @@ export function deriveQuoteIntelligence(q: any): QuoteIntelligence {
   const lastTouchAt = viewed || sent || created;
   const daysSinceTouch = daysBetween(lastTouchAt);
 
+  // TIGHTEN I.61 (2026-06-01): converted-but-status='sent' bucketing
+  // bug. The /admin/quotes/new save handler stamps status='sent' as
+  // part of the "Save & Send" override even on Case B (admin edited
+  // a quote whose order already exists). Result: the quote has
+  // accepted_at + converted_to_order_id both populated, but its
+  // status string says 'sent'. Without this guard, the SENT branch
+  // below buckets it into action_needed because it's about to
+  // expire. Bobby caught this on the spit-braai quote that had been
+  // converted to an order and then edited - it showed in the
+  // Action-needed tab instead of Won.
+  //
+  // A linked order is the hard signal that the deal is won. Always
+  // honour it first.
+  if (convertedOrderId) {
+    return {
+      bucket: "won",
+      tone: "neutral",
+      label: "Won + booked",
+      reason: status === "accepted"
+        ? "Accepted and converted to an order"
+        : "Linked order exists - changes mirror back to the order",
+      daysSinceTouch: daysBetween(accepted) ?? daysSinceTouch,
+      lastTouchAt: accepted || lastTouchAt,
+      isClientRequest,
+      daysUntilExpiry,
+      ageDays,
+    };
+  }
+
   // ── EXPIRED ─────────────────────────────────────────────────────────
   if (status === "expired" || (validUntil && (daysUntilExpiry ?? 0) < 0 && status !== "accepted" && status !== "rejected")) {
     return {

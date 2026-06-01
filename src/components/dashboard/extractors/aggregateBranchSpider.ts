@@ -158,7 +158,9 @@ export function aggregateBranchSpider(
   for (const q of quotes) {
     const rid = q.region_id;
     if (!rid || !raw.has(rid)) continue;
-    if (q.status !== "accepted") continue;
+    // TIGHTEN I.61: include converted-but-not-status='accepted' quotes
+    // so branch accept-time metrics don't undercount.
+    if (q.status !== "accepted" && !(q as any).converted_to_order_id) continue;
     if (!q.sent_at || !q.accepted_at) continue;
     const sent = new Date(q.sent_at).getTime();
     const acc = new Date(q.accepted_at).getTime();

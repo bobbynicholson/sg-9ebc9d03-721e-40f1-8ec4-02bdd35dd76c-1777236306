@@ -1252,6 +1252,18 @@ function NewQuotePage() {
           payload.accepted_at = null;
           payload.viewed_at = null;
         }
+        // TIGHTEN I.61 (2026-06-01): Case B (admin edited a converted
+        // quote and pressed Save & Send) should NOT flip status from
+        // 'accepted' back to 'sent'. The quote has a linked order; the
+        // operator is just mirroring a change to it. The quote-sent
+        // email also doesn't fire on this path (see line 1320 below)
+        // so labelling it 'sent' is just wrong - it desyncs every
+        // bucketing surface (Won tab on /admin/quotes, conversion
+        // funnel widgets, etc.) into thinking the deal regressed.
+        // Restore the prior status so the quote stays in Won.
+        if (isAdminEditOfConvertedQuote && prevStatus) {
+          payload.status = prevStatus;
+        }
         const { error } = await supabase.from("quotes").update(payload).eq("id", quoteId);
         if (error) throw error;
         // TIGHTEN I.52 (2026-06-01): explicitly fire the JS-side
