@@ -232,8 +232,12 @@ function EmailSettingsPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [companyId, tierCap]);
 
-  const save = async () => {
-    if (!companyId) return;
+  // Returns true on success, false on failure. The caller can use the
+  // return value to decide whether to chain follow-up work (e.g. the
+  // Send test email button calls save() first when the form is dirty,
+  // and aborts the test if the save failed).
+  const save = async (): Promise<boolean> => {
+    if (!companyId) return false;
     setSaving(true);
     try {
       // Only invalidate domain verification when a save actually changes
@@ -299,11 +303,13 @@ function EmailSettingsPage() {
           ? "Provider config updated. Domain verification reset because credentials changed."
           : "Provider config updated.",
       });
+      return true;
     } catch (e: any) {
       captureException(e, {
         tags: { route: "/admin/email-settings", step: "save-provider", companyId },
       });
       toast({ title: "Save failed", description: e?.message || "Try again", variant: "destructive" });
+      return false;
     } finally {
       setSaving(false);
     }
@@ -342,15 +348,22 @@ function EmailSettingsPage() {
       });
       return;
     }
-    if (hasUnsavedChanges) {
-      toast({
-        title: "Save your changes first",
-        description: "The test reads your provider config from the database, so save the form before running it.",
-        variant: "destructive",
-      });
-      return;
-    }
+    // ES-D (task #235, 2026-06-01): instead of blocking the button on
+    // unsaved changes, save first then test. The test endpoint reads
+    // provider config from the DB, so the save has to land before the
+    // send. Previously the button was greyed out with a hover-only
+    // explanation - operators on a fresh tenant (no email_provider_settings
+    // row yet) hit a dead button with no visible reason and gave up.
     setTesting(true);
+    if (hasUnsavedChanges) {
+      const ok = await save();
+      if (!ok) {
+        // save() already toasted the error; abort so we don't send a
+        // test against half-written config.
+        setTesting(false);
+        return;
+      }
+    }
     // ES-B (task #221, 2026-05-25): if a custom recipient is set,
     // send the test there instead of the from address. Lets the
     // operator preview what a real client sees without flipping
@@ -763,13 +776,15 @@ function EmailSettingsPage() {
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <Button
                     onClick={sendTestEmail}
-                    disabled={testing || saving || !row.from_email || hasUnsavedChanges}
+                    disabled={testing || saving || !row.from_email}
                     variant="outline"
                     className="gap-2"
-                    title={hasUnsavedChanges ? "Save your changes first, then test." : `Send a test email to ${testRecipient.trim() || row.from_email}`}
+                    title={hasUnsavedChanges
+                      ? `Save and send a test to ${testRecipient.trim() || row.from_email}`
+                      : `Send a test email to ${testRecipient.trim() || row.from_email}`}
                   >
                     {testing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />}
-                    Send test email
+                    {hasUnsavedChanges ? "Save & send test" : "Send test email"}
                   </Button>
                   <Button onClick={save} disabled={saving} className="gap-2">
                     {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Shield className="w-4 h-4" />}
