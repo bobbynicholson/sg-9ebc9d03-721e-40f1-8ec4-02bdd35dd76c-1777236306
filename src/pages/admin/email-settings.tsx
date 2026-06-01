@@ -137,12 +137,22 @@ function EmailSettingsPage() {
       setLoading(true);
       const todayISO = toLocalISO(new Date());
       const [{ data }, { count }, { count: queued }] = await Promise.all([
+        // TIGHTEN I.47 (2026-06-01): `.maybeSingle()` errors when the
+        // company has multiple provider rows (e.g. an old smtp row
+        // alongside the current resend row). The error gets silently
+        // dropped, data becomes null, and the load falls through to
+        // "seed defaults from profile" - which clobbers whatever the
+        // user just saved with their profile's full_name on the next
+        // reload. Pick the most recently updated row explicitly via
+        // .limit(1) so any multi-provider state still resolves
+        // cleanly. Save path is unaffected (it filters by provider).
         supabase
           .from("email_provider_settings")
           .select("*")
           .eq("company_id", companyId)
           .neq("provider", "mailchimp")
           .order("updated_at", { ascending: false })
+          .limit(1)
           .maybeSingle(),
         supabase
           .from("outgoing_email_log")
