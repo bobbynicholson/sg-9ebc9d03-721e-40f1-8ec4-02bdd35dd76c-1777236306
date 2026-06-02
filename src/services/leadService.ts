@@ -364,7 +364,27 @@ Guests: ${lead.guest_count ?? "TBD"}`;
       internalNoteParts.push(`Stated budget range: ${(lead as any).budget_range}`);
     }
     if ((lead as any).budget) {
-      internalNoteParts.push(`Stated budget: R${Number((lead as any).budget).toLocaleString("en-ZA")}`);
+      // TIGHTEN I.88: tenant-currency formatter on the budget label
+      // written into the new quote's internal_notes. Was hardcoded "R"
+      // prefix which read wrong on USD / GBP / EUR tenants.
+      const budgetVal = Number((lead as any).budget);
+      const { data: companyRow } = await supabase
+        .from("companies")
+        .select("currency")
+        .eq("id", lead.company_id)
+        .maybeSingle();
+      const code = (companyRow as any)?.currency || "ZAR";
+      let budgetLabel: string;
+      try {
+        budgetLabel = new Intl.NumberFormat("en-ZA", {
+          style: "currency",
+          currency: code,
+          maximumFractionDigits: 0,
+        }).format(budgetVal);
+      } catch {
+        budgetLabel = `${code} ${budgetVal.toLocaleString("en-ZA")}`;
+      }
+      internalNoteParts.push(`Stated budget: ${budgetLabel}`);
     }
     if ((lead as any).source) {
       internalNoteParts.push(`Lead source: ${(lead as any).source}`);
