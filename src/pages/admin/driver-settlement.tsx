@@ -1243,6 +1243,12 @@ function FragmentRows({
   // 20+ drivers.
   const [detail, setDetail] = useState<DriverPaySummary | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  // TIGHTEN I.101 (2026-06-02): per-action busy guards. PDF + Email
+  // buttons previously only gated on !hasPay, so a double-tap could
+  // fire two PDF renders or two outbound emails to the driver. Now
+  // disabled while in-flight.
+  const [pdfBusy, setPdfBusy] = useState(false);
+  const [emailBusy, setEmailBusy] = useState(false);
   useEffect(() => {
     if (!isOpen || detail) return;
     if (!row.driver.id || !companyId) return;
@@ -1492,19 +1498,25 @@ function FragmentRows({
               variant="ghost"
               size="sm"
               className="h-7 px-2 text-xs gap-1"
-              onClick={handleDownload}
-              disabled={!hasPay}
+              onClick={async () => {
+                if (pdfBusy) return;
+                setPdfBusy(true);
+                try { await handleDownload(); } finally { setPdfBusy(false); }
+              }}
+              disabled={!hasPay || pdfBusy}
               title={hasPay ? "Download payslip PDF" : "No pay this period"}
             >
-              <Download className="w-3 h-3" /> PDF
+              <Download className="w-3 h-3" /> {pdfBusy ? "..." : "PDF"}
             </Button>
             {row.driver.email && (
               <Button
                 variant="ghost"
                 size="sm"
                 className="h-7 px-2 text-xs gap-1"
-                disabled={!hasPay}
+                disabled={!hasPay || emailBusy}
                 onClick={async () => {
+                  if (emailBusy) return;
+                  setEmailBusy(true);
                   try {
                     await handleEmail();
                     toast({
@@ -1517,11 +1529,13 @@ function FragmentRows({
                       description: e?.message || "Try again",
                       variant: "destructive",
                     });
+                  } finally {
+                    setEmailBusy(false);
                   }
                 }}
                 title={hasPay ? "Email this payslip to the driver" : "No pay this period"}
               >
-                Email
+                {emailBusy ? "Sending..." : "Email"}
               </Button>
             )}
           </div>
