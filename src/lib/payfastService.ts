@@ -412,11 +412,36 @@ export function getPlanById(planId: string): SubscriptionPlan | undefined {
   return SUBSCRIPTION_PLANS.find((plan) => plan.id === planId);
 }
 
+/**
+ * TIGHTEN I.86 (2026-06-02): proper Intl-driven formatter. The prior
+ * implementation:
+ *   - Returned `R${amount}` regardless of currency, so non-ZAR tenants
+ *     saw "R" prefix on PayFast confirmation strings.
+ *   - For USD, did `Math.round(amount * 0.054)` - hardcoded an
+ *     ancient ZAR->USD exchange rate that drifted from reality. A
+ *     subscription priced at R5000 rendered as "$270" using a 2020-
+ *     era rate; today's $267 / $260 / $250 depending on FX.
+ *
+ * Now: locale-aware Intl.NumberFormat per currency, no conversion.
+ * The amount is rendered AS the supplied currency (caller's
+ * responsibility to pass the right amount in the right currency).
+ */
+const CURRENCY_LOCALE: Record<string, string> = {
+  ZAR: "en-ZA", USD: "en-US", GBP: "en-GB", EUR: "en-IE",
+  AUD: "en-AU", NZD: "en-NZ", NGN: "en-NG", KES: "en-KE",
+};
 export function formatCurrency(amount: number, currency: string = "ZAR"): string {
-  if (currency === "USD") {
-    return `$${Math.round(amount * 0.054)}`;
+  try {
+    return new Intl.NumberFormat(CURRENCY_LOCALE[currency] || "en-ZA", {
+      style: "currency",
+      currency,
+      maximumFractionDigits: 0,
+    }).format(amount);
+  } catch {
+    // Unknown currency code - fall back to the symbol-less amount so we
+    // don't display "$270" for a R5000 subscription via the bogus rate.
+    return `${currency} ${amount.toLocaleString("en-ZA")}`;
   }
-  return `R${amount}`;
 }
 
 export function calculateTrialEndDate(days: number = 14): Date {

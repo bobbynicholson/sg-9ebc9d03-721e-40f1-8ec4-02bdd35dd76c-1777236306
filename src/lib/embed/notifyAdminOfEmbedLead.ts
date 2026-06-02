@@ -49,8 +49,12 @@ export async function notifyAdminOfEmbedLead(
   // on companies is the optional admin override (e.g. bookings@...).
   const [{ data: company }, { data: ownerProfile }] = await Promise.all([
     supabase
+      // TIGHTEN I.86: also fetch currency so the admin notification
+      // email shows the right symbol on the budget line. Previously
+      // hardcoded "R" prefix which read wrong for USD / GBP / EUR
+      // tenants who ran embed forms.
       .from("companies")
-      .select("id, company_name, notification_email")
+      .select("id, company_name, notification_email, currency")
       .eq("id", companyId)
       .maybeSingle(),
     ownerUserId
@@ -145,7 +149,22 @@ export async function notifyAdminOfEmbedLead(
     event_date: eventDate !== "TBD" ? eventDate : "",
     guest_count: guestCount ? String(guestCount) : "",
     venue: String(leadInsert.venue_address || ""),
-    budget: leadInsert.budget ? `R${leadInsert.budget}` : "",
+    // TIGHTEN I.86: tenant currency via Intl. Falls back to "R" prefix
+    // when company.currency isn't set (legacy tenants).
+    budget: leadInsert.budget
+      ? (() => {
+          const code = (company?.currency as string) || "ZAR";
+          try {
+            return new Intl.NumberFormat("en-ZA", {
+              style: "currency",
+              currency: code,
+              maximumFractionDigits: 0,
+            }).format(Number(leadInsert.budget) || 0);
+          } catch {
+            return `${code} ${leadInsert.budget}`;
+          }
+        })()
+      : "",
     notes: String(leadInsert.notes || ""),
     form_name: String(formName || "embed form"),
     company_name: String(companyName),
