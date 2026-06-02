@@ -28,6 +28,7 @@ import { AddToCalendarButton } from "@/components/client-portal/AddToCalendarBut
 import { toLocalISO } from "@/lib/localDate";
 import { clientOrderHref } from "@/lib/orderUrls";
 import { supabase } from "@/integrations/supabase/client";
+import { useOrderRefreshSignal } from "@/hooks/useOrderRefreshSignal";
 
 interface Order {
   id: string;
@@ -94,6 +95,8 @@ export default function MyOrders() {
   // it; clearing it on close.
   const [rebookOrder, setRebookOrder] = useState<Order | null>(null);
   const { toast } = useToast();
+  // TIGHTEN I.119 (2026-06-02): refetch when an order edit lands - admin moving the event date should update the client view immediately.
+  const refreshSignal = useOrderRefreshSignal(company?.id ?? null);
 
   // Pull a refund preview when the cancel/postpone dialog opens so the
   // client sees what they'd get back before submitting.
@@ -199,7 +202,7 @@ export default function MyOrders() {
       }
     })();
     return () => { cancelled = true; };
-  }, [user, company?.id]);
+  }, [user, company?.id, refreshSignal]);
 
   const filteredOrders = orders.filter((o) => {
     // "Completed" tab covers both `delivered` (driver dropped off,

@@ -42,6 +42,7 @@ import { HandoverToDriverPanel } from "@/components/kitchen/HandoverToDriverPane
 import { UserRole } from "@/types/app";
 import Head from "next/head";
 import { useAuth } from "@/contexts/AuthContext";
+import { useOrderRefreshSignal } from "@/hooks/useOrderRefreshSignal";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { kitchenPrepService } from "@/services/kitchenPrepService";
@@ -89,6 +90,8 @@ export default function KitchenDashboard() {
   // region_admin stays - they're an operational tier that does
   // run their region's kitchen.
   const canSeeAdminOrderDetail = ["super_admin", "company_admin", "admin", "owner", "region_admin"].includes(userRole);
+  // TIGHTEN I.119 (2026-06-02): refetch when an order edit lands in any tab.
+  const refreshSignal = useOrderRefreshSignal(user?.company_id ?? null);
   const [orders, setOrders] = useState<Order[]>([]);
   const [lowStockItems, setLowStockItems] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -201,7 +204,7 @@ export default function KitchenDashboard() {
     if (user?.company_id) {
       loadDashboardData();
     }
-  }, [user?.company_id]);
+  }, [user?.company_id, refreshSignal]);
 
   // KIT2-Q (kitchen deep audit, KIT2-44 / KIT2-79): supabase realtime
   // sub on orders + kitchen_prep_tasks + order_items, scoped to the

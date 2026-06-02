@@ -28,6 +28,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useAuth } from "@/contexts/AuthContext";
+import { useOrderRefreshSignal } from "@/hooks/useOrderRefreshSignal";
 import { supabase } from "@/integrations/supabase/client";
 import {
   generateInvoiceData,
@@ -59,6 +60,8 @@ import { InvoiceAgingCard } from "@/components/admin/InvoiceAgingCard";
 function InvoicesPageInner() {
   const router = useRouter();
   const { user, activeRole, loading: authLoading } = useAuth() as any;
+  // TIGHTEN I.119 (2026-06-02): refetch when an order edit lands in any tab.
+  const refreshSignal = useOrderRefreshSignal((user as any)?.company_id);
   const { toast } = useToast();
   const { withSlug } = useTenantHref();
   
@@ -486,7 +489,8 @@ function InvoicesPageInner() {
       loadInvoices();
       loadOrders();
     }
-  }, [user]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, refreshSignal]);
 
   // Wave 70.38 - live refresh on cross-page order edits + tab focus.
   // Before this, editing an order's event_date in /admin/orders didn't

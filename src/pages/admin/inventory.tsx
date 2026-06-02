@@ -46,6 +46,7 @@ import Link from "next/link";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { inventoryService } from "@/services/inventoryService";
 import { useAuth } from "@/contexts/AuthContext";
+import { useOrderRefreshSignal } from "@/hooks/useOrderRefreshSignal";
 import { usePricingMode } from "@/hooks/usePricingMode";
 import { toExVat, toIncVat } from "@/lib/vatMath";
 import { useCompanyKitchens } from "@/hooks/useCompanyKitchens";
@@ -211,6 +212,8 @@ function AdminInventory() {
   const { user } = useAuth();
   const { toast } = useToast();
   const companyId = (user as any)?.company_id ?? null;
+  // TIGHTEN I.119 (2026-06-02): refetch when an order edit lands in any tab.
+  const refreshSignal = useOrderRefreshSignal(companyId);
   const userId = user?.id ?? "";
   // Wave 24: tenant-currency aware so "Stock on hand" tile + per-item
   // last-cost sparkline render in the right symbol for non-ZAR tenants.
@@ -286,7 +289,7 @@ function AdminInventory() {
     loadOutlook();
     loadLastActivity();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [(user as any)?.company_id]);
+  }, [(user as any)?.company_id, refreshSignal]);
 
   // Phase 24 #6: seed the search box from ?q on mount so the
   // dashboard's RecentInventoryAdjusts rows can deep-link a

@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TrendingUp, DollarSign, AlertTriangle, Calendar, Users, Package, CreditCard, ArrowUpRight, ArrowDownRight, Sparkles, Trophy, Download, RefreshCw } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useOrderRefreshSignal } from "@/hooks/useOrderRefreshSignal";
 import { useRegionFilter } from "@/contexts/RegionFilterContext";
 import { supabase } from "@/integrations/supabase/client";
 import { captureException } from "@/lib/observability";
@@ -80,6 +81,8 @@ interface CashFlowAlert {
 
 function FinancialDashboardInner() {
   const { user } = useAuth();
+  // TIGHTEN I.119 (2026-06-02): refetch when an order edit lands in any tab.
+  const refreshSignal = useOrderRefreshSignal(user?.company_id);
   // Wave 27.3: tenant-slug wrapper for internal navigations.
   const { withSlug } = useTenantHref();
   // FIN-C (financial dashboard follow-ups): respect the global region
@@ -316,7 +319,7 @@ function FinancialDashboardInner() {
     if (user) {
       loadFinancialData();
     }
-  }, [user, loadFinancialData]);
+  }, [user, loadFinancialData, refreshSignal]);
 
   // FIN-B (financial dashboard audit): realtime channel scoped to the
   // caller's company so a payment captured in /admin/invoices or an

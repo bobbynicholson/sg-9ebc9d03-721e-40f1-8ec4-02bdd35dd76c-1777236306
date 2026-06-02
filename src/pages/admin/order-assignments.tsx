@@ -21,6 +21,7 @@ import Link from "next/link";
 import Head from "next/head";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { useAuth } from "@/contexts/AuthContext";
+import { useOrderRefreshSignal } from "@/hooks/useOrderRefreshSignal";
 import { useToast } from "@/hooks/use-toast";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { ToastAction } from "@/components/ui/toast";
@@ -93,6 +94,8 @@ function DispatchQueuePage() {
   const { withSlug } = useTenantHref();
   const { toast } = useToast();
   const companyId = profile?.company_id ?? user?.company_id ?? null;
+  // TIGHTEN I.119 (2026-06-02): refetch when an order edit lands in any tab.
+  const refreshSignal = useOrderRefreshSignal(companyId);
   const userId = user?.id ?? "";
   // Phase 10 #1: tenant currency for the order_total render in
   // each row of the dispatch queue.
@@ -272,7 +275,7 @@ function DispatchQueuePage() {
     }
   }, [companyId, daysAhead]);
 
-  useEffect(() => { loadAll(); }, [loadAll]);
+  useEffect(() => { loadAll(); }, [loadAll, refreshSignal]);
 
   // Realtime: any order change for THIS tenant refetches KPIs + queue.
   // Phase 6 audit fix: the channel was previously "dispatch-queue" with

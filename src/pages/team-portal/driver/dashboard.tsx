@@ -41,6 +41,7 @@ import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import Head from "next/head";
 import { useAuth } from "@/contexts/AuthContext";
+import { useOrderRefreshSignal } from "@/hooks/useOrderRefreshSignal";
 import { CateringDashGame } from "@/components/games/CateringDashGame";
 import { ChatBot } from "@/components/ChatBot";
 import Link from "next/link";
@@ -87,6 +88,8 @@ interface Job {
 function DriverDashboardInner() {
   const { user, userRoles } = useAuth();
   const { withSlug } = useTenantHref();
+  // TIGHTEN I.119 (2026-06-02): refetch when an order edit lands in any tab.
+  const refreshSignal = useOrderRefreshSignal(user?.company_id ?? null);
   // WTR-A: combined field-staff portal. A staffer with the 'waiter'
   // role (or both driver + waiter) sees service-phase widgets on top
   // of the driver UI. Same URL, same login, role-aware widget mix.
@@ -388,7 +391,7 @@ function DriverDashboardInner() {
     return () => {
       unsubscribe();
     };
-  }, [user?.id, toast]);
+  }, [user?.id, toast, refreshSignal]);
 
   // DRV-D (driver deep audit, DRV-10 / DRV-23 / DRV-47): earnings
   // totals agreement.
@@ -430,7 +433,7 @@ function DriverDashboardInner() {
 
     loadEarnings();
     return () => { cancelled = true; };
-  }, [user?.id, user?.company_id, jobs.length]);
+  }, [user?.id, user?.company_id, jobs.length, refreshSignal]);
 
   // Subscribe to order updates (when status changes)
   useEffect(() => {

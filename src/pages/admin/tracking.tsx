@@ -16,6 +16,7 @@ import { useTenantHref } from "@/lib/tenantUrl";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { useAuth } from "@/contexts/AuthContext";
+import { useOrderRefreshSignal } from "@/hooks/useOrderRefreshSignal";
 import driverService from "@/services/driverService";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
@@ -94,6 +95,8 @@ const AdminTrackingMap = dynamic(
  */
 function AdminTrackingInner() {
   const { user, profile } = useAuth() as any;
+  // TIGHTEN I.119 (2026-06-02): refetch when an order edit lands in any tab.
+  const refreshSignal = useOrderRefreshSignal(user?.company_id);
   const { toast } = useToast();
   const { withSlug } = useTenantHref();
   const [orders, setOrders] = useState<any[]>([]);
@@ -323,7 +326,7 @@ function AdminTrackingInner() {
 
   useEffect(() => {
     loadTrackingData();
-  }, [loadTrackingData]);
+  }, [loadTrackingData, refreshSignal]);
 
   // Phase 3: realtime driver locations. Replaces the 30s polling lag for
   // pin movement - when any driver in this company writes a new GPS row,

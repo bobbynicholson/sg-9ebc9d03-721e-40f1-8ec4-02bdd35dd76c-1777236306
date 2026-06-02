@@ -15,6 +15,7 @@ import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { ShoppingNav } from "@/components/navigation/ShoppingNav";
 import { useAuth } from "@/contexts/AuthContext";
+import { useOrderRefreshSignal } from "@/hooks/useOrderRefreshSignal";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
@@ -68,6 +69,8 @@ export default function ShoppingOrdersPage() {
   const { user } = useAuth();
   const { withSlug } = useTenantHref();
   const { toast } = useToast();
+  // TIGHTEN I.119 (2026-06-02): refetch when an order edit lands in any tab.
+  const refreshSignal = useOrderRefreshSignal(user?.company_id ?? null);
 
   const [lists, setLists] = useState<ShoppingList[]>([]);
   const [upcomingOrders, setUpcomingOrders] = useState<Order[]>([]);
@@ -93,7 +96,7 @@ export default function ShoppingOrdersPage() {
   useEffect(() => {
     if (!user?.company_id) return;
     load();
-  }, [user?.company_id]);
+  }, [user?.company_id, refreshSignal]);
 
   const load = async () => {
     if (!user?.company_id) return;
