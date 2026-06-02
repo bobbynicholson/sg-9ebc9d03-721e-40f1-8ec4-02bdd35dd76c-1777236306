@@ -1540,6 +1540,21 @@ function NewQuotePage() {
         // state. The dialog resolves the template, lets the operator
         // edit subject + body, and posts to /api/send-email with the
         // operator's content verbatim on confirm.
+        // TIGHTEN I.111: also pull the persisted public_token so the
+        // dialog can embed the /q/{token} client view link in the
+        // email body. Previously omitted, so the email had no clickable
+        // link - just a PDF attachment.
+        let publicToken: string | null = null;
+        try {
+          const { data: row } = await supabase
+            .from("quotes")
+            .select("public_token")
+            .eq("id", id)
+            .maybeSingle();
+          publicToken = (row as any)?.public_token ?? null;
+        } catch {
+          /* leave null - dialog will render fallback body without link */
+        }
         setSendDialogQuote({
           id,
           quote_number: quoteNumber || id,
@@ -1551,6 +1566,7 @@ function NewQuotePage() {
           event_name: eventName || null,
           quote_name: eventName || null,
           user_id: user?.id || null,
+          public_token: publicToken,
         });
       }
     } finally {
