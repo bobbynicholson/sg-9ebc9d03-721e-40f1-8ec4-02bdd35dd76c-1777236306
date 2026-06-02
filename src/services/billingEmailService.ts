@@ -28,6 +28,26 @@ function buildBillingUrl(slug: string | null | undefined, path: string): string 
   return `${base}${buildTenantHref(slug, path)}`;
 }
 
+// TIGHTEN I.99 (2026-06-02): tenant-currency formatter for SaaS billing
+// emails. Was hardcoded "R" prefix - PayFast tenants are ZAR which is
+// fine, but Stripe-billed international tenants see the wrong symbol.
+// Reads the subscription's stored currency code; falls back to ZAR
+// (PayFast is the active billing rail for the South African tenant base).
+function fmtBillingAmount(amount: number | null | undefined, currencyCode: string | null | undefined): string {
+  const code = (currencyCode || "ZAR").toUpperCase();
+  const n = Number(amount) || 0;
+  try {
+    return new Intl.NumberFormat("en-ZA", {
+      style: "currency",
+      currency: code,
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
+    }).format(n);
+  } catch {
+    return `${code} ${n}`;
+  }
+}
+
 // Pull the company slug for a given profile in a single query so the
 // billing email methods don't each have to repeat the join.
 async function fetchCompanySlugForUser(userId: string): Promise<string | null> {
@@ -433,7 +453,7 @@ export class BillingEmailService {
       {
         userName: profile.full_name || "there",
         planName: subscription.plan_name,
-        amount: `R${subscription.amount}`,
+        amount: fmtBillingAmount(subscription.amount, subscription.currency),
         billingCycle: subscription.billing_cycle === "monthly" ? "Monthly" : "Yearly",
         nextBillingDate: subscription.next_billing_date ? new Date(subscription.next_billing_date).toLocaleDateString() : 'N/A',
         subscriptionUrl: buildBillingUrl(slug, "/admin/subscription")
@@ -460,7 +480,7 @@ export class BillingEmailService {
       "payment_succeeded",
       {
         userName: profile.full_name || "there",
-        amount: `R${payment.amount}`,
+        amount: fmtBillingAmount(payment.amount, payment.currency),
         paymentDate: new Date(payment.paid_at).toLocaleDateString(),
         transactionId: payment.transaction_id || "N/A",
         billingPeriodStart: new Date(payment.billing_period_start).toLocaleDateString(),
@@ -490,7 +510,7 @@ export class BillingEmailService {
       "payment_failed",
       {
         userName: profile.full_name || "there",
-        amount: `R${payment.amount}`,
+        amount: fmtBillingAmount(payment.amount, payment.currency),
         attemptedDate: new Date(payment.created_at).toLocaleDateString(),
         failureReason: payment.failed_reason || "Payment method declined",
         updatePaymentUrl: buildBillingUrl(slug, "/admin/subscription")
@@ -547,7 +567,7 @@ export class BillingEmailService {
         userName: profile.full_name || "there",
         daysUntilRenewal,
         planName: subscription.plan_name,
-        amount: `R${subscription.amount}`,
+        amount: fmtBillingAmount(subscription.amount, subscription.currency),
         renewalDate: subscription.next_billing_date ? new Date(subscription.next_billing_date).toLocaleDateString() : 'N/A',
         paymentMethod: subscription.payment_method_last4 ? `Card ending in ${subscription.payment_method_last4}` : "PayFast",
         subscriptionUrl: buildBillingUrl(slug, "/admin/subscription")
@@ -574,8 +594,8 @@ export class BillingEmailService {
       "price_change_notification",
       {
         userName: profile.full_name || "there",
-        currentPrice: `R${priceChange.old_amount}`,
-        newPrice: `R${priceChange.new_amount}`,
+        currentPrice: fmtBillingAmount(priceChange.old_amount, priceChange.currency),
+        newPrice: fmtBillingAmount(priceChange.new_amount, priceChange.currency),
         effectiveDate: new Date(priceChange.effective_date).toLocaleDateString(),
         changeReason: priceChange.change_reason,
         explanation: priceChange.exchange_rate_info || "To maintain service quality and continue development of new features.",
@@ -633,7 +653,7 @@ export class BillingEmailService {
       {
         userName: profile.full_name || "there",
         planName: subscription.plan_name,
-        amount: `R${subscription.amount}`,
+        amount: fmtBillingAmount(subscription.amount, subscription.currency),
         nextBillingDate: subscription.next_billing_date ? new Date(subscription.next_billing_date).toLocaleDateString() : 'N/A',
         dashboardUrl: buildBillingUrl(slug, "/admin/dashboard")
       },
