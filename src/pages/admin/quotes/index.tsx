@@ -101,6 +101,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { toLocalISO } from "@/lib/localDate";
 
+// TIGHTEN I.84: module-scope ZAR formatter kept as a fallback for any
+// sibling helpers / dialogs that reference it from outside the main
+// QuotesPage scope. The MAIN component shadows this with a tenant-
+// aware version so all in-component fmtMoney.format(x) calls use the
+// correct symbol.
 const fmtMoney = new Intl.NumberFormat("en-ZA", { style: "currency", currency: "ZAR", maximumFractionDigits: 0 });
 
 /**
@@ -279,6 +284,10 @@ function AdminQuotesInner() {
   // throughout the quotes list, totals card and detail panes.
   const tenantCurrency = useTenantCurrency(user?.company_id);
   const C = tenantCurrency.symbol;
+  // TIGHTEN I.84: tenant-aware shadow of the prior module-scope
+  // fmtMoney so every fmtMoney.format(x) call in toasts / dialogs
+  // picks up the right currency.
+  const fmtMoney = { format: (n: number) => tenantCurrency.format(n, 0) };
   const { regionFilterId } = useRegionFilter();
   const { toast } = useToast();
   const [quotes, setQuotes] = useState<Quote[]>([]);

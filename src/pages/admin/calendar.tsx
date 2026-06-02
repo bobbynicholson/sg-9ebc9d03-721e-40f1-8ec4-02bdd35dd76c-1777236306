@@ -30,6 +30,7 @@ import { useTenantHref } from "@/lib/tenantUrl";
 import { staffOrderHref } from "@/lib/orderUrls";
 import { useToast } from "@/hooks/use-toast";
 import { onOrderUpdated } from "@/lib/events/orderEvents";
+import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 
 // CAL-C (CAL-4): region_admin + sales_admin need diary access.
 // RLS on orders narrows region_admin to their regions_covered
@@ -58,7 +59,8 @@ const STATUS_TONES: Record<string, string> = {
   paused:     "bg-blue-100 text-blue-800 border-blue-300 border-dashed",
 };
 
-const fmtMoney = new Intl.NumberFormat("en-ZA", { style: "currency", currency: "ZAR", maximumFractionDigits: 0 });
+// TIGHTEN I.84: fmtMoney moved inside the component so the calendar
+// uses the active tenant's currency (was hardcoded ZAR module-scope).
 
 // Quote statuses that count as "still open" for the diary gap-finder.
 // Anything past these (accepted -> already an order, rejected -> dead,
@@ -86,6 +88,11 @@ function AdminCalendar() {
   const { toast } = useToast();
   // Wave 27: tenant-slug wrapper for internal navigations.
   const { withSlug } = useTenantHref();
+  // TIGHTEN I.84: tenant-aware money formatter. Shape matches the prior
+  // Intl.NumberFormat so all the existing fmtMoney.format(x) call sites
+  // keep working unchanged.
+  const tenantCurrency = useTenantCurrency(user?.company_id ?? null);
+  const fmtMoney = { format: (n: number) => tenantCurrency.format(n, 0) };
   const [orders, setOrders] = useState<AppOrder[]>([]);
   const [openQuotes, setOpenQuotes] = useState<OpenQuote[]>([]);
 
