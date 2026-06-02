@@ -1519,11 +1519,30 @@ export async function sendInvoiceEmail(
     }
     const eventLabel = (invoiceData as any).eventName || invoiceData.orderNumber || "your event";
 
+    // TIGHTEN I.114: resolve the invoice's public_token + build the
+    // /pay/i/{token} link so the fallback body's {{invoice_link}}
+    // placeholder works. The auto-issuance path (postCreationCascade
+    // + ensureInvoiceForOrder) already passes invoice_link via tenant
+    // templates; this manual-send path was missing it.
+    let invoiceLink = "";
+    try {
+      const { data: invRow } = await supabase
+        .from("invoices")
+        .select("public_token")
+        .eq("id", options.invoiceId)
+        .maybeSingle();
+      const tok = (invRow as any)?.public_token;
+      const origin = (process.env.NEXT_PUBLIC_APP_URL || "").replace(/\/$/, "");
+      if (tok && origin) invoiceLink = `${origin}/pay/i/${tok}`;
+    } catch (e) {
+      console.warn("[sendInvoiceEmail] invoice_link lookup failed:", e);
+    }
+
     const fallbackBody =
       options.body ||
       `Hi {{first_name}},\n\n` +
       `{{tenant_name}} issued invoice {{invoice_number}} for {{event_name}}. Total: {{amount}}.\n\n` +
-      `Open the invoice in your portal to download or pay.\n\n` +
+      `Pay or download a copy here: {{invoice_link}}\n\n` +
       `Thanks,\n{{tenant_name}}`;
 
     // When the operator has reviewed + edited the body in the send
@@ -1550,6 +1569,8 @@ export async function sendInvoiceEmail(
           amount: amountLabel,
           deposit_amount: isBalance ? "" : amountLabel,
           balance_amount: isBalance ? amountLabel : "",
+          // TIGHTEN I.114: always-current /pay/i/{token} URL.
+          invoice_link: invoiceLink,
         },
         emailType: templateType,
         attachInvoicePdf: options.attachInvoicePdf !== false,
