@@ -1223,9 +1223,21 @@ function NewQuotePage() {
         // status='sent' directly without ever firing the client
         // email; now we route the side-effect through
         // quoteService._fireQuoteSentEmail.
+        //
+        // TIGHTEN I.118 (2026-06-02): always read the current row so
+        // we can also block any "Save draft" call from downgrading a
+        // converted quote to draft. The previous code only read on
+        // override.status === "sent", which left handleSaveDraft
+        // free to write status='draft' on a quote whose linked order
+        // was already confirmed - producing the inconsistent state
+        // Bobby flagged on QT-20260503-7N868C (draft quote + live
+        // confirmed order). The DB now has a CHECK constraint that
+        // would reject that write; this guard catches the same case
+        // client-side so the operator sees a clean toast instead of
+        // a constraint error.
         let prevStatus: string | null = null;
         let prevConvertedOrderId: string | null = null;
-        if (override.status === "sent") {
+        try {
           const { data: cur } = await supabase
             .from("quotes")
             .select("status, converted_to_order_id")
@@ -1233,6 +1245,15 @@ function NewQuotePage() {
             .maybeSingle();
           prevStatus = (cur as any)?.status ?? null;
           prevConvertedOrderId = (cur as any)?.converted_to_order_id ?? null;
+        } catch (readErr) {
+          console.warn("[quotes/new] pre-update status read failed:", readErr);
+        }
+        // Converted quotes never go back to draft. Preserve the
+        // existing status (typically 'accepted') so the edits land
+        // but the lifecycle stays coherent.
+        if (override.status === "draft" && prevConvertedOrderId && prevStatus && prevStatus !== "draft") {
+          (dbOverride as any).status = prevStatus;
+          payload.status = prevStatus;
         }
         // ODOC H.14: split the Save & Send branch in two based on
         // whether the quote already has a linked order.
