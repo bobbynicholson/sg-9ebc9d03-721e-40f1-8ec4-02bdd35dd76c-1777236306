@@ -210,6 +210,10 @@ export const paymentLedgerService = {
     paymentReference?: string,
     notes?: string
   ) {
+    // Preflight read so we can compute totals before claiming. The
+    // payment_status='unpaid' filter is duplicated on the atomic
+    // claim below; this read is the source of truth for the ledger
+    // amount.
     const { data: sessions, error: sessionsErr } = await supabase
       .from("staff_work_sessions")
       .select("*")
@@ -230,26 +234,63 @@ export const paymentLedgerService = {
     const minDate = new Date(Math.min(...dates.map(d => d.getTime())));
     const maxDate = new Date(Math.max(...dates.map(d => d.getTime())));
 
-    const ledgerEntry = await this.recordPayment(staffId, {
-      payment_period_start: minDate,
-      payment_period_end: maxDate,
-      total_hours: totalHours,
-      hourly_rate: Number(hourlyRate),
-      total_amount: totalAmount,
-      payment_method: paymentMethod,
-      payment_reference: paymentReference,
-      notes: notes,
-    });
-
-    const { error: updateError } = await supabase
+    // TIGHTEN I.104 (2026-06-02): atomic claim BEFORE inserting the
+    // ledger entry. Without this, two concurrent processStaffPayment
+    // calls (operator double-click, or one tab + a cron) both read the
+    // same unpaid sessions and both insert ledger rows - double-paying
+    // the staff member. The claim is gated on payment_status='unpaid'
+    // so only the winning call flips them to 'paid'.
+    const claimedIds = sessions.map((s) => (s as any).id);
+    const paidAtIso = new Date().toISOString();
+    const { data: claimed, error: claimErr } = await supabase
       .from("staff_work_sessions")
       .update({
         payment_status: "paid",
-        paid_at: new Date().toISOString(),
+        paid_at: paidAtIso,
       } as any)
-      .in("id", sessionIds);
+      .in("id", claimedIds)
+      .eq("payment_status", "unpaid")
+      .select("id");
+    if (claimErr) {
+      throw new Error(`Session claim failed: ${claimErr.message}`);
+    }
+    if (!claimed || claimed.length !== claimedIds.length) {
+      // Partial claim - someone else paid some of these sessions
+      // concurrently. Revert any we did flip back to 'unpaid' so
+      // finance can decide what to do.
+      const winnerIds = (claimed || []).map((r: any) => r.id);
+      if (winnerIds.length > 0) {
+        await supabase
+          .from("staff_work_sessions")
+          .update({ payment_status: "unpaid", paid_at: null } as any)
+          .in("id", winnerIds);
+      }
+      throw new Error(
+        "Some sessions were paid concurrently by another request. No ledger row written.",
+      );
+    }
 
-    if (updateError) throw updateError;
+    // Claim is exclusive - safe to insert the ledger row. If recordPayment
+    // throws, revert the claim so finance can retry.
+    let ledgerEntry;
+    try {
+      ledgerEntry = await this.recordPayment(staffId, {
+        payment_period_start: minDate,
+        payment_period_end: maxDate,
+        total_hours: totalHours,
+        hourly_rate: Number(hourlyRate),
+        total_amount: totalAmount,
+        payment_method: paymentMethod,
+        payment_reference: paymentReference,
+        notes: notes,
+      });
+    } catch (recordErr) {
+      await supabase
+        .from("staff_work_sessions")
+        .update({ payment_status: "unpaid", paid_at: null } as any)
+        .in("id", claimedIds);
+      throw recordErr;
+    }
 
     return ledgerEntry;
   },
