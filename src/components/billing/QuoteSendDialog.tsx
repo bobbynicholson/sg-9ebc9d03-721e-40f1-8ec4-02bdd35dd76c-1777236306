@@ -14,6 +14,7 @@ import { resolveEmailTemplate } from "@/services/email/templateResolver";
 import { formatQuoteSubject } from "@/lib/email/subjectFormatters";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { captureException } from "@/lib/observability";
 
 export interface QuoteSendDialogQuote {
   id: string;
@@ -191,6 +192,17 @@ export function QuoteSendDialog({
           onSent?.(quote);
           return { success: true } as const;
         } catch (err: any) {
+          // TIGHTEN I.98: route quote-send failures through Sentry.
+          // Quote send is money-touching - silent failures hide outbox
+          // / template / provider bugs the operator needs to see.
+          captureException(err, {
+            level: "error",
+            tags: {
+              op: "quote.send",
+              companyId: companyId || "(unknown)",
+              quoteId: quote?.id || "(unknown)",
+            },
+          });
           return {
             success: false as const,
             error: { message: err?.message || "Send failed unexpectedly." },
