@@ -119,7 +119,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const nowIso = new Date().toISOString();
   const { data: updated, error } = await (supabase as any)
     .from("quotes")
-    .update({ accepted_at: nowIso, status: "accepted" })
+    .update({
+      accepted_at: nowIso,
+      status: "accepted",
+      // TIGHTEN I.110: clear any stale lost_reason / rejected_at
+      // markers left by a previous (now-reversed) cancellation cycle.
+      // Belt-and-braces - the .in() filter blocks rejected→accepted
+      // re-transitions via this route, but if a future code path
+      // enables that flow the markers won't drift.
+      lost_reason: null,
+      rejected_at: null,
+    })
     .eq("public_token", token)
     .is("deleted_at", null)
     // Block re-accepts of already-accepted / rejected / expired
