@@ -19,6 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { Inbox, ArrowRight, Mail, Phone } from "lucide-react";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { useReportWidgetError } from "@/components/dashboard/WidgetErrorBoundary";
+import { daysAgoIso, daysSince } from "@/lib/dashboardWindows";
 
 interface LeadRow {
   id: string;
@@ -31,10 +32,7 @@ interface LeadRow {
   created_at: string | null;
 }
 
-const daysAgo = (iso: string | null): number => {
-  if (!iso) return 0;
-  return Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 86_400_000));
-};
+const daysAgo = (iso: string | null): number => daysSince(iso);
 
 export function LeadAgingWidget({ companyId }: { companyId: string | null }) {
   const { withSlug } = useTenantHref();
@@ -50,7 +48,7 @@ export function LeadAgingWidget({ companyId }: { companyId: string | null }) {
         // Active = not converted, not lost. We treat 'new', 'contacted',
         // 'qualifying' and 'quoted' as still in play. Anything older
         // than 3 days qualifies for the widget.
-        const cutoff = new Date(Date.now() - 3 * 86_400_000).toISOString();
+        const cutoff = daysAgoIso(3);
         const { data, error } = await (supabase as any)
           .from("leads")
           .select("id, contact_name, email, phone, status, source, event_date, created_at")

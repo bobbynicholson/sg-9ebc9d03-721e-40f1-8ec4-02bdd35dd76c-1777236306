@@ -23,6 +23,7 @@ import { isCountableOrder } from "@/lib/orderRevenueClassification";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { ChefHat, TrendingUp } from "lucide-react";
 import { useReportWidgetError } from "@/components/dashboard/WidgetErrorBoundary";
+import { daysAgoDateOnly } from "@/lib/dashboardWindows";
 
 interface Entry {
   name: string;
@@ -40,7 +41,7 @@ export function MenuTopSellersWidget({ companyId }: { companyId: string | null }
     let cancelled = false;
     (async () => {
       try {
-        const since = new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10);
+        const since = daysAgoDateOnly(30);
         // Wave 43 hotfix: query order_items + inner join to orders
         // for the status / event_date / company filter. Each
         // order_items row already has item_name + quantity, so no

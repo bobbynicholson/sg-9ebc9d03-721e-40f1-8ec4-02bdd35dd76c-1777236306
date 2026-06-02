@@ -24,6 +24,7 @@ import { Crown, ArrowRight } from "lucide-react";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { useReportWidgetError } from "@/components/dashboard/WidgetErrorBoundary";
+import { daysAgoDateOnly } from "@/lib/dashboardWindows";
 
 interface TopClient {
   client_name: string;
@@ -43,7 +44,7 @@ export function TopClientsWidget({ companyId }: { companyId: string | null }) {
     let cancelled = false;
     (async () => {
       try {
-        const since = new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10);
+        const since = daysAgoDateOnly(30);
         // TIGHTEN I.70 (2026-06-01): pull the extra revenue-class
         // columns so we can apply isBookedRevenue in-memory. Was a
         // raw status whitelist before, which counted unconfirmed

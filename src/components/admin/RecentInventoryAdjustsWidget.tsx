@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Package, ArrowUp, ArrowDown, ArrowRight } from "lucide-react";
 import { useReportWidgetError } from "@/components/dashboard/WidgetErrorBoundary";
+import { daysAgoIso } from "@/lib/dashboardWindows";
 
 interface TxRow {
   id: string;
@@ -51,7 +52,7 @@ export function RecentInventoryAdjustsWidget({ companyId }: { companyId: string 
     let cancelled = false;
     (async () => {
       try {
-        const since = new Date(Date.now() - 7 * 86_400_000).toISOString();
+        const since = daysAgoIso(7);
         const { data, error } = await (supabase as any)
           .from("inventory_transactions")
           .select(`

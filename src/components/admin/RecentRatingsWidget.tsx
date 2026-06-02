@@ -19,6 +19,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Star, ArrowRight } from "lucide-react";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { useReportWidgetError } from "@/components/dashboard/WidgetErrorBoundary";
+import { daysAgoIso } from "@/lib/dashboardWindows";
 
 interface RatingRow {
   entity_id: string;
@@ -56,7 +57,7 @@ export function RecentRatingsWidget({ companyId }: { companyId: string | null })
         // Last 30 days of order ratings. Order desc so the per-order
         // dedup below keeps the latest rating per order (re-ratings
         // overwrite older ones in the rollup).
-        const since = new Date(Date.now() - 30 * 86_400_000).toISOString();
+        const since = daysAgoIso(30);
         const { data, error } = await (supabase as any)
           .from("audit_logs")
           .select("entity_id, details, created_at")

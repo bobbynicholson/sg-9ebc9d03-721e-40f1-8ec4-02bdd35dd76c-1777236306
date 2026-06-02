@@ -16,6 +16,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { CheckCircle, AlertCircle, Clock } from "lucide-react";
 import { useReportWidgetError } from "@/components/dashboard/WidgetErrorBoundary";
+import { daysAgoDateOnly } from "@/lib/dashboardWindows";
 
 interface OrderRow {
   event_date: string | null;
@@ -63,7 +64,7 @@ export function DeliverySlaWidget({ companyId }: { companyId: string | null }) {
     let cancelled = false;
     (async () => {
       try {
-        const sinceIso = new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10);
+        const sinceIso = daysAgoDateOnly(30);
         const { data, error } = await (supabase as any)
           .from("orders")
           .select("event_date, event_time, delivered_at")

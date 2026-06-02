@@ -24,6 +24,7 @@ import { Clock, ArrowRight, Mail } from "lucide-react";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { useReportWidgetError } from "@/components/dashboard/WidgetErrorBoundary";
+import { daysAgoIso } from "@/lib/dashboardWindows";
 
 interface StaleQuote {
   id: string;
@@ -53,7 +54,7 @@ export function QuoteFollowupWidget({ companyId }: { companyId: string | null })
     let cancelled = false;
     (async () => {
       try {
-        const threeDaysAgo = new Date(Date.now() - 3 * 86_400_000).toISOString();
+        const threeDaysAgo = daysAgoIso(3);
         const { data, error } = await (supabase as any)
           .from("quotes")
           .select("id, quote_number, client_name, client_email, total, event_date, sent_at")

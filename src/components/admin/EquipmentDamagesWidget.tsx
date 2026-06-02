@@ -20,6 +20,7 @@ import { Wrench, ArrowRight } from "lucide-react";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { useReportWidgetError } from "@/components/dashboard/WidgetErrorBoundary";
+import { daysSince } from "@/lib/dashboardWindows";
 
 interface DamageRow {
   id: string;
@@ -32,7 +33,7 @@ interface DamageRow {
 
 const fmtAge = (iso: string | null): string => {
   if (!iso) return "";
-  const days = Math.round((Date.now() - new Date(iso).getTime()) / 86_400_000);
+  const days = daysSince(iso);
   if (days < 1) return "today";
   if (days < 7) return `${days}d`;
   if (days < 30) return `${Math.round(days / 7)}w`;
