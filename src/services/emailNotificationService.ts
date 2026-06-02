@@ -213,6 +213,17 @@ export const emailNotificationService = {
    * Email Templates
    */
   buildOrderConfirmedEmail(order: any, emailLog: any): string {
+    // TIGHTEN I.96: tenant currency for the customer-facing order
+    // confirmation email. `order.currency` is resolved by the caller
+    // (resolveTenantContext) - falls back to ZAR for legacy callers.
+    const currencyCode = (order?.currency as string) || (emailLog?.company_currency as string) || "ZAR";
+    const fmtMoney = (n: number) => {
+      try {
+        return new Intl.NumberFormat("en-ZA", { style: "currency", currency: currencyCode, minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
+      } catch {
+        return `${currencyCode} ${n.toFixed(2)}`;
+      }
+    };
     return `
 <!DOCTYPE html>
 <html>
@@ -258,7 +269,7 @@ export const emailNotificationService = {
         </div>
         <div class="detail-row">
           <strong>Total Amount:</strong>
-          <span>R ${order?.total_amount?.toFixed(2) || '0.00'}</span>
+          <span>${fmtMoney(Number(order?.total_amount) || 0)}</span>
         </div>
       </div>
 

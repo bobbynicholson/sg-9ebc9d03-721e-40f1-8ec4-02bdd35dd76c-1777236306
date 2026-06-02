@@ -85,6 +85,12 @@ interface InvoiceData {
   // Additional
   notes?: string;
   footer?: string;
+
+  // TIGHTEN I.96: tenant currency for the PDF body. Resolved by
+  // generateInvoiceData from companies.currency, used by the HTML
+  // renderer to format every money cell. Defaults to "ZAR" so any
+  // caller that hasn't been updated still produces a valid PDF.
+  currencyCode?: string;
 }
 
 interface GenerateInvoiceOptions {
@@ -428,7 +434,9 @@ export async function generateInvoiceData(
       bankDetails: companyData.bank_details ? (typeof companyData.bank_details === 'string' ? JSON.parse(companyData.bank_details) : companyData.bank_details) : undefined,
       
       notes: orderData.special_instructions,
-      footer: `Thank you for your business! For any queries, contact us at ${companyData.email || ""} or ${companyData.phone_number || companyData.phone || ""}`
+      footer: `Thank you for your business! For any queries, contact us at ${companyData.email || ""} or ${companyData.phone_number || companyData.phone || ""}`,
+      // TIGHTEN I.96: tenant currency for the PDF body.
+      currencyCode: (companyData.currency as string) || "ZAR",
     };
 
     return { success: true, data: invoiceData };
@@ -1160,6 +1168,23 @@ export async function generateInvoicePaymentLink(
  * Generate HTML invoice for PDF conversion or email
  */
 export function generateInvoiceHTML(data: InvoiceData): string {
+  // TIGHTEN I.96: tenant-currency formatter for every money cell on
+  // the PDF body. Defaults to ZAR for legacy callers that haven't set
+  // currencyCode (zero remaining post-I.96 in the live code path).
+  const fmtMoney = (() => {
+    const code = data.currencyCode || "ZAR";
+    try {
+      const f = new Intl.NumberFormat("en-ZA", {
+        style: "currency",
+        currency: code,
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
+      return (n: number) => f.format(n);
+    } catch {
+      return (n: number) => `${code} ${n.toFixed(2)}`;
+    }
+  })();
   return `
 <!DOCTYPE html>
 <html>
@@ -1348,8 +1373,8 @@ export function generateInvoiceHTML(data: InvoiceData): string {
         <tr>
           <td>${item.description}</td>
           <td class="text-right">${item.quantity}</td>
-          <td class="text-right">R ${item.unitPrice.toFixed(2)}</td>
-          <td class="text-right">R ${item.total.toFixed(2)}</td>
+          <td class="text-right">${fmtMoney(item.unitPrice)}</td>
+          <td class="text-right">${fmtMoney(item.total)}</td>
         </tr>
       `).join("")}
     </tbody>
@@ -1359,24 +1384,24 @@ export function generateInvoiceHTML(data: InvoiceData): string {
     <table>
       <tr>
         <td>Subtotal</td>
-        <td class="text-right">R ${data.subtotal.toFixed(2)}</td>
+        <td class="text-right">${fmtMoney(data.subtotal)}</td>
       </tr>
       <tr>
         <td>VAT (${data.taxRate}%)</td>
-        <td class="text-right">R ${data.taxAmount.toFixed(2)}</td>
+        <td class="text-right">${fmtMoney(data.taxAmount)}</td>
       </tr>
       <tr class="grand-total">
         <td>TOTAL</td>
-        <td class="text-right">R ${data.total.toFixed(2)}</td>
+        <td class="text-right">${fmtMoney(data.total)}</td>
       </tr>
       ${data.depositPaid > 0 ? `
         <tr>
           <td>Deposit Paid</td>
-          <td class="text-right">R ${data.depositPaid.toFixed(2)}</td>
+          <td class="text-right">${fmtMoney(data.depositPaid)}</td>
         </tr>
         <tr style="background: #fff3cd; font-weight: bold;">
           <td>BALANCE DUE</td>
-          <td class="text-right">R ${data.balanceDue.toFixed(2)}</td>
+          <td class="text-right">${fmtMoney(data.balanceDue)}</td>
         </tr>
       ` : ""}
     </table>
