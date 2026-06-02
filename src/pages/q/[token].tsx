@@ -189,12 +189,43 @@ export default function PublicQuotePage() {
         setLoading(false);
         return;
       }
+      // TIGHTEN I.113: if the quote has been converted to an order,
+      // the same email link the client clicked should bridge them to
+      // /c/order/{id} so they see the live order page (current status,
+      // invoice, tracking) instead of the frozen quote celebration.
+      // Suppress the bridge when the operator is using ?print=1
+      // (admin "Download PDF" path needs the quote view) or ?stay=1
+      // (debug override).
+      const wantsBridge =
+        !!data.converted_to_order_id &&
+        !autoPrint &&
+        router.query.stay !== "1";
+      if (wantsBridge) {
+        try {
+          const res = await fetch(`/api/public/quotes/${token}/order-link`, {
+            method: "POST",
+          });
+          const j = await res.json();
+          if (!cancelled && res.ok && j?.converted && j?.url) {
+            // Use replace() so back-button on the order page doesn't
+            // bounce them back into the quote view.
+            router.replace(j.url);
+            return;
+          }
+        } catch (e) {
+          // If the bridge fails (network, RPC error), fall through to
+          // rendering the quote view so the client still sees
+          // something.
+          console.warn("[q/[token]] order-link bridge failed:", e);
+        }
+      }
       setQuote(data);
       setLoading(false);
       // Fire-and-forget viewed_at stamp.
       recordView(token, data.viewed_at).catch(() => {});
     })();
     return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
   // Auto-print when the admin 'Download PDF' button opens us with

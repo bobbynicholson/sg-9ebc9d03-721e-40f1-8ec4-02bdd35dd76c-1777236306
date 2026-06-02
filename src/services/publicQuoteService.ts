@@ -54,6 +54,15 @@ export interface PublicQuoteView {
   sent_at: string | null;
   viewed_at: string | null;
   accepted_at: string | null;
+  /**
+   * TIGHTEN I.113 (2026-06-02): the converted order's id. When this
+   * is set, the same /q/{token} URL the client clicked from their
+   * email should bridge to /c/order/{converted_to_order_id}?t=... -
+   * the order page shows the post-acceptance state (current status,
+   * invoice, tracking timeline) which the frozen quote celebration
+   * card never could.
+   */
+  converted_to_order_id: string | null;
   company: {
     id: string;
     company_name: string | null;
@@ -103,6 +112,7 @@ export async function fetchByToken(token: string): Promise<PublicQuoteView | nul
       deposit_percentage,
       delivery_fee, delivery_distance_km, delivery_rate_per_km,
       valid_until, sent_at, viewed_at, accepted_at,
+      converted_to_order_id,
       company:company_id (
         id, company_name, legal_name, logo_url, email, phone, website,
         address_line1, address_line2, city,
