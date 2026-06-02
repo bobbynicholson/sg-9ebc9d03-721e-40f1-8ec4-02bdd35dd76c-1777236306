@@ -10,29 +10,32 @@ export function AuditLogsViewer() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchLogs();
+    // TIGHTEN I.89 (2026-06-02): cancellation guard so an unmount
+    // during the in-flight load can't setState on a gone component.
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data, error } = await supabase
+          .from("audit_logs")
+          .select(`
+            *,
+            profiles:user_id (full_name, email),
+            companies:company_id (name)
+          `)
+          .order("created_at", { ascending: false })
+          .limit(100);
+        if (cancelled) return;
+        if (error) throw error;
+        setLogs(data || []);
+      } catch (error) {
+        if (cancelled) return;
+        console.error("Error fetching audit logs:", error);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
   }, []);
-
-  const fetchLogs = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("audit_logs")
-        .select(`
-          *,
-          profiles:user_id (full_name, email),
-          companies:company_id (name)
-        `)
-        .order("created_at", { ascending: false })
-        .limit(100);
-
-      if (error) throw error;
-      setLogs(data || []);
-    } catch (error) {
-      console.error("Error fetching audit logs:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   if (loading) {
     return (
