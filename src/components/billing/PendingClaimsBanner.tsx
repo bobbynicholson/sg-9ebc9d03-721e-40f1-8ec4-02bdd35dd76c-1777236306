@@ -28,6 +28,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Loader2, AlertCircle, CheckCircle2, XCircle, Banknote } from "lucide-react";
 import { format } from "date-fns";
+import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 
 interface PendingClaim {
   id: string;
@@ -52,14 +53,15 @@ interface PendingClaimsBannerProps {
   onAfterAction?: () => void;
 }
 
-const fmt = new Intl.NumberFormat("en-ZA", {
-  style: "currency", currency: "ZAR", maximumFractionDigits: 2,
-});
-
 export function PendingClaimsBanner({ onAfterAction }: PendingClaimsBannerProps) {
   const { user } = useAuth() as any;
   const { toast } = useToast();
   const router = useRouter();
+  // TIGHTEN I.82 (2026-06-02): tenant-aware currency. Was previously a
+  // module-scope ZAR formatter which mislabelled EFT claim amounts for
+  // USD / GBP / EUR tenants on the invoices page banner.
+  const tenantCurrency = useTenantCurrency(user?.company_id ?? null);
+  const fmt = { format: (n: number) => tenantCurrency.format(n, 2) };
   // Notification deep-link: ?claimId={paymentId} from the
   // payment_claimed bell row. Once claims load, scroll to the
   // matching row and pulse it so the operator's eye lands there
@@ -183,6 +185,7 @@ export function PendingClaimsBanner({ onAfterAction }: PendingClaimsBannerProps)
                   onReject={() => setRejectingClaim(c)}
                   highlight={isTarget}
                   rowRef={isTarget ? targetRowRef : undefined}
+                  fmt={fmt}
                 />
               );
             })}
@@ -255,7 +258,7 @@ export function PendingClaimsBanner({ onAfterAction }: PendingClaimsBannerProps)
 }
 
 function ClaimRow({
-  claim, acting, onConfirm, onReject, highlight, rowRef,
+  claim, acting, onConfirm, onReject, highlight, rowRef, fmt,
 }: {
   claim: PendingClaim;
   acting: boolean;
@@ -263,6 +266,10 @@ function ClaimRow({
   onReject: () => void;
   highlight?: boolean;
   rowRef?: React.RefObject<HTMLDivElement | null>;
+  /** TIGHTEN I.82: parent passes its tenant-currency formatter so the
+   *  row doesn't have to call useTenantCurrency itself (would dup the
+   *  companies fetch per row). */
+  fmt: { format: (n: number) => string };
 }) {
   const clientLabel =
     claim.clients?.client_name ||
