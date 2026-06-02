@@ -122,10 +122,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     .update({ accepted_at: nowIso, status: "accepted" })
     .eq("public_token", token)
     .is("deleted_at", null)
-    // ENUM-T (enum-drift triage): "viewed" was never a valid
-    // quote_status (the client-viewed state lives in viewed_at).
-    // The gate just needs to block re-accepts of already-accepted /
-    // rejected / expired quotes, so allow only draft + sent.
+    // Block re-accepts of already-accepted / rejected / expired
+    // quotes. Only draft + sent are still in-play.
     .in("status", ["draft", "sent"])
     // Wave 12 follow-up: `currency` lives on companies, not quotes --
     // selecting it from quotes returns "column quotes.currency does not
