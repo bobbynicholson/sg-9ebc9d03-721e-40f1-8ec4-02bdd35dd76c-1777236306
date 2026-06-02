@@ -1087,7 +1087,13 @@ function NewQuotePage() {
       client_name: clientName || "Client",
       client_email: email || null,
       client_phone: phone || null,
-      quote_name: eventName || "Quote",
+      // TIGHTEN I.112 (2026-06-02): persist null instead of the literal
+      // string "Quote" when the operator left the field blank. The
+      // placeholder leaked into customer-facing emails ("Thanks for
+      // letting X quote on Quote.") and dashboard tiles. NULL means
+      // "no event name set" - downstream renderers fall back to the
+      // quote number or a friendly "Untitled" label.
+      quote_name: eventName.trim() || null,
       event_date: eventDate || null,
       event_time: eventTime || null,
       // setup_time defaults to suggestedSetupTime when the operator
@@ -1736,8 +1742,15 @@ function NewQuotePage() {
                       <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+27 ..." />
                     </div>
                     <div className="sm:col-span-2">
-                      <Label className="text-xs">Event name / type</Label>
-                      <Input value={eventName} onChange={(e) => setEventName(e.target.value)} placeholder="e.g. Birthday lunch, Q2 Strategy meeting" />
+                      <Label className="text-xs">
+                        Event name / type
+                        <span className="ml-1 text-[10px] text-slate-500 font-normal">- shows up in the client's email subject + dashboards</span>
+                      </Label>
+                      <Input
+                        value={eventName}
+                        onChange={(e) => setEventName(e.target.value)}
+                        placeholder="e.g. Bobby's 40th braai, Q2 strategy lunch, Sarah & James wedding"
+                      />
                     </div>
                     <div>
                       <Label className="text-xs flex items-center gap-1"><Calendar className="w-3 h-3" /> Event date</Label>
@@ -2480,7 +2493,7 @@ function NewQuotePage() {
                     <CardContent className="text-sm space-y-2">
                       <div className="rounded-lg border border-slate-200 p-3 bg-white">
                         <div className="flex items-center justify-between mb-2">
-                          <p className="font-semibold">{eventName || "Quote"}</p>
+                          <p className="font-semibold">{eventName || "Untitled quote"}</p>
                           {quoteNumber && <span className="text-[11px] text-slate-500">{quoteNumber}</span>}
                         </div>
                         <p className="text-xs text-slate-500 mb-3">
