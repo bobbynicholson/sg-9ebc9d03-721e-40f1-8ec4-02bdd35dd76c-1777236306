@@ -67,7 +67,7 @@ export function CompanyDetailsModal({
               </div>
               <div>
                 <Label className="text-slate-600">Phone</Label>
-                <p>{selectedCompany.phone || "—"}</p>
+                <p>{selectedCompany.phone || "-"}</p>
               </div>
               <div className="col-span-2">
                 <Label className="text-slate-600">Address</Label>

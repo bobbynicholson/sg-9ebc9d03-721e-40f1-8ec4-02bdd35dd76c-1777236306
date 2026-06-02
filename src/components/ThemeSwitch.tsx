@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/tooltip";
 
 /**
- * Dark mode is temporarily disabled — the existing theme didn't have proper
+ * Dark mode is temporarily disabled - the existing theme didn't have proper
  * dark colour tokens applied to most pages, so toggling it broke the layout.
  * Render a passive icon with a "coming soon" tooltip until we ship a proper
  * dark theme pass.

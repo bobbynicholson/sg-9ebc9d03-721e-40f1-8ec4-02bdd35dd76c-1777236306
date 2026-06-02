@@ -228,12 +228,12 @@ export function CycleCountDialog({ open, onOpenChange, companyId, performedBy, i
                             step="0.01"
                             value={raw}
                             onChange={e => setCounts(c => ({ ...c, [item.id]: e.target.value }))}
-                            placeholder="—"
+                            placeholder="-"
                             className="text-right tabular-nums h-8 text-sm"
                           />
                         </td>
                         <td className={`py-2 px-3 text-right tabular-nums font-medium ${varTone}`}>
-                          {variance == null ? "—" : (variance > 0 ? `+${variance}` : variance)}
+                          {variance == null ? "-" : (variance > 0 ? `+${variance}` : variance)}
                         </td>
                       </tr>
                     );

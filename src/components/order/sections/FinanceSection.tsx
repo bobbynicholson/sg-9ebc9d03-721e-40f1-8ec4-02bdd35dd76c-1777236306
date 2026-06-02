@@ -183,13 +183,13 @@ export function FinanceSection({ orderId, companyId, defaultOpen, forceOpen, hig
                         )}
                       </p>
                       <p className="text-xs text-slate-500">
-                        {p.payment_method || "—"}
+                        {p.payment_method || "-"}
                         {p.payment_date && <span> · {new Date(p.payment_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}</span>}
                         {p.payment_reference && <span> · ref {p.payment_reference}</span>}
                       </p>
                     </div>
                     <span className={`text-[10px] uppercase tracking-wider ${p.payment_status === "completed" || p.payment_status === "received" ? "text-emerald-700" : "text-slate-500"}`}>
-                      {p.payment_status || "—"}
+                      {p.payment_status || "-"}
                     </span>
                   </li>
                 ))}

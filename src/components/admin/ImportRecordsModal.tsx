@@ -1095,7 +1095,7 @@ export function ImportRecordsModal({
                         {erroredRows.map((e) => (
                           <tr key={e.id} className="border-t border-rose-100">
                             <td className="px-2 py-1.5 font-mono text-slate-600">
-                              {e.sheet ? `${e.sheet}:` : ""}{e.sourceRowIndex ?? "—"}
+                              {e.sheet ? `${e.sheet}:` : ""}{e.sourceRowIndex ?? "-"}
                             </td>
                             <td className="px-2 py-1.5 text-slate-900 break-all">{e.label}</td>
                             <td className="px-2 py-1.5 text-rose-800 break-all">{e.errorMessage || "Unknown error"}</td>

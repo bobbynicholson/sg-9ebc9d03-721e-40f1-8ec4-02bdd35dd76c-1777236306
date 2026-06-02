@@ -79,7 +79,7 @@ const DEV_USERS = [
 ];
 
 // Route user after successful login. We hard-navigate to "/" and let
-// middleware do the slug-aware role landing redirect — single source of truth,
+// middleware do the slug-aware role landing redirect - single source of truth,
 // no duplicated client-side slug lookup.
 const routeAfterLogin = async (userId: string, router: NextRouter, redirectTo?: string) => {
   if (redirectTo) {

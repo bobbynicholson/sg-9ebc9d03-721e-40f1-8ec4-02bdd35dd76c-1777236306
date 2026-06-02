@@ -186,7 +186,7 @@ export function TomorrowsEventsWidget({ companyId }: { companyId: string | null 
                         </span>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-baseline gap-2 flex-wrap">
-                            <span className="text-sm font-medium text-slate-900 truncate">{o.client_name || "—"}</span>
+                            <span className="text-sm font-medium text-slate-900 truncate">{o.client_name || "-"}</span>
                             {o.order_number && (
                               <span className="text-[11px] text-slate-500 tabular-nums">{o.order_number}</span>
                             )}

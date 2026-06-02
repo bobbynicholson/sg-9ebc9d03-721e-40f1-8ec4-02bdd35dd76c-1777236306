@@ -226,7 +226,7 @@ export function EquipmentTypeahead({
                           {r.description && <span className="line-clamp-1">{r.description}</span>}
                           {(r.available_quantity != null || r.quantity != null) && (
                             <span className="text-slate-400">
-                              {r.available_quantity ?? "—"} / {r.quantity ?? "—"} available
+                              {r.available_quantity ?? "-"} / {r.quantity ?? "-"} available
                             </span>
                           )}
                         </div>

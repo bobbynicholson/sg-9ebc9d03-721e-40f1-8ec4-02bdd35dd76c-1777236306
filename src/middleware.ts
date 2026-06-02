@@ -73,7 +73,7 @@ const ROUTE_GUARDS: Record<string, string[]> = {
 };
 
 // Check if user role has access to a specific route.
-// Returns false (deny) if no guard matches — every protected prefix must be listed above.
+// Returns false (deny) if no guard matches - every protected prefix must be listed above.
 const isAuthorizedForRoute = (pathname: string, userRole: string): boolean => {
   const sortedGuards = Object.entries(ROUTE_GUARDS).sort((a, b) => b[0].length - a[0].length);
 
@@ -443,7 +443,7 @@ export async function middleware(request: NextRequest) {
         url.searchParams.set("error_path", pathname);
         return NextResponse.redirect(url);
       }
-      // No landing page resolved — refuse rather than fall through
+      // No landing page resolved - refuse rather than fall through
       const url = request.nextUrl.clone();
       url.pathname = "/auth/login";
       url.searchParams.set("error", "unauthorized");

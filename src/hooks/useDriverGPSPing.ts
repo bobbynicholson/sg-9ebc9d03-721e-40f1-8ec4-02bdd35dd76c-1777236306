@@ -43,14 +43,14 @@ async function requestWakeLock(): Promise<any | null> {
  * foreground fallback.
  *
  * Args:
- *   driverId        — profiles.id of the logged-in driver. Pings are
+ *   driverId        - profiles.id of the logged-in driver. Pings are
  *                     no-op until this is set.
- *   activeOrderIds  — list of order_ids the driver is currently on.
+ *   activeOrderIds  - list of order_ids the driver is currently on.
  *                     The first one is forwarded to gps_tracking.order_id
  *                     so the breadcrumb is associated with a job. The
  *                     pinger only runs while this list is non-empty --
  *                     a driver sitting at home doesn't burn battery.
- *   intervalMs      — throttle floor between writes. Default 30s; the
+ *   intervalMs      - throttle floor between writes. Default 30s; the
  *                     browser fires watchPosition far more often than
  *                     that on a moving vehicle, and we don't need 1Hz
  *                     fidelity for dispatch ETAs.

@@ -8,12 +8,12 @@
  * <date>?" so the quote builder can surface a soft hint without
  * forcing the choice.
  *
- * Heuristic (intentionally simple — capacity at this depth is more
+ * Heuristic (intentionally simple - capacity at this depth is more
  * than just order count, but order count gets us 80% of the way):
  *   * Count confirmed/preparing/ready orders per branch with the
  *     same event_date.
  *   * Count open quotes (draft/sent/revised) per branch with the
- *     same event_date — these are not booked yet but they're live
+ *     same event_date - these are not booked yet but they're live
  *     enquiries that could land.
  *   * Score = orders × 2 + quotes × 1 (orders weigh double because
  *     they're committed work).
@@ -51,7 +51,7 @@ export interface CapacitySuggestion {
  *   * All branches have identical load (no useful steer)
  *
  * Caller should treat `meaningful=false` as "don't bother showing the
- * hint" — surfacing "all kitchens equally busy" adds noise without
+ * hint" - surfacing "all kitchens equally busy" adds noise without
  * helping anyone.
  */
 export async function suggestKitchenForDate(

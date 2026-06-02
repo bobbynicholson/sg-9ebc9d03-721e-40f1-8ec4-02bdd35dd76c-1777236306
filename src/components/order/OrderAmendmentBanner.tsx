@@ -38,7 +38,7 @@ interface Amendment {
 }
 
 function fmtDelta(key: string, val: any): string {
-  if (val == null) return "—";
+  if (val == null) return "-";
   if (typeof val === "number") return String(val);
   if (typeof val === "boolean") return val ? "yes" : "no";
   if (typeof val === "string") return val;

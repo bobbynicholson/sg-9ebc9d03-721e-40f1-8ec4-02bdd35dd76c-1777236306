@@ -97,7 +97,7 @@ export const analyticsService = {
         console.error("Error fetching payment ledger:", ledgerError);
       }
 
-      // Calculate analytics — orders.total was dropped, read total_amount
+      // Calculate analytics - orders.total was dropped, read total_amount
       const totalRevenue = (orders as Order[] || [])
         .filter(o => o.payment_status === "paid")
         .reduce((sum, o) => sum + Number(o.total_amount || 0), 0);

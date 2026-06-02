@@ -125,7 +125,7 @@ export function DispatchGapWidget({ companyId }: { companyId: string | null }) {
                   </Badge>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-slate-900 truncate">
-                      {o.client_name || "—"}
+                      {o.client_name || "-"}
                       {o.order_number && (
                         <span className="ml-2 text-[11px] font-normal text-slate-500 tabular-nums">{o.order_number}</span>
                       )}

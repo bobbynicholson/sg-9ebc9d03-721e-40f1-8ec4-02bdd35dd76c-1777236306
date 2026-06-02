@@ -724,7 +724,7 @@ export function OrderDetailsPanel({ order, fromName, companyName, onClose }: Pro
                   : step.skipped
                   ? "text-slate-500"
                   : "text-rose-700";
-                const icon = step.ok ? "✓" : step.skipped ? "—" : "✗";
+                const icon = step.ok ? "✓" : step.skipped ? "-" : "✗";
                 return (
                   <li key={key} className="flex justify-between gap-2">
                     <span className={tone}>

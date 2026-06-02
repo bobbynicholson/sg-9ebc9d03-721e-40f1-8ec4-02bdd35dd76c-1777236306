@@ -26,7 +26,7 @@ interface ShiftRow {
 }
 
 const fmtTime = (iso: string | null): string => {
-  if (!iso) return "—";
+  if (!iso) return "-";
   const d = new Date(iso);
   return d.toLocaleString("en-ZA", {
     day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",

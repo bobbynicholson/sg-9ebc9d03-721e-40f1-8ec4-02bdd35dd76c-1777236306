@@ -43,7 +43,7 @@ interface LoadResponse {
 }
 
 function fmtDate(iso: string | null | undefined): string {
-  if (!iso) return "—";
+  if (!iso) return "-";
   try {
     return new Date(iso).toLocaleDateString("en-ZA", {
       weekday: "long", day: "numeric", month: "long", year: "numeric",

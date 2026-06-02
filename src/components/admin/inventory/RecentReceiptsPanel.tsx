@@ -37,10 +37,10 @@ interface ReceiptRow {
 }
 
 const fmtR = (v: number | null | undefined) =>
-  v == null ? "—" : `R ${Number(v).toLocaleString("en-ZA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  v == null ? "-" : `R ${Number(v).toLocaleString("en-ZA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 const relativeTime = (iso: string | null) => {
-  if (!iso) return "—";
+  if (!iso) return "-";
   const ms = Date.now() - new Date(iso).getTime();
   const days = Math.floor(ms / 86_400_000);
   if (days >= 1) return `${days}d ago`;

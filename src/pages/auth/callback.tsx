@@ -35,7 +35,7 @@ export default function AuthCallbackPage() {
             }
           }
 
-          // Regular login callback — hard-navigate to "/" and let middleware
+          // Regular login callback - hard-navigate to "/" and let middleware
           // handle the slug-aware role landing redirect.
           window.location.assign("/");
         } else {

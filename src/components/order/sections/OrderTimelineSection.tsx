@@ -535,7 +535,7 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen }: Props) {
       case "equipment":     return { role: "Driver",   tone: "bg-indigo-50 text-indigo-800 border-indigo-200" };
       case "cleaning":      return { role: "Cleaning", tone: "bg-cyan-50 text-cyan-800 border-cyan-200" };
       case "completed":     return { role: "Admin",    tone: "bg-slate-100 text-slate-700 border-slate-200" };
-      default:              return { role: "—",        tone: "bg-slate-50 text-slate-500 border-slate-200" };
+      default:              return { role: "-",        tone: "bg-slate-50 text-slate-500 border-slate-200" };
     }
   };
 
@@ -646,7 +646,7 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen }: Props) {
                           {fmtRelative(hoursSince(step.at)!)}
                         </span>
                       )}
-                      <span>{reached ? fmtStamp(step.at) : "—"}</span>
+                      <span>{reached ? fmtStamp(step.at) : "-"}</span>
                     </div>
                   </div>
                 </div>

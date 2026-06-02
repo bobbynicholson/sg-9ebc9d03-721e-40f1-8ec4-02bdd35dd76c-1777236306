@@ -167,7 +167,7 @@ export function DeliverySlaWidget({ companyId }: { companyId: string | null }) {
             <div className="rounded-lg bg-white border border-slate-200 p-3">
               <p className="text-xs text-slate-500">Avg early arrival</p>
               <p className="text-2xl font-bold tabular-nums text-blue-700">
-                {stats.medianMinutesEarly > 0 ? `${stats.medianMinutesEarly.toFixed(0)}m` : "—"}
+                {stats.medianMinutesEarly > 0 ? `${stats.medianMinutesEarly.toFixed(0)}m` : "-"}
               </p>
               <p className="text-[11px] text-slate-500 inline-flex items-center gap-1">
                 <CheckCircle className="w-3 h-3" /> median when early
