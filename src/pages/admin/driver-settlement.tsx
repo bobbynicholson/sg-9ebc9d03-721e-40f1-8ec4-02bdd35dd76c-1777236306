@@ -1074,6 +1074,7 @@ function DriverSettlementPage() {
                                   periodTo={to}
                                   companyId={user?.company_id || ""}
                                   companyName={companyName}
+                                  currencyCode={tenantCurrency.code}
                                   toast={toast}
                                   actorUserId={user?.id}
                                   onShiftChanged={() => setRefreshTick((n) => n + 1)}
@@ -1212,7 +1213,7 @@ function DriverSettlementPage() {
 }
 
 function FragmentRows({
-  row, t, isOpen, onToggle, periodFrom, periodTo, companyId, companyName, toast, actorUserId, onShiftChanged,
+  row, t, isOpen, onToggle, periodFrom, periodTo, companyId, companyName, currencyCode, toast, actorUserId, onShiftChanged,
   payout, onMarkPaid, onReverse,
 }: {
   row: SettlementRow;
@@ -1223,6 +1224,9 @@ function FragmentRows({
   periodTo: string;
   companyId: string;
   companyName: string;
+  /** TIGHTEN I.100: tenant currency code (companies.currency). Drives
+   *  the symbol on the generated payslip PDF. */
+  currencyCode?: string;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   toast: any;
   actorUserId?: string | null;
@@ -1352,6 +1356,7 @@ function FragmentRows({
         driverEmail: row.driver.email || null,
         periodFrom,
         periodTo,
+        currencyCode,
       },
       summaryForPdf,
     );
@@ -1378,6 +1383,7 @@ function FragmentRows({
         driverEmail: row.driver.email,
         periodFrom,
         periodTo,
+        currencyCode,
       },
       summaryForPdf,
     );

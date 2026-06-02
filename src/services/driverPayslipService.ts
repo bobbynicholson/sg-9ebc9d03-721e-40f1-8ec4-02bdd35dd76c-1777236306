@@ -27,10 +27,36 @@ export interface PayslipMeta {
   driverPhone?: string | null;
   periodFrom: string; // 'YYYY-MM-DD'
   periodTo: string;
-  currencyLabel?: string; // defaults 'R'
+  /** Legacy: caller-supplied symbol prefix. Kept for backward compat
+   *  with older call sites that pre-date currencyCode. */
+  currencyLabel?: string;
+  /** TIGHTEN I.100 (2026-06-02): ISO currency code from
+   *  companies.currency. When set, drives the Intl.NumberFormat;
+   *  otherwise falls back to currencyLabel or "R". */
+  currencyCode?: string;
 }
 
-const fmt = (n: number, sym = "R") => `${sym} ${Number(n || 0).toFixed(2)}`;
+// TIGHTEN I.100: tenant-currency formatter for the payslip PDF body.
+// Falls back to the legacy "R 1234.56" shape when neither currencyCode
+// nor currencyLabel is supplied.
+function buildFmt(meta: PayslipMeta) {
+  const code = meta.currencyCode || "";
+  if (code) {
+    try {
+      const f = new Intl.NumberFormat("en-ZA", {
+        style: "currency",
+        currency: code,
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
+      return (n: number) => f.format(Number(n) || 0);
+    } catch {
+      // fall through to legacy path
+    }
+  }
+  const sym = meta.currencyLabel || "R";
+  return (n: number) => `${sym} ${(Number(n) || 0).toFixed(2)}`;
+}
 
 export const driverPayslipService = {
   /**
@@ -40,7 +66,8 @@ export const driverPayslipService = {
    */
   generatePayslipPdf(meta: PayslipMeta, summary: DriverPaySummary): Blob {
     const doc = new jsPDF();
-    const sym = meta.currencyLabel || "R";
+    // TIGHTEN I.100: tenant-currency formatter.
+    const fmtMoney = buildFmt(meta);
     const pageWidth = doc.internal.pageSize.getWidth();
     const margin = 20;
     let y = 20;
@@ -102,11 +129,11 @@ export const driverPayslipService = {
     const tot = summary.totals;
     const totalsRows: Array<[string, string]> = [
       ["Hours worked", `${tot.hours_total.toFixed(2)} h`],
-      ["Hourly pay", fmt(tot.hourly_pay, sym)],
+      ["Hourly pay", fmtMoney(tot.hourly_pay)],
       ["Distance covered", `${tot.distance_total_km.toFixed(1)} km`],
-      ["Distance pay", fmt(tot.distance_pay, sym)],
-      ["Callout pay", fmt(tot.callout_pay, sym)],
-      ["Grand total", fmt(tot.grand_total, sym)],
+      ["Distance pay", fmtMoney(tot.distance_pay)],
+      ["Callout pay", fmtMoney(tot.callout_pay)],
+      ["Grand total", fmtMoney(tot.grand_total)],
     ];
     autoTable(doc, {
       startY: y,
@@ -136,8 +163,8 @@ export const driverPayslipService = {
         const ot = !!buckets?.some((b) => b.overtimeHours > 0);
         const note = ot ? " (includes OT)" : "";
         return [
-          `${s.hours.toFixed(2)} h @ ${fmt(s.hourly_rate, sym)}/hr${mult}${note}`,
-          fmt(s.pay, sym),
+          `${s.hours.toFixed(2)} h @ ${fmtMoney(s.hourly_rate)}/hr${mult}${note}`,
+          fmtMoney(s.pay),
         ];
       });
       autoTable(doc, {
@@ -163,9 +190,9 @@ export const driverPayslipService = {
       const deliveryRows = summary.deliveries.map((d) => [
         d.order_id.slice(0, 8) + "...",
         `${d.distance_km.toFixed(1)} km`,
-        fmt(d.distance_pay, sym),
-        fmt(d.callout_fee, sym),
-        fmt(d.total, sym),
+        fmtMoney(d.distance_pay),
+        fmtMoney(d.callout_fee),
+        fmtMoney(d.total),
       ]);
       autoTable(doc, {
         startY: y,
