@@ -580,9 +580,15 @@ function ClientPortalDashboardInner() {
             .from("invoices")
             .select("id, status, balance_due, total_amount, due_date")
             .eq("company_id", tenantCompanyId)
+            .is("deleted_at", null)
             // "Client owes something" set: sent (unpaid),
             // partially_paid (balance owed), overdue (past due_date).
-            .in("status", ["sent", "partially_paid", "overdue"]);
+            // TIGHTEN I.98: also gate on balance_due > 0 to match
+            // useAdminLiveCounts + /admin/invoices. Catches the rare
+            // race where status hasn't flipped off "partially_paid"
+            // but balance_due was reconciled to 0.
+            .in("status", ["sent", "partially_paid", "overdue"])
+            .gt("balance_due", 0);
           let invoicesQuery = baseInvoices;
           if (clientIds.length > 0 && user.email) {
             invoicesQuery = invoicesQuery.or(
