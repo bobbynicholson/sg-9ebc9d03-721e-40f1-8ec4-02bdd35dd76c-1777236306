@@ -413,6 +413,14 @@ function NewQuotePage() {
   // pending change requests). True when the source quote (fromQuoteId)
   // was past 'draft' status at hydrate time.
   const [isRevisingNonDraft, setIsRevisingNonDraft] = useState<boolean>(false);
+  // TIGHTEN I.120 (2026-06-02): track whether the loaded quote already
+  // has a linked order. When set, the banner + button copy reflect
+  // "update the order" instead of "send to the client for acceptance",
+  // and Save / Save & Send both propagate to the order without firing
+  // the quote-ready email.
+  const [linkedOrderId, setLinkedOrderId] = useState<string | null>(null);
+  const [linkedOrderNumber, setLinkedOrderNumber] = useState<string | null>(null);
+  const isConvertedQuote = !!linkedOrderId;
   const [status, setStatus] = useState<"draft" | "sent" | "viewed" | "accepted" | "rejected" | "expired" | "revised" | "pending">("draft");
   const [savedAt, setSavedAt] = useState<Date | null>(null);
   const [saving, setSaving] = useState(false);
@@ -603,6 +611,20 @@ function NewQuotePage() {
       setQuoteNumber(data.quote_number);
       setStatus(data.status as any);
       setIsRevisingNonDraft((data as any).status && (data as any).status !== "draft");
+      // TIGHTEN I.120: capture linked order so banner / buttons can
+      // surface "Update order" rather than "Save & Send".
+      const linkedId = (data as any).converted_to_order_id ?? null;
+      setLinkedOrderId(linkedId);
+      if (linkedId) {
+        try {
+          const { data: ord } = await supabase
+            .from("orders")
+            .select("order_number")
+            .eq("id", linkedId)
+            .maybeSingle();
+          if (!cancelled) setLinkedOrderNumber((ord as any)?.order_number ?? null);
+        } catch { /* non-blocking */ }
+      }
       setPersistedTotalAtLoad(
         typeof data.total === "number"
           ? data.total
@@ -1248,55 +1270,39 @@ function NewQuotePage() {
         } catch (readErr) {
           console.warn("[quotes/new] pre-update status read failed:", readErr);
         }
-        // Converted quotes never go back to draft. Preserve the
-        // existing status (typically 'accepted') so the edits land
-        // but the lifecycle stays coherent.
-        if (override.status === "draft" && prevConvertedOrderId && prevStatus && prevStatus !== "draft") {
-          (dbOverride as any).status = prevStatus;
+        // TIGHTEN I.120 (2026-06-02): "the quote drives the order" is
+        // a single coherent rule once the quote has a linked order.
+        // The previous code split this into Case A vs Case B based on
+        // whether the operator clicked Save & Send vs Save draft, but
+        // that split produced two bad behaviours on the Save draft
+        // path: (a) the quote silently downgraded to draft (fixed in
+        // I.118), and (b) propagation to the linked order never
+        // fired, so the order kept showing the pre-edit values
+        // (Bobby caught this on ORD-003832 - quote moved to 26
+        // guests / 5 Jun, order stayed on 8 / 4 Jun).
+        //
+        // Unified rule when prevConvertedOrderId IS set:
+        //   * preserve prevStatus regardless of override (never move
+        //     a converted quote back to draft or down to sent)
+        //   * preserve accepted_at + viewed_at (client already
+        //     accepted; no re-acceptance needed)
+        //   * always propagate to the linked order (the operator
+        //     mutated the source of truth; the order must mirror)
+        //   * never fire the quote-sent email (client owns the
+        //     order page, not the quote view)
+        //
+        // When prevConvertedOrderId IS NULL:
+        //   * pre-acceptance "Revise & resend" flow stays intact.
+        //     Save & Send clears accepted_at + viewed_at, fires the
+        //     quote-sent email, lets the client re-accept.
+        const isConvertedQuote = !!prevConvertedOrderId;
+        if (isConvertedQuote && prevStatus) {
           payload.status = prevStatus;
-        }
-        // ODOC H.14: split the Save & Send branch in two based on
-        // whether the quote already has a linked order.
-        //
-        // Case A - quote NOT yet converted (no prevConvertedOrderId):
-        //   This is the original "Revise & resend" flow. Clear
-        //   accepted_at + viewed_at so the public view resets to
-        //   "awaiting response", auto-address pending change
-        //   requests, fire the quote-sent email so the client re-
-        //   accepts.
-        //
-        // Case B - quote already has a linked order (prevConvertedOrderId):
-        //   This is the "admin edited the booking on the quote"
-        //   path. The order already exists with payment(s) + invoice
-        //   + kitchen prep + equipment bookings. Pre-H.14 this branch
-        //   nuked all of it: cleared lifecycle stamps, void-fired
-        //   cancelOrder() which released equipment + reversed
-        //   inventory + cancelled driver assignments, redirected to
-        //   /admin/quotes where the operator then clicked Accept on
-        //   behalf again and produced a fresh order/invoice/deposit
-        //   row pair - Bobby's "ORD-003832 created" toast. The Wave
-        //   51 trigger (tg_propagate_quote_edits_to_order) already
-        //   mirrors menu / date / venue / totals to the linked order
-        //   on every quote UPDATE; we just have to NOT destroy the
-        //   order ourselves. The public client view still reads from
-        //   the order, not the quote-acceptance state, so leaving
-        //   accepted_at intact doesn't cause confusion.
-        const isAdminEditOfConvertedQuote = override.status === "sent" && !!prevConvertedOrderId;
-        if (override.status === "sent" && !isAdminEditOfConvertedQuote) {
+          (dbOverride as any).status = prevStatus;
+        } else if (override.status === "sent") {
+          // Pre-acceptance revise-and-resend: reset the public view.
           payload.accepted_at = null;
           payload.viewed_at = null;
-        }
-        // TIGHTEN I.61 (2026-06-01): Case B (admin edited a converted
-        // quote and pressed Save & Send) should NOT flip status from
-        // 'accepted' back to 'sent'. The quote has a linked order; the
-        // operator is just mirroring a change to it. The quote-sent
-        // email also doesn't fire on this path (see line 1320 below)
-        // so labelling it 'sent' is just wrong - it desyncs every
-        // bucketing surface (Won tab on /admin/quotes, conversion
-        // funnel widgets, etc.) into thinking the deal regressed.
-        // Restore the prior status so the quote stays in Won.
-        if (isAdminEditOfConvertedQuote && prevStatus) {
-          payload.status = prevStatus;
         }
         const { error } = await supabase.from("quotes").update(payload).eq("id", quoteId);
         if (error) throw error;
@@ -1329,7 +1335,15 @@ function NewQuotePage() {
         // order is already in_transit/delivered/completed/cancelled
         // it returns ok:false and opens an amendment_request row
         // instead of mutating the live in-flight order.
-        if (isAdminEditOfConvertedQuote && prevConvertedOrderId) {
+        // TIGHTEN I.120 (2026-06-02): propagate on EVERY save of a
+        // converted quote, not just Save & Send. Previously the
+        // propagation was gated on isAdminEditOfConvertedQuote which
+        // required override.status==='sent', so Save draft + autosave
+        // both skipped propagation - the operator changed guest count
+        // on the quote and the order silently stayed on the old
+        // count, breaking kitchen prep, deposit/balance math, and the
+        // client's order page.
+        if (isConvertedQuote && prevConvertedOrderId) {
           try {
             const receipt = await propagateQuoteEditToOrder(quoteId, null);
             if (receipt.refusedPostDispatch) {
@@ -1355,19 +1369,19 @@ function NewQuotePage() {
         // Refresh the persisted-total snapshot so the stale-totals
         // banner clears now that the public view is back in sync.
         setPersistedTotalAtLoad(Number(payload.total ?? payload.total_amount ?? 0));
-        if (override.status) setStatus(override.status as any);
-        // Case A only: fire the quote-sent email so the client re-
-        // accepts. Skipped on Case B because the client already
-        // accepted and the order is in flight - no re-acceptance
-        // needed, just propagate changes.
-        if (override.status === "sent" && prevStatus !== "sent" && !isAdminEditOfConvertedQuote && !override.__skipSentEmail) {
+        if (override.status) setStatus((dbOverride as any).status ?? override.status as any);
+        // Fire the quote-sent email only on pre-acceptance Save &
+        // Send. Converted quotes skip the email - the client already
+        // accepted and owns the order page; firing the quote-ready
+        // email would confuse them.
+        if (override.status === "sent" && prevStatus !== "sent" && !isConvertedQuote && !override.__skipSentEmail) {
           void quoteService._fireQuoteSentEmail(quoteId).catch((e) =>
             console.warn("[quotes/new] sent-email fire failed:", e),
           );
         }
         // Wave 14 audit: pending change requests auto-address on
-        // both branches - whether the quote is being resent or just
-        // admin-edited, the operator has effectively responded.
+        // every Save & Send - whether the quote is being resent or
+        // just admin-edited, the operator has effectively responded.
         if (override.status === "sent") {
           void (async () => {
             try {
@@ -1384,12 +1398,12 @@ function NewQuotePage() {
             }
           })();
         }
-        // Case B: surface a clear toast so the operator knows the
-        // edit mirrored to the existing order rather than re-running
-        // the acceptance pipeline. The Wave 51 trigger handles the
-        // actual propagation server-side on the UPDATE above; we
-        // just look up the order number for the receipt.
-        if (isAdminEditOfConvertedQuote && prevConvertedOrderId) {
+        // Surface a clear "order updated" toast so the operator
+        // knows the edit mirrored to the existing order rather than
+        // spawning a fresh one. Runs on every save of a converted
+        // quote (Save draft, Save & Send, autosave - they all
+        // propagate via the block above).
+        if (isConvertedQuote && prevConvertedOrderId) {
           void (async () => {
             try {
               const { data: linkedOrd } = await (supabase as any)
@@ -1661,15 +1675,25 @@ function NewQuotePage() {
                     <span className="text-xs text-amber-600">Unsaved changes</span>
                   )}
                 </p>
-                {/* Wave 14 audit: revising-an-already-sent-quote banner.
-                    Reminds the operator that this isn't a new quote
-                    creation - Save & Send will overwrite the live
-                    public link, clear the previous acceptance, and
-                    close out any pending change requests. */}
+                {/* Wave 14 audit + TIGHTEN I.120: banner copy reflects
+                    what actually happens. Pre-acceptance revisions
+                    reset the public lifecycle and email the client.
+                    Converted quotes (linked order live) mirror to the
+                    order without re-acceptance - the client already
+                    accepted and owns the order page now. */}
                 {isRevisingNonDraft && (
                   <div className="mt-2 p-2.5 rounded-md border border-blue-200 bg-blue-50 text-xs text-blue-900 max-w-xl">
-                    <strong className="font-semibold">Revising a {status === "accepted" ? "previously-accepted" : "sent"} quote.</strong>{" "}
-                    Save &amp; Send will email the updated version to {email || "the client"}, reset the public link to "awaiting your response", and mark any pending change requests as addressed.
+                    {isConvertedQuote ? (
+                      <>
+                        <strong className="font-semibold">Editing the booking behind {linkedOrderNumber ? `order ${linkedOrderNumber}` : "the linked order"}.</strong>{" "}
+                        Save mirrors your changes (date, guests, menu, totals) straight to the order, re-plans kitchen prep, re-syncs equipment bookings, and updates the client's order page. No re-acceptance, no new invoice, no fresh email unless you tick Notify client.
+                      </>
+                    ) : (
+                      <>
+                        <strong className="font-semibold">Revising a {status === "accepted" ? "previously-accepted" : "sent"} quote.</strong>{" "}
+                        Save &amp; Send will email the updated version to {email || "the client"}, reset the public link to "awaiting your response", and mark any pending change requests as addressed.
+                      </>
+                    )}
                   </div>
                 )}
                 {/* Wave 12 audit: stale-totals warning. Customer-facing
@@ -1707,24 +1731,55 @@ function NewQuotePage() {
                 </Button>
                 <InfoTooltip content={"Toggle the live preview of what the client will see: the public quote page, with your branding, totals and setup time.\n\nDoesn't save or send anything. Use this to sanity-check before hitting Save & Send."} />
               </div>
-              <div className="flex items-center gap-1">
-                <Button variant="outline" onClick={handleSaveDraft} disabled={saving || !clientName}>
-                  <Save className="w-4 h-4 mr-2" />
-                  Save draft
-                </Button>
-                <InfoTooltip content={"Save current state of the quote with status = 'draft'. The client doesn't get an email and the quote doesn't appear on their portal. It's parked privately for you to come back to.\n\nGreat when you're partway through and need to step away."} />
-              </div>
-              <div className="flex items-center gap-1">
-                <Button
-                  onClick={() => handleSend()}
-                  disabled={sending || saving || computed.total <= 0 || !email}
-                  className="bg-gradient-to-r from-green-600 to-emerald-600"
-                >
-                  {sending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
-                  Save & Send
-                </Button>
-                <InfoTooltip content={"Save the quote with status = 'sent', generate a public link, and email the client a branded message with a 'View Quote' button.\n\nThe quote shows up on their portal too. Disabled until the client has an email + the total is greater than zero.\n\nResending an already-sent quote sends a fresh email. The client gets a 'we've updated your quote' message."} />
-              </div>
+              {/* TIGHTEN I.120: when the quote already has a linked
+                  order, the operator's intent is "update the order".
+                  Save = mirror without notifying; Save & Notify =
+                  mirror + send a "your booking has been updated"
+                  email. Original Save draft / Save & Send labels stay
+                  for non-converted quotes. */}
+              {isConvertedQuote ? (
+                <>
+                  <div className="flex items-center gap-1">
+                    <Button variant="outline" onClick={handleSaveDraft} disabled={saving || !clientName}>
+                      <Save className="w-4 h-4 mr-2" />
+                      Save
+                    </Button>
+                    <InfoTooltip content={"Save your changes to the quote and mirror them straight to the linked order. Re-plans kitchen prep, re-syncs equipment bookings, recalculates balance due. No email goes out - use Save & Notify for that."} />
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      onClick={() => handleSend()}
+                      disabled={sending || saving || computed.total <= 0 || !email}
+                      className="bg-gradient-to-r from-green-600 to-emerald-600"
+                    >
+                      {sending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
+                      Save &amp; Notify
+                    </Button>
+                    <InfoTooltip content={"Save + mirror to the order AND email the client a 'your booking has been updated' message with a link to the live order page.\n\nThe client doesn't need to re-accept - the booking is already confirmed."} />
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="flex items-center gap-1">
+                    <Button variant="outline" onClick={handleSaveDraft} disabled={saving || !clientName}>
+                      <Save className="w-4 h-4 mr-2" />
+                      Save draft
+                    </Button>
+                    <InfoTooltip content={"Save current state of the quote with status = 'draft'. The client doesn't get an email and the quote doesn't appear on their portal. It's parked privately for you to come back to.\n\nGreat when you're partway through and need to step away."} />
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      onClick={() => handleSend()}
+                      disabled={sending || saving || computed.total <= 0 || !email}
+                      className="bg-gradient-to-r from-green-600 to-emerald-600"
+                    >
+                      {sending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
+                      Save &amp; Send
+                    </Button>
+                    <InfoTooltip content={"Save the quote with status = 'sent', generate a public link, and email the client a branded message with a 'View Quote' button.\n\nThe quote shows up on their portal too. Disabled until the client has an email + the total is greater than zero.\n\nResending an already-sent quote sends a fresh email. The client gets a 'we've updated your quote' message."} />
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
