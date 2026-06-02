@@ -957,9 +957,26 @@ function AdminQuotesInner() {
         refetch,
       )
       .subscribe();
+    // TIGHTEN I.117 (2026-06-02): belt-and-braces refetch on tab
+    // focus / visibility-change. Bobby caught a quote card showing
+    // pre-edit values (8 guests / 04 Jun) after a Save & Send that
+    // landed in another tab - root cause was the supabase_realtime
+    // publication didn't include quotes / orders, so the postgres-
+    // changes subscription above was a silent no-op. The realtime
+    // wiring is now fixed at the DB level, but if the websocket
+    // drops a frame (laptop sleep, network blip, mobile background)
+    // refocus is the cheapest "always pick up reality" guarantee.
+    const onFocus = () => refetch();
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") refetch();
+    };
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisibility);
     return () => {
       if (timer) clearTimeout(timer);
       supabase.removeChannel(channel);
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisibility);
     };
   }, [user?.company_id]);
 
