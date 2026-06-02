@@ -22,9 +22,17 @@ export default async function handler(
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  // Optional: Add authentication header check for security
-  const authHeader = req.headers.authorization;
-  if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  // TIGHTEN I.83 (2026-06-02): CRON_SECRET is no longer optional. The
+  // previous "if env-var set, then check" let anonymous callers POST
+  // any companyId and trigger that tenant's email queue in environments
+  // where CRON_SECRET hadn't been provisioned. Now: missing secret in
+  // env = 500 (config error), wrong / missing header = 401.
+  const expected = process.env.CRON_SECRET;
+  if (!expected) {
+    console.error("[process-email-notifications] CRON_SECRET env var not set");
+    return res.status(500).json({ error: "Server config error" });
+  }
+  if (req.headers.authorization !== `Bearer ${expected}`) {
     return res.status(401).json({ error: "Unauthorized" });
   }
 
