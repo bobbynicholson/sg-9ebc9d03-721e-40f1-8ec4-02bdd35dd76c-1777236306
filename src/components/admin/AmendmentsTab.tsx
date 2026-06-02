@@ -69,19 +69,28 @@ export function AmendmentsTab({ orderId, currentOrder, onActioned }: Props) {
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [rejectNote, setRejectNote] = useState("");
 
-  const load = async () => {
+  // TIGHTEN I.85 (2026-06-02): cancellation guard. Switching between
+  // orders fast (Order Details modal back/forward) could paint
+  // amendments from the previous order if the second fetch resolved
+  // before the first. Now each load() closes over a local flag so the
+  // newer in-flight request always wins.
+  const load = async (signal: { cancelled: boolean }) => {
     setLoading(true);
     const { data, error } = await (supabase as any)
       .from("order_amendment_requests")
       .select("*")
       .eq("order_id", orderId)
       .order("requested_at", { ascending: false });
+    if (signal.cancelled) return;
     if (!error && data) setRows(data as AmendmentRequest[]);
     setLoading(false);
   };
 
   useEffect(() => {
-    if (orderId) load();
+    if (!orderId) return;
+    const signal = { cancelled: false };
+    void load(signal);
+    return () => { signal.cancelled = true; };
   }, [orderId]);
 
   const retryCascade = async (request_id: string, force = false) => {
@@ -101,7 +110,7 @@ export function AmendmentsTab({ orderId, currentOrder, onActioned }: Props) {
           : "Some steps still need attention - check the receipt.",
       });
       onActioned?.();
-      await load();
+      await load({ cancelled: false });
     } catch (err: any) {
       toast({
         title: "Could not retry cascade",
@@ -131,7 +140,7 @@ export function AmendmentsTab({ orderId, currentOrder, onActioned }: Props) {
             : "The request has been logged as rejected.",
       });
       onActioned?.();
-      await load();
+      await load({ cancelled: false });
     } catch (err: any) {
       toast({
         title: "Could not action amendment",
