@@ -28,7 +28,7 @@ import { useRouter } from "next/router";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AdminNav } from "@/components/admin/AdminNav";
-import { CancelOrderDialog } from "@/components/admin/orders/CancelOrderDialog";
+import { RemoveOrderDialog } from "@/components/admin/orders/RemoveOrderDialog";
 import { PauseOrderDialog } from "@/components/admin/orders/PauseOrderDialog";
 import { AmendmentReviewDrawer, CancellationReviewDrawer } from "@/components/admin/orders/AmendmentReviewDrawer";
 import { Footer } from "@/components/Footer";
@@ -1796,22 +1796,29 @@ function OrderProcessDashboard() {
               withSlug={withSlug}
             />
 
-            {/* Cancel order dialog with refund preview, fed by the
-                get_refund_for_order RPC. Refund flow lands a payments
-                row + cancellation_requests audit + status cascade. */}
-            <CancelOrderDialog
+            {/* TIGHTEN I.121: unified cancel-or-purge dialog. Step 1
+                lets the operator pick "cancel" (real cancellation,
+                refund per policy, optional notify) or "purge"
+                (test data / mistake, irreversible, no email). Step 2
+                shows the mode-specific form. */}
+            <RemoveOrderDialog
               open={cancelDialogOpen}
               onOpenChange={setCancelDialogOpen}
               orderId={selectedOrder?.id || null}
               orderNumber={(selectedOrder as any)?.order_number || null}
-              onCancelled={() => {
+              canPurge={(() => {
+                const r = ((user as any)?.active_role || (user as any)?.role || "").toString();
+                return r === "super_admin" || r === "company_admin" || r === "owner";
+              })()}
+              onResolved={() => {
                 setIsModalOpen(false);
                 loadOrders();
                 // Wave 70.40 - cancel cascades (status flip + refund
-                // payments row + equipment release + comms stop).
-                // Every listener that shows this order needs to refetch.
+                // payments row + equipment release + comms stop) and
+                // purge wipes the row outright. Every listener that
+                // shows this order needs to refetch.
                 if (selectedOrder?.id) {
-                  emitOrderUpdated(selectedOrder.id, "admin/orders:cancel", ["status", "payments"]);
+                  emitOrderUpdated(selectedOrder.id, "admin/orders:remove", ["status", "payments"]);
                 }
               }}
             />
