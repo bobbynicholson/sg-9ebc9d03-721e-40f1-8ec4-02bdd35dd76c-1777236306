@@ -94,11 +94,15 @@ interface GenerateInvoiceOptions {
   emailRecipient?: string;
 }
 
-interface AccountingSyncOptions {
-  provider: "xero" | "quickbooks" | "sage";
-  invoiceId: string;
-  companyId: string;
-}
+// TIGHTEN I.93 (2026-06-02): AccountingSyncOptions and the
+// PLACEHOLDER syncInvoiceToAccounting / syncToXero / syncToQuickBooks
+// / syncToSage stubs that used to live further down this file have
+// been removed. They were dead exports - no caller imported them. The
+// real Xero + QuickBooks sync (with OAuth + payload mapping) lives in
+// src/services/accountingIntegrationService.ts which /admin/invoices
+// uses; Sage in that file is an honest scaffold that returns a clear
+// "follow-up wave" message. Keeping a parallel silent-no-op shadow
+// here was a foot-gun for whoever next pattern-matched on an import.
 
 /**
  * Generate invoice data from order
@@ -1544,98 +1548,7 @@ export async function sendInvoiceEmail(
   }
 }
 
-/**
- * ============================================
- * ACCOUNTING SYSTEM INTEGRATION (PLACEHOLDER)
- * ============================================
- * 
- * These functions are prepared for future integration with
- * Xero, QuickBooks, Sage, or other accounting systems.
- * 
- * Implementation steps:
- * 1. Set up OAuth with accounting provider
- * 2. Store access tokens securely
- * 3. Map invoice data to provider's format
- * 4. Handle sync errors and retries
- * 5. Track sync status in database
- */
-
-/**
- * Sync invoice to accounting system (PLACEHOLDER)
- * 
- * @example
- * await syncInvoiceToAccounting({
- *   provider: "xero",
- *   invoiceId: "invoice-uuid",
- *   companyId: "company-uuid"
- * });
- */
-export async function syncInvoiceToAccounting(
-  options: AccountingSyncOptions
-): Promise<{ success: boolean; externalId?: string; error?: string }> {
-  // TODO: Implement accounting system integration
-  
-  console.log(`[ACCOUNTING SYNC] Provider: ${options.provider}`);
-  console.log(`[ACCOUNTING SYNC] Invoice ID: ${options.invoiceId}`);
-  console.log(`[ACCOUNTING SYNC] Company ID: ${options.companyId}`);
-  
-  // PLACEHOLDER: This will be implemented when accounting integration is set up
-  
-  /*
-  switch (options.provider) {
-    case "xero":
-      return await syncToXero(options);
-    case "quickbooks":
-      return await syncToQuickBooks(options);
-    case "sage":
-      return await syncToSage(options);
-    default:
-      return { success: false, error: "Unsupported provider" };
-  }
-  */
-  
-  return {
-    success: false,
-    error: "Accounting integration not yet configured. Contact support to enable."
-  };
-}
-
-/**
- * Xero integration (PLACEHOLDER)
- */
-async function syncToXero(options: AccountingSyncOptions) {
-  // TODO: Implement Xero API integration
-  // 1. Get Xero access token
-  // 2. Format invoice data for Xero
-  // 3. POST to Xero API
-  // 4. Store external invoice ID
-  return { success: false, error: "Xero integration pending" };
-}
-
-/**
- * QuickBooks integration (PLACEHOLDER)
- */
-async function syncToQuickBooks(options: AccountingSyncOptions) {
-  // TODO: Implement QuickBooks API integration
-  return { success: false, error: "QuickBooks integration pending" };
-}
-
-/**
- * Sage integration (PLACEHOLDER)
- */
-async function syncToSage(options: AccountingSyncOptions) {
-  // TODO: Implement Sage API integration
-  return { success: false, error: "Sage integration pending" };
-}
-
-/**
- * Check if accounting integration is configured
- */
-export async function isAccountingConfigured(
-  companyId: string,
-  provider: "xero" | "quickbooks" | "sage"
-): Promise<boolean> {
-  // TODO: Check if company has accounting credentials stored
-  // For now, return false (not configured)
-  return false;
-}
+// TIGHTEN I.93: dead accounting-integration stub functions removed.
+// The live implementations live in
+// src/services/accountingIntegrationService.ts (real Xero +
+// QuickBooks OAuth + payload, scaffold Sage with honest error).
