@@ -170,7 +170,7 @@ export function EmailFailuresTab() {
                       )}
                     </td>
                     <td className="py-2 px-3 text-slate-700">
-                      <div className="truncate max-w-[30ch]" title={r.subject || ""}>{r.subject || "—"}</div>
+                      <div className="truncate max-w-[30ch]" title={r.subject || ""}>{r.subject || "-"}</div>
                       {r.template_type && (
                         <div className="text-[11px] text-slate-500 mt-0.5">{r.template_type}</div>
                       )}
@@ -182,7 +182,7 @@ export function EmailFailuresTab() {
                       </Badge>
                     </td>
                     <td className="py-2 px-3 text-xs text-slate-600 max-w-[24ch]">
-                      <div className="truncate" title={r.error_message || ""}>{r.error_message || "—"}</div>
+                      <div className="truncate" title={r.error_message || ""}>{r.error_message || "-"}</div>
                     </td>
                     <td className="py-2 px-3 text-right">
                       {meta.resendable ? (
@@ -196,7 +196,7 @@ export function EmailFailuresTab() {
                           Resend
                         </Button>
                       ) : (
-                        <span className="text-[11px] text-slate-400">—</span>
+                        <span className="text-[11px] text-slate-400">-</span>
                       )}
                     </td>
                   </tr>

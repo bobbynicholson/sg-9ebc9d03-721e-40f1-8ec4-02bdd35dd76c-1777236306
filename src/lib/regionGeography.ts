@@ -39,7 +39,7 @@ export const COUNTRIES: CountryConfig[] = [
     defaultCurrency: "GBP",
     divisionLabel: "County / Region",
     divisions: [
-      // England — historic + ceremonial counties (subset most catering ops use)
+      // England - historic + ceremonial counties (subset most catering ops use)
       "Bedfordshire",
       "Berkshire",
       "Bristol",

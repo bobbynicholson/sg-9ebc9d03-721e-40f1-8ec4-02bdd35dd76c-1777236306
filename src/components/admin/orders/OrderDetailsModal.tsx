@@ -1345,7 +1345,7 @@ return (
                   <p className="text-sm font-semibold text-amber-700 mt-1 tabular-nums">
                     {Number((selectedOrder as any).discount_amount || 0) > 0
                       ? `−${C}${Number((selectedOrder as any).discount_amount).toLocaleString("en-ZA", { maximumFractionDigits: 2 })}`
-                      : "—"}
+                      : "-"}
                   </p>
                 )}
               </div>
@@ -1579,7 +1579,7 @@ return (
                             <div className="text-xs text-amber-700 mt-0.5">Note: {it.special_instructions}</div>
                           )}
                         </td>
-                        <td className="px-3 py-2 text-right tabular-nums">{it.quantity ?? "—"}</td>
+                        <td className="px-3 py-2 text-right tabular-nums">{it.quantity ?? "-"}</td>
                         <td className="px-3 py-2 text-right tabular-nums">
                           {C}{Number(it.unit_price || 0).toLocaleString("en-ZA", { maximumFractionDigits: 2 })}
                         </td>
@@ -1699,11 +1699,11 @@ return (
                       const eqName = (b.equipment && (Array.isArray(b.equipment) ? b.equipment[0]?.name : b.equipment.name)) || "(equipment)";
                       const window = b.booked_from && b.booked_until
                         ? `${new Date(b.booked_from).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })} → ${new Date(b.booked_until).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}`
-                        : "—";
+                        : "-";
                       return (
                         <tr key={b.id} className="border-t border-slate-100">
                           <td className="px-3 py-2 font-medium text-slate-900">{eqName}</td>
-                          <td className="px-3 py-2 text-right tabular-nums">{b.quantity ?? "—"}</td>
+                          <td className="px-3 py-2 text-right tabular-nums">{b.quantity ?? "-"}</td>
                           <td className="px-3 py-2">
                             <Badge variant="outline" className="capitalize">{b.status || "booked"}</Badge>
                           </td>

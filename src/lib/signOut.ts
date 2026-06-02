@@ -4,8 +4,8 @@ import { createClient } from "@/lib/supabase/client";
  * Pull the active company slug from whatever surface is available right now,
  * BEFORE we clear the session. Order:
  *   1. Profile passed in by caller (most reliable)
- *   2. URL slug — first path segment if it's not one of our top-level routes
- *   3. sb-* cookie metadata (we don't bother — supabase doesn't expose slug)
+ *   2. URL slug - first path segment if it's not one of our top-level routes
+ *   3. sb-* cookie metadata (we don't bother - supabase doesn't expose slug)
  * Returns "" if no slug can be determined (super_admin, /auth/login, etc).
  */
 export function detectCompanySlug(profile: any | null | undefined): string {

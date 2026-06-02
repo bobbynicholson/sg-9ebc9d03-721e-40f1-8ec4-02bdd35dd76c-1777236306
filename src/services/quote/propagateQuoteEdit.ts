@@ -839,11 +839,11 @@ export function describeQuoteEditImpact(opts: {
     if (JSON.stringify(before) === JSON.stringify(after)) continue;
     needsConfirmation = true;
     if (f === "event_date") {
-      impacts.push(`Event date moves ${before || "—"} -> ${after || "—"}. Order, balance due date, kitchen prep, equipment booking window, and collection trip will all re-stamp.`);
+      impacts.push(`Event date moves ${before || "-"} -> ${after || "-"}. Order, balance due date, kitchen prep, equipment booking window, and collection trip will all re-stamp.`);
     } else if (f === "event_time") {
-      impacts.push(`Event time moves ${before || "—"} -> ${after || "—"}. Kitchen cook-start time will recalculate.`);
+      impacts.push(`Event time moves ${before || "-"} -> ${after || "-"}. Kitchen cook-start time will recalculate.`);
     } else if (f === "guest_count") {
-      impacts.push(`Guest count moves ${before ?? "—"} -> ${after ?? "—"}. Kitchen scaling + per-person line items will recalculate.`);
+      impacts.push(`Guest count moves ${before ?? "-"} -> ${after ?? "-"}. Kitchen scaling + per-person line items will recalculate.`);
     } else if (f === "total" || f === "subtotal") {
       impacts.push(`${f} changes - the deposit invoice will recompute.`);
     } else if (f === "menu_items") {

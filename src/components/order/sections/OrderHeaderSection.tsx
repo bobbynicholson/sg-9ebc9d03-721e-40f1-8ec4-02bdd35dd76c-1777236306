@@ -315,7 +315,7 @@ export function OrderHeaderSection({ order, defaultOpen, forceOpen }: Props) {
           <p className="text-xs text-slate-500 uppercase tracking-wider">Client</p>
           <div className="flex items-center gap-2 text-sm text-slate-700">
             <User className="w-4 h-4 text-slate-400 flex-shrink-0" />
-            <span>{order.client_name || "—"}</span>
+            <span>{order.client_name || "-"}</span>
           </div>
           {order.client_email && (
             <div className="flex items-center gap-2 text-sm text-slate-700">

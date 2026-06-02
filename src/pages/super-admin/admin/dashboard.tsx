@@ -142,7 +142,7 @@ export default function SuperAdminManagementDashboard() {
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold text-slate-900 dark:text-white">
-                {stats.loaded ? stats.totalCompanies : "—"}
+                {stats.loaded ? stats.totalCompanies : "-"}
               </div>
             </CardContent>
           </Card>
@@ -156,7 +156,7 @@ export default function SuperAdminManagementDashboard() {
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold text-slate-900 dark:text-white">
-                {stats.loaded ? stats.activeSubscriptions : "—"}
+                {stats.loaded ? stats.activeSubscriptions : "-"}
               </div>
               <p className="text-xs text-slate-600 mt-1">
                 {stats.loaded ? `${stats.trialCompanies} on trial` : ""}
@@ -173,7 +173,7 @@ export default function SuperAdminManagementDashboard() {
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold text-slate-900 dark:text-white">
-                {stats.loaded ? `R${stats.monthlyRevenue.toLocaleString()}` : "—"}
+                {stats.loaded ? `R${stats.monthlyRevenue.toLocaleString()}` : "-"}
               </div>
               <p className="text-xs text-slate-600 mt-1">
                 Paid subscription invoices, this calendar month
@@ -190,7 +190,7 @@ export default function SuperAdminManagementDashboard() {
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold text-slate-900 dark:text-white">
-                {stats.loaded ? stats.trialCompanies : "—"}
+                {stats.loaded ? stats.trialCompanies : "-"}
               </div>
             </CardContent>
           </Card>

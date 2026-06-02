@@ -1340,7 +1340,7 @@ export function minutesUntilSlaBreach(
 }
 
 export function formatMinutesAsCountdown(mins: number): string {
-  if (!isFinite(mins)) return "—";
+  if (!isFinite(mins)) return "-";
   const sign = mins < 0 ? "-" : "";
   const abs = Math.abs(mins);
   const days = Math.floor(abs / 1440);

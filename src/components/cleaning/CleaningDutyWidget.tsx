@@ -57,7 +57,7 @@ const initialsOf = (name: string | null | undefined, fallback: string | null | u
 const formatDuration = (startTime: string | null): string => {
   if (!startTime) return "just now";
   const start = new Date(startTime).getTime();
-  if (Number.isNaN(start)) return "—";
+  if (Number.isNaN(start)) return "-";
   const diffMs = Math.max(0, Date.now() - start);
   const hours = Math.floor(diffMs / 3_600_000);
   const minutes = Math.floor((diffMs % 3_600_000) / 60_000);

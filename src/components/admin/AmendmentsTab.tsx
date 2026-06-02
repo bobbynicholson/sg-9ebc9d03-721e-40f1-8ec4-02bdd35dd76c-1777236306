@@ -444,7 +444,7 @@ function CascadePanel({
 }
 
 function renderValue(v: any): string {
-  if (v === null || v === undefined) return "—";
+  if (v === null || v === undefined) return "-";
   if (Array.isArray(v)) return `${v.length} item${v.length === 1 ? "" : "s"}`;
   if (typeof v === "object") return JSON.stringify(v).slice(0, 60);
   return String(v);

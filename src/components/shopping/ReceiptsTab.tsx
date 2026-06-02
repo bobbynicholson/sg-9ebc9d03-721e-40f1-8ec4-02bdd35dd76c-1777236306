@@ -46,7 +46,7 @@ import {
 } from "@/services/taxPurchaseService";
 
 const fmtR = (v?: number | null) =>
-  v == null ? "—" : `R ${Number(v).toLocaleString("en-ZA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  v == null ? "-" : `R ${Number(v).toLocaleString("en-ZA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 export type WindowKind = "this_month" | "this_quarter" | "this_year" | "all";
 

@@ -106,7 +106,7 @@ const EMPTY_LINE: LineState = {
 };
 
 const fmtR = (v: number | null | undefined) =>
-  v == null ? "—" : `R ${Number(v).toLocaleString("en-ZA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  v == null ? "-" : `R ${Number(v).toLocaleString("en-ZA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 export function ReconcileSlipDrawer({
   open, onClose, onSaved, mappedData, sourceData, companyId, userId, manualMode, existingReceiptId,
@@ -754,7 +754,7 @@ export function ReconcileSlipDrawer({
                             }}
                             className="text-xs rounded-md border border-slate-200 px-2 py-1 bg-white"
                           >
-                            <option value="">— No rule —</option>
+                            <option value="">- No rule -</option>
                             {ruleOptions.map((r) => (
                               <option key={r.id} value={r.id}>
                                 {r.group_label} · {r.display_name}

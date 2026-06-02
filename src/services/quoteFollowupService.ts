@@ -56,7 +56,7 @@ export interface FollowupState {
   /** Traffic-light tone for the row pill. */
   light: FollowupTrafficLight;
   /** Short label for the pill: "FU 1 sent 3d ago", "Ready to send FU 1",
-   *  "FU 2 due in 4d", "FU 3 overdue", "Sequence complete", "—". */
+   *  "FU 2 due in 4d", "FU 3 overdue", "Sequence complete", "-". */
   label: string;
   /** Long-form reason for hover. */
   reason: string;
@@ -97,7 +97,7 @@ export function computeFollowupState(
   if (status === "accepted" || status === "rejected" || status === "expired") {
     return {
       light: "slate",
-      // TIGHTEN I.11: was "—" (em dash, banned). Plain hyphen is
+      // TIGHTEN I.11: was "-" (em dash, banned). Plain hyphen is
       // the canonical missing-value placeholder across the admin
       // pages. The /admin/quotes consumer keeps its `label !== "-"`
       // suppression so closed quotes still render without the

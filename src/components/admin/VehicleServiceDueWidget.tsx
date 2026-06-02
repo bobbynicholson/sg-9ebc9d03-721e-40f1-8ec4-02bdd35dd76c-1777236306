@@ -137,7 +137,7 @@ export function VehicleServiceDueWidget({ companyId }: { companyId: string | nul
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-slate-900 truncate">{name}</p>
                       <p className="text-[11px] text-slate-500 tabular-nums font-mono">
-                        {v.plate || "—"}
+                        {v.plate || "-"}
                         {v.next_service_due && (
                           <span className="ml-2 font-sans text-slate-400">
                             due {new Date(v.next_service_due).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}

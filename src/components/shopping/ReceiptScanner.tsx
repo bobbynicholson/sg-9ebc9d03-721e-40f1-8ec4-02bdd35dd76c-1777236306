@@ -48,7 +48,7 @@ const MAX_FILES = 20;
 // formatter takes a code so the call site can pass either the tenant
 // currency or the receipt's own currency once OCR pulls one out.
 const buildFmt = (code: string) => (v: any) => {
-  if (v == null) return "—";
+  if (v == null) return "-";
   const locale = code === "ZAR" ? "en-ZA"
     : code === "USD" ? "en-US"
     : code === "GBP" ? "en-GB"
@@ -398,7 +398,7 @@ export function ReceiptScanner({
                                 <tr key={i} className="border-t border-slate-100">
                                   <td className="py-1.5 px-3 text-slate-900">{li.description}</td>
                                   <td className="py-1.5 px-3 text-slate-600">
-                                    {li.quantity ?? "—"}{li.unit ? ` ${li.unit}` : ""}
+                                    {li.quantity ?? "-"}{li.unit ? ` ${li.unit}` : ""}
                                   </td>
                                   <td className="py-1.5 px-3 text-slate-600">{fmtR(li.unit_price)}</td>
                                   <td className="py-1.5 px-3 text-right font-medium text-slate-900">

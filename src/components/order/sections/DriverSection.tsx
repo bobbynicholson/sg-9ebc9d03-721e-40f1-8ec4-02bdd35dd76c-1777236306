@@ -315,7 +315,7 @@ export function DriverSection({ order, defaultOpen, forceOpen, highlight }: Prop
                 <div className="min-w-0">
                   <p className="text-[10px] uppercase tracking-wider text-slate-700 font-semibold">Distance · drive</p>
                   <p className="text-sm font-semibold text-slate-900">
-                    {order.delivery_distance_km != null ? `${Number(order.delivery_distance_km).toFixed(1)} km` : "—"}
+                    {order.delivery_distance_km != null ? `${Number(order.delivery_distance_km).toFixed(1)} km` : "-"}
                     {order.delivery_duration_minutes != null && (
                       <span className="text-slate-600"> · {order.delivery_duration_minutes} min</span>
                     )}
@@ -482,7 +482,7 @@ export function DriverSection({ order, defaultOpen, forceOpen, highlight }: Prop
                     ? new Date(pickedUpAt).toLocaleString("en-ZA", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })
                     : enRouteAt
                       ? new Date(enRouteAt).toLocaleString("en-ZA", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })
-                      : "—"}
+                      : "-"}
                 </p>
               </div>
               <div className="text-xs">
@@ -490,7 +490,7 @@ export function DriverSection({ order, defaultOpen, forceOpen, highlight }: Prop
                 <p className="text-slate-900 mt-0.5 tabular-nums">
                   {arrivedAt
                     ? new Date(arrivedAt).toLocaleString("en-ZA", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })
-                    : "—"}
+                    : "-"}
                 </p>
               </div>
               <div className="text-xs">
@@ -498,7 +498,7 @@ export function DriverSection({ order, defaultOpen, forceOpen, highlight }: Prop
                 <p className="text-slate-900 mt-0.5 tabular-nums">
                   {deliveredAt
                     ? new Date(deliveredAt).toLocaleString("en-ZA", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })
-                    : "—"}
+                    : "-"}
                 </p>
               </div>
             </div>
