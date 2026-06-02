@@ -56,13 +56,13 @@ import {
   type DriverPayoutMethod,
 } from "@/services/driverPayoutService";
 
-// TIGHTEN I.84: module-scope ZAR formatter kept as a fallback for the
-// sibling components (FragmentRows, DriverSettlementCard, TotalCard).
-// Migrating their currency is a bigger refactor (each needs a prop or
-// context); flagged for a follow-up. The MAIN component shadows this
-// with a tenant-aware version, so payout summaries the page owner
-// sees use the correct symbol.
-const formatR = (n: number) =>
+// TIGHTEN I.107 (2026-06-02): module-scope formatR retained as the
+// fallback that sibling components fall back to when the main page
+// doesn't pass a tenant-aware override. FragmentRows +
+// DriverSettlementCard now accept a `fmt` prop; main page builds it
+// from useTenantCurrency and passes through. The result: all 5
+// components on this page render in the tenant currency.
+const formatRDefault = (n: number) =>
   new Intl.NumberFormat("en-ZA", { style: "currency", currency: "ZAR", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
 
 type Preset = "last_7" | "last_30" | "month_to_date" | "last_month" | "custom";
@@ -1075,6 +1075,7 @@ function DriverSettlementPage() {
                                   companyId={user?.company_id || ""}
                                   companyName={companyName}
                                   currencyCode={tenantCurrency.code}
+                                  formatR={formatR}
                                   toast={toast}
                                   actorUserId={user?.id}
                                   onShiftChanged={() => setRefreshTick((n) => n + 1)}
@@ -1102,6 +1103,7 @@ function DriverSettlementPage() {
                             payout={payoutsByDriver.get(r.driver.id) || null}
                             onMarkPaid={() => openPayoutDialog(r.driver.id, r.driver.full_name)}
                             onReverse={(payoutId) => reversePayout(payoutId, r.driver.full_name)}
+                            formatR={formatR}
                           />
                         ))}
                       </div>
@@ -1213,7 +1215,7 @@ function DriverSettlementPage() {
 }
 
 function FragmentRows({
-  row, t, isOpen, onToggle, periodFrom, periodTo, companyId, companyName, currencyCode, toast, actorUserId, onShiftChanged,
+  row, t, isOpen, onToggle, periodFrom, periodTo, companyId, companyName, currencyCode, formatR = formatRDefault, toast, actorUserId, onShiftChanged,
   payout, onMarkPaid, onReverse,
 }: {
   row: SettlementRow;
@@ -1227,6 +1229,9 @@ function FragmentRows({
   /** TIGHTEN I.100: tenant currency code (companies.currency). Drives
    *  the symbol on the generated payslip PDF. */
   currencyCode?: string;
+  /** TIGHTEN I.107: tenant-aware money formatter. Falls back to ZAR
+   *  when the parent doesn't pass one (legacy callers). */
+  formatR?: (n: number) => string;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   toast: any;
   actorUserId?: string | null;
@@ -1806,12 +1811,14 @@ function FragmentRows({
  * specific shift".
  */
 function DriverSettlementCard({
-  row, payout, onMarkPaid, onReverse,
+  row, payout, onMarkPaid, onReverse, formatR = formatRDefault,
 }: {
   row: SettlementRow;
   payout: DriverPayoutRow | null;
   onMarkPaid: () => void;
   onReverse: (payoutId: string) => void;
+  /** TIGHTEN I.107: tenant-aware money formatter passed from parent. */
+  formatR?: (n: number) => string;
 }) {
   const t = row.summary?.totals;
   const hasPay = !!(t && t.grand_total > 0);
