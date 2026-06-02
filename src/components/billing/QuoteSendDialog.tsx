@@ -11,7 +11,8 @@
 import { useEffect, useState } from "react";
 import { SendEmailDialog } from "./SendEmailDialog";
 import { resolveEmailTemplate } from "@/services/email/templateResolver";
-import { formatQuoteSubject } from "@/lib/email/subjectFormatters";
+import { formatQuoteSubject, fmtMoney } from "@/lib/email/subjectFormatters";
+import { buildPublicQuoteUrl } from "@/services/publicQuoteService";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { captureException } from "@/lib/observability";
@@ -27,6 +28,10 @@ export interface QuoteSendDialogQuote {
   event_name?: string | null;
   quote_name?: string | null;
   user_id?: string | null;
+  /** TIGHTEN I.111: public token used to build the /q/{token} client
+   *  view link that goes into the email body. Required for the link
+   *  to render; without it the body falls back to a no-link variant. */
+  public_token?: string | null;
 }
 
 export interface QuoteSendDialogProps {
@@ -37,10 +42,26 @@ export interface QuoteSendDialogProps {
   companyId: string;
   /** The quote being sent. Null when the dialog is closed. */
   quote: QuoteSendDialogQuote | null;
-  /** Tenant display name to use in the body / subject. Falls back to
-   *  the company row when not supplied. */
+  /** Tenant display name to use in the body / subject. When null the
+   *  dialog self-fetches from companies.company_name (TIGHTEN I.111
+   *  defensive: /admin/quotes/new wasn't passing this so the body said
+   *  "Your Catering Company" on every quote). */
   tenantName?: string | null;
   onSent?: (quote: QuoteSendDialogQuote) => void;
+}
+
+// TIGHTEN I.111: form defaults like quote_name="Quote" / event_name=""
+// leak into the email as "Thanks for letting X quote on Quote." -
+// nonsense. Treat these literal strings as missing so the template
+// falls through to the no-event-name variant.
+const PLACEHOLDER_EVENT_NAMES = new Set([
+  "", "quote", "your event", "n/a", "tbd", "tbc", "untitled",
+]);
+function cleanEventName(raw: string | null | undefined): string | null {
+  const trimmed = String(raw ?? "").trim();
+  if (!trimmed) return null;
+  if (PLACEHOLDER_EVENT_NAMES.has(trimmed.toLowerCase())) return null;
+  return trimmed;
 }
 
 export function QuoteSendDialog({
@@ -54,13 +75,50 @@ export function QuoteSendDialog({
   const { toast } = useToast();
   const [resolved, setResolved] = useState<{ subject: string; body: string } | null>(null);
   const [resolving, setResolving] = useState(false);
+  // TIGHTEN I.111: dialog self-fetches the tenant name when the
+  // parent didn't pass one. /admin/quotes/new historically passed
+  // tenantName={null} which made every quote-send email read "Your
+  // Catering Company" instead of the actual catering business.
+  const [fetchedTenantName, setFetchedTenantName] = useState<string | null>(null);
 
   const total = Number(quote?.total ?? quote?.total_amount ?? 0);
-  const eventLabel = quote?.event_name || quote?.quote_name || "your event";
+  // Strip placeholder defaults from the event label so the body doesn't
+  // read "Thanks for letting X quote on Quote."
+  const cleanedEvent = cleanEventName(quote?.event_name) ?? cleanEventName(quote?.quote_name);
+  const eventLabel = cleanedEvent || "your event";
   const firstName = String(quote?.client_name || "there").split(" ")[0] || "there";
-  const tn = (tenantName || "Your Catering Company").trim();
+  const tn = (tenantName || fetchedTenantName || "Your Catering Company").trim();
   const currency = quote?.currency || "ZAR";
-  const totalLabel = `${currency} ${total.toFixed(2)}`;
+  // TIGHTEN I.111: use the shared fmtMoney helper so the body and
+  // subject render the same shape ("R 3 602" / "$3,602"). Previously
+  // built "ZAR 3601.71" with no symbol or separator.
+  const totalLabel = fmtMoney(total, currency) || `${currency} ${total.toFixed(2)}`;
+  const quoteUrl =
+    quote?.public_token && typeof window !== "undefined"
+      ? buildPublicQuoteUrl(quote.public_token)
+      : null;
+
+  // Self-fetch company_name on first open when the parent didn't pass it.
+  useEffect(() => {
+    if (!open || tenantName || !companyId) return;
+    if (fetchedTenantName) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from("companies")
+          .select("company_name")
+          .eq("id", companyId)
+          .maybeSingle();
+        if (cancelled) return;
+        const name = (data as any)?.company_name;
+        if (name && typeof name === "string") setFetchedTenantName(name.trim());
+      } catch (e) {
+        console.warn("[QuoteSendDialog] company_name fetch failed:", e);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [open, companyId, tenantName, fetchedTenantName]);
 
   useEffect(() => {
     if (!open || !quote || !companyId) {
@@ -82,25 +140,39 @@ export function QuoteSendDialog({
             quote_number: quote.quote_number || quote.id,
             amount: totalLabel,
             company_name: tn,
+            // TIGHTEN I.111: include the polished /q/{token} client view
+            // URL so any tenant template can drop a `{{quote_url}}`
+            // placeholder and the magic link renders. Empty string
+            // when the quote has no public_token (rare).
+            quote_url: quoteUrl || "",
             // Legacy {clientName}/{companyName}/{quoteNumber}/{totalAmount}
             // single-brace tokens are also substituted by emailService at
             // send time, so the fallback works either way.
           },
           fallback: {
             subject: formatQuoteSubject({
-              eventName: eventLabel,
+              eventName: cleanedEvent,
               tenantName: tn,
               total: total,
               quoteNumber: quote.quote_number || quote.id,
               currencyCode: currency,
             }),
-            bodyHtml:
-              `Hi {{first_name}},\n\n` +
-              `Thanks for letting {{tenant_name}} quote on {{event_name}}. Your quote ` +
-              `{{quote_number}} is ready - total {{amount}}.\n\n` +
-              `Open the quote in your portal to review, accept, or send through any ` +
-              `tweaks.\n\n` +
-              `Thanks,\n{{tenant_name}}`,
+            // TIGHTEN I.111: rewritten fallback body.
+            //  - Drops the awkward "letting {{tenant_name}} quote on
+            //    {{event_name}}" line which read terribly when event_name
+            //    was missing/generic.
+            //  - Embeds the magic link so the client can click straight to
+            //    the polished /q/{token} view (the operator was complaining
+            //    that the email only attached a PDF with no link).
+            //  - Signs off with the tenant name, not "Your Catering Company".
+            bodyHtml: buildFallbackBody({
+              firstName,
+              tenantName: tn,
+              eventName: cleanedEvent,
+              quoteNumber: quote.quote_number || quote.id,
+              amount: totalLabel,
+              quoteUrl: quoteUrl,
+            }),
           },
         });
         if (!cancelled) {
@@ -111,13 +183,20 @@ export function QuoteSendDialog({
         if (!cancelled) {
           setResolved({
             subject: formatQuoteSubject({
-              eventName: eventLabel,
+              eventName: cleanedEvent,
               tenantName: tn,
               total,
               quoteNumber: quote.quote_number || quote.id,
               currencyCode: currency,
             }),
-            body: `Hi ${firstName},\n\nYour quote is ready. Total: ${totalLabel}.\n\nThanks,\n${tn}`,
+            body: buildFallbackBody({
+              firstName,
+              tenantName: tn,
+              eventName: cleanedEvent,
+              quoteNumber: quote.quote_number || quote.id,
+              amount: totalLabel,
+              quoteUrl,
+            }),
           });
         }
       } finally {
@@ -128,7 +207,7 @@ export function QuoteSendDialog({
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, quote?.id, companyId]);
+  }, [open, quote?.id, companyId, tn, quoteUrl]);
 
   if (!quote) return null;
 
@@ -160,6 +239,9 @@ export function QuoteSendDialog({
                 companyName: tn,
                 quoteNumber: quote.quote_number || quote.id,
                 totalAmount: totalLabel,
+                // TIGHTEN I.111: forward quote_url so any single-brace
+                // {quoteUrl} tokens in tenant-saved bodies render too.
+                quoteUrl: quoteUrl || "",
               },
             }),
           });
@@ -211,4 +293,41 @@ export function QuoteSendDialog({
       }}
     />
   );
+}
+
+/**
+ * TIGHTEN I.111: shared fallback body builder. Reads naturally whether
+ * the event has a real name ("Wedding") or doesn't, and embeds the
+ * polished /q/{token} link so the client can review + accept with one
+ * click instead of having to dig out the PDF attachment.
+ */
+function buildFallbackBody(input: {
+  firstName: string;
+  tenantName: string;
+  eventName: string | null;
+  quoteNumber: string;
+  amount: string;
+  quoteUrl: string | null;
+}): string {
+  const { firstName, tenantName, eventName, quoteNumber, amount, quoteUrl } = input;
+  const eventPhrase = eventName ? ` for your ${eventName}` : "";
+  const lines: string[] = [
+    `Hi ${firstName},`,
+    "",
+    `Thanks for the opportunity to quote${eventPhrase}. Your quote ${quoteNumber} is ready - total ${amount}.`,
+  ];
+  if (quoteUrl) {
+    lines.push("");
+    lines.push("View and accept the quote here:");
+    lines.push(quoteUrl);
+    lines.push("");
+    lines.push("Or reply to this email if you'd like to chat through it first.");
+  } else {
+    lines.push("");
+    lines.push("Have a look at the attached PDF and reply with any tweaks, or let us know you're happy to go ahead.");
+  }
+  lines.push("");
+  lines.push("Thanks,");
+  lines.push(tenantName);
+  return lines.join("\n");
 }

@@ -31,8 +31,11 @@ const CURRENCY_LOCALE: Record<string, string> = {
 };
 
 /** "R 12 345" / "£12,345" / "$12,345" - empty when amount is
- *  missing / zero. Currency code defaults to ZAR for back-compat. */
-function fmtMoney(amount: number | null | undefined, currencyCode?: string | null): string {
+ *  missing / zero. Currency code defaults to ZAR for back-compat.
+ *  TIGHTEN I.111 (2026-06-02): exported so QuoteSendDialog can match
+ *  the subject's money rendering exactly in the body (was producing
+ *  "ZAR 3601.71" via local toFixed - ugly + inconsistent). */
+export function fmtMoney(amount: number | null | undefined, currencyCode?: string | null): string {
   if (amount == null || !Number.isFinite(amount)) return "";
   const code = (currencyCode || "ZAR").toUpperCase();
   const locale = CURRENCY_LOCALE[code] || "en-ZA";

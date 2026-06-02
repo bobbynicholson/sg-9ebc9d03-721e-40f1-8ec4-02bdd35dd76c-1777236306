@@ -51,6 +51,24 @@ export function OrderQuickActions({ order }: Props) {
   const waMessage = `Hi ${firstName}, regarding your booking ${order.order_number || ""}`;
   const emailSubject = `Booking ${order.order_number || "your order"}`;
 
+  // TIGHTEN I.111 (2026-06-02): the preview-as-client API returns a
+  // relative path (`/c/order/{id}?t=...`). The previous code passed
+  // that straight to window.open / clipboard, which:
+  //   - For window.open: in some browser contexts navigated to the
+  //     wrong tab origin and triggered the cross-tenant "Wrong company"
+  //     middleware redirect.
+  //   - For clipboard: pasted into WhatsApp/SMS as a "half link" with
+  //     no domain.
+  // ClientLinkButton already handled this correctly; mirror the same
+  // pattern here. Build the absolute URL via window.location.origin
+  // and bail with a toast if the API didn't return a url.
+  const toAbsoluteUrl = (path: string): string => {
+    if (!path) return "";
+    if (path.startsWith("http://") || path.startsWith("https://")) return path;
+    if (typeof window === "undefined") return path;
+    return `${window.location.origin.replace(/\/$/, "")}${path}`;
+  };
+
   const openClientPreview = async () => {
     try {
       const r = await fetch(`/api/orders/${order.id}/preview-as-client`, {
@@ -58,8 +76,11 @@ export function OrderQuickActions({ order }: Props) {
         headers: { "Content-Type": "application/json" },
       });
       const j = await r.json();
-      if (!r.ok) throw new Error(j.error || "Could not generate preview link");
-      window.open(j.url, "_blank", "noopener,noreferrer");
+      if (!r.ok || !j?.url) {
+        throw new Error(j?.error || "Could not generate preview link");
+      }
+      const absolute = toAbsoluteUrl(String(j.url));
+      window.open(absolute, "_blank", "noopener,noreferrer");
     } catch (e: any) {
       toast({ title: "Couldn't open preview", description: e?.message || "Try again", variant: "destructive" });
     }
@@ -72,8 +93,11 @@ export function OrderQuickActions({ order }: Props) {
         headers: { "Content-Type": "application/json" },
       });
       const j = await r.json();
-      if (!r.ok) throw new Error(j.error || "Could not mint link");
-      await navigator.clipboard.writeText(String(j.url));
+      if (!r.ok || !j?.url) {
+        throw new Error(j?.error || "Could not mint link");
+      }
+      const absolute = toAbsoluteUrl(String(j.url));
+      await navigator.clipboard.writeText(absolute);
       toast({ title: "Client link copied", description: "Paste it into your WhatsApp or email." });
     } catch (e: any) {
       toast({ title: "Couldn't copy link", description: e?.message || "Try again", variant: "destructive" });
