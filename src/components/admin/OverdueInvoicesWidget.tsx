@@ -56,6 +56,10 @@ export function OverdueInvoicesWidget({ companyId }: { companyId: string | null 
         // marked paid or cancelled. Oldest-due first so the widget
         // surfaces the longest-outstanding rows - those are the
         // ones bookkeeping needs to chase first.
+        // TIGHTEN I.81: add missing deleted_at guard. Soft-deleted
+        // invoices were surfacing in the overdue widget; the historical
+        // ENUM-T comment about "cancelled" status is preserved since
+        // it's still relevant to the .not("status","in", ...) filter.
         const { data, error } = await (supabase as any)
           .from("invoices")
           .select(`
@@ -63,12 +67,10 @@ export function OverdueInvoicesWidget({ companyId }: { companyId: string | null 
             orders ( order_number, client_name )
           `)
           .eq("company_id", companyId)
-          // ENUM-T (enum-drift triage): "cancelled" isn't in
-          // invoice_status. The real terminal states are paid,
-          // written_off and voided - all three should be excluded
-          // from the overdue widget. Pre-ENUM-T `cancelled` was
-          // dead-but-harmless, and voided/written_off invoices
-          // were still surfacing as "overdue" which they aren't.
+          .is("deleted_at", null)
+          // The real terminal invoice states are paid, written_off and
+          // voided. All three are excluded so the widget only surfaces
+          // genuinely-open invoices past their due date.
           .not("status", "in", '("paid","voided","written_off")')
           .lt("due_date", today)
           .order("due_date", { ascending: true })

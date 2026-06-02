@@ -209,10 +209,14 @@ export function useAdminLiveCounts(): AdminLiveCounts {
       //      its own pill in a future wave if useful.)
       const unpaidQ = canSeeFinance
         ? (() => {
+            // TIGHTEN I.81: missing deleted_at guard was inflating
+            // the top-nav unpaid badge whenever an invoice was soft-
+            // deleted (eg. duplicate cleanup, void cascade).
             const q = sb
               .from("invoices")
               .select("balance_due")
               .eq("company_id", companyId)
+              .is("deleted_at", null)
               .in("status", ["sent", "partially_paid", "overdue"])
               .gt("balance_due", 0);
             if (regionFilterId) q.eq("region_id", regionFilterId);

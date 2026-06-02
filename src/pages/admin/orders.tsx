@@ -799,7 +799,10 @@ function OrderProcessDashboard() {
             // invoice (e.g. ORD-003831 shows orders.balance_due_date =
             // 2026-05-16 but invoices.due_date = 2026-05-30, producing
             // a phantom "was due 16 May" banner on a not-yet-due order).
-            supabase.from("invoices").select("id, order_id, invoice_number, total_amount, sent_at, paid_at, status, balance_due, created_at, invoice_date, due_date").in("order_id", orderIds),
+            // TIGHTEN I.81: drop soft-deleted invoices from the batch
+            // so OrderReadinessChip can't see a voided invoice as still
+            // attached to its order.
+            supabase.from("invoices").select("id, order_id, invoice_number, total_amount, sent_at, paid_at, status, balance_due, created_at, invoice_date, due_date").in("order_id", orderIds).is("deleted_at", null),
             supabase.from("email_automation_log").select("order_id, template_type, status, sent_at, created_at").in("order_id", orderIds),
             (supabase as any)
               .from("kitchen_shifts")

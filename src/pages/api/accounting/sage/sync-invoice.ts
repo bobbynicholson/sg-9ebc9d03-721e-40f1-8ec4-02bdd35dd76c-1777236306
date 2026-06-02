@@ -157,8 +157,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Pull client + lines + integration metadata (ledger + tax ids).
     const [clientRes, linesRes, integrationRes] = await Promise.all([
+      // TIGHTEN I.81: drop soft-deleted clients so Sage doesn't get a
+      // stale client_name on an invoice whose client row was deleted.
       invoice.client_id
-        ? admin.from("clients").select("id, client_name, email").eq("id", invoice.client_id).maybeSingle()
+        ? admin.from("clients").select("id, client_name, email").eq("id", invoice.client_id).is("deleted_at", null).maybeSingle()
         : Promise.resolve({ data: null }),
       admin.from("invoice_line_items")
         .select("description, quantity, unit_price, line_total")

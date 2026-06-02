@@ -114,11 +114,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const clientIds = list.map((i) => i.client_id).filter(Boolean);
     const orderIds = list.map((i) => i.order_id).filter(Boolean);
     const [clientsRes, ordersRes] = await Promise.all([
+      // TIGHTEN I.81: filter soft-deleted client / order rows. Both
+      // tables have deleted_at; without the guard a bulk reminder
+      // could resolve to a stale client_name from a deleted row.
       clientIds.length > 0
-        ? ssr.from("clients").select("id, email, client_name").in("id", clientIds)
+        ? ssr.from("clients").select("id, email, client_name").in("id", clientIds).is("deleted_at", null)
         : Promise.resolve({ data: [] as any[] }),
       orderIds.length > 0
-        ? ssr.from("orders").select("id, client_email, client_name").in("id", orderIds)
+        ? ssr.from("orders").select("id, client_email, client_name").in("id", orderIds).is("deleted_at", null)
         : Promise.resolve({ data: [] as any[] }),
     ]);
     const clientById = new Map<string, any>();
