@@ -96,6 +96,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(200).json({ ok: true, converted: false });
   }
 
+  // TIGHTEN I.115: resolve the tenant slug so the bridge URL is
+  // /{slug}/c/order/{id}?t=... - routes through the tenant rewrite
+  // chain like every other customer-facing URL.
+  const { data: companyRow } = await sb
+    .from("companies")
+    .select("slug")
+    .eq("id", (orderRow as any).company_id)
+    .maybeSingle();
+  const slug = (companyRow as any)?.slug
+    ? String((companyRow as any).slug).trim()
+    : null;
+
   // 3) Mint a client_access_token for the order. Uses the same RPC as
   //    the admin "preview as client" button so TTL + storage shape
   //    match.
@@ -113,10 +125,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(500).json({ ok: false, error: "Token mint failed" });
   }
 
+  const slugSeg = slug ? `/${slug.replace(/^\/+|\/+$/g, "")}` : "";
   return res.status(200).json({
     ok: true,
     converted: true,
     orderId,
-    url: `/c/order/${orderId}?t=${raw}`,
+    url: `${slugSeg}/c/order/${orderId}?t=${raw}`,
   });
 }

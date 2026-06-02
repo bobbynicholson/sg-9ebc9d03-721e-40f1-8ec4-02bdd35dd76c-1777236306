@@ -106,6 +106,26 @@ const nextConfig = {
         source: "/:company_slug/subscription/:path*",
         destination: "/subscription/:path*?company_slug=:company_slug",
       },
+      // ── Customer public surfaces (TIGHTEN I.115, 2026-06-02) ──
+      // The bare /q/{token}, /c/order/{id}, and /pay/i/{token} paths
+      // hit the apex domain which doesn't serve the app cleanly in
+      // production. Mirror the admin/team-portal/client-portal pattern
+      // so the email link can read like cateringms.com/spit-braai-
+      // delivery/q/{token} - same destination page, but the URL
+      // surfaces the tenant brand and goes through the same
+      // slug-aware routing every other surface uses.
+      {
+        source: "/:company_slug/q/:token",
+        destination: "/q/:token?company_slug=:company_slug",
+      },
+      {
+        source: "/:company_slug/c/order/:path*",
+        destination: "/c/order/:path*?company_slug=:company_slug",
+      },
+      {
+        source: "/:company_slug/pay/i/:token",
+        destination: "/pay/i/:token?company_slug=:company_slug",
+      },
     ];
   },
 
