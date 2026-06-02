@@ -833,32 +833,149 @@ async function syncPaymentToQuickBooks(
 // UTILITY FUNCTIONS
 // ============================================
 
+// ─────────────────────────────────────────────────────────────────
+// TIGHTEN I.105 (2026-06-02): proper AES-256-GCM token encryption.
+//
+// Previously encryptTokens / decryptTokens only base64-encoded the
+// OAuth tokens, not encrypted them. The comment said "DO NOT use in
+// production as-is" but the function WAS in production. Anyone with
+// DB read access could decode the Xero / QuickBooks refresh tokens
+// and call those integrations on behalf of every tenant.
+//
+// Format on disk: a single text column stores
+//   v1:<iv-base64url>.<auth-tag-base64url>.<ciphertext-base64url>
+// The "v1:" prefix is the version sentinel - lets us swap the algo
+// later (eg. key rotation) without breaking older rows. Tokens
+// written by the legacy code (raw base64) are detected on decrypt
+// and transparently re-encrypted on next write.
+//
+// ENCRYPTION_KEY contract: 32 bytes, hex-encoded (64 chars), OR
+// base64-encoded (44 chars including padding). Anything shorter throws
+// in production. In dev/preview a placeholder key is permitted with a
+// loud warning so local development works without setup.
+// ─────────────────────────────────────────────────────────────────
+
+const ENCRYPTION_VERSION = "v1";
+const ENCRYPTION_ALGO = "aes-256-gcm" as const;
+
+function loadEncryptionKey(): Buffer | null {
+  const raw = process.env.ENCRYPTION_KEY;
+  if (!raw) return null;
+  // Hex (64 chars) → 32 bytes.
+  if (/^[0-9a-fA-F]{64}$/.test(raw)) {
+    return Buffer.from(raw, "hex");
+  }
+  // Base64 → must decode to exactly 32 bytes.
+  try {
+    const buf = Buffer.from(raw, "base64");
+    if (buf.length === 32) return buf;
+  } catch { /* fall through */ }
+  return null;
+}
+
+const _resolvedKey = loadEncryptionKey();
+if (!_resolvedKey) {
+  if (process.env.NODE_ENV === "production") {
+    // Hard fail: in production we refuse to silently fall back to
+    // weak base64 "encryption" or a placeholder key. The deploy
+    // operator must set ENCRYPTION_KEY (32 bytes hex or base64).
+    throw new Error(
+      "[accountingIntegrationService] ENCRYPTION_KEY env var is missing or malformed " +
+        "in production. Set a 32-byte hex (64 chars) or base64 (44 chars) key before boot.",
+    );
+  } else {
+    console.warn(
+      "[accountingIntegrationService] ENCRYPTION_KEY env var is missing or malformed. " +
+        "Dev / preview fallback active - tokens encrypt with a derived placeholder key. " +
+        "Do NOT use this build in production.",
+    );
+  }
+}
+// Derive a deterministic placeholder for dev/preview when no key is
+// set. Real prod boot fails above before this runs.
+const ENCRYPTION_KEY: Buffer =
+  _resolvedKey || crypto.createHash("sha256").update("cateringms-dev-placeholder").digest();
+
+function isLegacyToken(value: string): boolean {
+  // Anything that isn't versioned is treated as legacy raw base64.
+  // The legacy code wrote pure Buffer.toString("base64").
+  return !value.startsWith(`${ENCRYPTION_VERSION}:`);
+}
+
+function encryptOne(plaintext: string): string {
+  const iv = crypto.randomBytes(12); // 96-bit IV per NIST recommendation
+  const cipher = crypto.createCipheriv(ENCRYPTION_ALGO, ENCRYPTION_KEY, iv);
+  const ct = Buffer.concat([cipher.update(plaintext, "utf8"), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  // base64url avoids "+" / "/" / "=" which can collide with our "."
+  // delimiter and play nice in URL contexts if ever logged.
+  return [
+    ENCRYPTION_VERSION,
+    [iv.toString("base64url"), tag.toString("base64url"), ct.toString("base64url")].join("."),
+  ].join(":");
+}
+
+function decryptOne(stored: string): string {
+  if (isLegacyToken(stored)) {
+    // Legacy raw-base64 token written by the old placeholder code.
+    // Returning the decoded plaintext lets the caller continue
+    // operating; the next storeOAuthTokens() will re-encrypt under v1.
+    return Buffer.from(stored, "base64").toString("utf-8");
+  }
+  const [, payload] = stored.split(":", 2);
+  const parts = payload.split(".");
+  if (parts.length !== 3) {
+    throw new Error("Malformed encrypted token (expected v1:iv.tag.ct)");
+  }
+  const [ivB64, tagB64, ctB64] = parts;
+  const iv = Buffer.from(ivB64, "base64url");
+  const tag = Buffer.from(tagB64, "base64url");
+  const ct = Buffer.from(ctB64, "base64url");
+  const decipher = crypto.createDecipheriv(ENCRYPTION_ALGO, ENCRYPTION_KEY, iv);
+  decipher.setAuthTag(tag);
+  const pt = Buffer.concat([decipher.update(ct), decipher.final()]);
+  return pt.toString("utf-8");
+}
+
 /**
- * Simple encryption for tokens (use proper encryption in production)
+ * Encrypt the access + refresh tokens for at-rest storage.
+ * Returns a new OAuthTokens object with the tokens replaced by their
+ * v1:iv.tag.ct ciphertext blobs. Non-secret fields pass through.
  */
 function encryptTokens(tokens: OAuthTokens): OAuthTokens {
-  // TODO: Implement proper encryption using a secure key
-  // For now, this is a placeholder - DO NOT use in production as-is
-  const key = process.env.ENCRYPTION_KEY || "change-this-key-in-production";
-  
   return {
     ...tokens,
-    access_token: Buffer.from(tokens.access_token).toString("base64"),
-    refresh_token: Buffer.from(tokens.refresh_token).toString("base64"),
+    access_token: encryptOne(tokens.access_token),
+    refresh_token: encryptOne(tokens.refresh_token),
   };
 }
 
 /**
- * Decrypt tokens
+ * Decrypt the access + refresh tokens for use. Transparently handles
+ * legacy raw-base64 rows written by the previous placeholder code -
+ * callers don't need to care about migration; the next time
+ * storeOAuthTokens() runs for the row it'll be upgraded to v1.
  */
 function decryptTokens(tokens: OAuthTokens): OAuthTokens {
-  // TODO: Implement proper decryption
   return {
     ...tokens,
-    access_token: Buffer.from(tokens.access_token, "base64").toString("utf-8"),
-    refresh_token: Buffer.from(tokens.refresh_token, "base64").toString("utf-8"),
+    access_token: decryptOne(tokens.access_token),
+    refresh_token: decryptOne(tokens.refresh_token),
   };
 }
+
+/**
+ * Test-only exports of the encryption internals. Used by
+ * src/__tests__/services/accountingIntegrationService.encryption.test.ts
+ * to lock in round-trip + legacy-handling behaviour. Not part of the
+ * public surface; nothing else imports __testEncryption.
+ */
+export const __testEncryption = {
+  encryptOne,
+  decryptOne,
+  isLegacyToken,
+  ENCRYPTION_VERSION,
+};
 
 /**
  * Disconnect accounting integration
