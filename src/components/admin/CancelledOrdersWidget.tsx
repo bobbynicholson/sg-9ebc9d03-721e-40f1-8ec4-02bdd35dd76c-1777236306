@@ -56,10 +56,15 @@ export function CancelledOrdersWidget({ companyId }: { companyId: string | null 
     (async () => {
       try {
         const since = daysAgoIso(30);
+        // TIGHTEN I.79: add the missing deleted_at guard. Soft-deleted
+        // cancellations were inflating the "lost revenue" total and the
+        // row list. Other widgets that query orders already filter; this
+        // one was the outlier.
         const { data, error } = await (supabase as any)
           .from("orders")
           .select("id, order_number, client_name, total_amount, cancelled_at, cancellation_reason")
           .eq("company_id", companyId)
+          .is("deleted_at", null)
           .eq("status", "cancelled")
           .gte("cancelled_at", since)
           .order("cancelled_at", { ascending: false })

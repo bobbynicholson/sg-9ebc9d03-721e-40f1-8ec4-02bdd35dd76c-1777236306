@@ -18,6 +18,7 @@ import { CheckCircle2, XCircle, CalendarX, Calendar, Receipt } from "lucide-reac
 // requests list so operators see hire-in / outsource notifications
 // they still need to action without leaving the cancellation tab.
 import { OrderManualFollowupsPanel } from "@/components/admin/OrderManualFollowupsPanel";
+import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 
 interface CancellationRequest {
   id: string;
@@ -38,13 +39,19 @@ interface CancellationRequest {
 
 interface Props {
   orderId: string;
+  /** Tenant company_id - drives the currency formatter. TIGHTEN I.79:
+   *  was previously absent; the module hardcoded ZAR which read wrong
+   *  for USD / GBP / EUR tenants on refund amounts in this tab. */
+  companyId?: string | null;
   onActioned?: () => void;
 }
 
-const fmt = new Intl.NumberFormat("en-ZA", { style: "currency", currency: "ZAR" });
-
-export function CancellationRequestsTab({ orderId, onActioned }: Props) {
+export function CancellationRequestsTab({ orderId, companyId = null, onActioned }: Props) {
   const { toast } = useToast();
+  // TIGHTEN I.79 (2026-06-02): tenant-aware currency. Falls back to ZAR
+  // when companyId is missing (legacy callers / tests).
+  const tenantCurrency = useTenantCurrency(companyId);
+  const fmt = (n: number): string => tenantCurrency.format(n, 2);
   const [rows, setRows] = useState<CancellationRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -90,7 +97,7 @@ export function CancellationRequestsTab({ orderId, onActioned }: Props) {
           title: approve
             ? (req.request_type === "postpone" ? "Postponement approved" : "Cancellation approved")
             : "Request rejected",
-          description: j.refund_amount > 0 ? `Refund of ${fmt.format(j.refund_amount)} pending. Mark paid on /admin/refunds.` : undefined,
+          description: j.refund_amount > 0 ? `Refund of ${fmt(j.refund_amount)} pending. Mark paid on /admin/refunds.` : undefined,
         });
         await load();
         onActioned?.();
@@ -154,9 +161,9 @@ export function CancellationRequestsTab({ orderId, onActioned }: Props) {
                 {req.refund_amount_calculated !== null ? (
                   <div className="text-xs text-slate-700 mt-1 flex items-center gap-1">
                     <Receipt className="w-3 h-3" />
-                    Policy refund: <strong>{fmt.format(Number(req.refund_amount_calculated))}</strong>
+                    Policy refund: <strong>{fmt(Number(req.refund_amount_calculated))}</strong>
                     {req.refund_amount_approved !== null && Number(req.refund_amount_approved) !== Number(req.refund_amount_calculated) ? (
-                      <span className="ml-2 text-emerald-700">Approved: {fmt.format(Number(req.refund_amount_approved))}</span>
+                      <span className="ml-2 text-emerald-700">Approved: {fmt(Number(req.refund_amount_approved))}</span>
                     ) : null}
                   </div>
                 ) : null}
@@ -175,7 +182,7 @@ export function CancellationRequestsTab({ orderId, onActioned }: Props) {
                       type="number"
                       min={0}
                       step={0.01}
-                      placeholder={`Default: ${fmt.format(Number(req.refund_amount_calculated || 0))}`}
+                      placeholder={`Default: ${fmt(Number(req.refund_amount_calculated || 0))}`}
                       value={refundOverride[req.id] ?? ""}
                       onChange={(e) => setRefundOverride({ ...refundOverride, [req.id]: e.target.value })}
                     />
