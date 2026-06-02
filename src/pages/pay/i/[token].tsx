@@ -80,6 +80,11 @@ function companyInitials(name: string | null | undefined): string {
 export default function InvoicePaymentPage() {
   const router = useRouter();
   const token = typeof router.query.token === "string" ? router.query.token : null;
+  // TIGHTEN I.113: auto-fire the print dialog when opened with ?print=1.
+  // /c/order/{id}'s "Download invoice" button uses this so the client
+  // gets a printable invoice in one click. Matches the same pattern
+  // /q/{token} already uses for quote downloads.
+  const autoPrint = router.query.print === "1";
 
   const [invoice, setInvoice] = useState<InvoiceView | null>(null);
   const [loading, setLoading] = useState(true);
@@ -113,6 +118,16 @@ export default function InvoicePaymentPage() {
     apply("secondary", invoice.companies.secondary_color);
     apply("accent",    invoice.companies.accent_color);
   }, [invoice?.companies]);
+
+  // TIGHTEN I.113: auto-print dispatch. Waits for the invoice render
+  // so the print preview captures the full document.
+  useEffect(() => {
+    if (!autoPrint || !invoice || loading) return;
+    const t = setTimeout(() => {
+      try { window.print(); } catch { /* ignore */ }
+    }, 500);
+    return () => clearTimeout(t);
+  }, [autoPrint, invoice, loading]);
 
   useEffect(() => {
     if (!token) return;

@@ -245,7 +245,10 @@ export default function ClientOrderPage() {
   return (
     <>
       <NoIndexMeta />
-      <Head><title>{`${order.event_name || "Your booking"} - ${company.company_name}`}</title></Head>
+      {/* TIGHTEN I.113: page header reads "Your order" not "Your
+          booking" - matches Bobby's "client portal should label this
+          as Order once a quote is converted" requirement. */}
+      <Head><title>{`${order.event_name || "Your order"} - ${company.company_name}`}</title></Head>
 
       <div
         className="min-h-screen"
@@ -268,7 +271,7 @@ export default function ClientOrderPage() {
               </div>
             )}
             <div className="flex-1 min-w-0">
-              <p className="text-xs uppercase tracking-wide text-white/70">Booking with</p>
+              <p className="text-xs uppercase tracking-wide text-white/70">Your order with</p>
               <h1 className="text-xl sm:text-2xl font-bold truncate">{company.company_name}</h1>
             </div>
             <div className="hidden sm:flex items-center gap-2 text-xs text-white/80">
@@ -548,6 +551,23 @@ export default function ClientOrderPage() {
                   >
                     <Receipt className="w-4 h-4" />
                     Pay {fmtMoney.format(Number(invoice.balance_due))} now
+                  </a>
+                )}
+                {/* TIGHTEN I.113: Download invoice PDF button. Available
+                    whenever an invoice exists (paid OR unpaid) so the
+                    client can keep a copy for their records. Opens the
+                    pay page with ?print=1 which auto-fires the browser
+                    print dialog (set up in /pay/i/[token] as part of
+                    this same PR). */}
+                {invoice && (
+                  <a
+                    href={`/pay/i/${invoice.public_token}?print=1`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-2 inline-flex items-center justify-center gap-2 w-full px-4 py-2 rounded-lg text-xs font-medium text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 transition-colors"
+                  >
+                    <Receipt className="w-3.5 h-3.5" />
+                    Download invoice {invoice.invoice_number || ""}
                   </a>
                 )}
                 {invoice && Number(invoice.balance_due) > 0 && (
