@@ -43,9 +43,9 @@ const STATUS_VOCAB = {
     "assigned", "accepted", "en_route", "picked_up", "at_venue",
     "delivered", "completed", "cancelled", "rejected",
   ],
-  order_amendment_requests: [
-    "pending", "approved", "rejected", "auto_rejected_late", "cancelled_by_client",
-  ],
+  // TIGHTEN I.73: pruned dead values (auto_rejected_late,
+  // cancelled_by_client, superseded). DB CHECK now refuses them.
+  order_amendment_requests: ["pending", "approved", "rejected"],
   subscriptions: ["trial", "active", "past_due", "cancelled", "suspended"],
   kitchen_shifts: ["scheduled", "active", "completed", "missed", "cancelled"],
   outsource_assignments: [

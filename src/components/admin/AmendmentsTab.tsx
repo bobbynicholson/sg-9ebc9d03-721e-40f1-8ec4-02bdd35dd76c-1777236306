@@ -41,7 +41,10 @@ interface AmendmentRequest {
   requested_at: string;
   proposed_changes: Record<string, any>;
   client_notes: string | null;
-  status: "pending" | "approved" | "rejected" | "auto_rejected_late" | "cancelled_by_client";
+  // TIGHTEN I.73: status enum pruned to the live set; dead values
+  // (auto_rejected_late, cancelled_by_client, superseded) had no writers
+  // and the DB CHECK now refuses them.
+  status: "pending" | "approved" | "rejected";
   reviewed_at: string | null;
   review_notes: string | null;
   applied_snapshot?: {
@@ -249,11 +252,9 @@ function RequestCard({
     : "";
   const fields = Object.keys(request.proposed_changes || {});
   const statusBadge: Record<string, { label: string; tone: string; icon: any }> = {
-    pending:               { label: "Pending",  tone: "bg-amber-100 text-amber-800 border-amber-200",   icon: Clock },
-    approved:              { label: "Approved", tone: "bg-emerald-100 text-emerald-800 border-emerald-200", icon: CheckCircle2 },
-    rejected:              { label: "Rejected", tone: "bg-rose-100 text-rose-700 border-rose-200",       icon: XCircle },
-    auto_rejected_late:    { label: "Auto-rejected (late)", tone: "bg-slate-100 text-slate-700 border-slate-200", icon: XCircle },
-    cancelled_by_client:   { label: "Cancelled", tone: "bg-slate-100 text-slate-700 border-slate-200",   icon: XCircle },
+    pending:  { label: "Pending",  tone: "bg-amber-100 text-amber-800 border-amber-200",    icon: Clock },
+    approved: { label: "Approved", tone: "bg-emerald-100 text-emerald-800 border-emerald-200", icon: CheckCircle2 },
+    rejected: { label: "Rejected", tone: "bg-rose-100 text-rose-700 border-rose-200",       icon: XCircle },
   };
   const sb = statusBadge[request.status] || statusBadge.pending;
   const SbIcon = sb.icon;
