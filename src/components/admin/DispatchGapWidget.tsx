@@ -20,6 +20,7 @@ import { Truck, ArrowRight, AlertCircle } from "lucide-react";
 import { toLocalISO } from "@/lib/localDate";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { useReportWidgetError } from "@/components/dashboard/WidgetErrorBoundary";
+import { PRE_DISPATCH_STATUSES } from "@/lib/orderRevenueClassification";
 
 interface OrderRow {
   id: string;
@@ -54,7 +55,7 @@ export function DispatchGapWidget({ companyId }: { companyId: string | null }) {
           .eq("company_id", companyId)
           .is("deleted_at", null)
           .is("assigned_driver_id", null)
-          .in("status", ["confirmed", "preparing", "ready"])
+          .in("status", PRE_DISPATCH_STATUSES as unknown as string[])
           .gte("event_date", today)
           .lte("event_date", horizonIso)
           .order("event_date", { ascending: true })

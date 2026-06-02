@@ -27,6 +27,7 @@ import { Truck, ChefHat, Users, Calendar, DollarSign } from "lucide-react";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { toLocalISO } from "@/lib/localDate";
 import { shiftService } from "@/services/shiftService";
+import { ALL_ACTIVE_AND_REALISED_STATUSES } from "@/lib/orderRevenueClassification";
 
 interface PulseStats {
   todayEvents: number;
@@ -52,13 +53,17 @@ export function TodaysPulse({ companyId }: { companyId: string | null }) {
       const today = toLocalISO(new Date());
       try {
         const [todayCount, inTransitCount, prepCount, paymentsToday, activeDrivers] = await Promise.all([
-          // Today's confirmed events
+          // Today's confirmed events. TIGHTEN I.77: use canonical
+          // ALL_ACTIVE_AND_REALISED_STATUSES. Previously this missed
+          // "completed", so events wrapped up by 14:00 dropped off the
+          // strip silently and the dispatch lead saw "0 events" for
+          // the rest of the afternoon.
           (supabase as any)
             .from("orders")
             .select("id", { count: "exact", head: true })
             .eq("company_id", companyId)
             .eq("event_date", today)
-            .in("status", ["confirmed", "preparing", "ready", "in_transit", "delivered"])
+            .in("status", ALL_ACTIVE_AND_REALISED_STATUSES as unknown as string[])
             .is("deleted_at", null),
           // In transit right now
           (supabase as any)

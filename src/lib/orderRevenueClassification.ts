@@ -134,3 +134,39 @@ export function isCountableOrder(order: OrderForRevenue): boolean {
   const s = classifyOrderRevenue(order);
   return s !== "churned" && s !== "excluded";
 }
+
+/**
+ * TIGHTEN I.77 (2026-06-02): canonical operational status sets.
+ *
+ * Widgets that ask "what's happening operationally?" (not "what's
+ * counted as revenue?") inlined three different status arrays that
+ * disagreed with each other:
+ *   - TodaysPulse.todayEvents missed "completed", so an event wrapped
+ *     by 14:00 dropped off the strip silently
+ *   - WeeklyOrdersChart used the full 6-status set
+ *   - DispatchGapWidget + TomorrowsEventsWidget used the 3-status
+ *     pre-dispatch subset (driver not yet rolling)
+ *
+ * These named constants replace the ad-hoc inline arrays.
+ */
+
+/** Orders currently in the active operational flow - kitchen,
+ *  prep, dispatch, on the road. Pending is excluded (not booked
+ *  yet); delivered + completed are excluded (operationally done). */
+export const ACTIVE_OPERATIONAL_STATUSES = [
+  "confirmed", "preparing", "ready", "in_transit",
+] as const;
+
+/** Orders still upstream of dispatch - need driver coordination,
+ *  kitchen plan, etc. but the truck hasn't rolled yet. */
+export const PRE_DISPATCH_STATUSES = [
+  "confirmed", "preparing", "ready",
+] as const;
+
+/** Every status that should appear in "all activity today / this
+ *  week" widgets. Active operational set + the realised terminal
+ *  states. The 6-status superset for charts that need the full
+ *  fulfilment story. */
+export const ALL_ACTIVE_AND_REALISED_STATUSES = [
+  ...ACTIVE_OPERATIONAL_STATUSES, "delivered", "completed",
+] as const;

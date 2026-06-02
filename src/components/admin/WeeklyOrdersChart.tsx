@@ -16,6 +16,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { BarChart3 } from "lucide-react";
 import { toLocalISO } from "@/lib/localDate";
 import { useReportWidgetError } from "@/components/dashboard/WidgetErrorBoundary";
+import { ALL_ACTIVE_AND_REALISED_STATUSES } from "@/lib/orderRevenueClassification";
 
 interface OrderRow {
   event_date: string | null;
@@ -57,7 +58,7 @@ export function WeeklyOrdersChart({ companyId }: { companyId: string | null }) {
           .select("event_date")
           .eq("company_id", companyId)
           .is("deleted_at", null)
-          .in("status", ["confirmed", "preparing", "ready", "in_transit", "delivered", "completed"])
+          .in("status", ALL_ACTIVE_AND_REALISED_STATUSES as unknown as string[])
           .gte("event_date", startIso)
           .lte("event_date", endIso)
           .limit(2000);

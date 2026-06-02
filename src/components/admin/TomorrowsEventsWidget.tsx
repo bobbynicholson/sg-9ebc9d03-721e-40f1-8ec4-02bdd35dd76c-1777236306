@@ -34,6 +34,7 @@ import { toLocalISO } from "@/lib/localDate";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { useToast } from "@/hooks/use-toast";
 import { useReportWidgetError } from "@/components/dashboard/WidgetErrorBoundary";
+import { PRE_DISPATCH_STATUSES } from "@/lib/orderRevenueClassification";
 
 interface OrderRow {
   id: string;
@@ -77,7 +78,7 @@ export function TomorrowsEventsWidget({ companyId }: { companyId: string | null 
           `)
           .eq("company_id", companyId)
           .is("deleted_at", null)
-          .in("status", ["confirmed", "preparing", "ready"])
+          .in("status", PRE_DISPATCH_STATUSES as unknown as string[])
           .eq("event_date", tomorrowIso)
           .order("event_time", { ascending: true })
           .limit(8);
