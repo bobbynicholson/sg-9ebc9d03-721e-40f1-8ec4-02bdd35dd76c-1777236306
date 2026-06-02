@@ -259,10 +259,13 @@ export async function runAutoCancel(
   // committed-cost note, freed-slot line, and a deep link to the
   // order so admins read the consequence in one card.
   try {
+    // TIGHTEN I.87: add deleted_at guard so a soft-deleted order can't
+    // trigger a customer-facing cancellation email naming it.
     const { data: orderRow, error: orderRowErr } = await sb
       .from("orders")
       .select("order_number, client_name, event_date, currency")
       .eq("id", input.orderId)
+      .is("deleted_at", null)
       .maybeSingle();
     if (orderRowErr) console.error("[runAutoCancel] orders lookup for notification failed:", orderRowErr);
     const { fireRichCancellationNotification } = await import(
