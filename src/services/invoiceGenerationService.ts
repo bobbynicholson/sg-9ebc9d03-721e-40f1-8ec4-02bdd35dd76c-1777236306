@@ -801,7 +801,9 @@ async function notifyClientOfInvoiceIssued(
 
     const { data: company, error: companyErr } = await supabase
       .from("companies")
-      .select("company_name")
+      // TIGHTEN I.88: also fetch currency so the invoice notification's
+      // amount label uses the tenant's symbol. Was hardcoded "R" prefix.
+      .select("company_name, currency")
       .eq("id", companyId)
       .maybeSingle();
     if (companyErr) {
@@ -813,7 +815,20 @@ async function notifyClientOfInvoiceIssued(
       (order as any)?.event_name ||
       invoiceData.orderNumber ||
       "your event";
-    const amountLabel = `R ${Number(invoiceData.total || 0).toLocaleString("en-ZA", { minimumFractionDigits: 2 })}`;
+    // TIGHTEN I.88: tenant currency on the amount label. Fall back to
+    // ZAR formatting when company.currency isn't set.
+    const totalNum = Number(invoiceData.total || 0);
+    const currencyCode = ((company as any)?.currency as string) || "ZAR";
+    let amountLabel: string;
+    try {
+      amountLabel = new Intl.NumberFormat("en-ZA", {
+        style: "currency",
+        currency: currencyCode,
+        minimumFractionDigits: 2,
+      }).format(totalNum);
+    } catch {
+      amountLabel = `${currencyCode} ${totalNum.toLocaleString("en-ZA", { minimumFractionDigits: 2 })}`;
+    }
     const summary = `${tenantName} issued invoice ${invoiceData.invoiceNumber} for ${eventName}. Total: ${amountLabel}. Pay via the link or EFT.`;
     const portalLink = `/client-portal/billing?invoiceId=${invoiceId}`;
 
@@ -1454,7 +1469,25 @@ export async function sendInvoiceEmail(
     // Mirror the auto-issuance flow's template selection so manual
     // sends and auto sends look identical to the client.
     const templateType = isBalance ? "balance_invoice_issued" : "deposit_invoice_issued";
-    const amountLabel = `R${Number(invoiceData.balanceDue || invoiceData.total || 0).toFixed(2)}`;
+    // TIGHTEN I.88: tenant-currency amount on the customer-facing
+    // invoice email. Was hardcoded "R" prefix.
+    const amountValue = Number(invoiceData.balanceDue || invoiceData.total || 0);
+    const { data: companyCurrencyRow } = await supabase
+      .from("companies")
+      .select("currency")
+      .eq("id", options.companyId)
+      .maybeSingle();
+    const amountCurrency = ((companyCurrencyRow as any)?.currency as string) || "ZAR";
+    let amountLabel: string;
+    try {
+      amountLabel = new Intl.NumberFormat("en-ZA", {
+        style: "currency",
+        currency: amountCurrency,
+        minimumFractionDigits: 2,
+      }).format(amountValue);
+    } catch {
+      amountLabel = `${amountCurrency} ${amountValue.toFixed(2)}`;
+    }
     const eventLabel = (invoiceData as any).eventName || invoiceData.orderNumber || "your event";
 
     const fallbackBody =
