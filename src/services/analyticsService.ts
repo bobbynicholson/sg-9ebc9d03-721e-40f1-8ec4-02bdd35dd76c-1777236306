@@ -527,20 +527,40 @@ export const analyticsService = {
     }
   },
 
-  formatCurrency(amount: number, currency: string = "ZAR"): string {
-    return new Intl.NumberFormat("en-ZA", {
-      style: "currency",
-      currency: currency,
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
-    }).format(amount);
+  // TIGHTEN I.94 (2026-06-02): formatters now locale-aware. Previously
+  // the locale was hardcoded "en-ZA" while the currency was a
+  // parameter, so callers could ask for USD but still get South-
+  // African digit grouping. Default stays "en-ZA" / "ZAR" since the
+  // platform billing dashboard (only caller) reports SaaS revenue in
+  // ZAR (PayFast billing); tenant-revenue widgets should still pass
+  // through tenant-aware Intl directly.
+  formatCurrency(amount: number, currency: string = "ZAR", locale: string = "en-ZA"): string {
+    try {
+      return new Intl.NumberFormat(locale, {
+        style: "currency",
+        currency,
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0
+      }).format(amount);
+    } catch {
+      return new Intl.NumberFormat("en-ZA", {
+        style: "currency",
+        currency: "ZAR",
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0
+      }).format(amount);
+    }
   },
 
   formatPercentage(value: number): string {
     return `${value.toFixed(1)}%`;
   },
 
-  formatNumber(value: number): string {
-    return new Intl.NumberFormat("en-ZA").format(Math.round(value));
+  formatNumber(value: number, locale: string = "en-ZA"): string {
+    try {
+      return new Intl.NumberFormat(locale).format(Math.round(value));
+    } catch {
+      return new Intl.NumberFormat("en-ZA").format(Math.round(value));
+    }
   }
 };
