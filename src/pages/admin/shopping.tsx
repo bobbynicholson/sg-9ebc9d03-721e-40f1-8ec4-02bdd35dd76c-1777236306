@@ -52,6 +52,7 @@ import { composeEmail } from "@/lib/composeEmail";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { toLocalISO } from "@/lib/localDate";
 import { useTenantHref } from "@/lib/tenantUrl";
+import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { inventoryService } from "@/services/inventoryService";
 import { captureException } from "@/lib/observability";
 
@@ -131,7 +132,13 @@ interface SupplierHistory {
   lastOrderDate: string | null; // ISO date
 }
 
-const fmtMoney = new Intl.NumberFormat("en-ZA", { style: "currency", currency: "ZAR", maximumFractionDigits: 0 });
+// TIGHTEN I.90 (2026-06-02): fmtMoney moved into components. The
+// previous module-scope constant hardcoded ZAR for every tenant's
+// shopping page (PO totals, supplier YTD, item cost rows). The main
+// SmartShoppingPage now derives a tenant-aware fmtMoney from
+// useTenantCurrency and passes it through to the child ItemTable as
+// a prop so all 10 fmtMoney.format(x) call sites pick up the active
+// tenant's currency symbol.
 
 const STATUS_META: Record<string, { label: string; tone: string; rank: number }> = {
   shortfall:     { label: "Shortfall",     tone: "bg-red-100 text-red-700 border-red-200",       rank: 0 },
@@ -205,6 +212,11 @@ function SmartShoppingPage() {
   // Wave 27.3: tenant-slug wrapper for internal navigations.
   const { withSlug } = useTenantHref();
   const companyId = profile?.company_id || user?.company_id;
+  // TIGHTEN I.90: tenant-aware money formatter. Same .format(n) shape
+  // as the prior Intl.NumberFormat module constant so existing call
+  // sites work unchanged. Passed through to ItemTable as a prop below.
+  const tenantCurrency = useTenantCurrency(companyId ?? null);
+  const fmtMoney = { format: (n: number) => tenantCurrency.format(n, 0) };
   // SHOP-B: finance-vis gate. SHOPPING_STAFF needs unit cost per row
   // to know what to buy, but doesn't need the aggregate Estimated PO
   // total (that's planning-side finance). Hide the aggregate from
@@ -1524,6 +1536,7 @@ function SmartShoppingPage() {
                         rowBusy={rowBusy}
                         canSeeFinance={canSeeFinanceAggregate}
                         withSlug={withSlug}
+                        fmtMoney={fmtMoney}
                       />
                     )}
                   </CardContent>
@@ -1640,6 +1653,7 @@ function SmartShoppingPage() {
                               rowBusy={rowBusy}
                               canSeeFinance={canSeeFinanceAggregate}
                               withSlug={withSlug}
+                              fmtMoney={fmtMoney}
                             />
                           </div>
                         ))}
@@ -1660,6 +1674,7 @@ function SmartShoppingPage() {
                         rowBusy={rowBusy}
                         canSeeFinance={canSeeFinanceAggregate}
                         withSlug={withSlug}
+                        fmtMoney={fmtMoney}
                       />
                     )}
                   </CardContent>
@@ -1862,6 +1877,7 @@ function SmartShoppingPage() {
                                 rowBusy={rowBusy}
                                 canSeeFinance={canSeeFinanceAggregate}
                                 withSlug={withSlug}
+                                fmtMoney={fmtMoney}
                               />
                             </CardContent>
                           )}
@@ -2216,6 +2232,9 @@ function ItemTable({
   // call sites (Receipts tab etc.) just don't render the bits.
   supplierLinks, creep, suppliersById, onSnooze, onMarkOrdered, rowBusy,
   canSeeFinance, withSlug,
+  // TIGHTEN I.90: parent passes its tenant-currency formatter so item
+  // cost rows render with the active tenant's symbol.
+  fmtMoney,
 }: any) {
   return (
     <>
