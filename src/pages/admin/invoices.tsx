@@ -2400,7 +2400,10 @@ function InvoicesPageInner() {
           </DialogHeader>
           {selectedInvoice && (
             <div className="mt-4">
-              <InvoicePreview {...selectedInvoice} />
+              {/* TIGHTEN I.82: pass tenant currency so the customer-
+                  facing document shows the right symbol on non-ZAR
+                  tenants. */}
+              <InvoicePreview {...selectedInvoice} currencyCode={tenantMoney.code} />
               <div className="flex justify-end gap-2 mt-6 pt-6 border-t">
                 <Button variant="outline" onClick={() => setPreviewOpen(false)}>
                   Close

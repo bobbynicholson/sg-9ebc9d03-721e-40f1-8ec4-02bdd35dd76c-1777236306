@@ -62,13 +62,22 @@ interface InvoicePreviewProps {
     branchCode: string;
   };
   notes?: string;
+  /** TIGHTEN I.82: tenant currency code from companies.currency.
+   *  Defaults to ZAR for backward compat with any caller that hasn't
+   *  been updated. Customer-facing invoice document so this matters. */
+  currencyCode?: string;
 }
 
-const fmtMoney = new Intl.NumberFormat("en-ZA", {
-  style: "currency",
-  currency: "ZAR",
-  maximumFractionDigits: 2,
-});
+// TIGHTEN I.82: builder so we can vary the currency per-tenant. The
+// previous module-scope constant baked ZAR into every rendered
+// invoice; non-ZA tenants saw the wrong symbol on the document they
+// actually send their customers.
+const buildFmtMoney = (code: string) =>
+  new Intl.NumberFormat("en-ZA", {
+    style: "currency",
+    currency: code || "ZAR",
+    maximumFractionDigits: 2,
+  });
 
 function safeDate(raw: string | null | undefined, fallback = "TBD"): string {
   if (!raw) return fallback;
@@ -91,6 +100,7 @@ export function InvoicePreview(props: InvoicePreviewProps) {
   const docTitle = props.companyVatRegistered ? "Tax Invoice" : "Invoice";
   const isPaid = props.balanceDue <= 0;
   const today = format(new Date(), "d MMMM yyyy");
+  const fmtMoney = buildFmtMoney(props.currencyCode || "ZAR");
 
   return (
     <div className="bg-stone-50 rounded-lg p-4 sm:p-6 max-w-3xl mx-auto">
