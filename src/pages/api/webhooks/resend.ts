@@ -102,9 +102,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(413).json({ ok: false, error: "Body too large" });
   }
 
-  // Signature verification when secret is configured.
+  // Signature verification.
+  // TIGHTEN I.102 (2026-06-02): in production, the secret is mandatory.
+  // Previously the "no secret = dev convenience" branch accepted any
+  // POST in every environment, so an attacker who knew the route URL
+  // could forge bounce / complaint events and mark good addresses as
+  // bounced. Now: prod-no-secret = 500 (config error), other-no-secret
+  // = warn + accept (dev / preview).
   const secret = process.env.RESEND_WEBHOOK_SECRET;
-  if (secret) {
+  if (!secret) {
+    if (process.env.NODE_ENV === "production") {
+      console.error("[webhooks/resend] RESEND_WEBHOOK_SECRET not set in production");
+      return res.status(500).json({ ok: false, error: "Server config error" });
+    }
+    console.warn(
+      "[webhooks/resend] RESEND_WEBHOOK_SECRET not set - accepting webhook " +
+        "without signature verification. Dev / preview only."
+    );
+  } else {
     const id = String(req.headers["svix-id"] || "");
     const ts = String(req.headers["svix-timestamp"] || "");
     const sig = String(req.headers["svix-signature"] || "");
@@ -123,11 +138,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (!verifySignature(rawBody, id, ts, sig, secret)) {
       return res.status(401).json({ ok: false, error: "Invalid signature" });
     }
-  } else {
-    console.warn(
-      "[webhooks/resend] RESEND_WEBHOOK_SECRET not set - accepting webhook " +
-        "without signature verification. Set this env var in production."
-    );
   }
 
   let event: any;
