@@ -73,7 +73,11 @@ export function EmailFailuresTab() {
   const [filter, setFilter] = useState<"all" | FailureRow["status"]>("all");
   const [busyId, setBusyId] = useState<string | null>(null);
 
-  const load = async () => {
+  // TIGHTEN I.85 (2026-06-02): cancellation guard. Fast filter toggles
+  // (failed -> blocked -> failed) could paint stale rows when the
+  // first request resolved after the second. signal closure ensures
+  // only the newest in-flight load() touches state.
+  const load = async (signal: { cancelled: boolean }) => {
     setLoading(true);
     try {
       const url = filter === "all"
@@ -81,17 +85,24 @@ export function EmailFailuresTab() {
         : `/api/admin/email-failures?status=${filter}&limit=200`;
       const resp = await fetch(url);
       const j = await resp.json().catch(() => ({}));
+      if (signal.cancelled) return;
       if (!resp.ok) throw new Error(j?.error || "Could not load failures");
       setRows(j.rows || []);
       setCounts(j.counts || { failed: 0, blocked: 0, quarantined: 0, simulated: 0 });
     } catch (e: any) {
+      if (signal.cancelled) return;
       toast({ title: "Couldn't load failures", description: e?.message || "", variant: "destructive" });
     } finally {
-      setLoading(false);
+      if (!signal.cancelled) setLoading(false);
     }
   };
 
-  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [filter]);
+  useEffect(() => {
+    const signal = { cancelled: false };
+    void load(signal);
+    return () => { signal.cancelled = true; };
+    /* eslint-disable-next-line react-hooks/exhaustive-deps */
+  }, [filter]);
 
   const resend = async (id: string) => {
     setBusyId(id);
@@ -107,7 +118,7 @@ export function EmailFailuresTab() {
         title: j.ok ? "Resent" : "Resend attempted",
         description: j.ok ? "The email re-fired through the configured provider." : "Provider returned not-ok; check the row again in a minute.",
       });
-      load();
+      load({ cancelled: false });
     } catch (e: any) {
       toast({ title: "Couldn't resend", description: e?.message || "", variant: "destructive" });
     } finally {
@@ -126,7 +137,7 @@ export function EmailFailuresTab() {
         <FilterChip label="Quarantined" count={counts.quarantined} active={filter === "quarantined"} onClick={() => setFilter("quarantined")} tone="amber" />
         <FilterChip label="Simulated" count={counts.simulated} active={filter === "simulated"} onClick={() => setFilter("simulated")} tone="blue" />
         <div className="ml-auto">
-          <Button variant="outline" size="sm" onClick={load}>
+          <Button variant="outline" size="sm" onClick={() => load({ cancelled: false })}>
             <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
             Reload
           </Button>
