@@ -28,6 +28,7 @@ import { AdminNav } from "@/components/admin/AdminNav";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { useAuth } from "@/contexts/AuthContext";
+import { useOrderRefreshSignal } from "@/hooks/useOrderRefreshSignal";
 import { supabase } from "@/integrations/supabase/client";
 import { CalendarClock, ChevronLeft, ChevronRight, Plus, Loader2, Download, RefreshCw, AlertTriangle, Users, ExternalLink, LayoutGrid, Calendar as CalendarIcon } from "lucide-react";
 import Link from "next/link";
@@ -131,6 +132,8 @@ function KitchenScheduleGrid() {
   const router = useRouter();
   const { withSlug } = useTenantHref();
   const companyId = user?.company_id;
+  // TIGHTEN I.119 (2026-06-02): refetch when an order edit lands in any tab.
+  const refreshSignal = useOrderRefreshSignal(companyId);
   const [weekStart, setWeekStart] = useState<Date>(startOfWeek(new Date()));
 
   // Wave 66.6 - honour ?date=YYYY-MM-DD URL param. The Wave 66.4
@@ -265,7 +268,7 @@ function KitchenScheduleGrid() {
   useEffect(() => {
     void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [companyId, weekStart, monthCursor, viewMode]);
+  }, [companyId, weekStart, monthCursor, viewMode, refreshSignal]);
 
   const shiftIndex = useMemo(() => {
     const map: Record<string, ShiftRow[]> = {};

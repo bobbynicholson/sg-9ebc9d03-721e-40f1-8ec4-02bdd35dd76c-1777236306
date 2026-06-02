@@ -21,6 +21,7 @@ import {
   FileText, Wallet, Receipt, ChevronRight,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useOrderRefreshSignal } from "@/hooks/useOrderRefreshSignal";
 import { useRegionFilter } from "@/contexts/RegionFilterContext";
 import { supabase } from "@/integrations/supabase/client";
 import { captureException } from "@/lib/observability";
@@ -91,6 +92,8 @@ export default function ProtectedCashflowDashboardPage() {
 
 function CashflowDashboardInner() {
   const { user } = useAuth();
+  // TIGHTEN I.119 (2026-06-02): refetch when an order edit lands in any tab.
+  const refreshSignal = useOrderRefreshSignal(user?.company_id);
   const { withSlug } = useTenantHref();
   // CASH-A: region scoping. Without this, a multi-branch tenant sees
   // the company-wide forecast even when the global region filter is
@@ -331,7 +334,7 @@ function CashflowDashboardInner() {
     if (user) {
       void load();
     }
-  }, [user, load]);
+  }, [user, load, refreshSignal]);
 
   // CASH-A: realtime channel scoped to the caller's company so the
   // forecast updates when orders / payments / fixed_costs / supplier_

@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { DriverPageShell } from "@/components/driver/DriverPageShell";
 import { useAuth } from "@/contexts/AuthContext";
+import { useOrderRefreshSignal } from "@/hooks/useOrderRefreshSignal";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useTenantHref } from "@/lib/tenantUrl";
@@ -68,6 +69,8 @@ export default function DriverCalendarPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const { withSlug } = useTenantHref();
+  // TIGHTEN I.119 (2026-06-02): refetch when an order edit lands in any tab.
+  const refreshSignal = useOrderRefreshSignal(user?.company_id ?? null);
   const [cursor, setCursor] = useState<Date>(() => {
     const t = new Date();
     return new Date(t.getFullYear(), t.getMonth(), 1);
@@ -139,7 +142,7 @@ export default function DriverCalendarPage() {
 
   useEffect(() => {
     void load();
-  }, [load]);
+  }, [load, refreshSignal]);
 
   // Group orders by event_date for fast per-day lookups in the grid.
   const ordersByDay = useMemo(() => {

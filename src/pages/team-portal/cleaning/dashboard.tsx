@@ -28,6 +28,7 @@ import { unitsInActiveCleaning } from "@/services/cleaningJobsService";
 import { CleaningNav } from "@/components/navigation/CleaningNav";
 import Head from "next/head";
 import { useAuth } from "@/contexts/AuthContext";
+import { useOrderRefreshSignal } from "@/hooks/useOrderRefreshSignal";
 import { ChatBot } from "@/components/ChatBot";
 import { TeamWelcomeBanner } from "@/components/portal/TeamWelcomeBanner";
 import { UserRole } from "@/types/app";
@@ -47,6 +48,8 @@ interface EquipmentRow {
 function CleaningDashboardInner() {
   const { user } = useAuth();
   const router = useRouter();
+  // TIGHTEN I.119 (2026-06-02): refetch when an order edit lands in any tab.
+  const refreshSignal = useOrderRefreshSignal(user?.company_id ?? null);
   const [activeTab, setActiveTab] = useState("verification");
   const [equipment, setEquipment] = useState<EquipmentRow[]>([]);
   const [loadingEquipment, setLoadingEquipment] = useState(true);
@@ -219,7 +222,7 @@ function CleaningDashboardInner() {
   useEffect(() => {
     if (!user?.company_id) return;
     void loadEquipment();
-  }, [user?.company_id, loadEquipment]);
+  }, [user?.company_id, loadEquipment, refreshSignal]);
 
   // CLN2-E (CLN2-13): supabase realtime sub on cleaning_jobs +
   // equipment. The cleaning lead in the prep room updates a job;

@@ -45,6 +45,7 @@ import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { useAuth } from "@/contexts/AuthContext";
+import { useOrderRefreshSignal } from "@/hooks/useOrderRefreshSignal";
 import { UserRole } from "@/types/app";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -212,6 +213,8 @@ function SmartShoppingPage() {
   // Wave 27.3: tenant-slug wrapper for internal navigations.
   const { withSlug } = useTenantHref();
   const companyId = profile?.company_id || user?.company_id;
+  // TIGHTEN I.119 (2026-06-02): refetch when an order edit lands in any tab.
+  const refreshSignal = useOrderRefreshSignal(companyId);
   // TIGHTEN I.90: tenant-aware money formatter. Same .format(n) shape
   // as the prior Intl.NumberFormat module constant so existing call
   // sites work unchanged. Passed through to ItemTable as a prop below.
@@ -354,7 +357,7 @@ function SmartShoppingPage() {
       setLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [companyId]);
+  }, [companyId, refreshSignal]);
 
   // Earliest event_date per inventory item - drives buy-by date
   const earliestEvent: Record<string, string> = useMemo(() => {
