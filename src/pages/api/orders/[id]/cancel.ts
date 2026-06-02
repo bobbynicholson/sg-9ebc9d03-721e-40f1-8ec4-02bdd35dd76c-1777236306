@@ -51,6 +51,13 @@ const VALID_CATEGORIES = new Set([
   "kitchen_capacity",
   "weather",
   "force_majeure",
+  // TIGHTEN I.121 (2026-06-02): new reasons that capture "we initiated"
+  // and "test data we want gone" scenarios. Operator picks the one
+  // that matches; downstream reporting buckets them separately so the
+  // churn dashboard doesn't double-count test cancels as real losses.
+  "tenant_decision",   // catering company chose to cancel (dodgy client, double-booking, kitchen blowout)
+  "client_dispute",    // bad-faith client, fraud, chargeback risk
+  "test_data",         // operator was testing the tool, never real
   "other",
 ]);
 
@@ -92,6 +99,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       : null;
     const requested_by: "admin" | "client" =
       body.requested_by === "client" ? "client" : "admin";
+    // TIGHTEN I.121 (2026-06-02): allow the operator to suppress the
+    // client cancellation email. Defaults to true so existing callers
+    // (and every real cancellation) keep notifying the client. False
+    // is used for: test-data cleanups (client never saw the order),
+    // internal corrections (wrong client picked at create time), and
+    // any flow where the operator handles comms manually.
+    const notify_client: boolean = body.notify_client !== false;
 
     if (!VALID_CATEGORIES.has(reason_category)) {
       return res.status(400).json({ error: "Invalid reason_category" });
@@ -390,10 +404,30 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // when the client picked credit, otherwise keep the refund copy.
     // bypassQuarantine=true so a quarantined client still hears about
     // their cancelled order. blocked_contacts still blocks (deliberate).
-    if (payout_choice === "credit" && credit_final > 0) {
-      void sendCancellationEmail(orderId, 0, { creditAmount: credit_final });
+    //
+    // TIGHTEN I.121: when notify_client=false the operator owns
+    // communication. Audit row still captures the suppression so we
+    // can show "client not notified" on the audit timeline.
+    if (notify_client) {
+      if (payout_choice === "credit" && credit_final > 0) {
+        void sendCancellationEmail(orderId, 0, { creditAmount: credit_final });
+      } else {
+        void sendCancellationEmail(orderId, refund_final);
+      }
     } else {
-      void sendCancellationEmail(orderId, refund_final);
+      try {
+        await (ssr as any).from("audit_logs").insert({
+          company_id: (order as any).company_id,
+          order_id: orderId,
+          user_id: user.id,
+          action: "cancellation_email_suppressed",
+          entity_type: "orders",
+          entity_id: orderId,
+          metadata: { reason_category, requested_by },
+        });
+      } catch (e) {
+        console.warn("[orders/cancel] suppressed-email audit row failed:", e);
+      }
     }
 
     // Wave 28.6: rich admin notification. Single card with payout +
