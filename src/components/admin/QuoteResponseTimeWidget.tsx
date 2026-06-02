@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Eye, CheckCircle, ArrowRight } from "lucide-react";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { useReportWidgetError } from "@/components/dashboard/WidgetErrorBoundary";
+import { daysAgoIso } from "@/lib/dashboardWindows";
 
 interface Row {
   sent_at: string | null;
@@ -55,7 +56,7 @@ export function QuoteResponseTimeWidget({ companyId }: { companyId: string | nul
     let cancelled = false;
     (async () => {
       try {
-        const since = new Date(Date.now() - 90 * 86_400_000).toISOString();
+        const since = daysAgoIso(90);
         const { data, error } = await (supabase as any)
           .from("quotes")
           .select("sent_at, viewed_at, accepted_at")

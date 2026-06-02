@@ -27,6 +27,7 @@ import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { isBookedRevenue } from "@/lib/orderRevenueClassification";
 import { useReportWidgetError } from "@/components/dashboard/WidgetErrorBoundary";
+import { daysAgoDateOnly } from "@/lib/dashboardWindows";
 
 interface RegionLite {
   id: string;
@@ -64,7 +65,7 @@ export function RegionPerformanceWidget({ companyId }: { companyId: string | nul
     let cancelled = false;
     (async () => {
       try {
-        const sinceIso = new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10);
+        const sinceIso = daysAgoDateOnly(30);
         const [regionsRes, ordersRes] = await Promise.all([
           (supabase as any)
             .from("regions")

@@ -22,6 +22,7 @@ import { XCircle, ArrowRight } from "lucide-react";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { useReportWidgetError } from "@/components/dashboard/WidgetErrorBoundary";
+import { daysAgoIso, daysSince } from "@/lib/dashboardWindows";
 
 interface CancelRow {
   id: string;
@@ -33,8 +34,8 @@ interface CancelRow {
 }
 
 const fmtAge = (iso: string | null): string => {
+  const days = daysSince(iso);
   if (!iso) return "";
-  const days = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 86_400_000));
   if (days < 1) return "today";
   if (days === 1) return "1d ago";
   if (days < 30) return `${days}d ago`;
@@ -54,7 +55,7 @@ export function CancelledOrdersWidget({ companyId }: { companyId: string | null 
     let cancelled = false;
     (async () => {
       try {
-        const since = new Date(Date.now() - 30 * 86_400_000).toISOString();
+        const since = daysAgoIso(30);
         const { data, error } = await (supabase as any)
           .from("orders")
           .select("id, order_number, client_name, total_amount, cancelled_at, cancellation_reason")

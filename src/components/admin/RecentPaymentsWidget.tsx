@@ -19,6 +19,7 @@ import { Wallet, ArrowRight } from "lucide-react";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { useReportWidgetError } from "@/components/dashboard/WidgetErrorBoundary";
+import { daysAgoIso } from "@/lib/dashboardWindows";
 
 interface PaymentRow {
   id: string;
@@ -56,7 +57,7 @@ export function RecentPaymentsWidget({ companyId }: { companyId: string | null }
     let cancelled = false;
     (async () => {
       try {
-        const since = new Date(Date.now() - 7 * 86_400_000).toISOString();
+        const since = daysAgoIso(7);
         const { data, error } = await (supabase as any)
           .from("payments")
           .select(`

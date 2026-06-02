@@ -23,6 +23,7 @@ import { Receipt, ArrowRight } from "lucide-react";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { useReportWidgetError } from "@/components/dashboard/WidgetErrorBoundary";
+import { daysSince } from "@/lib/dashboardWindows";
 
 interface InvoiceRow {
   id: string;
@@ -36,10 +37,7 @@ interface InvoiceRow {
   } | null;
 }
 
-const daysPast = (iso: string | null): number => {
-  if (!iso) return 0;
-  return Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 86_400_000));
-};
+const daysPast = (iso: string | null): number => daysSince(iso);
 
 export function OverdueInvoicesWidget({ companyId }: { companyId: string | null }) {
   const { withSlug } = useTenantHref();
