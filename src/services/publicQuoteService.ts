@@ -113,34 +113,33 @@ export function buildPublicQuoteUrl(
  * like the catering company's own page. Returns null when the token
  * is unknown or the quote has been soft-deleted.
  */
+/**
+ * TIGHTEN I.116 (2026-06-02): route through the service-role endpoint
+ * at /api/public/quotes/[token]/get. The direct supabase-js anon
+ * query that used to work here relied on an open RLS policy that was
+ * dropped in 20260521090000 - which left this function returning null
+ * for everyone in production. The "Quote not found" card on /q/[token]
+ * was the symptom.
+ */
 export async function fetchByToken(token: string): Promise<PublicQuoteView | null> {
-  const { data, error } = await (supabase as any)
-    .from("quotes")
-    .select(`
-      id, quote_number, quote_name, client_name, event_date, event_time, setup_time, guest_count,
-      venue_address, menu_items, equipment_items, notes, terms_and_conditions,
-      subtotal, tax_amount, discount_amount, total, total_amount, status,
-      deposit_percentage,
-      delivery_fee, delivery_distance_km, delivery_rate_per_km,
-      valid_until, sent_at, viewed_at, accepted_at,
-      converted_to_order_id,
-      company:company_id (
-        id, company_name, legal_name, logo_url, email, phone, website,
-        address_line1, address_line2, city,
-        vat_registered, vat_number, vat_rate, pricing_includes_vat,
-        registration_number, tax_number,
-        primary_color, secondary_color, accent_color,
-        currency
-      )
-    `)
-    .eq("public_token", token)
-    .is("deleted_at", null)
-    .maybeSingle();
-  if (error) {
-    console.error("fetchByToken error:", error);
+  if (!token) return null;
+  try {
+    const res = await fetch(`/api/public/quotes/${token}/get`, {
+      method: "GET",
+      cache: "no-store",
+    });
+    if (res.status === 404 || res.status === 410) return null;
+    if (!res.ok) {
+      console.error("fetchByToken HTTP error:", res.status);
+      return null;
+    }
+    const j = await res.json();
+    if (!j?.ok || !j.quote) return null;
+    return j.quote as PublicQuoteView;
+  } catch (e) {
+    console.error("fetchByToken threw:", e);
     return null;
   }
-  return (data as PublicQuoteView) || null;
 }
 
 /**
