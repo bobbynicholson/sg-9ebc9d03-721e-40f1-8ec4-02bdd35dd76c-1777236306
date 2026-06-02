@@ -90,10 +90,21 @@ export interface PublicQuoteView {
  *
  *   buildPublicQuoteUrl(token)  ->  https://{host}/q/{token}
  */
-export function buildPublicQuoteUrl(token: string | null | undefined): string | null {
+/**
+ * TIGHTEN I.115 (2026-06-02): now slug-aware. The bare /q/{token} path
+ * doesn't serve cleanly at the production apex domain; the slug-
+ * prefixed `/{slug}/q/{token}` path routes through Vercel's tenant
+ * rewrite chain and produces a branded URL the client sees. Existing
+ * callers without a slug still get the back-compat path.
+ */
+export function buildPublicQuoteUrl(
+  token: string | null | undefined,
+  slug?: string | null,
+): string | null {
   if (!token) return null;
   if (typeof window === "undefined") return null;
-  return `${window.location.origin}/q/${token}`;
+  const slugSeg = slug ? `/${String(slug).trim().replace(/^\/+|\/+$/g, "")}` : "";
+  return `${window.location.origin}${slugSeg}/q/${token}`;
 }
 
 /**

@@ -102,6 +102,20 @@ const isPublicRoute = (pathname: string) => {
   // must be reachable without an existing session.
   if (/^\/[^\/]+\/auth\/callback$/.test(pathname)) return true;
 
+  // TIGHTEN I.115 (2026-06-02): tenant-scoped customer public surfaces.
+  // /[slug]/q/{token}, /[slug]/c/order/{id}, /[slug]/pay/i/{token} all
+  // get the same public treatment as the bare /q, /c, /pay/i paths.
+  // The next.config rewrite turns these into /q/{token}?company_slug=X
+  // etc; this middleware short-circuit lets the rewrite happen without
+  // an auth bounce.
+  if (
+    /^\/[^\/]+\/q\/[^\/]+$/.test(pathname) ||
+    /^\/[^\/]+\/c\/order\//.test(pathname) ||
+    /^\/[^\/]+\/pay\/i\/[^\/]+$/.test(pathname)
+  ) {
+    return true;
+  }
+
   // Dynamic prefixes
   if (
     pathname.startsWith("/blog/") ||

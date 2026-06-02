@@ -52,6 +52,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(403).json({ error: "Wrong company" });
     }
 
+    // TIGHTEN I.115: also resolve the tenant slug so the returned URL
+    // is /{slug}/c/order/{id}?t=... - matches the rest of the
+    // customer-facing surface and routes through the tenant rewrite
+    // chain in production.
+    const { data: companyRow } = await ssr
+      .from("companies")
+      .select("slug")
+      .eq("id", (order as any).company_id)
+      .maybeSingle();
+    const slug = (companyRow as any)?.slug
+      ? String((companyRow as any).slug).trim()
+      : null;
+
     const { data: tokenRow, error: mintErr } = await ssr.rpc("mint_client_order_token", {
       p_company_id: (order as any).company_id,
       p_order_id: orderId,
@@ -62,9 +75,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const raw = (tokenRow as any)?.raw_token;
     if (!raw) return res.status(500).json({ error: "Token mint failed" });
 
+    const slugSeg = slug ? `/${slug.replace(/^\/+|\/+$/g, "")}` : "";
     return res.status(200).json({
       ok: true,
-      url: `/c/order/${orderId}?t=${raw}`,
+      url: `${slugSeg}/c/order/${orderId}?t=${raw}`,
     });
   } catch (err: any) {
     console.error("[orders/preview-as-client] crashed:", err);

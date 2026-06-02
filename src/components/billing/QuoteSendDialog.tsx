@@ -80,6 +80,10 @@ export function QuoteSendDialog({
   // tenantName={null} which made every quote-send email read "Your
   // Catering Company" instead of the actual catering business.
   const [fetchedTenantName, setFetchedTenantName] = useState<string | null>(null);
+  // TIGHTEN I.115: tenant slug for the /q/{token} URL. Without it the
+  // production link goes to the apex domain which doesn't serve the
+  // app cleanly. Self-fetch alongside the tenant name.
+  const [fetchedSlug, setFetchedSlug] = useState<string | null>(null);
 
   const total = Number(quote?.total ?? quote?.total_amount ?? 0);
   // Strip placeholder defaults from the event label so the body doesn't
@@ -95,30 +99,36 @@ export function QuoteSendDialog({
   const totalLabel = fmtMoney(total, currency) || `${currency} ${total.toFixed(2)}`;
   const quoteUrl =
     quote?.public_token && typeof window !== "undefined"
-      ? buildPublicQuoteUrl(quote.public_token)
+      ? buildPublicQuoteUrl(quote.public_token, fetchedSlug)
       : null;
 
-  // Self-fetch company_name on first open when the parent didn't pass it.
+  // Self-fetch company_name + slug on first open. TIGHTEN I.115:
+  // always fetch slug regardless of whether the parent passed
+  // tenantName - the slug is required to build a working production
+  // URL via the tenant-rewrite chain.
   useEffect(() => {
-    if (!open || tenantName || !companyId) return;
-    if (fetchedTenantName) return;
+    if (!open || !companyId) return;
+    if (fetchedTenantName && fetchedSlug) return;
     let cancelled = false;
     (async () => {
       try {
         const { data } = await supabase
           .from("companies")
-          .select("company_name")
+          .select("company_name, slug")
           .eq("id", companyId)
           .maybeSingle();
         if (cancelled) return;
-        const name = (data as any)?.company_name;
-        if (name && typeof name === "string") setFetchedTenantName(name.trim());
+        const row = data as any;
+        if (row?.company_name && !tenantName) {
+          setFetchedTenantName(String(row.company_name).trim());
+        }
+        if (row?.slug) setFetchedSlug(String(row.slug).trim());
       } catch (e) {
-        console.warn("[QuoteSendDialog] company_name fetch failed:", e);
+        console.warn("[QuoteSendDialog] company fetch failed:", e);
       }
     })();
     return () => { cancelled = true; };
-  }, [open, companyId, tenantName, fetchedTenantName]);
+  }, [open, companyId, tenantName, fetchedTenantName, fetchedSlug]);
 
   useEffect(() => {
     if (!open || !quote || !companyId) {
