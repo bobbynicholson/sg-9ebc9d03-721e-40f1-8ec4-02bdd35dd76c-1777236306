@@ -32,6 +32,7 @@ import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { useToast } from "@/hooks/use-toast";
 import { useRegionFilter } from "@/contexts/RegionFilterContext";
 import {
@@ -50,21 +51,55 @@ type Preset = "this_week" | "this_month" | "custom";
 
 interface Range { fromISO: string; toISO: string; label: string; }
 
-const zarFmt = new Intl.NumberFormat("en-ZA", {
-  style: "currency",
-  currency: "ZAR",
-  maximumFractionDigits: 0,
-});
-const fmtZAR = (n: number | null | undefined) => {
-  const v = Number(n ?? 0);
-  if (!Number.isFinite(v)) return "R 0";
-  return zarFmt.format(v);
+// TIGHTEN I.91 (2026-06-02): tenant-aware currency formatter
+// builders. Replaces the previous module-scope `fmtZAR` / `fmtZARDetailed`
+// pair that hardcoded "R" for every tenant. The main WageDashboardPage
+// builds these from useTenantCurrency and passes them as props through
+// to KitchenSummaryView / DriverSummaryView / KitchenByPersonTable /
+// DriverByPersonTable. Defaults below are the ZAR fallback for any
+// caller that hasn't been updated (none in this file post-I.91).
+const CURRENCY_LOCALE: Record<string, string> = {
+  ZAR: "en-ZA", USD: "en-US", GBP: "en-GB", EUR: "en-IE",
+  AUD: "en-AU", NZD: "en-NZ", NGN: "en-NG", KES: "en-KE",
 };
-const fmtZARDetailed = (n: number | null | undefined) => {
-  const v = Number(n ?? 0);
-  if (!Number.isFinite(v)) return "R 0.00";
-  return `R ${v.toLocaleString("en-ZA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-};
+function buildFmtMoney(code: string) {
+  let f: Intl.NumberFormat;
+  try {
+    f = new Intl.NumberFormat(CURRENCY_LOCALE[code] || "en-ZA", {
+      style: "currency",
+      currency: code || "ZAR",
+      maximumFractionDigits: 0,
+    });
+  } catch {
+    f = new Intl.NumberFormat("en-ZA", { style: "currency", currency: "ZAR", maximumFractionDigits: 0 });
+  }
+  return (n: number | null | undefined) => {
+    const v = Number(n ?? 0);
+    if (!Number.isFinite(v)) return f.format(0);
+    return f.format(v);
+  };
+}
+function buildFmtMoneyDetailed(code: string) {
+  let f: Intl.NumberFormat;
+  try {
+    f = new Intl.NumberFormat(CURRENCY_LOCALE[code] || "en-ZA", {
+      style: "currency",
+      currency: code || "ZAR",
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  } catch {
+    f = new Intl.NumberFormat("en-ZA", { style: "currency", currency: "ZAR", minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  return (n: number | null | undefined) => {
+    const v = Number(n ?? 0);
+    if (!Number.isFinite(v)) return f.format(0);
+    return f.format(v);
+  };
+}
+// Defaults for any historic top-level reference (none expected).
+const fmtZARDefault = buildFmtMoney("ZAR");
+const fmtZARDetailedDefault = buildFmtMoneyDetailed("ZAR");
 const fmtHours = (mins: number) => {
   const h = Math.max(0, Math.round((mins / 60) * 10) / 10);
   return `${h.toFixed(1)}h`;
@@ -161,6 +196,12 @@ function deptChipText(depts: string[]): string {
 
 function WageDashboardPage() {
   const { profile } = useAuth();
+  // TIGHTEN I.91: tenant-aware fmtZAR / fmtZARDetailed. These shadow
+  // any module-level references and pass through to the sibling
+  // summary / table components as props.
+  const tenantCurrency = useTenantCurrency(profile?.company_id ?? null);
+  const fmtZAR = buildFmtMoney(tenantCurrency.code);
+  const fmtZARDetailed = buildFmtMoneyDetailed(tenantCurrency.code);
   const { toast } = useToast();
   // Wave 27.3: tenant-slug wrapper for internal navigations.
   const { withSlug } = useTenantHref();
@@ -1064,7 +1105,7 @@ function WageDashboardPage() {
               ) : hasNoData ? (
                 <EmptyState department={department} />
               ) : isDriversTab ? (
-                <DriverSummaryView rows={driverRows} totals={driverTotals} />
+                <DriverSummaryView rows={driverRows} totals={driverTotals} fmtZAR={fmtZAR} fmtZARDetailed={fmtZARDetailed} />
               ) : (
                 <KitchenSummaryView
                   chartData={chartData}
@@ -1072,6 +1113,8 @@ function WageDashboardPage() {
                   publicHolidayLines={publicHolidayLines}
                   staffRows={staffRows}
                   totalWage={kitchenTotals.total_wage}
+                  fmtZAR={fmtZAR}
+                  fmtZARDetailed={fmtZARDetailed}
                 />
               )}
             </TabsContent>
@@ -1087,9 +1130,9 @@ function WageDashboardPage() {
               ) : hasNoData ? (
                 <EmptyState department={department} />
               ) : isDriversTab ? (
-                <DriverByPersonTable rows={driverRows} />
+                <DriverByPersonTable rows={driverRows} fmtZAR={fmtZAR} />
               ) : (
-                <KitchenByPersonTable rows={sortedByPerson} totals={kitchenTotals} weeklyByStaff={weeklyByStaff} />
+                <KitchenByPersonTable rows={sortedByPerson} totals={kitchenTotals} weeklyByStaff={weeklyByStaff} fmtZAR={fmtZAR} fmtZARDetailed={fmtZARDetailed} />
               )}
             </TabsContent>
           </Tabs>
@@ -1130,12 +1173,17 @@ function KitchenSummaryView({
   publicHolidayLines,
   staffRows,
   totalWage,
+  fmtZAR = fmtZARDefault,
+  fmtZARDetailed = fmtZARDetailedDefault,
 }: {
   chartData: DailyChartRow[];
   topFive: StaffWageSummary[];
   publicHolidayLines: PublicHolidayLine[];
   staffRows: StaffWageSummary[];
   totalWage: number;
+  // TIGHTEN I.91: tenant-aware formatters from the parent.
+  fmtZAR?: (n: number | null | undefined) => string;
+  fmtZARDetailed?: (n: number | null | undefined) => string;
 }) {
   // WAGE-A: when the chart has nothing to plot but the period total
   // is > 0, the page WAS lying with "No daily breakdown available."
@@ -1174,7 +1222,8 @@ function KitchenSummaryView({
                 <BarChart data={chartData}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} />
                   <XAxis dataKey="day" tick={{ fontSize: 11 }} />
-                  <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `R${v.toLocaleString("en-ZA")}`} />
+                  {/* TIGHTEN I.91: tenant-aware Y-axis tick label. */}
+                  <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => fmtZAR(v)} />
                   <Tooltip formatter={(v: number) => fmtZARDetailed(v)} />
                   <Legend wrapperStyle={{ fontSize: 12 }} />
                   <Bar dataKey="standard"      name="Standard"        stackId="a" fill="#10b981" />
@@ -1253,7 +1302,13 @@ function KitchenSummaryView({
   );
 }
 
-function DriverSummaryView({ rows, totals }: { rows: DriverPayRow[]; totals: { hourly: number; distance: number; callout: number; combined: number } }) {
+function DriverSummaryView({ rows, totals, fmtZAR = fmtZARDefault, fmtZARDetailed = fmtZARDetailedDefault }: {
+  rows: DriverPayRow[];
+  totals: { hourly: number; distance: number; callout: number; combined: number };
+  // TIGHTEN I.91: tenant-aware formatters from the parent.
+  fmtZAR?: (n: number | null | undefined) => string;
+  fmtZARDetailed?: (n: number | null | undefined) => string;
+}) {
   // Build a "pay component" chart per driver - top 8 drivers by total.
   const top = [...rows].sort((a, b) => b.total - a.total).slice(0, 8);
   const data = top.map((r) => ({
@@ -1275,7 +1330,8 @@ function DriverSummaryView({ rows, totals }: { rows: DriverPayRow[]; totals: { h
                 <BarChart data={data}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} />
                   <XAxis dataKey="name" tick={{ fontSize: 11 }} interval={0} angle={-15} textAnchor="end" height={50} />
-                  <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `R${v.toLocaleString("en-ZA")}`} />
+                  {/* TIGHTEN I.91: tenant-aware Y-axis tick label. */}
+                  <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => fmtZAR(v)} />
                   <Tooltip formatter={(v: number) => fmtZARDetailed(v)} />
                   <Legend wrapperStyle={{ fontSize: 12 }} />
                   <Bar dataKey="Hourly"   stackId="a" fill="#10b981" />
@@ -1345,10 +1401,15 @@ function KitchenByPersonTable({
   rows,
   totals,
   weeklyByStaff,
+  fmtZAR = fmtZARDefault,
+  fmtZARDetailed = fmtZARDetailedDefault,
 }: {
   rows: StaffWageSummary[];
   totals: { standard_min: number; overtime_min: number; sunday_holiday_min: number; total_wage: number; total_min: number };
   weeklyByStaff: Map<string, number[]>;
+  // TIGHTEN I.91: tenant-aware formatters from the parent.
+  fmtZAR?: (n: number | null | undefined) => string;
+  fmtZARDetailed?: (n: number | null | undefined) => string;
 }) {
   if (rows.length === 0) {
     return <EmptyState department={"all"} />;
@@ -1450,7 +1511,11 @@ function KitchenByPersonTable({
   );
 }
 
-function DriverByPersonTable({ rows }: { rows: DriverPayRow[] }) {
+function DriverByPersonTable({ rows, fmtZAR = fmtZARDefault }: {
+  rows: DriverPayRow[];
+  // TIGHTEN I.91: tenant-aware formatter from the parent.
+  fmtZAR?: (n: number | null | undefined) => string;
+}) {
   // DRV-B (driver-settlement deferred, 2026-05-24): this tab is the
   // roll-up view. The action surface (drill-down, payslip PDF +
   // email, mark-as-paid) lives on /admin/driver-settlement so we
