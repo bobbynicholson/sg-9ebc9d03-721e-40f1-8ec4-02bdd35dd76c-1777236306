@@ -14,6 +14,7 @@
 import { supabase as browserSupabase } from "@/integrations/supabase/client";
 import { emailService } from "@/services/emailService";
 import { resolveEmailTemplate } from "@/services/email/templateResolver";
+import { mintOrderCustomerLink } from "@/lib/customerLinksServer";
 
 // Wave 17 audit: these helpers fire from server-side API routes
 // (cancellation-review, refundService etc.) where the imported
@@ -42,10 +43,14 @@ import {
 // Body fallbacks live here so the same copy seeds the DB. Subjects are
 // produced by the centralised formatters when no DB override exists.
 const FALLBACK_BODIES = {
+  // TIGHTEN I.114: cancellation/refund/postponement bodies embed
+  // {{order_url}} so the client can see the cancellation reflected on
+  // their booking page + access any refund / credit info there.
   cancellation:
     "Hi {{client_first_name}},\n\n" +
     "This confirms that order {{order_number}}{{event_date_label}} has been cancelled.\n\n" +
     "{{refund_paragraph}}" +
+    "Your order record: {{order_url}}\n\n" +
     "If this wasn't expected, please reply to this email and we'll sort it out straight away.\n\n" +
     "Thanks,\n{{company_name}}",
   // {{refund_sla_phrase}} carries the per-tenant refund timeline that
@@ -67,12 +72,14 @@ const FALLBACK_BODIES = {
     "Hi {{client_first_name}},\n\n" +
     "Confirming that the refund of {{refund_amount}} for the cancelled order {{order_number}} has been processed. " +
     "It should land in your account within the next 1-3 business days, depending on your bank.\n\n" +
+    "Your order record: {{order_url}}\n\n" +
     "Reply to this email if anything looks off.\n\n" +
     "Thanks,\n{{company_name}}",
   postponement_approved:
     "Hi {{client_first_name}},\n\n" +
     "Your booking has been postponed. New event date: {{new_event_date}}.\n\n" +
     "Everything else on the order stays the same. If you need to tweak anything, just reply to this email.\n\n" +
+    "View your updated booking: {{order_url}}\n\n" +
     "Thanks,\n{{company_name}}",
 } as const;
 
@@ -214,6 +221,15 @@ export async function sendCancellationEmail(
       currencyCode,
     });
 
+    // TIGHTEN I.114: mint a /c/order/{id}?t=... link so {{order_url}}
+    // resolves to a working URL.
+    const orderUrl = await mintOrderCustomerLink({
+      sb: resolveServerClient(),
+      companyId: order.company_id,
+      orderId: order.id,
+      label: "email-cancellation-approved",
+    });
+
     const resolved = await resolveEmailTemplate({
       companyId: order.company_id,
       templateType: "cancellation_approved",
@@ -227,6 +243,7 @@ export async function sendCancellationEmail(
         credit_amount: fmtMoney(creditAmount, currencyCode),
         refund_sla_phrase: slaPhrase,
         refund_process_days: String(company?.refund_process_days ?? ""),
+        order_url: orderUrl,
       },
       fallback: {
         subject: fallbackSubject,
@@ -263,6 +280,14 @@ export async function sendRefundPaidEmail(orderId: string, refundAmount: number)
       currencyCode,
     });
 
+    // TIGHTEN I.114: order URL for the refund-confirmation email.
+    const orderUrl = await mintOrderCustomerLink({
+      sb: resolveServerClient(),
+      companyId: order.company_id,
+      orderId: order.id,
+      label: "email-refund-paid",
+    });
+
     const resolved = await resolveEmailTemplate({
       companyId: order.company_id,
       templateType: "refund_paid",
@@ -270,6 +295,7 @@ export async function sendRefundPaidEmail(orderId: string, refundAmount: number)
         ...commonVars(order, company),
         refund_amount: fmtMoney(refundAmount, currencyCode),
         amount: fmtMoney(refundAmount, currencyCode),
+        order_url: orderUrl,
       },
       fallback: {
         subject: fallbackSubject,
@@ -317,6 +343,16 @@ export async function sendPostponementApprovedEmail(orderId: string, newEventDat
       currencyCode,
     });
 
+    // TIGHTEN I.114: order URL for the postponement email - especially
+    // important here because the client needs to confirm the new date
+    // visually on their booking page.
+    const orderUrl = await mintOrderCustomerLink({
+      sb: resolveServerClient(),
+      companyId: order.company_id,
+      orderId: order.id,
+      label: "email-postponement-approved",
+    });
+
     const resolved = await resolveEmailTemplate({
       companyId: order.company_id,
       templateType: "postponement_approved",
@@ -324,6 +360,7 @@ export async function sendPostponementApprovedEmail(orderId: string, newEventDat
         ...commonVars(order, company),
         new_event_date: newDateLabel,
         new_date: newDateLabel,
+        order_url: orderUrl,
       },
       fallback: {
         subject: fallbackSubject,

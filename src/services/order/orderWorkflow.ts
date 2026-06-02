@@ -5,6 +5,7 @@ import { whatsappIntegrationService } from "@/services/whatsappIntegrationServic
 import { ensureInvoiceForOrder } from "@/services/invoiceGenerationService";
 import { resolveClientUserId } from "@/services/lifecycle/resolveClientUserId";
 import { resolveEmailTemplate } from "@/services/email/templateResolver";
+import { mintOrderCustomerLink } from "@/lib/customerLinksServer";
 
 // Wave 24: orderWorkflow is called from BOTH the browser (admin pages
 // updating order status) AND the server (cron jobs, payment webhooks,
@@ -1837,6 +1838,10 @@ async function sendStatusNotifications(order: any) {
     } | null;
     const etaSentence = buildEtaSentence(order);
     const customerEmailFor: Record<string, StatusFallback> = {
+      // TIGHTEN I.114: every status email now embeds {{order_url}} -
+      // the polished /c/order/{id}?t=... view that always shows current
+      // status, invoice + Pay/Download buttons, and the tracking
+      // timeline. Lets the client follow their booking from inbox.
       confirmed: {
         templateType: "order_confirmed",
         subject: `Order confirmed - ${orderNumber}`,
@@ -1844,6 +1849,7 @@ async function sendStatusNotifications(order: any) {
           `Hi {{first_name}},\n\n` +
           `Your order {{order_number}}{{event_date_phrase}} is confirmed. ` +
           `We'll be in touch closer to the day with the final headcount and any last tweaks.\n\n` +
+          `View your order anytime: {{order_url}}\n\n` +
           `Thanks for booking with us.`,
       },
       // Audit gap closure: prepping + ready used to be silent for the
@@ -1856,6 +1862,7 @@ async function sendStatusNotifications(order: any) {
           `Hi {{first_name}},\n\n` +
           `{{tenant_name}} has started prep{{event_date_phrase}}. ` +
           `We'll let you know when it's on the way.\n\n` +
+          `Track your order: {{order_url}}\n\n` +
           `Thanks,\n{{tenant_name}}`,
       },
       ready: {
@@ -1864,6 +1871,7 @@ async function sendStatusNotifications(order: any) {
         body:
           `Hi {{first_name}},\n\n` +
           `{{tenant_name}} has finished prep. Driver will pick up shortly and we'll send tracking details once they're rolling.\n\n` +
+          `Live updates here: {{order_url}}\n\n` +
           `Thanks,\n{{tenant_name}}`,
       },
       in_transit: {
@@ -1873,6 +1881,7 @@ async function sendStatusNotifications(order: any) {
           `Hi {{first_name}},\n\n` +
           `Good news - your order {{order_number}} has just left the kitchen and is on its way{{venue_phrase}}. ` +
           `{{eta_sentence}}` +
+          `\n\nLive tracking: {{order_url}}` +
           `\n\nReply to this email if anything changes on your side.`,
       },
       delivered: {
@@ -1881,6 +1890,7 @@ async function sendStatusNotifications(order: any) {
         body:
           `Hi {{first_name}},\n\n` +
           `Your order {{order_number}} has been delivered. We hope it lands the way you hoped!\n\n` +
+          `Your booking record: {{order_url}}\n\n` +
           `If anything wasn't quite right, please reply - we read every email and we'd rather hear it.`,
       },
       completed: null,
@@ -1902,6 +1912,18 @@ async function sendStatusNotifications(order: any) {
     // we let the email send through unconditionally.
     if (tpl && !(clientInAppDeduped && !clientInAppFired)) {
       try {
+        // TIGHTEN I.114: mint a fresh /c/order/{id}?t=... link so the
+        // email body's {{order_url}} placeholder resolves to a working
+        // URL. Falls back to the tokenless URL on mint failure
+        // (lands on the self-recovery card - still better than no link).
+        const orderUrl = order.company_id && order.id
+          ? await mintOrderCustomerLink({
+              sb: supabase,
+              companyId: order.company_id,
+              orderId: order.id,
+              label: `email-${tpl.templateType}`,
+            })
+          : "";
         const variables: Record<string, string> = {
           first_name: clientFirstName,
           client_first_name: clientFirstName,
@@ -1913,6 +1935,7 @@ async function sendStatusNotifications(order: any) {
           venue_phrase: venueShort ? ` to ${venueShort}` : "",
           venue_short: venueShort,
           eta_sentence: etaSentence,
+          order_url: orderUrl,
         };
         const resolved = await resolveEmailTemplate({
           companyId: order.company_id || order.user_id,
