@@ -401,3 +401,91 @@ sensible run counts:
 
 Missing rows or stale `most_recent_fire` == something to
 investigate.
+
+---
+
+## ENCRYPTION_KEY for accounting OAuth tokens (TIGHTEN I.105, 2026-06-02)
+
+**Why.** Before TIGHTEN I.105 the Xero / QuickBooks OAuth refresh
+tokens stored in `accounting_integrations.access_token` /
+`refresh_token` were only Base64-encoded - effectively plaintext.
+Anyone with DB read access could impersonate every connected tenant
+against their accounting provider.
+
+The fix swaps in AES-256-GCM with a versioned `v1:<iv>.<tag>.<ct>`
+storage format. The cipher needs a 32-byte symmetric key, supplied via
+the `ENCRYPTION_KEY` env var.
+
+**Behaviour:**
+
+| Environment        | ENCRYPTION_KEY set? | What happens                                    |
+| ------------------ | ------------------- | ----------------------------------------------- |
+| Vercel production  | yes                 | AES-GCM encryption works as designed.           |
+| Vercel production  | no                  | First OAuth call throws + logs a clear error.   |
+| Vercel preview     | no                  | Warns at boot, falls back to derived placeholder. Build still succeeds. |
+| Local dev / tests  | n/a                 | Falls back to derived placeholder.              |
+
+**Steps**
+
+1. Locally, generate a 32-byte random key:
+
+   ```bash
+   openssl rand -hex 32      # 64 hex chars, eg. e3a7...d4b1
+   # OR
+   openssl rand -base64 32   # 44 base64 chars, eg. R4f8...wPq8=
+   ```
+
+   Either format is accepted by `loadEncryptionKey()`. Keep the
+   exact string - case-sensitive.
+
+2. Vercel dashboard -> CateringMS project -> Settings -> Environment
+   Variables -> **Production** scope. Add:
+
+   - **Name**: `ENCRYPTION_KEY`
+   - **Value**: the string from step 1
+   - **Environment**: Production only at first. Set in Preview too
+     if you want preview deploys to use a real key.
+
+3. Redeploy production (Vercel auto-redeploys on env-var change).
+
+**Verify**
+
+1. Connect a Xero or QuickBooks tenant through the live admin UI
+   (`/admin/integrations`).
+2. In Supabase SQL editor, inspect the row:
+
+   ```sql
+   SELECT id, provider, left(access_token, 5) AS prefix
+   FROM accounting_integrations
+   WHERE is_active
+   ORDER BY created_at DESC
+   LIMIT 5;
+   ```
+
+   The `prefix` should read `v1:`. Anything else (eg. raw base64) means
+   either the encryption isn't firing or you're looking at a row from
+   the pre-I.105 era - re-disconnect + reconnect to force a re-encrypt.
+
+3. Disconnect + reconnect a tenant. Both flows should complete without
+   errors and Supabase data API logs should NOT show any
+   `[accountingIntegrationService] ENCRYPTION_KEY env var is missing`
+   warnings.
+
+**Rotation**
+
+The storage format is versioned. To rotate keys later:
+
+1. Set a new `ENCRYPTION_KEY` in Vercel (don't delete the old one
+   yet - move it to `ENCRYPTION_KEY_PREVIOUS` for the rotation window).
+2. Ship a follow-up that reads `ENCRYPTION_KEY_PREVIOUS` as a fallback
+   in `decryptOne()`. Each `storeOAuthTokens` call upgrades the row to
+   the new key.
+3. After all rows have been re-encrypted (run a SELECT to confirm
+   `v1:` ciphertext prefixes everywhere), remove
+   `ENCRYPTION_KEY_PREVIOUS`.
+
+**Rollback**
+
+Don't. The previous Base64-only "encryption" was a security incident.
+If the new key is wrong, the throw at first call is loud and recoverable
+(no data is corrupted; rotate to a fresh key, redeploy, reconnect).
