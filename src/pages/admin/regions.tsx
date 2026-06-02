@@ -660,6 +660,30 @@ function RegionsPage() {
     }
   }, [regions]);
 
+  // TIGHTEN I.92: detailed (2dp) variant for delivery-cost chips that
+  // need cents precision. Same currency code as currencyFmt; falls
+  // back to ZAR on parse error.
+  const currencyFmtDetailed = useMemo(() => {
+    const code = regions[0]?.currency || "ZAR";
+    try {
+      return new Intl.NumberFormat("en-ZA", { style: "currency", currency: code, minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    } catch {
+      return new Intl.NumberFormat("en-ZA", { style: "currency", currency: "ZAR", minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+  }, [regions]);
+
+  // Per-region currency symbol for the "R/km" chip label. Falls back
+  // to "$" if the code is unknown.
+  const regionSymbol = useMemo(() => {
+    const code = regions[0]?.currency || "ZAR";
+    try {
+      const parts = new Intl.NumberFormat("en-ZA", { style: "currency", currency: code }).formatToParts(0);
+      return parts.find((p) => p.type === "currency")?.value || "R";
+    } catch {
+      return "R";
+    }
+  }, [regions]);
+
   return (
     <>
       <NoIndexMeta />
@@ -1025,11 +1049,14 @@ function RegionsPage() {
                       if (r.deposit_percent != null) {
                         chips.push({ label: "Deposit", value: `${Number(r.deposit_percent)}%` });
                       }
+                      // TIGHTEN I.92: tenant-aware delivery cost chips.
+                      // Label dynamically reads the region's currency
+                      // symbol so non-ZA tenants see "$/km" / "£/km" etc.
                       if (r.delivery_cost_per_km != null) {
-                        chips.push({ label: "R/km", value: `R${Number(r.delivery_cost_per_km).toFixed(2)}` });
+                        chips.push({ label: `${regionSymbol}/km`, value: currencyFmtDetailed.format(Number(r.delivery_cost_per_km)) });
                       }
                       if (r.min_delivery_fee != null) {
-                        chips.push({ label: "Min fee", value: `R${Number(r.min_delivery_fee).toFixed(2)}` });
+                        chips.push({ label: "Min fee", value: currencyFmtDetailed.format(Number(r.min_delivery_fee)) });
                       }
                       if (chips.length === 0) return null;
                       return (
