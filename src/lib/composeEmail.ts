@@ -211,7 +211,9 @@ export function templateFor(status: ClientStatus, ctx: TemplateContext): { subje
  * Each template gets event details + total + a quote reference woven in so the
  * client knows what they are looking at when they read your message.
  */
-export type QuoteStatus = "draft" | "sent" | "revised" | "accepted" | "rejected" | "expired";
+// TIGHTEN I.75 (2026-06-02): dropped 'revised' - no longer in the
+// quote_status enum and zero rows in production carry it.
+export type QuoteStatus = "draft" | "sent" | "accepted" | "rejected" | "expired";
 
 export interface QuoteTemplateContext {
   contactName: string;
@@ -255,9 +257,9 @@ const fmtMoney = (v: number | null | undefined, code?: string | null): string =>
   }
 };
 
+// TIGHTEN I.75: dropped revised key - QuoteStatus no longer carries it.
 const QUOTE_STATUS_TO_REGISTRY: Partial<Record<QuoteStatus, string>> = {
   sent:     "email_lead_quoted",     // operator chasing a sent quote
-  revised:  "email_quote_revised",
   accepted: "email_quote_accepted",
   expired:  "email_quote_expired",
   draft:    "email_quote_draft",
@@ -313,11 +315,8 @@ export function templateForQuote(status: QuoteStatus, ctx: QuoteTemplateContext)
         subject: `Following up on your quote${ref}`,
         body: `Hi ${first},\n\nJust circling back on the quote we sent across for ${eventLine}.${totalLine}\n\nAnything you would like changed, or shall we lock in the date for you? Happy to walk through the menu options if it would help.${sig}`,
       };
-    case "revised":
-      return {
-        subject: `Revised quote ready for ${eventLine.replace(/^your /, "")}`,
-        body: `Hi ${first},\n\nI have revised the quote based on what we last spoke about${totalLine ? "." + totalLine : "."}\n\nHave a quick look when you can and shout if anything still needs tweaking.${sig}`,
-      };
+    // TIGHTEN I.75: 'revised' case dropped - the enum no longer
+    // carries it and no caller can produce that status.
     case "accepted":
       return {
         subject: `Thanks for confirming, next steps for ${eventLine.replace(/^your /, "")}`,

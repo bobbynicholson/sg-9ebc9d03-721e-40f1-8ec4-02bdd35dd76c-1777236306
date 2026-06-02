@@ -1029,9 +1029,8 @@ function ClientPortalDashboardInner() {
               top billing. Accepting / declining lives on the public
               quote view at /q/[token] - we just deep-link there. */}
           {(() => {
-            const pending = quotes.filter(
-              (q) => q.status === "sent" || q.status === "viewed",
-            );
+            // TIGHTEN I.75: dropped dead 'viewed' status check.
+            const pending = quotes.filter((q) => q.status === "sent");
             if (pending.length === 0) return null;
             // Use the same tenant-aware formatter as the rest of the page.
             const fmt = fmtMoney;
@@ -1507,10 +1506,12 @@ function ClientPortalDashboardInner() {
         quoteNumber={editsQuote?.quote_number || null}
         onSuccess={() => {
           // Drop the quote out of the pending bucket locally so the
-          // hero band updates without a full refetch - the server
-          // already flipped it to 'revised'.
+          // hero band updates without a full refetch. The server-side
+          // edit endpoint stamps a fresh sent_at + clears viewed_at;
+          // we no longer flip status to 'revised' (status stays 'sent').
+          // TIGHTEN I.75: 'revised' status no longer exists.
           setQuotes((prev) =>
-            prev.map((q) => (q.id === editsQuote?.id ? { ...q, status: "revised" } : q)),
+            prev.map((q) => (q.id === editsQuote?.id ? { ...q, status: "sent" } : q)),
           );
           setEditsQuote(null);
         }}

@@ -16,10 +16,14 @@ import type { Quote } from "@/types";
 // Buckets we surface as filter pills at the top of the page. They
 // collapse the raw quote_status enum into actionable groupings the
 // catering team thinks in.
+// TIGHTEN I.75: comments referencing 'viewed' / 'revised' as statuses
+// reworded. The current quote_status enum is (draft, sent, accepted,
+// rejected, expired). "viewed" lives as a viewed_at timestamp not a
+// status, "revised" was dropped entirely.
 export type QuoteBucket =
   | "all"
   | "action_needed"        // draft (manual + client request), expiring within 3d
-  | "in_play"              // sent / viewed, waiting on the client
+  | "in_play"              // sent + viewed_at, waiting on the client
   | "stale"                // sent > 7d ago, no reply
   | "won"                  // accepted (with or without converted order)
   | "won_then_cancelled"   // accepted + order later cancelled - own outcome
@@ -256,8 +260,10 @@ export function deriveQuoteIntelligence(q: any): QuoteIntelligence {
     };
   }
 
-  // ── EXPIRING SOON (sent / viewed but valid_until is close) ─────────
-  if ((status === "sent" || status === "viewed" || status === "revised") && daysUntilExpiry !== null) {
+  // ── EXPIRING SOON (sent + valid_until close) ───────────────────────
+  // TIGHTEN I.75: 'viewed' / 'revised' statuses don't exist; viewed is
+  // tracked via viewed_at timestamp, revised was dropped from the enum.
+  if (status === "sent" && daysUntilExpiry !== null) {
     if (daysUntilExpiry <= 3) {
       return {
         bucket: "action_needed",
@@ -274,7 +280,9 @@ export function deriveQuoteIntelligence(q: any): QuoteIntelligence {
   }
 
   // ── VIEWED but no reply ────────────────────────────────────────────
-  if (status === "viewed" || (status === "sent" && viewed)) {
+  // TIGHTEN I.75: drop dead status === "viewed" check; viewed_at
+  // timestamp is the only source of truth.
+  if (status === "sent" && viewed) {
     const sinceView = daysSinceViewed ?? 0;
     if (sinceView >= 2) {
       return {
@@ -303,7 +311,8 @@ export function deriveQuoteIntelligence(q: any): QuoteIntelligence {
   }
 
   // ── SENT but not viewed ────────────────────────────────────────────
-  if (status === "sent" || status === "revised") {
+  // TIGHTEN I.75: 'revised' status no longer exists.
+  if (status === "sent") {
     const sinceSent = daysSinceSent ?? 0;
     if (sinceSent >= 7) {
       return {
