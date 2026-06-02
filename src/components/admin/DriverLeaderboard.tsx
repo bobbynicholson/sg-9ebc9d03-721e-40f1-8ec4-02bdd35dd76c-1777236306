@@ -17,6 +17,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Trophy, Clock, Truck } from "lucide-react";
 import { useReportWidgetError } from "@/components/dashboard/WidgetErrorBoundary";
+import { startOfMonthIso } from "@/lib/dashboardWindows";
 
 interface ShiftRow {
   driver_id: string;
@@ -35,11 +36,6 @@ interface Entry {
   driver: DriverLite;
   hours: number;
   deliveries: number;
-}
-
-function startOfMonthIso(): string {
-  const d = new Date();
-  return new Date(d.getFullYear(), d.getMonth(), 1).toISOString();
 }
 
 function hoursBetween(start: string | null, end: string | null): number {

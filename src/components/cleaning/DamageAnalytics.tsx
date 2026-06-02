@@ -22,10 +22,14 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { onEquipmentDamaged } from "@/lib/events/equipmentEvents";
 import { format } from "date-fns";
+import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 
 export function DamageAnalytics() {
   const { user } = useAuth();
   const { toast } = useToast();
+  // TIGHTEN I.80 (2026-06-02): tenant-aware currency. Was previously
+  // hardcoded "R" prefix which read wrong for USD / GBP / EUR tenants.
+  const tenantCurrency = useTenantCurrency(user?.company_id ?? null);
   const [, setLoading] = useState(true);
   const [damages, setDamages] = useState<any[]>([]);
   const [breakdown, setBreakdown] = useState<any>(null);
@@ -89,7 +93,7 @@ export function DamageAnalytics() {
     }
   };
 
-  const formatCurrency = (amount: number) => `R${amount.toFixed(2)}`;
+  const formatCurrency = (amount: number) => tenantCurrency.format(amount, 2);
 
   const damageTypeColours: Record<DamageType, string> = {
     broken: "bg-red-500",

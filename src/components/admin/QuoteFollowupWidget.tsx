@@ -24,7 +24,7 @@ import { Clock, ArrowRight, Mail } from "lucide-react";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { useReportWidgetError } from "@/components/dashboard/WidgetErrorBoundary";
-import { daysAgoIso } from "@/lib/dashboardWindows";
+import { daysAgoIso, daysSince } from "@/lib/dashboardWindows";
 
 interface StaleQuote {
   id: string;
@@ -36,11 +36,9 @@ interface StaleQuote {
   sent_at: string | null;
 }
 
-const daysAgo = (iso: string | null): number => {
-  if (!iso) return 0;
-  const diff = Date.now() - new Date(iso).getTime();
-  return Math.max(0, Math.round(diff / 86_400_000));
-};
+// TIGHTEN I.80: alias to the shared helper instead of duplicating its
+// math. daysSince covers the same null-guard + clamp + round.
+const daysAgo = (iso: string | null): number => daysSince(iso);
 
 export function QuoteFollowupWidget({ companyId }: { companyId: string | null }) {
   const { withSlug } = useTenantHref();
@@ -60,12 +58,9 @@ export function QuoteFollowupWidget({ companyId }: { companyId: string | null })
           .select("id, quote_number, client_name, client_email, total, event_date, sent_at")
           .eq("company_id", companyId)
           .is("deleted_at", null)
-          // ENUM-T (enum-drift triage): "viewed" + "revised" aren't in
-          // the quote_status enum. The client-opened state lives in
-          // viewed_at timestamp instead. Filter on the real terminal-
-          // non-terminal split (draft is in-flight too, but a draft
-          // hasn't gone out the door yet so the follow-up widget
-          // shouldn't surface it).
+          // TIGHTEN I.80: only 'sent' counts as awaiting-reply. A
+          // draft hasn't gone out the door yet so the follow-up widget
+          // shouldn't surface it.
           .in("status", ["sent"])
           .not("sent_at", "is", null)
           .lte("sent_at", threeDaysAgo)
