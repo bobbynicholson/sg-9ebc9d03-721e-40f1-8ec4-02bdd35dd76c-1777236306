@@ -874,27 +874,49 @@ function loadEncryptionKey(): Buffer | null {
 }
 
 const _resolvedKey = loadEncryptionKey();
+
+// "Real production" = Vercel-deployed production environment. NODE_ENV
+// is "production" on Vercel preview builds AND on prod, so we can't
+// gate on it alone (the build would crash on preview when env vars
+// haven't been wired up yet). VERCEL_ENV distinguishes the two:
+//   - "production" → real prod
+//   - "preview"    → preview deploy
+//   - "development"→ vercel dev
+// Outside Vercel we fall back to NODE_ENV. This way:
+//   * Real prod with missing key → fail at first encryption call (loud).
+//   * Preview with missing key   → warn, fall back to derived placeholder.
+//   * Local dev / test           → warn, fall back.
+const _isRealProd =
+  process.env.VERCEL_ENV === "production" ||
+  (!process.env.VERCEL_ENV && process.env.NODE_ENV === "production");
+
 if (!_resolvedKey) {
-  if (process.env.NODE_ENV === "production") {
-    // Hard fail: in production we refuse to silently fall back to
-    // weak base64 "encryption" or a placeholder key. The deploy
-    // operator must set ENCRYPTION_KEY (32 bytes hex or base64).
+  console.warn(
+    "[accountingIntegrationService] ENCRYPTION_KEY env var is missing or malformed. " +
+      (_isRealProd
+        ? "Real production deploy detected - the FIRST OAuth token encryption call WILL THROW. " +
+          "Set ENCRYPTION_KEY (32-byte hex / base64) in Vercel production env immediately."
+        : "Preview / dev fallback active - tokens encrypt with a derived placeholder key. " +
+          "Do NOT use this build in production."),
+  );
+}
+
+// Derive a deterministic placeholder so the build can complete and
+// callers can be exercised in preview / dev. The real prod throw fires
+// later in encryptOne / decryptOne when _resolvedKey is null AND
+// _isRealProd is true. Build-time module load never crashes.
+const ENCRYPTION_KEY: Buffer =
+  _resolvedKey || crypto.createHash("sha256").update("cateringms-dev-placeholder").digest();
+
+function assertProductionKey(): void {
+  if (!_resolvedKey && _isRealProd) {
     throw new Error(
       "[accountingIntegrationService] ENCRYPTION_KEY env var is missing or malformed " +
-        "in production. Set a 32-byte hex (64 chars) or base64 (44 chars) key before boot.",
-    );
-  } else {
-    console.warn(
-      "[accountingIntegrationService] ENCRYPTION_KEY env var is missing or malformed. " +
-        "Dev / preview fallback active - tokens encrypt with a derived placeholder key. " +
-        "Do NOT use this build in production.",
+        "in production. Set a 32-byte hex (64 chars) or base64 (44 chars) key before " +
+        "attempting OAuth token operations.",
     );
   }
 }
-// Derive a deterministic placeholder for dev/preview when no key is
-// set. Real prod boot fails above before this runs.
-const ENCRYPTION_KEY: Buffer =
-  _resolvedKey || crypto.createHash("sha256").update("cateringms-dev-placeholder").digest();
 
 function isLegacyToken(value: string): boolean {
   // Anything that isn't versioned is treated as legacy raw base64.
@@ -903,6 +925,7 @@ function isLegacyToken(value: string): boolean {
 }
 
 function encryptOne(plaintext: string): string {
+  assertProductionKey();
   const iv = crypto.randomBytes(12); // 96-bit IV per NIST recommendation
   const cipher = crypto.createCipheriv(ENCRYPTION_ALGO, ENCRYPTION_KEY, iv);
   const ct = Buffer.concat([cipher.update(plaintext, "utf8"), cipher.final()]);
@@ -922,6 +945,7 @@ function decryptOne(stored: string): string {
     // operating; the next storeOAuthTokens() will re-encrypt under v1.
     return Buffer.from(stored, "base64").toString("utf-8");
   }
+  assertProductionKey();
   const [, payload] = stored.split(":", 2);
   const parts = payload.split(".");
   if (parts.length !== 3) {
