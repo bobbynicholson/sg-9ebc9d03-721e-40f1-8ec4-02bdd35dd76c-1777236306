@@ -44,9 +44,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // then kicked the after-sales drip at customers who hadn't yet
     // settled the balance (Specialist 1 P1 finding). Now we demand
     // payment_status='paid' AND no outstanding balance_due.
+    // TIGHTEN I.87: add missing deleted_at guard so the auto-complete
+    // cron can't flip a soft-deleted order back to "completed".
     const { data: candidates, error: selErr } = await (sb as any)
       .from("orders")
       .select("id, company_id, payment_status, balance_due, total_amount, balance_paid")
+      .is("deleted_at", null)
       .eq("status", "delivered")
       .lte("delivered_at", cutoffIso)
       .limit(200);

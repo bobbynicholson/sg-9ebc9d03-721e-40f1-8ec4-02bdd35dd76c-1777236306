@@ -30,9 +30,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     const todayIso = new Date().toISOString().slice(0, 10);
 
+    // TIGHTEN I.87: add deleted_at guard so the en-route ping cron
+    // doesn't chase drivers about a soft-deleted order.
     const { data: candidates } = await sb
       .from("orders")
       .select("id, company_id, assigned_driver_id, driver_id, event_date, event_time, status, order_number")
+      .is("deleted_at", null)
       .in("status", ["confirmed", "preparing", "ready"])
       .eq("event_date", todayIso);
 
