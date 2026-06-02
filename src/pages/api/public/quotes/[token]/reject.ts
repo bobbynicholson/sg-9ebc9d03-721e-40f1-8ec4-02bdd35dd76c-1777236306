@@ -26,6 +26,20 @@ import {
   isValidLostReason,
   type LostReason,
 } from "@/services/quote/markQuoteAsLost";
+// TIGHTEN I.97 (2026-06-02): added rate limit. Public unauth endpoint
+// mutates DB (status flip + lead flip + email + notify + audit). A
+// leaked token + replay flooded markQuoteAsLost - same shape of
+// hardening already in place on the accept route.
+import {
+  checkAndIncrementRateLimit,
+  getClientIp,
+  hashIp,
+  isUuid,
+} from "@/lib/embedFormApi";
+
+export const config = {
+  api: { bodyParser: { sizeLimit: "8kb" } },
+};
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") {
@@ -34,7 +48,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   const token = String(req.query.token || "");
-  if (!token) return res.status(400).json({ ok: false, error: "token required" });
+  if (!isUuid(token)) return res.status(404).json({ ok: false, error: "Not found" });
 
   const body = (typeof req.body === "string" ? JSON.parse(req.body) : req.body) || {};
   const reasonNote = typeof body.reason === "string"
@@ -48,6 +62,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     : "no_response";
 
   const sb = getServiceSupabase();
+
+  // TIGHTEN I.97: per-IP-per-token rate limit. Legit usage is 1
+  // reject; >5/hour from the same client is almost certainly a
+  // script. Same limit + bucket as the accept route.
+  const ip = getClientIp(req as any);
+  const ipHash = hashIp(ip);
+  const rl = await checkAndIncrementRateLimit(token, ipHash, sb, {
+    limit: 5,
+    bucket: "hour",
+  });
+  if (!rl.allowed) {
+    return res.status(429).json({ ok: false, error: "Too many attempts, try again later." });
+  }
+
   const result = await markQuoteAsLost({
     match: { kind: "token", public_token: token },
     reason: lostReason,
