@@ -273,6 +273,36 @@ export async function processRefund(
   // PayFast refund API expects cents (integer). Round to nearest cent.
   const amountCents = Math.round(amountRand * 100);
 
+  // TIGHTEN I.103 (2026-06-02): atomic claim before the external call.
+  // Without this guard, two concurrent retries (finance double-click on
+  // /admin/refunds, or /api/refunds/[id]/retry racing the auto-fire
+  // chained off cancel.ts) could both pass the line-209 idempotency
+  // check, both hit PayFast, and refund the merchant twice. The
+  // conditional UPDATE flips pending -> processing in one round-trip
+  // and only proceeds if THIS request was the one that flipped it.
+  const { data: claimed, error: claimErr } = await admin
+    .from("payments")
+    .update({ payment_status: "processing" } as any)
+    .eq("id", refundPaymentId)
+    .eq("payment_status", "pending")
+    .select("id");
+  if (claimErr) {
+    return {
+      status: "error",
+      refund_payment_id: refundPaymentId,
+      message: `claim failed: ${claimErr.message}`,
+    };
+  }
+  if (!claimed || claimed.length === 0) {
+    // Another worker beat us to it - either already processing or
+    // already completed. Surfaces as already_completed so the caller
+    // treats the request as idempotently-successful.
+    return {
+      status: "already_completed",
+      refund_payment_id: refundPaymentId,
+    };
+  }
+
   // 3) Pull PayFast credentials for this company.
   const creds = await loadPayFastCreds(admin, refundRow.company_id);
   if (!creds) {
@@ -310,6 +340,14 @@ export async function processRefund(
   const result = await pf.refundTransaction(pfPaymentId, amountCents, refundReason);
 
   if (!result.ok) {
+    // TIGHTEN I.103: revert the claim so finance can retry. Without
+    // this the row would stay stuck at 'processing' forever after a
+    // single PayFast HTTP failure.
+    await admin
+      .from("payments")
+      .update({ payment_status: "pending" } as any)
+      .eq("id", refundPaymentId)
+      .eq("payment_status", "processing");
     await writeAudit(admin, {
       companyId: refundRow.company_id,
       actorUserId,
@@ -336,6 +374,9 @@ export async function processRefund(
 
   // 5) Success - mark the refund row completed and stamp the gateway.
   // Phase 2A migrated reads to payment_status; Phase 4B drops the legacy text column.
+  // TIGHTEN I.103: gate the success flip on payment_status='processing'
+  // so we close out OUR claim and never overwrite a row that some
+  // other path has already moved on (defensive belt-and-braces).
   const nowIso = new Date().toISOString();
   const { error: updErr } = await admin
     .from("payments")
@@ -347,7 +388,8 @@ export async function processRefund(
       gateway_response: result.body ?? null,
       refunded_at: nowIso,
     } as any)
-    .eq("id", refundPaymentId);
+    .eq("id", refundPaymentId)
+    .eq("payment_status", "processing");
   if (updErr) {
     // The PayFast call succeeded but our DB update did not. We log
     // loudly - finance can reconcile from the audit row.
