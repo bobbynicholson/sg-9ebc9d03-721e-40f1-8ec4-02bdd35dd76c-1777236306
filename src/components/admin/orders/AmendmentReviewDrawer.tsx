@@ -73,21 +73,10 @@ const STATUS_BADGE: Record<
     tone: "bg-rose-100 text-rose-700 border-rose-200",
     icon: XCircle,
   },
-  auto_rejected_late: {
-    label: "Auto-rejected (late)",
-    tone: "bg-slate-100 text-slate-700 border-slate-200",
-    icon: XCircle,
-  },
-  cancelled_by_client: {
-    label: "Cancelled",
-    tone: "bg-slate-100 text-slate-700 border-slate-200",
-    icon: XCircle,
-  },
-  superseded: {
-    label: "Superseded",
-    tone: "bg-slate-100 text-slate-700 border-slate-200",
-    icon: XCircle,
-  },
+  // TIGHTEN I.73 (2026-06-02): pruned auto_rejected_late, cancelled_by_client,
+  // and superseded. No code path ever wrote them, the CHECK constraint
+  // now rejects them, and the table only ever held pending/approved/
+  // rejected.
 };
 
 function renderValue(v: any): string {

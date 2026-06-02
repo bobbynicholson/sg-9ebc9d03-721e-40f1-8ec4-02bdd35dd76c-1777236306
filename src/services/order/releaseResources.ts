@@ -547,8 +547,9 @@ export async function releaseOrderResources(opts: ReleaseOpts): Promise<ReleaseR
   // chip kept counting forever. Once the order is cancelled the
   // amendment is moot - no kitchen, no event, nothing to amend.
   // Filter on status='pending' so a more-specific status set by the
-  // amendment-review flow (approved / rejected / auto_rejected_late /
-  // cancelled_by_client) wins.
+  // amendment-review flow (approved / rejected) wins.
+  // TIGHTEN I.73: prior comment referenced dead enum values that no
+  // path wrote; the live set is just pending/approved/rejected.
   if (mode === "cancel" || mode === "reject") {
     await tryUpdate("order_amendment_requests", "rejected", async () => {
       const { count, error } = await sb

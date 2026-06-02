@@ -191,8 +191,8 @@ export async function propagateQuoteEditToOrder(
             requested_by_user_id: performedBy,
             proposed_changes: proposed,
             client_notes: `Quote ${(quote as any).quote_number || quoteId} edited after dispatch. Operator review required before applying.`,
-            // CHECK constraint allows (pending, approved, rejected,
-            // auto_rejected_late, cancelled_by_client). Was previously
+            // TIGHTEN I.73 (2026-06-02): CHECK constraint allows
+            // (pending, approved, rejected) only. Was previously
             // "requires_dispatch_review" which isn't in the CHECK -
             // every post-dispatch quote edit silently failed to create
             // its amendment request row. Use "pending" - the
@@ -476,10 +476,10 @@ export async function propagateQuoteEditToOrder(
           requested_by_user_id: performedBy,
           proposed_changes: updates,
           client_notes: `Auto-applied from quote ${(quote as any).quote_number || quoteId} edit.`,
-          // CHECK constraint allows (pending, approved, rejected,
-          // auto_rejected_late, cancelled_by_client). "applied" wasn't
-          // in the set - every pre-dispatch auto-applied amendment row
-          // failed silently. Use "approved" + populate applied_at /
+          // TIGHTEN I.73 (2026-06-02): CHECK constraint allows
+          // (pending, approved, rejected) only. "applied" wasn't in the
+          // set - every pre-dispatch auto-applied amendment row failed
+          // silently. Use "approved" + populate applied_at /
           // applied_snapshot to express "approved and already executed".
           status: "approved",
           applied_at: new Date().toISOString(),
