@@ -63,12 +63,17 @@ export function CancellationPolicyTab({ companyId: companyIdProp }: Props = {}) 
 
   useEffect(() => {
     if (!companyId) { setLoading(false); return; }
+    // TIGHTEN I.89 (2026-06-02): cancellation guard so a fast company
+    // switch (super-admin context-swapping tenants) can't paint stale
+    // policy from the previous company.
+    let cancelled = false;
     (async () => {
       const { data, error } = await supabase
         .from("companies")
         .select("cancellation_policy, terms_and_conditions" as any)
         .eq("id", companyId)
         .maybeSingle();
+      if (cancelled) return;
       if (error) {
         console.error("[CancellationPolicyTab] load failed", error);
       }
@@ -79,6 +84,7 @@ export function CancellationPolicyTab({ companyId: companyIdProp }: Props = {}) 
       setTerms(((data as any)?.terms_and_conditions as string) || "");
       setLoading(false);
     })();
+    return () => { cancelled = true; };
   }, [companyId]);
 
   const sortedTiers = [...policy.deposit_refund_tiers].sort(
