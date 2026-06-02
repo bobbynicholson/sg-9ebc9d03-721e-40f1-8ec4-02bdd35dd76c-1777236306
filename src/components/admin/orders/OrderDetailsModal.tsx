@@ -1779,6 +1779,7 @@ return (
         <TabsContent value="cancellations" className="space-y-4 mt-4">
           <CancellationRequestsTab
             orderId={editedOrder.id}
+            companyId={(editedOrder as any).company_id ?? null}
             onActioned={() => {
               setIsModalOpen(false);
               loadOrders();
