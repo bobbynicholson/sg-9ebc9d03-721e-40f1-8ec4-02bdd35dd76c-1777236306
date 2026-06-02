@@ -508,7 +508,25 @@ export async function releaseOrderResources(opts: ReleaseOpts): Promise<ReleaseR
         }, { count: "exact" })
         .eq("id", quoteId)
         .in("status", ["draft", "sent"]);
-      return { error: err2, count: (count || 0) + (count2 || 0) };
+      if (err2) return { error: err2, count: (count || 0) + (count2 || 0) };
+      // TIGHTEN I.109 (2026-06-02): cover the rejected/expired edge.
+      // A quote that was rejected (or expired) BEFORE the linked
+      // order's cancellation reaches us here with lost_reason
+      // possibly null - because the historical lost cascade only
+      // stamped reasons on the rejection path it knew about. The
+      // smoke walk on SBD surfaced one such row. Belt-and-braces:
+      // if we end here without flipping the status at all, defensively
+      // stamp lost_reason='order_cancelled' when the row has no
+      // existing reason. This ensures the won_then_cancelled
+      // aggregators bucket every linked-cancelled quote regardless
+      // of which terminal state it reached.
+      const { count: count3, error: err3 } = await sb
+        .from("quotes")
+        .update({ lost_reason: "order_cancelled" }, { count: "exact" })
+        .eq("id", quoteId)
+        .in("status", ["rejected", "expired"])
+        .is("lost_reason", null);
+      return { error: err3, count: (count || 0) + (count2 || 0) + (count3 || 0) };
     });
   } else {
     lines.push({ resource: "quotes.linked_lost", action: "skipped (mode!=cancel)" });
