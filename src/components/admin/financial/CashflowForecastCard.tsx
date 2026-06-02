@@ -34,6 +34,7 @@ import { captureException } from "@/lib/observability";
 import { useToast } from "@/hooks/use-toast";
 import { toLocalISO } from "@/lib/localDate";
 import * as currencyUtils from "@/lib/currencyUtils";
+import { isPipelineRevenue } from "@/lib/orderRevenueClassification";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { fixedCostsService, type FixedCost } from "@/services/fixedCostsService";
 import type { Order } from "@/types";
@@ -98,6 +99,13 @@ interface OrderWithItemsRow {
   event_date: string | null;
   client_name: string | null;
   order_items: OrderItemRow[] | null;
+  // TIGHTEN I.74: fields isPipelineRevenue needs so the COGS feed
+  // shares the canonical revenue state machine with everything else.
+  status: string | null;
+  payment_status: string | null;
+  deposit_paid: boolean | null;
+  confirmed_at: string | null;
+  cancelled_at: string | null;
 }
 
 // Shape of a supabase select() promise once awaited. We can't use
@@ -292,10 +300,15 @@ export function CashflowForecastCard({
         // PR-B: per-order COGS for upcoming events. Joins
         // order_items.unit_cost * quantity for orders with
         // event_date inside the longest forecast horizon.
+        // TIGHTEN I.74: add the missing deleted_at guard (was leaking
+        // soft-deleted orders into the cashflow forecast) and pull the
+        // fields isPipelineRevenue needs for the canonical
+        // pipeline-vs-cancelled call.
         sb
           .from("orders")
-          .select("id, event_date, client_name, order_items(menu_item_id, quantity, unit_cost)")
+          .select("id, event_date, client_name, status, payment_status, deposit_paid, confirmed_at, cancelled_at, order_items(menu_item_id, quantity, unit_cost)")
           .eq("company_id", companyId)
+          .is("deleted_at", null)
           .gte("event_date", todayIso)
           .neq("status", "cancelled") as unknown as Promise<ListResult<OrderWithItemsRow>>,
       ]);
@@ -378,8 +391,11 @@ export function CashflowForecastCard({
       // unit_cost) across order_items where unit_cost was snapshot
       // at quote-accept. Bucket onto the event_date - that's when
       // the food has to be bought / cooked.
+      // TIGHTEN I.74: defensive isPipelineRevenue filter so a
+      // mid-cancellation order can't pay food cost on the forecast.
       for (const ord of orderItemsRes.data || []) {
         if (!ord?.event_date) continue;
+        if (!isPipelineRevenue(ord as any)) continue;
         const orderItems = ord.order_items || [];
         let cogs = 0;
         for (const oi of orderItems) {
