@@ -31,6 +31,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { fixedCostsService } from "@/services/fixedCostsService";
 import { useTenantHref } from "@/lib/tenantUrl";
 import * as currencyUtils from "@/lib/currencyUtils";
+import { isPipelineRevenue } from "@/lib/orderRevenueClassification";
 
 interface Props {
   companyId: string | null | undefined;
@@ -66,11 +67,16 @@ export function CashflowSnapshotWidget({ companyId, currency = "ZAR" }: Props) {
           .select("cash_on_hand_cents, cash_on_hand_updated_at")
           .eq("id", companyId)
           .single(),
-        // Income: orders firing in 30d window
+        // Income: orders firing in 30d window. TIGHTEN I.72: pull the
+        // fields isPipelineRevenue needs so we can defensively net out
+        // cancelled / excluded rows in-memory (status filter alone misses
+        // rows with cancelled_at set but status still mid-transition).
+        // Plus the missed deleted_at guard that was leaking soft-deletes.
         (supabase as any)
           .from("orders")
-          .select("total_amount")
+          .select("total_amount, status, cancelled_at, deleted_at, payment_status, deposit_paid, confirmed_at")
           .eq("company_id", companyId)
+          .is("deleted_at", null)
           .neq("status", "cancelled")
           .gte("event_date", todayIso)
           .lte("event_date", horizonIso),
@@ -101,11 +107,14 @@ export function CashflowSnapshotWidget({ companyId, currency = "ZAR" }: Props) {
           .lte("due_date", horizonIso),
         // Costs: fixed_costs occurrences in window
         fixedCostsService.list(companyId, { activeOnly: true }),
-        // Costs: food COGS for orders in window
+        // Costs: food COGS for orders in window. TIGHTEN I.72: same
+        // deleted_at + canonical pipeline guard as the income query, so
+        // the COGS side can't drift from the revenue side.
         (supabase as any)
           .from("orders")
-          .select("id, order_items(quantity, unit_cost)")
+          .select("id, status, cancelled_at, deleted_at, payment_status, deposit_paid, confirmed_at, order_items(quantity, unit_cost)")
           .eq("company_id", companyId)
+          .is("deleted_at", null)
           .neq("status", "cancelled")
           .gte("event_date", todayIso)
           .lte("event_date", horizonIso),
@@ -118,9 +127,15 @@ export function CashflowSnapshotWidget({ companyId, currency = "ZAR" }: Props) {
         setCashUpdatedAt(company.cash_on_hand_updated_at || null);
       }
 
-      // Sum income
+      // Sum income. TIGHTEN I.72: defensive isPipelineRevenue filter -
+      // the SQL .neq("status","cancelled") catches the common case but
+      // misses rows in weird in-between states (cancelled_at stamped but
+      // status not yet committed by a still-running cascade). The
+      // canonical helper is the single source of truth across the
+      // platform now.
       let incomeTotal = 0;
       for (const o of (ordersRes as any)?.data || []) {
+        if (!isPipelineRevenue(o as any)) continue;
         incomeTotal += Number(o.total_amount) || 0;
       }
 
@@ -132,6 +147,9 @@ export function CashflowSnapshotWidget({ companyId, currency = "ZAR" }: Props) {
       const fixedOccurrences = fixedCostsService.expandOccurrences((fixedRows as any[]) || [], HORIZON_DAYS);
       for (const o of fixedOccurrences) costsTotal += o.amount_cents / 100;
       for (const ord of (orderItemsRes as any)?.data || []) {
+        // TIGHTEN I.72: same pipeline guard on the COGS side so a
+        // mid-cancellation order doesn't pay food cost on the forecast.
+        if (!isPipelineRevenue(ord as any)) continue;
         for (const oi of (ord.order_items as any[]) || []) {
           const qty = Number(oi.quantity) || 0;
           const cost = Number(oi.unit_cost) || 0;
