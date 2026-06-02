@@ -169,7 +169,8 @@ export default function ClientQuotesPage() {
     };
     for (const q of quotes) {
       const s = q.status || "draft";
-      if (s === "sent" || s === "viewed") out.pending.push(q);
+      // TIGHTEN I.75: dropped dead 'viewed' status check.
+      if (s === "sent") out.pending.push(q);
       else if (s === "accepted") out.accepted.push(q);
       else out.historical.push(q);
     }
@@ -369,7 +370,7 @@ function QuoteGroup({
                           <Clock className="w-3 h-3" /> Sent {sentLabel}
                         </span>
                       )}
-                      {validLabel && (statusKey === "sent" || statusKey === "viewed") && (
+                      {validLabel && statusKey === "sent" && (
                         <span className="inline-flex items-center gap-1">
                           Valid until {validLabel}
                         </span>

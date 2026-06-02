@@ -64,12 +64,11 @@ const fmtMoney = new Intl.NumberFormat("en-ZA", { style: "currency", currency: "
 // Anything past these (accepted -> already an order, rejected -> dead,
 // expired -> dead unless re-quoted) is excluded so the calendar only
 // shows quotes that could still convert to a booking.
-// Generated supabase types narrow quotes.status to a strict 5-member
-// enum, but the live CHECK + downstream code accepts "viewed",
-// "pending", "revised" too. Cast as any[] at the .in call site to
-// avoid the false-positive type error without weakening the rest of
-// the file.
-const OPEN_QUOTE_STATUSES = ["draft", "sent", "viewed", "pending", "revised"];
+// TIGHTEN I.75: pruned 'viewed', 'pending', 'revised'. The live
+// quote_status enum is (draft, sent, accepted, rejected, expired);
+// the other three never matched anything and silently no-op'd the
+// .in() filter.
+const OPEN_QUOTE_STATUSES = ["draft", "sent"];
 
 interface OpenQuote {
   id: string;

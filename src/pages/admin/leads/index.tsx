@@ -209,7 +209,8 @@ function deriveLeadSuggestion(lead: any, links: LeadLinks): {
     if (links.latestQuoteStatus === "rejected") {
       return { tone: "warm", label: "Win-back nudge", reason: "Quote was rejected", kind: "winback" };
     }
-    if (links.latestQuoteStatus === "sent" || links.latestQuoteStatus === "viewed") {
+    // TIGHTEN I.75: dropped dead 'viewed' status check.
+    if (links.latestQuoteStatus === "sent") {
       return { tone: "warm", label: "Chase the quote", reason: `${ageDays}d since lead came in`, kind: "chase_quote" };
     }
     return { tone: "warm", label: "Finish + send the quote", reason: "Draft quote in flight", kind: "open_quote_draft" };
