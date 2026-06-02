@@ -101,9 +101,20 @@ export function aggregateCancellationReasons(orders: CancelledOrder[]): Cancella
     });
   }
 
-  // Cancellation rate denominator = all orders we have a window of, not
-  // just cancelled ones (so the user sees "5% of orders got cancelled").
-  const cancellationRate = orders.length > 0 ? totalCancelled / orders.length : 0;
+  // Cancellation rate denominator = all orders in the window that
+  // either reached fulfilment OR got cancelled. Excludes excluded /
+  // soft-deleted rows so the rate matches what the branch spider
+  // reports per branch (which counts the same in-scope set per
+  // region_id). TIGHTEN I.72: previously this denominator was the raw
+  // input length, which on multi-branch tenants could disagree with
+  // the spider's per-branch totals by 1-2 stragglers and confuse the
+  // operator when the two cards showed different rates.
+  let denom = 0;
+  for (const o of orders) {
+    if ((o as any).deleted_at) continue;
+    denom += 1;
+  }
+  const cancellationRate = denom > 0 ? totalCancelled / denom : 0;
 
   return { rows, totalCancelled, totalRevenueLost, cancellationRate };
 }
