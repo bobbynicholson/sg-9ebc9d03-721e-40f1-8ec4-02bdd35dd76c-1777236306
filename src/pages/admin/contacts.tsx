@@ -45,6 +45,7 @@ import { TopClientsWidget } from "@/components/admin/TopClientsWidget";
 import { WidgetErrorBoundary } from "@/components/dashboard/WidgetErrorBoundary";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { useRegionFilter } from "@/contexts/RegionFilterContext";
 import { UserRole } from "@/types/app";
 import { supabase } from "@/integrations/supabase/client";
@@ -160,10 +161,16 @@ const FILTERS: Array<{ id: "all" | ClientStatus; label: string }> = [
 const daysBetween = (from: Date, to: Date) =>
   Math.floor((to.getTime() - from.getTime()) / (1000 * 60 * 60 * 24));
 
-const fmtMoney = new Intl.NumberFormat("en-ZA", { style: "currency", currency: "ZAR", maximumFractionDigits: 0 });
+// TIGHTEN I.84: fmtMoney moved into components that need it so the
+// currency reflects the active tenant. Was hardcoded ZAR at module
+// scope which read wrong on USD / GBP / EUR tenants.
 
 function ClientsCRM() {
   const { user, profile } = useAuth() as any;
+  // TIGHTEN I.84: tenant-aware money formatter. Same shape as the prior
+  // module-scope constant so existing fmtMoney.format(x) calls work.
+  const tenantCurrency = useTenantCurrency(user?.company_id ?? null);
+  const fmtMoney = { format: (n: number) => tenantCurrency.format(n, 0) };
   // XSC-A: contacts CRM was leaking cross-branch data on multi-region
   // tenants. The cross-system audit (task #252) flagged that this page
   // never imported the region filter, so a region_admin in JHB saw
@@ -2063,6 +2070,9 @@ function ComposeDrawer({
   onSent: () => void;
   onClose: () => void;
 }) {
+  // TIGHTEN I.84: tenant-aware money formatter (same shape as ClientsCRM).
+  const tenantCurrency = useTenantCurrency(companyId ?? null);
+  const fmtMoney = { format: (n: number) => tenantCurrency.format(n, 0) };
   const tpl = templateFor(contact.status, {
     contactName: contact.name,
     eventDate: contact.nextEventDate

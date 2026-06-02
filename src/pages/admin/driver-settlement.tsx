@@ -29,6 +29,7 @@ import { AdminNav } from "@/components/admin/AdminNav";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import Link from "next/link";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { staffOrderHref } from "@/lib/orderUrls";
@@ -55,6 +56,12 @@ import {
   type DriverPayoutMethod,
 } from "@/services/driverPayoutService";
 
+// TIGHTEN I.84: module-scope ZAR formatter kept as a fallback for the
+// sibling components (FragmentRows, DriverSettlementCard, TotalCard).
+// Migrating their currency is a bigger refactor (each needs a prop or
+// context); flagged for a follow-up. The MAIN component shadows this
+// with a tenant-aware version, so payout summaries the page owner
+// sees use the correct symbol.
 const formatR = (n: number) =>
   new Intl.NumberFormat("en-ZA", { style: "currency", currency: "ZAR", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
 
@@ -120,6 +127,9 @@ export default function ProtectedDriverSettlementPage() {
 
 function DriverSettlementPage() {
   const { user } = useAuth() as any;
+  // TIGHTEN I.84: tenant-aware money formatter (2dp to match prior).
+  const tenantCurrency = useTenantCurrency(user?.company_id ?? null);
+  const formatR = (n: number) => tenantCurrency.format(n, 2);
   const { withSlug } = useTenantHref();
   const { toast } = useToast();
   const router = useRouter();
