@@ -53,3 +53,10 @@ export function daysBetween(a: string | null | undefined, b: string | null | und
   if (!isFinite(ta) || !isFinite(tb)) return 0;
   return Math.round((tb - ta) / MS_PER_DAY);
 }
+
+/** ISO timestamp at the first instant of the current month (local
+ *  wall-clock). For MTD-style aggregates. */
+export function startOfMonthIso(): string {
+  const d = new Date();
+  return new Date(d.getFullYear(), d.getMonth(), 1).toISOString();
+}
