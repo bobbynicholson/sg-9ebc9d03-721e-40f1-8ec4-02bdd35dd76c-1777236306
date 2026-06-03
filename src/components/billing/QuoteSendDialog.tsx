@@ -32,6 +32,20 @@ export interface QuoteSendDialogQuote {
    *  view link that goes into the email body. Required for the link
    *  to render; without it the body falls back to a no-link variant. */
   public_token?: string | null;
+  /** TIGHTEN I.128 (2026-06-03): include the live guest count + event
+   *  date + booking-update flag so the email body can be specific and
+   *  accurate. Bobby caught "edited to 30 guests but the email said
+   *  28" - the dialog was opening with the post-save figure but the
+   *  body template never referenced guest_count, so old emails the
+   *  client had in their inbox stayed visually misleading. Including
+   *  it in the body makes the latest send unambiguous about what
+   *  changed. */
+  guest_count?: number | null;
+  event_date?: string | null;
+  /** True when this quote already has a linked order (i.e. the client
+   *  already accepted). The body copy switches from "Here's your
+   *  quote" to "I've updated your booking". */
+  is_converted?: boolean;
 }
 
 export interface QuoteSendDialogProps {
@@ -130,6 +144,16 @@ export function QuoteSendDialog({
     return () => { cancelled = true; };
   }, [open, companyId, tenantName, fetchedTenantName, fetchedSlug]);
 
+  // TIGHTEN I.128 (2026-06-03): pull the latest figures off the quote
+  // prop. Re-resolve whenever they change so the body never carries
+  // a stale guest count or total. Bobby caught the dialog showing a
+  // 28-guest email body after he'd already saved at 30 guests.
+  const guestCount = Number(quote?.guest_count ?? 0);
+  const eventDateLabel = quote?.event_date
+    ? new Date(String(quote.event_date)).toLocaleDateString("en-ZA", { day: "numeric", month: "long", year: "numeric" })
+    : null;
+  const isConverted = !!quote?.is_converted;
+
   useEffect(() => {
     if (!open || !quote || !companyId) {
       setResolved(null);
@@ -141,7 +165,7 @@ export function QuoteSendDialog({
       try {
         const result = await resolveEmailTemplate({
           companyId,
-          templateType: "custom-quote-ready",
+          templateType: isConverted ? "custom-booking-updated" : "custom-quote-ready",
           variables: {
             first_name: firstName,
             client_name: quote.client_name || "there",
@@ -150,14 +174,13 @@ export function QuoteSendDialog({
             quote_number: quote.quote_number || quote.id,
             amount: totalLabel,
             company_name: tn,
-            // TIGHTEN I.111: include the polished /q/{token} client view
-            // URL so any tenant template can drop a `{{quote_url}}`
-            // placeholder and the magic link renders. Empty string
-            // when the quote has no public_token (rare).
             quote_url: quoteUrl || "",
-            // Legacy {clientName}/{companyName}/{quoteNumber}/{totalAmount}
-            // single-brace tokens are also substituted by emailService at
-            // send time, so the fallback works either way.
+            // TIGHTEN I.128: now passes the current guest count + event
+            // date so templates can substitute them. The Spit Braai
+            // tenant explicitly wants the booking-update email to read
+            // "30 guests on 6 June" so the client sees what changed.
+            guest_count: guestCount > 0 ? String(guestCount) : "",
+            event_date: eventDateLabel || "",
           },
           fallback: {
             subject: formatQuoteSubject({
@@ -167,14 +190,6 @@ export function QuoteSendDialog({
               quoteNumber: quote.quote_number || quote.id,
               currencyCode: currency,
             }),
-            // TIGHTEN I.111: rewritten fallback body.
-            //  - Drops the awkward "letting {{tenant_name}} quote on
-            //    {{event_name}}" line which read terribly when event_name
-            //    was missing/generic.
-            //  - Embeds the magic link so the client can click straight to
-            //    the polished /q/{token} view (the operator was complaining
-            //    that the email only attached a PDF with no link).
-            //  - Signs off with the tenant name, not "Your Catering Company".
             bodyHtml: buildFallbackBody({
               firstName,
               tenantName: tn,
@@ -182,6 +197,9 @@ export function QuoteSendDialog({
               quoteNumber: quote.quote_number || quote.id,
               amount: totalLabel,
               quoteUrl: quoteUrl,
+              guestCount: guestCount > 0 ? guestCount : null,
+              eventDateLabel,
+              isConverted,
             }),
           },
         });
@@ -206,6 +224,9 @@ export function QuoteSendDialog({
               quoteNumber: quote.quote_number || quote.id,
               amount: totalLabel,
               quoteUrl,
+              guestCount: guestCount > 0 ? guestCount : null,
+              eventDateLabel,
+              isConverted,
             }),
           });
         }
@@ -217,7 +238,7 @@ export function QuoteSendDialog({
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, quote?.id, companyId, tn, quoteUrl]);
+  }, [open, quote?.id, companyId, tn, quoteUrl, total, guestCount, eventDateLabel, isConverted]);
 
   if (!quote) return null;
 
@@ -306,10 +327,18 @@ export function QuoteSendDialog({
 }
 
 /**
- * TIGHTEN I.111: shared fallback body builder. Reads naturally whether
- * the event has a real name ("Wedding") or doesn't, and embeds the
- * polished /q/{token} link so the client can review + accept with one
- * click instead of having to dig out the PDF attachment.
+ * TIGHTEN I.111 / I.128: shared fallback body builder. Two flavours:
+ *
+ *  - initial quote send: "Your quote QT-XXX is ready - total X. View
+ *    and accept here."
+ *  - booking update on a converted quote: "I've updated your booking.
+ *    The new details are: N guests on <date>, new total X. The order
+ *    page below already reflects the change - no action needed unless
+ *    you'd like to discuss."
+ *
+ * Both flavours embed the magic link so the client can click through
+ * to the polished /q/{token} (or order page) without digging out a
+ * PDF attachment.
  */
 function buildFallbackBody(input: {
   firstName: string;
@@ -318,23 +347,56 @@ function buildFallbackBody(input: {
   quoteNumber: string;
   amount: string;
   quoteUrl: string | null;
+  guestCount: number | null;
+  eventDateLabel: string | null;
+  isConverted: boolean;
 }): string {
-  const { firstName, tenantName, eventName, quoteNumber, amount, quoteUrl } = input;
-  const eventPhrase = eventName ? ` for your ${eventName}` : "";
-  const lines: string[] = [
-    `Hi ${firstName},`,
-    "",
-    `Thanks for the opportunity to quote${eventPhrase}. Your quote ${quoteNumber} is ready - total ${amount}.`,
-  ];
-  if (quoteUrl) {
+  const {
+    firstName, tenantName, eventName, quoteNumber, amount, quoteUrl,
+    guestCount, eventDateLabel, isConverted,
+  } = input;
+
+  const details: string[] = [];
+  if (guestCount && guestCount > 0) details.push(`${guestCount} guest${guestCount === 1 ? "" : "s"}`);
+  if (eventDateLabel) details.push(eventDateLabel);
+  details.push(`total ${amount}`);
+  const detailsLine = details.join(" - ");
+
+  const lines: string[] = [`Hi ${firstName},`, ""];
+
+  if (isConverted) {
+    // Booking-update path. Bobby's call: when the operator edits a
+    // converted quote (live order in flight), the email must read as
+    // an UPDATE, not a fresh quote ask. The client already accepted.
+    const eventPhrase = eventName ? ` for your ${eventName}` : "";
+    lines.push(`I've updated your booking${eventPhrase} (${quoteNumber}). The latest details are:`);
     lines.push("");
-    lines.push("View and accept the quote here:");
-    lines.push(quoteUrl);
+    lines.push(`  ${detailsLine}`);
     lines.push("");
-    lines.push("Or reply to this email if you'd like to chat through it first.");
+    if (quoteUrl) {
+      lines.push("Your live order page is up to date:");
+      lines.push(quoteUrl);
+      lines.push("");
+      lines.push("No action needed - the changes are already booked in. Reply if you'd like to walk through anything.");
+    } else {
+      lines.push("Reply if you'd like to walk through anything.");
+    }
   } else {
+    // Initial-send path.
+    const eventPhrase = eventName ? ` for your ${eventName}` : "";
+    lines.push(`Thanks for the opportunity to quote${eventPhrase}. Your quote ${quoteNumber} is ready:`);
     lines.push("");
-    lines.push("Have a look at the attached PDF and reply with any tweaks, or let us know you're happy to go ahead.");
+    lines.push(`  ${detailsLine}`);
+    if (quoteUrl) {
+      lines.push("");
+      lines.push("View and accept the quote here:");
+      lines.push(quoteUrl);
+      lines.push("");
+      lines.push("Or reply to this email if you'd like to chat through it first.");
+    } else {
+      lines.push("");
+      lines.push("Have a look at the attached PDF and reply with any tweaks, or let us know you're happy to go ahead.");
+    }
   }
   lines.push("");
   lines.push("Thanks,");

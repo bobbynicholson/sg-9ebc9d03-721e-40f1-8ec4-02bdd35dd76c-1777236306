@@ -1159,9 +1159,12 @@ function AdminQuoteDetailInner() {
             event_name: (quote as any).event_name ?? null,
             quote_name: (quote as any).quote_name ?? null,
             user_id: (quote as any).user_id ?? null,
-            // TIGHTEN I.111: pass public_token through so the email
-            // body embeds the /q/{token} client view link.
             public_token: (quote as any).public_token ?? null,
+            // TIGHTEN I.128: forward guest count + event date + the
+            // converted flag so the body reflects the live booking.
+            guest_count: (quote as any).guest_count ?? null,
+            event_date: (quote as any).event_date ?? null,
+            is_converted: !!(quote as any).converted_to_order_id,
           }}
           onSent={async () => {
             if (typeof id === "string") {
