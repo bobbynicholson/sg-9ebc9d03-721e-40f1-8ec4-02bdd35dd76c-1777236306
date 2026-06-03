@@ -90,6 +90,15 @@ export interface SendEmailPayload {
    * needs every commercial send to carry the link.
    */
   skipUnsubscribeFooter?: boolean;
+  /**
+   * Skip the branded email shell wrapper (TIGHTEN I.124). Reserved for
+   * callers that build their own fully-shelled HTML document (e.g. the
+   * companyWelcome path in /api/send-email which has a self-contained
+   * layout) or for the sender-verification pings that don't want any
+   * decoration. Normal client sends should leave this off so they pick
+   * up the brand colours / logo / contact footer automatically.
+   */
+  skipBrandedShell?: boolean;
 }
 
 export interface EmailLog {
@@ -554,6 +563,46 @@ export const emailService = {
 
     const finalSubject = this.replaceVariables(payload.subject, payload.variables || {});
     finalBody = this.replaceVariables(finalBody, payload.variables || {});
+
+    // TIGHTEN I.124 (2026-06-03): auto-wrap plain or fragment HTML
+    // bodies in a branded email shell. Reads company logo + brand
+    // colours + contact info from the companies row and emits a
+    // table-layout HTML email that renders cleanly in Gmail, Apple
+    // Mail, Outlook, and the major mobile clients. Skipped when:
+    //   - caller opts out via skipBrandedShell (raw HTML sends like
+    //     companyWelcome that build their own document already)
+    //   - the body already starts with <!doctype or <html (fully
+    //     shelled by a template / caller)
+    //   - no companyId is available (shouldn't happen in practice
+    //     but defensive)
+    const alreadyFullDoc = /^\s*(<!doctype|<html\b)/i.test(finalBody);
+    if (!alreadyFullDoc && !(payload as any).skipBrandedShell && payload.companyId) {
+      try {
+        const { renderBrandedEmailHtml } = await import("@/services/email/brandedEmailShell");
+        finalBody = await renderBrandedEmailHtml({
+          companyId: payload.companyId,
+          body: finalBody,
+          preheader: finalSubject,
+          cta: (() => {
+            // Templates use snake_case ({{quote_url}}), the dialog
+            // posts variables in camelCase (quoteUrl). Accept both.
+            const v: any = payload.variables || {};
+            const quoteUrl = v.quote_url || v.quoteUrl;
+            const orderUrl = v.order_url || v.orderUrl;
+            const invoiceLink = v.invoice_link || v.invoiceLink || v.invoiceUrl;
+            if (quoteUrl)   return { label: "View and accept", url: String(quoteUrl) };
+            if (orderUrl)   return { label: "View your order", url: String(orderUrl) };
+            if (invoiceLink) return { label: "View invoice", url: String(invoiceLink) };
+            return undefined;
+          })(),
+          client: payload._client,
+        });
+      } catch (shellErr) {
+        // Brand fetch / render must never block the send. Log loudly
+        // and proceed with the unshelled body.
+        console.warn("[emailService] branded shell failed, sending plain:", shellErr);
+      }
+    }
 
     // Unsubscribe-footer adoption (docs/notifications.md follow-up 6.6).
     // Every commercial send carries the one-click opt-out link in the
