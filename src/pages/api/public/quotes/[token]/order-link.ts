@@ -13,10 +13,12 @@
  * Why this is safe to be public:
  *   - Caller already holds the quote's public_token (random UUID) -
  *     same secret the /q/{token} accept route trusts.
- *   - Returns a NEW token scoped to the order, with the same TTL
- *     (60 days per mint_client_order_token), so the client gets a
- *     time-limited working link without us re-issuing the quote
- *     token.
+ *   - Returns a NEW token scoped to the order, with a SHORT 24-hour
+ *     TTL (TIGHTEN I.123). The quote's permanent public_token in the
+ *     client's inbox always re-mints fresh on every click, so a
+ *     24-hour cookie life is enough for one session of use. Anything
+ *     older has to come through the email link again (canonical
+ *     path) or the magic-link recovery card (explanation included).
  *   - If the quote isn't converted yet, returns { converted: false }
  *     and the caller stays on /q/{token} (which DOES still work for
  *     pre-conversion / accepted-but-not-yet-converted states).
@@ -108,13 +110,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     ? String((companyRow as any).slug).trim()
     : null;
 
-  // 3) Mint a client_access_token for the order. Uses the same RPC as
-  //    the admin "preview as client" button so TTL + storage shape
-  //    match.
+  // 3) Mint a client_access_token for the order. TIGHTEN I.123: pass
+  //    p_ttl_hours=24 so the cookie set by /validate downstream only
+  //    lasts a day. The quote's public_token in the client's inbox is
+  //    permanent and always re-mints on click, so we don't need long-
+  //    lived bridge tokens - they're just session cookies.
   const { data: tokenRow, error: mintErr } = await sb.rpc("mint_client_order_token", {
     p_company_id: (orderRow as any).company_id,
     p_order_id: orderId,
     p_label: "quote-bridge",
+    p_ttl_hours: 24,
   });
   if (mintErr) {
     console.error("[public/quotes/order-link] mint failed:", mintErr);
