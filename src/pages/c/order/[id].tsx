@@ -1012,11 +1012,30 @@ function ExpiredLinkCard({ reason }: { reason: string | null }) {
               <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-4">
                 <AlertTriangle className="w-6 h-6 text-amber-600" />
               </div>
-              <h1 className="text-xl font-bold text-slate-900 mb-2">This link can't be opened</h1>
+              <h1 className="text-xl font-bold text-slate-900 mb-2">Your booking link has expired</h1>
+              {/* TIGHTEN I.123 (2026-06-03): explain WHY they're here.
+                  Booking links cookie for 24 hours after the first
+                  click. After that, the canonical recovery is to
+                  click the original email link again - that ALWAYS
+                  works because the email URL is permanent and just
+                  re-mints a fresh session token on each click. The
+                  magic-link form below is the fallback for people who
+                  no longer have the email handy. */}
               <p className="text-sm text-slate-600">
-                {reason === "expired" ? "The link has expired." :
+                {reason === "expired" ? "The session for this booking link has expired." :
                  reason === "revoked" ? "The catering company has revoked this link." :
-                 "We couldn't verify this booking link."}
+                 "We couldn't verify your booking link."}
+              </p>
+              <p className="text-xs text-slate-500 mt-3">
+                Booking links stay valid for 24 hours after you first open them.
+                After that, we ask for your email again as a security check.
+              </p>
+            </div>
+
+            <div className="mt-5 rounded-lg border border-blue-200 bg-blue-50 p-3 text-xs text-blue-900">
+              <p className="font-medium">Got the email with your quote or order?</p>
+              <p className="mt-1 text-blue-800">
+                Just click the link in that email again - it'll open this booking with a fresh secure session, no extra steps.
               </p>
             </div>
 
@@ -1030,7 +1049,10 @@ function ExpiredLinkCard({ reason }: { reason: string | null }) {
               </div>
             ) : (
               <div className="mt-6 space-y-3 border-t border-slate-200 pt-5">
-                <p className="text-sm text-slate-700 font-medium">Get a fresh link emailed to you</p>
+                <p className="text-sm text-slate-700 font-medium">Or, request a fresh secure link</p>
+                <p className="text-[11px] text-slate-500">
+                  Lost the original email? Enter the address you booked with and we'll send a new one.
+                </p>
                 <div className="space-y-2">
                   <Label htmlFor="freshlink-email" className="text-xs text-slate-600">Your email</Label>
                   <Input
