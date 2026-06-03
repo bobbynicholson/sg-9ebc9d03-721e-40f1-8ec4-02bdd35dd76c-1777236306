@@ -196,25 +196,30 @@ export async function renderBrandedEmailHtml(opts: BrandedEmailOptions): Promise
   };
 
   const primary = normalisedColor(brand.primary_color, "#0f172a");
-  const accent  = normalisedColor(brand.accent_color, primary);
-  const headerTextColor = isLight(primary) ? "#0f172a" : "#ffffff";
-  const ctaTextColor    = isLight(accent)  ? "#0f172a" : "#ffffff";
-  const companyName     = (brand.company_name || "").trim() || "Your catering team";
+  // TIGHTEN I.126: prefer the accent colour for the CTA so the email
+  // doesn't read as one big block of the primary brand colour. When
+  // accent and primary are equal (or both null), fall back to primary
+  // so single-colour tenants still get a coherent look.
+  const accentRaw   = normalisedColor(brand.accent_color, primary);
+  const accent      = accentRaw === primary ? primary : accentRaw;
+  const ctaTextColor = isLight(accent) ? "#0f172a" : "#ffffff";
+  const companyName  = (brand.company_name || "").trim() || "Your catering team";
 
   const stripped = stripDocumentTags(body);
   const contentHtml = looksLikeHtml(stripped) ? stripped : plainToHtml(stripped);
 
-  // Mobile-first CTA: full-width button on phones, auto-width on
-  // desktop (via the .cms-cta media query). 44px minimum height is
-  // the Apple HIG touch-target floor.
+  // TIGHTEN I.126: the CTA now lives BELOW the body. Bobby's call:
+  // "view and accept button at the top is too in your face. I want
+  // that to be further down ... below the quote link." So the body
+  // reads first, the action follows.
   const ctaHtml = cta
     ? `
       <tr>
-        <td class="cms-px" style="padding:0 20px 24px 20px;" align="center">
+        <td class="cms-px" style="padding:8px 24px 32px 24px;" align="center">
           <table role="presentation" cellpadding="0" cellspacing="0" border="0" class="cms-cta-table" style="width:auto;">
             <tr>
               <td class="cms-cta-cell" style="border-radius:8px;background:${accent};">
-                <a class="cms-cta" href="${cta.url}" style="display:block;padding:14px 28px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:16px;font-weight:600;color:${ctaTextColor};text-decoration:none;border-radius:8px;line-height:1.2;mso-line-height-rule:exactly;min-height:44px;">
+                <a class="cms-cta" href="${cta.url}" style="display:block;padding:14px 32px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:16px;font-weight:600;color:${ctaTextColor};text-decoration:none;border-radius:8px;line-height:1.2;mso-line-height-rule:exactly;min-height:44px;">
                   ${cta.label}
                 </a>
               </td>
@@ -228,9 +233,6 @@ export async function renderBrandedEmailHtml(opts: BrandedEmailOptions): Promise
   if (brand.email)     contactLines.push(`<a href="mailto:${brand.email}" style="color:#64748b;text-decoration:none;">${brand.email}</a>`);
   if (brand.phone)     contactLines.push(`<a href="tel:${brand.phone.replace(/[^+\d]/g, "")}" style="color:#64748b;text-decoration:none;">${brand.phone}</a>`);
   if (brand.website)   contactLines.push(`<a href="${brand.website}" style="color:#64748b;text-decoration:none;">${brand.website.replace(/^https?:\/\//, "")}</a>`);
-  // On mobile, &middot; separators between long email + phone +
-  // website lines wrap awkwardly. Render each on its own line via
-  // <br> on narrow screens (CSS media query) and inline on desktop.
   const contactHtml = contactLines.length
     ? `<div class="cms-contact" style="font-size:13px;color:#64748b;line-height:1.7;">${contactLines.join(`<span class="cms-sep"> &middot; </span>`)}</div>`
     : "";
@@ -242,6 +244,11 @@ export async function renderBrandedEmailHtml(opts: BrandedEmailOptions): Promise
     ? `<div style="display:none;font-size:1px;color:#fff;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;mso-hide:all;">${preheader}</div>`
     : "";
 
+  // TIGHTEN I.126: header is now refined - small uppercase tenant
+  // name in brand primary colour on white, with a thin coloured top
+  // rule. Bobby's call: "make Splitbrite delivery wording nice and
+  // small, nice and clean at the top." The huge solid-colour bar
+  // dominated the visual and made every mail look the same blue.
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -253,26 +260,19 @@ export async function renderBrandedEmailHtml(opts: BrandedEmailOptions): Promise
   <meta name="supported-color-schemes" content="light">
   <title>${companyName}</title>
   <style>
-    /* Clients that respect <style> blocks (Apple Mail, Gmail iOS,
-       Outlook 365 web) get a proper mobile media query. Clients
-       that strip styles (Gmail Android web view, older Outlook
-       desktop) fall back to the inline styles which are already
-       mobile-friendly. */
     @media only screen and (max-width: 480px) {
       .cms-card { border-radius: 0 !important; box-shadow: none !important; }
       .cms-px { padding-left: 18px !important; padding-right: 18px !important; }
-      .cms-header { padding: 20px 18px !important; }
-      .cms-header-name { font-size: 18px !important; }
-      .cms-body { padding: 24px 18px !important; }
+      .cms-header { padding: 18px 18px !important; }
+      .cms-header-name { font-size: 12px !important; letter-spacing: 1.5px !important; }
+      .cms-body { padding: 24px 18px 8px !important; }
       .cms-footer { padding: 20px 18px !important; }
       .cms-cta-table { width: 100% !important; }
       .cms-cta-cell { display: block !important; }
-      .cms-cta { display: block !important; text-align: center !important; padding: 16px 20px !important; }
+      .cms-cta { display: block !important; text-align: center !important; padding: 16px 24px !important; }
       .cms-sep { display: none !important; }
       .cms-contact a { display: block; padding: 4px 0; }
     }
-    /* Dark-mode override - some clients (Apple Mail dark mode) will
-       invert our white card if we don't pin it. */
     @media (prefers-color-scheme: dark) {
       .cms-card { background: #ffffff !important; }
     }
@@ -283,20 +283,20 @@ ${preheaderHtml}
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#f1f5f9;padding:24px 0;">
   <tr>
     <td align="center" style="padding:0 12px;">
-      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" class="cms-card" style="max-width:600px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(15,23,42,0.06);">
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" class="cms-card" style="max-width:600px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(15,23,42,0.06);border-top:3px solid ${primary};">
         <tr>
-          <td class="cms-header" style="background:${primary};padding:24px 24px;text-align:center;">
-            <div class="cms-header-name" style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:20px;font-weight:700;color:${headerTextColor};letter-spacing:0.3px;line-height:1.3;mso-line-height-rule:exactly;">
+          <td class="cms-header" style="padding:20px 24px 4px 24px;text-align:center;">
+            <div class="cms-header-name" style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:13px;font-weight:600;color:${primary};letter-spacing:2px;text-transform:uppercase;line-height:1.4;mso-line-height-rule:exactly;">
               ${companyName}
             </div>
           </td>
         </tr>
-        ${ctaHtml}
         <tr>
-          <td class="cms-body cms-px" style="padding:28px 24px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;color:#1f2937;font-size:16px;line-height:1.65;">
+          <td class="cms-body cms-px" style="padding:20px 24px 4px 24px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;color:#1f2937;font-size:16px;line-height:1.65;">
             ${contentHtml}
           </td>
         </tr>
+        ${ctaHtml}
         <tr>
           <td class="cms-footer" style="background:#f8fafc;padding:22px 24px;text-align:center;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;border-top:1px solid #e2e8f0;">
             <div style="font-size:14px;color:#334155;font-weight:600;margin-bottom:6px;line-height:1.4;">${companyName}</div>
