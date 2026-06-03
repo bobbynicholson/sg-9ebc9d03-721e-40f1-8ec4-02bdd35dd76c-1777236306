@@ -1344,9 +1344,19 @@ function NewQuotePage() {
         // count, breaking kitchen prep, deposit/balance math, and the
         // client's order page.
         if (isConvertedQuote && prevConvertedOrderId) {
+          // TIGHTEN I.127 (2026-06-03): defensive double-fire. The
+          // browser-side propagator runs first (richer cascade -
+          // prep tasks, driver assignments, balance due date) but
+          // historically it could silently skip the menu_items
+          // rebuild and equipment qty resync. The server endpoint
+          // /api/quotes/{id}/resync-order runs under SERVICE ROLE
+          // so it can't be blocked by RLS, and it focuses on the
+          // single thing the JS propagator missed: line items +
+          // equipment booking quantities matching the quote.
+          let propReceipt: any = null;
           try {
-            const receipt = await propagateQuoteEditToOrder(quoteId, null);
-            if (receipt.refusedPostDispatch) {
+            propReceipt = await propagateQuoteEditToOrder(quoteId, null);
+            if (propReceipt?.refusedPostDispatch) {
               toast({
                 title: "Edit blocked",
                 description: "The order is already in dispatch / delivered. We've opened an amendment request for dispatch review.",
@@ -1355,14 +1365,35 @@ function NewQuotePage() {
             }
           } catch (propErr) {
             console.error("[quotes/new] propagateQuoteEditToOrder failed:", propErr);
-            // Don't roll back the quote save - the operator's edit
-            // landed correctly; we just couldn't mirror. Surface so
-            // they know to retry.
-            toast({
-              title: "Order not yet mirrored",
-              description: "Quote saved but the linked order didn't pick up the change. Refresh, then click Save once more.",
-              variant: "destructive",
+          }
+          // Server-side resync ALWAYS fires - if the JS propagator
+          // succeeded the server call is a no-op cleanup; if it
+          // failed silently this catches the gap. Both paths post-
+          // process through audit_logs so we can trace which save
+          // touched the order.
+          try {
+            const res = await fetch(`/api/quotes/${quoteId}/resync-order`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
             });
+            const json = await res.json();
+            if (!res.ok || json?.ok === false) {
+              if (json?.refusedPostDispatch) {
+                // Already toasted above by propagateQuoteEditToOrder.
+              } else {
+                console.warn("[quotes/new] server resync returned non-ok:", json);
+              }
+            }
+          } catch (e) {
+            console.warn("[quotes/new] server resync threw:", e);
+            // Only surface a hard toast if BOTH propagators failed.
+            if (!propReceipt) {
+              toast({
+                title: "Order not yet mirrored",
+                description: "Quote saved but the linked order didn't pick up the change. Refresh, then click Save once more.",
+                variant: "destructive",
+              });
+            }
           }
         }
         setSavedAt(new Date());
@@ -2221,9 +2252,41 @@ function NewQuotePage() {
                       <CardTitle className="text-base">Equipment</CardTitle>
                       <CardDescription>Chafing dishes, serving ware, hire add-ons.</CardDescription>
                     </div>
-                    <Button size="sm" variant="outline" onClick={addEquip}>
-                      <Plus className="w-4 h-4 mr-1" /> Add equipment
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      {/* TIGHTEN I.127 (2026-06-03): bulk-match guests
+                          on equipment lines. Most events scale cutlery
+                          + crockery 1:1 with guests, but the operator
+                          shouldn't have to retype Qty on every line
+                          when guests move. The button is only shown
+                          when there's at least one equipment row AND
+                          at least one row's quantity doesn't already
+                          match the guest count, so it never nags. */}
+                      {guestCount > 0
+                        && equipment.length > 0
+                        && equipment.some((e) => e.name && e.quantity !== guestCount) && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+                          onClick={() => {
+                            setEquipment((prev) =>
+                              prev.map((e) => (e.name ? { ...e, quantity: guestCount } : e)),
+                            );
+                            toast({
+                              title: `Equipment set to ${guestCount}`,
+                              description: "All equipment lines now match the guest count. Edit any line if it shouldn't scale.",
+                            });
+                          }}
+                          title={`Set every equipment line's Qty to ${guestCount} so cutlery / crockery / drinkware matches the guest count.`}
+                        >
+                          <Users className="w-3.5 h-3.5 mr-1" />
+                          Match {guestCount} guests
+                        </Button>
+                      )}
+                      <Button size="sm" variant="outline" onClick={addEquip}>
+                        <Plus className="w-4 h-4 mr-1" /> Add equipment
+                      </Button>
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-3">
