@@ -126,7 +126,6 @@ A multi-tenant SaaS for catering companies. Each tenant gets a white-labelled po
 
 | Service | Used for | Env var(s) |
 | --- | --- | --- |
-| Anthropic Claude | AI receipt OCR, import row repair, blog draft | `ANTHROPIC_API_KEY`, `ANTHROPIC_*_MODEL` |
 | Google Maps | venue address autocomplete | `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` |
 | Cloudflare Turnstile | public form CAPTCHA on `/api/public/embed/*/submit` and `/api/public/quotes/*/change-request` | `TURNSTILE_SECRET_KEY` |
 | WhatsApp Cloud API | quote send via WhatsApp (optional per tenant) | `NEXT_PUBLIC_APP_ORIGIN` |
@@ -201,17 +200,6 @@ NEXT_PUBLIC_SAGE_CLIENT_ID
 SAGE_CLIENT_SECRET
 ```
 
-### AI features (OPTIONAL)
-
-```
-ANTHROPIC_API_KEY
-ANTHROPIC_IMPORT_MODEL
-ANTHROPIC_REPAIR_MODEL
-ANTHROPIC_RECEIPT_MODEL
-ANTHROPIC_RECEIPT_FALLBACK_MODEL
-ANTHROPIC_BLOG_MODEL
-```
-
 ### Observability + dev (OPTIONAL)
 
 ```
@@ -250,7 +238,6 @@ Hand over in this order so he can be productive within the first day.
 - [ ] **Sentry** — invite to the project so he sees errors as they fire
 - [ ] **Cloudflare** account — DNS for `cateringms.com` (you might host DNS elsewhere — share whichever it is)
 - [ ] **Google Cloud** console for the Maps API key
-- [ ] **Anthropic** console — only if he's working on AI receipt OCR or blog drafter
 - [ ] **WhatsApp Business** API console — only if extending the WhatsApp quote-send
 
 ### Tier 4 — admin access inside the app
