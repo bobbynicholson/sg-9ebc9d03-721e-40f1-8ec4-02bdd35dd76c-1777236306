@@ -26,6 +26,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const body = (typeof req.body === "string" ? JSON.parse(req.body) : req.body) || {};
   const orderId  = String(body.order_id || "").trim();
   const rawToken = String(body.token    || "").trim();
+  // TIGHTEN I.122 (2026-06-03): caller passes the slug from the browser
+  // URL so the cookie Path matches. Cookies are scoped to the URL the
+  // browser actually sees (slug-prefixed), not the canonical Next path.
+  // We sanitise to a single segment of [a-z0-9-] so a hostile body can't
+  // smuggle in a different path through this field.
+  const rawSlug = String(body.slug || "").trim().toLowerCase();
+  const cleanSlug = /^[a-z0-9][a-z0-9-]{0,63}$/.test(rawSlug) ? rawSlug : "";
   if (!orderId || !rawToken) {
     return res.status(400).json({ error: "order_id and token required" });
   }
@@ -89,15 +96,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   // gave network sniffers a much larger exposure window than needed.
   const expiresAt = new Date(result.token.expires_at);
   const maxAgeSec = Math.max(0, Math.floor((expiresAt.getTime() - Date.now()) / 1000));
-  const cookie = [
-    `cms_client_token_${orderId}=${tokenHash}`,
-    `Max-Age=${Math.min(maxAgeSec, 60 * 60 * 24 * 60)}`,
-    "Path=/c",
-    "HttpOnly",
-    "SameSite=Lax",
-    "Secure",
-  ].join("; ");
-  res.setHeader("Set-Cookie", cookie);
+  // TIGHTEN I.122: when the URL is slug-prefixed (every production
+  // path that goes through the tenant rewrite chain) the cookie Path
+  // must include the slug or the browser won't ship the cookie on
+  // subsequent /view requests from the same URL. Set TWO cookies -
+  // one at /{slug}/c and one at /c - so the page works whether the
+  // user lands on the slugged URL or the canonical one. Cookie name
+  // is per-order so the overlap is harmless.
+  const cookiePaths: string[] = ["/c"];
+  if (cleanSlug) cookiePaths.unshift(`/${cleanSlug}/c`);
+  const cookieHeaders = cookiePaths.map((path) =>
+    [
+      `cms_client_token_${orderId}=${tokenHash}`,
+      `Max-Age=${Math.min(maxAgeSec, 60 * 60 * 24 * 60)}`,
+      `Path=${path}`,
+      "HttpOnly",
+      "SameSite=Lax",
+      "Secure",
+    ].join("; "),
+  );
+  res.setHeader("Set-Cookie", cookieHeaders);
 
   return res.status(200).json(result);
 }

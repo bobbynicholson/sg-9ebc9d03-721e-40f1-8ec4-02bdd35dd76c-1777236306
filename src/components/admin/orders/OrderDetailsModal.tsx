@@ -869,6 +869,11 @@ return (
                   {selectedOrder && (selectedOrder as any).status !== "cancelled" && (
                     <>
                       <DropdownMenuSeparator />
+                      {/* TIGHTEN I.122: this single entry opens the
+                          unified Cancel / Purge dialog. The label
+                          covers both because the dialog itself is the
+                          mode picker - cancel for real cancellations,
+                          purge for test data / mistakes. */}
                       <DropdownMenuItem
                         onClick={() => {
                           setIsModalOpen(false);
@@ -877,7 +882,7 @@ return (
                         className="text-rose-700 focus:text-rose-800 focus:bg-rose-50"
                       >
                         <Trash2 className="w-4 h-4 mr-2" />
-                        Cancel order
+                        Cancel or remove order
                       </DropdownMenuItem>
                     </>
                   )}
@@ -897,9 +902,10 @@ return (
                   variant="outline"
                   size="sm"
                   className="text-rose-700 border-rose-200 hover:bg-rose-50"
+                  title="Open the cancel-or-remove dialog. Cancel = real cancellation with refund per policy. Remove = permanent delete for test data."
                 >
                   <Trash2 className="w-4 h-4 mr-2" />
-                  Cancel order
+                  Cancel or remove
                 </Button>
               )}
               <Button
