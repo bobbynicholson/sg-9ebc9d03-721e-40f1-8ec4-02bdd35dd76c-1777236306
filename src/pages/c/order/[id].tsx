@@ -96,17 +96,37 @@ export default function ClientOrderPage() {
       setError(null);
       try {
         if (queryToken) {
+          // TIGHTEN I.122 (2026-06-03): pass the slug (read from the
+          // browser URL) so the validate endpoint can set the cookie
+          // at Path=/{slug}/c rather than /c. Cookies match the full
+          // browser-visible URL, not the canonical Next path; without
+          // the slug in the cookie path, a refresh on the slugged URL
+          // wouldn't ship the cookie and the page would fall through
+          // to the ExpiredLinkCard.
+          let urlSlug = "";
+          if (typeof window !== "undefined") {
+            const parts = window.location.pathname.split("/").filter(Boolean);
+            if (parts.length >= 4 && parts[1] === "c" && parts[2] === "order") {
+              urlSlug = parts[0];
+            }
+          }
           const r = await fetch("/api/client-tokens/validate", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ order_id: orderId, token: queryToken }),
+            body: JSON.stringify({ order_id: orderId, token: queryToken, slug: urlSlug || undefined }),
           });
           const data = await r.json();
           if (!r.ok) throw new Error(data?.error || "Invalid link");
           if (cancelled) return;
           setView(data as OrderView);
-          // Strip the token from the URL
-          router.replace(`/c/order/${orderId}`, undefined, { shallow: true });
+          // TIGHTEN I.122: strip ONLY the ?t= token query param and
+          // keep the slug intact so the URL stays branded and the
+          // browser keeps shipping the slug-scoped cookie. Previous
+          // code did router.replace(`/c/order/${id}`) which dropped
+          // the slug entirely - the client lost tenant identity on
+          // refresh and the recovery card had no slug to show.
+          const slugSeg = urlSlug ? `/${urlSlug}` : "";
+          router.replace(`${slugSeg}/c/order/${orderId}`, undefined, { shallow: true });
         } else {
           // No token in URL - try the cookie
           const r = await fetch("/api/client-tokens/view", {
@@ -919,25 +939,29 @@ function Row({ label, value, paid }: { label: string; value: string; paid?: bool
 /**
  * Client persona follow-up: previously this error card was a dead end -
  * "Ask the catering company to send you a fresh link." Now offers a
- * self-serve recovery: the user enters their email + the catering
- * company's slug, we POST to /api/client-tokens/request which is
- * rate-limited (3/min/email) and always returns 200 for privacy.
+ * self-serve recovery: the user enters their email and we POST to
+ * /api/client-tokens/request which is rate-limited (3/min/email) and
+ * always returns 200 for privacy.
  *
- * Slug is best-effort pre-populated from the URL when the tenant uses
- * slug-aware routing (/{slug}/c/order/[id]). The user can edit it if
- * we got it wrong.
+ * TIGHTEN I.122 (2026-06-03): the "Catering company URL" input is GONE.
+ * Clients had no way to know that string and the field was a UX
+ * dead-end. We now:
+ *   - read the slug invisibly from the URL when it's slug-prefixed
+ *   - pass it on the request alongside the email, OR
+ *   - let the server look up every tenant that has this email on file
+ *     and email a recovery link for each.
  *
  * See docs/personas/client.md section 5.1.
  */
 function ExpiredLinkCard({ reason }: { reason: string | null }) {
   const router = useRouter();
-  // Try to recover the tenant slug from the URL. URL pattern is
-  // either /c/order/[id] (root) or /{slug}/c/order/[id] (per-tenant).
+  // Read slug invisibly from the URL. Path patterns:
+  //   /c/order/[id]            - root tenant, no slug
+  //   /{slug}/c/order/[id]     - slug-prefixed (the common case
+  //                              after the tenant rewrite chain)
   const detectedSlug = (() => {
     if (typeof window === "undefined") return "";
     const parts = window.location.pathname.split("/").filter(Boolean);
-    // Path like ['my-slug','c','order','xyz'] -> slug is parts[0].
-    // Path like ['c','order','xyz'] -> no slug, root tenant.
     if (parts.length >= 4 && parts[1] === "c" && parts[2] === "order") {
       return parts[0];
     }
@@ -945,7 +969,6 @@ function ExpiredLinkCard({ reason }: { reason: string | null }) {
   })();
 
   const [email, setEmail] = useState("");
-  const [slug, setSlug] = useState(detectedSlug);
   const [submitting, setSubmitting] = useState(false);
   const [sent, setSent] = useState(false);
   const [formErr, setFormErr] = useState<string | null>(null);
@@ -953,13 +976,8 @@ function ExpiredLinkCard({ reason }: { reason: string | null }) {
   const handleRequest = async () => {
     setFormErr(null);
     const cleanEmail = email.trim();
-    const cleanSlug = slug.trim();
     if (!cleanEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
       setFormErr("Enter a valid email.");
-      return;
-    }
-    if (!cleanSlug) {
-      setFormErr("Enter the catering company's URL slug.");
       return;
     }
     setSubmitting(true);
@@ -967,11 +985,13 @@ function ExpiredLinkCard({ reason }: { reason: string | null }) {
       const resp = await fetch("/api/client-tokens/request", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ company_slug: cleanSlug, email: cleanEmail }),
+        // Slug is passed invisibly when we have it; server falls back
+        // to looking up tenants by email when missing.
+        body: JSON.stringify({
+          email: cleanEmail,
+          ...(detectedSlug ? { company_slug: detectedSlug } : {}),
+        }),
       });
-      // The endpoint always returns 200 for privacy (doesn't confirm
-      // whether an email is on file). Treat any non-200 as a server
-      // hiccup the user should retry.
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
       setSent(true);
     } catch (e: any) {
@@ -1021,18 +1041,6 @@ function ExpiredLinkCard({ reason }: { reason: string | null }) {
                     onChange={(e) => setEmail(e.target.value)}
                     disabled={submitting}
                     autoFocus
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="freshlink-slug" className="text-xs text-slate-600">
-                    Catering company URL <span className="text-slate-400">(the bit before "/c/order")</span>
-                  </Label>
-                  <Input
-                    id="freshlink-slug"
-                    placeholder="your-caterer"
-                    value={slug}
-                    onChange={(e) => setSlug(e.target.value)}
-                    disabled={submitting}
                   />
                 </div>
                 {formErr && (
