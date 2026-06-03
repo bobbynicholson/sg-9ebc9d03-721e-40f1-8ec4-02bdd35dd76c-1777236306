@@ -96,13 +96,16 @@ export default function ClientOrderPage() {
       setError(null);
       try {
         if (queryToken) {
-          // TIGHTEN I.122 (2026-06-03): pass the slug (read from the
-          // browser URL) so the validate endpoint can set the cookie
-          // at Path=/{slug}/c rather than /c. Cookies match the full
-          // browser-visible URL, not the canonical Next path; without
-          // the slug in the cookie path, a refresh on the slugged URL
-          // wouldn't ship the cookie and the page would fall through
-          // to the ExpiredLinkCard.
+          // TIGHTEN I.126 (2026-06-03): no more URL strip. The token is
+          // bound to one order and has a 24-hour TTL, so the leak
+          // surface is tiny; in return, the URL stays canonical and
+          // the page survives every refresh / share / re-open within
+          // the 24-hour window without depending on a cookie that has
+          // historically been fiddly to ship through tenant rewrites.
+          // Bobby saw this fire one minute after sending an email -
+          // validate succeeded server-side but the post-strip rerun
+          // hit /view without a cookie and bounced to the recovery
+          // card.
           let urlSlug = "";
           if (typeof window !== "undefined") {
             const parts = window.location.pathname.split("/").filter(Boolean);
@@ -119,14 +122,6 @@ export default function ClientOrderPage() {
           if (!r.ok) throw new Error(data?.error || "Invalid link");
           if (cancelled) return;
           setView(data as OrderView);
-          // TIGHTEN I.122: strip ONLY the ?t= token query param and
-          // keep the slug intact so the URL stays branded and the
-          // browser keeps shipping the slug-scoped cookie. Previous
-          // code did router.replace(`/c/order/${id}`) which dropped
-          // the slug entirely - the client lost tenant identity on
-          // refresh and the recovery card had no slug to show.
-          const slugSeg = urlSlug ? `/${urlSlug}` : "";
-          router.replace(`${slugSeg}/c/order/${orderId}`, undefined, { shallow: true });
         } else {
           // No token in URL - try the cookie
           const r = await fetch("/api/client-tokens/view", {
