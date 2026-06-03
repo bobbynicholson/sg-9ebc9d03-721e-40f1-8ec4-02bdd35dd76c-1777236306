@@ -1639,6 +1639,15 @@ function NewQuotePage() {
           quote_name: eventName || null,
           user_id: user?.id || null,
           public_token: publicToken,
+          // TIGHTEN I.128 (2026-06-03): pass the live guest count +
+          // event date so the email body can render "30 guests on
+          // 6 June" rather than the stale figure the template alone
+          // would carry. Also forward is_converted so the body copy
+          // switches to "I've updated your booking" when the quote
+          // already has a linked order.
+          guest_count: guestCount,
+          event_date: eventDate || null,
+          is_converted: isConvertedQuote,
         });
       }
     } finally {
