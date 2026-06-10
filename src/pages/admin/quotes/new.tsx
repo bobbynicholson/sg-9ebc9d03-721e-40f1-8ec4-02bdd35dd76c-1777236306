@@ -1118,7 +1118,7 @@ function NewQuotePage() {
       // letting X quote on Quote.") and dashboard tiles. NULL means
       // "no event name set" - downstream renderers fall back to the
       // quote number or a friendly "Untitled" label.
-      quote_name: eventName.trim() || null,
+      quote_name: eventName.trim() || "Untitled",
       event_date: eventDate || null,
       event_time: eventTime || null,
       // setup_time defaults to suggestedSetupTime when the operator
@@ -1639,7 +1639,7 @@ function NewQuotePage() {
           total_amount: computed.total,
           currency: tenantCurrency.code,
           event_name: eventName || null,
-          quote_name: eventName || null,
+          quote_name: eventName || "Untitled",
           user_id: user?.id || null,
           public_token: publicToken,
           // TIGHTEN I.128 (2026-06-03): pass the live guest count +
