@@ -105,7 +105,7 @@ export function OperationsSettingsTab({ settings, onUpdate }: Props) {
                     type="number"
                     step={field.step}
                     value={settings[field.key]}
-                    onChange={(e) => onUpdate(field.key, parse(e.target.value))}
+                    onChange={(e) => onUpdate(field.key, parse(e.target.value) || 0)}
                   />
                   {field.helpText && (
                     <p className="text-xs text-slate-600">{field.helpText}</p>
