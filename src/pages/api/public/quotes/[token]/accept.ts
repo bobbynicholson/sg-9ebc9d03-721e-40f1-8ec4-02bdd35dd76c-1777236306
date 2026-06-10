@@ -141,7 +141,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     // selecting it from quotes returns "column quotes.currency does not
     // exist" and 500s the accept flow. Pull currency from companies
     // below where we already fetch tenant context for the email.
-    .select("id, company_id, user_id, client_id, client_name, client_email, total, event_date, guest_count, quote_name, quote_number")
+    .select("id, company_id, user_id, client_id, client_name, client_email, total, event_date, guest_count, quote_name, quote_number, public_token")
     .maybeSingle();
 
   // Wave 17 audit: don't leak raw Postgres errors to the public client.
@@ -176,9 +176,11 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   // stamped accepted_at and the catering team had to manually convert
   // every accepted quote into an order, with the on-page timeline
   // ("Step 2: Deposit invoice") being a lie until they did.
+  let convertedOrderId: string | null = null;
   try {
     const { quoteService } = await import("@/services/quoteService");
-    await (quoteService as any).convertQuoteToOrder(updated.id);
+    const convertResult = await (quoteService as any).convertQuoteToOrder(updated.id);
+    convertedOrderId = (convertResult as any)?.order?.id ?? null;
   } catch (err) {
     console.warn("[public/quotes/accept] convert-to-order cascade failed (non-blocking):", err);
   }
@@ -221,10 +223,12 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     }
   })();
 
-  // Fire notifications fully async so the client gets a fast response.
-  // Each channel is best-effort, wrapped in its own try/catch.
-  void notifyAdminOfAcceptance(supabase, updated, acceptorName);
-  void notifyClientOfAcceptance(supabase, updated, acceptorName);
+  // Await notifications before returning so Vercel doesn't cut them off.
+  // Each function is internally try/caught - failures warn but never throw.
+  await Promise.all([
+    notifyAdminOfAcceptance(supabase, updated, acceptorName),
+    notifyClientOfAcceptance(supabase, updated, acceptorName, convertedOrderId),
+  ]);
 
   return res.status(200).json({ ok: true });
 }
@@ -237,7 +241,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
  * personalises subject lines centrally. Best-effort, wrapped per
  * channel so a failed send never rolls back the acceptance.
  */
-async function notifyClientOfAcceptance(supabase: any, quote: any, acceptorName: string) {
+async function notifyClientOfAcceptance(supabase: any, quote: any, acceptorName: string, orderId: string | null) {
   // Resolve the catering company's display name - the email signs
   // off as "{tenant_name} will send your deposit invoice shortly"
   // rather than "your catering company".
@@ -290,6 +294,26 @@ async function notifyClientOfAcceptance(supabase: any, quote: any, acceptorName:
   // default beats the inline fallback. Service-role client passed so
   // the resolver can read the global-default row even though there is
   // no authenticated user on this public endpoint.
+  // Build the client-facing order URL. If the order was created, mint a
+  // tokenised /c/order/{id} link; otherwise fall back to /q/{token} which
+  // auto-bridges to the order view after conversion.
+  let orderUrl = "";
+  try {
+    const { mintOrderCustomerLink, buildPublicQuoteUrlServer } = await import("@/lib/customerLinksServer");
+    if (orderId) {
+      orderUrl = await mintOrderCustomerLink({
+        sb: supabase,
+        companyId: quote.company_id,
+        orderId,
+        label: "quote-accepted-confirmation",
+      });
+    } else if (quote.public_token) {
+      orderUrl = buildPublicQuoteUrlServer(quote.public_token) ?? "";
+    }
+  } catch (err) {
+    console.warn("[public/quotes/accept] order URL build failed", err);
+  }
+
   try {
     if (quote.client_email) {
       const { emailService } = await import("@/services/emailService");
@@ -299,7 +323,7 @@ async function notifyClientOfAcceptance(supabase: any, quote: any, acceptorName:
         `Hi {{first_name}},\n\n` +
         `Thanks for accepting your {{event_name}} quote - you're booked in.\n\n` +
         `Here's what happens from here:\n\n` +
-        `1. Confirmation email: this email is your record. A copy of the quote is on your client portal.\n` +
+        `1. Confirmation email: this email is your record. A copy of your quote and order is on your client portal: {{order_url}}\n` +
         `2. Deposit invoice: {{tenant_name}} will send the deposit invoice shortly to lock in your event date.\n` +
         `3. Event day{{event_day_suffix}}: we'll be in touch the week before with final headcount and any last tweaks.\n\n` +
         `If anything has changed on your side, just reply to this email and we'll sort it.\n\n` +
@@ -315,6 +339,8 @@ async function notifyClientOfAcceptance(supabase: any, quote: any, acceptorName:
           event_name: eventName,
           event_date: eventLabel,
           event_day_suffix: quote.event_date ? ` (${eventLabel})` : "",
+          order_url: orderUrl,
+          quote_url: orderUrl,
         },
         fallback: {
           subject: `Quote accepted - thanks ${firstName}`,
