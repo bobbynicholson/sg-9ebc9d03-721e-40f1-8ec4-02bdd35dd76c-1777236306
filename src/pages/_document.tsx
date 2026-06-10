@@ -12,6 +12,7 @@ export default function Document() {
             laptop. theme-color matches the manifest emerald accent. */}
         <link rel="manifest" href="/manifest.webmanifest" />
         <meta name="theme-color" content="#10b981" />
+        <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="apple-mobile-web-app-title" content="CateringMS Driver" />

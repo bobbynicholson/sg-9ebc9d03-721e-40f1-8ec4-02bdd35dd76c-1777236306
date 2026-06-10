@@ -263,7 +263,7 @@ export async function middleware(request: NextRequest) {
     // /clients/john.doe wouldn't be misclassified as a file. LCF-G
     // added html to the list because /embed/demo.html is a static
     // asset and the per-tenant embed loader serves it raw.
-    /\.(?:ico|png|jpg|jpeg|webp|svg|gif|avif|woff2?|css|js|map|txt|xml|json|pdf|html)$/i.test(pathname)
+    /\.(?:ico|png|jpg|jpeg|webp|svg|gif|avif|woff2?|css|js|map|txt|xml|json|pdf|html|webmanifest)$/i.test(pathname)
   ) {
     return response;
   }
