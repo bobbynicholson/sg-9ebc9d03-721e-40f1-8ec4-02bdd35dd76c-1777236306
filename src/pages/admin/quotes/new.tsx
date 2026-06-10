@@ -1205,29 +1205,35 @@ function NewQuotePage() {
       // recovered) lead, etc. Restrict to the INSERT branch only;
       // once the quote has a row, the constraint is already satisfied
       // and the linkage is fixed for the lifetime of the quote.
-      if (!quoteId && !payload.lead_id && !payload.client_id && email) {
+      if (!quoteId && !payload.lead_id && !payload.client_id) {
+        // DB constraint quote_has_lead_or_client requires at least one FK.
+        // Previously this only ran when email was set, so quotes created
+        // without an email field triggered the constraint violation.
+        // Now: always try to satisfy the constraint when we have a name.
         try {
-          const { data: existingLead } = await supabase
-            .from("leads")
-            .select("id")
-            .eq("company_id", companyId)
-            .eq("email", email)
-            .is("deleted_at", null)
-            .maybeSingle();
-          if ((existingLead as any)?.id) {
-            payload.lead_id = (existingLead as any).id;
-          } else {
+          // Try to find an existing lead by email first (dedup).
+          if (email) {
+            const { data: existingLead } = await supabase
+              .from("leads")
+              .select("id")
+              .eq("company_id", companyId)
+              .eq("email", email)
+              .is("deleted_at", null)
+              .maybeSingle();
+            if ((existingLead as any)?.id) {
+              payload.lead_id = (existingLead as any).id;
+            }
+          }
+          // Still no lead_id — create a new one with whatever we have.
+          if (!payload.lead_id && clientName) {
             const { data: newLead } = await supabase
               .from("leads")
               .insert({
                 company_id: companyId,
-                // Guaranteed set above - payload.region_id passes the
-                // resolveDefaultRegionId fallback so it's never null
-                // by the time we reach this auto-link branch.
                 region_id: payload.region_id,
                 contact_name: clientName,
                 client_name: clientName,
-                email,
+                email: email || null,
                 phone: phone || null,
                 status: "new",
                 source: "quote_builder",

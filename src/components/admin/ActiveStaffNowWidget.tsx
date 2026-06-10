@@ -59,7 +59,7 @@ export function ActiveStaffNowWidget({ companyId }: { companyId: string | null }
           .from("staff_work_sessions")
           .select(`
             id, staff_id, clock_in,
-            kitchen_staff:staff_id ( full_name, role_title, company_id )
+            kitchen_staff:staff_id ( full_name, company_id )
           `)
           .is("clock_out", null)
           .order("clock_in", { ascending: true })
@@ -72,7 +72,7 @@ export function ActiveStaffNowWidget({ companyId }: { companyId: string | null }
             staff_id: r.staff_id,
             clock_in: r.clock_in,
             staff_name: r.kitchen_staff?.full_name || "Unknown staff",
-            role_title: r.kitchen_staff?.role_title || null,
+            role_title: null,
           }))
           .slice(0, 8);
         if (!cancelled) {
