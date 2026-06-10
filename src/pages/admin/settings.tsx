@@ -135,7 +135,7 @@ function SettingsPage() {
         .from("profiles")
         .select("company_id")
         .eq("id", user.id)
-        .single();
+        .maybeSingle();
       if (!profile?.company_id || cancelled) return;
 
       // Cast to any so the new financial columns (added in
@@ -147,7 +147,7 @@ function SettingsPage() {
         .from("companies")
         .select("company_name, email, phone, address_line1, logo_url, headquarters_lat, headquarters_lng, deposit_percent, balance_due_days, amendment_cutoff_days, cancellation_fee_percent, refund_process_days")
         .eq("id", profile.company_id)
-        .single();
+        .maybeSingle();
       if (!company || cancelled) return;
 
       setSettings((prev) => {
@@ -225,7 +225,7 @@ function SettingsPage() {
           .from("profiles")
           .select("company_id")
           .eq("id", user.id)
-          .single();
+          .maybeSingle();
         if (profile?.company_id) {
           // Read the current JSONB so we merge instead of clobber.
           // Audit (May 2026, Wave 8): dispatch_settings is shared with

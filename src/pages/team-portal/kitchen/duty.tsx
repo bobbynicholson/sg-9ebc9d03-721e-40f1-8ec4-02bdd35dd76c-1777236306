@@ -246,7 +246,7 @@ export default function KitchenDutyRosterPage() {
           .from("companies")
           .select("kitchen_settings")
           .eq("id", user.company_id)
-          .single();
+          .maybeSingle();
         const ks: any = company?.kitchen_settings || {};
         setSettings({
           overtimeAfterHours: Number(ks.overtimeAfterHours ?? 9),

@@ -95,7 +95,7 @@ export function ClientTrackingMap({
         .from("orders")
         .select("driver_id, assigned_driver_id")
         .eq("id", orderId)
-        .single();
+        .maybeSingle();
       const resolved =
         (order as any)?.assigned_driver_id || (order as any)?.driver_id || null;
       if (resolved) setDriverId(resolved);

@@ -589,7 +589,7 @@ export default function KitchenDashboard() {
           .from("companies")
           .select("kitchen_settings")
           .eq("id", user.company_id)
-          .single();
+          .maybeSingle();
         if (companyError) {
           captureException(companyError, {
             tags: { route: "/team-portal/kitchen/dashboard", step: "load-kitchen-settings", companyId: user.company_id },

@@ -66,7 +66,7 @@ export function CashflowSnapshotWidget({ companyId, currency = "ZAR" }: Props) {
           .from("companies")
           .select("cash_on_hand_cents, cash_on_hand_updated_at")
           .eq("id", companyId)
-          .single(),
+          .maybeSingle(),
         // Income: orders firing in 30d window. TIGHTEN I.72: pull the
         // fields isPipelineRevenue needs so we can defensively net out
         // cancelled / excluded rows in-memory (status filter alone misses
