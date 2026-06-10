@@ -590,7 +590,7 @@ export const emailService = {
             const quoteUrl = v.quote_url || v.quoteUrl;
             const orderUrl = v.order_url || v.orderUrl;
             const invoiceLink = v.invoice_link || v.invoiceLink || v.invoiceUrl;
-            if (quoteUrl)   return { label: "View and accept", url: String(quoteUrl) };
+            if (quoteUrl)   return { label: "View quote", url: String(quoteUrl) };
             if (orderUrl)   return { label: "View your order", url: String(orderUrl) };
             if (invoiceLink) return { label: "View invoice", url: String(invoiceLink) };
             return undefined;

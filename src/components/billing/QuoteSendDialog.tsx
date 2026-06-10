@@ -383,13 +383,12 @@ function buildFallbackBody(input: {
     }
   } else {
     // Initial-send path.
-    const eventPhrase = eventName ? ` for your ${eventName}` : "";
-    lines.push(`Thanks for the opportunity to quote${eventPhrase}. Your quote ${quoteNumber} is ready:`);
+    lines.push(`Thanks for the opportunity to quote you. Your quote ${quoteNumber} is ready:`);
     lines.push("");
     lines.push(`  ${detailsLine}`);
     if (quoteUrl) {
       lines.push("");
-      lines.push("View and accept the quote here:");
+      lines.push("View the quote here:");
       lines.push(quoteUrl);
       lines.push("");
       lines.push("Or reply to this email if you'd like to chat through it first.");
