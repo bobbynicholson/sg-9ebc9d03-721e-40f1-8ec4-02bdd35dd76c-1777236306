@@ -1398,16 +1398,16 @@ function AdminQuotesInner() {
       <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 lg:pl-72 xl:pl-80">
         <div className="px-4 pt-20 lg:pt-6 pb-12 max-w-full">
           <div className="mb-8">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div className="flex items-center gap-3">
-                <div className="p-3 bg-gradient-to-br from-green-500 to-emerald-500 rounded-2xl shadow-lg">
+                <div className="p-3 bg-gradient-to-br from-green-500 to-emerald-500 rounded-2xl shadow-lg shrink-0">
                   <DollarSign className="w-8 h-8 text-white" />
                 </div>
                 <div>
-                  <h1 className="text-4xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
+                  <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
                     Quotes
                   </h1>
-                  <p className="text-slate-600 mt-1">Priced proposals. Build a quote from a lead or directly off a client, send the public link, then chase with reminders until accepted or declined. Accepted quotes convert to orders.</p>
+                  <p className="text-slate-600 mt-1 text-sm sm:text-base hidden sm:block">Priced proposals. Build a quote from a lead or directly off a client, send the public link, then chase with reminders until accepted or declined. Accepted quotes convert to orders.</p>
                 </div>
               </div>
               <div className="flex flex-wrap items-center gap-2">
@@ -1507,7 +1507,7 @@ function AdminQuotesInner() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-6">
             <Card className="border-0 shadow-lg">
               <CardContent className="p-4">
                 <p className="text-sm text-slate-600 mb-1 flex items-center gap-1.5">Total Quotes <InfoTooltip content={`Every quote created within the selected range (${tileRange.label}). Branch + mine-only filters still apply.`} /></p>
@@ -1570,7 +1570,7 @@ function AdminQuotesInner() {
             pill shows a live count so the team sees at a glance how
             many quotes need their attention. Click to narrow the list.
           */}
-          <div className="mb-4 flex flex-wrap gap-2">
+          <div className="mb-4 flex gap-2 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible sm:pb-0 scrollbar-hide">
             {([
               { id: "all",            label: "Open",          icon: Inbox,          tone: "bg-slate-100 text-slate-700 border-slate-200" },
               { id: "action_needed",  label: "Action needed", icon: Flame,          tone: "bg-rose-100 text-rose-700 border-rose-200" },
@@ -1601,7 +1601,7 @@ function AdminQuotesInner() {
                   key={pill.id}
                   type="button"
                   onClick={() => setBucket(pill.id as QuoteBucket)}
-                  className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm transition ${
+                  className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm transition shrink-0 ${
                     active
                       ? `${pill.tone} ring-2 ring-offset-1 ring-slate-300`
                       : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"
@@ -1892,8 +1892,8 @@ function AdminQuotesInner() {
                               : ""
                     }`}
                   >
-                    <CardContent className="p-6">
-                      <div className="flex items-start justify-between">
+                    <CardContent className="p-4 sm:p-6">
+                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 sm:gap-0">
                         <div className="flex-1">
                           <div className="flex items-center gap-3 mb-3 flex-wrap">
                             <h3 className="text-xl font-semibold text-slate-900">{quote.client_name}</h3>
@@ -2049,7 +2049,7 @@ function AdminQuotesInner() {
                             )}
                           </div>
 
-                          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-2">
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-2">
                             <div className="flex items-center gap-2 text-slate-600">
                               <Mail className="w-4 h-4" />
                               <span className="text-sm">{quote.client_email}</span>
@@ -2190,7 +2190,7 @@ function AdminQuotesInner() {
                             Lifecycle moves (Mark sent, Mark lost) and
                             CRUD (Edit, Duplicate, Delete) live in the
                             menu since they're not row-level urgent. */}
-                        <div className="flex flex-col gap-2 ml-4 items-stretch w-44 shrink-0">
+                        <div className="flex flex-row flex-wrap gap-2 sm:flex-col sm:ml-4 sm:items-stretch sm:w-44 sm:shrink-0">
                           {/* Primary CTA - tone-coloured. Draft -> Send,
                               everything else -> Compose. */}
                           {quote.status === "draft" ? (

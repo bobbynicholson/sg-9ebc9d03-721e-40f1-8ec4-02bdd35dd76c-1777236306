@@ -594,6 +594,11 @@ export const quoteService = {
        *  See audit Sales G8 - silent breakage at the moment that
        *  matters most. */
       allowMissingEmail?: boolean;
+      /** Service-role client for server-side callers (API routes, webhooks).
+       *  When provided, all DB operations in the function use this client
+       *  instead of the module-level anon browser client, so RLS doesn't
+       *  block the INSERT into orders from an unauthenticated context. */
+      _client?: any;
     },
   ): Promise<{
     order: AppOrder | null;
@@ -604,8 +609,19 @@ export const quoteService = {
     error?: string;
     error_code?: string;
   }> {
-    const quote = await this.getQuote(quoteId);
-    if (!quote) {
+    // Use the caller-supplied client when available (server-side / API
+    // routes pass the service-role client; browser callers fall back to
+    // the module-level anon client as before).
+    const db: any = options?._client ?? supabase;
+
+    const { data: quote, error: quoteFetchErr } = await db
+      .from("quotes")
+      .select("*")
+      .eq("id", quoteId)
+      .is("deleted_at", null)
+      .maybeSingle();
+    if (quoteFetchErr || !quote) {
+      if (quoteFetchErr) console.error("[convertQuoteToOrder] quote fetch failed:", quoteFetchErr);
       return {
         order: null,
         invoice: { ok: false, error: "Quote not found" },
@@ -689,7 +705,7 @@ export const quoteService = {
     // actual setting.
     let resolvedCurrency = "ZAR";
     try {
-      const { data: companyRow, error: companyRowErr2 } = await supabase
+      const { data: companyRow, error: companyRowErr2 } = await db
         .from("companies")
         .select("currency")
         .eq("id", q.company_id)
@@ -765,7 +781,7 @@ export const quoteService = {
     // cadence + the public PaymentScheduleCard both have something
     // to honour.
     try {
-      const { data: companyRow, error: companyRowErr3 } = await supabase
+      const { data: companyRow, error: companyRowErr3 } = await db
         .from("companies")
         .select("balance_due_days")
         .eq("id", q.company_id)
@@ -827,7 +843,7 @@ export const quoteService = {
     // independently so a later cascade failure doesn't roll back a
     // legitimate new client. The resolved id is folded into the
     // payload below.
-    const { data: rpcOrder, error: rpcError } = await (supabase as any).rpc("convert_quote_to_order", {
+    const { data: rpcOrder, error: rpcError } = await db.rpc("convert_quote_to_order", {
       p_quote_id:      quoteId,
       p_company_id:    q.company_id,
       p_actor_user_id: quote.user_id ?? null,
@@ -858,7 +874,7 @@ export const quoteService = {
     // single follow-up update is the cheapest path. Best-effort.
     if ((q as any).source) {
       try {
-        await (supabase as any)
+        await db
           .from("orders")
           .update({ lead_source: (q as any).source })
           .eq("id", newOrder.id);
@@ -876,7 +892,7 @@ export const quoteService = {
     // client when nothing is injected.
     const { postOrderCreationCascade } = await import("./order/postCreationCascade");
     const cascade = await postOrderCreationCascade(
-      supabase as any,
+      db,
       newOrder.id,
       newOrder.company_id,
       quote.user_id ?? null,
@@ -889,7 +905,7 @@ export const quoteService = {
     if (cascade.invoice.ok && cascade.invoice.invoiceId) {
       // Fetch the friendly invoice number + amount so the toast can
       // surface them. ensureInvoiceForOrder only returns the id.
-      const { data: row, error: rowErr } = await supabase
+      const { data: row, error: rowErr } = await db
         .from("invoices")
         .select("invoice_number, total_amount")
         .eq("id", cascade.invoice.invoiceId)
@@ -905,7 +921,7 @@ export const quoteService = {
         const total = Number((row as any).total_amount) || 0;
         const paid = Number(options.depositPaid.amount);
         const balance = Math.max(0, total - paid);
-        await (supabase as any)
+        await db
           .from("invoices")
           .update({
             amount_paid: paid,
@@ -926,7 +942,7 @@ export const quoteService = {
         // still lands cleanly if the payments policy denies the write.
         try {
           const txnId = `accept-${newOrder.id}-deposit`;
-          await (supabase as any).from("payments").insert({
+          await db.from("payments").insert({
             company_id: newOrder.company_id,
             order_id: newOrder.id,
             invoice_id: cascade.invoice.invoiceId,

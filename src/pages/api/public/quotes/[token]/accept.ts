@@ -179,7 +179,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   let convertedOrderId: string | null = null;
   try {
     const { quoteService } = await import("@/services/quoteService");
-    const convertResult = await (quoteService as any).convertQuoteToOrder(updated.id);
+    const convertResult = await (quoteService as any).convertQuoteToOrder(updated.id, { _client: supabase });
     convertedOrderId = (convertResult as any)?.order?.id ?? null;
   } catch (err) {
     console.warn("[public/quotes/accept] convert-to-order cascade failed (non-blocking):", err);
