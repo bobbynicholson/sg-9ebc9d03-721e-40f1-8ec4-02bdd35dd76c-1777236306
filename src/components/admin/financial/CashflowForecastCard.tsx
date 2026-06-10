@@ -128,6 +128,7 @@ interface LooseQueryBuilder {
   not: (col: string, op: string, val: unknown) => LooseQueryBuilder;
   is: (col: string, val: unknown) => LooseQueryBuilder;
   single: () => LooseQueryBuilder;
+  maybeSingle: () => LooseQueryBuilder;
   then: <TResult1 = unknown>(
     onfulfilled?: ((value: unknown) => TResult1 | PromiseLike<TResult1>) | null,
   ) => Promise<TResult1>;
@@ -271,7 +272,7 @@ export function CashflowForecastCard({
           .from("companies")
           .select("cash_on_hand_cents, cash_on_hand_updated_at, cash_on_hand_stale_after_hours")
           .eq("id", companyId)
-          .single() as unknown as Promise<RowResult<CompanyCashRow>>,
+          .maybeSingle() as unknown as Promise<RowResult<CompanyCashRow>>,
         sb
           .from("equipment_hire_orders")
           .select("id, equipment_name, total_cost, expected_pickup_date, status")

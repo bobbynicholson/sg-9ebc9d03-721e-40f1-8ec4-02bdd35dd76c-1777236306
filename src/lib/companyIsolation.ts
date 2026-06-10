@@ -32,7 +32,7 @@ export async function getCompanyContext(): Promise<CompanyContext | null> {
       )
     `)
     .eq("id", session.user.id)
-    .single();
+    .maybeSingle();
 
   if (!profile || !profile.companies) return null;
 
@@ -80,8 +80,8 @@ export async function getCompanyIdFromSlug(slug: string): Promise<string | null>
     .from("companies")
     .select("id")
     .eq("slug", slug)
-    .single();
-  if (error && (error as any).code !== "PGRST116") console.error("[companyIsolation/getCompanyIdFromSlug] companies lookup failed:", error);
+    .maybeSingle();
+  if (error) console.error("[companyIsolation/getCompanyIdFromSlug] companies lookup failed:", error);
 
   return data?.id || null;
 }
@@ -109,7 +109,7 @@ export async function validateCompanyMutation(
     .from("profiles")
     .select("company_id, active_role")
     .eq("id", userId)
-    .single();
+    .maybeSingle();
 
   if (!profile) return false;
 

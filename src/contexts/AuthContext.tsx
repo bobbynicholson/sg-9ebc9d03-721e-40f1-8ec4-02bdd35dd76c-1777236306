@@ -182,7 +182,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               .from("companies")
               .select("*")
               .eq("id", userProfile.company_id)
-              .single();
+              .maybeSingle();
             if (companyError) {
               console.error("[AuthContext] companies fetch failed:", companyError);
             }
