@@ -1217,7 +1217,7 @@ function NewQuotePage() {
               .from("leads")
               .select("id")
               .eq("company_id", companyId)
-              .ilike("email", email)
+              .eq("email", email.trim().toLowerCase())
               .is("deleted_at", null)
               .maybeSingle();
             if (findLeadErr) {

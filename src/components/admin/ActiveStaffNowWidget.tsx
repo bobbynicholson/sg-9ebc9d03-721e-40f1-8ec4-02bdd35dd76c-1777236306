@@ -28,7 +28,6 @@ interface SessionRow {
   staff_id: string | null;
   clock_in: string;
   staff_name: string;
-  role_title: string | null;
 }
 
 const fmtElapsed = (iso: string): string => {
@@ -72,7 +71,6 @@ export function ActiveStaffNowWidget({ companyId }: { companyId: string | null }
             staff_id: r.staff_id,
             clock_in: r.clock_in,
             staff_name: r.kitchen_staff?.full_name || "Unknown staff",
-            role_title: null,
           }))
           .slice(0, 8);
         if (!cancelled) {
@@ -147,11 +145,6 @@ export function ActiveStaffNowWidget({ companyId }: { companyId: string | null }
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-slate-900 truncate">
                         {r.staff_name}
-                        {r.role_title && (
-                          <span className="ml-2 text-[11px] font-normal text-slate-500">
-                            {r.role_title}
-                          </span>
-                        )}
                       </p>
                       <p className="text-[11px] text-slate-500">
                         Clocked in {new Date(r.clock_in).toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" })}

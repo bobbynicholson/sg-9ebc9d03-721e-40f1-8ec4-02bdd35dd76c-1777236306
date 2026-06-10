@@ -28,7 +28,6 @@ interface DamageRow {
   notes: string | null;
   repair_cost: number | null;
   created_at: string | null;
-  order_id: string | null;
 }
 
 const fmtAge = (iso: string | null): string => {
@@ -54,7 +53,7 @@ export function EquipmentDamagesWidget({ companyId }: { companyId: string | null
       try {
         const { data, error } = await (supabase as any)
           .from("equipment_damages")
-          .select("id, damage_type, notes, repair_cost, created_at, order_id")
+          .select("id, damage_type, notes, repair_cost, created_at")
           .eq("company_id", companyId)
           .or("resolved.is.null,resolved.eq.false")
           .order("created_at", { ascending: false })
@@ -122,11 +121,8 @@ export function EquipmentDamagesWidget({ companyId }: { companyId: string | null
                     </Badge>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-slate-900 truncate">
-                        {r.damage_type ? r.damage_type.replace(/_/g, " ") : "Equipment damage"}
+                        {r.notes || "No description"}
                       </p>
-                      {r.notes && (
-                        <p className="text-[11px] text-slate-600 truncate">{r.notes}</p>
-                      )}
                     </div>
                     <div className="shrink-0 text-right">
                       {Number(r.repair_cost || 0) > 0 && (
