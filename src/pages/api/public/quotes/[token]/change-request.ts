@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { NextApiRequest, NextApiResponse } from "next";
 import { getServiceSupabase } from "@/lib/supabase/service";
+import { emailService } from "@/services/emailService";
 import {
   applyCorsHeaders,
   checkAndIncrementRateLimit,
@@ -135,7 +136,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     // Wave 12 follow-up: currency lives on companies, not quotes.
     // Selecting it here used to throw "column quotes.currency does
     // not exist" and 500 every public change-request submission.
-    .select("id, company_id, user_id, lead_id, client_name, total, event_date, deleted_at")
+    .select("id, company_id, user_id, lead_id, client_name, quote_number, total, event_date, deleted_at")
     .eq("public_token", token)
     .maybeSingle();
   if (quoteErr) {
@@ -186,18 +187,22 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   // the right card on /admin/quotes/{id}.
   void (async () => {
     try {
-      // Resolve currency from the company; quotes table doesn't carry it.
+      // Resolve currency + contact email from the company.
       let currencyCode = "ZAR";
+      let companyEmail: string | null = null;
+      let companyName: string | null = null;
       try {
         const { data: companyRow, error: companyRowErr } = await (supabase as any)
           .from("companies")
-          .select("currency")
+          .select("currency, email, company_name")
           .eq("id", quote.company_id)
           .maybeSingle();
         if (companyRowErr) {
           console.error("[public/quotes/[token]/change-request] companies fetch failed:", companyRowErr);
         }
         if ((companyRow as any)?.currency) currencyCode = (companyRow as any).currency;
+        if ((companyRow as any)?.email) companyEmail = (companyRow as any).email;
+        if ((companyRow as any)?.company_name) companyName = (companyRow as any).company_name;
       } catch { /* fall back to ZAR */ }
       const totalLabel = `${currencyCode} ${Number(quote.total || 0).toLocaleString("en-ZA", { minimumFractionDigits: 0 })}`;
       const eventLabel = quote.event_date
@@ -235,6 +240,38 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         related_entity_id: quote.id,
       }));
       await (supabase as any).from("notifications").insert(rows);
+
+      // Email the operator inbox so they don't miss it.
+      if (companyEmail) {
+        try {
+          const quoteRef = (quote as any).quote_number || quote.id;
+          const clientLabel = submitterName || quote.client_name || "Client";
+          const appUrl = (process.env.NEXT_PUBLIC_APP_URL || "https://cateringms.com").replace(/\/$/, "");
+          const quoteLink = `${appUrl}/admin/quotes/${quote.id}#change-requests`;
+
+          const bodyHtml = `
+            <p>Hi,</p>
+            <p><strong>${clientLabel}</strong> has requested changes to quote <strong>${quoteRef}</strong> (${eventLabel} &mdash; ${totalLabel}).</p>
+            <blockquote style="border-left:3px solid #e2e8f0;margin:16px 0;padding:8px 16px;color:#475569;font-style:italic">
+              ${message.replace(/\n/g, "<br/>")}
+            </blockquote>
+            <p><a href="${quoteLink}" style="color:#4f46e5">View change request &rarr;</a></p>
+            <p style="font-size:12px;color:#94a3b8">${companyName || "CateringMS"} &mdash; automated notification</p>
+          `;
+
+          await emailService.sendEmail({
+            companyId: quote.company_id,
+            to: companyEmail,
+            subject: `Client change request — ${quoteRef} (${clientLabel})`,
+            body: bodyHtml,
+            quoteId: quote.id,
+            skipUnsubscribeFooter: true,
+            _client: supabase,
+          } as any);
+        } catch (emailErr) {
+          console.warn("[public/quotes/change-request] operator email failed", emailErr);
+        }
+      }
     } catch (err) {
       console.warn("[public/quotes/change-request] notification failed", err);
     }
