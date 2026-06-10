@@ -136,6 +136,7 @@ export default function ClientTracking() {
         .from("orders")
         .select(`*, assigned_driver:profiles!orders_assigned_driver_id_fkey(id, full_name, phone)`)
         .eq("company_id", tenantCompanyId)
+        .is("deleted_at", null)
         .order("event_date", { ascending: false });
       const normEmail = (user.email || "").toLowerCase();
       if (clientIds.length > 0 && normEmail) {

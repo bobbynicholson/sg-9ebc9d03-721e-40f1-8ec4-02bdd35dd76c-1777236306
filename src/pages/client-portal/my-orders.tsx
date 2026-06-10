@@ -169,6 +169,7 @@ export default function MyOrders() {
           .from("orders")
           .select("id, event_date, event_time, order_number, event_name, venue_name, venue_address, guest_count, status, total_amount, payment_status, confirmed_at, deposit_paid, deposit_paid_at, deposit_amount, balance_paid, balance_paid_at, balance_amount, balance_due_date, delivered_at, completed_at, equipment_return_method, created_at, amount_paid, kitchen_prep_started_at, shopping_completed_at")
           .eq("company_id", tenantCompanyId)
+          .is("deleted_at", null)
           .order("event_date", { ascending: false });
 
         const normEmail = (user.email || "").toLowerCase();

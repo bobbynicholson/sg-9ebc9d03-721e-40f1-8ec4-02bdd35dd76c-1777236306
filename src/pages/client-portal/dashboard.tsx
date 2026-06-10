@@ -487,6 +487,7 @@ function ClientPortalDashboardInner() {
           .select(
             "id, order_number, event_name, event_date, event_time, guest_count, venue_name, venue_address, venue_lat, venue_lng, status, payment_status, total_amount, driver_id",
           )
+          .is("deleted_at", null)
           .gte("event_date", lookbackIso)
           .order("event_date", { ascending: false })
           .limit(60);
@@ -636,6 +637,7 @@ function ClientPortalDashboardInner() {
             .from("invoices")
             .select("id, invoice_number, order_id, paid_at")
             .eq("company_id", tenantCompanyId)
+            .is("deleted_at", null)
             .eq("status", "paid")
             .not("paid_at", "is", null)
             .order("paid_at", { ascending: false });
