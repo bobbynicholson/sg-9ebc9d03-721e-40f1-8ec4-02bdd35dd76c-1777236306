@@ -491,18 +491,19 @@ function ClientPortalDashboardInner() {
           .order("event_date", { ascending: false })
           .limit(60);
 
-        if (clientIds.length > 0 && user.email) {
+        const normEmail = (user.email || "").toLowerCase();
+        if (clientIds.length > 0 && normEmail) {
           // Match on either client_id (canonical link) OR client_email
-          // (orders booked before sign-up). Email match is case-
-          // insensitive to handle "Sue.Smith@Gmail.com" vs the lowercase
-          // form Supabase auth normalises to.
+          // (orders booked before sign-up). Use eq not ilike: ilike treats
+          // '_' as a SQL wildcard so emails like first_last@co.com would
+          // match other clients' records.
           q = q.or(
-            `client_id.in.(${clientIds.join(",")}),client_email.ilike.${user.email}`,
+            `client_id.in.(${clientIds.join(",")}),client_email.eq.${normEmail}`,
           );
         } else if (clientIds.length > 0) {
           q = q.in("client_id", clientIds);
-        } else if (user.email) {
-          q = q.ilike("client_email", user.email);
+        } else if (normEmail) {
+          q = q.eq("client_email", normEmail);
         } else {
           if (!cancelled) {
             setOrders([]);
@@ -556,14 +557,14 @@ function ClientPortalDashboardInner() {
           .order("created_at", { ascending: false });
 
         let quotesQuery = baseQuotes;
-        if (clientIds.length > 0 && user.email) {
+        if (clientIds.length > 0 && normEmail) {
           quotesQuery = quotesQuery.or(
-            `client_id.in.(${clientIds.join(",")}),client_email.ilike.${user.email}`,
+            `client_id.in.(${clientIds.join(",")}),client_email.eq.${normEmail}`,
           );
         } else if (clientIds.length > 0) {
           quotesQuery = quotesQuery.in("client_id", clientIds);
-        } else if (user.email) {
-          quotesQuery = quotesQuery.ilike("client_email", user.email);
+        } else if (normEmail) {
+          quotesQuery = quotesQuery.eq("client_email", normEmail);
         }
         const { data: quoteRows } = await quotesQuery;
         if (!cancelled) {
@@ -590,14 +591,14 @@ function ClientPortalDashboardInner() {
             .in("status", ["sent", "partially_paid", "overdue"])
             .gt("balance_due", 0);
           let invoicesQuery = baseInvoices;
-          if (clientIds.length > 0 && user.email) {
+          if (clientIds.length > 0 && normEmail) {
             invoicesQuery = invoicesQuery.or(
-              `client_id.in.(${clientIds.join(",")}),client_email.ilike.${user.email}`,
+              `client_id.in.(${clientIds.join(",")}),client_email.eq.${normEmail}`,
             );
           } else if (clientIds.length > 0) {
             invoicesQuery = invoicesQuery.in("client_id", clientIds);
-          } else if (user.email) {
-            invoicesQuery = invoicesQuery.ilike("client_email", user.email);
+          } else if (normEmail) {
+            invoicesQuery = invoicesQuery.eq("client_email", normEmail);
           }
           const { data: invoiceRows } = await invoicesQuery;
           if (!cancelled) {
@@ -639,14 +640,14 @@ function ClientPortalDashboardInner() {
             .not("paid_at", "is", null)
             .order("paid_at", { ascending: false });
           let paidQuery = basePaid;
-          if (clientIds.length > 0 && user.email) {
+          if (clientIds.length > 0 && normEmail) {
             paidQuery = paidQuery.or(
-              `client_id.in.(${clientIds.join(",")}),client_email.ilike.${user.email}`,
+              `client_id.in.(${clientIds.join(",")}),client_email.eq.${normEmail}`,
             );
           } else if (clientIds.length > 0) {
             paidQuery = paidQuery.in("client_id", clientIds);
-          } else if (user.email) {
-            paidQuery = paidQuery.ilike("client_email", user.email);
+          } else if (normEmail) {
+            paidQuery = paidQuery.eq("client_email", normEmail);
           }
           const { data: paidRows } = await paidQuery;
           if (!cancelled) {

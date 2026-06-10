@@ -127,7 +127,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         .from("clients")
         .select("id, client_name, email")
         .eq("company_id", company.id)
-        .ilike("email", cleanEmail)
+        .eq("email", cleanEmail)
         .maybeSingle();
       if (!client) continue;
       await sendOneLink({ sb, company, client, cleanEmail, baseUrl });

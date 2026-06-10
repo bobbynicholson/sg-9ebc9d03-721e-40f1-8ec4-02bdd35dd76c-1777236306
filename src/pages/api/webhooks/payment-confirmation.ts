@@ -739,7 +739,7 @@ async function resolveClientUserId(orderClientId: string | null | undefined): Pr
   const { data: profileMatch, error: profileMatchErr } = await supabase
     .from("profiles")
     .select("id")
-    .ilike("email", email)
+    .eq("email", email)
     .maybeSingle();
   if (profileMatchErr) {
     console.error("[webhooks/payment-confirmation] profiles fetch failed:", profileMatchErr);

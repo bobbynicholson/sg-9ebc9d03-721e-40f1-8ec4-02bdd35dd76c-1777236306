@@ -171,17 +171,19 @@ export default function MyOrders() {
           .eq("company_id", tenantCompanyId)
           .order("event_date", { ascending: false });
 
-        if (clientIds.length > 0 && user.email) {
+        const normEmail = (user.email || "").toLowerCase();
+        if (clientIds.length > 0 && normEmail) {
           // Same union pattern as the dashboard: client_id match OR
           // email match (catches orphan rows created by email before
-          // the user signed up).
+          // the user signed up). Use eq not ilike: ilike treats '_'
+          // as a wildcard and could expose another client's orders.
           ordersQuery = ordersQuery.or(
-            `client_id.in.(${clientIds.join(",")}),client_email.ilike.${user.email}`,
+            `client_id.in.(${clientIds.join(",")}),client_email.eq.${normEmail}`,
           );
         } else if (clientIds.length > 0) {
           ordersQuery = ordersQuery.in("client_id", clientIds);
-        } else if (user.email) {
-          ordersQuery = ordersQuery.ilike("client_email", user.email);
+        } else if (normEmail) {
+          ordersQuery = ordersQuery.eq("client_email", normEmail);
         } else {
           if (!cancelled) {
             setOrders([]);

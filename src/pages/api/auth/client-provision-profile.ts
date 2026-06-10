@@ -88,7 +88,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           .from("clients")
           .select("id")
           .eq("company_id", company.id)
-          .ilike("email", user.email || "")
+          .eq("email", (user.email || "").toLowerCase())
           .is("user_id", null);
         if (candidatesErr) {
           console.error("[auth/client-provision-profile] clients fetch failed:", candidatesErr);
@@ -134,7 +134,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
             .from("quotes")
             .update({ client_id: canonicalClientId })
             .eq("company_id", company.id)
-            .ilike("client_email", user.email)
+            .eq("client_email", (user.email || "").toLowerCase())
             .is("client_id", null);
         }
       } catch {
@@ -175,7 +175,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         .from("clients")
         .select("client_name")
         .eq("company_id", company.id)
-        .ilike("email", user.email || "")
+        .eq("email", (user.email || "").toLowerCase())
         .order("updated_at", { ascending: false })
         .limit(1)
         .maybeSingle();
