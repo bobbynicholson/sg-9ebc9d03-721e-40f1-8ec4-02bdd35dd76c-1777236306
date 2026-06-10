@@ -46,7 +46,31 @@ export async function duplicateQuote(
     }
     clone.event_date = newEventDate;
     clone.status = "draft";
-    clone.quote_number = `${(s.quote_number || "QUO")}-COPY-${Date.now().toString(36).slice(-4).toUpperCase()}`;
+
+    // Use the same sequential numbering RPC as createQuote so the
+    // duplicate gets the next real number (e.g. QUO-000022) instead
+    // of a -COPY-XXXX suffix that pollutes the quote list.
+    const cid = s.company_id || s.user_id;
+    if (cid) {
+      try {
+        const { data: numData, error: numErr } = await (supabase as any).rpc(
+          "consume_next_document_number",
+          { p_company_id: cid, p_document_type: "quote" },
+        );
+        if (!numErr && numData) {
+          clone.quote_number = numData as string;
+        } else {
+          console.warn("[duplicateQuote] numbering RPC failed:", numErr);
+          clone.quote_number = `${(s.quote_number || "QUO")}-COPY`;
+        }
+      } catch (e) {
+        console.warn("[duplicateQuote] numbering RPC threw:", e);
+        clone.quote_number = `${(s.quote_number || "QUO")}-COPY`;
+      }
+    } else {
+      clone.quote_number = `${(s.quote_number || "QUO")}-COPY`;
+    }
+
     // Wave 50 C11 - preserve the rebook chain. lead_id was stripped
     // (the new quote is for the same client but has no fresh lead);
     // record the parent so analytics can chase rebook conversion.
