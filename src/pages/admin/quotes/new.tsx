@@ -1213,26 +1213,27 @@ function NewQuotePage() {
         try {
           // Try to find an existing lead by email first (dedup).
           if (email) {
-            const { data: existingLead } = await supabase
+            const { data: existingLead, error: findLeadErr } = await supabase
               .from("leads")
               .select("id")
               .eq("company_id", companyId)
-              .eq("email", email)
+              .ilike("email", email)
               .is("deleted_at", null)
               .maybeSingle();
-            if ((existingLead as any)?.id) {
+            if (findLeadErr) {
+              console.warn("[quotes/new] lead lookup failed:", findLeadErr.message);
+            } else if ((existingLead as any)?.id) {
               payload.lead_id = (existingLead as any).id;
             }
           }
           // Still no lead_id — create a new one with whatever we have.
           if (!payload.lead_id && clientName) {
-            const { data: newLead } = await supabase
+            const { data: newLead, error: newLeadErr } = await supabase
               .from("leads")
               .insert({
                 company_id: companyId,
                 region_id: payload.region_id,
                 contact_name: clientName,
-                client_name: clientName,
                 email: email || null,
                 phone: phone || null,
                 status: "new",
@@ -1240,10 +1241,26 @@ function NewQuotePage() {
               } as any)
               .select("id")
               .single();
-            if ((newLead as any)?.id) payload.lead_id = (newLead as any).id;
+            if (newLeadErr) {
+              console.warn("[quotes/new] lead create failed:", newLeadErr.message);
+            } else if ((newLead as any)?.id) {
+              payload.lead_id = (newLead as any).id;
+            }
           }
         } catch (linkErr) {
           console.warn("[quotes/new] lead auto-link failed:", linkErr);
+        }
+        // If we still have no lead_id AND no client_id after the link
+        // attempt, the DB constraint will fire. Surface a clear message
+        // now rather than letting the insert fail with a cryptic error.
+        if (!payload.lead_id && !payload.client_id) {
+          toast({
+            title: "Cannot save quote",
+            description: "Could not link this quote to a lead or client. Check that the email is valid and try again.",
+            variant: "destructive",
+          });
+          setSaving(false);
+          return null;
         }
       }
       if (quoteId) {
