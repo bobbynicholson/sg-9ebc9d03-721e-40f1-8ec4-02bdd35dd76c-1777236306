@@ -28,10 +28,12 @@ import {
   PAYMENT_GATEWAY_PROVIDERS,
   type PaymentGatewayProvider,
 } from "@/services/paymentGatewayService";
+import { withApiLogging } from "@/lib/withApiLogging";
+
 
 const ADMIN_ROLES = new Set(["super_admin", "company_admin", "admin", "owner"]);
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
     const ssr = createPagesServerClient({ req, res });
     const { data: { user } } = await ssr.auth.getUser();
@@ -124,3 +126,5 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(500).json({ error: e?.message || "Payment gateway endpoint failed" });
   }
 }
+
+export default withApiLogging(handler);

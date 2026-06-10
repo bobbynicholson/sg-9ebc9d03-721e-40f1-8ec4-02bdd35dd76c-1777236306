@@ -2,6 +2,8 @@
 import { createPagesServerClient } from "@/lib/supabase/server";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import type { NextApiRequest, NextApiResponse } from "next";
+import { withApiLogging } from "@/lib/withApiLogging";
+
 
 const CALLER_ROLES_ALLOWED = new Set(["super_admin", "company_admin", "admin", "owner"]);
 
@@ -24,7 +26,7 @@ const CALLER_ROLES_ALLOWED = new Set(["super_admin", "company_admin", "admin", "
  * Caller must be admin / owner / super_admin and the target user must
  * be in the same company (super_admin can delete cross-company).
  */
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
     if (req.method !== "POST" && req.method !== "DELETE") {
       return res.status(405).json({ error: "Method not allowed" });
@@ -146,3 +148,5 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(500).json({ error: outer?.message || "Unexpected server error" });
   }
 }
+
+export default withApiLogging(handler);

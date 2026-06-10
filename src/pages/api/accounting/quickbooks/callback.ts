@@ -3,12 +3,14 @@ import {
   exchangeCodeForTokens, 
   storeOAuthTokens 
 } from "@/services/accountingIntegrationService";
+import { withApiLogging } from "@/lib/withApiLogging";
+
 
 /**
  * QuickBooks OAuth Callback Handler
  * Receives authorization code and exchanges for tokens
  */
-export default async function handler(
+async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
@@ -67,3 +69,5 @@ export default async function handler(
     return res.redirect(`/admin/integrations?error=${encodeURIComponent(error.message)}`);
   }
 }
+
+export default withApiLogging(handler);

@@ -28,6 +28,8 @@ import { orderService } from "@/services/orderService";
 import { emailService } from "@/services/emailService";
 import { paymentProcessingService } from "@/services/paymentProcessingService";
 import crypto from "crypto";
+import { withApiLogging } from "@/lib/withApiLogging";
+
 
 /**
  * Payment Webhook Handler
@@ -190,7 +192,7 @@ function isAllowedPayFastIp(ip: string | null): boolean {
   return false;
 }
 
-export default async function handler(
+async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
@@ -839,3 +841,5 @@ async function sendClientPaymentConfirmation(
 // signed over alphabetical-sorted JSON-parsed fields, which doesn't
 // match PayFast's documented "fields in form order" contract and
 // produced false negatives on any IPN with non-ASCII characters.
+
+export default withApiLogging(handler);

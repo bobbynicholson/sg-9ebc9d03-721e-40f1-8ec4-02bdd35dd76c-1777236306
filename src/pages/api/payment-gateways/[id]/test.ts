@@ -18,10 +18,12 @@ import { paymentGatewayService } from "@/services/paymentGatewayService";
 import { pingPayFastCredentials } from "@/lib/payfastService";
 import { pingYocoCredentials } from "@/lib/yocoService";
 import { pingStripeCredentials } from "@/lib/stripeService";
+import { withApiLogging } from "@/lib/withApiLogging";
+
 
 const ADMIN_ROLES = new Set(["super_admin", "company_admin", "admin", "owner"]);
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
     return res.status(405).json({ error: "Method not allowed" });
@@ -97,3 +99,5 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(500).json({ error: e?.message || "Test connection failed" });
   }
 }
+
+export default withApiLogging(handler);

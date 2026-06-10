@@ -36,6 +36,8 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@/lib/supabase/server";
 import { getServiceSupabase } from "@/lib/supabase/service";
+import { withApiLogging } from "@/lib/withApiLogging";
+
 
 const POST_DISPATCH_STATUSES = new Set([
   "in_transit",
@@ -57,7 +59,7 @@ interface ResyncReceipt {
   errors: string[];
 }
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
@@ -280,3 +282,5 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   return res.status(200).json(receipt);
 }
+
+export default withApiLogging(handler);

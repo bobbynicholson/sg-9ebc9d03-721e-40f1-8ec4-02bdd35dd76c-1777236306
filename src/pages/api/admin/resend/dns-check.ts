@@ -16,6 +16,8 @@ import { createPagesServerClient } from "@/lib/supabase/server";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { Resolver } from "node:dns/promises";
 import type { NextApiRequest, NextApiResponse } from "next";
+import { withApiLogging } from "@/lib/withApiLogging";
+
 
 const ALLOWED_ROLES = new Set([
   "super_admin",
@@ -304,7 +306,7 @@ async function checkRecord(
   return base;
 }
 
-export default async function handler(
+async function handler(
   req: NextApiRequest,
   res: NextApiResponse,
 ) {
@@ -432,3 +434,5 @@ export default async function handler(
       .json({ error: e?.message || "Unexpected server error" });
   }
 }
+
+export default withApiLogging(handler);

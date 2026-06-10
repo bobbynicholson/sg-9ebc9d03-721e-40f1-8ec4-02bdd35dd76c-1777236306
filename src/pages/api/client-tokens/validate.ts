@@ -15,10 +15,12 @@ import { createClient } from "@supabase/supabase-js";
 import crypto from "node:crypto";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { consumeApiKeyRateLimitDb } from "@/lib/apiKeyRateLimit";
+import { withApiLogging } from "@/lib/withApiLogging";
+
 
 const sha256Hex = (s: string) => crypto.createHash("sha256").update(s).digest("hex");
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
@@ -119,3 +121,5 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   return res.status(200).json(result);
 }
+
+export default withApiLogging(handler);

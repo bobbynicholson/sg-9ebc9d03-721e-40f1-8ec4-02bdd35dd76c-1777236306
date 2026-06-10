@@ -17,10 +17,12 @@ import {
   updatePackage,
   deletePackage,
 } from "@/services/booking/bookingPackageService";
+import { withApiLogging } from "@/lib/withApiLogging";
+
 
 const ADMIN_ROLES = new Set(["super_admin", "company_admin", "admin", "owner"]);
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
     const packageId = String(req.query.id || "");
     if (!packageId) return res.status(400).json({ error: "Package id is required" });
@@ -83,3 +85,5 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(500).json({ error: err?.message || "Request failed" });
   }
 }
+
+export default withApiLogging(handler);

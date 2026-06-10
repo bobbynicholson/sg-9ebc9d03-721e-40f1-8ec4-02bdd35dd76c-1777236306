@@ -2,12 +2,14 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { emailService } from "@/services/emailService";
 import { createPagesServerClient } from "@/lib/supabase/server";
 import { getServiceSupabase } from "@/lib/supabase/service";
+import { withApiLogging } from "@/lib/withApiLogging";
+
 
 /**
  * API Route for sending emails
  * This endpoint handles email sending server-side to protect API keys and manage email content.
  */
-export default async function handler(
+async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
@@ -467,3 +469,5 @@ export default async function handler(
     });
   }
 }
+
+export default withApiLogging(handler);

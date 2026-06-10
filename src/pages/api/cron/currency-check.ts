@@ -24,10 +24,12 @@ import { getServiceSupabase } from "@/lib/supabase/service";
 import { currencyMonitoringService } from "@/services/currencyMonitoringService";
 import { requireCronAuth } from "@/lib/cronAuth";
 import { recordCronHeartbeat } from "@/lib/cronHeartbeat";
+import { withApiLogging } from "@/lib/withApiLogging";
+
 
 const CRON_NAME = "currency-check";
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "GET" && req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
@@ -62,3 +64,5 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(500).json({ error: e?.message || "Currency check failed" });
   }
 }
+
+export default withApiLogging(handler);

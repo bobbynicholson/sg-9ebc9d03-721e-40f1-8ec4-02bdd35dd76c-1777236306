@@ -22,6 +22,8 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@/lib/supabase/server";
 import Anthropic from "@anthropic-ai/sdk";
+import { withApiLogging } from "@/lib/withApiLogging";
+
 
 const DEFAULT_MODEL = process.env.ANTHROPIC_BLOG_MODEL || "claude-sonnet-4-5";
 
@@ -53,7 +55,7 @@ Banned phrases:
 
 Output via the return_blog_post tool. Never write free prose outside the tool.`;
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
     if (req.method !== "POST") {
       return res.status(405).json({ error: "Method not allowed" });
@@ -178,3 +180,5 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(500).json({ error: e?.message || "AI draft failed" });
   }
 }
+
+export default withApiLogging(handler);

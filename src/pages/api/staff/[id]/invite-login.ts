@@ -22,6 +22,8 @@ import { createPagesServerClient } from "@/lib/supabase/server";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { sendBrandedEmail } from "@/server/emails/sendBrandedEmail";
 import StaffInviteEmail, { type InvitedRole } from "@/emails/StaffInviteEmail";
+import { withApiLogging } from "@/lib/withApiLogging";
+
 
 const ALLOWED_CALLER_ROLES = new Set(["super_admin", "company_admin", "admin", "owner"]);
 
@@ -44,7 +46,7 @@ const BRANDED_ROLE_MAP: Record<string, InvitedRole> = {
   owner: "company_admin",
 };
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
     if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
@@ -249,3 +251,5 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(500).json({ error: e?.message || "Invite failed" });
   }
 }
+
+export default withApiLogging(handler);

@@ -4,6 +4,8 @@ import { getServiceSupabase } from "@/lib/supabase/service";
 import { requireCronAuth } from "@/lib/cronAuth";
 import { recordCronHeartbeat } from "@/lib/cronHeartbeat";
 import { toZonedISO, DEFAULT_TENANT_TIMEZONE } from "@/lib/localDate";
+import { withApiLogging } from "@/lib/withApiLogging";
+
 
 const CRON_NAME = "recurring-invoices";
 
@@ -27,7 +29,7 @@ const CRON_NAME = "recurring-invoices";
  *
  * Auth: Authorization: Bearer ${CRON_SECRET}
  */
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
   const auth = await requireCronAuth(req, res);
   if (!auth.ok) return;
 
@@ -189,3 +191,5 @@ function _advanceDate(fromIso: string, frequency: string): string {
   }
   return d.toISOString().slice(0, 10);
 }
+
+export default withApiLogging(handler);

@@ -3,6 +3,8 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { requireCronAuth, type CronAuthSource } from "@/lib/cronAuth";
 import { recordCronHeartbeat } from "@/lib/cronHeartbeat";
+import { withApiLogging } from "@/lib/withApiLogging";
+
 
 const CRON_NAME = "outsource-pre-event-reminder";
 
@@ -23,7 +25,7 @@ const CRON_NAME = "outsource-pre-event-reminder";
  *
  * Auth: Authorization: Bearer ${CRON_SECRET}
  */
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
   // Wave 70.4 - E2E test support. When dryRun=1 we skip the
   // CRON_SECRET check (still require an authenticated owner / admin
   // via Supabase SSR) and return a list of who would have been
@@ -236,3 +238,5 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(500).json({ error: err?.message || "Cron crashed" });
   }
 }
+
+export default withApiLogging(handler);

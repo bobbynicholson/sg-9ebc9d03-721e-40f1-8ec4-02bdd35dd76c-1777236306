@@ -20,6 +20,8 @@ import * as React from "react";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { sendBrandedEmail } from "@/server/emails/sendBrandedEmail";
 import OwnerWelcomeEmail from "@/emails/OwnerWelcomeEmail";
+import { withApiLogging } from "@/lib/withApiLogging";
+
 
 interface Body {
   userId?: string;
@@ -30,7 +32,7 @@ interface Body {
   slug?: string;
 }
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
     return res.status(405).json({ error: "Method not allowed" });
@@ -85,3 +87,5 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   return res.status(result.ok ? 200 : 502).json(result);
 }
+
+export default withApiLogging(handler);

@@ -23,10 +23,12 @@ import {
   getTemplateDefinition,
   type TemplateType,
 } from "@/lib/importTemplates";
+import { withApiLogging } from "@/lib/withApiLogging";
+
 
 const ALLOWED_ROLES = new Set(["super_admin", "company_admin", "admin", "owner"]);
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
     if (req.method !== "GET") {
       res.setHeader("Allow", "GET");
@@ -113,3 +115,5 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(500).json({ error: e?.message || "Template generation failed" });
   }
 }
+
+export default withApiLogging(handler);

@@ -2,6 +2,8 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { emailService } from "@/services/emailService";
 import { createPagesServerClient } from "@/lib/supabase/server";
 import { getServiceSupabase } from "@/lib/supabase/service";
+import { withApiLogging } from "@/lib/withApiLogging";
+
 
 /**
  * Test Email API Endpoint
@@ -14,7 +16,7 @@ import { getServiceSupabase } from "@/lib/supabase/service";
  * testing email for, OR super_admin. Without this gate the endpoint was an
  * open SMTP relay through any tenant's stored credentials [P0-05].
  */
-export default async function handler(
+async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
@@ -197,3 +199,5 @@ export default async function handler(
     });
   }
 }
+
+export default withApiLogging(handler);

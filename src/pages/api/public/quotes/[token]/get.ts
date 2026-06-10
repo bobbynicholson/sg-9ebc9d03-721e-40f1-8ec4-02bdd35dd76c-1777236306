@@ -26,12 +26,14 @@ import {
   hashIp,
   isUuid,
 } from "@/lib/embedFormApi";
+import { withApiLogging } from "@/lib/withApiLogging";
+
 
 export const config = {
   api: { bodyParser: { sizeLimit: "8kb" } },
 };
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
   applyCorsHeaders(res);
   if (req.method === "OPTIONS") return res.status(204).end();
   if (req.method !== "GET" && req.method !== "POST") {
@@ -92,3 +94,5 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   return res.status(200).json({ ok: true, quote: data });
 }
+
+export default withApiLogging(handler);

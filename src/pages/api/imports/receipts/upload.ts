@@ -24,6 +24,8 @@ import { createPagesServerClient } from "@/lib/supabase/server";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { extractReceiptViaAI } from "@/lib/importAi";
 import { getReceiptScanQuota } from "@/lib/receiptScanQuota";
+import { withApiLogging } from "@/lib/withApiLogging";
+
 
 export const config = {
   api: {
@@ -40,7 +42,7 @@ const ALLOWED_CALLER_ROLES = new Set([
   "super_admin", "company_admin", "admin", "owner", "shopping_staff", "shopping",
 ]);
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
     if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
@@ -255,3 +257,5 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(500).json({ error: e?.message || "Receipt upload failed" });
   }
 }
+
+export default withApiLogging(handler);

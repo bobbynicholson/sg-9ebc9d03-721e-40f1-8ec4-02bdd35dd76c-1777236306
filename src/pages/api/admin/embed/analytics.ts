@@ -13,11 +13,13 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@/lib/supabase/server";
 import { getServiceSupabase } from "@/lib/supabase/service";
+import { withApiLogging } from "@/lib/withApiLogging";
+
 
 const ALLOWED = new Set(["super_admin", "company_admin", "admin"]);
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "GET") {
     res.setHeader("Allow", "GET");
     return res.status(405).json({ error: "Method not allowed" });
@@ -129,3 +131,5 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     submissions: (form as any).submissions_count ?? 0,
   });
 }
+
+export default withApiLogging(handler);

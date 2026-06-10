@@ -11,10 +11,12 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@/lib/supabase/server";
 import { createPackage, listPackages, type BookingPackageStatus } from "@/services/booking/bookingPackageService";
+import { withApiLogging } from "@/lib/withApiLogging";
+
 
 const ADMIN_ROLES = new Set(["super_admin", "company_admin", "admin", "owner"]);
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
     const ssr = createPagesServerClient({ req, res });
     const { data: { user } } = await ssr.auth.getUser();
@@ -69,3 +71,5 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(500).json({ error: err?.message || "Request failed" });
   }
 }
+
+export default withApiLogging(handler);

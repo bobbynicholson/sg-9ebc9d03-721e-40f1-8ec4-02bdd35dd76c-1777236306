@@ -32,6 +32,8 @@ import { createClient } from "@supabase/supabase-js";
 import crypto from "node:crypto";
 import { consumeApiKeyRateLimitDb } from "@/lib/apiKeyRateLimit";
 import { getServiceSupabase } from "@/lib/supabase/service";
+import { withApiLogging } from "@/lib/withApiLogging";
+
 
 const sha256Hex = (s: string) => crypto.createHash("sha256").update(s).digest("hex");
 
@@ -41,7 +43,7 @@ function setCors(res: NextApiResponse) {
   res.setHeader("Access-Control-Allow-Headers", "Authorization, Content-Type");
 }
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
   setCors(res);
   if (req.method === "OPTIONS") return res.status(204).end();
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
@@ -83,3 +85,5 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
   return res.status(result.created ? 201 : 200).json(result);
 }
+
+export default withApiLogging(handler);

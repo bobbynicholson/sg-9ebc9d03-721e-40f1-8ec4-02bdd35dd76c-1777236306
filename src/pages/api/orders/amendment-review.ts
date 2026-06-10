@@ -24,6 +24,8 @@ import { getServiceSupabase } from "@/lib/supabase/service";
 import { resolveClientUserId } from "@/services/lifecycle/resolveClientUserId";
 import { resolveEmailTemplate } from "@/services/email/templateResolver";
 import { emailService } from "@/services/emailService";
+import { withApiLogging } from "@/lib/withApiLogging";
+
 
 /**
  * LCF-T (task #242): client-facing email when an amendment outcome
@@ -142,7 +144,7 @@ const ALLOWED_FIELDS = new Set([
   "venue_address",
 ]);
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
   try {
@@ -661,3 +663,5 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(500).json({ error: err?.message || "Amendment review failed" });
   }
 }
+
+export default withApiLogging(handler);

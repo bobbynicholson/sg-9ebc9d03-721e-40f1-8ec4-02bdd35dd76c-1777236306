@@ -7,8 +7,10 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@/lib/supabase/server";
 import crypto from "node:crypto";
+import { withApiLogging } from "@/lib/withApiLogging";
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+
+async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
@@ -151,3 +153,5 @@ function buildSample(event: string) {
       return { note: "Sample payload" };
   }
 }
+
+export default withApiLogging(handler);

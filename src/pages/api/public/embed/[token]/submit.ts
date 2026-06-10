@@ -13,6 +13,8 @@ import {
   verifyTurnstile,
 } from "@/lib/embedFormApi";
 import { notifyAdminOfEmbedLead } from "@/lib/embed/notifyAdminOfEmbedLead";
+import { withApiLogging } from "@/lib/withApiLogging";
+
 
 /**
  * POST /api/public/embed/[token]/submit
@@ -42,7 +44,7 @@ function safeJson(value: any): any {
   }
 }
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
   applyCorsHeaders(res);
 
   if (req.method === "OPTIONS") {
@@ -374,3 +376,5 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       form.success_message || "Thanks, we'll be in touch shortly.",
   });
 }
+
+export default withApiLogging(handler);

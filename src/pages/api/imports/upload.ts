@@ -27,6 +27,8 @@ import { createPagesServerClient } from "@/lib/supabase/server";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { createImportJob, setJobStatus } from "@/services/importService";
 import { recogniseHeaders, buildMappingFromTemplate } from "@/lib/importTemplates";
+import { withApiLogging } from "@/lib/withApiLogging";
+
 
 export const config = {
   api: {
@@ -313,7 +315,7 @@ async function uploadToStorage(args: {
   }
 }
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
     if (req.method !== "POST") {
       return res.status(405).json({ error: "Method not allowed" });
@@ -513,3 +515,5 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(500).json({ error: outer?.message || "Upload failed" });
   }
 }
+
+export default withApiLogging(handler);

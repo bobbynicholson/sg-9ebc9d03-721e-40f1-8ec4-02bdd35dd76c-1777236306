@@ -27,6 +27,8 @@ import { getServiceSupabase } from "@/lib/supabase/service";
 import { emailService } from "@/services/emailService";
 import { requireCronAuth } from "@/lib/cronAuth";
 import { recordCronHeartbeat } from "@/lib/cronHeartbeat";
+import { withApiLogging } from "@/lib/withApiLogging";
+
 
 const CRON_NAME = "process-pending-reviews";
 const BATCH_LIMIT = 200;
@@ -44,7 +46,7 @@ type PendingReview = {
   due_at: string;
 };
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "GET" && req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
@@ -245,3 +247,5 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 function interpolate(template: string, vars: Record<string, string>): string {
   return template.replace(/\{(\w+)\}/g, (_, key) => (vars[key] !== undefined ? vars[key] : `{${key}}`));
 }
+
+export default withApiLogging(handler);

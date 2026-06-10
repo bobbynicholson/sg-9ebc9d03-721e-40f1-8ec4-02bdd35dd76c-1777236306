@@ -3,6 +3,8 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { requireCronAuth, type CronAuthSource } from "@/lib/cronAuth";
 import { recordCronHeartbeat } from "@/lib/cronHeartbeat";
+import { withApiLogging } from "@/lib/withApiLogging";
+
 
 const CRON_NAME = "outsource-post-event-thanks";
 
@@ -22,7 +24,7 @@ const CRON_NAME = "outsource-post-event-thanks";
  *
  * Auth: Authorization: Bearer ${CRON_SECRET}
  */
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
   // Wave 70.4 - dry-run mode for E2E verification. See the sibling
   // pre-event reminder cron for the full rationale. Auth: SSR owner /
   // admin in dry-run, CRON_SECRET in production.
@@ -208,3 +210,5 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(500).json({ error: err?.message || "Cron crashed" });
   }
 }
+
+export default withApiLogging(handler);

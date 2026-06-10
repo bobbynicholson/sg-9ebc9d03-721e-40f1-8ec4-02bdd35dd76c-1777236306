@@ -26,12 +26,14 @@ import { getServiceSupabase } from "@/lib/supabase/service";
 import { emailService } from "@/services/emailService";
 import { requireCronAuth } from "@/lib/cronAuth";
 import { recordCronHeartbeat } from "@/lib/cronHeartbeat";
+import { withApiLogging } from "@/lib/withApiLogging";
+
 
 const MAX_ATTEMPTS = 5;
 const BATCH_SIZE = 25;
 const CRON_NAME = "process-email-queue";
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
   // Vercel Cron sends GET. Reject anything else early.
   if (req.method !== "GET" && req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
@@ -176,3 +178,5 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     skipped,
   });
 }
+
+export default withApiLogging(handler);

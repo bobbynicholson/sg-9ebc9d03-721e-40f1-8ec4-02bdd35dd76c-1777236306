@@ -9,6 +9,8 @@ import {
   isUuid,
 } from "@/lib/embedFormApi";
 import { resolveClientUserId } from "@/services/lifecycle/resolveClientUserId";
+import { withApiLogging } from "@/lib/withApiLogging";
+
 
 /**
  * POST /api/public/quotes/[token]/accept
@@ -30,7 +32,7 @@ export const config = {
   api: { bodyParser: { sizeLimit: "8kb" } },
 };
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
   applyCorsHeaders(res);
   if (req.method === "OPTIONS") return res.status(204).end();
   if (req.method !== "POST") {
@@ -456,3 +458,5 @@ async function notifyAdminOfAcceptance(supabase: any, quote: any, acceptorName: 
     console.warn("[public/quotes/accept] owner whatsapp failed", err);
   }
 }
+
+export default withApiLogging(handler);

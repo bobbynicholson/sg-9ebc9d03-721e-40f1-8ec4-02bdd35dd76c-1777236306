@@ -29,11 +29,13 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { requireCronAuth } from "@/lib/cronAuth";
 import { recordCronHeartbeat } from "@/lib/cronHeartbeat";
+import { withApiLogging } from "@/lib/withApiLogging";
+
 
 const LOOKBACK_DAYS = 7;
 const CRON_NAME = "reconcile-payfast";
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "GET" && req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
@@ -208,3 +210,5 @@ async function reconcileTenant(
 
   return { payments_recovered: recovered, errors };
 }
+
+export default withApiLogging(handler);

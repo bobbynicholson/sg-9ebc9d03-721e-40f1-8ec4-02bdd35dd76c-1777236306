@@ -38,11 +38,13 @@ import { getServiceSupabase } from "@/lib/supabase/service";
 import { requireCronAuth } from "@/lib/cronAuth";
 import { recordCronHeartbeat } from "@/lib/cronHeartbeat";
 import { getResendDomain, isResendError, verifyResendDomain } from "@/lib/resendDomains";
+import { withApiLogging } from "@/lib/withApiLogging";
+
 
 const CRON_NAME = "verify-pending-domains";
 const RECIPIENT_ROLES = ["owner", "company_admin", "admin"];
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "GET" && req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
@@ -184,3 +186,5 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     errors: errors.length > 0 ? errors : undefined,
   });
 }
+
+export default withApiLogging(handler);

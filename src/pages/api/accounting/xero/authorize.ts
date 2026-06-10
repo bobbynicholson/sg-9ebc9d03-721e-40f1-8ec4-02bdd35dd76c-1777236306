@@ -15,10 +15,12 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@/lib/supabase/server";
 import crypto from "node:crypto";
+import { withApiLogging } from "@/lib/withApiLogging";
+
 
 const ALLOWED_ROLES = new Set(["super_admin", "company_admin", "admin", "owner"]);
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "GET" && req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
@@ -90,3 +92,5 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   return res.redirect(302, `https://login.xero.com/identity/connect/authorize?${params.toString()}`);
 }
+
+export default withApiLogging(handler);

@@ -14,6 +14,8 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@/lib/supabase/server";
 import { getServiceSupabase } from "@/lib/supabase/service";
+import { withApiLogging } from "@/lib/withApiLogging";
+
 
 const ALLOWED = new Set(["super_admin", "company_admin", "admin"]);
 
@@ -29,7 +31,7 @@ function sanitiseTier(t: any) {
   return { id, name, price_per_person_min: min, price_per_person_max: max, currency };
 }
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
   const ssr = createPagesServerClient({ req, res });
   const { data: { user } } = await ssr.auth.getUser();
   if (!user) return res.status(401).json({ error: "Authentication required" });
@@ -84,3 +86,5 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   res.setHeader("Allow", "GET, PATCH");
   return res.status(405).json({ error: "Method not allowed" });
 }
+
+export default withApiLogging(handler);

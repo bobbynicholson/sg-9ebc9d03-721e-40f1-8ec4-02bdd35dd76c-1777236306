@@ -39,6 +39,8 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { emailService } from "@/services/emailService";
 import { consumeApiKeyRateLimitWindowed } from "@/lib/apiKeyRateLimit";
+import { withApiLogging } from "@/lib/withApiLogging";
+
 
 // Phase 4 #1: DB-backed rate limit (5 sends per 10 minutes per
 // email+IP combo). Used to live in an in-memory Map that reset
@@ -131,7 +133,7 @@ function escapeHtml(s: string): string {
     .replace(/'/g, "&#039;");
 }
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
     if (req.method !== "POST") {
       return res.status(405).json({ error: "Method not allowed" });
@@ -333,3 +335,5 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(500).json({ error: "Could not send sign-in link. Please try again." });
   }
 }
+
+export default withApiLogging(handler);

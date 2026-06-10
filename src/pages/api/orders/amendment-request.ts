@@ -34,6 +34,8 @@ import { createPagesServerClient } from "@/lib/supabase/server";
 // on cold-start). Aliased to avoid a name collision with the local
 // `const { UserRole }` from the dynamic import.
 import type { UserRole as UserRoleType } from "@/types/app";
+import { withApiLogging } from "@/lib/withApiLogging";
+
 
 const ALLOWED_FIELDS = new Set([
   "guest_count",
@@ -44,7 +46,7 @@ const ALLOWED_FIELDS = new Set([
   "venue_address",
 ]);
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
   try {
@@ -275,3 +277,5 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(500).json({ error: err?.message || "Could not submit amendment request" });
   }
 }
+
+export default withApiLogging(handler);

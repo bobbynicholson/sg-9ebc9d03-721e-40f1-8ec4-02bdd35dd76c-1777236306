@@ -27,6 +27,8 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@/lib/supabase/server";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { ensureFreshQuickBooksToken } from "@/lib/accountingTokens";
+import { withApiLogging } from "@/lib/withApiLogging";
+
 
 const ALLOWED_ROLES = new Set(["super_admin", "company_admin", "admin", "owner"]);
 
@@ -45,7 +47,7 @@ interface AccountingIntegration {
   is_active: boolean;
 }
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
   try {
@@ -379,3 +381,5 @@ async function ensureQuickBooksCustomer(
   const body: any = await createResp.json().catch(() => ({}));
   return body?.Customer?.Id ? String(body.Customer.Id) : null;
 }
+
+export default withApiLogging(handler);

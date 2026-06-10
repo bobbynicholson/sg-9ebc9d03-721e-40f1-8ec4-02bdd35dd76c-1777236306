@@ -24,8 +24,10 @@ import { getServiceSupabase } from "@/lib/supabase/service";
 import { emailService } from "@/services/emailService";
 import { resolveEmailTemplate } from "@/services/email/templateResolver";
 import { TEMPLATE_REGISTRY } from "@/lib/messageTemplates/registry";
+import { withApiLogging } from "@/lib/withApiLogging";
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+
+async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
@@ -164,3 +166,5 @@ function escapeAndLinebreak(input: string): string {
     .map((line) => `<p style="margin:0 0 8px">${line || "&nbsp;"}</p>`)
     .join("");
 }
+
+export default withApiLogging(handler);

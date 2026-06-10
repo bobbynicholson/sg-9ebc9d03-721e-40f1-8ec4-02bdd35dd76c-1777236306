@@ -20,6 +20,8 @@
 // @ts-nocheck
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@/lib/supabase/server";
+import { withApiLogging } from "@/lib/withApiLogging";
+
 
 const ALLOWED_ROLES = new Set(["super_admin", "company_admin", "admin", "owner"]);
 
@@ -30,7 +32,7 @@ export const config = {
   },
 };
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "GET") {
     res.setHeader("Allow", "GET");
     return res.status(405).end("Method Not Allowed");
@@ -173,3 +175,5 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(500).json(payload);
   }
 }
+
+export default withApiLogging(handler);

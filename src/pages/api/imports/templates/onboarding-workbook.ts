@@ -20,6 +20,8 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import * as XLSX from "xlsx";
 import { createPagesServerClient } from "@/lib/supabase/server";
 import { TEMPLATE_TYPES, getTemplateDefinition } from "@/lib/importTemplates";
+import { withApiLogging } from "@/lib/withApiLogging";
+
 
 const ALLOWED_ROLES = new Set(["super_admin", "company_admin", "admin", "owner"]);
 
@@ -30,7 +32,7 @@ const ALLOWED_ROLES = new Set(["super_admin", "company_admin", "admin", "owner"]
 // rest, included because it's part of the unified onboarding.
 const SHEET_ORDER = ["clients", "orders", "quotes", "invoices", "payments", "leads"] as const;
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
     if (req.method !== "GET") {
       res.setHeader("Allow", "GET");
@@ -133,3 +135,5 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(500).json({ error: e?.message || "Workbook generation failed" });
   }
 }
+
+export default withApiLogging(handler);

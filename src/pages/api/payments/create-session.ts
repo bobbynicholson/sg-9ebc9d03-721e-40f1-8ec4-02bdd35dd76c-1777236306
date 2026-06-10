@@ -31,8 +31,10 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@/lib/supabase/server";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { createPaymentSession } from "@/lib/paymentService";
+import { withApiLogging } from "@/lib/withApiLogging";
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+
+async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
     return res.status(405).json({ error: "Method not allowed" });
@@ -316,3 +318,5 @@ function notifyUrlFor(baseUrl: string, _companyId: string): string {
   // dashboard configuration on the provider side.
   return `${baseUrl}/api/webhooks/payment-confirmation`;
 }
+
+export default withApiLogging(handler);

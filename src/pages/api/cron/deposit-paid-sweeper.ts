@@ -3,6 +3,8 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { requireCronAuth } from "@/lib/cronAuth";
 import { recordCronHeartbeat } from "@/lib/cronHeartbeat";
+import { withApiLogging } from "@/lib/withApiLogging";
+
 
 const CRON_NAME = "deposit-paid-sweeper";
 
@@ -25,7 +27,7 @@ const CRON_NAME = "deposit-paid-sweeper";
  *
  * Auth: Vercel cron bearer OR super_admin session.
  */
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
   const auth = await requireCronAuth(req, res);
   if (!auth.ok) return;
 
@@ -90,3 +92,5 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(500).json({ error: e?.message || "crash" });
   }
 }
+
+export default withApiLogging(handler);

@@ -22,6 +22,8 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@/lib/supabase/server";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { ensureFreshXeroToken } from "@/lib/accountingTokens";
+import { withApiLogging } from "@/lib/withApiLogging";
+
 
 const ALLOWED_ROLES = new Set(["super_admin", "company_admin", "admin", "owner"]);
 const XERO_API = "https://api.xero.com/api.xro/2.0";
@@ -38,7 +40,7 @@ interface XeroSettings {
   default_tax_type: string | null;
 }
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
   try {
@@ -363,3 +365,5 @@ async function ensureFreshAccessToken(
 ): Promise<string | null> {
   return ensureFreshXeroToken(supabase, settings, opts);
 }
+
+export default withApiLogging(handler);

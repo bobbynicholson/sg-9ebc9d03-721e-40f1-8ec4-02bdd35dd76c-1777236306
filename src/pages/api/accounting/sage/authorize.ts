@@ -1,6 +1,8 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import crypto from "crypto";
 import { getAuthorizationUrl } from "@/services/accountingIntegrationService";
+import { withApiLogging } from "@/lib/withApiLogging";
+
 
 /**
  * Wave 70 - start the Sage OAuth dance. Mirrors the Xero pattern.
@@ -10,7 +12,7 @@ import { getAuthorizationUrl } from "@/services/accountingIntegrationService";
  * in the HttpOnly oauth_company_id cookie so the callback can pair
  * the redirect back to the right tenant without trusting the URL.
  */
-export default async function handler(
+async function handler(
   req: NextApiRequest,
   res: NextApiResponse,
 ) {
@@ -42,3 +44,5 @@ export default async function handler(
     return res.redirect(`/admin/integrations?error=${encodeURIComponent(error.message)}`);
   }
 }
+
+export default withApiLogging(handler);

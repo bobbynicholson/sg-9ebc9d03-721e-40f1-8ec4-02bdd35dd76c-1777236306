@@ -8,6 +8,8 @@ import {
   hashIp,
   isUuid,
 } from "@/lib/embedFormApi";
+import { withApiLogging } from "@/lib/withApiLogging";
+
 
 /**
  * GET /api/public/embed/[token]/config?slug=...
@@ -16,7 +18,7 @@ import {
  * unknown or suspended tenants get a 404 (never 401, to avoid token
  * enumeration).
  */
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
   applyCorsHeaders(res, { cacheSeconds: 60 });
 
   if (req.method === "OPTIONS") {
@@ -141,3 +143,5 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     },
   });
 }
+
+export default withApiLogging(handler);

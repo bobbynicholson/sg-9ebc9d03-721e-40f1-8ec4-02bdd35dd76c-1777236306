@@ -3,6 +3,8 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@/lib/supabase/server";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { validateRedirectUrl } from "@/lib/embedFormApi";
+import { withApiLogging } from "@/lib/withApiLogging";
+
 
 /**
  * Admin CRUD for embed_form_configs.
@@ -60,7 +62,7 @@ function sanitiseInput(body: any): { ok: true; out: Record<string, any> } | { ok
   return { ok: true, out };
 }
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
   const ssrClient = createPagesServerClient({ req, res });
   const {
     data: { user: callerAuth },
@@ -249,3 +251,5 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .json({ error: err?.message || "Internal Server Error" });
   }
 }
+
+export default withApiLogging(handler);

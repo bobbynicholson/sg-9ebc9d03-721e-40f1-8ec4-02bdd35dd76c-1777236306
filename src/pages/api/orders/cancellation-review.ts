@@ -19,6 +19,8 @@ import { cancelOrder } from "@/services/order/orderWorkflow";
 import { sendCancellationEmail, sendPostponementApprovedEmail } from "@/services/email/cancellationEmails";
 import { resolveClientUserId } from "@/services/lifecycle/resolveClientUserId";
 import { refundService } from "@/services/refundService";
+import { withApiLogging } from "@/lib/withApiLogging";
+
 
 // Send a client-portal notification. Best-effort - failures are
 // logged but never block the review action that called us.
@@ -74,7 +76,7 @@ async function notifyClient(
 
 const ADMIN_ROLES = new Set(["super_admin", "company_admin", "admin", "owner"]);
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
   try {
@@ -670,3 +672,5 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(500).json({ error: err?.message || "Cancellation review failed" });
   }
 }
+
+export default withApiLogging(handler);

@@ -20,6 +20,8 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@/lib/supabase/server";
 import { getServiceSupabase } from "@/lib/supabase/service";
+import { withApiLogging } from "@/lib/withApiLogging";
+
 
 const ALLOWED_ROLES = new Set(["super_admin", "company_admin", "admin", "owner"]);
 const DOC_TYPES = ["invoice", "quote", "order"] as const;
@@ -41,7 +43,7 @@ function parseTrailingSeq(numStr: string | null): number {
   return big;
 }
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
     const ssr = createPagesServerClient({ req, res });
     const { data: { user } } = await ssr.auth.getUser();
@@ -238,3 +240,5 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(500).json({ error: err?.message || "Server error" });
   }
 }
+
+export default withApiLogging(handler);

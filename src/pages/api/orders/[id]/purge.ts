@@ -54,10 +54,12 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@/lib/supabase/server";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { releaseOrderResources } from "@/services/order/releaseResources";
+import { withApiLogging } from "@/lib/withApiLogging";
+
 
 const ALLOWED_ROLES = new Set(["super_admin", "company_admin", "owner"]);
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
   const orderId = String(req.query.id || "");
@@ -235,3 +237,5 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     audit: { action: "order_purged", order_number: (order as any).order_number },
   });
 }
+
+export default withApiLogging(handler);

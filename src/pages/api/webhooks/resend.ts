@@ -25,6 +25,8 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createHmac, timingSafeEqual } from "crypto";
 import { getServiceSupabase } from "@/lib/supabase/service";
+import { withApiLogging } from "@/lib/withApiLogging";
+
 
 // Disable body parsing - we need the raw body for signature
 // verification. Next.js Pages routes default to JSON parsed; this
@@ -89,7 +91,7 @@ function verifySignature(
   return false;
 }
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
     return res.status(405).json({ ok: false });
@@ -274,3 +276,5 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   return res.status(200).json({ ok: true, recorded: rows.length });
 }
+
+export default withApiLogging(handler);

@@ -14,6 +14,8 @@
  */
 import type { NextApiRequest, NextApiResponse } from "next";
 import { Resend } from "resend";
+import { withApiLogging } from "@/lib/withApiLogging";
+
 
 const SUPPORT_INBOX =
   process.env.PLATFORM_SUPPORT_INBOX || "support@cateringms.com";
@@ -30,7 +32,7 @@ interface Body {
   website?: string;
 }
 
-export default async function handler(
+async function handler(
   req: NextApiRequest,
   res: NextApiResponse,
 ) {
@@ -100,3 +102,5 @@ function escapeHtml(s: string): string {
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
 }
+
+export default withApiLogging(handler);

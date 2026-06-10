@@ -8,6 +8,8 @@ import {
   hashIp,
   isUuid,
 } from "@/lib/embedFormApi";
+import { withApiLogging } from "@/lib/withApiLogging";
+
 
 /**
  * GET /api/public/embed/[token]/estimate?guests=N&tierId=X
@@ -15,7 +17,7 @@ import {
  * Returns a low/high price estimate using the tenant's saved pricing tiers.
  * Public, unauthenticated - guarded by token + rate-limit.
  */
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
   applyCorsHeaders(res, { cacheSeconds: 30 });
 
   if (req.method === "OPTIONS") return res.status(204).end();
@@ -112,3 +114,5 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     },
   });
 }
+
+export default withApiLogging(handler);

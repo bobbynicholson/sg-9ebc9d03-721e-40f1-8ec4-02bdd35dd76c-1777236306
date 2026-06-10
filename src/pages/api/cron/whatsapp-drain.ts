@@ -40,6 +40,8 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { requireCronAuth } from "@/lib/cronAuth";
 import { recordCronHeartbeat } from "@/lib/cronHeartbeat";
+import { withApiLogging } from "@/lib/withApiLogging";
+
 
 const MAX_ATTEMPTS = 5;
 const BATCH_SIZE = 25;
@@ -70,7 +72,7 @@ function backoffMinutes(attempts: number): number {
   return Math.min(16, Math.pow(2, attempts));
 }
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "GET" && req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
@@ -253,3 +255,5 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     tenants_connected: allowList.length,
   });
 }
+
+export default withApiLogging(handler);

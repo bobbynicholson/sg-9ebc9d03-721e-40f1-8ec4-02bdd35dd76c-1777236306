@@ -16,6 +16,8 @@ import {
   getImportJob, listImportRows, setJobStatus, logEvent,
 } from "@/services/importService";
 import { normaliseFieldValue } from "@/lib/importNormalise";
+import { withApiLogging } from "@/lib/withApiLogging";
+
 
 // Preview also iterates every row - bump the per-route timeout for
 // the same reason as commit.ts.
@@ -124,7 +126,7 @@ async function buildExistingEmailIndex(
   return { clientByEmail, leadByEmail };
 }
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
     if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
@@ -447,3 +449,5 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(500).json({ error: outer?.message || "Preview failed" });
   }
 }
+
+export default withApiLogging(handler);

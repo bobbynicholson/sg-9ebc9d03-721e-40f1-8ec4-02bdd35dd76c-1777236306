@@ -29,6 +29,8 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { consumeApiKeyRateLimitDb } from "@/lib/apiKeyRateLimit";
 import crypto from "node:crypto";
+import { withApiLogging } from "@/lib/withApiLogging";
+
 
 const MAGIC_LINK_TTL_DAYS = 14;
 
@@ -72,7 +74,7 @@ async function sendOneLink(opts: {
   }
 }
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
   try {
@@ -139,3 +141,5 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(200).json({ ok: true });
   }
 }
+
+export default withApiLogging(handler);

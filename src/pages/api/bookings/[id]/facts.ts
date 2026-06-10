@@ -22,6 +22,8 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@/lib/supabase/server";
 import { loadBookingForRole, type BookingFactsRole } from "@/services/booking/bookingFacts";
+import { withApiLogging } from "@/lib/withApiLogging";
+
 
 const ROLE_TO_VARIANT: Record<string, BookingFactsRole | null> = {
   super_admin:   "admin",
@@ -37,7 +39,7 @@ const ROLE_TO_VARIANT: Record<string, BookingFactsRole | null> = {
   client:        "client",
 };
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "GET") return res.status(405).json({ error: "Method not allowed" });
 
   try {
@@ -93,3 +95,5 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(500).json({ error: err?.message || "Crashed" });
   }
 }
+
+export default withApiLogging(handler);

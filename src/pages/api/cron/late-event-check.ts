@@ -24,12 +24,14 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { requireCronAuth } from "@/lib/cronAuth";
 import { recordCronHeartbeat } from "@/lib/cronHeartbeat";
+import { withApiLogging } from "@/lib/withApiLogging";
+
 
 const CRON_NAME = "late-event-check";
 
 const ALERT_TYPE = "order_late_alert";
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "GET" && req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
@@ -134,3 +136,5 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     errors: errors.length > 0 ? errors : undefined,
   });
 }
+
+export default withApiLogging(handler);

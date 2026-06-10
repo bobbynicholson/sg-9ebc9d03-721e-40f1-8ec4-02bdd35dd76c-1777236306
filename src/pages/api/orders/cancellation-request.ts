@@ -26,8 +26,10 @@ import { createPagesServerClient } from "@/lib/supabase/server";
 // runtime value still comes from the dynamic import inside the
 // handler. Aliased to avoid clashing with the local const below.
 import type { UserRole as UserRoleType } from "@/types/app";
+import { withApiLogging } from "@/lib/withApiLogging";
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+
+async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
   try {
@@ -310,3 +312,5 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(500).json({ error: err?.message || "Could not submit cancellation request" });
   }
 }
+
+export default withApiLogging(handler);

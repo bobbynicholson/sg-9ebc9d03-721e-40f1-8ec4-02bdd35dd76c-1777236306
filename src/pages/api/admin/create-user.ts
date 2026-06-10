@@ -2,6 +2,8 @@
 import { createPagesServerClient } from "@/lib/supabase/server";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import type { NextApiRequest, NextApiResponse } from "next";
+import { withApiLogging } from "@/lib/withApiLogging";
+
 
 // Map UserRole enum values to database-accepted role values
 function mapRoleToDatabase(role: string): string {
@@ -45,7 +47,7 @@ const CALLER_ROLES_ALLOWED = new Set(["super_admin", "company_admin", "admin", "
  *     path) and self-heals by completing the missing profile in place
  *     instead of asking the operator to use a different email.
  */
-export default async function handler(
+async function handler(
   req: NextApiRequest,
   res: NextApiResponse,
 ) {
@@ -310,3 +312,5 @@ export default async function handler(
     });
   }
 }
+
+export default withApiLogging(handler);

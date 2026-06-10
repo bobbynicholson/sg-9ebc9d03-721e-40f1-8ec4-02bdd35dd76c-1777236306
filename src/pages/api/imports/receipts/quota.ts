@@ -13,8 +13,10 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { getReceiptScanQuota } from "@/lib/receiptScanQuota";
+import { withApiLogging } from "@/lib/withApiLogging";
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+
+async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "GET") return res.status(405).json({ error: "GET only" });
   try {
     const { createPagesServerClient } = await import("@/lib/supabase/server");
@@ -36,3 +38,5 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(500).json({ error: e instanceof Error ? e.message : "quota lookup failed" });
   }
 }
+
+export default withApiLogging(handler);

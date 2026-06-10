@@ -1,5 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { emailNotificationService } from "@/services/emailNotificationService";
+import { withApiLogging } from "@/lib/withApiLogging";
+
 
 /**
  * API endpoint to process pending email notifications
@@ -13,7 +15,7 @@ import { emailNotificationService } from "@/services/emailNotificationService";
  *   }]
  * }
  */
-export default async function handler(
+async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
@@ -60,3 +62,5 @@ export default async function handler(
     });
   }
 }
+
+export default withApiLogging(handler);

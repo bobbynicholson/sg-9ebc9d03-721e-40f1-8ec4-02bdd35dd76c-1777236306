@@ -3,6 +3,8 @@ import {
   exchangeCodeForTokens,
   storeOAuthTokens,
 } from "@/services/accountingIntegrationService";
+import { withApiLogging } from "@/lib/withApiLogging";
+
 
 /**
  * Wave 70 - Sage Business Cloud OAuth callback.
@@ -17,7 +19,7 @@ import {
  *   https://yourdomain.com/api/accounting/sage/callback
  * to the Sage developer console app whitelist.
  */
-export default async function handler(
+async function handler(
   req: NextApiRequest,
   res: NextApiResponse,
 ) {
@@ -63,3 +65,5 @@ export default async function handler(
     return res.redirect(`/admin/integrations?error=${encodeURIComponent(error.message)}`);
   }
 }
+
+export default withApiLogging(handler);

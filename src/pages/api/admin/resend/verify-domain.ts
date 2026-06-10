@@ -22,6 +22,8 @@ import { getServiceSupabase } from "@/lib/supabase/service";
 import { getResendDomain, isResendError, verifyResendDomain } from "@/lib/resendDomains";
 import { emailService } from "@/services/emailService";
 import type { NextApiRequest, NextApiResponse } from "next";
+import { withApiLogging } from "@/lib/withApiLogging";
+
 
 const ALLOWED_ROLES = new Set([
   "super_admin",
@@ -34,7 +36,7 @@ const ALLOWED_ROLES = new Set([
 // gate above minus super_admin - platform staff don't need the noise.
 const RECIPIENT_ROLES = ["owner", "company_admin", "admin"];
 
-export default async function handler(
+async function handler(
   req: NextApiRequest,
   res: NextApiResponse,
 ) {
@@ -411,3 +413,5 @@ function escapeHtml(input: string): string {
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
 }
+
+export default withApiLogging(handler);

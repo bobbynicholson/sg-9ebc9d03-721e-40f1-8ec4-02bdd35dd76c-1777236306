@@ -20,6 +20,8 @@ import { createPagesServerClient } from "@/lib/supabase/server";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { extractReceiptViaAI } from "@/lib/importAi";
 import { getReceiptScanQuota } from "@/lib/receiptScanQuota";
+import { withApiLogging } from "@/lib/withApiLogging";
+
 
 const ALLOWED_CALLER_ROLES = new Set([
   "super_admin", "company_admin", "admin", "owner", "shopping_staff", "shopping",
@@ -57,7 +59,7 @@ function guessMimeFromPath(p: string): string {
   return "image/jpeg";
 }
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
     if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
@@ -334,3 +336,5 @@ function normaliseForMemory(s: string): string {
     .replace(/\s+/g, " ")
     .trim();
 }
+
+export default withApiLogging(handler);

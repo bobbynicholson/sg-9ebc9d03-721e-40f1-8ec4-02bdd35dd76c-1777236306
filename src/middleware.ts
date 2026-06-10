@@ -151,9 +151,25 @@ const shouldRedirectToRoleLanding = (pathname: string) => {
   );
 };
 
+// ── Middleware-level structured logging (Edge-compatible — no fs) ──────────────
+// This runs on the Edge runtime so we cannot use the file logger.
+// These console.log calls are picked up by the Node.js instrumentation
+// console patch when the page handler runs server-side.
+function mwLog(level: "INFO" | "WARN" | "AUTH" | "DENY", message: string, ctx?: Record<string, string | null | undefined>) {
+  const ctxStr = ctx ? " " + JSON.stringify(ctx) : "";
+  const line = `[middleware] [${level}] ${message}${ctxStr}`;
+  if (level === "DENY" || level === "WARN") {
+    console.warn(line);
+  } else {
+    console.log(line);
+  }
+}
+
 export async function middleware(request: NextRequest) {
+  mwLog("INFO", `request ${request.nextUrl.pathname}`);
+
   // Redirect old platform admin URLs to new unified structure
-  if (request.nextUrl.pathname.startsWith("/cateringms-platform") || 
+  if (request.nextUrl.pathname.startsWith("/cateringms-platform") ||
       request.nextUrl.pathname.startsWith("/super-admin")) {
     const url = request.nextUrl.clone();
     url.pathname = url.pathname
@@ -274,6 +290,7 @@ export async function middleware(request: NextRequest) {
 
   // Handle unauthenticated users
   if (!user && !isPublic) {
+    mwLog("AUTH", `unauthenticated — redirect to login`, { path: pathname });
     const url = request.nextUrl.clone();
 
     if (companySlug && companySlug !== "auth" && companySlug !== "admin" && companySlug !== "api") {
@@ -426,12 +443,14 @@ export async function middleware(request: NextRequest) {
   // re-querying.
   if (companySlug && profileRole && profileRole !== "super_admin") {
     if (!profileCompanyId) {
+      mwLog("DENY", "no_company", { role: profileRole, path: pathname });
       const url = request.nextUrl.clone();
       url.pathname = roleLandingPage ?? "/auth/login";
       url.searchParams.set("error", "no_company");
       return NextResponse.redirect(url);
     }
     if (!userCompanySlug || userCompanySlug !== companySlug) {
+      mwLog("DENY", "tenant_mismatch", { role: profileRole, company: profileCompanyId ?? undefined, path: pathname });
       console.log(`[Middleware] Tenant mismatch: ${profileRole} (company=${profileCompanyId}) tried ${pathname}`);
       const url = request.nextUrl.clone();
       url.pathname = roleLandingPage ?? "/auth/login";
@@ -445,6 +464,7 @@ export async function middleware(request: NextRequest) {
   const guardPath = companySlug ? pathname.replace(`/${companySlug}`, "") || "/" : pathname;
   if (!isPublic && profileRole) {
     if (!isAuthorizedForRoute(guardPath, profileRole)) {
+      mwLog("DENY", "unauthorized", { role: profileRole, path: pathname, guardPath });
       console.log(`[Middleware] Unauthorized: ${profileRole} attempted ${pathname}`);
       if (roleLandingPage) {
         const url = request.nextUrl.clone();
@@ -465,6 +485,8 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(url);
     }
   }
+
+  mwLog("AUTH", `allowed`, { role: profileRole ?? "unknown", path: pathname, tenant: userCompanySlug ?? "-", cache: cacheHit ? "hit" : "miss" });
 
   // Refresh the signed-cookie cache on a miss so the next nav skips
   // the DB queries. Redirects above don't carry this cookie - next

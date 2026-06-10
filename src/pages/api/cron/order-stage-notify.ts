@@ -28,6 +28,8 @@ import { getServiceSupabase } from "@/lib/supabase/service";
 import { computeOrderTimeline } from "@/services/order/orderTimeline";
 import { requireCronAuth } from "@/lib/cronAuth";
 import { recordCronHeartbeat } from "@/lib/cronHeartbeat";
+import { withApiLogging } from "@/lib/withApiLogging";
+
 
 const CRON_NAME = "order-stage-notify";
 const STAGE_ADVANCE_TYPE = "order_stage_advance";
@@ -43,7 +45,7 @@ const ACTIVE_STATUSES = ["confirmed", "preparing", "ready", "in_transit", "deliv
 // well within budget; raise if observed.
 const MAX_ORDERS_PER_RUN = 300;
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "GET" && req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
@@ -402,3 +404,5 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     errors: errors.slice(0, 20),
   });
 }
+
+export default withApiLogging(handler);

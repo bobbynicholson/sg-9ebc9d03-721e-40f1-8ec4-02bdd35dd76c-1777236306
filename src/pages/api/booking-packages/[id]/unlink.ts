@@ -10,10 +10,12 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@/lib/supabase/server";
 import { unlinkOrderFromPackage, getPackage } from "@/services/booking/bookingPackageService";
+import { withApiLogging } from "@/lib/withApiLogging";
+
 
 const ADMIN_ROLES = new Set(["super_admin", "company_admin", "admin", "owner"]);
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
   try {
@@ -65,3 +67,5 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(500).json({ error: err?.message || "Unlink failed" });
   }
 }
+
+export default withApiLogging(handler);

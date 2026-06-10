@@ -30,6 +30,8 @@ import { paymentGatewayService } from "@/services/paymentGatewayService";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { orderService } from "@/services/orderService";
 import { paymentProcessingService } from "@/services/paymentProcessingService";
+import { withApiLogging } from "@/lib/withApiLogging";
+
 
 // We need the raw body for HMAC verification.
 export const config = { api: { bodyParser: false } };
@@ -43,7 +45,7 @@ async function readRawBody(req: NextApiRequest): Promise<string> {
   });
 }
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
     return res.status(405).json({ error: "Method not allowed" });
@@ -213,3 +215,5 @@ async function isDuplicateYocoPayment(sb: any, yocoTxId: string): Promise<"dupli
   }
   return Array.isArray(data) && data.length > 0 ? "duplicate" : "unique";
 }
+
+export default withApiLogging(handler);

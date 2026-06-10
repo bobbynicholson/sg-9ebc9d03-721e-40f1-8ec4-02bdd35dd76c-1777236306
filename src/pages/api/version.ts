@@ -11,6 +11,8 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import fs from "fs";
 import path from "path";
+import { withApiLogging } from "@/lib/withApiLogging";
+
 
 let cached: string | null = null;
 
@@ -36,7 +38,7 @@ function readBuildId(): string {
   return cached;
 }
 
-export default function handler(req: NextApiRequest, res: NextApiResponse) {
+function handler(req: NextApiRequest, res: NextApiResponse) {
   res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
   res.setHeader("Pragma", "no-cache");
   res.setHeader("Expires", "0");
@@ -45,3 +47,5 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     serverTime: new Date().toISOString(),
   });
 }
+
+export default withApiLogging(handler);

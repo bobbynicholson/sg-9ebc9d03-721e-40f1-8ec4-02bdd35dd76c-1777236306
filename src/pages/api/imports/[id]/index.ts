@@ -8,10 +8,12 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@/lib/supabase/server";
 import { getImportJob, listImportRows } from "@/services/importService";
+import { withApiLogging } from "@/lib/withApiLogging";
+
 
 const ALLOWED_CALLER_ROLES = new Set(["super_admin", "company_admin", "admin", "owner"]);
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
     if (req.method !== "GET" && req.method !== "PATCH" && req.method !== "DELETE") {
       return res.status(405).json({ error: "Method not allowed" });
@@ -100,3 +102,5 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(500).json({ error: outer?.message || "Failed to load job" });
   }
 }
+
+export default withApiLogging(handler);

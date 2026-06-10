@@ -19,6 +19,8 @@ import { getServiceSupabase } from "@/lib/supabase/service";
 import { orderService } from "@/services/orderService";
 import { paymentProcessingService } from "@/services/paymentProcessingService";
 import type Stripe from "stripe";
+import { withApiLogging } from "@/lib/withApiLogging";
+
 
 export const config = { api: { bodyParser: false } };
 
@@ -31,7 +33,7 @@ async function readRawBody(req: NextApiRequest): Promise<Buffer> {
   });
 }
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
     return res.status(405).json({ error: "Method not allowed" });
@@ -185,3 +187,5 @@ async function isDuplicateStripePayment(sb: any, stripeTxId: string): Promise<"d
   if (error) return "error";
   return Array.isArray(data) && data.length > 0 ? "duplicate" : "unique";
 }
+
+export default withApiLogging(handler);
