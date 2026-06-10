@@ -70,6 +70,10 @@ export interface SendEmailDialogProps {
   /** What the primary button says. */
   sendLabel?: string;
 
+  /** Optional content rendered between the dialog header and the To
+   *  field. Used by QuoteSendDialog to inject the second-quote picker. */
+  extraTopContent?: React.ReactNode;
+
   /**
    * Caller does the actual fetch. Returns success or a structured
    * error so the dialog can render the Fix link inline.
@@ -155,6 +159,10 @@ export function SendEmailDialog(props: SendEmailDialogProps) {
             <DialogDescription>{props.description}</DialogDescription>
           ) : null}
         </DialogHeader>
+
+        {props.extraTopContent && (
+          <div className="mb-2">{props.extraTopContent}</div>
+        )}
 
         <div className="space-y-4">
           {/* Recipient block */}

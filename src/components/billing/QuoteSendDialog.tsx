@@ -61,7 +61,12 @@ export interface QuoteSendDialogProps {
    *  defensive: /admin/quotes/new wasn't passing this so the body said
    *  "Your Catering Company" on every quote). */
   tenantName?: string | null;
-  onSent?: (quote: QuoteSendDialogQuote) => void;
+  /** Other quotes for the same client that the operator can bundle
+   *  into the same email (e.g. on-site vs off-site options). The
+   *  parent should filter to the same client_email and exclude the
+   *  primary quote. */
+  availableQuotes?: QuoteSendDialogQuote[];
+  onSent?: (primary: QuoteSendDialogQuote, secondary?: QuoteSendDialogQuote) => void;
 }
 
 // TIGHTEN I.111: form defaults like quote_name="Quote" / event_name=""
@@ -84,11 +89,13 @@ export function QuoteSendDialog({
   companyId,
   quote,
   tenantName,
+  availableQuotes,
   onSent,
 }: QuoteSendDialogProps) {
   const { toast } = useToast();
   const [resolved, setResolved] = useState<{ subject: string; body: string } | null>(null);
   const [resolving, setResolving] = useState(false);
+  const [secondQuote, setSecondQuote] = useState<QuoteSendDialogQuote | null>(null);
   // TIGHTEN I.111: dialog self-fetches the tenant name when the
   // parent didn't pass one. /admin/quotes/new historically passed
   // tenantName={null} which made every quote-send email read "Your
@@ -154,11 +161,66 @@ export function QuoteSendDialog({
     : null;
   const isConverted = !!quote?.is_converted;
 
+  // Second-quote derived values (only computed when one is selected).
+  const secondTotal = Number(secondQuote?.total ?? secondQuote?.total_amount ?? 0);
+  const secondCurrency = secondQuote?.currency || currency;
+  const secondCleanedEvent = secondQuote
+    ? (cleanEventName(secondQuote.event_name) ?? cleanEventName(secondQuote.quote_name))
+    : null;
+  const secondTotalLabel = secondQuote
+    ? (fmtMoney(secondTotal, secondCurrency) || `${secondCurrency} ${secondTotal.toFixed(2)}`)
+    : "";
+  const secondGuestCount = Number(secondQuote?.guest_count ?? 0);
+  const secondEventDateLabel = secondQuote?.event_date
+    ? new Date(String(secondQuote.event_date)).toLocaleDateString("en-ZA", { day: "numeric", month: "long", year: "numeric" })
+    : null;
+  const secondQuoteUrl =
+    secondQuote?.public_token && typeof window !== "undefined"
+      ? buildPublicQuoteUrl(secondQuote.public_token, fetchedSlug)
+      : null;
+
   useEffect(() => {
     if (!open || !quote || !companyId) {
       setResolved(null);
       return;
     }
+
+    // When a second quote is bundled, skip the template resolver:
+    // no tenant template supports two-quote bodies. Build the fallback
+    // directly with both quotes and return early.
+    if (secondQuote) {
+      setResolved({
+        subject: formatQuoteSubject({
+          eventName: cleanedEvent,
+          tenantName: tn,
+          total,
+          quoteNumber: quote.quote_number || quote.id,
+          currencyCode: currency,
+        }),
+        body: buildFallbackBody({
+          firstName,
+          tenantName: tn,
+          eventName: cleanedEvent,
+          quoteNumber: quote.quote_number || quote.id,
+          amount: totalLabel,
+          quoteUrl,
+          guestCount: guestCount > 0 ? guestCount : null,
+          eventDateLabel,
+          isConverted,
+          secondQuoteData: {
+            quoteNumber: secondQuote.quote_number || secondQuote.id,
+            amount: secondTotalLabel,
+            quoteUrl: secondQuoteUrl,
+            guestCount: secondGuestCount > 0 ? secondGuestCount : null,
+            eventDateLabel: secondEventDateLabel,
+            eventName: secondCleanedEvent,
+          },
+        }),
+      });
+      setResolving(false);
+      return;
+    }
+
     let cancelled = false;
     setResolving(true);
     (async () => {
@@ -238,21 +300,64 @@ export function QuoteSendDialog({
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, quote?.id, companyId, tn, quoteUrl, total, guestCount, eventDateLabel, isConverted]);
+  }, [open, quote?.id, companyId, tn, quoteUrl, total, guestCount, eventDateLabel, isConverted, secondQuote?.id]);
 
   if (!quote) return null;
+
+  const secondQuotePicker =
+    availableQuotes && availableQuotes.length > 0 ? (
+      <div className="border rounded-md p-3 bg-slate-50 space-y-1.5">
+        <p className="text-sm font-medium text-slate-700">Add a second quote to this email</p>
+        <p className="text-xs text-slate-500">
+          Useful when offering on-site and off-site options together.
+        </p>
+        <select
+          className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
+          value={secondQuote?.id || ""}
+          onChange={(e) => {
+            const picked = availableQuotes.find((q) => q.id === e.target.value) ?? null;
+            setSecondQuote(picked);
+          }}
+        >
+          <option value="">— none —</option>
+          {availableQuotes.map((q) => {
+            const lbl =
+              cleanEventName(q.event_name) ??
+              cleanEventName(q.quote_name) ??
+              q.quote_number ??
+              q.id;
+            return (
+              <option key={q.id} value={q.id}>
+                {q.quote_number ? `${q.quote_number} — ` : ""}
+                {lbl}
+              </option>
+            );
+          })}
+        </select>
+      </div>
+    ) : null;
 
   return (
     <SendEmailDialog
       open={open}
-      onOpenChange={onOpenChange}
+      onOpenChange={(o) => {
+        if (!o) setSecondQuote(null);
+        onOpenChange(o);
+      }}
       title="Send quote to client"
       description={resolving ? "Loading template..." : "Review and edit the email before sending."}
       defaultTo={quote.client_email || ""}
       defaultSubject={resolved?.subject || ""}
       defaultBody={resolved?.body || ""}
-      attachmentFilename={quote.quote_number ? `Quote-${quote.quote_number}.pdf` : "Quote.pdf"}
+      attachmentFilename={
+        secondQuote
+          ? `Quote-${quote.quote_number || quote.id}.pdf + Quote-${secondQuote.quote_number || secondQuote.id}.pdf`
+          : quote.quote_number
+          ? `Quote-${quote.quote_number}.pdf`
+          : "Quote.pdf"
+      }
       sendLabel="Send quote"
+      extraTopContent={secondQuotePicker}
       onSend={async (payload) => {
         try {
           const response = await fetch("/api/send-email", {
@@ -264,6 +369,7 @@ export function QuoteSendDialog({
               subject: payload.subject,
               body: payload.body,
               quoteId: quote.id,
+              quoteId2: secondQuote?.id || null,
               attachQuotePdf: payload.attachPdf,
               variables: {
                 clientName: quote.client_name || "there",
@@ -286,23 +392,25 @@ export function QuoteSendDialog({
               },
             };
           }
-          // Stamp sent_at + flip status. Mirrors what
-          // quoteService._fireQuoteSentEmail used to do, only here we
-          // don't double-fire the email - the dialog already sent it.
-          try {
-            await supabase
-              .from("quotes")
-              .update({ status: "sent", sent_at: new Date().toISOString() })
-              .eq("id", quote.id)
-              .is("sent_at", null);
-          } catch (e) {
-            console.warn("[QuoteSendDialog] sent_at stamp failed:", e);
-          }
+          // Stamp sent_at + flip status on both quotes.
+          const now = new Date().toISOString();
+          const stampIds = [quote.id, secondQuote?.id].filter(Boolean) as string[];
+          await Promise.allSettled(
+            stampIds.map((id) =>
+              supabase
+                .from("quotes")
+                .update({ status: "sent", sent_at: now })
+                .eq("id", id)
+                .is("sent_at", null)
+            )
+          );
           toast({
             title: "Quote sent",
-            description: `Sent to ${payload.to}.`,
+            description: secondQuote
+              ? `Sent ${quote.quote_number || "quote"} + ${secondQuote.quote_number || "second quote"} to ${payload.to}.`
+              : `Sent to ${payload.to}.`,
           });
-          onSent?.(quote);
+          onSent?.(quote, secondQuote ?? undefined);
           return { success: true } as const;
         } catch (err: any) {
           // TIGHTEN I.98: route quote-send failures through Sentry.
@@ -340,6 +448,32 @@ export function QuoteSendDialog({
  * to the polished /q/{token} (or order page) without digging out a
  * PDF attachment.
  */
+function buildOptionBlock(opt: {
+  quoteNumber: string;
+  amount: string;
+  quoteUrl: string | null;
+  guestCount: number | null;
+  eventDateLabel: string | null;
+  eventName: string | null;
+  label: string;
+}): string[] {
+  const details: string[] = [];
+  if (opt.guestCount && opt.guestCount > 0)
+    details.push(`${opt.guestCount} guest${opt.guestCount === 1 ? "" : "s"}`);
+  if (opt.eventDateLabel) details.push(opt.eventDateLabel);
+  details.push(`total ${opt.amount}`);
+
+  const heading = opt.eventName
+    ? `${opt.label} — ${opt.quoteNumber} (${opt.eventName})`
+    : `${opt.label} — ${opt.quoteNumber}`;
+
+  const block: string[] = [heading, `  ${details.join(" - ")}`];
+  if (opt.quoteUrl) {
+    block.push(`  View this quote: ${opt.quoteUrl}`);
+  }
+  return block;
+}
+
 function buildFallbackBody(input: {
   firstName: string;
   tenantName: string;
@@ -350,24 +484,58 @@ function buildFallbackBody(input: {
   guestCount: number | null;
   eventDateLabel: string | null;
   isConverted: boolean;
+  secondQuoteData?: {
+    quoteNumber: string;
+    amount: string;
+    quoteUrl: string | null;
+    guestCount: number | null;
+    eventDateLabel: string | null;
+    eventName: string | null;
+  };
 }): string {
   const {
     firstName, tenantName, eventName, quoteNumber, amount, quoteUrl,
-    guestCount, eventDateLabel, isConverted,
+    guestCount, eventDateLabel, isConverted, secondQuoteData,
   } = input;
-
-  const details: string[] = [];
-  if (guestCount && guestCount > 0) details.push(`${guestCount} guest${guestCount === 1 ? "" : "s"}`);
-  if (eventDateLabel) details.push(eventDateLabel);
-  details.push(`total ${amount}`);
-  const detailsLine = details.join(" - ");
 
   const lines: string[] = [`Hi ${firstName},`, ""];
 
-  if (isConverted) {
+  if (secondQuoteData) {
+    // Two-option path: operator is sending on-site + off-site (or any
+    // two alternatives) in one email.
+    lines.push("Thanks for the opportunity to quote you. I've put together two options:");
+    lines.push("");
+    lines.push(...buildOptionBlock({
+      quoteNumber,
+      amount,
+      quoteUrl,
+      guestCount,
+      eventDateLabel,
+      eventName,
+      label: "Option 1",
+    }));
+    lines.push("");
+    lines.push(...buildOptionBlock({
+      quoteNumber: secondQuoteData.quoteNumber,
+      amount: secondQuoteData.amount,
+      quoteUrl: secondQuoteData.quoteUrl,
+      guestCount: secondQuoteData.guestCount,
+      eventDateLabel: secondQuoteData.eventDateLabel,
+      eventName: secondQuoteData.eventName,
+      label: "Option 2",
+    }));
+    lines.push("");
+    lines.push("Reply to this email if you'd like to chat through either option.");
+  } else if (isConverted) {
     // Booking-update path. Bobby's call: when the operator edits a
     // converted quote (live order in flight), the email must read as
     // an UPDATE, not a fresh quote ask. The client already accepted.
+    const details: string[] = [];
+    if (guestCount && guestCount > 0) details.push(`${guestCount} guest${guestCount === 1 ? "" : "s"}`);
+    if (eventDateLabel) details.push(eventDateLabel);
+    details.push(`total ${amount}`);
+    const detailsLine = details.join(" - ");
+
     const eventPhrase = eventName ? ` for your ${eventName}` : "";
     lines.push(`I've updated your booking${eventPhrase} (${quoteNumber}). The latest details are:`);
     lines.push("");
@@ -382,7 +550,13 @@ function buildFallbackBody(input: {
       lines.push("Reply if you'd like to walk through anything.");
     }
   } else {
-    // Initial-send path.
+    // Initial-send path (single quote).
+    const details: string[] = [];
+    if (guestCount && guestCount > 0) details.push(`${guestCount} guest${guestCount === 1 ? "" : "s"}`);
+    if (eventDateLabel) details.push(eventDateLabel);
+    details.push(`total ${amount}`);
+    const detailsLine = details.join(" - ");
+
     lines.push(`Thanks for the opportunity to quote you. Your quote ${quoteNumber} is ready:`);
     lines.push("");
     lines.push(`  ${detailsLine}`);
@@ -397,6 +571,7 @@ function buildFallbackBody(input: {
       lines.push("Have a look at the attached PDF and reply with any tweaks, or let us know you're happy to go ahead.");
     }
   }
+
   lines.push("");
   lines.push("Thanks,");
   lines.push(tenantName);

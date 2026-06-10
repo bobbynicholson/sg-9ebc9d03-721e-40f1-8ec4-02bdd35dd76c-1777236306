@@ -19,7 +19,12 @@ async function handler(
 
   try {
     const {
-      companyId, to, subject, template, body, variables, orderId, quoteId, emailType, bypassQuarantine,
+      companyId, to, subject, template, body, variables, orderId, quoteId,
+      // Optional second quoteId for two-quote emails (e.g. on-site +
+      // off-site options sent together). When set alongside
+      // attachQuotePdf=true a second PDF is rendered and attached.
+      quoteId2,
+      emailType, bypassQuarantine,
       // Optional, server-rendered Quote PDF attachment. When the
       // caller sets attachQuotePdf=true the route hydrates the
       // QuotePdfData from the quotes + companies tables (using the
@@ -280,6 +285,82 @@ async function handler(
           // ops sees the warning and can investigate the
           // @react-pdf/renderer install / data shape.
           console.warn("[send-email] quote PDF render failed (non-blocking):", pdfErr?.message || pdfErr);
+        }
+      }
+
+      // Second quote PDF - rendered when the operator bundles two
+      // quotes into one email (e.g. on-site vs off-site options).
+      // Symmetric to the first block; failure is non-blocking.
+      if (attachQuotePdf && quoteId2) {
+        try {
+          const ssr = createPagesServerClient({ req, res });
+          const { data: q2 } = await ssr
+            .from("quotes")
+            .select(`
+              id, quote_number, quote_name, client_name, event_date, event_time, setup_time, guest_count,
+              venue_address, menu_items, equipment_items, notes, terms_and_conditions,
+              subtotal, tax_amount, discount_amount, total, total_amount, status,
+              delivery_fee, delivery_distance_km, delivery_rate_per_km,
+              valid_until, accepted_at, updated_at,
+              company:company_id (
+                company_name, legal_name, logo_url, email, phone, website,
+                address_line1, address_line2, city,
+                primary_color, vat_registered, vat_number, vat_rate,
+                registration_number, tax_number, currency,
+                updated_at
+              )
+            `)
+            .eq("id", quoteId2)
+            .is("deleted_at", null)
+            .maybeSingle();
+
+          if (q2) {
+            const { renderQuotePdf, sanitiseFilename } = await import("@/services/pdf");
+            const pdfBuffer2 = await renderQuotePdf(
+              {
+                quote_number: (q2 as any).quote_number,
+                quote_name: (q2 as any).quote_name,
+                client_name: (q2 as any).client_name,
+                event_date: (q2 as any).event_date,
+                event_time: (q2 as any).event_time,
+                setup_time: (q2 as any).setup_time,
+                guest_count: (q2 as any).guest_count,
+                venue_address: (q2 as any).venue_address,
+                menu_items: (q2 as any).menu_items,
+                equipment_items: (q2 as any).equipment_items,
+                subtotal: (q2 as any).subtotal,
+                delivery_fee: (q2 as any).delivery_fee,
+                delivery_distance_km: (q2 as any).delivery_distance_km,
+                delivery_rate_per_km: (q2 as any).delivery_rate_per_km,
+                discount_amount: (q2 as any).discount_amount,
+                tax_amount: (q2 as any).tax_amount,
+                total: Number((q2 as any).total ?? (q2 as any).total_amount ?? 0),
+                valid_until: (q2 as any).valid_until,
+                terms_and_conditions: (q2 as any).terms_and_conditions,
+                notes: (q2 as any).notes,
+                status: (q2 as any).status,
+                accepted_at: (q2 as any).accepted_at,
+                company: (q2 as any).company || {},
+              },
+              {
+                cacheKey: {
+                  quoteId: quoteId2,
+                  quoteUpdatedAt: (q2 as any).updated_at ?? null,
+                  companyUpdatedAt: (q2 as any).company?.updated_at ?? null,
+                },
+              },
+            );
+            const filename2 = `Quote-${sanitiseFilename((q2 as any).quote_number || quoteId2)}.pdf`;
+            attachments.push({
+              filename: filename2,
+              content: pdfBuffer2,
+              contentType: "application/pdf",
+            });
+          } else {
+            console.warn(`[send-email] attachQuotePdf quoteId2=true but quote ${quoteId2} not readable`);
+          }
+        } catch (pdfErr: any) {
+          console.warn("[send-email] second quote PDF render failed (non-blocking):", pdfErr?.message || pdfErr);
         }
       }
 

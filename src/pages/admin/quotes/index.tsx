@@ -1189,11 +1189,13 @@ function AdminQuotesInner() {
   const [sendDialogQuote, setSendDialogQuote] = useState<Quote | null>(null);
   const [sendDialogOpen, setSendDialogOpen] = useState<boolean>(false);
 
-  const handleQuoteSent = (q: QuoteSendDialogQuote) => {
+  const handleQuoteSent = (primary: QuoteSendDialogQuote, secondary?: QuoteSendDialogQuote) => {
+    const sentNow = new Date().toISOString();
+    const sentIds = new Set([primary.id, secondary?.id].filter(Boolean));
     setQuotes((prev) =>
       prev.map((row) =>
-        row.id === q.id
-          ? ({ ...row, status: "sent", sent_at: new Date().toISOString() } as Quote)
+        sentIds.has(row.id)
+          ? ({ ...row, status: "sent", sent_at: sentNow } as Quote)
           : row,
       ),
     );
@@ -2823,6 +2825,17 @@ function AdminQuotesInner() {
         companyId={(user as any)?.company_id || ""}
         tenantName={(user as any)?.user_metadata?.company_name || null}
         quote={sendDialogQuote as QuoteSendDialogQuote | null}
+        availableQuotes={
+          sendDialogQuote
+            ? (quotes.filter(
+                (q) =>
+                  q.client_email &&
+                  q.client_email === sendDialogQuote.client_email &&
+                  q.id !== sendDialogQuote.id &&
+                  q.status !== "accepted",
+              ) as QuoteSendDialogQuote[])
+            : undefined
+        }
         onSent={handleQuoteSent}
       />
 
