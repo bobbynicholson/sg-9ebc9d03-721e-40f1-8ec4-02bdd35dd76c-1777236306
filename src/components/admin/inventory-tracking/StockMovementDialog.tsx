@@ -59,7 +59,7 @@ export function StockMovementDialog({
               type="number"
               value={stockMovementData.quantity}
               onChange={(e) =>
-                setStockMovementData({ ...stockMovementData, quantity: parseFloat(e.target.value) })
+                setStockMovementData({ ...stockMovementData, quantity: parseFloat(e.target.value) || 0 })
               }
               placeholder="0"
             />

@@ -91,7 +91,7 @@ export function AddInventoryItemDialog({
             <Input
               type="number"
               value={formData.current_stock}
-              onChange={(e) => setFormData({ ...formData, current_stock: parseFloat(e.target.value) })}
+              onChange={(e) => setFormData({ ...formData, current_stock: parseFloat(e.target.value) || 0 })}
             />
           </div>
           <div className="space-y-2">
@@ -119,7 +119,7 @@ export function AddInventoryItemDialog({
             <Input
               type="number"
               value={formData.minimum_stock}
-              onChange={(e) => setFormData({ ...formData, minimum_stock: parseFloat(e.target.value) })}
+              onChange={(e) => setFormData({ ...formData, minimum_stock: parseFloat(e.target.value) || 0 })}
             />
           </div>
           <div className="space-y-2">
@@ -127,7 +127,7 @@ export function AddInventoryItemDialog({
             <Input
               type="number"
               value={formData.maximum_stock}
-              onChange={(e) => setFormData({ ...formData, maximum_stock: parseFloat(e.target.value) })}
+              onChange={(e) => setFormData({ ...formData, maximum_stock: parseFloat(e.target.value) || 0 })}
             />
           </div>
           <div className="space-y-2">
@@ -136,7 +136,7 @@ export function AddInventoryItemDialog({
               type="number"
               step="0.01"
               value={formData.cost_per_unit}
-              onChange={(e) => setFormData({ ...formData, cost_per_unit: parseFloat(e.target.value) })}
+              onChange={(e) => setFormData({ ...formData, cost_per_unit: parseFloat(e.target.value) || 0 })}
             />
           </div>
           <div className="space-y-2">

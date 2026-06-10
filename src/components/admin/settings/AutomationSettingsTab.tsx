@@ -57,7 +57,7 @@ export function AutomationSettingsTab({ settings, onUpdate }: Props) {
             <Input
               type="number"
               value={settings.autoFollowUpDays}
-              onChange={(e) => onUpdate("autoFollowUpDays", parseInt(e.target.value))}
+              onChange={(e) => onUpdate("autoFollowUpDays", parseInt(e.target.value) || 0)}
             />
           </div>
           <div className="space-y-2">
@@ -72,7 +72,7 @@ export function AutomationSettingsTab({ settings, onUpdate }: Props) {
             <Input
               type="number"
               value={settings.secondFollowUpDays}
-              onChange={(e) => onUpdate("secondFollowUpDays", parseInt(e.target.value))}
+              onChange={(e) => onUpdate("secondFollowUpDays", parseInt(e.target.value) || 0)}
             />
           </div>
         </div>
@@ -89,7 +89,7 @@ export function AutomationSettingsTab({ settings, onUpdate }: Props) {
           <Input
             type="number"
             value={settings.autoDiscountPercent}
-            onChange={(e) => onUpdate("autoDiscountPercent", parseInt(e.target.value))}
+            onChange={(e) => onUpdate("autoDiscountPercent", parseInt(e.target.value) || 0)}
           />
           <p className="text-xs md:text-sm text-slate-600">
             Discount offered in second follow-up email.
@@ -110,7 +110,7 @@ export function AutomationSettingsTab({ settings, onUpdate }: Props) {
             onChange={(e) =>
               onUpdate(
                 "reminderDays",
-                e.target.value.split(",").map((d) => parseInt(d.trim())),
+                e.target.value.split(",").map((d) => parseInt(d.trim()) || 0).filter(Boolean),
               )
             }
           />
@@ -131,7 +131,7 @@ export function AutomationSettingsTab({ settings, onUpdate }: Props) {
           <Input
             type="number"
             value={settings.reviewRequestDays}
-            onChange={(e) => onUpdate("reviewRequestDays", parseInt(e.target.value))}
+            onChange={(e) => onUpdate("reviewRequestDays", parseInt(e.target.value) || 0)}
           />
         </div>
 
@@ -147,7 +147,7 @@ export function AutomationSettingsTab({ settings, onUpdate }: Props) {
           <Input
             type="number"
             value={settings.complaintResponseHours}
-            onChange={(e) => onUpdate("complaintResponseHours", parseInt(e.target.value))}
+            onChange={(e) => onUpdate("complaintResponseHours", parseInt(e.target.value) || 0)}
           />
         </div>
       </CardContent>

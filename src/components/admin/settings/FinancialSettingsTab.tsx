@@ -86,7 +86,7 @@ export function FinancialSettingsTab({ settings, onUpdate }: Props) {
             <Input
               type="number"
               value={settings.taxRate}
-              onChange={(e) => onUpdate("taxRate", parseInt(e.target.value))}
+              onChange={(e) => onUpdate("taxRate", parseInt(e.target.value) || 0)}
             />
           </div>
         </div>
@@ -113,7 +113,7 @@ export function FinancialSettingsTab({ settings, onUpdate }: Props) {
               <Input
                 type="number"
                 value={settings.depositPercent}
-                onChange={(e) => onUpdate("depositPercent", parseInt(e.target.value))}
+                onChange={(e) => onUpdate("depositPercent", parseInt(e.target.value) || 0)}
                 min="10"
                 max="100"
               />
@@ -132,7 +132,7 @@ export function FinancialSettingsTab({ settings, onUpdate }: Props) {
               <Input
                 type="number"
                 value={settings.balanceDueDays || 7}
-                onChange={(e) => onUpdate("balanceDueDays", parseInt(e.target.value))}
+                onChange={(e) => onUpdate("balanceDueDays", parseInt(e.target.value) || 0)}
                 min="1"
                 max="30"
               />
@@ -151,7 +151,7 @@ export function FinancialSettingsTab({ settings, onUpdate }: Props) {
               <Input
                 type="number"
                 value={settings.finalOrderChangeDays || 7}
-                onChange={(e) => onUpdate("finalOrderChangeDays", parseInt(e.target.value))}
+                onChange={(e) => onUpdate("finalOrderChangeDays", parseInt(e.target.value) || 0)}
                 min="1"
                 max="30"
               />
@@ -170,7 +170,7 @@ export function FinancialSettingsTab({ settings, onUpdate }: Props) {
               <Input
                 type="number"
                 value={settings.cancellationFeePercent}
-                onChange={(e) => onUpdate("cancellationFeePercent", parseInt(e.target.value))}
+                onChange={(e) => onUpdate("cancellationFeePercent", parseInt(e.target.value) || 0)}
               />
               <p className="text-xs text-slate-600 mt-1">Fee charged for cancellations.</p>
             </div>
@@ -199,7 +199,7 @@ export function FinancialSettingsTab({ settings, onUpdate }: Props) {
           <Input
             type="number"
             value={settings.refundProcessDays}
-            onChange={(e) => onUpdate("refundProcessDays", parseInt(e.target.value))}
+            onChange={(e) => onUpdate("refundProcessDays", parseInt(e.target.value) || 0)}
           />
         </div>
       </CardContent>
