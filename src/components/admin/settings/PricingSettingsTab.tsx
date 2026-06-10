@@ -96,7 +96,7 @@ export function PricingSettingsTab({ settings, onUpdate }: Props) {
                 <Input
                   type="number"
                   value={settings[field.key]}
-                  onChange={(e) => onUpdate(field.key, parseInt(e.target.value))}
+                  onChange={(e) => onUpdate(field.key, parseInt(e.target.value) || 0)}
                 />
               </div>
             ))}
