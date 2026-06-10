@@ -43,7 +43,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       .from("profiles")
       .select("role, active_role, company_id, full_name")
       .eq("id", caller.id)
-      .single();
+      .maybeSingle();
     const callerRole = ((callerProfile as never)?.["active_role"] ||
       (callerProfile as never)?.["role"] ||
       "") as string;

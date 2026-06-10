@@ -58,7 +58,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       .from("profiles")
       .select("role, active_role, company_id, full_name")
       .eq("id", callerAuth.id)
-      .single();
+      .maybeSingle();
     const callerRole = ((callerProfile as any)?.active_role || (callerProfile as any)?.role || "") as string;
     if (!ALLOWED_CALLER_ROLES.has(callerRole)) {
       return res.status(403).json({ error: "Only owners / admins can invite staff to the portal" });

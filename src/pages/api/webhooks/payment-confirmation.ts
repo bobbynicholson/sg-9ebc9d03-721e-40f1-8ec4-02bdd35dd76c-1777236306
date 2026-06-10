@@ -300,7 +300,7 @@ async function handler(
         .from("invoices")
         .select("*, companies(*)")
         .eq("id", invoiceId)
-        .single();
+        .maybeSingle();
 
       if (invoice) {
         const invoiceData = invoice as any;

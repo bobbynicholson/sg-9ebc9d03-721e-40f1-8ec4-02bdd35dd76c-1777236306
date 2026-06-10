@@ -70,7 +70,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       .from("profiles")
       .select("role, active_role")
       .eq("id", user.id)
-      .single();
+      .maybeSingle();
     const role = (profile?.active_role || profile?.role || "") as string;
     if (role !== "super_admin") {
       return res.status(403).json({ error: "Marketing CMS is super-admin only" });
