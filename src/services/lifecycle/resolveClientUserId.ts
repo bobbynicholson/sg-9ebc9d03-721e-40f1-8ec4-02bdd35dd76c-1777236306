@@ -37,7 +37,7 @@ export async function resolveClientUserId(
   const { data: profileMatch, error: profileMatchErr } = await ssr
     .from("profiles")
     .select("id")
-    .ilike("email", email)
+    .eq("email", email)
     .maybeSingle();
   if (profileMatchErr) console.error("[resolveClientUserId] profiles fallback lookup failed:", profileMatchErr);
   return (profileMatch as any)?.id || null;

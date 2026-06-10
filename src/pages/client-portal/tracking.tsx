@@ -137,14 +137,15 @@ export default function ClientTracking() {
         .select(`*, assigned_driver:profiles!orders_assigned_driver_id_fkey(id, full_name, phone)`)
         .eq("company_id", tenantCompanyId)
         .order("event_date", { ascending: false });
-      if (clientIds.length > 0 && user.email) {
+      const normEmail = (user.email || "").toLowerCase();
+      if (clientIds.length > 0 && normEmail) {
         q = q.or(
-          `client_id.in.(${clientIds.join(",")}),client_email.ilike.${user.email}`,
+          `client_id.in.(${clientIds.join(",")}),client_email.eq.${normEmail}`,
         );
       } else if (clientIds.length > 0) {
         q = q.in("client_id", clientIds);
-      } else if (user.email) {
-        q = q.ilike("client_email", user.email);
+      } else if (normEmail) {
+        q = q.eq("client_email", normEmail);
       }
       const { data: fetchedOrders } = await q;
       
