@@ -681,6 +681,7 @@ function NewQuotePage() {
           id: `L_${i}`,
           menu_item_id: m.menu_item_id ?? null,
           name: m.item_name ?? m.name ?? "",
+          description: m.description ?? undefined,
           category: m.category ?? "main",
           dietary_tags: Array.isArray(m.dietary_tags) ? m.dietary_tags : null,
           pricingMode: (m.pricingMode || m.pricing_mode || "per_person") as PricingMode,
@@ -899,6 +900,7 @@ function NewQuotePage() {
     updateLine(lineId, {
       menu_item_id: pick.id,
       name: pick.name,
+      description: pick.description ?? undefined,
       // pick.category is already the lowercase form-enum value.
       // Our form's LINE_CATEGORIES include extra options (starter,
       // salad, other) that the typeahead doesn't emit, but every
@@ -1055,6 +1057,7 @@ function NewQuotePage() {
           menu_item_id: l.menu_item_id,
           item_name: l.name,
           name: l.name,
+          description: l.description ?? null,
           category: l.category,
           dietary_tags: l.dietary_tags,
           pricing_mode: l.pricingMode,
