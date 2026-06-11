@@ -38,7 +38,6 @@ export async function duplicateQuote(
       "id", "quote_number", "created_at", "updated_at", "deleted_at",
       "sent_at", "viewed_at", "accepted_at", "rejected_at",
       "public_token", "converted_to_order_id", "converted_at",
-      "lead_id",
     ]);
     const clone: any = {};
     for (const [k, v] of Object.entries(s)) {
@@ -46,6 +45,12 @@ export async function duplicateQuote(
     }
     clone.event_date = newEventDate;
     clone.status = "draft";
+
+    // DB constraint quote_has_lead_or_client requires at least one of
+    // lead_id / client_id. Carry both forward from the source so the
+    // duplicate is always linkable (same client, same lead pipeline).
+    clone.lead_id   = s.lead_id   || null;
+    clone.client_id = s.client_id || null;
 
     // Use the same sequential numbering RPC as createQuote so the
     // duplicate gets the next real number (e.g. QUO-000022) instead
@@ -71,9 +76,7 @@ export async function duplicateQuote(
       clone.quote_number = `${(s.quote_number || "QUO")}-COPY`;
     }
 
-    // Wave 50 C11 - preserve the rebook chain. lead_id was stripped
-    // (the new quote is for the same client but has no fresh lead);
-    // record the parent so analytics can chase rebook conversion.
+    // Wave 50 C11 - preserve the rebook chain.
     clone.parent_quote_id = sourceQuoteId;
 
     const { data: inserted, error: insertErr } = await supabase
