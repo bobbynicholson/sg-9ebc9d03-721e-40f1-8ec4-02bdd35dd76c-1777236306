@@ -1330,7 +1330,15 @@ function NewQuotePage() {
           payload.accepted_at = null;
           payload.viewed_at = null;
         }
-        const { error } = await supabase.from("quotes").update(payload).eq("id", quoteId);
+        // Never null out lead_id / client_id on UPDATE — these FKs are
+        // set on INSERT and must satisfy quote_has_lead_or_client for the
+        // lifetime of the quote. leadId comes from the URL query param
+        // (only present on create-from-lead), so it's null on every edit.
+        // Stripping null FKs here preserves whatever the DB already has.
+        const updatePayload = { ...payload };
+        if (updatePayload.lead_id == null) delete updatePayload.lead_id;
+        if (updatePayload.client_id == null) delete updatePayload.client_id;
+        const { error } = await supabase.from("quotes").update(updatePayload).eq("id", quoteId);
         if (error) throw error;
         // TIGHTEN I.52 (2026-06-01): explicitly fire the JS-side
         // quote -> order propagation cascade after the quote UPDATE
