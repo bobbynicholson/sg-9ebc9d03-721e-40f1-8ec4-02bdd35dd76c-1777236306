@@ -293,6 +293,7 @@ function CashflowDashboardInner() {
           .from("invoices")
           .select("balance_due, status")
           .eq("company_id", companyId)
+          .is("deleted_at", null)
           .in("status", ["sent", "partially_paid", "overdue"]);
         if (invErr) throw invErr;
         const total = ((invRows as Array<{ balance_due: number | string | null }>) || [])

@@ -199,7 +199,7 @@ export default function CompanyStaffLoginPage({
       .from("profiles")
       .select("active_role, role, company_id, companies:company_id ( slug )")
       .eq("id", authData.user.id)
-      .single();
+      .maybeSingle();
 
     if (profileError || !profile) {
       await supabase.auth.signOut();

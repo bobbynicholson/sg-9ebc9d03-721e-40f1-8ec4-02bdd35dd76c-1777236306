@@ -465,6 +465,7 @@ function FinancialDashboardInner() {
       .from("orders")
       .select("id, total_amount, amount_paid, payment_status, status, order_items(quantity, unit_cost, line_total)")
       .eq("company_id", companyId)
+      .is("deleted_at", null)
       .in("payment_status", ["paid", "partial"])
       .gt("amount_paid", 0)
       .in("status", ["delivered", "completed"])

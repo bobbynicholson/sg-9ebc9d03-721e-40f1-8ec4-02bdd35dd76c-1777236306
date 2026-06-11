@@ -230,6 +230,7 @@ function KitchenScheduleGrid() {
           .from("orders")
           .select("id, order_number, client_name, event_date, guest_count, status")
           .eq("company_id", companyId)
+          .is("deleted_at", null)
           .gte("event_date", fromIso)
           .lte("event_date", toIso)
           .neq("status", "cancelled")

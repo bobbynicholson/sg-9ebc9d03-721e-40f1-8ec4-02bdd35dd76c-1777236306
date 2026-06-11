@@ -744,6 +744,7 @@ function InvoicesPageInner() {
           )
         `)
         .eq("company_id", user.company_id)
+        .is("deleted_at", null)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -785,7 +786,8 @@ function InvoicesPageInner() {
       supabase
         .from("invoices")
         .select("order_id, status")
-        .eq("company_id", user.company_id),
+        .eq("company_id", user.company_id)
+        .is("deleted_at", null),
     ]);
 
     if (!ordersRes.error) {
