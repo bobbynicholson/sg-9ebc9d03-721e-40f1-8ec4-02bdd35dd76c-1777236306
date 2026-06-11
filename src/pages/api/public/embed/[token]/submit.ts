@@ -335,31 +335,54 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     void (async () => {
       try {
         const { emailService } = await import("@/services/emailService");
-        // Wave 18 audit: contactName came from the public embed
-        // submission unsanitised. Putting it directly into the
-        // Subject header was a header-injection foothold - a
-        // malicious submitter could send a name like "Jane\r\nBcc:
-        // attacker@example.com" and the SMTP transport would
-        // happily inject the BCC header. Strip CR / LF / TAB from
-        // any value we splice into a header, and cap the length so
-        // a spammer can't blow the subject out to 4kB.
+        const { resolveEmailTemplate } = await import("@/services/email/templateResolver");
         const sanitiseHeader = (v: string) =>
           String(v || "").replace(/[\r\n\t]+/g, " ").slice(0, 200).trim();
         const safeName = escapeHtml(contactName);
         const safeCompany = escapeHtml(company.company_name);
-        const subjectName = sanitiseHeader(contactName) || "there";
+        const firstName = safeName.split(" ")[0] || safeName;
+        const eventDate = leadInsert.event_date
+          ? new Date(leadInsert.event_date).toLocaleDateString("en-ZA", {
+              day: "numeric", month: "long", year: "numeric",
+            })
+          : "";
+        // Variable bag covers both the canonical EMBED_LEAD_VARS names
+        // (client_name, event_type, company_name) AND the common
+        // aliases operators use when writing templates (first_name,
+        // event_name, tenant_name) so a customised template works
+        // regardless of which name the operator typed.
+        const vars: Record<string, string> = {
+          client_name:  safeName,
+          first_name:   firstName,
+          company_name: safeCompany,
+          tenant_name:  safeCompany,
+          event_type:   String(leadInsert.event_type || ""),
+          event_name:   String(leadInsert.event_type || leadInsert.event_name || ""),
+          event_date:   eventDate,
+          guest_count:  leadInsert.guest_count ? String(leadInsert.guest_count) : "",
+          venue:        String(leadInsert.venue_address || ""),
+          notes:        String(leadInsert.notes || ""),
+          form_name:    String(form.name || "embed form"),
+        };
+        const resolved = await resolveEmailTemplate({
+          companyId: company.id,
+          templateType: "embed_lead_thank_you_client",
+          variables: vars,
+          fallback: {
+            subject: `Thank you for your enquiry, ${sanitiseHeader(contactName) || "there"}`,
+            bodyHtml:
+              `Hi ${safeName},\n\n` +
+              `Thanks for your enquiry with ${safeCompany}. We've received your details and will be in touch shortly.\n\n` +
+              `Thanks,\n${safeCompany}`,
+          },
+          client: supabase,
+        });
         await (emailService as any).sendEmail({
           companyId: company.id,
           to: mapped.client_email || mapped.email,
-          subject: `Thank you for your enquiry, ${subjectName}`,
-          body:
-            `Hi ${safeName},\n\n` +
-            `Thanks for your enquiry with ${safeCompany}. We've received your details and will be in touch shortly.\n\n` +
-            `-- ${safeCompany}`,
-          variables: {
-            clientName: safeName,
-            companyName: safeCompany,
-          },
+          subject: resolved.subject,
+          body: resolved.bodyHtml,
+          variables: vars,
           _client: supabase,
         });
       } catch (err) {
