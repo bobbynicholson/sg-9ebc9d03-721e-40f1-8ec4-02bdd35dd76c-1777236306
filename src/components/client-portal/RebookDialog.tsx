@@ -330,57 +330,11 @@ export function RebookDialog({
         // non-fatal - proceed without a client_id link
       }
 
-      // Direct insert into quotes. RLS allows it because the client's
-      // profile.company_id matches NEW.company_id (policy: "Users can
-      // insert quotes for their company"). Status stays 'draft', so
-      // none of the dispatch/email triggers fire - the catering team
-      // reviews, prices, then changes status to 'sent'.
-      const insertPayload: any = {
-        company_id: companyId,
-        quote_number: quoteNumber,
-        quote_name: eventName.trim() || "Quote request",
-        status: "draft",
-        external_source: "client_portal_rebook",
-        client_id: clientId,
-        client_name: profileFullName || user.email || "Client portal",
-        client_email: user.email,
-        event_date: eventDate,
-        guest_count: guestCount ? parseInt(guestCount, 10) || null : null,
-        venue_address: venueAddress.trim() || null,
-        venue_lat: venueLat,
-        venue_lng: venueLng,
-        // Pricing intentionally zero - catering team prices each
-        // line before sending. Marked NOT NULL on the table so we
-        // can't omit them.
-        subtotal: 0,
-        total_amount: 0,
-        tax_amount: 0,
-        total: 0,
-        menu_items: menuItemsJson.length > 0 ? menuItemsJson : null,
-        notes: noteParts.join(" "),
-      };
-
-      const { data: insertedQuote, error } = await supabase
-        .from("quotes")
-        .insert(insertPayload)
-        .select("id")
-        .single();
-      if (error) throw error;
-
-      // Flow audit Leg B P0-8: rebook + portal-quote requests landed
-      // straight into `quotes` but never inserted a `leads` row, so the
-      // lead-source funnel + lead-source-conversion analytics had a
-      // permanent blind spot for inbound client-portal demand. Repeat
-      // customers showed up only as draft quotes with no rebook
-      // attribution. Insert a matching lead now, marked already-quoted
-      // so the funnel counts it as a closed-loop conversion and not as
-      // an unanswered enquiry.
+      // quote_has_lead_or_client requires lead_id OR client_id. Create
+      // the lead first so we always have a lead_id to satisfy the
+      // constraint even when clientId is null (new / unlinked client).
+      let leadId: string | null = null;
       try {
-        // leads.region_id is NOT NULL since migration 20260521110000.
-        // Use the source order's region when rebooking (preserves the
-        // branch association) or fall back to the tenant's default
-        // region. Skipping the lead insert entirely is preferable to
-        // throwing - this is a non-blocking analytics row.
         const regionId = (sourceOrder as any)?.region_id
           ?? await resolveDefaultRegionId(companyId);
         if (!regionId) {
@@ -410,13 +364,58 @@ export function RebookDialog({
           special_requests: dietary.trim() || null,
           user_id: user.id,
         };
-        await supabase.from("leads").insert(leadPayload);
+        const { data: leadRow } = await supabase
+          .from("leads")
+          .insert(leadPayload)
+          .select("id")
+          .single();
+        leadId = (leadRow as any)?.id ?? null;
       } catch (leadErr) {
-        // Lead insert is for analytics only - the operator already has
-        // the draft quote, so don't fail the dialog if RLS or a missing
-        // field rejects the lead row.
         console.warn("[RebookDialog] lead capture failed (non-blocking):", leadErr);
       }
+
+      // Constraint guard: refuse to insert if we have neither FK.
+      if (!clientId && !leadId) {
+        throw new Error("Could not link the request to a lead or client. Please try again.");
+      }
+
+      // Direct insert into quotes. RLS allows it because the client's
+      // profile.company_id matches NEW.company_id (policy: "Users can
+      // insert quotes for their company"). Status stays 'draft', so
+      // none of the dispatch/email triggers fire - the catering team
+      // reviews, prices, then changes status to 'sent'.
+      const insertPayload: any = {
+        company_id: companyId,
+        quote_number: quoteNumber,
+        quote_name: eventName.trim() || "Quote request",
+        status: "draft",
+        external_source: "client_portal_rebook",
+        client_id: clientId,
+        lead_id: leadId,
+        client_name: profileFullName || user.email || "Client portal",
+        client_email: user.email,
+        event_date: eventDate,
+        guest_count: guestCount ? parseInt(guestCount, 10) || null : null,
+        venue_address: venueAddress.trim() || null,
+        venue_lat: venueLat,
+        venue_lng: venueLng,
+        // Pricing intentionally zero - catering team prices each
+        // line before sending. Marked NOT NULL on the table so we
+        // can't omit them.
+        subtotal: 0,
+        total_amount: 0,
+        tax_amount: 0,
+        total: 0,
+        menu_items: menuItemsJson.length > 0 ? menuItemsJson : null,
+        notes: noteParts.join(" "),
+      };
+
+      const { data: insertedQuote, error } = await supabase
+        .from("quotes")
+        .insert(insertPayload)
+        .select("id")
+        .single();
+      if (error) throw error;
 
       toast({
         title: "Request sent",
