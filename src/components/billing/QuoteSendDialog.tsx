@@ -227,7 +227,7 @@ export function QuoteSendDialog({
       try {
         const result = await resolveEmailTemplate({
           companyId,
-          templateType: isConverted ? "custom-booking-updated" : "custom-quote-ready",
+          templateType: isConverted ? "email_quote_revised" : "email_quote_sent",
           variables: {
             first_name: firstName,
             client_name: quote.client_name || "there",
@@ -461,7 +461,6 @@ function buildOptionBlock(opt: {
   if (opt.guestCount && opt.guestCount > 0)
     details.push(`${opt.guestCount} guest${opt.guestCount === 1 ? "" : "s"}`);
   if (opt.eventDateLabel) details.push(opt.eventDateLabel);
-  details.push(`total ${opt.amount}`);
 
   const heading = opt.eventName
     ? `${opt.label} — ${opt.quoteNumber} (${opt.eventName})`
@@ -533,7 +532,6 @@ function buildFallbackBody(input: {
     const details: string[] = [];
     if (guestCount && guestCount > 0) details.push(`${guestCount} guest${guestCount === 1 ? "" : "s"}`);
     if (eventDateLabel) details.push(eventDateLabel);
-    details.push(`total ${amount}`);
     const detailsLine = details.join(" - ");
 
     const eventPhrase = eventName ? ` for your ${eventName}` : "";
@@ -554,7 +552,6 @@ function buildFallbackBody(input: {
     const details: string[] = [];
     if (guestCount && guestCount > 0) details.push(`${guestCount} guest${guestCount === 1 ? "" : "s"}`);
     if (eventDateLabel) details.push(eventDateLabel);
-    details.push(`total ${amount}`);
     const detailsLine = details.join(" - ");
 
     lines.push(`Thanks for the opportunity to quote you. Your quote ${quoteNumber} is ready:`);

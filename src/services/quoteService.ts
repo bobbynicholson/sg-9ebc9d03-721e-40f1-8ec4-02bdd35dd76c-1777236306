@@ -527,7 +527,7 @@ export const quoteService = {
         companyId: quote.user_id,
         to: quote.client_email,
         subject,
-        template: "custom-quote-ready",
+        template: "email_quote_sent",
         quoteId,
         // Server-render + attach Quote-{quote_number}.pdf. Older
         // recipients want a saveable document, not just a link to

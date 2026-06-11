@@ -100,17 +100,14 @@ export function formatQuoteSubject(input: QuoteSubjectInput): string {
   const quoteNumber = clean(input.quoteNumber);
 
   if (eventName) {
-    const base = `${eventName} quote from ${tenantName}`;
-    return totalLabel ? `${base} - ${totalLabel}` : base;
+    return `${eventName} quote from ${tenantName}`;
   }
 
   if (quoteNumber) {
-    const base = `Quote ${quoteNumber} from ${tenantName}`;
-    return totalLabel ? `${base} - ${totalLabel}` : base;
+    return `Quote ${quoteNumber} from ${tenantName}`;
   }
 
-  const base = `Your quote from ${tenantName}`;
-  return totalLabel ? `${base} - ${totalLabel}` : base;
+  return `Your quote from ${tenantName}`;
 }
 
 // ── Quote accepted ──────────────────────────────────────────────────
