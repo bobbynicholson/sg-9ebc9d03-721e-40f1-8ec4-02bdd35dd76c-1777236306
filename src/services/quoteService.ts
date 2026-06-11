@@ -498,28 +498,55 @@ export const quoteService = {
     }
     const companyName =
       profile?.company_name || profile?.full_name || "Your Catering Company";
-    // Currency lives on companies, not quotes. Resolve via the
-    // tenant's company row with a ZAR fallback.
+    // Currency + slug live on companies. Fetch both in one query.
     let currencyCode = "ZAR";
+    let companySlug: string | null = null;
     if ((quote as any).company_id) {
       try {
         const { data: companyRow, error: companyRowErr } = await supabase
           .from("companies")
-          .select("currency")
+          .select("currency, slug")
           .eq("id", (quote as any).company_id)
           .maybeSingle();
         if (companyRowErr) {
           console.error("[quoteService] companies fetch failed:", companyRowErr);
         }
         if ((companyRow as any)?.currency) currencyCode = (companyRow as any).currency;
-      } catch { /* fall back to ZAR */ }
+        companySlug = (companyRow as any)?.slug ?? null;
+      } catch { /* fall back to defaults */ }
     }
 
+    const q = quote as any;
+    const eventName: string = q.event_name ?? q.quote_name ?? "";
+    const quoteNumber: string = q.quote_number ?? quoteId;
+    const clientFullName: string = q.client_name ?? "";
+    const firstName: string = clientFullName.split(" ")[0] || clientFullName;
+    const { fmtMoney } = await import("@/lib/email/subjectFormatters");
+    const totalFormatted = fmtMoney(q.total ?? q.total_amount ?? 0, currencyCode);
+    const eventDateFormatted = q.event_date
+      ? new Date(q.event_date).toLocaleDateString("en-ZA", {
+          day: "numeric", month: "long", year: "numeric",
+        })
+      : "";
+
+    // Build the public quote link so templates can include {{quote_url}}.
+    const appOrigin =
+      process.env.NEXT_PUBLIC_APP_URL ||
+      (process.env.NEXT_PUBLIC_VERCEL_URL
+        ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}`
+        : "");
+    const publicToken: string = q.public_token ?? "";
+    const quoteUrl = appOrigin && publicToken
+      ? companySlug
+        ? `${appOrigin}/${companySlug}/q/${publicToken}`
+        : `${appOrigin}/q/${publicToken}`
+      : "";
+
     const subject = formatQuoteSubject({
-      eventName: (quote as any).event_name ?? (quote as any).quote_name ?? null,
+      eventName: eventName || null,
       tenantName: companyName,
       total: typeof quote.total === "number" ? quote.total : null,
-      quoteNumber: (quote as any).quote_number ?? quoteId,
+      quoteNumber,
       currencyCode,
     });
 
@@ -539,10 +566,26 @@ export const quoteService = {
         // non-blocking on the API side - the email still goes out.
         attachQuotePdf: true,
         variables: {
-          clientName: quote.client_name,
-          companyName: companyName,
-          quoteNumber: quoteId,
-          totalAmount: `${currencyCode} ${(quote.total || 0).toFixed(2)}`,
+          // camelCase aliases (legacy callers + some templates)
+          clientName:   clientFullName,
+          companyName:  companyName,
+          quoteNumber:  quoteNumber,
+          totalAmount:  totalFormatted,
+          quoteUrl:     quoteUrl,
+          // snake_case — matches the registry template vars and the
+          // email_templates editor placeholder list
+          first_name:   firstName,
+          client_name:  clientFullName,
+          tenant_name:  companyName,
+          company_name: companyName,
+          from_name:    companyName,
+          event_name:   eventName,
+          event_date:   eventDateFormatted,
+          guest_count:  q.guest_count != null ? String(q.guest_count) : "",
+          quote_number: quoteNumber,
+          quote_url:    quoteUrl,
+          total:        totalFormatted,
+          total_zar:    totalFormatted,
         },
       }),
     });
