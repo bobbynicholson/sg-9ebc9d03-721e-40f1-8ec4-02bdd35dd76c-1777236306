@@ -494,7 +494,7 @@ function KitchenTeamPage() {
             </div>
           </div>
 
-          <div className="relative h-[200px] rounded-xl overflow-hidden mb-6 bg-gradient-to-br from-amber-500 via-orange-500 to-rose-500">
+          <div className="relative h-[200px] rounded-xl overflow-hidden mb-6 bg-gradient-to-br from-brand-primary to-brand-secondary">
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/30 to-transparent" />
             <div className="relative h-full flex items-end p-5 sm:p-6">
               <div className="flex items-center gap-3">

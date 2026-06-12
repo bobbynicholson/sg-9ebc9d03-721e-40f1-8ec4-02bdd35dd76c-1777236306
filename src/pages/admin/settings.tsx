@@ -414,7 +414,7 @@ function SettingsPage() {
 
           {/* Call-to-Action Cards - Mobile Optimized Stack */}
           <div className="space-y-4">
-            <Card className="border-0 shadow-xl bg-gradient-to-br from-pink-500 via-purple-500 to-indigo-500 text-white">
+            <Card className="border-0 shadow-xl bg-gradient-to-br from-brand-primary to-brand-secondary text-white">
               <CardContent className="pt-4 md:pt-6 pb-4 md:pb-6 px-4 md:px-6">
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                   <div className="flex items-start gap-3 md:gap-4">
@@ -423,7 +423,7 @@ function SettingsPage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <h3 className="text-lg md:text-2xl font-bold mb-1">White Label Branding</h3>
-                      <p className="text-sm md:text-base text-pink-100 mb-2 md:mb-0">
+                      <p className="text-sm md:text-base text-white/80 mb-2 md:mb-0">
                         Customize your platform with your own logo and color palette. Create a seamless branded experience for your clients.
                       </p>
                       <div className="flex flex-wrap items-center gap-2 md:gap-4 mt-2 md:mt-3">
@@ -449,7 +449,7 @@ function SettingsPage() {
                       className="text-white hover:text-white/80"
                     />
                     <Link href={withSlug("/admin/white-label")} className="w-full md:w-auto">
-                      <Button size="sm" className="bg-white text-purple-600 hover:bg-purple-50 w-full">
+                      <Button size="sm" className="bg-white text-brand-primary hover:bg-slate-100 w-full">
                         Customize Branding
                         <ArrowRight className="w-4 h-4 ml-2" />
                       </Button>
@@ -459,7 +459,7 @@ function SettingsPage() {
               </CardContent>
             </Card>
 
-            <Card className="border-0 shadow-xl bg-gradient-to-br from-purple-500 via-pink-500 to-orange-500 text-white">
+            <Card className="border-0 shadow-xl bg-gradient-to-br from-brand-primary to-brand-secondary text-white">
               <CardContent className="pt-4 md:pt-6 pb-4 md:pb-6 px-4 md:px-6">
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                   <div className="flex items-start gap-3 md:gap-4">
@@ -468,7 +468,7 @@ function SettingsPage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <h3 className="text-lg md:text-2xl font-bold mb-1">Scale Across Regions</h3>
-                      <p className="text-sm md:text-base text-purple-100 mb-2 md:mb-0">
+                      <p className="text-sm md:text-base text-white/80 mb-2 md:mb-0">
                         Launch franchises and regional operations in new provinces. Head office manages sales while regions handle fulfillment.
                       </p>
                       <div className="flex flex-wrap items-center gap-2 md:gap-4 mt-2 md:mt-3">
@@ -495,7 +495,7 @@ function SettingsPage() {
                         className="text-white hover:text-white/80"
                       />
                       <Link href={withSlug("/admin/regions")} className="w-full">
-                        <Button size="sm" className="bg-white text-purple-600 hover:bg-purple-50 w-full">
+                        <Button size="sm" className="bg-white text-brand-primary hover:bg-slate-100 w-full">
                           Manage Regions
                           <ArrowRight className="w-4 h-4 ml-2" />
                         </Button>
@@ -512,7 +512,7 @@ function SettingsPage() {
               </CardContent>
             </Card>
 
-            <Card className="border-0 shadow-xl bg-gradient-to-br from-green-500 via-emerald-500 to-teal-500 text-white">
+            <Card className="border-0 shadow-xl bg-gradient-to-br from-brand-primary to-brand-secondary text-white">
               <CardContent className="pt-4 md:pt-6 pb-4 md:pb-6 px-4 md:px-6">
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                   <div className="flex items-start gap-3 md:gap-4">
