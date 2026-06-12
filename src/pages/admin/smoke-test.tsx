@@ -89,7 +89,7 @@ function SmokeTestPage() {
       <NoIndexMeta />
       <AdminNav />
       <div className="min-h-screen bg-slate-50 lg:pl-72 xl:pl-80">
-        <div className="space-y-4 max-w-5xl mx-auto px-4 sm:px-6 pt-20 lg:pt-6 pb-6">
+        <div className="space-y-4 max-w-6xl mx-auto px-4 sm:px-6 pt-20 lg:pt-6 pb-6">
           <div>
             <h1 className="text-xl sm:text-2xl font-bold text-slate-900 flex items-center gap-2">
               <FlaskConical className="w-5 h-5 text-slate-500" />
