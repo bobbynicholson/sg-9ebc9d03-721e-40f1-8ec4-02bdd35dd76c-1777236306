@@ -344,12 +344,12 @@ export default function LoginPage() {
             </Button>
           </div>
         )}
-        <Card className="w-full border border-slate-200/80 shadow-xl rounded-2xl">
+        <Card className="w-full border border-slate-200/70 shadow-2xl shadow-slate-200/60 rounded-2xl">
           <CardContent className="p-6 sm:p-8">
-            <div className="mb-6">
-              <h1 className="text-2xl font-bold text-slate-900">Welcome back</h1>
-              <p className="text-sm text-slate-500 mt-1">
-                Sign in and we'll route you to your portal.
+            <div className="mb-7">
+              <h1 className="text-3xl font-bold tracking-tight text-slate-900">Welcome back</h1>
+              <p className="text-sm text-slate-500 mt-1.5">
+                Sign in and we'll route you straight to your portal.
               </p>
             </div>
               <form onSubmit={handleNormalLogin} className="space-y-5">
@@ -413,7 +413,7 @@ export default function LoginPage() {
 
                 <Button
                   type="submit"
-                  className="w-full h-12 bg-gradient-to-r from-purple-500 to-pink-500 hover:opacity-90 transition-opacity text-white font-semibold text-base"
+                  className="w-full h-12 bg-gradient-to-r from-purple-600 to-pink-500 hover:opacity-95 hover:shadow-lg hover:shadow-purple-500/25 active:scale-[0.99] transition-all text-white font-semibold text-base rounded-xl"
                   disabled={loading}
                 >
                   {loading ? (

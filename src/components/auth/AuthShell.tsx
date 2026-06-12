@@ -51,8 +51,17 @@ export function AuthShell({
           the company-signup page) doesn't stretch the panel tall and
           spread its content into awkward gaps. */}
       <div className="relative hidden lg:flex lg:sticky lg:top-0 lg:h-screen lg:self-start flex-col justify-between overflow-hidden bg-gradient-to-br from-purple-600 via-purple-500 to-pink-500 p-12 text-white">
-        <div className="pointer-events-none absolute -top-24 -left-24 h-96 w-96 rounded-full bg-white/10 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-32 -right-16 h-[28rem] w-[28rem] rounded-full bg-pink-300/20 blur-3xl" />
+        {/* Soft dot-grid texture for depth */}
+        <div
+          className="pointer-events-none absolute inset-0 opacity-[0.12]"
+          style={{
+            backgroundImage: "radial-gradient(circle, #ffffff 1px, transparent 1px)",
+            backgroundSize: "22px 22px",
+          }}
+        />
+        <div className="pointer-events-none absolute -top-24 -left-24 h-96 w-96 rounded-full bg-white/15 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-32 -right-16 h-[28rem] w-[28rem] rounded-full bg-pink-300/25 blur-3xl" />
+        <div className="pointer-events-none absolute top-1/3 right-10 h-40 w-40 rounded-full bg-fuchsia-300/20 blur-3xl" />
 
         <div className="relative flex items-center gap-3">
           <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/15 shadow-lg backdrop-blur">
@@ -62,13 +71,15 @@ export function AuthShell({
         </div>
 
         <div className="relative max-w-md">
-          <h2 className="text-4xl font-bold leading-tight">{headline}</h2>
-          <p className="mt-4 text-lg text-white/80">{subcopy}</p>
-          <ul className="mt-7 space-y-3">
+          <h2 className="text-[2.75rem] font-bold leading-[1.1] tracking-tight">{headline}</h2>
+          <p className="mt-4 text-lg text-white/85">{subcopy}</p>
+          <ul className="mt-8 space-y-3.5">
             {FEATURES.map((f) => (
               <li key={f} className="flex items-center gap-3 text-white/90">
-                <CheckCircle2 className="h-5 w-5 flex-shrink-0 text-white" />
-                <span>{f}</span>
+                <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-white/20">
+                  <CheckCircle2 className="h-4 w-4 text-white" />
+                </span>
+                <span className="text-[15px]">{f}</span>
               </li>
             ))}
           </ul>
