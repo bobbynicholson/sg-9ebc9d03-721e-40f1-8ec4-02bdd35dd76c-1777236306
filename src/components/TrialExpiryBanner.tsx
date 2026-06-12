@@ -134,24 +134,27 @@ export function TrialExpiryBanner() {
   };
 
   return (
-    <div className="relative">
+    // Horizontal padding so the banner lines up with page content
+    // instead of touching the screen edges; overflow-hidden + wrapping
+    // buttons so it never forces a horizontal scrollbar on mobile.
+    <div className="relative px-4 sm:px-6 lg:px-8 pt-4 overflow-x-hidden">
       <Alert className={`${bgColor} border-2 ${textColor} mb-6`}>
-        <AlertCircle className="h-5 w-5" />
-        <AlertTitle className="text-lg font-semibold mb-2">
+        <AlertCircle className="h-5 w-5 flex-shrink-0" />
+        <AlertTitle className="text-base sm:text-lg font-semibold mb-2 break-words">
           {emoji} {getMessage()}
         </AlertTitle>
-        <AlertDescription className="text-sm mb-4">
+        <AlertDescription className="text-sm mb-4 break-words">
           {getDescription()}
         </AlertDescription>
-        <div className="flex gap-3 mt-2">
+        <div className="flex flex-wrap gap-2 sm:gap-3 mt-2">
           <Link href={`/${profile?.company_slug || "admin"}/admin/subscription`}>
             <Button size="sm" variant={daysRemaining <= 1 ? "destructive" : "default"}>
               View Subscription Plans
             </Button>
           </Link>
-          <Button 
-            size="sm" 
-            variant="ghost" 
+          <Button
+            size="sm"
+            variant="ghost"
             onClick={handleDismiss}
             className="gap-1"
           >
