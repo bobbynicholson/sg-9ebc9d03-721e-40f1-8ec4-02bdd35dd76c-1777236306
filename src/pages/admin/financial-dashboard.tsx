@@ -632,7 +632,7 @@ function FinancialDashboardInner() {
 
       <AdminNav />
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-4 md:p-8 lg:pl-72 xl:pl-80 pt-20 lg:pt-8">
-        <div className="max-w-full">
+        <div className="max-w-6xl mx-auto">
           <CashflowContextBanner message="Margin, health score and per-order analysis. Use the cashflow forecast for the forward 30-day view." />
           {/* Header with Health Score */}
           <div className="mb-8">
