@@ -26,7 +26,7 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Plus, CheckCircle2, AlertTriangle, Trash2, Upload } from "lucide-react";
+import { Plus, CheckCircle2, AlertTriangle, Trash2, Upload, Wallet } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AdminNav } from "@/components/admin/AdminNav";
@@ -353,7 +353,11 @@ function PayablesPage() {
         <div className="max-w-full px-4 md:px-6 py-8">
           <CashflowContextBanner message="Payables here feed the 30-day forecast outflow. Add a missing one to sharpen the projection." />
           <div className="flex items-start justify-between mb-6 gap-3">
-            <div>
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 rounded-xl bg-brand-primary/10 flex items-center justify-center flex-shrink-0">
+                <Wallet className="w-5 h-5 text-brand-primary" />
+              </div>
+              <div>
               <h1 className="text-2xl md:text-3xl font-bold text-slate-900">Payables</h1>
               <p className="text-sm text-slate-600 mt-1">
                 Outstanding supplier invoices. Drives the cashflow forecast on{" "}
@@ -362,6 +366,7 @@ function PayablesPage() {
                 </Link>
                 .
               </p>
+              </div>
             </div>
             <div className="flex gap-2 flex-shrink-0">
               <Button onClick={openBulk} variant="outline">

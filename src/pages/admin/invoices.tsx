@@ -1309,8 +1309,12 @@ function InvoicesPageInner() {
 
         {/* Header */}
         <div className="mb-8 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
-          <div>
-            <h1 className="text-3xl font-bold mb-2">Invoices</h1>
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-xl bg-brand-primary/10 flex items-center justify-center flex-shrink-0">
+              <FileText className="w-5 h-5 text-brand-primary" />
+            </div>
+            <div>
+            <h1 className="text-2xl md:text-3xl font-bold text-slate-900 mb-1">Invoices</h1>
             <p className="text-slate-600">
               Bills issued for orders. Generate, send, and track payments. EFT claims show at the top so you can confirm against your bank statement before marking them paid.
               {tenantTimezone && (
@@ -1320,6 +1324,7 @@ function InvoicesPageInner() {
                 </span>
               )}
             </p>
+            </div>
           </div>
           <div className="flex flex-wrap gap-2 self-start sm:self-auto">
           {/* Phase 27 #5: manual refresh. Bookkeeping running
