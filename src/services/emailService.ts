@@ -411,6 +411,60 @@ export const emailService = {
    * boolean) so this is purely additive.
    */
   async sendEmailDetailed(payload: SendEmailPayload & { _client?: any }): Promise<EmailSendDetailed> {
+    // Browser callers can't send directly: RESEND_API_KEY only exists
+    // server-side and nodemailer can't run in a browser, so every
+    // client-side send (e.g. the quotes-list convert cascade's
+    // confirmation email) silently failed with no_provider. Delegate
+    // to /api/send-email, which re-enters this function server-side
+    // under the service-role client after an auth + same-company
+    // check (the session cookie rides along automatically).
+    if (typeof window !== "undefined") {
+      try {
+        const rawAttachments = (payload as any).attachments;
+        const wireAttachments = Array.isArray(rawAttachments)
+          ? rawAttachments
+              .map((a: any) => ({
+                filename: a?.filename,
+                content:
+                  typeof a?.content === "string"
+                    ? a.content
+                    : a?.content
+                      ? Buffer.from(a.content).toString("base64")
+                      : null,
+                ...(a?.contentType ? { contentType: a.contentType } : {}),
+              }))
+              .filter((a: any) => a.filename && a.content)
+          : undefined;
+        const res = await fetch("/api/send-email", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            companyId: payload.companyId,
+            to: payload.to,
+            subject: payload.subject,
+            template: payload.template,
+            body: payload.body,
+            variables: payload.variables,
+            orderId: payload.orderId,
+            quoteId: payload.quoteId,
+            bypassQuarantine: (payload as any).bypassQuarantine,
+            ...(wireAttachments && wireAttachments.length > 0 ? { attachments: wireAttachments } : {}),
+          }),
+        });
+        const json: any = await res.json().catch(() => ({}));
+        if (res.ok && json?.success) return { success: true };
+        return {
+          success: false,
+          error: json?.error || `Email API responded ${res.status}`,
+          error_code: (json?.error_code as EmailErrorCode) || "unknown",
+          ...(json?.fix_link ? { fix_link: json.fix_link } : {}),
+          ...(json?.context ? { context: json.context } : {}),
+        };
+      } catch (e: any) {
+        return { success: false, error: e?.message || "Email API unreachable", error_code: "unknown" };
+      }
+    }
+
     // Server-side callers (e.g. unauthenticated magic-link sign-in)
     // pass a service-role client via _client so the email_settings
     // lookup isn't blocked by RLS.

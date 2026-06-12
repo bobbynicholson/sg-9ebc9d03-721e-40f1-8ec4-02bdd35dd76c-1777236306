@@ -771,7 +771,10 @@ export async function postOrderCreationCascade(
     try {
       const { data: order, error: orderErr4 } = await (client as any)
         .from("orders")
-        .select("id, guest_count, final_guest_count, number_of_guests, event_date, region_id, order_number")
+        // Wave 66.9 trap: final_guest_count / number_of_guests don't
+        // exist on orders - selecting them 400s the whole fetch and
+        // the shopping suggestion never fires. guest_count alone.
+        .select("id, guest_count, event_date, region_id, order_number")
         .eq("id", orderId)
         .maybeSingle();
       if (orderErr4) {

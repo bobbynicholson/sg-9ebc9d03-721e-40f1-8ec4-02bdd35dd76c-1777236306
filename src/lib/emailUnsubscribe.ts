@@ -45,11 +45,27 @@ function sign(email: string, companyId: string): string {
     .digest("hex");
 }
 
+// Buffer's "base64url" encoding only exists in Node. The browser
+// Buffer polyfill (pulled in when emailService runs client-side, e.g.
+// the quotes-list convert flow) throws `Unknown encoding: base64url`,
+// which knocked the unsubscribe footer off every client-side send.
+// Encode via plain base64 + RFC 4648 character swaps instead - works
+// identically in both runtimes.
+function toBase64Url(buf: Buffer): string {
+  return buf.toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+
+function fromBase64Url(token: string): Buffer {
+  const b64 = token.replace(/-/g, "+").replace(/_/g, "/");
+  const padded = b64 + "=".repeat((4 - (b64.length % 4)) % 4);
+  return Buffer.from(padded, "base64");
+}
+
 export function mintUnsubscribeToken(email: string, companyId: string): string {
   const cleanEmail = email.toLowerCase().trim();
   const hmac = sign(cleanEmail, companyId);
   const raw = `${cleanEmail}|${companyId}|${hmac}`;
-  return Buffer.from(raw, "utf8").toString("base64url");
+  return toBase64Url(Buffer.from(raw, "utf8"));
 }
 
 export interface DecodedUnsubscribeToken {
@@ -60,7 +76,7 @@ export interface DecodedUnsubscribeToken {
 
 export function verifyUnsubscribeToken(token: string): DecodedUnsubscribeToken {
   try {
-    const raw = Buffer.from(token, "base64url").toString("utf8");
+    const raw = fromBase64Url(token).toString("utf8");
     const parts = raw.split("|");
     if (parts.length !== 3) return { email: "", companyId: "", valid: false };
     const [email, companyId, hmac] = parts;

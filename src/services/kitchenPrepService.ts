@@ -295,7 +295,9 @@ export const kitchenPrepService = {
 
     const { data: order, error: orderErr } = await sb
       .from("orders")
-      .select("id, company_id, region_id, menu_items, guest_count, final_guest_count, event_date, event_time, pickup_time")
+      // Wave 66.9 trap: final_guest_count doesn't exist on orders -
+      // selecting it 400s the whole query. guest_count alone.
+      .select("id, company_id, region_id, menu_items, guest_count, event_date, event_time, pickup_time")
       .eq("id", orderId)
       .maybeSingle();
     if (orderErr) {
@@ -761,7 +763,8 @@ export const kitchenPrepService = {
     // Pull confirmed / preparing / ready orders in the date window
     let ordersQuery = supabase
       .from("orders")
-      .select("id, client_name, event_date, menu_items, guest_count, final_guest_count, status, region_id")
+      // Wave 66.9 trap: final_guest_count doesn't exist on orders.
+      .select("id, client_name, event_date, menu_items, guest_count, status, region_id")
       .eq("company_id", companyId)
       .gte("event_date", fromDate)
       .lte("event_date", toDate)
