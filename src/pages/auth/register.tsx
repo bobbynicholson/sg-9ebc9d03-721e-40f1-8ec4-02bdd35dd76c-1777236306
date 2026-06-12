@@ -10,6 +10,7 @@ import Link from "next/link";
 import { authService } from "@/services/authService";
 import { Separator } from "@/components/ui/separator";
 import { AuthShell } from "@/components/auth/AuthShell";
+import { isValidEmail, validateNewPassword } from "@/lib/validation/authValidation";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -36,14 +37,15 @@ export default function RegisterPage() {
     if (!formData.name) problems.push("Enter your full name.");
     if (!formData.email) {
       problems.push("Enter an email address.");
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) {
+    } else if (!isValidEmail(formData.email)) {
       problems.push("Enter a valid email address (e.g. name@company.co.za).");
     }
     if (!formData.phone) problems.push("Enter a phone number.");
     if (!formData.password) {
       problems.push("Enter a password.");
-    } else if (formData.password.length < 6) {
-      problems.push("Password must be at least 6 characters long.");
+    } else {
+      const pwIssue = validateNewPassword(formData.password);
+      if (pwIssue) problems.push(pwIssue);
     }
     if (formData.password && formData.password !== formData.confirmPassword) {
       problems.push("The two passwords don't match.");
@@ -266,7 +268,7 @@ export default function RegisterPage() {
               <Input
                 id="password"
                 type="password"
-                placeholder="At least 6 characters"
+                placeholder="Min 8 chars, with a letter & a number"
                 value={formData.password}
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                 className="h-11 sm:h-12 text-sm sm:text-base"

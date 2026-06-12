@@ -10,6 +10,7 @@ import Link from "next/link";
 import { useToast } from "@/hooks/use-toast";
 import { createClient } from "@/lib/supabase/client";
 import { AuthShell } from "@/components/auth/AuthShell";
+import { isValidEmail } from "@/lib/validation/authValidation";
 
 // Dev Mode Test Users
 const DEV_USERS = [
@@ -190,7 +191,7 @@ export default function LoginPage() {
     const problems: string[] = [];
     if (!email) {
       problems.push("Enter your email address.");
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+    } else if (!isValidEmail(email)) {
       problems.push("Enter a valid email address (e.g. name@company.co.za).");
     }
     if (!password) problems.push("Enter your password.");
