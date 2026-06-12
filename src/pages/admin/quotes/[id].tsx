@@ -96,6 +96,11 @@ function AdminQuoteDetailInner() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [sending, setSending] = useState(false);
+  // "Convert to order" used to Link to /admin/orders/new?quoteId=...,
+  // a page that doesn't exist - the button 404'd for every accepted
+  // quote. Run the same convertQuoteToOrder cascade the list page's
+  // "Mark accepted" uses instead, then land on the orders list.
+  const [converting, setConverting] = useState(false);
 
   // Send-dialog state. Mirrors the list-page pattern: clicking "Save &
   // Send" no longer fires the email immediately. We save the latest
@@ -499,6 +504,46 @@ function AdminQuoteDetailInner() {
   };
 
   const handleSend = () => _runPreflightThenSave("send");
+
+  // Convert an accepted quote into a live order. Same cascade as the
+  // list page's "Mark accepted" (order + deposit invoice + emails +
+  // kitchen prep + equipment bookings), minus the deposit-prepayment
+  // options that dialog collects.
+  const handleConvertToOrder = async () => {
+    if (!quote || converting) return;
+    setConverting(true);
+    try {
+      const receipt = await quoteService.convertQuoteToOrder(quote.id);
+      if (!receipt.order) {
+        toast({
+          title: "Conversion failed",
+          description: receipt.error || "Check the quote has a valid client + event date.",
+          variant: "destructive",
+        });
+        return;
+      }
+      const orderNum = (receipt.order as any).order_number;
+      const lines: string[] = [`Order ${orderNum} created.`];
+      if (receipt.invoice?.ok) {
+        lines.push(receipt.invoice.number ? `Deposit invoice ${receipt.invoice.number} queued.` : "Deposit invoice queued.");
+      } else {
+        lines.push(`Invoice did NOT generate. ${receipt.invoice?.error || "unknown error"}. Generate it manually on the order.`);
+      }
+      if (receipt.email?.sent) {
+        lines.push(`Confirmation email sent to ${quote.client_email}.`);
+      }
+      toast({ title: "Quote converted", description: lines.join(" ") });
+      router.push(withSlug("/admin/orders"));
+    } catch (e: any) {
+      toast({
+        title: "Conversion failed",
+        description: e?.message || "Try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setConverting(false);
+    }
+  };
 
   // Wave 51 - format the propagation receipt as a one-line toast.
   // Returns "" when nothing was propagated so the caller can collapse.
@@ -968,12 +1013,23 @@ function AdminQuoteDetailInner() {
                     </Button>
                   </>
                 ) : quote.status === "accepted" && !(quote as any).converted_to_order_id ? (
-                  <Link href={withSlug(`/admin/orders/new?quoteId=${quote.id}`)} className="flex-1 min-w-[180px]">
-                    <Button className="w-full bg-gradient-to-r from-green-600 to-emerald-600">
-                      <Sparkles className="w-4 h-4 mr-2" />
-                      Convert to order
-                    </Button>
-                  </Link>
+                  <Button
+                    className="flex-1 min-w-[180px] bg-gradient-to-r from-green-600 to-emerald-600"
+                    onClick={handleConvertToOrder}
+                    disabled={converting}
+                  >
+                    {converting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Converting...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-4 h-4 mr-2" />
+                        Convert to order
+                      </>
+                    )}
+                  </Button>
                 ) : null}
                 {/* Wave 14 audit: when a client requests changes after
                     the quote has left draft (sent / viewed / accepted),
