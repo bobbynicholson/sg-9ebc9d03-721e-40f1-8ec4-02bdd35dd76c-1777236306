@@ -43,10 +43,20 @@ describe("buildPublicQuoteUrlServer", () => {
     );
   });
 
-  it("prefers env over the request override", () => {
+  it("prefers explicit APP_URL over the request override", () => {
     process.env.NEXT_PUBLIC_APP_URL = "https://app.cateringms.com";
     expect(buildPublicQuoteUrlServer(TOKEN, null, "http://localhost:3001")).toBe(
       `https://app.cateringms.com/q/${TOKEN}`,
+    );
+  });
+
+  it("prefers the request override over the Vercel deployment host", () => {
+    // VERCEL_URL is always set on Vercel and points at the deploy-
+    // protected *.vercel.app host - the request origin must win or
+    // customers land behind a Vercel login wall.
+    process.env.NEXT_PUBLIC_VERCEL_URL = "sg-deploy-abc123.vercel.app";
+    expect(buildPublicQuoteUrlServer(TOKEN, null, "https://cateringms.com")).toBe(
+      `https://cateringms.com/q/${TOKEN}`,
     );
   });
 

@@ -31,17 +31,23 @@ function normalizeOrigin(raw?: string | null): string {
   return withProto.replace(/\/$/, "");
 }
 
-function getServerOrigin(): string {
-  // TIGHTEN (2026-06-12): NEXT_PUBLIC_APP_URL was the only source, so
-  // any environment without it (local dev, preview deploys) emailed
-  // RELATIVE links like "/q/{token}" - dead text in a mail client.
-  // Fall back to the Vercel-provided host vars like the admin notify
-  // path already does.
-  return normalizeOrigin(
-    process.env.NEXT_PUBLIC_APP_URL ||
-      process.env.NEXT_PUBLIC_VERCEL_URL ||
-      process.env.VERCEL_URL ||
-      "",
+/**
+ * Resolve the base origin for a customer link.
+ *
+ * Priority (2026-06-12, round 2): explicit NEXT_PUBLIC_APP_URL config
+ * wins; then the REQUEST-derived origin override (the host the client
+ * actually hit, eg. cateringms.com); the Vercel deployment host vars
+ * are the very last resort. The first cut ranked the Vercel vars
+ * above the override, and since VERCEL_URL is always set on Vercel
+ * the override never won - acceptance emails carried
+ * sg-...-xyz.vercel.app order links, which are deploy-protected and
+ * walled customers behind a Vercel login.
+ */
+function resolveOrigin(override?: string | null): string {
+  return (
+    normalizeOrigin(process.env.NEXT_PUBLIC_APP_URL) ||
+    normalizeOrigin(override) ||
+    normalizeOrigin(process.env.NEXT_PUBLIC_VERCEL_URL || process.env.VERCEL_URL || "")
   );
 }
 
@@ -93,7 +99,7 @@ async function resolveSlug(sb: any, companyId: string): Promise<string | null> {
  */
 export async function mintOrderCustomerLink(input: MintInput): Promise<string> {
   const { sb, companyId, orderId, label } = input;
-  const origin = getServerOrigin() || normalizeOrigin(input.origin);
+  const origin = resolveOrigin(input.origin);
   const slug = input.slug !== undefined ? input.slug : await resolveSlug(sb, companyId);
   const sluggy = slugSegment(slug);
   const fallback = `${origin}${sluggy}/c/order/${orderId}`;
@@ -123,10 +129,10 @@ export async function mintOrderCustomerLink(input: MintInput): Promise<string> {
  */
 export function buildPayInvoiceUrlServer(
   token: string | null | undefined,
-  opts: { print?: boolean; slug?: string | null } = {},
+  opts: { print?: boolean; slug?: string | null; origin?: string | null } = {},
 ): string | null {
   if (!token) return null;
-  const origin = getServerOrigin();
+  const origin = resolveOrigin(opts.origin);
   const qs = opts.print ? "?print=1" : "";
   return `${origin}${slugSegment(opts.slug)}/pay/i/${token}${qs}`;
 }
@@ -142,6 +148,6 @@ export function buildPublicQuoteUrlServer(
   originOverride?: string | null,
 ): string | null {
   if (!token) return null;
-  const origin = getServerOrigin() || normalizeOrigin(originOverride);
+  const origin = resolveOrigin(originOverride);
   return `${origin}${slugSegment(slug)}/q/${token}`;
 }

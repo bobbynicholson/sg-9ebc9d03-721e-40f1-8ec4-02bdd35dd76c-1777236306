@@ -453,10 +453,11 @@ async function notifyAdminOfAcceptance(supabase: any, quote: any, acceptorName: 
   // /admin/messaging-templates drives this send.
   try {
     if (profile?.email) {
-      // Without any env the old fallback produced "https://" + "" =
-      // "https:///admin/quotes/..." - a dead link. Use the request
-      // origin as the last resort.
-      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_VERCEL_URL || requestOrigin || "";
+      // Priority: explicit config, then the host the request actually
+      // hit, then Vercel's deployment host last - VERCEL_URL is always
+      // set on Vercel and is deploy-protected, so ranking it above the
+      // request origin sent admins behind a Vercel login wall.
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || requestOrigin || process.env.NEXT_PUBLIC_VERCEL_URL || "";
       const origin = (baseUrl.startsWith("http") ? baseUrl : `https://${baseUrl}`).replace(/\/$/, "");
       const { emailService } = await import("@/services/emailService");
       const { resolveEmailTemplate } = await import("@/services/email/templateResolver");
