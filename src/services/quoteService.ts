@@ -530,8 +530,13 @@ export const quoteService = {
       : "";
 
     // Build the public quote link so templates can include {{quote_url}}.
+    // Browser caller (Save & Send runs client-side): trust the tab's
+    // own origin before the raw *.vercel.app deployment host, which is
+    // deploy-protected and wrong for customers. Without any origin the
+    // "View quote" CTA in the email rendered with an empty href.
     const appOrigin =
       process.env.NEXT_PUBLIC_APP_URL ||
+      (typeof window !== "undefined" && window.location?.origin ? window.location.origin : "") ||
       (process.env.NEXT_PUBLIC_VERCEL_URL
         ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}`
         : "");

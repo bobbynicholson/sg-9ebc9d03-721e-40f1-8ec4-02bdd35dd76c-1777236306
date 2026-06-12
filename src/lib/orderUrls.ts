@@ -50,15 +50,21 @@ export type StaffOrderRole =
 
 /** Best-effort absolute base URL. Server-safe (no window). */
 export function appBaseUrl(): string {
+  // Priority order matters (2026-06-12 fix): NEXT_PUBLIC_VERCEL_URL
+  // used to win, which is the raw *.vercel.app deployment host -
+  // deploy-protected and wrong for customers - so every email link
+  // built in the browser pointed at a login wall even though the
+  // operator's tab was on the real domain. Explicit config first,
+  // then the tab's own origin, then the Vercel host as last resort.
   let url =
-    process?.env?.NEXT_PUBLIC_VERCEL_URL ??
-    process?.env?.NEXT_PUBLIC_SITE_URL ??
     process?.env?.NEXT_PUBLIC_APP_URL ??
+    process?.env?.NEXT_PUBLIC_SITE_URL ??
     "";
-  if (!url) {
-    if (typeof window !== "undefined") return window.location.origin;
-    return "http://localhost:3000";
+  if (!url && typeof window !== "undefined" && window.location?.origin) {
+    return window.location.origin;
   }
+  if (!url) url = process?.env?.NEXT_PUBLIC_VERCEL_URL ?? "";
+  if (!url) return "http://localhost:3000";
   url = url.startsWith("http") ? url : `https://${url}`;
   return url.replace(/\/$/, "");
 }
