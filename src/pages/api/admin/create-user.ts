@@ -105,10 +105,22 @@ async function handler(
     const safeRegionId: string | null =
       typeof region_id === "string" && region_id.length === 36 ? region_id : null;
 
-    if (!email || !full_name || !role || !company_id) {
-      return res.status(400).json({
-        error: "Missing required fields: email, full_name, role, company_id",
-      });
+    // Report the SPECIFIC missing field(s). The old blanket message
+    // ("Missing required fields: email, full_name, role, company_id")
+    // confused operators - they'd filled email + name and couldn't see
+    // that only company_id (an invisible derived value, usually a
+    // logged-out / unlinked session) was actually absent.
+    const missing: string[] = [];
+    if (!email) missing.push("email");
+    if (!full_name) missing.push("full name");
+    if (!role) missing.push("role");
+    if (!company_id) missing.push("company");
+    if (missing.length > 0) {
+      const human =
+        !company_id && email && full_name && role
+          ? "We couldn't tell which company to add this user to. Sign out and back in, then try again - if it keeps happening, your account isn't linked to a company yet."
+          : `Please provide: ${missing.join(", ")}.`;
+      return res.status(400).json({ error: human, missing });
     }
 
     // Audit (May 2026, Wave 6): the previous endpoint accepted a

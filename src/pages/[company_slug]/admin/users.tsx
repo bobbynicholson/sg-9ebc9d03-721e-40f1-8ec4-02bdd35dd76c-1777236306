@@ -109,10 +109,21 @@ export default function StaffManagementPage() {
   const handleAddStaff = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!newStaff.email || !newStaff.full_name || !user?.company_id) {
+    if (!newStaff.email || !newStaff.full_name) {
       toast({
-        title: "Missing Information",
-        description: "Please fill in all required fields",
+        title: "Missing information",
+        description: `Please enter the staff member's ${!newStaff.email ? "email" : "full name"}.`,
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!user?.company_id) {
+      // company_id comes from the signed-in owner's profile. If it's
+      // missing, their account isn't linked to a company - adding staff
+      // would fail server-side with the same gap.
+      toast({
+        title: "Account not linked to a company",
+        description: "Your session isn't linked to a company yet. Sign out and back in; if it persists, contact support.",
         variant: "destructive",
       });
       return;
