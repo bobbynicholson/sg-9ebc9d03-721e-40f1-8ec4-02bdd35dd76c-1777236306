@@ -841,6 +841,12 @@ async function notifyClientOfInvoiceIssued(
     } catch {
       amountLabel = `${currencyCode} ${totalNum.toLocaleString("en-ZA", { minimumFractionDigits: 2 })}`;
     }
+    // Bare numeric form ("752,50") for templates that hardcode their
+    // own currency prefix - the seeded deposit/balance bodies read
+    // "Amount due: R {{deposit_amount}}", so passing the full
+    // currency-formatted label produced "R R 752,50" in the client's
+    // inbox.
+    const amountBare = totalNum.toLocaleString("en-ZA", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     const summary = `${tenantName} issued invoice ${invoiceData.invoiceNumber} for ${eventName}. Total: ${amountLabel}. Pay via the link or EFT.`;
     const portalLink = `/client-portal/billing?invoiceId=${invoiceId}`;
 
@@ -889,6 +895,24 @@ async function notifyClientOfInvoiceIssued(
         const origin = baseUrl.startsWith("http") ? baseUrl : (baseUrl ? `https://${baseUrl}` : "");
         const fullLink = origin ? `${origin}${portalLink}` : portalLink;
 
+        // The email's pay link must be the PUBLIC /pay/i/{token} page,
+        // not the client-portal billing route - the portal demands a
+        // login, so first-time clients clicking "Pay or download here"
+        // hit a sign-in wall instead of the invoice. The in-app bell
+        // keeps the portal link (a bell implies a logged-in session).
+        let payLink = fullLink;
+        try {
+          const { data: invTokRow } = await supabase
+            .from("invoices")
+            .select("public_token")
+            .eq("id", invoiceId)
+            .maybeSingle();
+          const tok = (invTokRow as any)?.public_token;
+          if (tok && origin) payLink = `${origin}/pay/i/${tok}`;
+        } catch (tokErr) {
+          console.warn("[notifyClientOfInvoiceIssued] public_token lookup failed, using portal link:", tokErr);
+        }
+
         // Server-render the invoice PDF and attach it. Mirrors the
         // attachQuotePdf pattern Phase 3D set up for quotes - older
         // clients expect a saveable document inline. Render is wrapped
@@ -931,9 +955,9 @@ async function notifyClientOfInvoiceIssued(
             event_name: eventName,
             invoice_number: invoiceData.invoiceNumber,
             amount: amountLabel,
-            deposit_amount: isBalance ? "" : amountLabel,
-            balance_amount: isBalance ? amountLabel : "",
-            invoice_link: fullLink,
+            deposit_amount: isBalance ? "" : amountBare,
+            balance_amount: isBalance ? amountBare : "",
+            invoice_link: payLink,
           },
           fallback: {
             subject: `Invoice ${invoiceData.invoiceNumber} ready - ${eventName}`,
@@ -1517,6 +1541,10 @@ export async function sendInvoiceEmail(
     } catch {
       amountLabel = `${amountCurrency} ${amountValue.toFixed(2)}`;
     }
+    // Bare numeric form for templates that hardcode their own currency
+    // prefix ("Amount due: R {{deposit_amount}}") - see the matching
+    // fix in notifyClientOfInvoiceIssued.
+    const amountBare = amountValue.toLocaleString("en-ZA", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     const eventLabel = (invoiceData as any).eventName || invoiceData.orderNumber || "your event";
 
     // TIGHTEN I.114: resolve the invoice's public_token + build the
@@ -1567,8 +1595,8 @@ export async function sendInvoiceEmail(
           event_name: eventLabel,
           invoice_number: invoiceData.invoiceNumber,
           amount: amountLabel,
-          deposit_amount: isBalance ? "" : amountLabel,
-          balance_amount: isBalance ? amountLabel : "",
+          deposit_amount: isBalance ? "" : amountBare,
+          balance_amount: isBalance ? amountBare : "",
           // TIGHTEN I.114: always-current /pay/i/{token} URL.
           invoice_link: invoiceLink,
         },
