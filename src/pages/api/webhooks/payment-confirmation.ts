@@ -587,9 +587,33 @@ async function handler(
     const isDepositPayment = paymentType
       ? paymentType === "deposit"
       : !order.deposit_paid;
-    const expectedAmount = isDepositPayment
+    let expectedAmount = isDepositPayment
       ? order.deposit_amount
       : order.balance_amount;
+
+    // FIX (2026-06-12): orders.deposit_amount / balance_amount are
+    // often null (the deposit invoice amount lives on the invoice, not
+    // these columns). create-session charges the unpaid invoice's
+    // balance in that case, so the webhook MUST validate against the
+    // same figure or it rejects every such payment as "Amount
+    // mismatch". Fall back to the order's open invoice amount, then
+    // the order total, mirroring create-session's own fallback chain.
+    if (!expectedAmount || Number(expectedAmount) <= 0) {
+      const { data: openInv } = await supabase
+        .from("invoices")
+        .select("total_amount, balance_due")
+        .eq("order_id", order.id)
+        .neq("status", "paid")
+        .is("deleted_at", null)
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      expectedAmount =
+        Number((openInv as any)?.balance_due) ||
+        Number((openInv as any)?.total_amount) ||
+        Number(order.total_amount) ||
+        Number(amount_gross); // last resort: trust the gateway figure
+    }
 
     // Verify amount matches.
     //
