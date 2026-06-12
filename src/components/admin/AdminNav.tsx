@@ -705,7 +705,7 @@ export function AdminNav({ className }: AdminNavProps) {
                     paddingTop: "max(1rem, env(safe-area-inset-top, 1rem))",
                   }}
                 >
-                  <h2 className="text-xl font-bold">{companyName}</h2>
+                  <h2 className="text-lg sm:text-xl font-bold truncate">{companyName}</h2>
                   <p className="text-sm opacity-90 mt-1">
                     {todayEventCount && todayEventCount > 0
                       ? `${todayEventCount} event${todayEventCount === 1 ? "" : "s"} today`
