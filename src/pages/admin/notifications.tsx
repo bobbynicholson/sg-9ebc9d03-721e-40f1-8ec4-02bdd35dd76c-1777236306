@@ -216,15 +216,19 @@ function NotificationsPage() {
         {/* Header */}
         <div className="mb-6 sm:mb-8">
           <div className="flex items-center justify-between mb-4">
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 flex items-center gap-3">
-                <Bell className="h-8 w-8 text-blue-600" />
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 rounded-xl bg-brand-primary/10 flex items-center justify-center flex-shrink-0">
+                <Bell className="w-5 h-5 text-brand-primary" />
+              </div>
+              <div>
+              <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 flex items-center gap-2">
                 Notifications
                 <InfoTooltip content={"Your inbox of system alerts: low stock, delivery updates, order changes and other events that need your attention."} />
               </h1>
               <p className="text-sm sm:text-base text-slate-600 mt-1">
                 System alerts inbox. Low stock warnings, delivery updates, order changes, payment confirmations, and anything else flagged automatically by the platform. Open a row for details or jump straight to the source page.
               </p>
+              </div>
             </div>
             {unreadCount > 0 && (
               <Badge variant="destructive" className="text-lg px-4 py-2">
