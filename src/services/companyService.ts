@@ -400,40 +400,18 @@ export const companyService = {
     admin_password?: string;
   }): Promise<{ success: boolean; company?: Company; error?: string }> {
     try {
-      // 1. Create the admin user. Audit (May 2026, Wave 6): the
-      // previous code defaulted to the literal shared password
-      // "BYPASS_2026" if the caller didn't supply one. /api/admin/
-      // create-user now generates the password server-side and
-      // returns it once in tempPassword.
-      const userRes = await fetch('/api/admin/create-user', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: data.admin_email,
-          full_name: data.admin_name,
-          role: 'company_admin'
-        })
-      });
-
-      const userData = await userRes.json();
-      if (!userRes.ok) throw new Error(userData.error || "Failed to create user");
-
-      const userId = userData.user.id;
-      const tempPassword: string | null = (userData as any)?.tempPassword || null;
-      // Surface the password once - the super admin needs to hand
-      // it to the new tenant owner via a secure channel.
-      if (tempPassword && typeof window !== "undefined") {
-        try { await navigator.clipboard.writeText(tempPassword); } catch { /* clipboard blocked */ }
-        window.prompt(
-          `Temporary password for ${data.admin_name} (copied to clipboard).\nShare it via your secure channel - the owner must change it on first login.`,
-          tempPassword,
-        );
-      }
-
-      // 2. Create the company (30-day trial, matches platform policy)
+      // FIX (2026-06-12): chicken-and-egg. /api/admin/create-user
+      // REQUIRES company_id, but the old order created the admin user
+      // FIRST (no company_id yet) -> the API rejected it with "we
+      // couldn't tell which company to add this user to" and no tenant
+      // could be created. owner_id on companies is nullable, so create
+      // the company FIRST, then the user with that company_id, then
+      // back-link owner_id. Roll back the orphan company if user
+      // creation fails.
       const trialEndsAt = new Date();
       trialEndsAt.setDate(trialEndsAt.getDate() + 30);
 
+      // 1. Create the company (owner_id back-filled in step 3).
       const { data: company, error: companyError } = await supabase
         .from("companies")
         .insert([{
@@ -448,7 +426,7 @@ export const companyService = {
           postal_code: data.postal_code,
           country: data.country,
           billing_currency: data.billing_currency,
-          owner_id: userId,
+          owner_id: null,
           subscription_status: 'trial',
           trial_ends_at: trialEndsAt.toISOString(),
           is_active: true
@@ -461,7 +439,50 @@ export const companyService = {
         throw new Error(companyError.message);
       }
 
-      // 3. Update the user's profile with the new company ID
+      // 2. Create the admin user, now that we have a company_id to
+      // attach. create-user generates a temp password server-side.
+      const userRes = await fetch('/api/admin/create-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: data.admin_email,
+          full_name: data.admin_name,
+          role: 'company_admin',
+          company_id: company.id,
+        })
+      });
+
+      const userData = await userRes.json();
+      if (!userRes.ok) {
+        // Roll back the orphan company so a retry with the same slug
+        // doesn't hit the unique-slug constraint.
+        await supabase.from("companies").delete().eq("id", company.id);
+        throw new Error(userData.error || "Failed to create the company's admin user");
+      }
+
+      const userId = userData.user.id;
+      const tempPassword: string | null = (userData as any)?.tempPassword || null;
+      // Surface the password once - the super admin needs to hand
+      // it to the new tenant owner via a secure channel.
+      if (tempPassword && typeof window !== "undefined") {
+        try { await navigator.clipboard.writeText(tempPassword); } catch { /* clipboard blocked */ }
+        window.prompt(
+          `Temporary password for ${data.admin_name} (copied to clipboard).\nShare it via your secure channel - the owner must change it on first login.`,
+          tempPassword,
+        );
+      }
+
+      // 3. Back-link the company to its owner.
+      const { error: ownerLinkErr } = await supabase
+        .from("companies")
+        .update({ owner_id: userId } as any)
+        .eq("id", company.id);
+      if (ownerLinkErr) {
+        console.error("Error linking company owner:", ownerLinkErr);
+      }
+
+      // 4. Ensure the user's profile carries the company link (create-user
+      // sets this, but belt-and-braces in case its profile write lagged).
       const { error: profileError } = await supabase
         .from('profiles')
         .update({
