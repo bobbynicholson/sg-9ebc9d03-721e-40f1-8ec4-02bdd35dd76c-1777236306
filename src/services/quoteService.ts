@@ -721,6 +721,28 @@ export const quoteService = {
       };
     }
 
+    // Gate: orders.venue_address is NOT NULL on the schema, but the
+    // venue is optional at quote-draft stage. Same failure mode as
+    // the guest_count gate above - converting a venue-less quote
+    // crashed the INSERT with a raw `null value in column
+    // "venue_address" ... violates not-null constraint`. Refuse with
+    // a fixable message; dispatch, driver assignment and delivery
+    // fees all key off the address, so defaulting it (e.g. "TBC")
+    // would push a broken job into live operations.
+    const resolvedVenueAddress = String((quote as any).venue_address || "").trim();
+    if (!resolvedVenueAddress) {
+      return {
+        order: null,
+        invoice: { ok: false, error: "Quote has no venue address" },
+        email: { sent: false, skipped: true, reason: "no_venue_address" },
+        kitchen: { ok: false, tasksCreated: 0, reason: "no_venue_address" },
+        deposit: { recorded: false },
+        error:
+          "This quote has no venue address. Edit the quote, add the event venue, then convert - dispatch, drivers and delivery all depend on it.",
+        error_code: "no_venue_address",
+      };
+    }
+
     // Lifecycle backbone: orders.client_id is NOT NULL on the schema,
     // so we MUST have a client_id before inserting. If this quote came
     // from a lead that was never promoted to a client (the historical
@@ -801,7 +823,7 @@ export const quoteService = {
       event_time: q.event_time ?? null,
       setup_time: q.setup_time ?? null,
       guest_count: resolvedGuestCount,
-      venue_address: q.venue_address ?? null,
+      venue_address: resolvedVenueAddress,
       venue_lat: q.venue_lat ?? null,
       venue_lng: q.venue_lng ?? null,
       // Line-level data (JSON)
