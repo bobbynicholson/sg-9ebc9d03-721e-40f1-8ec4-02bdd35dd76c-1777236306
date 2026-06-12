@@ -1329,6 +1329,18 @@ function NewQuotePage() {
           // Pre-acceptance revise-and-resend: reset the public view.
           payload.accepted_at = null;
           payload.viewed_at = null;
+        } else if (prevStatus === "accepted") {
+          // TIGHTEN (2026-06-12): accepted-but-unconverted quote (eg.
+          // conversion refused on no_guest_count). The I.118 guard
+          // above only protects CONVERTED quotes, so "Save draft" here
+          // silently downgraded an accepted quote to draft - it fell
+          // out of the Won group and the Convert-to-order button
+          // vanished, with the client's acceptance lost. Operators
+          // land in this editor precisely to fix the missing field and
+          // convert; preserve the acceptance unless they explicitly
+          // chose Save & Send (the revise-and-resend branch above).
+          payload.status = "accepted";
+          (dbOverride as any).status = "accepted";
         }
         // Never null out lead_id / client_id on UPDATE — these FKs are
         // set on INSERT and must satisfy quote_has_lead_or_client for the
@@ -1585,7 +1597,9 @@ function NewQuotePage() {
       return;
     }
     const id = await persistQuote({ status: "draft" });
-    if (id) toast({ title: "Saved as draft" });
+    // persistQuote refuses to downgrade an accepted quote, so don't
+    // tell the operator it became a draft when it didn't.
+    if (id) toast({ title: status === "accepted" ? "Saved - quote stays accepted" : "Saved as draft" });
   };
 
   // Phase 3 #1: allergen gate. Sending a quote with menu items whose
@@ -1837,9 +1851,16 @@ function NewQuotePage() {
                   <div className="flex items-center gap-1">
                     <Button variant="outline" onClick={handleSaveDraft} disabled={saving || !clientName}>
                       <Save className="w-4 h-4 mr-2" />
-                      Save draft
+                      {status === "accepted" ? "Save" : "Save draft"}
                     </Button>
-                    <InfoTooltip content={"Save current state of the quote with status = 'draft'. The client doesn't get an email and the quote doesn't appear on their portal. It's parked privately for you to come back to.\n\nGreat when you're partway through and need to step away."} />
+                    {/* Accepted-but-unconverted: Save keeps the
+                        acceptance (the operator is usually here to fix
+                        a missing field like guest count before
+                        converting). Save & Send is the explicit
+                        "revise and ask the client to re-accept" path. */}
+                    <InfoTooltip content={status === "accepted"
+                      ? "Save your changes and keep the quote accepted - the client does not need to re-accept. Use this to fill in a missing field (e.g. guest count) before converting to an order.\n\nUse Save & Send instead if the pricing changed and the client must re-accept."
+                      : "Save current state of the quote with status = 'draft'. The client doesn't get an email and the quote doesn't appear on their portal. It's parked privately for you to come back to.\n\nGreat when you're partway through and need to step away."} />
                   </div>
                   <div className="flex items-center gap-1">
                     <Button
