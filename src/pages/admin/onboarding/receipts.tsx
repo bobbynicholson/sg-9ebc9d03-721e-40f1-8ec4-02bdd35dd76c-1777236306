@@ -74,7 +74,7 @@ function ReceiptsImportPage() {
               <Camera className="w-7 h-7 text-white" />
             </div>
             <div>
-              <h1 className="text-2xl lg:text-3xl font-bold bg-gradient-to-r from-brand-primary to-brand-secondary bg-clip-text text-transparent flex items-center gap-2">
+              <h1 className="text-2xl lg:text-3xl font-bold text-slate-900 flex items-center gap-2">
                 Receipt scanner
                 <InfoTooltip content={"Snap photos of your last few weeks of supplier slips and we'll seed your inventory cost prices automatically.\n\nWe read each receipt and pull the supplier name, date, line items, quantities and totals. You review the extraction and commit, no typing required."} />
               </h1>

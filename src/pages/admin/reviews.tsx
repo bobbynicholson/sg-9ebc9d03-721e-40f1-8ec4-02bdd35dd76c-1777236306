@@ -203,7 +203,7 @@ export default function AdminReviewsPage() {
                 <Star className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
               </div>
               <div className="min-w-0">
-                <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold bg-gradient-to-r from-brand-primary to-brand-secondary bg-clip-text text-transparent">
+                <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold text-slate-900">
                   Reviews
                 </h1>
                 <p className="text-sm text-slate-600 mt-0.5">Client ratings + comments from the post-event prompt</p>

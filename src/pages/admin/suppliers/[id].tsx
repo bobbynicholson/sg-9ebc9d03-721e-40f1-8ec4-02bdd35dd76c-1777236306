@@ -159,7 +159,7 @@ function SupplierDetail() {
                       <Building2 className="w-6 h-6 text-white" />
                     </div>
                     <div className="min-w-0">
-                      <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-brand-primary to-brand-secondary bg-clip-text text-transparent">
+                      <h1 className="text-2xl md:text-3xl font-bold text-slate-900">
                         {supplier.supplier_name}
                       </h1>
                       <div className="flex items-center gap-3 flex-wrap text-sm text-slate-600 mt-1">

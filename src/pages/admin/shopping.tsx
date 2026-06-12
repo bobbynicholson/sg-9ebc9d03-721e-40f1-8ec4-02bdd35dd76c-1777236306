@@ -1140,7 +1140,7 @@ function SmartShoppingPage() {
                 <ShoppingCart className="w-6 h-6 text-white" />
               </div>
               <div className="min-w-0">
-                <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold bg-gradient-to-r from-brand-primary to-brand-secondary bg-clip-text text-transparent flex items-center gap-2 flex-wrap">
+                <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold text-slate-900 flex items-center gap-2 flex-wrap">
                   Smart Shopping
                   <InfoTooltip content={"Looks at your stock, your confirmed orders for the week ahead, and your suppliers, then tells you exactly what to buy and when."} />
                 </h1>

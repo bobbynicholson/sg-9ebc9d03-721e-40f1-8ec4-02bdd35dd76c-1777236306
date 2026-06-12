@@ -138,7 +138,7 @@ function TaxRulesAdmin() {
                 <Sparkles className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-brand-primary to-brand-secondary bg-clip-text text-transparent">
+                <h1 className="text-2xl md:text-3xl font-bold text-slate-900">
                   SA Tax Rules
                 </h1>
                 <p className="text-sm text-slate-600 mt-1">

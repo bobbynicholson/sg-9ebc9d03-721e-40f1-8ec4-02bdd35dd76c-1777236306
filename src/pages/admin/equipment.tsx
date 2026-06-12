@@ -195,7 +195,7 @@ function EquipmentPage() {
               <Package className="w-7 h-7 text-white" />
             </div>
             <div>
-              <h1 className="text-2xl lg:text-3xl font-bold bg-gradient-to-r from-brand-primary to-brand-secondary bg-clip-text text-transparent">
+              <h1 className="text-2xl lg:text-3xl font-bold text-slate-900">
                 Equipment
               </h1>
               <p className="text-sm text-slate-600 mt-0.5">

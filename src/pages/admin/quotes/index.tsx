@@ -1415,7 +1415,7 @@ function AdminQuotesInner() {
                   <DollarSign className="w-8 h-8 text-white" />
                 </div>
                 <div>
-                  <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-brand-primary to-brand-secondary bg-clip-text text-transparent">
+                  <h1 className="text-3xl sm:text-4xl font-bold text-slate-900">
                     Quotes
                   </h1>
                   <p className="text-slate-600 mt-1 text-sm sm:text-base hidden sm:block">Priced proposals. Build a quote from a lead or directly off a client, send the public link, then chase with reminders until accepted or declined. Accepted quotes convert to orders.</p>

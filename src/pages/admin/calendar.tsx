@@ -792,7 +792,7 @@ function AdminCalendar() {
                 <CalendarIcon className="w-6 h-6 text-white" />
               </div>
               <div className="min-w-0">
-                <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold bg-gradient-to-r from-brand-primary to-brand-secondary bg-clip-text text-transparent">
+                <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold text-slate-900">
                   Calendar
                 </h1>
                 <p className="text-sm sm:text-base text-slate-600 mt-1">

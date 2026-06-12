@@ -216,7 +216,7 @@ function ImportsHistoryPage() {
                 <Wand2 className="w-7 h-7 text-white" />
               </div>
               <div>
-                <h1 className="text-2xl lg:text-3xl font-bold bg-gradient-to-r from-brand-primary to-brand-secondary bg-clip-text text-transparent flex items-center gap-2">
+                <h1 className="text-2xl lg:text-3xl font-bold text-slate-900 flex items-center gap-2">
                   Onboarding
                   <InfoTooltip content={"This is your one-stop shop for getting your existing business into CateringMS.\n\nThree paths below cover the usual sources: a simple client list, a richer spreadsheet of clients + outstanding orders, and supplier receipts you snap on your phone. Run the right tool for the file you have, then come back here any time to roll a previous import back."} />
                 </h1>

@@ -235,7 +235,7 @@ export default function AdminEmbedFormsPage() {
                 <Code2 className="w-8 h-8 text-white" />
               </div>
               <div>
-                <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-brand-primary to-brand-secondary bg-clip-text text-transparent">
+                <h1 className="text-3xl md:text-4xl font-bold text-slate-900">
                   Lead Capture Forms
                 </h1>
                 <p className="text-sm md:text-base text-slate-600 mt-1">

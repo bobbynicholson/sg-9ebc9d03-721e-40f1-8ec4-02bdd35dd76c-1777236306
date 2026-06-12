@@ -483,7 +483,7 @@ function EmailSettingsPage() {
               <Mail className="w-6 h-6 text-white" />
             </div>
             <div className="min-w-0">
-              <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold bg-gradient-to-r from-brand-primary to-brand-secondary bg-clip-text text-transparent flex items-center gap-2 flex-wrap">
+              <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold text-slate-900 flex items-center gap-2 flex-wrap">
                 Email settings
                 <InfoTooltip content={"How CateringMS sends mail on your behalf.\n\nOut of the box you're already set up via our shared sender. Verify your own domain below to send from your address.\n\nGmail / Microsoft 365 / SMTP live further down under 'Switch provider'."} />
               </h1>

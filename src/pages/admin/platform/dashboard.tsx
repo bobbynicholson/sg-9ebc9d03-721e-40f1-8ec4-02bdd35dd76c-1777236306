@@ -321,7 +321,7 @@ function PlatformDashboard() {
       <div className="px-4 sm:px-6 lg:px-8 py-6 max-w-full">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between mb-6 sm:mb-8">
           <div className="min-w-0">
-            <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold bg-gradient-to-r from-brand-primary to-brand-secondary bg-clip-text text-transparent">
+            <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold text-slate-900">
               Platform Analytics
             </h1>
             <p className="text-sm text-slate-600 mt-1">System-wide sales and business metrics</p>

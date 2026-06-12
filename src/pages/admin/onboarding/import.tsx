@@ -408,7 +408,7 @@ function ImportPage() {
               <Wand2 className="w-7 h-7 text-white" />
             </div>
             <div>
-              <h1 className="text-2xl lg:text-3xl font-bold bg-gradient-to-r from-brand-primary to-brand-secondary bg-clip-text text-transparent flex items-center gap-2">
+              <h1 className="text-2xl lg:text-3xl font-bold text-slate-900 flex items-center gap-2">
                 AI Import
                 <InfoTooltip content={"Five-step wizard for moving your existing book of business into CateringMS in one go.\n\nUpload, then we map your column headings to our schema. You preview every row before anything is committed, and you have a 24-hour rollback window if anything looks wrong after."} />
               </h1>

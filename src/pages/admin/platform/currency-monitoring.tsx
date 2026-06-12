@@ -167,7 +167,7 @@ function PlatformCurrencyMonitoringPage() {
       <div className="max-w-full space-y-6">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-brand-primary to-brand-secondary bg-clip-text text-transparent">
+            <h1 className="text-3xl md:text-4xl font-bold text-slate-900">
               Currency Monitoring
             </h1>
             <p className="text-slate-600 dark:text-slate-400 mt-2">

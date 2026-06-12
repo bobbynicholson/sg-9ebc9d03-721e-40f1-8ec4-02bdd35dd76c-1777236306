@@ -1738,7 +1738,7 @@ function NewQuotePage() {
                 <DollarSign className="w-7 h-7 text-white" />
               </div>
               <div className="min-w-0">
-                <h1 className="text-2xl lg:text-3xl font-bold bg-gradient-to-r from-brand-primary to-brand-secondary bg-clip-text text-transparent">
+                <h1 className="text-2xl lg:text-3xl font-bold text-slate-900">
                   {quoteId ? "Edit Quote" : "Create Quote"}
                 </h1>
                 <p className="text-sm text-slate-600 mt-0.5 flex items-center gap-2 flex-wrap">

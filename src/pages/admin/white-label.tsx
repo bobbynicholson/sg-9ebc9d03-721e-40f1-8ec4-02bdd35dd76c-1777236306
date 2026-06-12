@@ -467,7 +467,7 @@ function WhiteLabelPage() {
                   <Palette className="w-8 h-8 text-white" />
                 </div>
                 <div>
-                  <h1 className="text-4xl font-bold bg-gradient-to-r from-brand-primary to-brand-secondary bg-clip-text text-transparent flex items-center gap-2">
+                  <h1 className="text-4xl font-bold text-slate-900 flex items-center gap-2">
                     White Label Branding
                     <InfoTooltip content={"Set your logo, organisation name, and three brand colours that show up on client portals and emails.\n\nSaved to your tenant. Every admin and client logged into your account sees the same branding."} />
                   </h1>

@@ -696,14 +696,14 @@ function RegionsPage() {
         <div className="px-4 py-8 max-w-full">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-brand-primary to-brand-secondary flex items-center justify-center shadow-lg">
-                <Globe className="w-6 h-6 text-white" />
+              <div className="w-11 h-11 rounded-xl bg-brand-primary/10 flex items-center justify-center flex-shrink-0">
+                <Globe className="w-5 h-5 text-brand-primary" />
               </div>
               <div>
-                <h1 className="text-3xl lg:text-4xl font-bold bg-gradient-to-r from-brand-primary to-brand-secondary bg-clip-text text-transparent">
+                <h1 className="text-2xl md:text-3xl font-bold text-slate-900">
                   Branches
                 </h1>
-                <p className="text-slate-600 mt-1">
+                <p className="text-sm text-slate-600 mt-1">
                   One company, multiple operating cities. Each branch has its own delivery rate, manager, kitchen, drivers, and inventory. Quotes, orders, and reporting all stay scoped to the branch the lead came in on.
                 </p>
                 {/* Phase 17 #6: HQ defaults chip. Each per-region

@@ -186,7 +186,7 @@ function ClientSearchPage() {
                 <Search className="w-8 h-8 text-white" />
               </div>
               <div>
-                <h1 className="text-4xl font-bold bg-gradient-to-r from-brand-primary to-brand-secondary bg-clip-text text-transparent flex items-center gap-3">
+                <h1 className="text-4xl font-bold text-slate-900 flex items-center gap-3">
                   Client Search
                   <InfoTooltip content={"Searchable directory of your registered clients. Look them up by name, email, phone, company or region."} />
                 </h1>

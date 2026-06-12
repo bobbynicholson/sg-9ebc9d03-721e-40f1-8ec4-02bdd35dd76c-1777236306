@@ -551,7 +551,7 @@ function OfferingPage() {
                 <Sparkles className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
               </div>
               <div className="min-w-0">
-                <h1 className="text-2xl sm:text-3xl xl:text-4xl font-bold bg-gradient-to-r from-brand-primary to-brand-secondary bg-clip-text text-transparent">
+                <h1 className="text-2xl sm:text-3xl xl:text-4xl font-bold text-slate-900">
                   Offering
                 </h1>
                 <p className="text-sm sm:text-base text-slate-600 mt-1">Snapshot of what you sell. Menu items, equipment for hire, and packages combined into one view so you can spot gaps in pricing or photos before they hit a quote.</p>

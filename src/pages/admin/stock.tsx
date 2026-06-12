@@ -850,7 +850,7 @@ function StockPage() {
                 <Boxes className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
               </div>
               <div className="min-w-0">
-                <h1 className="text-2xl sm:text-3xl xl:text-4xl font-bold bg-gradient-to-r from-brand-primary to-brand-secondary bg-clip-text text-transparent">
+                <h1 className="text-2xl sm:text-3xl xl:text-4xl font-bold text-slate-900">
                   Stock
                 </h1>
                 {/* STK-B: operator-language hero copy. "Pressure feed"

@@ -645,7 +645,7 @@ function AdminUsersPage() {
                   <Users className="w-5 h-5 md:w-8 md:h-8 text-white" />
                 </div>
                 <div>
-                  <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-brand-primary to-brand-secondary bg-clip-text text-transparent">
+                  <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-slate-900">
                     Full team
                   </h1>
                   {/* USR-A (task #207, 2026-05-24): copy fix. Pre-fix
