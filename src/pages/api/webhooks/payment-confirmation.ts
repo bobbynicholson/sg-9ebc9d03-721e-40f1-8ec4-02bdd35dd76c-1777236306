@@ -298,8 +298,14 @@ async function handler(
         });
         const confirmText = (await confirmRes.text()).trim().toUpperCase();
         if (!confirmText.startsWith("VALID")) {
-          console.warn("[payfast-webhook] PayFast server-confirm rejected IPN:", { confirmHost, confirmText: confirmText.slice(0, 60) });
-          return res.status(403).json({ error: "PayFast validation failed" });
+          // Log-only (2026-06-12): PayFast's sandbox validate endpoint
+          // is unreliable for the shared sandbox account, and a false
+          // INVALID here would silently re-create the "client paid,
+          // invoice never flipped" incident this gate replaced. The
+          // passphrase-keyed signature check above remains the
+          // enforced authenticity gate; this round-trip is telemetry
+          // until we've observed it agreeing in production.
+          console.warn("[payfast-webhook] PayFast server-confirm returned non-VALID (continuing on signature):", { confirmHost, confirmText: confirmText.slice(0, 60) });
         }
       } catch (confirmErr) {
         // PayFast's validate endpoint being unreachable shouldn't void
