@@ -206,14 +206,17 @@ function PipelineBoard({
     return out;
   })();
   return (
-    <div className="overflow-x-auto pb-4 mb-6">
-      <div className="flex gap-4 min-w-max px-1">
+    {/* Mobile: stack columns vertically, each full-width, no
+        horizontal scroll. sm+ : the classic side-by-side kanban that
+        scrolls horizontally. */}
+    <div className="sm:overflow-x-auto pb-4 mb-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:min-w-max px-1">
         {PIPELINE_COLUMNS.map((col) => {
           const list = grouped[col.bucket] || [];
           const total = list.reduce((acc: number, r: any) => acc + Number(r.quote?.total || 0), 0);
           const Icon = col.Icon;
           return (
-            <div key={col.bucket} className={`w-72 shrink-0 rounded-xl border-2 ${col.tone}`}>
+            <div key={col.bucket} className={`w-full sm:w-72 sm:shrink-0 rounded-xl border-2 ${col.tone}`}>
               <div className="px-3 py-2 flex items-center justify-between border-b border-slate-200/70">
                 <div className="flex items-center gap-2">
                   <Icon className="w-4 h-4 text-slate-700" />
@@ -224,7 +227,10 @@ function PipelineBoard({
                   {currencySymbol}{Math.round(total / 1000)}k
                 </span>
               </div>
-              <div className="p-2 space-y-2 max-h-[640px] overflow-y-auto">
+              {/* Mobile: no inner scroll cap - the column grows and the
+                  page scrolls as one. sm+: cap height so the kanban
+                  columns stay even and scroll independently. */}
+              <div className="p-2 space-y-2 sm:max-h-[640px] sm:overflow-y-auto">
                 {list.length === 0 ? (
                   <p className="text-xs text-slate-400 text-center py-6">Nothing here.</p>
                 ) : (
