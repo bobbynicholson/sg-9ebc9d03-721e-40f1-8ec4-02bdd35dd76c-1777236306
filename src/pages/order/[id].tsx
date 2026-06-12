@@ -76,7 +76,7 @@ function OrderDocumentInner({ id, print, forceSection }: {
         className={
           print
             ? "min-h-screen bg-white"
-            : "min-h-screen bg-gradient-to-br from-slate-50 via-white to-orange-50 lg:pl-72 xl:pl-80"
+            : "min-h-screen bg-gradient-to-br from-slate-50 via-white to-orange-50 lg:pl-72 xl:pl-80 pt-20 lg:pt-0"
         }
       >
         <OrderDocument

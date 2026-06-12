@@ -448,7 +448,7 @@ export default function InvoicePaymentPage() {
               <div className="brand-print rounded-lg bg-brand-primary/10 border-2 border-brand-primary p-5 flex items-center justify-between flex-wrap gap-3">
                 <div>
                   <p className="text-xs uppercase tracking-[0.15em] text-brand-primary font-bold mb-1">Balance due</p>
-                  <p className="text-3xl sm:text-4xl font-serif font-bold text-stone-900 tabular-nums">
+                  <p className="text-2xl sm:text-3xl md:text-4xl font-serif font-bold text-stone-900 tabular-nums break-words">
                     {fmtMoney.format(invoice.balance_due)}
                   </p>
                   {!isPaid && (

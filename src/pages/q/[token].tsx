@@ -499,7 +499,7 @@ export default function PublicQuotePage() {
                     </p>
                   </div>
                 </div>
-                <h1 className="text-3xl sm:text-[2.6rem] font-serif font-bold text-stone-900 leading-tight">
+                <h1 className="text-2xl sm:text-4xl md:text-[2.6rem] font-serif font-bold text-stone-900 leading-tight break-words">
                   {quote.quote_name || `Quote for ${quote.client_name || "your event"}`}
                 </h1>
                 <p className="text-sm text-stone-600 mt-2.5">
@@ -777,7 +777,7 @@ export default function PublicQuotePage() {
                     <span className="text-stone-900 font-serif text-xl">
                       Total{vatRegistered ? " incl. VAT" : ""}
                     </span>
-                    <span className="text-brand-primary tabular-nums text-2xl sm:text-3xl">{fmtMoney(persistedTotal)}</span>
+                    <span className="text-brand-primary tabular-nums text-xl sm:text-2xl md:text-3xl">{fmtMoney(persistedTotal)}</span>
                   </div>
 
                   {incVat && persistedTax > 0 && (

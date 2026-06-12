@@ -247,9 +247,18 @@ export function AdminLiveStateStrip() {
   //
   // Matches the 2x2 grid pattern already used on Cleaning + Shopping
   // strips for consistency across the tool.
-  const pair1: Pill[] = [row1[0], row1[1]];                       // Events + Live
-  const pair2: Pill[] = [row1[2], row2[row2.length - 1]];         // Quotes + Alerts (always last in row2)
-  const pair3: Pill[] = [row2[0], row2[1]];                       // Today + Unpaid (finance) OR Leads + Gaps (non-finance)
+  // 2026-06-12: render every pill in ONE full-width column. Raj
+  // flagged that the 2-col grid squeezed pills so labels/values were
+  // cut off and not all items were reachable. A single column gives
+  // each pill the full sidebar width - icon + value + label always
+  // fully visible, in priority order, and the sidebar's ScrollArea
+  // handles overflow when the list is long.
+  const orderedPills: Pill[] = [
+    row1[0],                       // Events
+    row1[1],                       // Live
+    row1[2],                       // Quotes
+    ...row2,                       // money/leads/gaps + Alerts
+  ].filter(Boolean);
 
   return (
     <div
@@ -258,15 +267,7 @@ export function AdminLiveStateStrip() {
       aria-atomic="false"
       aria-label="Admin live state"
     >
-      <div className="grid grid-cols-2 gap-1.5">
-        {pair1.map(renderPill)}
-      </div>
-      <div className="grid grid-cols-2 gap-1.5">
-        {pair2.map(renderPill)}
-      </div>
-      <div className="grid grid-cols-2 gap-1.5">
-        {pair3.map(renderPill)}
-      </div>
+      {orderedPills.map(renderPill)}
     </div>
   );
 }

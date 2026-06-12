@@ -804,7 +804,7 @@ function WageDashboardPage() {
 
           {/* Department tabs */}
           <Tabs value={department} onValueChange={(v) => setDepartment(v as DepartmentKey)} className="mb-4">
-            <TabsList className="grid grid-cols-5 w-full md:w-auto">
+            <TabsList className="grid grid-cols-3 sm:grid-cols-5 h-auto w-full md:w-auto">
               <TabsTrigger value="all" className="gap-1.5 text-xs md:text-sm">
                 <Users className="w-3.5 h-3.5" />All
               </TabsTrigger>

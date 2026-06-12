@@ -174,7 +174,7 @@ function HandoverDetailInner() {
       </Head>
       <CleaningNav />
 
-      <main className="min-h-screen bg-slate-50 lg:pl-72 xl:pl-80">
+      <main className="min-h-screen bg-slate-50 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
         <div className="pt-20 lg:pt-6 px-3 sm:px-4 md:px-6 pb-6 max-w-full">
           <Link
             href={withSlug("/team-portal/cleaning/dashboard")}

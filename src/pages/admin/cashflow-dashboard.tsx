@@ -394,7 +394,7 @@ function CashflowDashboardInner() {
     return (
       <>
         <AdminNav />
-        <div className="flex items-center justify-center min-h-screen lg:pl-72 xl:pl-80">
+        <div className="flex items-center justify-center min-h-screen lg:pl-72 xl:pl-80 pt-20 lg:pt-0">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto mb-4" />
             <p>Loading cashflow data...</p>
@@ -412,7 +412,7 @@ function CashflowDashboardInner() {
         <Head><title>Cashflow dashboard - CateringMS</title></Head>
         <NoIndexMeta />
         <AdminNav />
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 to-rose-50 p-4 md:p-8 lg:pl-72 xl:pl-80">
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 to-rose-50 p-4 md:p-8 lg:pl-72 xl:pl-80 pt-20 lg:pt-8">
           <div className="max-w-md mx-auto mt-12 rounded-lg border border-rose-200 bg-white p-6 shadow-sm">
             <h2 className="text-lg font-bold text-rose-900 mb-2">Couldn't load cashflow</h2>
             <p className="text-sm text-slate-600 mb-4">{loadError}</p>
@@ -433,7 +433,7 @@ function CashflowDashboardInner() {
       <NoIndexMeta />
 
       <AdminNav />
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-emerald-50 p-4 md:p-8 lg:pl-72 xl:pl-80">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-emerald-50 p-4 md:p-8 lg:pl-72 xl:pl-80 pt-20 lg:pt-8">
         <div className="max-w-full">
           {/* Header */}
           <div className="mb-6">
