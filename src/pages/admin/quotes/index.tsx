@@ -206,9 +206,9 @@ function PipelineBoard({
     return out;
   })();
   return (
-    {/* Mobile: stack columns vertically, each full-width, no
-        horizontal scroll. sm+ : the classic side-by-side kanban that
-        scrolls horizontally. */}
+    // Mobile: stack columns vertically, each full-width, no horizontal
+    // scroll. sm+ : the classic side-by-side kanban that scrolls
+    // horizontally.
     <div className="sm:overflow-x-auto pb-4 mb-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:min-w-max px-1">
         {PIPELINE_COLUMNS.map((col) => {
