@@ -321,7 +321,7 @@ export default function ClientTracking() {
   // Layout shell shared by all three render branches below. Keeps the
   // sidebar offset and responsive padding consistent so cards always
   // sit flush against the menu, and adds the mobile-header gap.
-  const layoutShell = "min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 pb-20 lg:pl-64 xl:pl-72 pt-16 lg:pt-0";
+  const layoutShell = "min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 pb-20 lg:pl-72 xl:pl-80 pt-16 lg:pt-0";
   const innerPadding = "px-4 sm:px-6 md:px-8 lg:px-10";
 
   if (loading) {

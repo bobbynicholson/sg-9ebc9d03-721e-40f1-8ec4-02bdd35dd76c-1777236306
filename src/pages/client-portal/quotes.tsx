@@ -183,7 +183,7 @@ export default function ClientQuotesPage() {
       <NoIndexMeta />
       <Head><title>Quotes | {companyName}</title></Head>
       <ClientNav />
-      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-64 xl:pl-72 pt-16 lg:pt-0">
+      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
         <ClientPageHeader
           title="Your quotes"
           subtitle={`Every quote ${companyName} has sent through. Tap one to open the full quote, accept it, or request changes.`}

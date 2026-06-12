@@ -46,8 +46,12 @@ export function Layout({
   // clear it with a left padding on the shell. Public/marketing pages
   // (showNav=false) keep mx-auto centring - that's the right shape
   // for a hero-and-content layout with no sidebar.
+  // Offset MUST match the nav width. AdminNav + the staff PortalSidebar
+  // are lg:w-72 xl:w-80; ClientNav is now widened to match. The old
+  // lg:pl-64 xl:pl-72 here left a 32px overlap where the wider AdminNav
+  // sat on top of the content's left edge on every PortalLayout page.
   const isPortal = showNav && user;
-  const portalShell = isPortal ? "lg:pl-64 xl:pl-72 pt-16 lg:pt-0" : "";
+  const portalShell = isPortal ? "lg:pl-72 xl:pl-80 pt-16 lg:pt-0" : "";
   // On portal pages, content sits flush against the left padding the
   // shell already provides - no mx-auto, otherwise the content
   // centres in the post-sidebar gap and leaves a big empty rail.

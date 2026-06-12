@@ -349,7 +349,7 @@ export default function ClientBillingPage() {
 
       <ClientNav />
 
-      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-64 xl:pl-72 pt-16 lg:pt-0">
+      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
         <ClientPageHeader
           title="Billing & invoices"
           subtitle="Pay outstanding invoices, view payment history, and download receipts."

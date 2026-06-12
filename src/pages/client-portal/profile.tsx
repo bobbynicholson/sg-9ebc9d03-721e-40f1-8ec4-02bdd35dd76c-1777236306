@@ -343,7 +343,7 @@ export default function ClientProfilePage() {
       <Head><title>Your profile | {companyName}</title></Head>
       <ClientNav />
 
-      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-64 xl:pl-72 pt-16 lg:pt-0">
+      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
         <ClientPageHeader
           title="Your profile"
           subtitle="Update how the catering team gets in touch with you. Email is locked to the address you signed in with."

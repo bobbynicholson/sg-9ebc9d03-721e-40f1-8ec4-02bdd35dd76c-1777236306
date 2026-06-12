@@ -233,9 +233,11 @@ export function ClientNav() {
         </div>
       )}
 
-      {/* Desktop Sidebar */}
+      {/* Desktop Sidebar. Width matches AdminNav + staff sidebars
+          (lg:w-72 xl:w-80) so the shared Layout/PortalLayout offset is
+          correct for every role. */}
       <div className={`hidden lg:flex lg:flex-col lg:fixed lg:inset-y-0 lg:left-0 lg:border-r lg:border-slate-200 dark:lg:border-slate-700 lg:bg-white dark:lg:bg-slate-900 transition-all duration-300 ${
-        isCollapsed ? "lg:w-20" : "lg:w-64 xl:w-72"
+        isCollapsed ? "lg:w-20" : "lg:w-72 xl:w-80"
       }`}>
         <div className="flex flex-col flex-1 min-h-0">
           <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-700">

@@ -974,7 +974,7 @@ function ClientPortalDashboardInner() {
           overflow-x-hidden     guards against any rogue child overflow
                                 on small screens.
       */}
-      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-64 xl:pl-72 pt-16 lg:pt-0">
+      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
         {/*
           Branded greeting strip. Uses inline styles for the gradient so
           each tenant's brand colours apply without a Tailwind safelist

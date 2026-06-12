@@ -156,7 +156,7 @@ export default function ClientNotificationsPage() {
       <Head><title>Notifications | {company?.company_name || "Your portal"}</title></Head>
       <ClientNav />
 
-      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-64 xl:pl-72 pt-16 lg:pt-0">
+      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
         <ClientPageHeader
           title="Notifications"
           subtitle="Quote updates, driver alerts, payment confirmations - everything the team has sent you."
