@@ -554,10 +554,12 @@ function SettingsPage() {
             </Card>
           </div>
 
-          {/* Tabs - Mobile Optimized with Scrollable Tab List */}
+          {/* Tabs - wrap onto multiple rows instead of cramming 10
+              into a single grid-cols-10 row (which squashed/overflowed
+              on laptops). flex-wrap + h-auto lets them flow naturally
+              at every width. */}
           <Tabs defaultValue="company" className="space-y-4 md:space-y-6">
-            <div className="overflow-x-auto">
-              <TabsList className="inline-flex w-auto min-w-full md:grid md:w-full md:grid-cols-10 gap-1">
+            <TabsList className="flex flex-wrap w-full h-auto gap-1 justify-start">
                 <TabsTrigger value="company" className="text-xs md:text-sm whitespace-nowrap">Company</TabsTrigger>
                 <TabsTrigger value="notifications" className="text-xs md:text-sm whitespace-nowrap">Notifications</TabsTrigger>
                 <TabsTrigger value="automation" className="text-xs md:text-sm whitespace-nowrap">Automation</TabsTrigger>
@@ -569,7 +571,6 @@ function SettingsPage() {
                 <TabsTrigger value="cancellation" className="text-xs md:text-sm whitespace-nowrap">Cancellation</TabsTrigger>
                 <TabsTrigger value="email-automation" className="text-xs md:text-sm whitespace-nowrap">Email Auto</TabsTrigger>
               </TabsList>
-            </div>
 
             <TabsContent value="company">
               <CompanySettingsTab
