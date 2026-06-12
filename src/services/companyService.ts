@@ -494,19 +494,13 @@ export const companyService = {
         console.error("Error linking company owner:", ownerLinkErr);
       }
 
-      // 4. Ensure the user's profile carries the company link (create-user
-      // sets this, but belt-and-braces in case its profile write lagged).
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update({
-          company_id: company.id,
-          company_slug: data.company_slug
-        } as any)
-        .eq('id', userId);
-
-      if (profileError) {
-        console.error("Error updating profile:", profileError);
-      }
+      // Note (2026-06-12): we deliberately DON'T update the new admin's
+      // profile from here. /api/admin/create-user already upserts it
+      // (company_id, role, active_role) with the service-role client.
+      // The previous browser-side profile UPDATE ran as the SUPER-ADMIN'S
+      // session writing ANOTHER user's row, which the profiles RLS
+      // WITH CHECK rejected ("new row violates row-level security
+      // policy for table profiles") - failing every company creation.
 
       // 4. Seed the default "Main kitchen" region.
       try {
