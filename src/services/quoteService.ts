@@ -698,6 +698,29 @@ export const quoteService = {
       };
     }
 
+    // Gate: orders.guest_count is NOT NULL on the schema, but
+    // guest_count is optional at quote-draft stage. Converting a
+    // no-guest-count quote used to crash the INSERT with a raw
+    // `null value in column "guest_count" ... violates not-null
+    // constraint` at the worst possible moment - acceptance. Refuse
+    // with a fixable message instead; kitchen prep + per-guest
+    // pricing both key off this number, so silently defaulting it
+    // (e.g. to 0) would corrupt downstream production reports.
+    const rawGuestCount = (quote as any).guest_count;
+    const resolvedGuestCount = rawGuestCount == null ? null : Number(rawGuestCount);
+    if (resolvedGuestCount == null || !Number.isFinite(resolvedGuestCount)) {
+      return {
+        order: null,
+        invoice: { ok: false, error: "Quote has no guest count" },
+        email: { sent: false, skipped: true, reason: "no_guest_count" },
+        kitchen: { ok: false, tasksCreated: 0, reason: "no_guest_count" },
+        deposit: { recorded: false },
+        error:
+          "This quote has no guest count. Edit the quote, set the number of guests, then convert - kitchen prep and per-guest pricing depend on it.",
+        error_code: "no_guest_count",
+      };
+    }
+
     // Lifecycle backbone: orders.client_id is NOT NULL on the schema,
     // so we MUST have a client_id before inserting. If this quote came
     // from a lead that was never promoted to a client (the historical
@@ -777,7 +800,7 @@ export const quoteService = {
       event_date: q.event_date,
       event_time: q.event_time ?? null,
       setup_time: q.setup_time ?? null,
-      guest_count: q.guest_count ?? null,
+      guest_count: resolvedGuestCount,
       venue_address: q.venue_address ?? null,
       venue_lat: q.venue_lat ?? null,
       venue_lng: q.venue_lng ?? null,
