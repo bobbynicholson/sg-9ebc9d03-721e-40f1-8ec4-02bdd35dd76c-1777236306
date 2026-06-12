@@ -1037,18 +1037,18 @@ function AdminLeadsInner() {
 
       <AdminNav />
 
-      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 lg:pl-72 xl:pl-80">
+      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
         <div className="px-4 py-6 md:py-8 lg:py-12 max-w-full">
           <div className="flex items-center justify-between mb-8">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg">
-                <TrendingUp className="w-6 h-6 text-white" />
+              <div className="w-11 h-11 rounded-xl bg-brand-primary/10 flex items-center justify-center flex-shrink-0">
+                <TrendingUp className="w-5 h-5 text-brand-primary" />
               </div>
               <div>
-                <h1 className="text-3xl font-bold text-slate-900">Leads</h1>
-                <p className="text-slate-600">
+                <h1 className="text-2xl md:text-3xl font-bold text-slate-900">Leads</h1>
+                <p className="text-sm text-slate-600 mt-1">
                   Structured enquiry capture. When someone asks for catering through an embed form, email, or phone call, create a lead to track event details (type, guest count, budget, venue, source) before quoting. Leads also appear in your{" "}
-                  <Link href={withSlug("/admin/contacts")} className="text-indigo-600 hover:underline font-medium">
+                  <Link href={withSlug("/admin/contacts")} className="text-brand-primary hover:underline font-medium">
                     Contacts inbox
                   </Link>
                   {" "}automatically.
@@ -1187,8 +1187,8 @@ function AdminLeadsInner() {
                     <p className="text-sm text-slate-600 flex items-center gap-1.5">Total Leads <InfoTooltip content={"Every lead on file for your company (or this branch if you've filtered), across every status."} /></p>
                     <p className="text-2xl font-bold text-slate-900">{statusCounts.all}</p>
                   </div>
-                  <div className="w-12 h-12 rounded-lg bg-blue-100 flex items-center justify-center">
-                    <TrendingUp className="w-6 h-6 text-blue-600" />
+                  <div className="w-12 h-12 rounded-lg bg-brand-primary/10 flex items-center justify-center">
+                    <TrendingUp className="w-6 h-6 text-brand-primary" />
                   </div>
                 </div>
               </CardContent>
