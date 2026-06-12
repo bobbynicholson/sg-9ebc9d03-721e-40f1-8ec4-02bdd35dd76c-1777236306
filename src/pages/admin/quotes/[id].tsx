@@ -533,7 +533,11 @@ function AdminQuoteDetailInner() {
         lines.push(`Confirmation email sent to ${quote.client_email}.`);
       }
       toast({ title: "Quote converted", description: lines.join(" ") });
-      router.push(withSlug("/admin/orders"));
+      // Slug-prefixed paths resolve via the rewrite chain, which can
+      // turn this push into a full page load - that wiped the toast
+      // before the operator could read it ("converted but nothing
+      // happened?"). Give the receipt a beat on screen first.
+      setTimeout(() => router.push(withSlug("/admin/orders")), 1800);
     } catch (e: any) {
       toast({
         title: "Conversion failed",
