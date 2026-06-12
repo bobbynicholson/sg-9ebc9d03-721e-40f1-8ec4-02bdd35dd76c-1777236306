@@ -364,7 +364,7 @@ function SettingsPage() {
       <AdminNav />
       
       <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 px-4 md:px-6 pt-20 lg:pt-6 pb-6 lg:pl-72 xl:pl-80">
-        <div className="max-w-full space-y-4 md:space-y-6">
+        <div className="max-w-6xl mx-auto space-y-4 md:space-y-6">
           {/* Header - Mobile Optimized */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="flex items-center gap-3">
