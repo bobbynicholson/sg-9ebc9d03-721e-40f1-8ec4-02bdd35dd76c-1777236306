@@ -36,7 +36,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import {
   CheckCircle2, MapPin, Calendar, Users, Loader2, AlertCircle,
-  Printer, MessageSquare, ArrowRight, Pencil, X,
+  Printer, MessageSquare, ArrowRight, Pencil, X, User, Clock,
 } from "lucide-react";
 import {
   fetchByToken, recordView, recordAccept, submitChangeRequest,
@@ -287,8 +287,9 @@ export default function PublicQuotePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-stone-50">
-        <Loader2 className="w-6 h-6 animate-spin text-stone-400" />
+      <div className="min-h-screen flex flex-col items-center justify-center gap-3 bg-gradient-to-b from-stone-100 via-stone-50 to-white">
+        <Loader2 className="w-7 h-7 animate-spin text-stone-400" />
+        <p className="text-sm text-stone-500">Fetching your quote...</p>
       </div>
     );
   }
@@ -548,44 +549,60 @@ export default function PublicQuotePage() {
             </div>
           </div>
 
-          {/* EVENT DETAILS */}
+          {/* EVENT DETAILS - icon tiles so the who / when / how many /
+              where scan in one glance. */}
           <Card className="mb-4 border border-stone-200 shadow-sm print-shadow-none">
             <CardContent className="py-5 px-5 grid grid-cols-1 sm:grid-cols-3 gap-4">
               {quote.client_name && (
-                <div>
-                  <p className="text-[10px] uppercase tracking-[0.15em] text-brand-primary font-bold">For</p>
-                  <p className="text-sm font-semibold text-stone-900 mt-0.5">{quote.client_name}</p>
+                <div className="flex items-start gap-3">
+                  <div className="w-9 h-9 rounded-lg bg-brand-primary/10 flex items-center justify-center shrink-0">
+                    <User className="w-4 h-4 text-brand-primary" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[10px] uppercase tracking-[0.15em] text-stone-500 font-bold">Prepared for</p>
+                    <p className="text-sm font-semibold text-stone-900 mt-0.5">{quote.client_name}</p>
+                  </div>
                 </div>
               )}
               {eventDate && (
-                <div>
-                  <p className="text-[10px] uppercase tracking-[0.15em] text-brand-primary font-bold flex items-center gap-1">
-                    <Calendar className="w-3 h-3" /> Event date
-                  </p>
-                  <p className="text-sm font-semibold text-stone-900 mt-0.5">
-                    {eventDate}{eventTime ? ` - ${eventTime} start` : ""}
-                  </p>
-                  {setupTime && setupTime !== eventTime && (
-                    <p className="text-xs text-stone-600 mt-0.5">
-                      Setup / arrival: <span className="font-semibold text-stone-900">{setupTime}</span>
+                <div className="flex items-start gap-3">
+                  <div className="w-9 h-9 rounded-lg bg-brand-primary/10 flex items-center justify-center shrink-0">
+                    <Calendar className="w-4 h-4 text-brand-primary" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[10px] uppercase tracking-[0.15em] text-stone-500 font-bold">Event date</p>
+                    <p className="text-sm font-semibold text-stone-900 mt-0.5">
+                      {eventDate}{eventTime ? ` - ${eventTime} start` : ""}
                     </p>
-                  )}
+                    {setupTime && setupTime !== eventTime && (
+                      <p className="text-xs text-stone-600 mt-0.5 flex items-center gap-1">
+                        <Clock className="w-3 h-3 text-stone-400" />
+                        Setup / arrival: <span className="font-semibold text-stone-900">{setupTime}</span>
+                      </p>
+                    )}
+                  </div>
                 </div>
               )}
               {displayGuestCount != null && (
-                <div>
-                  <p className="text-[10px] uppercase tracking-[0.15em] text-brand-primary font-bold flex items-center gap-1">
-                    <Users className="w-3 h-3" /> Guests
-                  </p>
-                  <p className="text-sm font-semibold text-stone-900 mt-0.5">{displayGuestCount}</p>
+                <div className="flex items-start gap-3">
+                  <div className="w-9 h-9 rounded-lg bg-brand-primary/10 flex items-center justify-center shrink-0">
+                    <Users className="w-4 h-4 text-brand-primary" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[10px] uppercase tracking-[0.15em] text-stone-500 font-bold">Guests</p>
+                    <p className="text-sm font-semibold text-stone-900 mt-0.5">{displayGuestCount}</p>
+                  </div>
                 </div>
               )}
               {quote.venue_address && (
-                <div className="sm:col-span-3">
-                  <p className="text-[10px] uppercase tracking-[0.15em] text-brand-primary font-bold flex items-center gap-1">
-                    <MapPin className="w-3 h-3" /> Venue
-                  </p>
-                  <p className="text-sm font-semibold text-stone-900 mt-0.5">{quote.venue_address}</p>
+                <div className="flex items-start gap-3 sm:col-span-3">
+                  <div className="w-9 h-9 rounded-lg bg-brand-primary/10 flex items-center justify-center shrink-0">
+                    <MapPin className="w-4 h-4 text-brand-primary" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[10px] uppercase tracking-[0.15em] text-stone-500 font-bold">Venue</p>
+                    <p className="text-sm font-semibold text-stone-900 mt-0.5">{quote.venue_address}</p>
+                  </div>
                 </div>
               )}
             </CardContent>
@@ -936,7 +953,10 @@ export default function PublicQuotePage() {
                           This quote is valid until <strong>{validUntil}</strong>.
                         </p>
                       )}
-                      <p className="text-sm text-stone-700">
+                      <h2 className="text-xl sm:text-2xl font-serif font-bold text-stone-900">
+                        Ready to lock in your event?
+                      </h2>
+                      <p className="text-sm text-stone-700 max-w-md mx-auto">
                         Happy with the quote? Hit accept and {companyName} will send
                         {depositLabel
                           ? ` a ${fmtMoney(depositAmount as number)} deposit invoice (${depositPct}% of ${fmtMoney(quote.total_amount)}).`
