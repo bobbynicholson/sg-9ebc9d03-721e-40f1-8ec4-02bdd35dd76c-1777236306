@@ -319,7 +319,7 @@ function CMSPageManagement() {
               {/* Header */}
               <div className="mb-5 flex items-center justify-between flex-wrap gap-3">
                 <div className="flex items-center gap-3">
-                  <div className="p-2.5 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-500 shadow-lg">
+                  <div className="p-2.5 rounded-xl bg-gradient-to-br from-brand-primary to-brand-secondary shadow-lg">
                     <FileText className="w-5 h-5 text-white" />
                   </div>
                   <div>
@@ -417,7 +417,7 @@ function CMSPageManagement() {
                       <Button
                         onClick={runAiDraft}
                         disabled={aiBusy || !draftReq.topic.trim()}
-                        className="bg-gradient-to-r from-purple-600 to-pink-600"
+                        className="bg-gradient-to-r from-brand-primary to-brand-secondary"
                       >
                         {aiBusy ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Sparkles className="w-4 h-4 mr-1.5" />}
                         {aiBusy ? "Drafting..." : "Generate draft"}
@@ -681,7 +681,7 @@ function CMSPageManagement() {
             <>
               <div className="mb-6 flex items-center justify-between flex-wrap gap-3">
                 <div className="flex items-center gap-3">
-                  <div className="p-3 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-500 shadow-lg">
+                  <div className="p-3 rounded-2xl bg-gradient-to-br from-brand-primary to-brand-secondary shadow-lg">
                     <FileText className="w-7 h-7 text-white" />
                   </div>
                   <div>
@@ -700,7 +700,7 @@ function CMSPageManagement() {
                       Platform dashboard
                     </Button>
                   </Link>
-                  <Button onClick={startNew} className="bg-gradient-to-r from-blue-600 to-indigo-600">
+                  <Button onClick={startNew} className="bg-gradient-to-r from-brand-primary to-brand-secondary">
                     <Plus className="mr-1.5 h-4 w-4" />
                     New page
                   </Button>
@@ -717,7 +717,7 @@ function CMSPageManagement() {
                       <h3 className="text-lg font-semibold text-slate-900">No pages yet</h3>
                       <p className="text-sm text-slate-600 mt-1">Use the AI Draft Assistant to write your first one.</p>
                     </div>
-                    <Button onClick={startNew} className="bg-gradient-to-r from-blue-600 to-indigo-600">
+                    <Button onClick={startNew} className="bg-gradient-to-r from-brand-primary to-brand-secondary">
                       <Plus className="mr-1.5 h-4 w-4" />
                       Create first page
                     </Button>

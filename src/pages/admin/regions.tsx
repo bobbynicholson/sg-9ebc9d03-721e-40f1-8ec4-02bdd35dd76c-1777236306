@@ -696,11 +696,11 @@ function RegionsPage() {
         <div className="px-4 py-8 max-w-full">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center shadow-lg">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-brand-primary to-brand-secondary flex items-center justify-center shadow-lg">
                 <Globe className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h1 className="text-3xl lg:text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+                <h1 className="text-3xl lg:text-4xl font-bold bg-gradient-to-r from-brand-primary to-brand-secondary bg-clip-text text-transparent">
                   Branches
                 </h1>
                 <p className="text-slate-600 mt-1">
@@ -792,7 +792,7 @@ function RegionsPage() {
                   "Add Branch" affordance for REGION_ADMIN since they
                   can only edit branches they already manage. */}
               {canCreateBranch && (
-                <Button onClick={openCreateDialog} className="bg-gradient-to-r from-purple-500 to-pink-500 hover:opacity-90 gap-2">
+                <Button onClick={openCreateDialog} className="bg-gradient-to-r from-brand-primary to-brand-secondary hover:opacity-90 gap-2">
                   <Plus className="w-4 h-4" />
                   Add Branch
                 </Button>
@@ -1406,7 +1406,7 @@ function RegionsPage() {
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setCreateOpen(false)} disabled={submitting}>Cancel</Button>
-            <Button onClick={handleSave} disabled={submitting} className="bg-gradient-to-r from-purple-500 to-pink-500 hover:opacity-90 gap-2">
+            <Button onClick={handleSave} disabled={submitting} className="bg-gradient-to-r from-brand-primary to-brand-secondary hover:opacity-90 gap-2">
               {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
               {editing ? "Save changes" : "Create branch"}
             </Button>
@@ -1584,7 +1584,7 @@ function AssignStaffDialog({
           <Button
             onClick={handleSave}
             disabled={saving || dirtyCount === 0}
-            className="bg-purple-600 hover:bg-purple-700 gap-2"
+            className="bg-brand-primary hover:opacity-90 gap-2"
           >
             {saving && <Loader2 className="w-4 h-4 animate-spin" />}
             {dirtyCount === 0 ? "No changes" : `Save ${dirtyCount} change${dirtyCount === 1 ? "" : "s"}`}

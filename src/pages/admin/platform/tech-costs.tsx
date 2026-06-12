@@ -764,7 +764,7 @@ function TechCostsDashboard() {
                             <p className="text-sm font-semibold text-slate-900">{cat.category}</p>
                             <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden mt-1.5">
                               <div
-                                className="h-full bg-gradient-to-r from-emerald-500 to-teal-500"
+                                className="h-full bg-gradient-to-r from-brand-primary to-brand-secondary"
                                 style={{ width: `${pct.toFixed(1)}%` }}
                               />
                             </div>

@@ -468,7 +468,7 @@ function IntegrationsPage() {
                 </div>
                 <a
                   href="/api/accounting/xero/authorize"
-                  className="inline-flex items-center gap-2 shrink-0 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-3 py-2"
+                  className="inline-flex items-center gap-2 shrink-0 rounded-md bg-brand-primary hover:opacity-90 text-white text-sm font-medium px-3 py-2"
                 >
                   Connect Xero
                   <ExternalLink className="w-3 h-3" />
@@ -958,7 +958,7 @@ function SageCard({ companyId }: { companyId: string | null | undefined }) {
               </div>
               <a
                 href={`/api/accounting/sage/authorize?companyId=${encodeURIComponent(companyId || "")}`}
-                className="inline-flex items-center gap-2 shrink-0 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-3 py-2"
+                className="inline-flex items-center gap-2 shrink-0 rounded-md bg-brand-primary hover:opacity-90 text-white text-sm font-medium px-3 py-2"
               >
                 Connect Sage
                 <ExternalLink className="w-3 h-3" />

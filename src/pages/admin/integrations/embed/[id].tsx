@@ -382,7 +382,7 @@ export default function EmbedFormCustomiser() {
               <Button
                 onClick={() => saveForm(form)}
                 disabled={saving || !dirty}
-                className="gap-2 bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600"
+                className="gap-2 bg-gradient-to-r from-brand-primary to-brand-secondary hover:from-indigo-600 hover:to-purple-600"
               >
                 {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                 Save

@@ -1227,7 +1227,7 @@ function DispatchQueuePage() {
                         ) : (
                           <Button
                             size="sm"
-                            className="h-8 gap-1.5 bg-orange-600 hover:bg-orange-700 text-white"
+                            className="h-8 gap-1.5 bg-brand-primary hover:opacity-90 text-white"
                             onClick={() => openAssign(order)}
                           >
                             <Sparkles className="w-3.5 h-3.5" />
@@ -1300,7 +1300,7 @@ function DispatchQueuePage() {
                       <div className="flex items-center gap-2">
                         <Button
                           size="sm"
-                          className={`flex-1 gap-1.5 ${order.assigned_driver_id ? "bg-slate-700 hover:bg-slate-800" : "bg-orange-600 hover:bg-orange-700"} text-white`}
+                          className={`flex-1 gap-1.5 ${order.assigned_driver_id ? "bg-slate-700 hover:bg-slate-800" : "bg-brand-primary hover:opacity-90"} text-white`}
                           onClick={(e) => { e.stopPropagation(); openAssign(order); }}
                         >
                           <Sparkles className="w-3.5 h-3.5" />
@@ -1584,7 +1584,7 @@ function DispatchQueuePage() {
             <Button
               onClick={handleBulkAssign}
               disabled={!bulkDriverId || bulkSaving}
-              className="bg-orange-600 hover:bg-orange-700"
+              className="bg-brand-primary hover:opacity-90"
             >
               {bulkSaving ? "Assigning..." : `Assign ${selected.size}`}
             </Button>

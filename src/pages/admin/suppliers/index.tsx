@@ -238,11 +238,11 @@ function SuppliersList() {
 
           <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex items-center gap-3 min-w-0">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center shadow-lg flex-shrink-0">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-brand-primary to-brand-secondary flex items-center justify-center shadow-lg flex-shrink-0">
                 <Building2 className="w-6 h-6 text-white" />
               </div>
               <div className="min-w-0">
-                <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold bg-gradient-to-r from-amber-600 to-orange-600 bg-clip-text text-transparent">
+                <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold bg-gradient-to-r from-brand-primary to-brand-secondary bg-clip-text text-transparent">
                   Suppliers
                 </h1>
                 <p className="text-sm sm:text-base text-slate-600 mt-1">
@@ -260,7 +260,7 @@ function SuppliersList() {
               </Button>
               <Button
                 onClick={() => setAdding(true)}
-                className="bg-gradient-to-r from-amber-600 to-orange-600 text-white"
+                className="bg-gradient-to-r from-brand-primary to-brand-secondary text-white"
               >
                 <Plus className="w-4 h-4 mr-1.5" /> Add supplier
               </Button>
@@ -930,7 +930,7 @@ function SupplierFormDialog({
 
         <DialogFooter>
           <Button variant="ghost" onClick={onClose} disabled={saving}>Cancel</Button>
-          <Button onClick={save} disabled={saving} className="bg-gradient-to-r from-amber-600 to-orange-600 text-white">
+          <Button onClick={save} disabled={saving} className="bg-gradient-to-r from-brand-primary to-brand-secondary text-white">
             {saving ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : null}
             {editing ? "Save changes" : "Add supplier"}
           </Button>
@@ -1293,7 +1293,7 @@ A1 Chicken,,orders@a1chicken.co.za,0215551236,,,COD on delivery,Meat;Fresh`;
           <Button
             onClick={runImport}
             disabled={rows.length === 0 || busy}
-            className="bg-gradient-to-r from-amber-600 to-orange-600 text-white"
+            className="bg-gradient-to-r from-brand-primary to-brand-secondary text-white"
           >
             {busy ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Upload className="w-4 h-4 mr-1.5" />}
             Import {rows.filter((r) => !r._error).length}

@@ -303,7 +303,7 @@ function ClientImportPage() {
           </Link>
 
           <div className="flex items-start gap-3 mb-6">
-            <div className="p-3 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 shadow-md">
+            <div className="p-3 rounded-xl bg-gradient-to-br from-brand-primary to-brand-secondary shadow-md">
               <Users className="w-6 h-6 text-white" />
             </div>
             <div>
@@ -398,7 +398,7 @@ function ClientImportPage() {
                     <Button
                       onClick={submit}
                       disabled={submitting || counts.ok === 0}
-                      className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:opacity-90"
+                      className="bg-gradient-to-r from-brand-primary to-brand-secondary hover:opacity-90"
                     >
                       {submitting
                         ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Importing...</>

@@ -758,7 +758,7 @@ function FinancialDashboardInner() {
 
             {/* Celebration Message */}
             {showCelebration && (
-              <div className="bg-gradient-to-r from-green-500 to-emerald-500 text-white p-4 rounded-lg mb-4 animate-pulse">
+              <div className="bg-gradient-to-r from-brand-primary to-brand-secondary text-white p-4 rounded-lg mb-4 animate-pulse">
                 <div className="flex items-center gap-3">
                   <Trophy className="w-8 h-8" />
                   <div>
@@ -1207,7 +1207,7 @@ function FinancialDashboardInner() {
                       </div>
                       <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
                         <div 
-                          className="h-full bg-gradient-to-r from-green-500 to-emerald-500"
+                          className="h-full bg-gradient-to-r from-brand-primary to-brand-secondary"
                           style={{ 
                             width: `${Math.min(100, ((metrics?.projectedRevenue90Days || 0) / ((metrics?.projectedRevenue30Days || 1) * 3)) * 100)}%` 
                           }}

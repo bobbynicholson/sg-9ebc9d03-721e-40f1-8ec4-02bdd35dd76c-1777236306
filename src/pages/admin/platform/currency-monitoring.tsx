@@ -167,7 +167,7 @@ function PlatformCurrencyMonitoringPage() {
       <div className="max-w-full space-y-6">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+            <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-brand-primary to-brand-secondary bg-clip-text text-transparent">
               Currency Monitoring
             </h1>
             <p className="text-slate-600 dark:text-slate-400 mt-2">
@@ -177,7 +177,7 @@ function PlatformCurrencyMonitoringPage() {
           <Button
             onClick={handleRefresh}
             disabled={refreshing}
-            className="bg-gradient-to-r from-purple-600 to-pink-600 text-white"
+            className="bg-gradient-to-r from-brand-primary to-brand-secondary text-white"
           >
             <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? "animate-spin" : ""}`} />
             Run Check Now
@@ -233,7 +233,7 @@ function PlatformCurrencyMonitoringPage() {
                     {currentRateDate ? ` · as of ${new Date(currentRateDate).toLocaleDateString()}` : " · no rate stored yet"}
                   </p>
                 </div>
-                <div className="h-12 w-12 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+                <div className="h-12 w-12 rounded-full bg-gradient-to-br from-brand-primary to-brand-secondary flex items-center justify-center">
                   <DollarSign className="h-6 w-6 text-white" />
                 </div>
               </div>

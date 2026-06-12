@@ -108,11 +108,11 @@ function PlatformFinancialDashboard() {
           {/* Header */}
           <div className="mb-6 flex items-center justify-between flex-wrap gap-3">
             <div className="flex items-center gap-3">
-              <div className="p-3 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-500 shadow-lg">
+              <div className="p-3 rounded-2xl bg-gradient-to-br from-brand-primary to-brand-secondary shadow-lg">
                 <Crown className="w-7 h-7 text-white" />
               </div>
               <div>
-                <h1 className="text-2xl lg:text-3xl font-bold bg-gradient-to-r from-amber-600 to-orange-600 bg-clip-text text-transparent">
+                <h1 className="text-2xl lg:text-3xl font-bold bg-gradient-to-r from-brand-primary to-brand-secondary bg-clip-text text-transparent">
                   Platform finances
                 </h1>
                 <p className="text-sm text-slate-600 mt-0.5">

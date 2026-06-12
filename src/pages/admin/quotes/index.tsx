@@ -1411,11 +1411,11 @@ function AdminQuotesInner() {
           <div className="mb-8">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div className="flex items-center gap-3">
-                <div className="p-3 bg-gradient-to-br from-green-500 to-emerald-500 rounded-2xl shadow-lg shrink-0">
+                <div className="p-3 bg-gradient-to-br from-brand-primary to-brand-secondary rounded-2xl shadow-lg shrink-0">
                   <DollarSign className="w-8 h-8 text-white" />
                 </div>
                 <div>
-                  <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
+                  <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-brand-primary to-brand-secondary bg-clip-text text-transparent">
                     Quotes
                   </h1>
                   <p className="text-slate-600 mt-1 text-sm sm:text-base hidden sm:block">Priced proposals. Build a quote from a lead or directly off a client, send the public link, then chase with reminders until accepted or declined. Accepted quotes convert to orders.</p>
@@ -1493,7 +1493,7 @@ function AdminQuotesInner() {
                   Export CSV
                 </Button>
                 <Link href={withSlug("/admin/quotes/new")}>
-                  <Button size="lg" className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700">
+                  <Button size="lg" className="bg-gradient-to-r from-brand-primary to-brand-secondary hover:from-green-700 hover:to-emerald-700">
                     <Plus className="w-5 h-5 mr-2" />
                     New Quote
                   </Button>

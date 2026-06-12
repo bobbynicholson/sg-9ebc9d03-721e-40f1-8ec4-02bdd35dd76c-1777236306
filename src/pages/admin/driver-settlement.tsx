@@ -1754,7 +1754,7 @@ function FragmentRows({
               type="button"
               onClick={saveShiftEdit}
               disabled={shiftBusy}
-              className="px-3 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-md flex items-center gap-1.5 disabled:opacity-60"
+              className="px-3 py-2 text-sm bg-brand-primary hover:opacity-90 text-white rounded-md flex items-center gap-1.5 disabled:opacity-60"
             >
               {shiftBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
               Save changes

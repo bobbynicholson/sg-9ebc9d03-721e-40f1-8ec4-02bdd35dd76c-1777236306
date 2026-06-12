@@ -1088,11 +1088,11 @@ function ClientsCRM() {
                 ~1100px viewports rendered the paragraph as one word
                 per line. */}
             <div className="flex items-center gap-3 min-w-0 flex-1">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center shadow-lg flex-shrink-0">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-brand-primary to-brand-secondary flex items-center justify-center shadow-lg flex-shrink-0">
                 <Users className="w-6 h-6 text-white" />
               </div>
               <div className="min-w-0 flex-1">
-                <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+                <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold bg-gradient-to-r from-brand-primary to-brand-secondary bg-clip-text text-transparent">
                   Contacts
                 </h1>
                 <p className="text-sm sm:text-base text-slate-600 mt-1">
@@ -1216,7 +1216,7 @@ function ClientsCRM() {
               </Button>
               <Button
                 onClick={() => { setEditing(null); setFormOpen(true); }}
-                className="gap-1.5 bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:from-purple-700 hover:to-pink-700"
+                className="gap-1.5 bg-gradient-to-r from-brand-primary to-brand-secondary text-white hover:opacity-90"
               >
                 <Plus className="w-4 h-4" /> Add contact
               </Button>
@@ -2550,7 +2550,7 @@ function ClientFormDialog({
           )}
           <div className="flex gap-2 sm:ml-auto">
             <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={saving}>Cancel</Button>
-            <Button onClick={handleSave} disabled={saving} className="bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:from-purple-700 hover:to-pink-700">
+            <Button onClick={handleSave} disabled={saving} className="bg-gradient-to-r from-brand-primary to-brand-secondary text-white hover:opacity-90">
               {saving ? "Saving..." : editing?.clientId ? "Save changes" : promoting ? "Save as client" : "Add client"}
             </Button>
           </div>

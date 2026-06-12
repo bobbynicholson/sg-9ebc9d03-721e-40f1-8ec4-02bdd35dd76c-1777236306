@@ -1558,7 +1558,7 @@ function OrderProcessDashboard() {
                 <Link href={withSlug("/admin/quotes/new")}>
                   <Button
                     size="sm"
-                    className="h-9 gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-md hover:shadow-lg active:scale-[0.98] transition-all"
+                    className="h-9 gap-2 bg-gradient-to-r from-brand-primary to-brand-secondary hover:from-blue-700 hover:to-indigo-700 shadow-md hover:shadow-lg active:scale-[0.98] transition-all"
                   >
                     <FileText className="w-4 h-4" />
                     New Quote

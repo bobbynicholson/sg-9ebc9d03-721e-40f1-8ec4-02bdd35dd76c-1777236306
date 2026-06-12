@@ -82,7 +82,7 @@ export default function PlatformMessagingTemplatesPage() {
             <Crown className="w-7 h-7 text-white" />
           </div>
           <div>
-            <h1 className="text-2xl lg:text-3xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
+            <h1 className="text-2xl lg:text-3xl font-bold bg-gradient-to-r from-brand-primary to-brand-secondary bg-clip-text text-transparent">
               Platform emails
             </h1>
             <p className="text-sm text-slate-600 mt-0.5">
@@ -480,7 +480,7 @@ function EditorDrawer({
             type="button"
             onClick={handleSave}
             disabled={saving || !dirty}
-            className="gap-1.5 bg-purple-600 hover:bg-purple-700"
+            className="gap-1.5 bg-brand-primary hover:opacity-90"
           >
             <Save className="w-4 h-4" />
             {saving ? "Saving..." : "Save global default"}

@@ -138,7 +138,7 @@ function TaxRulesAdmin() {
                 <Sparkles className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
+                <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-brand-primary to-brand-secondary bg-clip-text text-transparent">
                   SA Tax Rules
                 </h1>
                 <p className="text-sm text-slate-600 mt-1">
@@ -149,7 +149,7 @@ function TaxRulesAdmin() {
             </div>
             <Button
               onClick={() => setAdding(true)}
-              className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white"
+              className="bg-gradient-to-r from-brand-primary to-brand-secondary text-white"
             >
               <Plus className="w-4 h-4 mr-1.5" /> Add rule
             </Button>
@@ -568,7 +568,7 @@ function RuleFormDialog({
 
         <DialogFooter>
           <Button variant="ghost" onClick={onClose} disabled={saving}>Cancel</Button>
-          <Button onClick={save} disabled={saving} className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white">
+          <Button onClick={save} disabled={saving} className="bg-gradient-to-r from-brand-primary to-brand-secondary text-white">
             {saving ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Save className="w-4 h-4 mr-1.5" />}
             {editing ? "Save changes" : "Add rule"}
           </Button>

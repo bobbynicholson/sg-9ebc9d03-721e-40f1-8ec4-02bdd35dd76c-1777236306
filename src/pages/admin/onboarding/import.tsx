@@ -404,11 +404,11 @@ function ImportPage() {
 
           {/* Header */}
           <div className="mb-6 flex items-center gap-3">
-            <div className="p-3 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500 shadow-lg">
+            <div className="p-3 rounded-2xl bg-gradient-to-br from-brand-primary to-brand-secondary shadow-lg">
               <Wand2 className="w-7 h-7 text-white" />
             </div>
             <div>
-              <h1 className="text-2xl lg:text-3xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent flex items-center gap-2">
+              <h1 className="text-2xl lg:text-3xl font-bold bg-gradient-to-r from-brand-primary to-brand-secondary bg-clip-text text-transparent flex items-center gap-2">
                 AI Import
                 <InfoTooltip content={"Five-step wizard for moving your existing book of business into CateringMS in one go.\n\nUpload, then we map your column headings to our schema. You preview every row before anything is committed, and you have a 24-hour rollback window if anything looks wrong after."} />
               </h1>
@@ -580,7 +580,7 @@ function ImportPage() {
                   );
                 })}
                 <div className="flex items-center gap-2 pt-2">
-                  <Button onClick={runPreview} disabled={busy || !editedMapping} className="bg-gradient-to-r from-purple-600 to-pink-600">
+                  <Button onClick={runPreview} disabled={busy || !editedMapping} className="bg-gradient-to-r from-brand-primary to-brand-secondary">
                     {busy ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Eye className="w-4 h-4 mr-2" />}
                     Build preview
                   </Button>

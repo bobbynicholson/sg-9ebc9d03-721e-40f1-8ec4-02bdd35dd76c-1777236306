@@ -280,7 +280,7 @@ const auditCards: SprintCard[] = [
     estimate: "1-2 days",
     risk: "Medium",
     icon: Database,
-    accent: "from-blue-500 to-indigo-500",
+    accent: "from-brand-primary to-brand-secondary",
     items: [
       { title: "pg_dump live -> single canonical migration", detail: "Commit as supabase/migrations/<ts>_capture_drift.sql", status: "todo" },
       { title: "Archive 5 of the 6 root-level SQL files", detail: "MASTER_SCHEMA_V2, CLEAN_SCHEMA, etc, all stale", status: "todo" },
@@ -304,7 +304,7 @@ const auditCards: SprintCard[] = [
     estimate: "3-5 days",
     risk: "High",
     icon: Banknote,
-    accent: "from-amber-500 to-orange-500",
+    accent: "from-brand-primary to-brand-secondary",
     items: [
       { title: "PayFast webhook idempotency", detail: "Resolved. isDuplicatePayFastPayment() at line 686 of payment-confirmation.ts checks gateway_transaction_id against payments before re-running the side-effect cascade. Webhook returns 200 'Already processed' on re-fires.", status: "shipped", ref: "src/pages/api/webhooks/payment-confirmation.ts:686" },
       { title: "PayFast webhook, raw body for signature", detail: "Resolved. bodyParser is disabled in handler config; readRawBody() reconstructs the form-encoded payload and signature is verified against it directly before any field is trusted.", status: "shipped", ref: "src/pages/api/webhooks/payment-confirmation.ts:209" },
@@ -327,7 +327,7 @@ const auditCards: SprintCard[] = [
     estimate: "2-3 days",
     risk: "Low",
     icon: Layout,
-    accent: "from-purple-500 to-pink-500",
+    accent: "from-brand-primary to-brand-secondary",
     items: [
       { title: "Build <PortalShell> layout component", detail: "Owns sidebar + content offset; replaces lg:pl-64 + container mx-auto recipe in 60+ pages", status: "todo" },
       { title: "Delete BrandingContext, write white-label to companies table", detail: "Two parallel branding stores currently never sync, this is why branding doesn't flow through", status: "todo" },
@@ -439,7 +439,7 @@ const integrationCards: SprintCard[] = [
     estimate: "1-2 hours",
     risk: "Medium",
     icon: Plug,
-    accent: "from-amber-500 to-orange-500",
+    accent: "from-brand-primary to-brand-secondary",
     items: [
       { title: "Enable in Google Cloud: Maps JavaScript, Places, Directions, Distance Matrix", status: "todo" },
       { title: "Set env var: NEXT_PUBLIC_GOOGLE_MAPS_API_KEY", status: "todo" },
@@ -482,7 +482,7 @@ const testingCards: SprintCard[] = [
     estimate: "4 hours",
     risk: "Low",
     icon: TestTube,
-    accent: "from-blue-500 to-indigo-500",
+    accent: "from-brand-primary to-brand-secondary",
     items: [
       { title: "Platform dashboard login as super_admin", status: "todo" },
       { title: "View all registered companies", status: "todo" },
@@ -501,7 +501,7 @@ const testingCards: SprintCard[] = [
     estimate: "8 hours",
     risk: "Low",
     icon: TestTube,
-    accent: "from-blue-500 to-indigo-500",
+    accent: "from-brand-primary to-brand-secondary",
     items: [
       { title: "Company signup + welcome email received", status: "todo" },
       { title: "Onboarding wizard completes cleanly", status: "todo" },
@@ -522,7 +522,7 @@ const testingCards: SprintCard[] = [
     estimate: "12 hours",
     risk: "Medium",
     icon: TestTube,
-    accent: "from-blue-500 to-indigo-500",
+    accent: "from-brand-primary to-brand-secondary",
     items: [
       { title: "Invitation + signup flow for each of the 4 roles", status: "todo" },
       { title: "Kitchen: clock in, view tasks, prep list, dishwasher cycle, clock out", status: "todo" },
@@ -539,7 +539,7 @@ const testingCards: SprintCard[] = [
     estimate: "6 hours",
     risk: "Medium",
     icon: TestTube,
-    accent: "from-blue-500 to-indigo-500",
+    accent: "from-brand-primary to-brand-secondary",
     items: [
       { title: "Submit quote request via public form, receive auto-reply", status: "todo" },
       { title: "Receive custom quote email with pricing", status: "todo" },
@@ -559,7 +559,7 @@ const testingCards: SprintCard[] = [
     estimate: "Week 4",
     risk: "High",
     icon: Users,
-    accent: "from-amber-500 to-orange-500",
+    accent: "from-brand-primary to-brand-secondary",
     items: [
       { title: "Recruit 3 beta companies (different sizes, regions)", status: "todo" },
       { title: "$500 credit per beta company", status: "todo" },
@@ -585,7 +585,7 @@ const launchCards: SprintCard[] = [
     estimate: "1 week",
     risk: "Medium",
     icon: Sparkles,
-    accent: "from-purple-500 to-pink-500",
+    accent: "from-brand-primary to-brand-secondary",
     items: [
       { title: "Page load < 2s (95th percentile)", status: "todo" },
       { title: "Time to interactive < 3s", status: "todo" },
@@ -650,7 +650,7 @@ const launchCards: SprintCard[] = [
     estimate: "1 week",
     risk: "High",
     icon: Rocket,
-    accent: "from-emerald-500 to-teal-500",
+    accent: "from-brand-primary to-brand-secondary",
     items: [
       { title: "Soft launch: first 10 companies manually onboarded", status: "todo" },
       { title: "Daily check-ins with soft-launch tenants", status: "todo" },
@@ -820,7 +820,7 @@ const wowFactorCards: SprintCard[] = [
     estimate: "2-3 weeks each",
     risk: "Medium",
     icon: Award,
-    accent: "from-purple-500 to-pink-500",
+    accent: "from-brand-primary to-brand-secondary",
     items: [
       { title: "AI roster-driven menu auto-balancing (extends U6)", detail: "Take 47 employees' dietary profiles ->existing AI recipe engine composes Tuesday's menu mix that hits kosher + halal + vegan + gluten-free + top-9 allergen exclusions automatically, zero manual planner input. Forkable does individual meals, group-menu balancing is a global gap.", status: "todo" },
       { title: "Real-time HACCP cold-chain dashboard for buyers", detail: "Pipe existing GPS + temp probes (hot-bag / cold-bag) into a public link the corporate facilities manager / venue operator watches live: '200-pax lunch is 12 mins out, hot-hold 64C, cold-hold 3C, allergen sheet attached'. Stadium, school, hospital, NHS buyers will pay extra. Zero competitors surface this to the buyer.", status: "todo" },
@@ -947,7 +947,7 @@ const productNotesCards: SprintCard[] = [
     estimate: "1-2 weeks",
     risk: "Low",
     icon: Lightbulb,
-    accent: "from-yellow-500 to-orange-500",
+    accent: "from-brand-primary to-brand-secondary",
     items: [
       { title: "Admin inventory list page at /admin/inventory", detail: "Full inventory catalogue with search, category filter, and status filter. Shows: name, category, current stock, unit, unit cost, par level (minimum stock trigger), last updated.", status: "shipped" },
       { title: "Add / edit / archive items via dialog with reason-coded stock movements", detail: "ItemForm shared by Add + Edit. Move stock dialog supports received / adjustment / waste / transfer / return reasons, writes inventory_transactions for audit.", status: "shipped" },
@@ -965,7 +965,7 @@ const productNotesCards: SprintCard[] = [
     estimate: "2 weeks (Phase 6 shipped); next-phase library = 4-6 weeks",
     risk: "Low",
     icon: BookOpen,
-    accent: "from-orange-500 to-red-500",
+    accent: "from-brand-primary to-brand-secondary",
     defaultOpen: true,
     items: [
       { title: "Schema hardening, recipes UNIQUE on menu_item_id (Phase 6A)", detail: "1:1 was de facto in data and assumed by code. Locked it in so the upcoming recipe builder can't create dups. Dropped duplicate touch_updated_at triggers. Types file marks the FK isOneToOne for correct supabase-js embed shape.", status: "shipped" },
@@ -1004,7 +1004,7 @@ const productNotesCards: SprintCard[] = [
     estimate: "Defer to post-launch",
     risk: "Low",
     icon: Package,
-    accent: "from-indigo-500 to-purple-500",
+    accent: "from-brand-primary to-brand-secondary",
     items: [
       { title: "Equipment kits, bookable as one unit (equipment_kits + equipment_kit_items)", detail: "Owner defines kits once, e.g. '50-guest spit-braai kit = 50 plates + 50 cutlery sets + 2 chafing dishes + 1 carving station'. On the quote builder, owner adds the kit as a single line. On quote acceptance, the kit explodes into individual equipment_bookings rows. New 'Kits' tab in /admin/equipment lets owners create / edit kits. Saves 70-80% of click-clicking when building the same wedding / funeral / corporate combo every weekend. Slots cleanly into the existing equipment_hire_orders + equipment_bookings cascade.", status: "todo" },
       { title: "Preventive maintenance log per asset (equipment_maintenance)", detail: "Today equipment_damages is the reactive log (someone broke it). This is the preventive log: gas bottle re-test due in 60 days, generator service every 200hrs, chafing dish lid hinge service every 12 months. New panel on /admin/equipment/[id] shows service history + next-service-due date. Nightly cron flags overdue items. Pairs with pat_testing (UK) and equipment_damages (live) to complete the asset-lifecycle story.", status: "todo" },
@@ -1032,7 +1032,7 @@ const productNotesCards: SprintCard[] = [
     estimate: "1 sprint (3-5 days)",
     risk: "Medium",
     icon: Sparkles,
-    accent: "from-indigo-500 to-purple-600",
+    accent: "from-brand-primary to-brand-secondary",
     items: [
       { title: "Tour engine + step model", detail: "Pick driver.js or react-joyride. Build a TourProvider that reads a per-tenant flag (companies.onboarding_tour_state - 'pending' | 'in_progress' | 'completed' | 'skipped') and only auto-fires when 'pending'. Each step takes a CSS selector (or ref), copy, optional CTA, and an 'onAdvance' hook so the tour can wait for an actual click instead of just a Next button. Persist progress per step so a refresh doesn't restart from zero.", status: "todo" },
       { title: "Define the 'first booking' tour script", detail: "8-10 step happy path: 1) Welcome on /admin/dashboard, 2) Click Leads in nav -> 'this is where every enquiry lands', 3) Click + New lead -> walk through the form, save a real lead, 4) Click Quotes -> 'now turn that lead into a quote', 5) Open the quote builder pre-filled with the lead, 6) Send -> 'this generates the public quote URL', 7) Show the Orders page -> 'when the client accepts, an order appears here', 8) Show Invoices -> 'when the order is delivered, the invoice generates automatically', 9) Show Calendar / Dispatch as the day-of-event view, 10) Wrap with 'you can replay this tour anytime from /admin/onboarding'.", status: "todo" },
@@ -1122,7 +1122,7 @@ const tooltipAuditCards: SprintCard[] = [
     estimate: "1 week",
     risk: "Low",
     icon: Layers,
-    accent: "from-indigo-500 to-purple-500",
+    accent: "from-brand-primary to-brand-secondary",
     items: [
       { title: "Triple-duplicate branding/identity surfaces", detail: "/admin/settings 'Company' tab, /admin/company-profile, and /admin/white-label each capture overlapping branding/identity. Editing one doesn't sync to the others. Consolidate to companies table with one canonical UI before launch.", status: "todo" },
       { title: "Migrate hand-rolled KPI tiles to MetricCard", detail: "Most admin pages re-implement the same KPI card pattern instead of using the shared MetricCard. Migrating makes the tooltip prop free everywhere and gives one place to update card visuals.", status: "todo" },
@@ -1371,7 +1371,7 @@ const smartSearchCards: SprintCard[] = [
     estimate: "Done",
     risk: "Low",
     icon: Sparkles,
-    accent: "from-purple-500 to-pink-500",
+    accent: "from-brand-primary to-brand-secondary",
     defaultOpen: true,
     items: [
       { title: "useFuzzySearch hook, pure-TS, zero deps", detail: "Five-tier scorer (exact > prefix > substring > token-prefix > subsequence), per-field weights, 200ms debounce, returns highlight ranges. ~100 lines of real logic so we don't pull Fuse.js.", status: "shipped", ref: "src/hooks/useFuzzySearch.ts" },
@@ -1388,7 +1388,7 @@ const smartSearchCards: SprintCard[] = [
     estimate: "1-2h",
     risk: "Low",
     icon: AlertTriangle,
-    accent: "from-amber-500 to-orange-500",
+    accent: "from-brand-primary to-brand-secondary",
     items: [
       { title: "/blog has a 'Search articles...' input that is wired to nothing", detail: "Input has no value/onChange. Was decorative when the blog page was added. Either wire it to an article fuzzy search (cms-blog content is already loaded client-side) or remove the input. Skipped from this rollout because it's a dead UI not a dumb UI.", status: "todo", ref: "src/pages/blog/index.tsx:127" },
       { title: "/admin/route-planning search not touched", detail: "Page is being rebuilt by a parallel agent. Hands-off until that lands so we don't conflict on the surrounding layout.", status: "todo", ref: "src/pages/admin/route-planning.tsx" },
@@ -1434,7 +1434,7 @@ const embedFormsCards: SprintCard[] = [
     estimate: "1-2 hours",
     risk: "Low",
     icon: AlertCircle,
-    accent: "from-amber-500 to-orange-500",
+    accent: "from-brand-primary to-brand-secondary",
     defaultOpen: true,
     items: [
       { title: "Apply migration 20260428120000_embed_forms.sql", detail: "Open Supabase dashboard -> SQL Editor -> paste the migration -> run. Adds embed_token to companies (auto-fills via gen_random_uuid()), creates the three new tables, adds RLS policies, adds triggers.", status: "todo" },
@@ -1499,7 +1499,7 @@ const devOpsCards: SprintCard[] = [
     estimate: "5 minutes",
     risk: "Low",
     icon: Shield,
-    accent: "from-amber-500 to-orange-500",
+    accent: "from-brand-primary to-brand-secondary",
     defaultOpen: true,
     items: [
       { title: "Set EMBED_IP_HASH_SALT on Vercel (Production + Preview + Development)", detail: "Generated value Bobby can paste: 17c4714759169984f28e618594bbb2222c41d835120fc3265817e3cfcfbc29cc. Vercel -> Project Settings -> Environment Variables -> Add New. Value persists; redeploy from Deployments tab to apply. Without it the rate-limit IP hashes still work but use a placeholder salt + emit a one-time warn on every cold start.", status: "todo" },
@@ -1516,7 +1516,7 @@ const devOpsCards: SprintCard[] = [
     estimate: "30-45 minutes wall-clock",
     risk: "Medium",
     icon: ListChecks,
-    accent: "from-blue-500 to-indigo-500",
+    accent: "from-brand-primary to-brand-secondary",
     defaultOpen: true,
     items: [
       { title: "WAVE 1, nothing-broke smoke test (5 min)", detail: "/admin/dashboard loads; tooltip on Booked Revenue reads in plain English with paragraph break. /admin/clients Compose button works. /admin/quotes Compose button on non-draft quotes opens drawer. /admin/quotes/new address field shows Google Places suggestions. Sidebar accordion sections persist open/closed state on reload.", status: "todo" },
@@ -1683,7 +1683,7 @@ function AdminRunningTodoPage() {
       <main className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 via-white to-purple-50 lg:pl-72 xl:pl-80 pt-20 lg:pt-0">
         <div className="px-3 sm:px-4 md:px-6 pt-20 lg:pt-6 pb-8 max-w-full">
           <div className="mb-6">
-            <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent flex items-center gap-3">
+            <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold bg-gradient-to-r from-brand-primary to-brand-secondary bg-clip-text text-transparent flex items-center gap-3">
               <ListChecks className="h-7 w-7 text-purple-600" />
               Running Todo
             </h1>

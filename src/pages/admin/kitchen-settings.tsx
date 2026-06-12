@@ -27,7 +27,7 @@ function KitchenSettingsAdminPage() {
         <div className="px-3 sm:px-4 md:px-6 pt-20 lg:pt-6 pb-6 max-w-3xl">
 
           <div className="mb-6 flex items-start gap-3">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center shadow-lg flex-shrink-0">
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-brand-primary to-brand-secondary flex items-center justify-center shadow-lg flex-shrink-0">
               <Settings className="w-6 h-6 text-white" />
             </div>
             <div className="min-w-0">

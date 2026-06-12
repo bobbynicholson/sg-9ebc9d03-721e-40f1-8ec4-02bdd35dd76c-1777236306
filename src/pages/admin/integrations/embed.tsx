@@ -231,11 +231,11 @@ export default function AdminEmbedFormsPage() {
           {/* Header */}
           <div className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="p-3 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-2xl shadow-lg">
+              <div className="p-3 bg-gradient-to-br from-brand-primary to-brand-secondary rounded-2xl shadow-lg">
                 <Code2 className="w-8 h-8 text-white" />
               </div>
               <div>
-                <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+                <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-brand-primary to-brand-secondary bg-clip-text text-transparent">
                   Lead Capture Forms
                 </h1>
                 <p className="text-sm md:text-base text-slate-600 mt-1">
@@ -246,7 +246,7 @@ export default function AdminEmbedFormsPage() {
             {!isEmpty && (
               <Button
                 onClick={() => setGalleryOpen(true)}
-                className="gap-2 bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600"
+                className="gap-2 bg-gradient-to-r from-brand-primary to-brand-secondary hover:from-indigo-600 hover:to-purple-600"
               >
                 <Plus className="w-4 h-4" />
                 New form
@@ -314,7 +314,7 @@ export default function AdminEmbedFormsPage() {
           {isEmpty ? (
             <Card className="border-0 shadow-lg">
               <CardContent className="py-16 text-center">
-                <div className="mx-auto mb-6 w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center shadow-lg">
+                <div className="mx-auto mb-6 w-16 h-16 rounded-2xl bg-gradient-to-br from-brand-primary to-brand-secondary flex items-center justify-center shadow-lg">
                   <Sparkles className="w-8 h-8 text-white" />
                 </div>
                 <h2 className="text-2xl font-bold text-slate-900 mb-2">
@@ -326,7 +326,7 @@ export default function AdminEmbedFormsPage() {
                 <Button
                   size="lg"
                   onClick={() => setGalleryOpen(true)}
-                  className="gap-2 bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600"
+                  className="gap-2 bg-gradient-to-r from-brand-primary to-brand-secondary hover:from-indigo-600 hover:to-purple-600"
                 >
                   <LayoutTemplate className="w-5 h-5" />
                   Browse templates
@@ -556,7 +556,7 @@ function FormCard({
                 <Pencil className="w-3.5 h-3.5" /> Edit
               </Link>
             </Button>
-            <Button onClick={onGetSnippet} size="sm" className="gap-2 bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600">
+            <Button onClick={onGetSnippet} size="sm" className="gap-2 bg-gradient-to-r from-brand-primary to-brand-secondary hover:from-indigo-600 hover:to-purple-600">
               <ExternalLink className="w-3.5 h-3.5" /> Snippet
             </Button>
           </div>

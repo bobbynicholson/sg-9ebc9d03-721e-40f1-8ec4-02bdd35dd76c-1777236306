@@ -155,11 +155,11 @@ function SupplierDetail() {
               <Card className="border-0 shadow-lg mb-5">
                 <CardContent className="pt-6 pb-5 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                   <div className="flex items-start gap-3 min-w-0">
-                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center shadow-lg flex-shrink-0">
+                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-brand-primary to-brand-secondary flex items-center justify-center shadow-lg flex-shrink-0">
                       <Building2 className="w-6 h-6 text-white" />
                     </div>
                     <div className="min-w-0">
-                      <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-amber-600 to-orange-600 bg-clip-text text-transparent">
+                      <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-brand-primary to-brand-secondary bg-clip-text text-transparent">
                         {supplier.supplier_name}
                       </h1>
                       <div className="flex items-center gap-3 flex-wrap text-sm text-slate-600 mt-1">
@@ -201,7 +201,7 @@ function SupplierDetail() {
                     <Button
                       onClick={() => setComposeOpen(true)}
                       disabled={!supplier.email}
-                      className="bg-gradient-to-r from-amber-600 to-orange-600 text-white"
+                      className="bg-gradient-to-r from-brand-primary to-brand-secondary text-white"
                     >
                       <Send className="w-4 h-4 mr-1.5" /> Compose email
                     </Button>
@@ -609,7 +609,7 @@ function ComposeSupplierEmail({
             <Button
               disabled={!supplier.email}
               onClick={() => window.open(composeEmail.gmailUrl(payload), "_blank", "noopener")}
-              className="gap-2 bg-gradient-to-r from-amber-600 to-orange-600 text-white"
+              className="gap-2 bg-gradient-to-r from-brand-primary to-brand-secondary text-white"
             >
               <ExternalLink className="w-4 h-4" /> Open in Gmail
             </Button>
@@ -779,7 +779,7 @@ function LinkProductDialog({
 
         <DialogFooter>
           <Button variant="ghost" onClick={onClose} disabled={saving}>Cancel</Button>
-          <Button onClick={save} disabled={saving || !picked} className="bg-gradient-to-r from-amber-600 to-orange-600 text-white">
+          <Button onClick={save} disabled={saving || !picked} className="bg-gradient-to-r from-brand-primary to-brand-secondary text-white">
             {saving ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Plus className="w-4 h-4 mr-1.5" />}
             Link product
           </Button>

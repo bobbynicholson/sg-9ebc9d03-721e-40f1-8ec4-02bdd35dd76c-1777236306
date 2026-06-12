@@ -1734,11 +1734,11 @@ function NewQuotePage() {
           {/* Header */}
           <div className="mb-6 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
             <div className="flex items-center gap-3 min-w-0">
-              <div className="p-3 bg-gradient-to-br from-green-500 to-emerald-500 rounded-2xl shadow-lg flex-shrink-0">
+              <div className="p-3 bg-gradient-to-br from-brand-primary to-brand-secondary rounded-2xl shadow-lg flex-shrink-0">
                 <DollarSign className="w-7 h-7 text-white" />
               </div>
               <div className="min-w-0">
-                <h1 className="text-2xl lg:text-3xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
+                <h1 className="text-2xl lg:text-3xl font-bold bg-gradient-to-r from-brand-primary to-brand-secondary bg-clip-text text-transparent">
                   {quoteId ? "Edit Quote" : "Create Quote"}
                 </h1>
                 <p className="text-sm text-slate-600 mt-0.5 flex items-center gap-2 flex-wrap">
@@ -1838,7 +1838,7 @@ function NewQuotePage() {
                     <Button
                       onClick={() => handleSend()}
                       disabled={sending || saving || computed.total <= 0 || !email}
-                      className="bg-gradient-to-r from-green-600 to-emerald-600"
+                      className="bg-gradient-to-r from-brand-primary to-brand-secondary"
                     >
                       {sending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
                       Save &amp; Notify
@@ -1866,7 +1866,7 @@ function NewQuotePage() {
                     <Button
                       onClick={() => handleSend()}
                       disabled={sending || saving || computed.total <= 0 || !email}
-                      className="bg-gradient-to-r from-green-600 to-emerald-600"
+                      className="bg-gradient-to-r from-brand-primary to-brand-secondary"
                     >
                       {sending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
                       Save &amp; Send

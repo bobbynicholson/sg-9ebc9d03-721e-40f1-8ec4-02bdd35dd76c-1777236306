@@ -182,11 +182,11 @@ function ClientSearchPage() {
           {/* Header */}
           <div className="mb-8">
             <div className="flex items-center gap-3 mb-4">
-              <div className="p-3 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl shadow-lg">
+              <div className="p-3 bg-gradient-to-br from-brand-primary to-brand-secondary rounded-xl shadow-lg">
                 <Search className="w-8 h-8 text-white" />
               </div>
               <div>
-                <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent flex items-center gap-3">
+                <h1 className="text-4xl font-bold bg-gradient-to-r from-brand-primary to-brand-secondary bg-clip-text text-transparent flex items-center gap-3">
                   Client Search
                   <InfoTooltip content={"Searchable directory of your registered clients. Look them up by name, email, phone, company or region."} />
                 </h1>

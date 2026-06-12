@@ -212,11 +212,11 @@ function ImportsHistoryPage() {
           {/* Header */}
           <div className="mb-6 flex items-center justify-between flex-wrap gap-3">
             <div className="flex items-center gap-3">
-              <div className="p-3 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500 shadow-lg">
+              <div className="p-3 rounded-2xl bg-gradient-to-br from-brand-primary to-brand-secondary shadow-lg">
                 <Wand2 className="w-7 h-7 text-white" />
               </div>
               <div>
-                <h1 className="text-2xl lg:text-3xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent flex items-center gap-2">
+                <h1 className="text-2xl lg:text-3xl font-bold bg-gradient-to-r from-brand-primary to-brand-secondary bg-clip-text text-transparent flex items-center gap-2">
                   Onboarding
                   <InfoTooltip content={"This is your one-stop shop for getting your existing business into CateringMS.\n\nThree paths below cover the usual sources: a simple client list, a richer spreadsheet of clients + outstanding orders, and supplier receipts you snap on your phone. Run the right tool for the file you have, then come back here any time to roll a previous import back."} />
                 </h1>
@@ -226,7 +226,7 @@ function ImportsHistoryPage() {
               </div>
             </div>
             <Link href={`${slugPrefix}/admin/onboarding/import`}>
-              <Button className="bg-gradient-to-r from-purple-600 to-pink-600">
+              <Button className="bg-gradient-to-r from-brand-primary to-brand-secondary">
                 <Upload className="w-4 h-4 mr-1.5" /> New import
               </Button>
             </Link>
@@ -354,7 +354,7 @@ function ImportsHistoryPage() {
                   </p>
                 </div>
                 <Link href={`${slugPrefix}/admin/onboarding/import`}>
-                  <Button className="bg-gradient-to-r from-purple-600 to-pink-600">
+                  <Button className="bg-gradient-to-r from-brand-primary to-brand-secondary">
                     <Upload className="w-4 h-4 mr-1.5" /> Run your first import
                   </Button>
                 </Link>

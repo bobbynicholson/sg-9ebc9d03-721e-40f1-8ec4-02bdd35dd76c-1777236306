@@ -280,7 +280,7 @@ export default function UserManagementPage() {
           </div>
           <Dialog open={addUserOpen} onOpenChange={setAddUserOpen}>
             <DialogTrigger asChild>
-              <Button className="bg-purple-600 hover:bg-purple-700">
+              <Button className="bg-brand-primary hover:opacity-90">
                 <UserPlus className="w-4 h-4 mr-2" />
                 Add User
               </Button>

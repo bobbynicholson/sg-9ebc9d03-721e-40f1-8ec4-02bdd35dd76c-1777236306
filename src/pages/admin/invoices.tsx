@@ -1419,7 +1419,7 @@ function InvoicesPageInner() {
               For deposits, retainers, late fees, damage charges, ad-hoc. */}
           <Button
             onClick={() => setManualInvoiceOpen(true)}
-            className="bg-blue-600 hover:bg-blue-700"
+            className="bg-brand-primary hover:opacity-90"
             title="Create an invoice not tied to a specific order (deposits, retainers, late fees, etc)"
           >
             <FileText className="w-4 h-4 mr-2" />

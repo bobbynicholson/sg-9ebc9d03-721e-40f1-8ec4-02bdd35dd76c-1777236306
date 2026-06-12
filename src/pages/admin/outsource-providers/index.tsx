@@ -516,7 +516,7 @@ function ProvidersList() {
               <Button variant="outline" onClick={() => setImportOpen(true)} title="Import providers from CSV">
                 Import CSV
               </Button>
-              <Button onClick={openAdd} className="bg-blue-600 hover:bg-blue-700">
+              <Button onClick={openAdd} className="bg-brand-primary hover:opacity-90">
                 <Plus className="w-4 h-4 mr-2" />
                 Add provider
               </Button>
@@ -593,7 +593,7 @@ function ProvidersList() {
                   specific orders. They become assignable from the order modal with a built-in
                   accept/decline magic link.
                 </p>
-                <Button onClick={openAdd} className="mt-4 bg-blue-600 hover:bg-blue-700">
+                <Button onClick={openAdd} className="mt-4 bg-brand-primary hover:opacity-90">
                   <Plus className="w-4 h-4 mr-2" />
                   Add your first provider
                 </Button>
@@ -1045,7 +1045,7 @@ function ProvidersList() {
 
           <DialogFooter>
             <Button variant="outline" onClick={closeDialog} disabled={saving}>Cancel</Button>
-            <Button onClick={handleSave} disabled={saving} className="bg-blue-600 hover:bg-blue-700">
+            <Button onClick={handleSave} disabled={saving} className="bg-brand-primary hover:opacity-90">
               {saving ? "Saving..." : editing ? "Save changes" : "Add provider"}
             </Button>
           </DialogFooter>
@@ -1474,7 +1474,7 @@ Sunset Florals,Linda,linda@example.co.za,0214441234,,florist,Boho weddings,quote
           <Button
             onClick={runImport}
             disabled={rows.length === 0 || busy}
-            className="bg-blue-600 hover:bg-blue-700"
+            className="bg-brand-primary hover:opacity-90"
           >
             {busy ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : null}
             Import {rows.filter((r) => !r._error).length}

@@ -656,7 +656,7 @@ function AdminQuoteDetailInner() {
                         <Link href={withSlug(`/admin/quotes/new?fromQuoteId=${quote.id}`)}>
                           <Button
                             size="sm"
-                            className="bg-blue-600 hover:bg-blue-700 text-white gap-1.5"
+                            className="bg-brand-primary hover:opacity-90 text-white gap-1.5"
                             title="Open the full editor to change menu items, date, guests, venue. Save & Send will re-send to the client for re-acceptance."
                           >
                             <Pencil className="w-3.5 h-3.5" />
@@ -999,7 +999,7 @@ function AdminQuoteDetailInner() {
                       )}
                     </Button>
                     <Button
-                      className="flex-1 min-w-[180px] bg-gradient-to-r from-green-600 to-emerald-600"
+                      className="flex-1 min-w-[180px] bg-gradient-to-r from-brand-primary to-brand-secondary"
                       onClick={handleSend}
                       disabled={sending || saving}
                     >
@@ -1018,7 +1018,7 @@ function AdminQuoteDetailInner() {
                   </>
                 ) : quote.status === "accepted" && !(quote as any).converted_to_order_id ? (
                   <Button
-                    className="flex-1 min-w-[180px] bg-gradient-to-r from-green-600 to-emerald-600"
+                    className="flex-1 min-w-[180px] bg-gradient-to-r from-brand-primary to-brand-secondary"
                     onClick={handleConvertToOrder}
                     disabled={converting}
                   >
@@ -1088,7 +1088,7 @@ function AdminQuoteDetailInner() {
                         size="sm"
                         onClick={handleSend}
                         disabled={sending || saving}
-                        className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 gap-1.5"
+                        className="bg-gradient-to-r from-brand-primary to-brand-secondary hover:opacity-90 gap-1.5"
                       >
                         <Send className="w-4 h-4" />
                         {(quote as any).sent_at ? "Re-send by email" : "Send by email"}

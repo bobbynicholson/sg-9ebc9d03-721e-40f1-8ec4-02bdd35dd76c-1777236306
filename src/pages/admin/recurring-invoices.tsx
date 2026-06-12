@@ -241,7 +241,7 @@ export default function RecurringInvoicesPage() {
                 <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
                 Refresh
               </Button>
-              <Button onClick={openCreate} disabled={creating} className="bg-blue-600 hover:bg-blue-700">
+              <Button onClick={openCreate} disabled={creating} className="bg-brand-primary hover:opacity-90">
                 <Plus className="w-4 h-4 mr-2" />
                 New template
               </Button>
@@ -453,7 +453,7 @@ export default function RecurringInvoicesPage() {
             <Button
               onClick={handleCreate}
               disabled={creating}
-              className="bg-blue-600 hover:bg-blue-700"
+              className="bg-brand-primary hover:opacity-90"
             >
               {creating ? "Creating..." : "Create template"}
             </Button>

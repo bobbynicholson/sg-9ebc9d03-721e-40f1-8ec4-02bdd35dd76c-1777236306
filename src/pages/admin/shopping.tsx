@@ -1136,11 +1136,11 @@ function SmartShoppingPage() {
           {/* Header + cart pill */}
           <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex items-center gap-3 min-w-0">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center shadow-lg flex-shrink-0">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-brand-primary to-brand-secondary flex items-center justify-center shadow-lg flex-shrink-0">
                 <ShoppingCart className="w-6 h-6 text-white" />
               </div>
               <div className="min-w-0">
-                <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent flex items-center gap-2 flex-wrap">
+                <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold bg-gradient-to-r from-brand-primary to-brand-secondary bg-clip-text text-transparent flex items-center gap-2 flex-wrap">
                   Smart Shopping
                   <InfoTooltip content={"Looks at your stock, your confirmed orders for the week ahead, and your suppliers, then tells you exactly what to buy and when."} />
                 </h1>
@@ -1307,7 +1307,7 @@ function SmartShoppingPage() {
               className="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-50 rounded-t-lg"
             >
               <div className="flex items-center gap-3 text-left">
-                <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+                <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-brand-primary to-brand-secondary flex items-center justify-center">
                   <Camera className="w-5 h-5 text-white" />
                 </div>
                 <div>

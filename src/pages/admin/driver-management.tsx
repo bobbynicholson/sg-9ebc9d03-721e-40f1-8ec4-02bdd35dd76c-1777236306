@@ -798,7 +798,7 @@ function DriverManagementPage() {
                 }}
               >
                 <DialogTrigger asChild>
-                  <Button className="bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600">
+                  <Button className="bg-gradient-to-r from-brand-primary to-brand-secondary hover:opacity-90">
                     <UserPlus className="w-4 h-4 mr-2" />
                     Add New Driver
                   </Button>
@@ -1187,7 +1187,7 @@ function DriverManagementPage() {
 
                     <Button
                       type="submit"
-                      className="w-full bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600"
+                      className="w-full bg-gradient-to-r from-brand-primary to-brand-secondary hover:opacity-90"
                       disabled={addDriverLoading}
                     >
                       {addDriverLoading ? "Adding driver..." : "Add driver"}
@@ -1962,7 +1962,7 @@ function CompanyPayDefaultsCard({
                 <Button size="sm" variant="outline" onClick={() => setEditing(false)} disabled={saving}>
                   Cancel
                 </Button>
-                <Button size="sm" onClick={save} disabled={saving} className="bg-orange-600 hover:bg-orange-700">
+                <Button size="sm" onClick={save} disabled={saving} className="bg-brand-primary hover:opacity-90">
                   {saving ? "Saving..." : "Save defaults"}
                 </Button>
               </>

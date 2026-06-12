@@ -1758,7 +1758,7 @@ function AdminInventory() {
             <DialogClose asChild>
               <Button variant="outline" disabled={editSaving}>Cancel</Button>
             </DialogClose>
-            <Button onClick={handleEditSave} disabled={editSaving} className="bg-blue-600 hover:bg-blue-700">
+            <Button onClick={handleEditSave} disabled={editSaving} className="bg-brand-primary hover:opacity-90">
               {editSaving ? "Saving..." : "Save changes"}
             </Button>
           </DialogFooter>

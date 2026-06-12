@@ -191,11 +191,11 @@ function EquipmentPage() {
       <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 lg:pl-72 xl:pl-80">
         <div className="px-4 py-8 max-w-full">
           <div className="mb-6 flex items-center gap-3">
-            <div className="p-3 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-2xl shadow-lg">
+            <div className="p-3 bg-gradient-to-br from-brand-primary to-brand-secondary rounded-2xl shadow-lg">
               <Package className="w-7 h-7 text-white" />
             </div>
             <div>
-              <h1 className="text-2xl lg:text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+              <h1 className="text-2xl lg:text-3xl font-bold bg-gradient-to-r from-brand-primary to-brand-secondary bg-clip-text text-transparent">
                 Equipment
               </h1>
               <p className="text-sm text-slate-600 mt-0.5">
@@ -648,7 +648,7 @@ function CatalogTab({ companyId }: { companyId: string | null }) {
               is_available: true,
             })
           }
-          className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white"
+          className="bg-gradient-to-r from-brand-primary to-brand-secondary text-white"
         >
           <Plus className="w-4 h-4 mr-2" />
           Add equipment

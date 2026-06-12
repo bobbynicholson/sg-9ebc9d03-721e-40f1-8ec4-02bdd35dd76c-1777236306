@@ -607,7 +607,7 @@ function AdminUsersPage() {
                 <p className="text-xl font-semibold text-gray-900 mb-2">Access Denied</p>
                 <p className="text-gray-600 mb-4">{error}</p>
                 <Link href="/auth/login">
-                  <Button className="bg-purple-600 hover:bg-purple-700">
+                  <Button className="bg-brand-primary hover:opacity-90">
                     Go to Login
                   </Button>
                 </Link>
@@ -641,11 +641,11 @@ function AdminUsersPage() {
           <div className="mb-6 md:mb-8">
             <div className="flex items-center justify-between flex-wrap gap-4">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center shadow-lg flex-shrink-0">
+                <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-gradient-to-br from-brand-primary to-brand-secondary flex items-center justify-center shadow-lg flex-shrink-0">
                   <Users className="w-5 h-5 md:w-8 md:h-8 text-white" />
                 </div>
                 <div>
-                  <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+                  <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-brand-primary to-brand-secondary bg-clip-text text-transparent">
                     Full team
                   </h1>
                   {/* USR-A (task #207, 2026-05-24): copy fix. Pre-fix
@@ -719,7 +719,7 @@ function AdminUsersPage() {
                 <Button
                   size="sm"
                   onClick={() => setInviteOpen(true)}
-                  className="bg-purple-600 hover:bg-purple-700 gap-1.5"
+                  className="bg-brand-primary hover:opacity-90 gap-1.5"
                 >
                   <UserPlus className="w-4 h-4" />
                   Invite user
@@ -1151,7 +1151,7 @@ function AdminUsersPage() {
                               />
                               <Button 
                                 onClick={() => handleSaveRoles(targetUser.id)}
-                                className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 flex-1 sm:flex-initial text-sm"
+                                className="bg-gradient-to-r from-brand-primary to-brand-secondary hover:from-green-700 hover:to-emerald-700 flex-1 sm:flex-initial text-sm"
                                 disabled={selectedDepartments.length === 0 || saving}
                                 size="sm"
                               >
@@ -1257,7 +1257,7 @@ function AdminUsersPage() {
             <Button
               onClick={handleInviteSubmit}
               disabled={inviting || !inviteEmail.trim()}
-              className="bg-purple-600 hover:bg-purple-700 gap-1.5"
+              className="bg-brand-primary hover:opacity-90 gap-1.5"
             >
               {inviting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />}
               {inviting ? "Sending..." : "Send invite"}

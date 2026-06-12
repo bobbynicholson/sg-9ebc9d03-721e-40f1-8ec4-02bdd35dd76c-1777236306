@@ -553,7 +553,7 @@ function KitchenStaffPage() {
           {/* Header */}
           <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center shadow-lg flex-shrink-0">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-brand-primary to-brand-secondary flex items-center justify-center shadow-lg flex-shrink-0">
                 <Users className="w-6 h-6 text-white" />
               </div>
               <div>
@@ -640,7 +640,7 @@ function KitchenStaffPage() {
                 <Download className="w-4 h-4 mr-2" />
                 Export CSV
               </Button>
-              <Button onClick={openAdd} className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600">
+              <Button onClick={openAdd} className="bg-gradient-to-r from-brand-primary to-brand-secondary hover:opacity-90">
                 <UserPlus className="w-4 h-4 mr-2" />
                 Add staff
               </Button>
@@ -1425,7 +1425,7 @@ function KitchenStaffPage() {
 
           <DialogFooter className="px-6 py-4 border-t border-slate-200 dark:border-slate-700 flex-shrink-0 bg-white dark:bg-slate-900 sm:rounded-b-lg">
             <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={saving}>Cancel</Button>
-            <Button onClick={handleSave} disabled={saving} className="bg-orange-600 hover:bg-orange-700">
+            <Button onClick={handleSave} disabled={saving} className="bg-brand-primary hover:opacity-90">
               {saving ? "Saving..." : editTarget ? "Save changes" : "Add staff"}
             </Button>
           </DialogFooter>
@@ -1496,7 +1496,7 @@ function KitchenStaffPage() {
             <Button
               onClick={handleBulkSave}
               disabled={bulkSaving || Object.values(bulkRates).every((v) => !v.trim())}
-              className="bg-orange-600 hover:bg-orange-700"
+              className="bg-brand-primary hover:opacity-90"
             >
               {bulkSaving ? "Saving..." : "Save rates"}
             </Button>

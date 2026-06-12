@@ -211,7 +211,7 @@ export default function CMSBlogPage() {
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center gap-3 mb-2">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-brand-primary to-brand-secondary flex items-center justify-center">
               <Sparkles className="w-6 h-6 text-white" />
             </div>
             <div>
@@ -375,7 +375,7 @@ export default function CMSBlogPage() {
                       <Button
                         onClick={handleGenerateContent}
                         disabled={aiGenerating || !brief.topic || brief.keywords.length === 0}
-                        className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:opacity-90"
+                        className="w-full bg-gradient-to-r from-brand-primary to-brand-secondary hover:opacity-90"
                         size="lg"
                       >
                         {aiGenerating ? (
@@ -566,7 +566,7 @@ export default function CMSBlogPage() {
                       <Button
                         onClick={handlePublish}
                         disabled={saving}
-                        className="bg-gradient-to-r from-purple-500 to-pink-500 hover:opacity-90"
+                        className="bg-gradient-to-r from-brand-primary to-brand-secondary hover:opacity-90"
                       >
                         {saving ? (
                           <>

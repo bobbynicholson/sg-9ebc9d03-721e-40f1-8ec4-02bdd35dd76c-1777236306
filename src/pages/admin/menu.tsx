@@ -1072,7 +1072,7 @@ function MenuPage() {
           {/* Header */}
           <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center shadow-lg flex-shrink-0">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-brand-primary to-brand-secondary flex items-center justify-center shadow-lg flex-shrink-0">
                 <BookOpen className="w-6 h-6 text-white" />
               </div>
               <div>
@@ -1161,7 +1161,7 @@ function MenuPage() {
               >
                 <Download className="w-4 h-4 mr-2" />Export CSV
               </Button>
-              <Button onClick={openAdd} className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600">
+              <Button onClick={openAdd} className="bg-gradient-to-r from-brand-primary to-brand-secondary hover:opacity-90">
                 <Plus className="w-4 h-4 mr-2" />Add menu item
               </Button>
             </div>
@@ -2301,7 +2301,7 @@ function MenuPage() {
 
           <DialogFooter>
             <Button variant="outline" onClick={closeDialog} disabled={saving}>Cancel</Button>
-            <Button onClick={handleSave} disabled={saving} className="bg-orange-600 hover:bg-orange-700">
+            <Button onClick={handleSave} disabled={saving} className="bg-brand-primary hover:opacity-90">
               {saving ? <><Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />Saving</> : (editTargetId ? "Save changes" : "Add menu item")}
             </Button>
           </DialogFooter>

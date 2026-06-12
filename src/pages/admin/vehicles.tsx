@@ -564,7 +564,7 @@ function VehiclesPage() {
 
           <div className="mb-5 flex items-center justify-between flex-wrap gap-3">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-sm">
+              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-brand-primary to-brand-secondary flex items-center justify-center shadow-sm">
                 <Truck className="w-5 h-5 text-white" />
               </div>
               <div>
@@ -592,7 +592,7 @@ function VehiclesPage() {
               </Button>
               <Button
                 size="sm"
-                className="bg-indigo-600 hover:bg-indigo-700 gap-2"
+                className="bg-brand-primary hover:opacity-90 gap-2"
                 onClick={openNew}
               >
                 <Plus className="w-4 h-4" />
@@ -771,7 +771,7 @@ function VehiclesPage() {
                     <p className="text-xs text-slate-500 mb-4">
                       Add your first vehicle to start tracking the fleet. Driver-owned cars work too.
                     </p>
-                    <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 gap-2" onClick={openNew}>
+                    <Button size="sm" className="bg-brand-primary hover:opacity-90 gap-2" onClick={openNew}>
                       <Plus className="w-4 h-4" />
                       Add a vehicle
                     </Button>
@@ -1123,7 +1123,7 @@ function VehiclesPage() {
             <DialogClose asChild>
               <Button variant="outline" disabled={saving}>Cancel</Button>
             </DialogClose>
-            <Button onClick={handleSave} disabled={saving} className="bg-indigo-600 hover:bg-indigo-700">
+            <Button onClick={handleSave} disabled={saving} className="bg-brand-primary hover:opacity-90">
               {saving ? "Saving..." : editTarget ? "Save changes" : "Add vehicle"}
             </Button>
           </DialogFooter>

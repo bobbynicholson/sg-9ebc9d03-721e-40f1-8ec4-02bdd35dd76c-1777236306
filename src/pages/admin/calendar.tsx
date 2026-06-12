@@ -792,7 +792,7 @@ function AdminCalendar() {
                 <CalendarIcon className="w-6 h-6 text-white" />
               </div>
               <div className="min-w-0">
-                <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+                <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold bg-gradient-to-r from-brand-primary to-brand-secondary bg-clip-text text-transparent">
                   Calendar
                 </h1>
                 <p className="text-sm sm:text-base text-slate-600 mt-1">
@@ -1007,7 +1007,7 @@ function AdminCalendar() {
                   own "New Order" CTA in the header and shows the
                   operator the surrounding bookings for context. */}
               <Link href={withSlug("/admin/orders")}>
-                <Button className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 gap-2">
+                <Button className="bg-gradient-to-r from-brand-primary to-brand-secondary hover:opacity-90 gap-2">
                   <Plus className="w-4 h-4" /> New Event
                 </Button>
               </Link>
@@ -1734,7 +1734,7 @@ function AdminCalendar() {
                           return (
                             <span
                               key={i}
-                              className="absolute top-0 bottom-0 w-1.5 bg-gradient-to-b from-purple-500 to-pink-500 rounded-sm shadow-sm"
+                              className="absolute top-0 bottom-0 w-1.5 bg-gradient-to-b from-brand-primary to-brand-secondary rounded-sm shadow-sm"
                               style={{ left: `calc(${leftPct}% - 3px)` }}
                               title={`Event at ${String(Math.floor(t / 60)).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}`}
                             />

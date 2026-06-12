@@ -538,7 +538,7 @@ function NotificationsPage() {
                                       {isQuote && (
                                         <Button
                                           size="sm"
-                                          className="bg-orange-600 hover:bg-orange-700"
+                                          className="bg-brand-primary hover:opacity-90"
                                           onClick={() => {
                                             if (!notification.is_read) handleMarkAsRead(notification.id);
                                             window.location.href = withSlug(
@@ -553,7 +553,7 @@ function NotificationsPage() {
                                       {isOrder && (
                                         <Button
                                           size="sm"
-                                          className="bg-orange-600 hover:bg-orange-700"
+                                          className="bg-brand-primary hover:opacity-90"
                                           onClick={() => {
                                             if (!notification.is_read) handleMarkAsRead(notification.id);
                                             // Prefer the deep link on the
@@ -582,7 +582,7 @@ function NotificationsPage() {
                                       {!isQuote && !isOrder && isLead && (
                                         <Button
                                           size="sm"
-                                          className="bg-orange-600 hover:bg-orange-700"
+                                          className="bg-brand-primary hover:opacity-90"
                                           onClick={() => {
                                             if (!notification.is_read) handleMarkAsRead(notification.id);
                                             const fallback = notification.related_entity_id
@@ -598,7 +598,7 @@ function NotificationsPage() {
                                       {!isQuote && !isOrder && !isLead && isInvoice && (
                                         <Button
                                           size="sm"
-                                          className="bg-orange-600 hover:bg-orange-700"
+                                          className="bg-brand-primary hover:opacity-90"
                                           onClick={() => {
                                             if (!notification.is_read) handleMarkAsRead(notification.id);
                                             const fallback = notification.related_entity_id
@@ -617,7 +617,7 @@ function NotificationsPage() {
                                       {!isQuote && !isOrder && !isLead && !isInvoice && isInventory && (
                                         <Button
                                           size="sm"
-                                          className="bg-orange-600 hover:bg-orange-700"
+                                          className="bg-brand-primary hover:opacity-90"
                                           onClick={() => {
                                             if (!notification.is_read) handleMarkAsRead(notification.id);
                                             const fallback = notification.related_entity_id
@@ -633,7 +633,7 @@ function NotificationsPage() {
                                       {!isQuote && !isOrder && !isLead && !isInvoice && !isInventory && isEquipment && (
                                         <Button
                                           size="sm"
-                                          className="bg-orange-600 hover:bg-orange-700"
+                                          className="bg-brand-primary hover:opacity-90"
                                           onClick={() => {
                                             if (!notification.is_read) handleMarkAsRead(notification.id);
                                             const fallback = notification.related_entity_id
@@ -651,7 +651,7 @@ function NotificationsPage() {
                                       {!isQuote && !isOrder && !isLead && !isInvoice && !isInventory && !isEquipment && isVehicle && (
                                         <Button
                                           size="sm"
-                                          className="bg-orange-600 hover:bg-orange-700"
+                                          className="bg-brand-primary hover:opacity-90"
                                           onClick={() => {
                                             if (!notification.is_read) handleMarkAsRead(notification.id);
                                             const fallback = notification.related_entity_id

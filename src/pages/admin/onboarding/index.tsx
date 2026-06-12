@@ -617,12 +617,12 @@ function WelcomeStep({
 
       <div className="flex flex-col sm:flex-row gap-2">
         {hasAnyProgress ? (
-          <Button onClick={onResume} disabled={saving} className="flex-1 bg-orange-600 hover:bg-orange-700">
+          <Button onClick={onResume} disabled={saving} className="flex-1 bg-brand-primary hover:opacity-90">
             <PlayCircle className="w-4 h-4 mr-2" />
             Resume at next step
           </Button>
         ) : (
-          <Button onClick={onStart} disabled={saving} className="flex-1 bg-orange-600 hover:bg-orange-700">
+          <Button onClick={onStart} disabled={saving} className="flex-1 bg-brand-primary hover:opacity-90">
             Let&apos;s go <ArrowRight className="w-4 h-4 ml-2" />
           </Button>
         )}
@@ -908,7 +908,7 @@ function BankingStep({
         <Button variant="ghost" onClick={onSkip} disabled={saving} className="text-slate-500">
           Skip for now
         </Button>
-        <Button onClick={onNext} disabled={saving} className="ml-auto bg-orange-600 hover:bg-orange-700">
+        <Button onClick={onNext} disabled={saving} className="ml-auto bg-brand-primary hover:opacity-90">
           {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
           Save & continue <ArrowRight className="w-4 h-4 ml-2" />
         </Button>
@@ -1079,7 +1079,7 @@ function EmailStep({
           <div className="text-xs text-slate-500">
             Or, <button type="button" onClick={() => setMode("domain")} className="underline hover:text-purple-600">verify your own domain instead</button>. 5 minutes, much more branded.
           </div>
-          <Button onClick={useSharedSender} disabled={pickingShared} className="w-full sm:w-auto bg-orange-600 hover:bg-orange-700">
+          <Button onClick={useSharedSender} disabled={pickingShared} className="w-full sm:w-auto bg-brand-primary hover:opacity-90">
             {pickingShared ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
             Use shared sender and continue
           </Button>
@@ -1148,7 +1148,7 @@ function ClientsStep({ onBack, onNext }: { onBack: () => void; onNext: () => voi
         </Button>
         <Button
           onClick={() => setOpen(true)}
-          className="flex-1 bg-orange-600 hover:bg-orange-700"
+          className="flex-1 bg-brand-primary hover:opacity-90"
         >
           <Upload className="w-4 h-4 mr-2" />
           {imported !== null ? "Import another file" : "Import clients"}
@@ -1300,7 +1300,7 @@ function NavRow({
       <Button
         onClick={onNext}
         disabled={saving || !canNext}
-        className="ml-auto bg-orange-600 hover:bg-orange-700"
+        className="ml-auto bg-brand-primary hover:opacity-90"
       >
         {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
         Save & continue <ArrowRight className="w-4 h-4 ml-2" />

@@ -432,7 +432,7 @@ function RoutePlanningInner() {
                   onClick={optimizeAllRoutes}
                   disabled={optimising || unassignedOrders.length === 0 || drivers.length === 0}
                   size="lg"
-                  className="bg-blue-600 hover:bg-blue-700"
+                  className="bg-brand-primary hover:opacity-90"
                 >
                   {optimising ? (
                     <>

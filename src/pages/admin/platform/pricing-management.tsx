@@ -191,7 +191,7 @@ function PricingManagementPage() {
         <div className="mb-6 sm:mb-8">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-2">
             <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-              <div className="p-3 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl w-fit">
+              <div className="p-3 bg-gradient-to-br from-brand-primary to-brand-secondary rounded-xl w-fit">
                 <DollarSign className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
               </div>
               <div>
@@ -340,7 +340,7 @@ function PricingManagementPage() {
                   {/* South Africa ZAR - Mobile Optimized */}
                   <div className="space-y-2">
                     <div className="flex items-center gap-2 mb-2">
-                      <Badge className="bg-gradient-to-r from-green-500 to-emerald-500 text-white text-xs">
+                      <Badge className="bg-gradient-to-r from-brand-primary to-brand-secondary text-white text-xs">
                         🇿🇦 South Africa
                       </Badge>
                     </div>
@@ -479,7 +479,7 @@ function PricingManagementPage() {
             <Button
               onClick={handleSave}
               disabled={!hasChanges || saving || loading}
-              className="gap-2 w-full sm:w-auto h-12 text-sm sm:text-base bg-gradient-to-r from-purple-600 to-pink-600 hover:opacity-90"
+              className="gap-2 w-full sm:w-auto h-12 text-sm sm:text-base bg-gradient-to-r from-brand-primary to-brand-secondary hover:opacity-90"
             >
               {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
               {saving ? "Saving..." : "Save & Update Live Pricing"}
