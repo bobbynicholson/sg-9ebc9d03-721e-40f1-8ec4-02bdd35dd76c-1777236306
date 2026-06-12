@@ -436,6 +436,19 @@ export const companyService = {
 
       if (companyError) {
         console.error("Error creating company:", companyError);
+        // Friendly message for the common unique-violation cases
+        // instead of the raw "duplicate key value violates unique
+        // constraint companies_slug_key".
+        const code = (companyError as any).code;
+        const msg = (companyError.message || "").toLowerCase();
+        if (code === "23505" || msg.includes("duplicate key") || msg.includes("already exists")) {
+          if (msg.includes("slug")) {
+            throw new Error(
+              `The company URL "${data.company_slug}" is already taken. Choose a different URL and try again.`,
+            );
+          }
+          throw new Error("A company with these details already exists. Change the company name / URL and try again.");
+        }
         throw new Error(companyError.message);
       }
 
