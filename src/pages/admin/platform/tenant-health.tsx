@@ -244,7 +244,7 @@ function TenantHealthDashboard() {
       <NoIndexMeta />
       <PlatformNav />
 
-      <div className="min-h-screen bg-slate-50 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+      <div className="min-h-screen bg-slate-50 lg:pl-72 xl:pl-80 pt-20 lg:pt-0">
         <div className="px-4 sm:px-6 lg:px-8 py-8 max-w-full">
           <div className="flex items-center gap-3 mb-6">
             <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-rose-500 to-orange-500 flex items-center justify-center shadow-lg">

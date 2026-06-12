@@ -182,7 +182,7 @@ function PricingManagementPage() {
   };
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 via-white to-purple-50 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+    <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 via-white to-purple-50 lg:pl-72 xl:pl-80 pt-20 lg:pt-0">
       <PlatformNav />
       <Header />
       

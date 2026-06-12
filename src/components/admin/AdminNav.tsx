@@ -752,9 +752,12 @@ export function AdminNav({ className }: AdminNavProps) {
         </div>
       </div>
 
-      {/* Desktop Sidebar */}
+      {/* Desktop Sidebar. Width MUST match the page wrappers'
+          lg:pl-72 xl:pl-80 offset - the old lg:w-64 xl:w-72 left a
+          permanent 32px dead gutter between the nav and every page
+          (and squeezed the row descriptions + badges into truncation). */}
       <div className={`hidden lg:flex lg:flex-col lg:fixed lg:inset-y-0 lg:left-0 lg:border-r lg:border-slate-200 dark:lg:border-slate-700 lg:bg-white dark:lg:bg-slate-900 transition-all duration-300 ${
-        isCollapsed ? "lg:w-20" : "lg:w-64 xl:w-72"
+        isCollapsed ? "lg:w-20" : "lg:w-72 xl:w-80"
       }`}>
         <div className="flex flex-col flex-1 min-h-0">
           {/* Header */}

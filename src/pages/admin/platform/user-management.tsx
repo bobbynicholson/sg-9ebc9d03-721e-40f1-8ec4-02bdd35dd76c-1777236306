@@ -271,7 +271,7 @@ export default function UserManagementPage() {
 
   return (
     <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN]}>
-      <div className="min-h-screen overflow-x-hidden bg-slate-50 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+      <div className="min-h-screen overflow-x-hidden bg-slate-50 lg:pl-72 xl:pl-80 pt-20 lg:pt-0">
         <PlatformNav />
         <div className="p-6 max-w-full">
         <div className="flex items-center justify-between mb-6">

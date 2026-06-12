@@ -28,7 +28,7 @@ export default function InventoryRecipes() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 lg:pl-64 xl:pl-72 pt-16 lg:pt-0">
+    <div className="min-h-screen bg-slate-50 lg:pl-72 xl:pl-80 pt-20 lg:pt-0">
       <AdminNav />
       <div className="px-4 py-8">
         {/* Header */}

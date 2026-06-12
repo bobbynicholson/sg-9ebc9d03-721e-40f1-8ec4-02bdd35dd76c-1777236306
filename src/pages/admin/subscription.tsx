@@ -249,7 +249,7 @@ function SubscriptionPage() {
           <title>Subscription - CateringMS</title>
         </Head>
         <AdminNav />
-        <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 lg:pl-72 xl:pl-80 pt-20 lg:pt-0">
           <div className="px-4 py-8 max-w-screen-xl">
             <div className="flex items-center gap-3 mb-8">
               <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center shadow-lg flex-shrink-0">

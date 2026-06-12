@@ -130,7 +130,7 @@ export default function PlatformSettingsPage() {
   const unknownRows = rows.filter((r) => !knownKeySet.has(r.key));
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+    <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80 pt-20 lg:pt-0">
       <PlatformNav />
       <NoIndexMeta />
       <Head>
