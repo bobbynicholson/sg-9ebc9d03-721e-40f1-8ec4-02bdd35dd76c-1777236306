@@ -972,28 +972,40 @@ function InvoicesPageInner() {
     // the status didn't flip - they can hit "Mark as sent" or retry
     // without firing a second email.
     try {
-      // Money-flow follow-up: the "sent" flip now routes through
-      // setInvoiceStatus (transition-allowlist + idempotent +
-      // audited). We stamp sent_at separately because the chokepoint
-      // is status-only by design. See docs/money-flow.md.
-      const { setInvoiceStatus } = await import("@/services/order/invoiceStatus");
-      const statusRes = await setInvoiceStatus(invoice.id, "sent", {
-        client: supabase,
-        reason: "Marked as sent from admin invoice list",
-      });
+      // Money-flow follow-up: the "sent" flip routes through
+      // setInvoiceStatus (transition-allowlist + idempotent + audited).
+      //
+      // FIX (2026-06-12): only flip draft -> sent. Re-emailing an
+      // invoice that's already sent / partially_paid / paid / overdue
+      // is a legitimate operator action (resend a copy, nudge), but
+      // 'paid -> sent' etc. are (correctly) NOT in the transition
+      // allowlist - so the old unconditional flip returned an error
+      // and fired the scary "status didn't update" toast on every
+      // resend of a non-draft invoice, even though nothing was wrong.
+      // For non-draft invoices we keep the existing status and just
+      // stamp sent_at.
+      const currentStatus = String(invoice.status || "draft");
+      if (currentStatus === "draft") {
+        const { setInvoiceStatus } = await import("@/services/order/invoiceStatus");
+        const statusRes = await setInvoiceStatus(invoice.id, "sent", {
+          client: supabase,
+          reason: "Marked as sent from admin invoice list",
+        });
+        if (!statusRes.success) {
+          toast({
+            title: "Email sent, but status didn't update",
+            description: `${invoice.invoice_number || "Invoice"} was emailed. The 'sent' status did NOT save (${statusRes.error || "unknown"}). Refresh; do NOT click Send again.`,
+            variant: "destructive",
+          });
+        }
+      }
+      // Always stamp the last-sent timestamp (harmless on any status).
       const { error: stampErr } = await supabase
         .from("invoices")
         .update({ sent_at: new Date().toISOString() })
         .eq("id", invoice.id);
-      const error = !statusRes.success
-        ? new Error(statusRes.error || "status flip failed")
-        : (stampErr ? new Error(stampErr.message) : null);
-      if (error) {
-        toast({
-          title: "Email sent, but status didn't update",
-          description: `${invoice.invoice_number || "Invoice"} was emailed to the client. The 'sent' status did NOT save (${error.message}). Refresh the page; do NOT click Send again or the client gets a duplicate.`,
-          variant: "destructive",
-        });
+      if (stampErr) {
+        console.warn("[admin/invoices] sent_at stamp failed:", stampErr.message);
       }
       loadInvoices();
       // Wave 70.40 - invoice send touches sent_at + status, both of
