@@ -108,6 +108,28 @@ function MapUpdater({
   return null;
 }
 
+// Leaflet measures its container size once on init. When the map
+// mounts inside a tab / card that lays out a tick later (or was
+// briefly hidden), that first measurement is wrong and the tiles
+// render grey / half-drawn until something forces a recompute. Call
+// invalidateSize after mount (and on window resize) so the map always
+// fills its 600px slot cleanly.
+function InvalidateSizeFix() {
+  const map = useMap();
+  useEffect(() => {
+    const fix = () => map.invalidateSize();
+    const t1 = setTimeout(fix, 150);
+    const t2 = setTimeout(fix, 600);
+    window.addEventListener("resize", fix);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      window.removeEventListener("resize", fix);
+    };
+  }, [map]);
+  return null;
+}
+
 export function AdminTrackingMap({ orders, driverLocations, onDriverLocationUpdate, companyId }: AdminTrackingMapProps) {
   const [liveDriverLocations, setLiveDriverLocations] = useState<DriverLocation[]>(driverLocations);
   // Wave 70.63: initial map center retained for the MapContainer
@@ -296,13 +318,12 @@ export function AdminTrackingMap({ orders, driverLocations, onDriverLocationUpda
   const hasMappable =
     orders.some((o) => Number.isFinite(Number(o.venue_lat)) && Number.isFinite(Number(o.venue_lng)) && !(Number(o.venue_lat) === 0 && Number(o.venue_lng) === 0))
     || liveDriverLocations.some((d) => Number.isFinite(d.current_lat) && Number.isFinite(d.current_lng) && !(d.current_lat === 0 && d.current_lng === 0));
-  if (!hasMappable) {
-    return (
-      <div className="h-full flex items-center justify-center bg-slate-100 rounded-lg">
-        <p className="text-slate-500">No locations available to display</p>
-      </div>
-    );
-  }
+  // Empty state (2026-06-13): previously this replaced the whole map
+  // with a grey box, so the operator never saw that the map itself
+  // works - it just looked broken. Now render the base map regardless
+  // (centred on the ZA fallback) with a small overlay note, so the
+  // map is always visible and only the PINS are missing when there's
+  // no geocoded venue / live driver yet.
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -335,6 +356,14 @@ export function AdminTrackingMap({ orders, driverLocations, onDriverLocationUpda
   const mappableDrivers = liveDriverLocations.filter(d => hasCoords(d.current_lat, d.current_lng));
 
   return (
+    <div className="relative h-full w-full">
+      {!hasMappable && (
+        <div className="absolute top-3 left-1/2 -translate-x-1/2 z-[1000] pointer-events-none">
+          <span className="inline-flex items-center gap-2 rounded-full bg-white/95 px-3 py-1.5 text-xs font-medium text-slate-600 shadow-md border border-slate-200">
+            No live driver or geocoded venue yet — pins appear here once a driver shares GPS or an order's venue is geocoded.
+          </span>
+        </div>
+      )}
     <MapContainer
       center={mapCenter}
       zoom={12}
@@ -345,6 +374,7 @@ export function AdminTrackingMap({ orders, driverLocations, onDriverLocationUpda
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
+      <InvalidateSizeFix />
       <MapUpdater points={mapPoints} recentreSignal={recentreSignal} />
 
       {/* Venue markers (orders) - only ones with valid coords. Orders
@@ -423,5 +453,6 @@ export function AdminTrackingMap({ orders, driverLocations, onDriverLocationUpda
           );
         })}
     </MapContainer>
+    </div>
   );
 }
