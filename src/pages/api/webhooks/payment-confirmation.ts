@@ -24,9 +24,7 @@ const supabase: any = new Proxy({}, {
     return (svc() as any)[prop];
   },
 }) as any;
-import { orderService } from "@/services/orderService";
 import { emailService } from "@/services/emailService";
-import { paymentProcessingService } from "@/services/paymentProcessingService";
 import crypto from "crypto";
 import { withApiLogging } from "@/lib/withApiLogging";
 
@@ -559,15 +557,29 @@ async function handler(
       });
     }
 
-    // Get order details
-    const orderResult = await orderService.getOrderById(orderId);
+    // Get order details. FIX (2026-06-12): orderService.getOrderById
+    // uses orderCRUD's module-level BROWSER ANON client, which RLS
+    // blocks in this unauthenticated webhook context - so every
+    // deposit/balance IPN 404'd with "Order not found" and the
+    // payment never recorded (the invoice-branch above worked because
+    // it uses this file's service-role `supabase`). Read the order
+    // directly with the service-role client instead.
+    const { data: orderRowDirect, error: orderFetchErr } = await supabase
+      .from("orders")
+      .select("*, client:clients(*), order_items(*)")
+      .eq("id", orderId)
+      .is("deleted_at", null)
+      .maybeSingle();
 
-    if (!orderResult.success || !orderResult.data) {
+    if (orderFetchErr) {
+      console.error("[payment-webhook] order fetch failed:", orderFetchErr);
+    }
+    if (!orderRowDirect) {
       console.error("Order not found:", orderId);
       return res.status(404).json({ error: "Order not found" });
     }
 
-    const order: any = orderResult.data;
+    const order: any = orderRowDirect;
 
     // Determine if this is deposit or balance payment. Prefer the
     // explicit custom_str2 the checkout sends; fall back to the order
@@ -606,77 +618,65 @@ async function handler(
       console.warn("Amount within tolerance but not exact:", { got, expected: exp, delta });
     }
 
-    // Single insert via the canonical recordPayment helper. This also
-    // calls updateOrderPaymentStatus() so orders.payment_status is
-    // recomputed from the sum of completed payments.
-    const recordResult = await orderService.recordPayment(
-      order.id,
-      parseFloat(amount_gross),
-      "payfast",
-      pf_payment_id,
+    // FIX (2026-06-12): record the payment via the service-role RPC
+    // directly. orderService.recordPayment + paymentProcessingService
+    // both use orderCRUD/orderFinancials' module-level BROWSER ANON
+    // client, which RLS/grant blocks in this unauthenticated webhook:
+    // record_order_payment is GRANTed to service_role only, and the
+    // orders UPDATEs are RLS-gated, so every deposit IPN failed to
+    // record. Drive the writes with this file's service-role client.
+    const { data: recordedPaymentId, error: recordErr } = await (supabase as any).rpc(
+      "record_order_payment",
       {
-        userId: order.user_id,
-        companyId: order.company_id || order.user_id,
-        clientId: order.client_id || undefined,
-        currency: order.currency,
-        paymentType: isDepositPayment ? "deposit" : "balance",
-        gatewayProvider: "payfast",
-      }
+        p_order_id: order.id,
+        p_amount: parseFloat(amount_gross),
+        p_payment_method: "payfast",
+        p_transaction_id: pf_payment_id,
+        p_user_id: order.user_id,
+        p_company_id: order.company_id || order.user_id,
+        p_client_id: order.client_id || null,
+        p_currency: order.currency || "ZAR",
+        p_payment_type: isDepositPayment ? "deposit" : "balance",
+        p_gateway_provider: "payfast",
+      },
     );
-
-    if (!recordResult.success) {
-      console.error("Failed to record payment:", recordResult.error);
+    if (recordErr) {
+      console.error("Failed to record payment:", recordErr);
       return res.status(500).json({ error: "Failed to record payment" });
     }
+    void recordedPaymentId;
 
-    // Cascade: orders flags + reminders. The helpers in
-    // paymentProcessingService own the right cascade. Phase 2 collapsed
-    // the parallel payment_schedules table - everything now writes
-    // straight to orders.
+    // Cascade: stamp the order's deposit/confirmation flags directly
+    // with the service-role client (the paymentProcessingService
+    // helpers run on the anon client and silently no-op under RLS).
     if (isDepositPayment) {
-      await paymentProcessingService.processDepositPayment(
-        order.id,
-        pf_payment_id,
-        "payfast",
-        order.user_id
-      );
-
-      // If the order was still pending, mark it confirmed now that the
-      // deposit is in. processDepositPayment sets status='confirmed'
-      // unconditionally; we additionally stamp confirmed_at when null.
-      if (!order.confirmed_at) {
+      try {
         await supabase
           .from("orders")
-          .update({ confirmed_at: new Date().toISOString() })
+          .update({
+            deposit_paid: true,
+            deposit_paid_at: new Date().toISOString(),
+            deposit_transaction_id: pf_payment_id,
+            ...(order.confirmed_at ? {} : { confirmed_at: new Date().toISOString() }),
+            ...(String(order.status || "").toLowerCase() === "pending" ? { status: "confirmed" } : {}),
+            updated_at: new Date().toISOString(),
+          })
           .eq("id", order.id);
+      } catch (flagErr) {
+        console.warn("[payment-webhook] deposit flag update failed (non-blocking):", flagErr);
       }
-
       await sendClientPaymentConfirmation(order, "deposit", amount_gross);
     } else {
-      await paymentProcessingService.processBalancePayment(
-        order.id,
-        pf_payment_id,
-        "payfast",
-        order.user_id
-      );
-
-      // If the invoice is now fully paid, close the order out.
-      const { data: refreshed, error: refreshedErr } = await supabase
+      // If the order is now fully paid AND already delivered, close it.
+      const { data: refreshed } = await supabase
         .from("orders")
         .select("payment_status, status")
         .eq("id", order.id)
         .maybeSingle();
-      if (refreshedErr) {
-        console.error("[webhooks/payment-confirmation] orders fetch failed:", refreshedErr);
-      }
       if (refreshed && (refreshed as any).payment_status === "paid"
-          && (refreshed as any).status !== "completed") {
-        await supabase
-          .from("orders")
-          .update({ status: "completed" })
-          .eq("id", order.id);
+          && (refreshed as any).status === "delivered") {
+        await supabase.from("orders").update({ status: "completed" }).eq("id", order.id);
       }
-
       await sendClientPaymentConfirmation(order, "balance", amount_gross);
     }
 
