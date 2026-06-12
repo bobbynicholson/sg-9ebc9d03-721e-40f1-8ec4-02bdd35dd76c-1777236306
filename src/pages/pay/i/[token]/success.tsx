@@ -29,6 +29,28 @@ export default function InvoicePaymentSuccessPage() {
   const token = typeof router.query.token === "string" ? router.query.token : null;
   const [companyName, setCompanyName] = useState<string | null>(null);
 
+  // Backstop for missed PayFast sandbox ITNs: confirm + record the
+  // payment now that the buyer has returned from a completed checkout.
+  // Server gates this to test mode (live relies on the signed ITN).
+  useEffect(() => {
+    if (!token) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        await fetch("/api/payments/confirm-return", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ public_token: token }),
+        });
+      } catch {
+        // Non-blocking: the daily reconcile cron + ITN retries still
+        // catch it. This is just the fast path.
+      }
+      if (cancelled) return;
+    })();
+    return () => { cancelled = true; };
+  }, [token]);
+
   // Pull just enough invoice/company info for the brand colour + name.
   // Failures here are silent - this is a confirmation page, not a
   // critical path.
