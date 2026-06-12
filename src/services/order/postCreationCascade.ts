@@ -58,6 +58,14 @@ export interface PostOrderCascadeOpts {
    *  Wave 70.24 added. Default off (handover IS created). Smoke tests
    *  + flows that don't need the cleaning portal pre-warmed pass true. */
   skipCleaning?: boolean;
+  /** FIX (2026-06-12): true when the operator recorded the deposit as
+   *  already paid at convert time. When FALSE and a deposit invoice
+   *  was just issued, the "order confirmed" email is suppressed - the
+   *  client otherwise received two simultaneous emails telling
+   *  conflicting stories ("your order is confirmed" vs "pay the
+   *  deposit to lock in your date"). The deposit-invoice email owns
+   *  the moment; confirmation language belongs after money lands. */
+  depositSettled?: boolean;
 }
 
 export interface PostOrderCascadeReceipt {
@@ -290,6 +298,15 @@ export async function postOrderCreationCascade(
         // order_confirmed row exists for this order in the last 5
         // minutes, skip and let the other path own it.
         receipt.email = { ok: true, skipped: true, reason: "deduped_recent_send" };
+      } else if (!opts.depositSettled && receipt.invoice.ok && receipt.invoice.invoiceId) {
+        // A deposit invoice was just issued and no deposit has been
+        // recorded as paid: the client is about to receive the
+        // deposit-invoice email ("pay this to lock in your date").
+        // Sending "your order is confirmed" in the same breath
+        // contradicts it and reads as two conflicting emails. Skip -
+        // the deposit email carries the next step; payment receipts
+        // confirm from there.
+        receipt.email = { ok: true, skipped: true, reason: "deposit_invoice_pending" };
       } else {
         const { data: companyRow, error: companyRowErr } = await (client as any)
           .from("companies")

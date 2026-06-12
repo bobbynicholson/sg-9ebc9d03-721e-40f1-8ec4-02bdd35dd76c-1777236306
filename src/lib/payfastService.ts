@@ -33,6 +33,13 @@ export interface PayFastSubscriptionParams {
   signature?: string;
 }
 
+/** PHP-urlencode equivalent that PayFast signs against. The one
+ *  difference from encodeURIComponent that matters: spaces must be
+ *  '+', not '%20'. */
+function pfUrlEncode(value: string): string {
+  return encodeURIComponent(value.trim()).replace(/%20/g, "+");
+}
+
 export class PayFastService {
   private config: PayFastConfig;
   private baseUrl: string;
@@ -45,13 +52,26 @@ export class PayFastService {
   }
 
   generateSignature(data: Record<string, string>): string {
-    const sortedKeys = Object.keys(data).sort();
-    const paramString = sortedKeys
-      .map((key) => `${key}=${encodeURIComponent(data[key].trim())}`)
+    // FIX (2026-06-12): PayFast's /eng/process signature is MD5 over
+    // name=urlencode(value) pairs in the ORDER the fields appear in
+    // the form - NOT alphabetically sorted (that ordering belongs to
+    // PayFast's REST API signatures). Values are PHP-urlencoded
+    // (spaces as '+'), blanks are skipped, and the passphrase (when
+    // set) is appended last. The previous alphabetical sort +
+    // %20-space encoding produced signatures PayFast rejected, so
+    // every checkout redirect died on the PayFast error page.
+    const paramString = Object.keys(data)
+      .filter(
+        (key) =>
+          key !== "signature" &&
+          data[key] != null &&
+          String(data[key]).trim() !== "",
+      )
+      .map((key) => `${key}=${pfUrlEncode(String(data[key]))}`)
       .join("&");
 
     const signatureString = this.config.passphrase
-      ? `${paramString}&passphrase=${encodeURIComponent(this.config.passphrase)}`
+      ? `${paramString}&passphrase=${pfUrlEncode(this.config.passphrase)}`
       : paramString;
 
     return crypto
@@ -114,10 +134,19 @@ export class PayFastService {
   }
 
   generatePaymentForm(params: PayFastSubscriptionParams): string {
+    // Escape attribute values so item names with quotes/ampersands
+    // can't break out of the hidden input markup. The browser decodes
+    // entities before POSTing, so the submitted values (and therefore
+    // the signature inputs) are unchanged.
+    const escAttr = (v: unknown) =>
+      String(v ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/"/g, "&quot;")
+        .replace(/</g, "&lt;");
     const formFields = Object.entries(params)
       .map(
         ([key, value]) =>
-          `<input type="hidden" name="${key}" value="${value}" />`
+          `<input type="hidden" name="${key}" value="${escAttr(value)}" />`
       )
       .join("\n");
 

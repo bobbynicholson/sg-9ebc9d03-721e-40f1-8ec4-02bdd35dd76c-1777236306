@@ -992,7 +992,14 @@ export const quoteService = {
       newOrder.id,
       newOrder.company_id,
       quote.user_id ?? null,
-      {},
+      {
+        // Operator captured the deposit in the accept dialog -> the
+        // "order confirmed" email may go out alongside the invoice.
+        // Unpaid deposit -> the cascade suppresses it so the client
+        // gets ONE email (the deposit invoice) instead of two with
+        // conflicting stories.
+        depositSettled: !!(options?.depositPaid && options.depositPaid.amount > 0),
+      },
     );
 
     // Map the cascade receipt onto the legacy shape that callers
