@@ -104,6 +104,10 @@
       "schedule": "0 9 * * *"
     },
     {
+      "path": "/api/cron/deposit-reminder",
+      "schedule": "0 8 * * *"
+    },
+    {
       "path": "/api/cron/equipment-collection-reminder",
       "schedule": "0 7 * * *"
     },
