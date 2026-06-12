@@ -58,6 +58,37 @@ export default function App({ Component, pageProps }: AppProps) {
     };
   }, [router.pathname]);
 
+  // Post-deploy stale-bundle recovery. After a new deploy the old JS
+  // chunk files are removed; a tab still holding the previous build
+  // throws "ChunkLoadError" / "Loading chunk N failed" on the next
+  // client-side navigation and the page goes blank. Catch it once and
+  // do a single hard reload to pull the fresh build (a sessionStorage
+  // guard prevents a reload loop if the failure is something else).
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const RELOAD_KEY = "__chunk_reload_at";
+    const looksLikeChunkError = (msg: string) =>
+      /ChunkLoadError|Loading chunk [\d]+ failed|Loading CSS chunk|Importing a module script failed/i.test(msg);
+    const recover = (msg: string) => {
+      if (!looksLikeChunkError(msg)) return;
+      const last = Number(sessionStorage.getItem(RELOAD_KEY) || 0);
+      // Don't reload more than once per 10s - avoids a loop when the
+      // error is genuine (not a stale chunk).
+      if (Date.now() - last < 10_000) return;
+      sessionStorage.setItem(RELOAD_KEY, String(Date.now()));
+      window.location.reload();
+    };
+    const onError = (e: ErrorEvent) => recover(e?.message || "");
+    const onRejection = (e: PromiseRejectionEvent) =>
+      recover(String((e?.reason && (e.reason.message || e.reason)) || ""));
+    window.addEventListener("error", onError);
+    window.addEventListener("unhandledrejection", onRejection);
+    return () => {
+      window.removeEventListener("error", onError);
+      window.removeEventListener("unhandledrejection", onRejection);
+    };
+  }, []);
+
   return (
     <>
       <NoIndexMeta />
