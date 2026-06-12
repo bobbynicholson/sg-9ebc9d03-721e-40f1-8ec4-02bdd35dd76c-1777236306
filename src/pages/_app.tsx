@@ -10,7 +10,6 @@ import { Toaster } from "@/components/ui/toaster";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { MiddlewareErrorToast } from "@/components/MiddlewareErrorToast";
 import { CommandPalette } from "@/components/CommandPalette";
-import { VersionWatcher } from "@/components/VersionWatcher";
 import { GlobalInternalFooter } from "@/components/GlobalInternalFooter";
 import "@/styles/globals.css";
 
@@ -75,7 +74,11 @@ export default function App({ Component, pageProps }: AppProps) {
             <GlobalInternalFooter />
             <CommandPalette />
             <MiddlewareErrorToast />
-            <VersionWatcher />
+            {/* VersionWatcher (the "A new version is available" banner)
+                unmounted per Raj, 2026-06-12 - it nagged on every
+                deploy during active development. Component + the
+                /api/version endpoint remain; remount here if stale
+                bundles become a support problem again. */}
             <Toaster />
           </RegionFilterProvider>
         </AuthProvider>
