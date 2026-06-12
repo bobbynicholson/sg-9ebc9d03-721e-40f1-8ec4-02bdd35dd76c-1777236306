@@ -29,7 +29,6 @@ import {
   Loader2, CreditCard, CheckCircle2, AlertCircle, FileText,
   Calendar, Printer, Wallet,
 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 import { PayFastService } from "@/lib/payfastService";
 
 const fmtMoney = new Intl.NumberFormat("en-ZA", { style: "currency", currency: "ZAR", maximumFractionDigits: 2 });
@@ -135,22 +134,29 @@ export default function InvoicePaymentPage() {
     (async () => {
       setLoading(true);
       setError(null);
-      const { data, error: fetchErr } = await (supabase as any)
-        .from("invoices")
-        .select(`
-          id, public_token, invoice_number, invoice_date, due_date,
-          total_amount, amount_paid, balance_due, status, invoice_data,
-          companies!inner (
-            id, company_name, logo_url, email, phone_number,
-            vat_registered, vat_number, vat_rate,
-            primary_color, secondary_color, accent_color
-          )
-        `)
-        .eq("public_token", token)
-        .is("deleted_at", null)
-        .maybeSingle();
+      // FIX (2026-06-12): fetch via the service-role API route instead
+      // of a direct anon SELECT. Migration 20260521090000 dropped the
+      // open anon read policy on invoices (cross-tenant leak), which
+      // silently emptied this query - every public pay link rendered
+      // "Invoice not found". The old embed also selected a nonexistent
+      // companies.phone_number column (it's `phone`), 400-ing the
+      // query regardless. The route mirrors the /q page's
+      // /api/public/quotes/[token]/get pattern.
+      let data: any = null;
+      try {
+        const r = await fetch(`/api/public/invoices/${encodeURIComponent(token)}/get`, {
+          method: "GET",
+          cache: "no-store",
+        });
+        if (r.ok) {
+          const j = await r.json().catch(() => ({}));
+          data = j?.invoice || null;
+        }
+      } catch (e) {
+        console.warn("[pay/i] invoice fetch failed:", e);
+      }
       if (cancelled) return;
-      if (fetchErr || !data) {
+      if (!data) {
         setNotFound(true);
         setLoading(false);
         return;
