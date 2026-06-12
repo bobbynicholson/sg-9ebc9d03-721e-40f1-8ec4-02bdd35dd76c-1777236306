@@ -421,41 +421,59 @@ async function handler(
               recipientName = (clientRow as any).client_name;
             }
           }
-          if (!recipientEmail && invoiceData.order_id) {
+          // Pull event_name (+ email fallback) from the linked order
+          // so the receipt subject/body read "... for RJ Marriage"
+          // instead of a blank {{event_name}}.
+          let eventName = "your event";
+          if (invoiceData.order_id) {
             const { data: orderRow, error: orderRowErr } = await supabase
               .from("orders")
-              .select("client_email, client_name")
+              .select("client_email, client_name, event_name")
               .eq("id", invoiceData.order_id)
               .maybeSingle();
             if (orderRowErr) {
               console.error("[webhooks/payment-confirmation] orders fetch failed:", orderRowErr);
             }
             if (orderRow) {
-              recipientEmail = (orderRow as any).client_email;
-              recipientName = (orderRow as any).client_name;
+              if ((orderRow as any).event_name) eventName = (orderRow as any).event_name;
+              if (!recipientEmail) {
+                recipientEmail = (orderRow as any).client_email;
+                recipientName = (orderRow as any).client_name;
+              }
             }
           }
 
           if (recipientEmail) {
-            // Template type aligns with the seed in
-            // supabase/migrations/20260506130000_seed_email_templates.sql.
-            // Previously we passed "invoice-payment-received" which has
-            // no row in email_templates and quietly fell through [P0-07].
-            // Wave 24: pass the service-role client so getEmailConfig
-            // reads email_provider_settings under RLS. PayFast IPN
-            // hits this with no session, so without _client the helper
-            // falls back to browser anon supabase and the SELECT
-            // returns nothing - the receipt never lands.
+            // FIX (2026-06-12): the template speaks snake_case
+            // ({{first_name}}, {{event_name}}, {{amount}},
+            // {{invoice_number}}, {{tenant_name}}) and hardcodes its
+            // own "R" prefix. The old send passed a camelCase bag with
+            // an already-R-prefixed amount, so clients saw raw
+            // {{first_name}} and "R R5 117,30". Pass the right keys, a
+            // bare numeric amount, and pick deposit- vs balance-
+            // received by whether the invoice is now fully paid.
+            const fullyPaid =
+              (rpcResult as any)?.invoice_status === "paid" ||
+              Number((rpcResult as any)?.balance_due ?? 1) <= 0;
+            const firstName = String(recipientName || "there").trim().split(/\s+/)[0] || "there";
+            const amountBare = Number(amount_gross).toLocaleString("en-ZA", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
             await emailService.sendEmail({
               companyId,
               to: recipientEmail,
               subject: `Payment received - invoice ${invoiceData.invoice_number}`,
-              template: "balance_payment_received",
+              template: fullyPaid ? "balance_payment_received" : "deposit_payment_received",
               variables: {
+                first_name: firstName,
+                client_name: recipientName || "there",
+                tenant_name: companyData?.company_name || "Your caterer",
+                company_name: companyData?.company_name || "Your caterer",
+                event_name: eventName,
+                amount: amountBare,
+                invoice_number: invoiceData.invoice_number,
+                order_number: invoiceData.invoice_number,
+                // legacy camelCase kept for older tenant overrides
                 clientName: recipientName || "there",
                 invoiceNumber: invoiceData.invoice_number,
-                orderNumber: invoiceData.invoice_number,
-                amount: `R${Number(amount_gross).toLocaleString("en-ZA", { minimumFractionDigits: 2 })}`,
                 companyName: companyData?.company_name || "Your caterer",
               },
               _client: supabase,
@@ -809,6 +827,21 @@ async function sendClientPaymentConfirmation(
   const clientUserId = await resolveClientUserId(order.client_id);
   const amountFmt = `R${Number(amountGross).toLocaleString("en-ZA", { minimumFractionDigits: 2 })}`;
   const isDeposit = kind === "deposit";
+
+  // Tenant display name for the receipt sign-off (orders rows don't
+  // carry company_name). Best-effort - falls back below if absent.
+  let tenantName = order.company_name || "";
+  if (!tenantName) {
+    try {
+      const { data: companyRow } = await supabase
+        .from("companies")
+        .select("company_name")
+        .eq("id", order.company_id || order.user_id)
+        .maybeSingle();
+      if ((companyRow as any)?.company_name) tenantName = (companyRow as any).company_name;
+    } catch { /* keep fallback */ }
+  }
+  if (!tenantName) tenantName = "Your caterer";
   const title = isDeposit
     ? `Deposit received for order ${order.order_number}`
     : `Final payment received for order ${order.order_number}`;
@@ -868,13 +901,23 @@ async function sendClientPaymentConfirmation(
       // had no row in email_templates [P0-07].
       template: isDeposit ? "deposit_payment_received" : "balance_payment_received",
       variables: {
-        clientName: recipientName || "there",
-        orderNumber: order.order_number,
-        amount: amountFmt,
-        eventDate: order.event_date
+        // snake_case to match the seeded templates; amount is bare
+        // (template prefixes its own "R") to avoid "R R5 117,30".
+        first_name: String(recipientName || "there").trim().split(/\s+/)[0] || "there",
+        client_name: recipientName || "there",
+        tenant_name: tenantName,
+        company_name: tenantName,
+        event_name: order.event_name || "your event",
+        amount: Number(amountGross).toLocaleString("en-ZA", { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+        invoice_number: order.order_number,
+        order_number: order.order_number,
+        event_date: order.event_date
           ? new Date(order.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "long", year: "numeric" })
           : "TBD",
         venue: order.venue_address || "TBD",
+        // legacy camelCase kept for older tenant overrides
+        clientName: recipientName || "there",
+        orderNumber: order.order_number,
       },
       orderId: order.id,
       // Wave 24: webhook context - pass service-role client.
