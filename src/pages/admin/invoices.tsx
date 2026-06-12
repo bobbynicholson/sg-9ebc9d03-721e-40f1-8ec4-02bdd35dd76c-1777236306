@@ -1474,17 +1474,17 @@ function InvoicesPageInner() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-8">
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-1.5">
+              <CardTitle className="text-xs sm:text-sm font-medium text-slate-600 flex items-center gap-1.5">
                 Total invoices <InfoTooltip content={"Every invoice on file for your company, across every status."} />
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{invoices.length}</div>
+              <div className="text-xl sm:text-2xl font-bold">{invoices.length}</div>
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-1.5">
+              <CardTitle className="text-xs sm:text-sm font-medium text-slate-600 flex items-center gap-1.5">
                 Outstanding <InfoTooltip content={"Total rand value of invoices that have been sent but are not yet paid in full. Includes sent / partially paid / overdue."} />
               </CardTitle>
             </CardHeader>
@@ -1518,7 +1518,7 @@ function InvoicesPageInner() {
           </Card>
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-1.5">
+              <CardTitle className="text-xs sm:text-sm font-medium text-slate-600 flex items-center gap-1.5">
                 Collected <InfoTooltip content={"Total value across invoices the client has settled in full. Money actually in the bank."} />
               </CardTitle>
             </CardHeader>
@@ -1533,12 +1533,12 @@ function InvoicesPageInner() {
           </Card>
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-1.5">
+              <CardTitle className="text-xs sm:text-sm font-medium text-slate-600 flex items-center gap-1.5">
                 Total invoiced <InfoTooltip content={"Sum of every ISSUED invoice (sent, partially paid, paid, overdue).\n\nDrafts and written-off invoices are excluded - a draft has not been billed yet, and a write-off is closed out."} />
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
+              <div className="text-xl sm:text-2xl font-bold">
                 {/* INV-A: drafts + written-off no longer inflate the
                     headline. A draft has not been issued; a write-off
                     is closed out. Pre-INV-A a tenant with R10k of

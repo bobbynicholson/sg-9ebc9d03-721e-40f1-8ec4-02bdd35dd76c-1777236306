@@ -962,7 +962,7 @@ export default function PublicQuotePage() {
                           ? ` a ${fmtMoney(depositAmount as number)} deposit invoice (${depositPct}% of ${fmtMoney(quote.total_amount)}).`
                           : " the deposit invoice."}
                       </p>
-                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-2 sm:gap-3">
+                      <div className="flex flex-col min-[420px]:flex-row items-stretch min-[420px]:items-center justify-center gap-2 min-[420px]:gap-3">
                         {/* Primary - Accept. Green so it reads as
                             "go" without depending on the tenant's
                             brand colour (which can be anything). */}
