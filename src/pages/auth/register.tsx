@@ -30,20 +30,26 @@ export default function RegisterPage() {
     setError("");
     setLoading(true);
 
-    if (!formData.name || !formData.email || !formData.phone || !formData.password) {
-      setError("Please fill in all required fields");
-      setLoading(false);
-      return;
+    // Collect every problem in one pass so the user fixes them all at
+    // once instead of resubmitting to find the next.
+    const problems: string[] = [];
+    if (!formData.name) problems.push("Enter your full name.");
+    if (!formData.email) {
+      problems.push("Enter an email address.");
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) {
+      problems.push("Enter a valid email address (e.g. name@company.co.za).");
     }
-
-    if (formData.password !== formData.confirmPassword) {
-      setError("Passwords do not match");
-      setLoading(false);
-      return;
+    if (!formData.phone) problems.push("Enter a phone number.");
+    if (!formData.password) {
+      problems.push("Enter a password.");
+    } else if (formData.password.length < 6) {
+      problems.push("Password must be at least 6 characters long.");
     }
-
-    if (formData.password.length < 6) {
-      setError("Password must be at least 6 characters long");
+    if (formData.password && formData.password !== formData.confirmPassword) {
+      problems.push("The two passwords don't match.");
+    }
+    if (problems.length > 0) {
+      setError(problems.join("\n"));
       setLoading(false);
       return;
     }
@@ -151,11 +157,25 @@ export default function RegisterPage() {
         </CardHeader>
         <CardContent className="px-4 sm:px-6 pb-6 sm:pb-8">
           <form onSubmit={handleRegister} className="space-y-4 sm:space-y-6">
-            {error && (
-              <Alert variant="destructive" className="text-sm">
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
+            {error && (() => {
+              const lines = error.split("\n").filter(Boolean);
+              return (
+                <Alert variant="destructive" className="text-sm">
+                  <AlertDescription>
+                    {lines.length > 1 ? (
+                      <>
+                        <p className="font-semibold mb-1">Please fix {lines.length} things:</p>
+                        <ul className="list-disc list-inside space-y-0.5">
+                          {lines.map((l, i) => <li key={i}>{l}</li>)}
+                        </ul>
+                      </>
+                    ) : (
+                      lines[0]
+                    )}
+                  </AlertDescription>
+                </Alert>
+              );
+            })()}
 
             <Button
               type="button"

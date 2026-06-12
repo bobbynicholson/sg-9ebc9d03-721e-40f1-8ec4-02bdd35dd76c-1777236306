@@ -176,34 +176,40 @@ export default function CompanySignupPage() {
     setError("");
     setLoading(true);
 
-    // Validation
-    if (!formData.companyName || !formData.ownerName || !formData.email || !formData.phone || !formData.password || !formData.currency) {
-      setError("Please fill in all required fields");
-      setLoading(false);
-      return;
+    // Collect EVERY validation problem in one pass and summarise them
+    // together, so the operator fixes everything at once instead of
+    // resubmitting to discover the next error one at a time.
+    const problems: string[] = [];
+    if (!formData.companyName) problems.push("Enter your company name.");
+    if (!formData.ownerName) problems.push("Enter the owner / contact name.");
+    if (!formData.email) {
+      problems.push("Enter an email address.");
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) {
+      problems.push("Enter a valid email address (e.g. name@company.co.za).");
     }
-
+    if (!formData.phone) problems.push("Enter a phone number.");
+    if (!formData.currency) problems.push("Pick a currency.");
     if (!formData.customSlug) {
-      setError("A custom URL is required. This is your permanent company URL.");
-      setLoading(false);
-      return;
+      problems.push("Choose your company URL — this is your permanent web address.");
+    } else if (slugAvailability.state === "checking") {
+      problems.push("Hang on — we're still checking if your company URL is available.");
+    } else if (slugAvailability.state !== "available") {
+      problems.push("That company URL isn't available. Pick one that shows the green tick.");
+    }
+    if (!formData.password) {
+      problems.push("Enter a password.");
+    } else if (formData.password.length < 6) {
+      problems.push("Password must be at least 6 characters long.");
+    }
+    if (formData.password && formData.password !== formData.confirmPassword) {
+      problems.push("The two passwords don't match.");
     }
 
-    if (slugAvailability.state !== "available") {
-      setError("Your custom URL isn't available yet. Pick one that shows the green tick before submitting.");
+    if (problems.length > 0) {
+      setError(problems.join("\n"));
       setLoading(false);
-      return;
-    }
-
-    if (formData.password !== formData.confirmPassword) {
-      setError("Passwords do not match");
-      setLoading(false);
-      return;
-    }
-
-    if (formData.password.length < 6) {
-      setError("Password must be at least 6 characters long");
-      setLoading(false);
+      // Scroll the summary into view so it's never missed below the fold.
+      if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
       return;
     }
 
@@ -596,12 +602,32 @@ export default function CompanySignupPage() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleRegister} className="space-y-6">
-            {error && (
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
+            {error && (() => {
+              // error may carry several newline-separated problems -
+              // render a summary header + bulleted list so the operator
+              // sees everything to fix at a glance. A single error
+              // renders as one plain line.
+              const lines = error.split("\n").filter(Boolean);
+              return (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    {lines.length > 1 ? (
+                      <>
+                        <p className="font-semibold mb-1">
+                          Please fix {lines.length} {lines.length === 1 ? "thing" : "things"} before continuing:
+                        </p>
+                        <ul className="list-disc list-inside space-y-0.5">
+                          {lines.map((l, i) => <li key={i}>{l}</li>)}
+                        </ul>
+                      </>
+                    ) : (
+                      lines[0]
+                    )}
+                  </AlertDescription>
+                </Alert>
+              );
+            })()}
 
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
               <p className="text-sm text-blue-800">
