@@ -201,9 +201,17 @@ async function handler(
   }
 
   try {
-    // 1. IP allowlist (env-gated, see header docstring).
+    // 1. IP allowlist - enforced only when configured. The previous
+    // fail-closed-in-production behaviour 403'd EVERY IPN on any
+    // deployment without PAYFAST_ALLOWED_IPS set (i.e. this one) --
+    // clients paid on PayFast and the invoice/order never updated.
+    // When the allowlist is absent we instead confirm authenticity
+    // with PayFast's own server-side /eng/query/validate round-trip
+    // below (their documented ITN validation step), which is a
+    // stronger check than source IP anyway.
     const callerIp = clientIpFromRequest(req);
-    if (!isAllowedPayFastIp(callerIp)) {
+    const ipAllowlistConfigured = !!(process.env.PAYFAST_ALLOWED_IPS || "").trim();
+    if (ipAllowlistConfigured && !isAllowedPayFastIp(callerIp)) {
       console.warn("[payfast-webhook] rejected non-allowlisted IP:", callerIp);
       return res.status(403).json({ error: "Forbidden" });
     }
@@ -232,6 +240,10 @@ async function handler(
     // brand-new tenant whose creds aren't in the table yet still work).
     const tenantCompanyIdFromIpn = (paymentData.custom_str3 || "").trim();
     let passphrase = process.env.PAYFAST_PASSPHRASE || "";
+    // Tenant test-mode flag, captured alongside the passphrase so the
+    // server-confirm step below knows which PayFast host signed this
+    // IPN (sandbox vs live).
+    let tenantIsTest: boolean | null = null;
     if (tenantCompanyIdFromIpn && /^[0-9a-f-]{36}$/i.test(tenantCompanyIdFromIpn)) {
       try {
         const { getServiceSupabase } = await import("@/lib/supabase/service");
@@ -247,6 +259,7 @@ async function handler(
           // - only fall back to env when the tenant has no payfast row
           // at all. Once we have a payfast row, that's authoritative.
           passphrase = tenantPassphrase;
+          tenantIsTest = !!(tenantCfg.gateway as any).is_test;
         }
       } catch (e) {
         console.warn("[payfast-webhook] tenant passphrase lookup failed, using env fallback:", e);
@@ -263,6 +276,36 @@ async function handler(
     if (expectedSignature.toLowerCase() !== providedSignature) {
       console.warn("[payfast-webhook] signature mismatch (tenant=", tenantCompanyIdFromIpn || "n/a", ")");
       return res.status(400).json({ error: "Invalid signature" });
+    }
+
+    // 2b. Server-side confirmation with PayFast - the documented ITN
+    // validation round-trip. Runs when no IP allowlist is configured
+    // (the allowlist's replacement) so a spoofed POST that somehow
+    // carried a valid-looking signature still has to be one PayFast
+    // itself recognises. Host follows the tenant's test-mode flag;
+    // legacy/no-tenant IPNs default to the live host.
+    if (!ipAllowlistConfigured && process.env.NODE_ENV === "production") {
+      try {
+        const confirmHost = tenantIsTest === true ? "sandbox.payfast.co.za" : "www.payfast.co.za";
+        const confirmBody = buildPayFastSignedString(
+          ordered.filter(([k]) => k !== "signature"),
+          "",
+        );
+        const confirmRes = await fetch(`https://${confirmHost}/eng/query/validate`, {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: confirmBody,
+        });
+        const confirmText = (await confirmRes.text()).trim().toUpperCase();
+        if (!confirmText.startsWith("VALID")) {
+          console.warn("[payfast-webhook] PayFast server-confirm rejected IPN:", { confirmHost, confirmText: confirmText.slice(0, 60) });
+          return res.status(403).json({ error: "PayFast validation failed" });
+        }
+      } catch (confirmErr) {
+        // PayFast's validate endpoint being unreachable shouldn't void
+        // a signature-verified payment - log loudly and continue.
+        console.warn("[payfast-webhook] PayFast server-confirm unreachable (continuing on signature):", confirmErr);
+      }
     }
 
     // Check payment status

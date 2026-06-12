@@ -82,7 +82,9 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     // Authorise. Either the public token matches the invoice OR the
     // signed-in client owns the invoice via clients.user_id linkage.
     let ownership: { id: string; email: string | null; client_name: string | null } | null = null;
+    let viaPublicToken = false;
     if (public_token && (invoice as any).public_token && public_token === (invoice as any).public_token) {
+      viaPublicToken = true;
       // Token-bearer path: capability granted by holding the token.
       // Resolve the linked client for personalisation only.
       const { data: clientRow, error: clientRowErr } = await admin
@@ -266,8 +268,17 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       amount,
       currency: orderRow?.currency || "ZAR",
       description,
-      successUrl: `${baseUrl}/client-portal?paid=1&invoice=${invoice.invoice_number}`,
-      cancelUrl: `${baseUrl}/client-portal?cancelled=1&invoice=${invoice.invoice_number}`,
+      // FIX (2026-06-12): token-bearer payers (the email pay link) are
+      // NOT logged in - bouncing them to /client-portal after payment
+      // landed them on a login wall. Send them back to the public
+      // invoice pages instead; only authenticated portal sessions
+      // return to the portal.
+      successUrl: viaPublicToken
+        ? `${baseUrl}/pay/i/${(invoice as any).public_token}/success`
+        : `${baseUrl}/client-portal?paid=1&invoice=${invoice.invoice_number}`,
+      cancelUrl: viaPublicToken
+        ? `${baseUrl}/pay/i/${(invoice as any).public_token}?cancelled=1`
+        : `${baseUrl}/client-portal?cancelled=1&invoice=${invoice.invoice_number}`,
       notifyUrl: notifyUrlFor(baseUrl, invoice.company_id),
       customer: {
         email: ownership.email || orderRow?.client_email || "",
