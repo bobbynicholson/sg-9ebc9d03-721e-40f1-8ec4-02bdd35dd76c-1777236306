@@ -8,6 +8,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Building2, CheckCircle, DollarSign, AlertCircle, Loader2, X } from "lucide-react";
 import Link from "next/link";
+import { AuthShell } from "@/components/auth/AuthShell";
 import { companyService } from "@/services/companyService";
 import { roleService } from "@/services/roleService";
 import { Separator } from "@/components/ui/separator";
@@ -424,14 +425,11 @@ export default function CompanySignupPage() {
     // The branch below renders both from the same card so the layout is
     // identical - only the copy + buttons differ.
     return (
-      <div
-        className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-pink-50 flex items-center justify-center p-4"
-        style={{
-          paddingTop: "max(1rem, env(safe-area-inset-top, 1rem))",
-          paddingBottom: "max(1rem, env(safe-area-inset-bottom, 1rem))",
-        }}
+      <AuthShell
+        headline="Welcome aboard."
+        subcopy="Your catering business is set up — let's get your first event in the door."
       >
-        <Card className="w-full max-w-2xl border-0 shadow-2xl">
+        <Card className="w-full max-w-xl border border-slate-200/80 shadow-xl rounded-2xl">
           <CardContent className="p-8 md:p-12">
             <div className="text-center mb-8">
               <div className={`w-20 h-20 rounded-full mx-auto flex items-center justify-center shadow-lg mb-6 ${
@@ -575,22 +573,25 @@ export default function CompanySignupPage() {
             </div>
           </CardContent>
         </Card>
-      </div>
+      </AuthShell>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-pink-50 flex items-center justify-center p-4">
-      <Card className="w-full max-w-2xl border-0 shadow-2xl">
-        <CardHeader className="space-y-4">
-          <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500 mx-auto flex items-center justify-center shadow-lg transform hover:scale-105 transition-transform">
-            <Building2 className="w-10 h-10 text-white" />
+    <AuthShell
+      headline="Grow your catering business."
+      subcopy="Set up your company in minutes — quotes, kitchen, delivery and payments, all in one place."
+    >
+      <Card className="w-full max-w-xl border border-slate-200/80 shadow-xl rounded-2xl">
+        <CardHeader className="space-y-3">
+          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500 mx-auto flex items-center justify-center shadow-lg">
+            <Building2 className="w-7 h-7 text-white" />
           </div>
-          <CardTitle className="text-3xl font-bold text-center text-slate-900">
-            Register Your Catering Business
+          <CardTitle className="text-2xl font-bold text-center text-slate-900">
+            Register your catering business
           </CardTitle>
-          <CardDescription className="text-center text-slate-600">
-            Join CateringMS and transform how you manage your catering operations
+          <CardDescription className="text-center text-slate-600 text-sm">
+            Join CateringMS and transform how you manage your operations
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -843,21 +844,37 @@ export default function CompanySignupPage() {
               {loading ? (
                 <>
                   <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                  Creating Your Company...
+                  Creating your company...
                 </>
               ) : (
-                "Register Company"
+                "Register company"
               )}
             </Button>
 
-            <div className="text-center space-y-2">
-              <p className="text-sm text-slate-500">
-                Already have a company account? Contact support for login assistance
+            {/* Terms agreement - registering = acceptance. Links to the
+                real /terms and /privacy pages (both ship in the app). */}
+            <p className="text-center text-xs text-slate-400 leading-relaxed">
+              By registering you agree to our{" "}
+              <Link href="/terms" className="text-purple-600 hover:text-purple-700 font-medium">
+                Terms of Service
+              </Link>{" "}
+              and{" "}
+              <Link href="/privacy" className="text-purple-600 hover:text-purple-700 font-medium">
+                Privacy Policy
+              </Link>.
+            </p>
+
+            <div className="text-center pt-2 border-t border-slate-100">
+              <p className="text-sm text-slate-500 mt-3">
+                Already have an account?{" "}
+                <Link href="/auth/login" className="text-purple-600 hover:text-purple-700 font-medium">
+                  Sign in
+                </Link>
               </p>
             </div>
           </form>
         </CardContent>
       </Card>
-    </div>
+    </AuthShell>
   );
 }

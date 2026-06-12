@@ -283,6 +283,17 @@ export default function RegisterPage() {
               {loading ? "Creating Account..." : "Create Account"}
             </Button>
 
+            <p className="text-center text-xs text-slate-400 leading-relaxed">
+              By creating an account you agree to our{" "}
+              <Link href="/terms" className="text-purple-600 hover:text-purple-700 font-medium">
+                Terms of Service
+              </Link>{" "}
+              and{" "}
+              <Link href="/privacy" className="text-purple-600 hover:text-purple-700 font-medium">
+                Privacy Policy
+              </Link>.
+            </p>
+
             <div className="text-center space-y-2">
               <Link href="/auth/login" className="text-xs sm:text-sm text-purple-600 hover:text-purple-700 font-medium block">
                 Already have an account? Sign in here
