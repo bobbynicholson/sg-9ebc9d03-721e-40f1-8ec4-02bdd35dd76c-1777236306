@@ -303,7 +303,7 @@ function SubscriptionPage() {
       <AdminNav />
 
       <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
-        <div className="px-4 py-8 max-w-full">
+        <div className="px-4 py-8 max-w-6xl mx-auto">
           {pendingDeletion && (
             <Alert className="mb-6 border-red-200 bg-red-50">
               <AlertTriangle className="h-5 w-5 text-red-600" />

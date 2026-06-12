@@ -452,7 +452,7 @@ function WhiteLabelPage() {
       <AdminNav />
 
       <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
-        <div className="px-4 py-8 max-w-full">
+        <div className="px-4 py-8 max-w-6xl mx-auto">
           <Link href={withSlug("/admin/settings")}>
             <Button variant="ghost" className="mb-4">
               <ArrowLeft className="w-4 h-4 mr-2" />

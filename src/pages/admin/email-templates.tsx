@@ -74,7 +74,7 @@ function LifecycleEmailsPage() {
       <AdminNav />
 
       <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
-        <div className="px-4 py-8 max-w-full">
+        <div className="px-4 py-8 max-w-6xl mx-auto">
           <div className="mb-6 flex items-center gap-3">
             <div className="p-3 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl shadow-lg">
               <Mail className="w-7 h-7 text-white" />

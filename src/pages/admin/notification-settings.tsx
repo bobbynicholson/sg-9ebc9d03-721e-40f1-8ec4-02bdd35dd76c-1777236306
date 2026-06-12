@@ -235,7 +235,7 @@ export default function NotificationSettings() {
       <AdminNav />
 
       <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
-        <div className="px-4 py-8 max-w-full">
+        <div className="px-4 py-8 max-w-6xl mx-auto">
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-slate-900 mb-2">Notification settings</h1>
             <p className="text-slate-600">Per-user channels and triggers. Decide which events ping you by email, in-app banner, WhatsApp, or push. Owners get everything by default. Tune the noise from here.</p>

@@ -693,7 +693,7 @@ function RegionsPage() {
       <AdminNav />
 
       <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
-        <div className="px-4 py-8 max-w-full">
+        <div className="px-4 py-8 max-w-6xl mx-auto">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
             <div className="flex items-center gap-3">
               <div className="w-11 h-11 rounded-xl bg-brand-primary/10 flex items-center justify-center flex-shrink-0">
