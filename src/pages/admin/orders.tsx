@@ -1341,7 +1341,7 @@ function OrderProcessDashboard() {
       <AdminNav />
 
       {isDeeplinkPending && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
           <div className="flex flex-col items-center gap-3 text-slate-600">
             <RefreshCw className="w-8 h-8 animate-spin text-blue-500" />
             <p className="text-sm">Opening order...</p>
@@ -1349,13 +1349,13 @@ function OrderProcessDashboard() {
         </div>
       )}
 
-      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 lg:pl-72 xl:pl-80">
+      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
         <div className="px-4 pt-20 lg:pt-6 pb-12 max-w-full">
           <div className="space-y-6">
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-brand-primary to-brand-secondary flex items-center justify-center shadow-lg">
                   <ShoppingCart className="w-6 h-6 text-white" />
                 </div>
                 <div>
@@ -1558,7 +1558,7 @@ function OrderProcessDashboard() {
                 <Link href={withSlug("/admin/quotes/new")}>
                   <Button
                     size="sm"
-                    className="h-9 gap-2 bg-gradient-to-r from-brand-primary to-brand-secondary hover:from-blue-700 hover:to-indigo-700 shadow-md hover:shadow-lg active:scale-[0.98] transition-all"
+                    className="h-9 gap-2 bg-gradient-to-r from-brand-primary to-brand-secondary hover:opacity-90 shadow-md hover:shadow-lg active:scale-[0.98] transition-all"
                   >
                     <FileText className="w-4 h-4" />
                     New Quote
