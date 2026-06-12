@@ -22,9 +22,27 @@
  * the /c/order page's ExpiredLinkCard self-recovery flow.
  */
 
+/** Normalise a raw origin/host value into "https://host" form (no
+ *  trailing slash). Returns "" for empty input. */
+function normalizeOrigin(raw?: string | null): string {
+  const trimmed = String(raw || "").trim();
+  if (!trimmed) return "";
+  const withProto = trimmed.startsWith("http") ? trimmed : `https://${trimmed}`;
+  return withProto.replace(/\/$/, "");
+}
+
 function getServerOrigin(): string {
-  const origin = process.env.NEXT_PUBLIC_APP_URL || "";
-  return origin.replace(/\/$/, "");
+  // TIGHTEN (2026-06-12): NEXT_PUBLIC_APP_URL was the only source, so
+  // any environment without it (local dev, preview deploys) emailed
+  // RELATIVE links like "/q/{token}" - dead text in a mail client.
+  // Fall back to the Vercel-provided host vars like the admin notify
+  // path already does.
+  return normalizeOrigin(
+    process.env.NEXT_PUBLIC_APP_URL ||
+      process.env.NEXT_PUBLIC_VERCEL_URL ||
+      process.env.VERCEL_URL ||
+      "",
+  );
 }
 
 /** Slug prefix path segment, eg. "/spit-braai-delivery" or "" when no
@@ -49,6 +67,10 @@ interface MintInput {
    *  it up from companies using the provided supabase client. Pass it
    *  explicitly when the caller already has it to skip the round-trip. */
   slug?: string | null;
+  /** Request-derived origin (eg. from the incoming req's host header).
+   *  Used as a last resort when no APP_URL / VERCEL_URL env is set so
+   *  public endpoints never email relative links. */
+  origin?: string | null;
 }
 
 async function resolveSlug(sb: any, companyId: string): Promise<string | null> {
@@ -71,7 +93,7 @@ async function resolveSlug(sb: any, companyId: string): Promise<string | null> {
  */
 export async function mintOrderCustomerLink(input: MintInput): Promise<string> {
   const { sb, companyId, orderId, label } = input;
-  const origin = getServerOrigin();
+  const origin = getServerOrigin() || normalizeOrigin(input.origin);
   const slug = input.slug !== undefined ? input.slug : await resolveSlug(sb, companyId);
   const sluggy = slugSegment(slug);
   const fallback = `${origin}${sluggy}/c/order/${orderId}`;
@@ -117,8 +139,9 @@ export function buildPayInvoiceUrlServer(
 export function buildPublicQuoteUrlServer(
   token: string | null | undefined,
   slug?: string | null,
+  originOverride?: string | null,
 ): string | null {
   if (!token) return null;
-  const origin = getServerOrigin();
+  const origin = getServerOrigin() || normalizeOrigin(originOverride);
   return `${origin}${slugSegment(slug)}/q/${token}`;
 }

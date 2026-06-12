@@ -181,6 +181,16 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     const { quoteService } = await import("@/services/quoteService");
     const convertResult = await (quoteService as any).convertQuoteToOrder(updated.id, { _client: supabase });
     convertedOrderId = (convertResult as any)?.order?.id ?? null;
+    // convertQuoteToOrder reports refusals (no_guest_count,
+    // no_client_email, ...) via the result object without throwing.
+    // Surface them in the logs - otherwise the only symptom is the
+    // confirmation email silently falling back to the quote URL.
+    if (!convertedOrderId && (convertResult as any)?.error) {
+      console.warn(
+        "[public/quotes/accept] convert-to-order refused (non-blocking):",
+        (convertResult as any).error_code || (convertResult as any).error,
+      );
+    }
   } catch (err) {
     console.warn("[public/quotes/accept] convert-to-order cascade failed (non-blocking):", err);
   }
@@ -223,14 +233,33 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     }
   })();
 
+  // Request-derived origin: last-resort base for the links we email
+  // out when no NEXT_PUBLIC_APP_URL / VERCEL_URL env is configured.
+  // This is a public endpoint hit from the client's browser, so the
+  // Host header is the app's own host.
+  const requestOrigin = deriveRequestOrigin(req);
+
   // Await notifications before returning so Vercel doesn't cut them off.
   // Each function is internally try/caught - failures warn but never throw.
   await Promise.all([
-    notifyAdminOfAcceptance(supabase, updated, acceptorName),
-    notifyClientOfAcceptance(supabase, updated, acceptorName, convertedOrderId),
+    notifyAdminOfAcceptance(supabase, updated, acceptorName, requestOrigin),
+    notifyClientOfAcceptance(supabase, updated, acceptorName, convertedOrderId, requestOrigin),
   ]);
 
   return res.status(200).json({ ok: true });
+}
+
+/** Origin of the incoming request ("https://app.example.com" /
+ *  "http://localhost:3001"). Prefers proxy headers (Vercel sets
+ *  x-forwarded-proto/-host); plain-http only for localhost. */
+function deriveRequestOrigin(req: NextApiRequest): string {
+  const forwardedHost = String(req.headers["x-forwarded-host"] || "").split(",")[0].trim();
+  const host = forwardedHost || String(req.headers.host || "").trim();
+  if (!host) return "";
+  const forwardedProto = String(req.headers["x-forwarded-proto"] || "").split(",")[0].trim();
+  const isLocal = /^(localhost|127\.0\.0\.1)(:\d+)?$/i.test(host);
+  const proto = forwardedProto || (isLocal ? "http" : "https");
+  return `${proto}://${host}`;
 }
 
 /**
@@ -241,23 +270,31 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
  * personalises subject lines centrally. Best-effort, wrapped per
  * channel so a failed send never rolls back the acceptance.
  */
-async function notifyClientOfAcceptance(supabase: any, quote: any, acceptorName: string, orderId: string | null) {
+async function notifyClientOfAcceptance(supabase: any, quote: any, acceptorName: string, orderId: string | null, requestOrigin: string) {
   // Resolve the catering company's display name - the email signs
   // off as "{tenant_name} will send your deposit invoice shortly"
-  // rather than "your catering company".
+  // rather than "your catering company". Slug fetched in the same
+  // round-trip so the link builders produce slug-prefixed URLs.
   let tenantName = "Your catering team";
+  let tenantSlug: string | null = null;
   try {
     const { data: company } = await supabase
       .from("companies")
-      .select("company_name")
+      .select("company_name, slug")
       .eq("id", quote.company_id)
       .maybeSingle();
     if (company?.company_name) tenantName = company.company_name;
+    if (company?.slug) tenantSlug = company.slug;
   } catch (err) {
     console.warn("[public/quotes/accept] tenant lookup failed", err);
   }
 
-  const eventName = quote.quote_name || "your event";
+  // Quote builder drafts default to "Untitled" - "Thanks for accepting
+  // the quote for Untitled" reads broken, so treat it like no name.
+  const rawQuoteName = String(quote.quote_name || "").trim();
+  const eventName = rawQuoteName && rawQuoteName.toLowerCase() !== "untitled"
+    ? rawQuoteName
+    : "your event";
   const firstName = String(acceptorName || quote.client_name || "")
     .trim()
     .split(" ")[0] || "there";
@@ -306,9 +343,11 @@ async function notifyClientOfAcceptance(supabase: any, quote: any, acceptorName:
         companyId: quote.company_id,
         orderId,
         label: "quote-accepted-confirmation",
+        slug: tenantSlug,
+        origin: requestOrigin,
       });
     } else if (quote.public_token) {
-      orderUrl = buildPublicQuoteUrlServer(quote.public_token) ?? "";
+      orderUrl = buildPublicQuoteUrlServer(quote.public_token, tenantSlug, requestOrigin) ?? "";
     }
   } catch (err) {
     console.warn("[public/quotes/accept] order URL build failed", err);
@@ -362,7 +401,7 @@ async function notifyClientOfAcceptance(supabase: any, quote: any, acceptorName:
   }
 }
 
-async function notifyAdminOfAcceptance(supabase: any, quote: any, acceptorName: string) {
+async function notifyAdminOfAcceptance(supabase: any, quote: any, acceptorName: string, requestOrigin: string) {
   const { data: profile, error: profileErr } = await supabase
     .from("profiles")
     .select("id, full_name, email, phone, phone_number, company_name")
@@ -414,8 +453,11 @@ async function notifyAdminOfAcceptance(supabase: any, quote: any, acceptorName: 
   // /admin/messaging-templates drives this send.
   try {
     if (profile?.email) {
-      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_VERCEL_URL || "";
-      const origin = baseUrl.startsWith("http") ? baseUrl : `https://${baseUrl}`;
+      // Without any env the old fallback produced "https://" + "" =
+      // "https:///admin/quotes/..." - a dead link. Use the request
+      // origin as the last resort.
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_VERCEL_URL || requestOrigin || "";
+      const origin = (baseUrl.startsWith("http") ? baseUrl : `https://${baseUrl}`).replace(/\/$/, "");
       const { emailService } = await import("@/services/emailService");
       const { resolveEmailTemplate } = await import("@/services/email/templateResolver");
 
