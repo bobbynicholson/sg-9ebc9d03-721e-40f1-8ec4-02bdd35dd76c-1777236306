@@ -143,53 +143,52 @@ export default function UserManagementPage() {
     setCreating(true);
 
     try {
-      // Create auth user
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: newUser.email,
-        password: newUser.password,
-        options: {
-          data: {
-            full_name: newUser.full_name,
-            role: newUser.role,
-          },
-        },
+      // FIX (2026-06-12): this used to call client-side
+      // supabase.auth.signUp, which signs the NEW user into the
+      // current browser - so the admin got booted out of their own
+      // session and "became" the user they just created. It also
+      // inserted the profile from the browser, tripping profiles RLS.
+      // Route through the service-role API instead (same as every
+      // other admin add-user surface): no session change, no RLS
+      // issue, server-generated temp password.
+      const res = await fetch("/api/admin/create-user", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: newUser.email.toLowerCase(),
+          full_name: newUser.full_name,
+          role: newUser.role,
+          company_id: newUser.company_id || null,
+        }),
+      });
+      const payload = await res.json();
+      if (!res.ok) {
+        throw new Error(payload?.error || "Failed to create user");
+      }
+
+      const tempPassword = (payload as any)?.tempPassword;
+      if (tempPassword && typeof window !== "undefined") {
+        try { await navigator.clipboard.writeText(tempPassword); } catch { /* clipboard blocked */ }
+        window.prompt(
+          `Temporary password for ${newUser.full_name} (copied to clipboard).\nShare it securely - they must change it on first login.`,
+          tempPassword,
+        );
+      }
+
+      toast({
+        title: "Success",
+        description: `User ${newUser.email} created successfully`,
       });
 
-      if (authError) throw authError;
-
-      if (authData.user) {
-        // Create profile
-        const selectedCompany = companies.find(c => c.id === newUser.company_id);
-        
-        const { error: profileError } = await supabase
-          .from("profiles")
-          .insert({
-            id: authData.user.id,
-            email: newUser.email,
-            full_name: newUser.full_name,
-            role: newUser.role as any,
-            company_id: newUser.company_id || null,
-            company_slug: selectedCompany?.company_slug || null,
-            email_verified: true,
-          });
-
-        if (profileError) throw profileError;
-
-        toast({
-          title: "Success",
-          description: `User ${newUser.email} created successfully`,
-        });
-
-        setAddUserOpen(false);
-        setNewUser({
-          email: "",
-          full_name: "",
-          password: "",
-          role: "client",
-          company_id: "",
-        });
-        loadUsers();
-      }
+      setAddUserOpen(false);
+      setNewUser({
+        email: "",
+        full_name: "",
+        password: "",
+        role: "client",
+        company_id: "",
+      });
+      loadUsers();
     } catch (error: any) {
       console.error("Error creating user:", error);
       toast({
