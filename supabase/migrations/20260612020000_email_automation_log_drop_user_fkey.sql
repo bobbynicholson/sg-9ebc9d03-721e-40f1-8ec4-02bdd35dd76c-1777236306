@@ -1,0 +1,22 @@
+-- email_automation_log.user_id has always carried the COMPANY id:
+-- every writer passes companyId (emailService.logEmailSent,
+-- sendBrandedEmail, resend webhook reconciliation) and every reader
+-- filters .eq("user_id", companyId) (emailNotificationService,
+-- email-automation-dashboard). The original DDL however pointed the
+-- FK at profiles(id), so any tenant whose company id isn't
+-- coincidentally also a profile id lost EVERY audit row with:
+--
+--   insert or update on table "email_automation_log" violates
+--   foreign key constraint "email_automation_log_user_id_fkey"
+--
+-- Seen live on 12 Jun 2026 on the quote change-request operator
+-- email for the Spit Braai tenant. The send itself succeeded (the
+-- logging failure is deliberately non-fatal) - only the audit trail
+-- was silently dropped, so the email dashboard under-reported and
+-- the Resend webhook had no row to reconcile against.
+--
+-- Drop the mis-aimed FK. We don't re-point it at companies(id)
+-- because legacy rows may hold genuine profile ids from before the
+-- column's meaning drifted; validation would fail on those.
+ALTER TABLE public.email_automation_log
+  DROP CONSTRAINT IF EXISTS email_automation_log_user_id_fkey;
