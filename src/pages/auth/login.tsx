@@ -9,6 +9,7 @@ import { Mail, Lock, Loader2, Crown, UserCog, Shield, ChefHat, Truck, ShoppingCa
 import Link from "next/link";
 import { useToast } from "@/hooks/use-toast";
 import { createClient } from "@/lib/supabase/client";
+import { AuthShell } from "@/components/auth/AuthShell";
 
 // Dev Mode Test Users
 const DEV_USERS = [
@@ -219,17 +220,11 @@ export default function LoginPage() {
     }
   };
 
-  // Visual style matches the tenant `/{slug}/login` pages: narrow card,
-  // gradient header band with a logo tile, clean white body underneath.
-  // The CateringMS purple-to-pink gradient stands in for the tenant brand
-  // colours since this is the route the user hits when there's no slug yet.
-  // Dev mode keeps a wider card because the role grid needs the space; the
-  // toggle floats top-right of the page (not inside the brand header) so
-  // the chrome stays consistent with the tenant pages.
-  const cardWidth = devMode ? "max-w-4xl" : "max-w-md";
-
-  return (
-    <>
+  // Dev mode keeps the old wide full-screen layout (the role grid needs
+  // the space). Normal sign-in uses the AuthShell split-panel for a
+  // polished, branded look. Brand gradient unchanged.
+  if (devMode) {
+    return (
       <div
         className="min-h-screen flex items-center justify-center px-4 py-10 relative"
         style={{
@@ -240,34 +235,27 @@ export default function LoginPage() {
       >
         {showDevMode && (
           <Button
-            variant={devMode ? "default" : "outline"}
-            onClick={() => setDevMode(!devMode)}
-            className={`absolute top-4 right-4 ${devMode ? "bg-amber-500 hover:bg-amber-600" : ""}`}
+            variant="default"
+            onClick={() => setDevMode(false)}
+            className="absolute top-4 right-4 bg-amber-500 hover:bg-amber-600"
           >
-            {devMode ? "Normal login" : "Dev mode"}
+            Normal login
           </Button>
         )}
-
-        <Card className={`w-full ${cardWidth} border-0 shadow-2xl rounded-3xl overflow-hidden`}>
+        <Card className="w-full max-w-4xl border-0 shadow-2xl rounded-3xl overflow-hidden">
           <div className="px-7 pt-7 pb-6 bg-gradient-to-br from-purple-500 to-pink-500">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 rounded-xl bg-white/20 backdrop-blur flex items-center justify-center shadow-lg flex-shrink-0">
                 <Mail className="w-6 h-6 text-white" />
               </div>
               <div className="min-w-0">
-                <h1 className="text-lg sm:text-xl font-bold text-white truncate">
-                  Welcome back
-                </h1>
-                <p className="text-xs sm:text-sm text-white/80">
-                  Sign in and we'll route you to your portal
-                </p>
+                <h1 className="text-lg sm:text-xl font-bold text-white truncate">Welcome back</h1>
+                <p className="text-xs sm:text-sm text-white/80">Sign in and we'll route you to your portal</p>
               </div>
             </div>
           </div>
-
           <CardContent className="p-7 sm:p-8">
-            {devMode ? (
-              <div className="space-y-4">
+            <div className="space-y-4">
                 <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-2">
                   <p className="text-sm text-amber-900 font-semibold">
                     🔧 Dev mode active
@@ -311,8 +299,37 @@ export default function LoginPage() {
                     <AlertDescription>{error}</AlertDescription>
                   </Alert>
                 )}
-              </div>
-            ) : (
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // ── Normal sign-in: branded split-panel layout ──────────────────
+  return (
+    <AuthShell>
+      <div className="w-full max-w-md">
+        {showDevMode && (
+          <div className="mb-3 flex justify-end">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setDevMode(true)}
+              className="text-xs"
+            >
+              Dev mode
+            </Button>
+          </div>
+        )}
+        <Card className="w-full border border-slate-200/80 shadow-xl rounded-2xl">
+          <CardContent className="p-6 sm:p-8">
+            <div className="mb-6">
+              <h1 className="text-2xl font-bold text-slate-900">Welcome back</h1>
+              <p className="text-sm text-slate-500 mt-1">
+                Sign in and we'll route you to your portal.
+              </p>
+            </div>
               <form onSubmit={handleNormalLogin} className="space-y-5">
                 {error && (
                   <Alert variant="destructive" className="text-sm">
@@ -391,10 +408,9 @@ export default function LoginPage() {
                   </p>
                 </div>
               </form>
-            )}
           </CardContent>
         </Card>
       </div>
-    </>
+    </AuthShell>
   );
 }

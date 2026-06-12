@@ -9,6 +9,7 @@ import { UserPlus, CheckCircle } from "lucide-react";
 import Link from "next/link";
 import { authService } from "@/services/authService";
 import { Separator } from "@/components/ui/separator";
+import { AuthShell } from "@/components/auth/AuthShell";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -106,8 +107,11 @@ export default function RegisterPage() {
 
   if (success) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-pink-50 flex items-center justify-center p-3 sm:p-4">
-        <Card className="w-full max-w-md border-0 shadow-2xl">
+      <AuthShell
+        headline="Welcome to CateringMS."
+        subcopy="Your account is ready — sign in and let's get your events rolling."
+      >
+        <Card className="w-full max-w-md border border-slate-200/80 shadow-xl rounded-2xl">
           <CardContent className="p-8 sm:p-12 text-center">
             <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-gradient-to-br from-green-500 to-emerald-500 mx-auto flex items-center justify-center shadow-lg mb-4 sm:mb-6">
               <CheckCircle className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
@@ -124,21 +128,24 @@ export default function RegisterPage() {
             <p className="text-xs text-slate-400 mt-4">Redirecting to login in 2 seconds...</p>
           </CardContent>
         </Card>
-      </div>
+      </AuthShell>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-pink-50 flex items-center justify-center p-3 sm:p-4">
-      <Card className="w-full max-w-md border-0 shadow-2xl">
-        <CardHeader className="space-y-3 sm:space-y-4 px-4 sm:px-6 pt-6 sm:pt-8">
-          <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500 mx-auto flex items-center justify-center shadow-lg transform hover:scale-105 transition-transform">
-            <UserPlus className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
+    <AuthShell
+      headline="Create your account."
+      subcopy="Join your company's catering platform and pick up where the team left off."
+    >
+      <Card className="w-full max-w-md border border-slate-200/80 shadow-xl rounded-2xl">
+        <CardHeader className="space-y-3 px-4 sm:px-6 pt-6 sm:pt-8">
+          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500 mx-auto flex items-center justify-center shadow-lg">
+            <UserPlus className="w-7 h-7 text-white" />
           </div>
-          <CardTitle className="text-2xl sm:text-3xl font-bold text-center text-slate-900">
-            Create Account
+          <CardTitle className="text-2xl font-bold text-center text-slate-900">
+            Create account
           </CardTitle>
-          <CardDescription className="text-center text-slate-600 text-sm sm:text-base">
+          <CardDescription className="text-center text-slate-600 text-sm">
             Join your company&apos;s catering management platform
           </CardDescription>
         </CardHeader>
@@ -290,6 +297,6 @@ export default function RegisterPage() {
           </form>
         </CardContent>
       </Card>
-    </div>
+    </AuthShell>
   );
 }
