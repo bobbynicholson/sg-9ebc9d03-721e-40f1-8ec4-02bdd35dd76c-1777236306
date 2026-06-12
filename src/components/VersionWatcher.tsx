@@ -15,6 +15,7 @@
  * Skips on dev (build ID is "dev"). Won't double-prompt.
  */
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/router";
 import { Button } from "@/components/ui/button";
 import { RefreshCw, Sparkles } from "lucide-react";
 
@@ -43,8 +44,23 @@ async function fetchBuildId(): Promise<string | null> {
 }
 
 export function VersionWatcher() {
+  const router = useRouter();
   const [initial, setInitial] = useState<string | null>(null);
   const [latest, setLatest] = useState<string | null>(null);
+
+  // Self-hide on customer-facing surfaces (public quote, order
+  // tracking, pay-invoice, unsubscribe, embed widgets). "A new
+  // version is available" is internal dev-speak - on the client's
+  // branded quote page it reads as a glitch and competes with the
+  // accept CTA. Operators in admin / portals keep the banner; stale
+  // bundles there cause real support pain.
+  const p = router.pathname;
+  const isCustomerFacing =
+    p.startsWith("/q/") ||
+    p.startsWith("/c/") ||
+    p.startsWith("/pay/") ||
+    p.startsWith("/u/") ||
+    p.startsWith("/embed");
 
   // Capture the build we loaded with
   useEffect(() => {
@@ -106,7 +122,7 @@ export function VersionWatcher() {
   // because the countdown + auto-reload was looping during rolling
   // deploys when edge nodes served inconsistent build ids.
 
-  if (!latest) return null;
+  if (isCustomerFacing || !latest) return null;
 
   return (
     <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[200] max-w-md w-[calc(100%-2rem)] sm:w-auto">
