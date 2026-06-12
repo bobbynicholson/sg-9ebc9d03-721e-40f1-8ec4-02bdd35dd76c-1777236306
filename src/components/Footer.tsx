@@ -34,9 +34,14 @@ export function classifyFooterRoute(pathname: string): "marketing" | "internal" 
 function classifyRoute(pathname: string): "marketing" | "internal" {
   // Strip leading /{slug} if it precedes a known internal namespace.
   const stripped = pathname.replace(
-    /^\/[^/]+(?=\/(?:admin|team-portal|client-portal|client|c|account|subscription|auth)(?:\/|$))/,
+    /^\/[^/]+(?=\/(?:admin|team-portal|client-portal|client|c|account|subscription)(?:\/|$))/,
     "",
   );
+  // Note (2026-06-12): /auth/* is deliberately NOT internal anymore.
+  // The sign-in / sign-up pages now use the full-height AuthShell
+  // split-panel layout, which carries its own in-flow footer. The
+  // global FIXED slim footer overlapped that design and looked
+  // broken, so auth pages opt out of it here.
   const isInternal =
     stripped === "/admin" ||
     stripped.startsWith("/admin/") ||
@@ -45,8 +50,7 @@ function classifyRoute(pathname: string): "marketing" | "internal" {
     stripped.startsWith("/client/") ||
     stripped.startsWith("/c/") ||
     stripped.startsWith("/account/") ||
-    stripped.startsWith("/subscription/") ||
-    stripped.startsWith("/auth/");
+    stripped.startsWith("/subscription/");
   return isInternal ? "internal" : "marketing";
 }
 

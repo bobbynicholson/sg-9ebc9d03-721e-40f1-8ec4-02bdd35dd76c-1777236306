@@ -13,6 +13,7 @@
  * Brand colours are intentionally the platform purple->pink (same as
  * the rest of the public chrome) - no theme change.
  */
+import Link from "next/link";
 import { ChefHat, CheckCircle2 } from "lucide-react";
 
 const FEATURES = [
@@ -82,7 +83,19 @@ export function AuthShell({
           </div>
           <span className="text-lg font-bold tracking-tight text-slate-800">CateringMS</span>
         </div>
+
         {children}
+
+        {/* In-flow footer (replaces the global fixed slim footer that
+            overlapped this layout). Sits under the form, centred,
+            subtle. Links go to the real /privacy + /terms pages. */}
+        <footer className="mt-8 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs text-slate-400">
+          <span>© {new Date().getFullYear()} CateringMS</span>
+          <span className="text-slate-300">·</span>
+          <Link href="/privacy" className="hover:text-slate-600 transition-colors">Privacy</Link>
+          <span className="text-slate-300">·</span>
+          <Link href="/terms" className="hover:text-slate-600 transition-colors">Terms</Link>
+        </footer>
       </div>
     </div>
   );
