@@ -754,7 +754,7 @@ function WageDashboardPage() {
       <Head><title>Wages - CateringMS</title></Head>
       <AdminNav />
 
-      <main className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-emerald-50 lg:pl-72 xl:pl-80 pt-20 lg:pt-0">
+      <main className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80 pt-20 lg:pt-0">
         <div className="px-3 sm:px-4 md:px-6 pt-20 lg:pt-6 pb-6 max-w-full">
 
           {/* Header */}

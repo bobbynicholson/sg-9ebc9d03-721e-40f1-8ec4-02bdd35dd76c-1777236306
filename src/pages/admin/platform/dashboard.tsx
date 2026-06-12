@@ -164,7 +164,7 @@ function PlatformDashboard() {
   // 🔧 DEV MODE UI
   if (isDevMode) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
         <Head>
           <title>Platform dashboard (dev mode) - CateringMS</title>
           <meta name="robots" content="noindex, nofollow" />
@@ -310,7 +310,7 @@ function PlatformDashboard() {
   }
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 via-white to-slate-50 lg:pl-72 xl:pl-80 pt-20 lg:pt-0">
+    <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80 pt-20 lg:pt-0">
       <Head>
         <title>Platform dashboard - CateringMS</title>
         <meta name="robots" content="noindex, nofollow" />

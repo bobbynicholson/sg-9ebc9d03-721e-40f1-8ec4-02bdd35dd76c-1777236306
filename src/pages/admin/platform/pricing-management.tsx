@@ -182,7 +182,7 @@ function PricingManagementPage() {
   };
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 via-white to-purple-50 lg:pl-72 xl:pl-80 pt-20 lg:pt-0">
+    <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80 pt-20 lg:pt-0">
       <PlatformNav />
       <Header />
       
@@ -313,7 +313,7 @@ function PricingManagementPage() {
         <div className="grid gap-4 sm:gap-6 mb-6 sm:mb-8">
           {editedPricing.map((tier, index) => (
             <Card key={tier.name} className="border-2 hover:border-purple-200 transition-colors">
-              <CardHeader className="bg-gradient-to-r from-slate-50 to-purple-50 pb-4">
+              <CardHeader className="bg-gradient-to-r from-slate-50 to-slate-100 pb-4">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div>
                     <CardTitle className="text-xl sm:text-2xl flex items-center gap-2">

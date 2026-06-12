@@ -188,7 +188,7 @@ function EquipmentPage() {
 
       <AdminNav />
 
-      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 lg:pl-72 xl:pl-80">
+      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
         <div className="px-4 py-8 max-w-full">
           <div className="mb-6 flex items-center gap-3">
             <div className="p-3 bg-gradient-to-br from-brand-primary to-brand-secondary rounded-2xl shadow-lg">

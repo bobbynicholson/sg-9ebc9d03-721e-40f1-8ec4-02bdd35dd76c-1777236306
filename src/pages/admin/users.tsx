@@ -574,7 +574,7 @@ function AdminUsersPage() {
         
         <AdminNav />
         
-        <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 via-white to-slate-50 lg:pl-72 xl:pl-80">
+        <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
           <div className="px-4 py-8">
             <div className="flex items-center justify-center h-64">
               <div className="text-center">
@@ -599,7 +599,7 @@ function AdminUsersPage() {
         
         <AdminNav />
         
-        <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 via-white to-slate-50 lg:pl-72 xl:pl-80">
+        <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
           <div className="px-4 py-8">
             <Card className="border-2 border-red-200 bg-red-50">
               <CardContent className="pt-12 pb-12 text-center">
@@ -629,7 +629,7 @@ function AdminUsersPage() {
       
       <AdminNav />
       
-      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 via-white to-slate-50 lg:pl-72 xl:pl-80">
+      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
         <div className="px-4 py-6 md:py-8 max-w-full">
           <Link href={withSlug("/admin/dashboard")}>
             <Button variant="ghost" className="mb-4" size="sm">

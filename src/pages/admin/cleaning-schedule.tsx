@@ -215,7 +215,7 @@ function CleaningScheduleGrid() {
       <Head><title>Cleaning schedule - CateringMS</title></Head>
       <NoIndexMeta />
       <AdminNav />
-      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 via-white to-cyan-50 lg:pl-72 xl:pl-80">
+      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
         <div className="px-4 pt-20 lg:pt-6 pb-12 max-w-full">
           <div className="space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">

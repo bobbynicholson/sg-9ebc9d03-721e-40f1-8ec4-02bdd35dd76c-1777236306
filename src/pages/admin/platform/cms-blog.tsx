@@ -205,7 +205,7 @@ export default function CMSBlogPage() {
   }
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-purple-50 p-8 lg:pl-72 xl:pl-80 pt-20 lg:pt-8">
+    <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 p-8 lg:pl-72 xl:pl-80 pt-20 lg:pt-8">
       <PlatformNav />
       <div className="max-w-full">
         {/* Header */}

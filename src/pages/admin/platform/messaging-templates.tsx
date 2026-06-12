@@ -69,7 +69,7 @@ export default function PlatformMessagingTemplatesPage() {
   }, [authLoading, profile, router]);
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-purple-50 lg:pl-72 xl:pl-80 pt-20 lg:pt-0">
+    <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80 pt-20 lg:pt-0">
       <PlatformNav />
       <NoIndexMeta />
       <Head>

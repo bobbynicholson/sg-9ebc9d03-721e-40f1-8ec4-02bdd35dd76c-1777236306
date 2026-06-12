@@ -23,7 +23,7 @@ function KitchenSettingsAdminPage() {
       <Head><title>Kitchen rules - CateringMS</title></Head>
       <AdminNav />
 
-      <main className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-orange-50 lg:pl-72 xl:pl-80">
+      <main className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
         <div className="px-3 sm:px-4 md:px-6 pt-20 lg:pt-6 pb-6 max-w-3xl">
 
           <div className="mb-6 flex items-start gap-3">

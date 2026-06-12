@@ -285,7 +285,7 @@ function PaymentGatewaysPage() {
       </Head>
 
       <AdminNav />
-      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 lg:pl-72 xl:pl-80">
+      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
         <div className="px-4 py-8 max-w-full space-y-6">
           <div>
             <h1 className="text-4xl font-bold mb-2 flex items-center gap-2">

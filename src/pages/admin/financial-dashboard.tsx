@@ -563,7 +563,7 @@ function FinancialDashboardInner() {
         <Head><title>Financial dashboard - CateringMS</title></Head>
         <NoIndexMeta />
         <AdminNav />
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 to-rose-50 p-4 md:p-8 lg:pl-72 xl:pl-80 pt-20 lg:pt-8">
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-4 md:p-8 lg:pl-72 xl:pl-80 pt-20 lg:pt-8">
           <div className="max-w-md mx-auto mt-12 rounded-lg border border-rose-200 bg-white p-6 shadow-sm">
             <h2 className="text-lg font-bold text-rose-900 mb-2">Couldn't load financial data</h2>
             <p className="text-sm text-slate-600 mb-4">{loadError}</p>
@@ -599,7 +599,7 @@ function FinancialDashboardInner() {
         <Head><title>Financial dashboard - CateringMS</title></Head>
         <NoIndexMeta />
         <AdminNav />
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 to-emerald-50 p-4 md:p-8 lg:pl-72 xl:pl-80 pt-20 lg:pt-8">
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-4 md:p-8 lg:pl-72 xl:pl-80 pt-20 lg:pt-8">
           <div className="max-w-2xl mx-auto mt-12 rounded-lg border border-emerald-200 bg-white p-8 shadow-sm text-center">
             <DollarSign className="w-12 h-12 text-emerald-600 mx-auto mb-3" />
             <h1 className="text-2xl font-bold text-slate-900 mb-2">Financial Dashboard</h1>
