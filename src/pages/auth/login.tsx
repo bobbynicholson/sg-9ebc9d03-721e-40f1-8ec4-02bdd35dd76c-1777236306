@@ -185,8 +185,17 @@ export default function LoginPage() {
     setError("");
     setLoading(true);
 
-    if (!email || !password) {
-      setError("Please enter your email and password");
+    // Collect all input problems together rather than stopping at the
+    // first, and surface them as one summary.
+    const problems: string[] = [];
+    if (!email) {
+      problems.push("Enter your email address.");
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      problems.push("Enter a valid email address (e.g. name@company.co.za).");
+    }
+    if (!password) problems.push("Enter your password.");
+    if (problems.length > 0) {
+      setError(problems.join("\n"));
       setLoading(false);
       return;
     }
@@ -199,7 +208,19 @@ export default function LoginPage() {
       });
 
       if (signInError || !user) {
-        throw new Error(signInError?.message || "Authentication failed");
+        // Map the opaque Supabase auth errors to something a human can
+        // act on, instead of "Invalid login credentials".
+        const raw = (signInError?.message || "").toLowerCase();
+        if (raw.includes("invalid login credentials")) {
+          throw new Error("That email and password don't match. Check both and try again, or reset your password.");
+        }
+        if (raw.includes("email not confirmed")) {
+          throw new Error("Your email isn't verified yet. Check your inbox for the confirmation link, then sign in.");
+        }
+        if (raw.includes("rate limit") || raw.includes("too many")) {
+          throw new Error("Too many attempts. Please wait a minute and try again.");
+        }
+        throw new Error(signInError?.message || "Couldn't sign you in. Please try again.");
       }
 
       // Remove dev mode flags for normal login
@@ -331,11 +352,25 @@ export default function LoginPage() {
               </p>
             </div>
               <form onSubmit={handleNormalLogin} className="space-y-5">
-                {error && (
-                  <Alert variant="destructive" className="text-sm">
-                    <AlertDescription>{error}</AlertDescription>
-                  </Alert>
-                )}
+                {error && (() => {
+                  const lines = error.split("\n").filter(Boolean);
+                  return (
+                    <Alert variant="destructive" className="text-sm">
+                      <AlertDescription>
+                        {lines.length > 1 ? (
+                          <>
+                            <p className="font-semibold mb-1">Please fix {lines.length} things:</p>
+                            <ul className="list-disc list-inside space-y-0.5">
+                              {lines.map((l, i) => <li key={i}>{l}</li>)}
+                            </ul>
+                          </>
+                        ) : (
+                          lines[0]
+                        )}
+                      </AlertDescription>
+                    </Alert>
+                  );
+                })()}
 
                 <div className="space-y-2">
                   <Label htmlFor="email" className="text-slate-700 font-medium text-sm">
