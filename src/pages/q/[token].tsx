@@ -430,8 +430,10 @@ export default function PublicQuotePage() {
         `}</style>
       </Head>
 
-      <div className="min-h-screen bg-stone-50 print-bg-white">
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
+      <div className="min-h-screen bg-gradient-to-b from-stone-100 via-stone-50 to-white print-bg-white">
+        {/* pb-28 on mobile clears the sticky accept bar so the footer
+            never hides behind it; sm+ has no sticky bar. */}
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 pt-8 pb-28 sm:pb-10">
 
           {/* Floating action bar - screen only */}
           <div className="no-print flex items-center justify-between gap-2 mb-4 flex-wrap">
@@ -465,31 +467,44 @@ export default function PublicQuotePage() {
               company's primary colour, logo (or initials fallback),
               serif headline. Reads like a printed quote on the
               caterer's letterhead, not a generic SaaS page. */}
-          <div className="brand-print bg-brand-primary/10 border border-brand-primary/30 rounded-xl p-6 sm:p-8 mb-4 print-shadow-none">
+          <div className="brand-print relative overflow-hidden bg-white border border-stone-200/80 rounded-2xl mb-4 shadow-sm print-shadow-none">
+            {/* Letterhead band: solid brand stripe + soft tint wash so
+                the page reads as the caterer's stationery, whatever
+                their brand colour is. */}
+            <div className="h-1.5 bg-brand-primary" />
+            <div className="absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-brand-primary/10 to-transparent pointer-events-none" />
+            <div className="relative p-6 sm:p-8">
             <div className="flex items-start justify-between gap-3 flex-wrap">
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-3 mb-3">
+                <div className="flex items-center gap-3 mb-4">
                   {company?.logo_url ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={company.logo_url}
                       alt={`${companyName} logo`}
-                      className="h-10 w-auto max-w-[180px] object-contain"
+                      className="h-12 w-auto max-w-[200px] object-contain"
                     />
                   ) : (
-                    <div className="w-10 h-10 rounded-full bg-brand-primary flex items-center justify-center text-white font-bold text-sm">
+                    <div className="w-12 h-12 rounded-xl bg-brand-primary flex items-center justify-center text-white font-bold shadow-sm">
                       {companyInitials(companyName)}
                     </div>
                   )}
-                  <p className="text-xs uppercase tracking-[0.2em] text-brand-primary font-bold">
-                    {companyName}
-                  </p>
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.2em] text-brand-primary font-bold">
+                      {companyName}
+                    </p>
+                    <p className="text-[10px] uppercase tracking-[0.25em] text-stone-400 font-semibold mt-0.5">
+                      {vatRegistered ? "Quotation · Tax document" : "Quotation"}
+                    </p>
+                  </div>
                 </div>
-                <h1 className="text-3xl sm:text-4xl font-serif font-bold text-stone-900 leading-tight">
+                <h1 className="text-3xl sm:text-[2.6rem] font-serif font-bold text-stone-900 leading-tight">
                   {quote.quote_name || `Quote for ${quote.client_name || "your event"}`}
                 </h1>
-                <p className="text-sm text-stone-600 mt-2">
-                  Reference <span className="font-mono">{quote.quote_number}</span> · prepared {today}
+                <p className="text-sm text-stone-600 mt-2.5">
+                  Reference <span className="font-mono font-medium text-stone-800">{quote.quote_number}</span>
+                  <span className="mx-1.5 text-stone-300">·</span>
+                  prepared {today}
                 </p>
                 {registrationNumber && (
                   <p className="text-xs text-stone-500 mt-1">
@@ -529,6 +544,7 @@ export default function PublicQuotePage() {
                   <ArrowRight className="w-3.5 h-3.5" />
                 </button>
               )}
+            </div>
             </div>
           </div>
 
@@ -579,9 +595,14 @@ export default function PublicQuotePage() {
           {Array.isArray(quote.menu_items) && quote.menu_items.length > 0 && (
             <Card className="mb-4 border border-stone-200 shadow-sm print-shadow-none">
               <CardContent className="py-5 px-5">
-                <p className="text-xs uppercase tracking-[0.15em] text-brand-primary font-bold mb-3">
-                  From the kitchen
-                </p>
+                <div className="flex items-baseline justify-between mb-3">
+                  <p className="text-xs uppercase tracking-[0.15em] text-brand-primary font-bold">
+                    From the kitchen
+                  </p>
+                  <p className="text-[11px] text-stone-400">
+                    {quote.menu_items.length} item{quote.menu_items.length === 1 ? "" : "s"}
+                  </p>
+                </div>
                 <div className="space-y-2">
                   {quote.menu_items.map((item: any, i: number) => {
                     const name = item?.name || item?.menu_item_name || `Item ${i + 1}`;
@@ -676,8 +697,11 @@ export default function PublicQuotePage() {
               ? Math.max(0, persistedTotal - deliveryFee)
               : Math.max(0, persistedSubtotal - deliveryFee);
             return (
-              <Card className="mb-4 border border-stone-200 shadow-sm print-shadow-none">
-                <CardContent className="py-5 px-5 space-y-2">
+              <Card className="mb-4 border border-stone-200 shadow-sm print-shadow-none overflow-hidden">
+                <CardContent className="py-5 px-5 space-y-2 bg-gradient-to-br from-white via-white to-brand-primary/5">
+                  <p className="text-xs uppercase tracking-[0.15em] text-brand-primary font-bold mb-1">
+                    Your investment
+                  </p>
                   {deliveryFee > 0 ? (
                     <>
                       <div className="flex justify-between text-sm">
@@ -732,16 +756,22 @@ export default function PublicQuotePage() {
                     </div>
                   )}
 
-                  <div className="flex justify-between font-bold text-xl pt-3 border-t-2 border-brand-primary">
-                    <span className="text-stone-900 font-serif">
+                  <div className="flex justify-between items-baseline font-bold pt-3 border-t-2 border-brand-primary">
+                    <span className="text-stone-900 font-serif text-xl">
                       Total{vatRegistered ? " incl. VAT" : ""}
                     </span>
-                    <span className="text-brand-primary tabular-nums">{fmtMoney(persistedTotal)}</span>
+                    <span className="text-brand-primary tabular-nums text-2xl sm:text-3xl">{fmtMoney(persistedTotal)}</span>
                   </div>
 
                   {incVat && persistedTax > 0 && (
                     <p className="text-[11px] text-stone-500 text-right pt-1">
                       Includes VAT {company?.vat_rate ? `(${Number(company.vat_rate).toFixed(0)}%)` : ""} of {fmtMoney(persistedTax)}
+                    </p>
+                  )}
+
+                  {depositLabel && !accepted && (
+                    <p className="text-[11px] text-stone-500 text-right">
+                      Secure your date with a {fmtMoney(depositAmount as number)} ({depositPct}%) deposit - balance closer to the event.
                     </p>
                   )}
                 </CardContent>
@@ -852,7 +882,7 @@ export default function PublicQuotePage() {
                 </CardContent>
               </Card>
             ) : (
-              <Card className="border-0 shadow-sm">
+              <Card id="quote-accept-card" className="border border-stone-200 shadow-sm scroll-mt-24">
                 <CardContent className="py-6 px-5">
                   {acceptOpen ? (
                     <div className="space-y-3">
@@ -1113,12 +1143,44 @@ export default function PublicQuotePage() {
             </div>
           )}
 
+          {/* STICKY MOBILE ACCEPT BAR - screen only, phones only.
+              Quotes are long; on mobile the accept button lives below
+              the fold, so the total + accept ride along at the bottom
+              until the client responds. Hidden once the name form is
+              open (the keyboard needs the space) and after any
+              terminal response. */}
+          {!accepted && !acceptOpen && !justDeclined && quote.status !== "rejected" && (
+            <div className="no-print sm:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur border-t border-stone-200 px-4 py-3 flex items-center justify-between gap-3 shadow-[0_-4px_16px_rgba(0,0,0,0.08)]">
+              <div className="min-w-0">
+                <p className="text-[10px] uppercase tracking-wide text-stone-500 leading-none">
+                  Total{vatRegistered ? " incl. VAT" : ""}
+                </p>
+                <p className="text-lg font-bold text-stone-900 tabular-nums leading-tight">{fmtMoney(total)}</p>
+              </div>
+              <Button
+                onClick={() => {
+                  setAcceptOpen(true);
+                  setTimeout(() => {
+                    document.getElementById("quote-accept-card")?.scrollIntoView({ behavior: "smooth", block: "center" });
+                  }, 60);
+                }}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 px-5 shadow-sm shrink-0"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                Accept quote
+              </Button>
+            </div>
+          )}
+
           {/* COMPANY FOOTER */}
           {company && (company.email || company.phone || companyAddress) && (
-            <div className="mt-8 text-center text-xs text-stone-500 space-y-0.5">
-              <p className="font-bold text-stone-700">{companyName}</p>
-              {company.email && <p>{company.email}</p>}
-              {company.phone && <p>{company.phone}</p>}
+            <div className="mt-10 pt-6 border-t border-stone-200 text-center text-xs text-stone-500 space-y-0.5">
+              <p className="font-bold text-stone-700 text-sm">{companyName}</p>
+              <p className="space-x-1.5">
+                {company.email && <span>{company.email}</span>}
+                {company.email && company.phone && <span className="text-stone-300">·</span>}
+                {company.phone && <span>{company.phone}</span>}
+              </p>
               {companyAddress && <p>{companyAddress}</p>}
             </div>
           )}

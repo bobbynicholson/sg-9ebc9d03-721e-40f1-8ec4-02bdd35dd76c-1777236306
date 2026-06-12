@@ -267,7 +267,7 @@ export async function postOrderCreationCascade(
       // so this works under either RLS or service-role auth.
       const { data: order, error: orderErr } = await (client as any)
         .from("orders")
-        .select("id, order_number, client_email, client_name, event_date, currency, total_amount, company_id")
+        .select("id, order_number, client_email, client_name, event_name, event_date, currency, total_amount, company_id")
         .eq("id", orderId)
         .is("deleted_at", null)
         .maybeSingle();
@@ -342,6 +342,36 @@ export async function postOrderCreationCascade(
         // number for inbox search.
         const orderNumberLabel = (order as any).order_number || orderId;
         const eventNameForSubject = (order as any).event_name || "your event";
+
+        // FIX (2026-06-12): the seeded order_confirmed template (I.114)
+        // and tenant overrides speak snake_case - {{first_name}},
+        // {{order_number}}, {{event_date_phrase}}, {{order_url}},
+        // {{tenant_name}}. This send passed a camelCase-only bag, so
+        // clients received the raw placeholders verbatim. Mirror the
+        // variable set sendStatusNotifications builds (orderWorkflow
+        // ~L1927), including the minted tokenised order link, and keep
+        // the legacy camelCase keys for older tenant overrides.
+        const clientFirstName =
+          String((order as any).client_name || "").trim().split(/\s+/)[0] || "there";
+        const eventDateLabel = (order as any).event_date
+          ? new Date((order as any).event_date).toLocaleDateString("en-ZA", {
+              day: "numeric", month: "long", year: "numeric",
+            })
+          : "";
+        let orderUrl = "";
+        try {
+          const { mintOrderCustomerLink } = await import("@/lib/customerLinksServer");
+          orderUrl = await mintOrderCustomerLink({
+            sb: client,
+            companyId,
+            orderId,
+            label: "order-confirmed-email",
+            origin: origin || null,
+          });
+        } catch (mintErr) {
+          console.warn("[postOrderCreationCascade] order link mint failed:", mintErr);
+        }
+
         const detailed = await (emailService as any).sendEmailDetailed({
           companyId,
           to: (order as any).client_email,
@@ -351,16 +381,32 @@ export async function postOrderCreationCascade(
           template: "order_confirmed",
           orderId,
           variables: {
-            clientName: (order as any).client_name,
-            orderNumber: (order as any).order_number || orderId,
-            eventDate,
-            totalAmount,
-            companyName,
+            first_name: clientFirstName,
+            client_first_name: clientFirstName,
+            client_name: (order as any).client_name || "",
+            order_number: orderNumberLabel,
+            event_name: eventNameForSubject,
+            tenant_name: companyName,
+            company_name: companyName,
+            event_date: eventDateLabel || "TBD",
+            event_date_label: eventDateLabel,
+            event_date_phrase: eventDateLabel ? ` for ${eventDateLabel}` : "",
+            order_url: orderUrl,
+            total: totalAmount,
+            total_amount: totalAmount,
             // Phase 6 #5: surface the invoice link as a template
             // variable. Tenant-customised templates can drop
             // {{invoice_link}} wherever; the default body picks it
             // up at render time without any tenant action.
             invoice_link: invoiceLink || "",
+            invoice_url: invoiceLink || "",
+            // Legacy camelCase keys retained for tenant overrides
+            // written against the old bag.
+            clientName: (order as any).client_name,
+            orderNumber: orderNumberLabel,
+            eventDate,
+            totalAmount,
+            companyName,
             invoiceLink: invoiceLink || "",
           },
           // Forward the injected client so the gates + audit logging
