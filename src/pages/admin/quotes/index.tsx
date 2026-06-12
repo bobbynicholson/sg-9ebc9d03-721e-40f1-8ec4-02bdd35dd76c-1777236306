@@ -1364,8 +1364,13 @@ function AdminQuotesInner() {
         variant: allOk ? "default" : "destructive",
       });
 
+      // Stamp converted_to_order_id locally too so the intel chip
+      // flips to "Won + booked" and the Convert button hides without
+      // a full refetch.
       setQuotes((prev) => prev.map((q) =>
-        q.id === quote.id ? { ...q, status: "accepted", accepted_at: new Date().toISOString() } as Quote : q
+        q.id === quote.id
+          ? { ...q, status: "accepted", accepted_at: new Date().toISOString(), converted_to_order_id: (receipt.order as any).id } as Quote
+          : q
       ));
     } catch (err: any) {
       console.error("Accept on behalf failed:", err);
@@ -2232,6 +2237,28 @@ function AdminQuotesInner() {
                               {acceptingId === quote.id ? "Accepting..." : "Mark accepted"}
                             </Button>
                           )}
+                          {/* Accepted but no order yet (public accept
+                              with conversion refused, or pre-Wave-3
+                              acceptances). The intel chip already says
+                              "Convert to order" but it's a passive
+                              label - operators kept hunting for the
+                              actual button (it only lived on the
+                              detail page). Offer the real action here,
+                              through the same pre-flight + cascade as
+                              Mark accepted. */}
+                          {quote.status === "accepted" && !(quote as any).converted_to_order_id && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setAcceptPreflight(quote)}
+                              disabled={acceptingId === quote.id}
+                              title="Create the live order from this accepted quote - deposit invoice, kitchen prep and confirmation email all fire."
+                              className="border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+                            >
+                              <CheckCircle className="w-4 h-4 mr-2" />
+                              {acceptingId === quote.id ? "Converting..." : "Convert to order"}
+                            </Button>
+                          )}
                           {/* Send next follow-up - only visible when
                               amber or rose, otherwise we'd be nagging. */}
                           {followup?.nextPosition && (followup.light === "amber" || followup.light === "rose") && canCompose && (
@@ -2639,11 +2666,17 @@ function AdminQuotesInner() {
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
               <CheckCircle className="w-5 h-5 text-emerald-600" />
-              Accept on behalf of {acceptPreflight?.client_name}?
+              {acceptPreflight?.status === "accepted"
+                ? <>Convert {acceptPreflight?.client_name}&apos;s quote to an order?</>
+                : <>Accept on behalf of {acceptPreflight?.client_name}?</>}
             </AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-3 pt-2 text-sm text-slate-700">
-                <p>This converts the quote into a confirmed order and fires the standard accept handoff. The quote stays in the system as audit history.</p>
+                <p>
+                  {acceptPreflight?.status === "accepted"
+                    ? "The client already accepted - this creates the live order and fires the standard handoff. The quote stays in the system as audit history."
+                    : "This converts the quote into a confirmed order and fires the standard accept handoff. The quote stays in the system as audit history."}
+                </p>
                 <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2.5 space-y-1.5 text-xs">
                   <p className="font-semibold uppercase tracking-wide text-slate-600">What happens on confirm</p>
                   <div className="flex items-start gap-2">
