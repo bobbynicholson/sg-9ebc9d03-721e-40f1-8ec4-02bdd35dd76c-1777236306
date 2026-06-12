@@ -20,6 +20,14 @@ const FEATURES = [
   "Quotes, orders & invoices in one smooth flow",
   "Kitchen prep, dispatch & live delivery tracking",
   "Online deposits & balance payments, auto-reconciled",
+  "Equipment, staff & supplier management built in",
+  "Client portal with magic-link quote acceptance",
+];
+
+const STATS = [
+  { value: "1", label: "platform for the whole operation" },
+  { value: "0", label: "spreadsheets to keep in sync" },
+  { value: "24/7", label: "client self-service portal" },
 ];
 
 interface AuthShellProps {
@@ -38,8 +46,11 @@ export function AuthShell({
 }: AuthShellProps) {
   return (
     <div className="min-h-screen lg:grid lg:grid-cols-2 bg-white">
-      {/* Brand showcase panel - desktop only */}
-      <div className="relative hidden lg:flex flex-col justify-between overflow-hidden bg-gradient-to-br from-purple-600 via-purple-500 to-pink-500 p-12 text-white">
+      {/* Brand showcase panel - desktop only. Pinned to one viewport
+          height (sticky, self-start) so a long form on the right (e.g.
+          the company-signup page) doesn't stretch the panel tall and
+          spread its content into awkward gaps. */}
+      <div className="relative hidden lg:flex lg:sticky lg:top-0 lg:h-screen lg:self-start flex-col justify-between overflow-hidden bg-gradient-to-br from-purple-600 via-purple-500 to-pink-500 p-12 text-white">
         <div className="pointer-events-none absolute -top-24 -left-24 h-96 w-96 rounded-full bg-white/10 blur-3xl" />
         <div className="pointer-events-none absolute -bottom-32 -right-16 h-[28rem] w-[28rem] rounded-full bg-pink-300/20 blur-3xl" />
 
@@ -53,7 +64,7 @@ export function AuthShell({
         <div className="relative max-w-md">
           <h2 className="text-4xl font-bold leading-tight">{headline}</h2>
           <p className="mt-4 text-lg text-white/80">{subcopy}</p>
-          <ul className="mt-8 space-y-3">
+          <ul className="mt-7 space-y-3">
             {FEATURES.map((f) => (
               <li key={f} className="flex items-center gap-3 text-white/90">
                 <CheckCircle2 className="h-5 w-5 flex-shrink-0 text-white" />
@@ -61,6 +72,27 @@ export function AuthShell({
               </li>
             ))}
           </ul>
+
+          {/* Trust stats row */}
+          <div className="mt-9 grid grid-cols-3 gap-4 border-t border-white/20 pt-6">
+            {STATS.map((s) => (
+              <div key={s.label}>
+                <p className="text-2xl font-bold text-white">{s.value}</p>
+                <p className="mt-1 text-xs leading-snug text-white/70">{s.label}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Testimonial */}
+          <div className="mt-8 rounded-2xl bg-white/10 p-5 backdrop-blur">
+            <p className="text-sm italic text-white/90">
+              &ldquo;Everything from the first quote to the final invoice lives in one
+              place now — our team stopped chasing spreadsheets.&rdquo;
+            </p>
+            <p className="mt-3 text-xs font-semibold text-white/80">
+              Catering teams running on CateringMS
+            </p>
+          </div>
         </div>
 
         <p className="relative text-sm text-white/60">
