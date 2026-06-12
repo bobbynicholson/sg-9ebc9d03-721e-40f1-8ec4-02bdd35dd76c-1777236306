@@ -15,6 +15,7 @@ import { sendInvoiceEmail } from "@/services/invoiceGenerationService";
 import { useToast } from "@/hooks/use-toast";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 
 export interface InvoiceSendDialogInvoice {
   id: string;
@@ -48,7 +49,9 @@ export function InvoiceSendDialog({
   const firstName = String(clientName).split(" ")[0] || "there";
   const isBalance = Number(invoiceData.depositPaid || 0) > 0;
   const templateType = isBalance ? "balance_invoice_issued" : "deposit_invoice_issued";
-  const eventLabel = invoiceData.eventName || invoiceData.orderNumber || "your event";
+  // Don't fall back to the order number for {{event_name}} - "deposit
+  // invoice for ORD-003841" reads broken. Use a generic phrase.
+  const eventLabel = invoiceData.eventName || "your event";
   const totalAmount = Number(invoiceData.balanceDue || invoiceData.total || 0);
   // Wave 66 - multi-currency parameterisation. Pre-Wave-66 the
   // amount label was hardcoded `R${totalAmount}` so any tenant in
@@ -58,6 +61,35 @@ export function InvoiceSendDialog({
   const { user } = useAuth() as any;
   const tenantCurrency = useTenantCurrency(user?.company_id ?? null);
   const amountLabel = tenantCurrency.format(totalAmount);
+  // Bare numeric form for the deposit/balance templates that hardcode
+  // their own "R" prefix ("Amount due: R {{deposit_amount}}") - the
+  // currency-formatted label here would double the symbol.
+  const amountBare = totalAmount.toLocaleString("en-ZA", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  // The deposit/balance templates carry {{invoice_link}}. Resolve the
+  // invoice's public_token and build the no-login /pay/i/{token} link
+  // so the previewed (and sent) body has a working pay link, not a
+  // blank "Pay or download here:".
+  const [payLink, setPayLink] = useState<string>("");
+  useEffect(() => {
+    if (!open || !invoice?.id) { setPayLink(""); return; }
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data } = await (supabase as any)
+          .from("invoices")
+          .select("public_token")
+          .eq("id", invoice.id)
+          .maybeSingle();
+        const tok = (data as any)?.public_token;
+        if (!cancelled && tok) {
+          const origin = typeof window !== "undefined" ? window.location.origin : "";
+          setPayLink(`${origin}/pay/i/${tok}`);
+        }
+      } catch { /* link stays empty; body still sends */ }
+    })();
+    return () => { cancelled = true; };
+  }, [open, invoice?.id]);
 
   // Resolve subject + body whenever the dialog opens for a different
   // invoice. Pre-substitution means the operator sees real values, not
@@ -81,15 +113,17 @@ export function InvoiceSendDialog({
             event_name: eventLabel,
             invoice_number: invoiceNumber,
             amount: amountLabel,
-            deposit_amount: isBalance ? "" : amountLabel,
-            balance_amount: isBalance ? amountLabel : "",
+            deposit_amount: isBalance ? "" : amountBare,
+            balance_amount: isBalance ? amountBare : "",
+            invoice_link: payLink,
+            invoice_url: payLink,
           },
           fallback: {
             subject: `Invoice ${invoiceNumber} ready - ${eventLabel}`,
             bodyHtml:
               `Hi {{first_name}},\n\n` +
               `{{tenant_name}} issued invoice {{invoice_number}} for {{event_name}}. Total: {{amount}}.\n\n` +
-              `Open the invoice in your portal to download or pay.\n\n` +
+              `Pay or download here: {{invoice_link}}\n\n` +
               `Thanks,\n{{tenant_name}}`,
           },
         });
@@ -112,7 +146,7 @@ export function InvoiceSendDialog({
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, invoice?.id, companyId, templateType]);
+  }, [open, invoice?.id, companyId, templateType, payLink]);
 
   if (!invoice) return null;
 
