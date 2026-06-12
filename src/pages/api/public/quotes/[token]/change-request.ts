@@ -185,7 +185,13 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   // owner. related_entity powers the contextual CTA on the
   // notifications page; #change-requests anchor lands the operator on
   // the right card on /admin/quotes/{id}.
-  void (async () => {
+  //
+  // AWAITED, not fire-and-forget: on Vercel the lambda freezes as soon
+  // as the response is sent, which silently killed the operator email
+  // (Pic 43 - client requested changes, nothing landed in the inbox).
+  // The inner try/catches keep a notification failure from breaking
+  // the client's 200.
+  await (async () => {
     try {
       // Resolve currency + contact email from the company.
       let currencyCode = "ZAR";
@@ -212,7 +218,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
       const { data: recipients, error: recipientsErr } = await (supabase as any)
         .from("profiles")
-        .select("id, role")
+        .select("id, role, email")
         .eq("company_id", quote.company_id)
         .in("role", ["company_admin", "admin", "sales_admin", "region_admin", "owner"]);
       if (recipientsErr) {
@@ -241,36 +247,54 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       }));
       await (supabase as any).from("notifications").insert(rows);
 
-      // Email the operator inbox so they don't miss it.
-      if (companyEmail) {
-        try {
-          const quoteRef = (quote as any).quote_number || quote.id;
-          const clientLabel = submitterName || quote.client_name || "Client";
-          const appUrl = (process.env.NEXT_PUBLIC_APP_URL || "https://cateringms.com").replace(/\/$/, "");
-          const quoteLink = `${appUrl}/admin/quotes/${quote.id}#change-requests`;
+      // Email the operator inbox so they don't miss it. companies.email
+      // is the preferred target, but plenty of tenants never fill it in
+      // - in that case fall back to the admin profiles we already
+      // fetched so the alert isn't silently dropped.
+      const emailTargets: string[] = companyEmail
+        ? [companyEmail]
+        : Array.from(
+            new Set(
+              (((recipients as any[]) || [])
+                .map((r) => (typeof r.email === "string" ? r.email.trim() : ""))
+                .filter(Boolean)) as string[]
+            )
+          );
+      if (emailTargets.length > 0) {
+        const quoteRef = (quote as any).quote_number || quote.id;
+        const clientLabel = submitterName || quote.client_name || "Client";
+        const appUrl = (process.env.NEXT_PUBLIC_APP_URL || "https://cateringms.com").replace(/\/$/, "");
+        const quoteLink = `${appUrl}/admin/quotes/${quote.id}#change-requests`;
 
-          const bodyHtml = `
-            <p>Hi,</p>
-            <p><strong>${clientLabel}</strong> has requested changes to quote <strong>${quoteRef}</strong> (${eventLabel} &mdash; ${totalLabel}).</p>
-            <blockquote style="border-left:3px solid #e2e8f0;margin:16px 0;padding:8px 16px;color:#475569;font-style:italic">
-              ${message.replace(/\n/g, "<br/>")}
-            </blockquote>
-            <p><a href="${quoteLink}" style="color:#4f46e5">View change request &rarr;</a></p>
-            <p style="font-size:12px;color:#94a3b8">${companyName || "CateringMS"} &mdash; automated notification</p>
-          `;
+        const bodyHtml = `
+          <p>Hi,</p>
+          <p><strong>${clientLabel}</strong> has requested changes to quote <strong>${quoteRef}</strong> (${eventLabel} &mdash; ${totalLabel}).</p>
+          <blockquote style="border-left:3px solid #e2e8f0;margin:16px 0;padding:8px 16px;color:#475569;font-style:italic">
+            ${message.replace(/\n/g, "<br/>")}
+          </blockquote>
+          <p><a href="${quoteLink}" style="color:#4f46e5">View change request &rarr;</a></p>
+          <p style="font-size:12px;color:#94a3b8">${companyName || "CateringMS"} &mdash; automated notification</p>
+        `;
 
-          await emailService.sendEmail({
-            companyId: quote.company_id,
-            to: companyEmail,
-            subject: `Client change request — ${quoteRef} (${clientLabel})`,
-            body: bodyHtml,
-            quoteId: quote.id,
-            skipUnsubscribeFooter: true,
-            _client: supabase,
-          } as any);
-        } catch (emailErr) {
-          console.warn("[public/quotes/change-request] operator email failed", emailErr);
+        for (const target of emailTargets) {
+          try {
+            await emailService.sendEmail({
+              companyId: quote.company_id,
+              to: target,
+              subject: `Client change request — ${quoteRef} (${clientLabel})`,
+              body: bodyHtml,
+              quoteId: quote.id,
+              skipUnsubscribeFooter: true,
+              _client: supabase,
+            } as any);
+          } catch (emailErr) {
+            console.warn(`[public/quotes/change-request] operator email to ${target} failed`, emailErr);
+          }
         }
+      } else {
+        console.warn(
+          `[public/quotes/change-request] no operator email target for company ${quote.company_id} - set companies.email in Settings`
+        );
       }
     } catch (err) {
       console.warn("[public/quotes/change-request] notification failed", err);
