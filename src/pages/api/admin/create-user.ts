@@ -3,6 +3,109 @@ import { createPagesServerClient } from "@/lib/supabase/server";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import type { NextApiRequest, NextApiResponse } from "next";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { emailService } from "@/services/emailService";
+
+function escapeHtml(s: string): string {
+  return String(s ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+// "kitchen_staff" -> "Kitchen staff"
+function humaniseRole(role: string): string {
+  const spaced = String(role || "").replace(/_/g, " ").trim();
+  return spaced ? spaced.charAt(0).toUpperCase() + spaced.slice(1) : "team member";
+}
+
+/**
+ * Email the newly-created staff member their login link + temporary
+ * password.
+ *
+ * Why: the direct-create path (this endpoint) used to return the temp
+ * password ONLY to the admin who created the account, via a one-off
+ * prompt - the new staff member received nothing, so the admin had to
+ * relay the password by hand (and often didn't). Now the user gets a
+ * branded email with their portal URL, their email, the temp password
+ * and a "change it on first sign-in" nudge.
+ *
+ * Sent with the service-role client + bypassQuarantine because this is
+ * a system-critical onboarding mail (same treatment as the magic-link
+ * sign-in mail). Best-effort: failures are logged but never block user
+ * creation - the admin still has the temp password in the API response
+ * as the offline fallback when a tenant has no email provider wired up.
+ */
+async function sendStaffCredentialsEmail(
+  admin: any,
+  args: {
+    email: string;
+    fullName: string;
+    role: string;
+    companyId: string;
+    tempPassword: string;
+    baseUrl: string;
+  },
+): Promise<void> {
+  try {
+    const { data: company } = await admin
+      .from("companies")
+      .select("company_name, slug, primary_color")
+      .eq("id", args.companyId)
+      .maybeSingle();
+    const companyName = (company as any)?.company_name || "your team";
+    const slug = (company as any)?.slug || "";
+    const accent = (company as any)?.primary_color || "#9333ea";
+    const loginUrl = slug ? `${args.baseUrl}/${slug}/login` : `${args.baseUrl}/auth/login`;
+    const firstName = (args.fullName || "there").trim().split(/\s+/)[0] || "there";
+    const roleLabel = humaniseRole(args.role);
+
+    const html = `<!doctype html>
+<html><body style="margin:0;background:#f8fafc;font-family:Helvetica,Arial,sans-serif;color:#0f172a">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;padding:32px 16px">
+    <tr><td align="center">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:16px;box-shadow:0 4px 16px rgba(15,23,42,0.06);overflow:hidden">
+        <tr><td style="padding:28px 28px 8px">
+          <h1 style="margin:0 0 12px;font-size:22px;line-height:1.3;color:#0f172a">You've been added to ${escapeHtml(companyName)}</h1>
+          <p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:#475569">
+            Hi ${escapeHtml(firstName)}, an account has been created for you on ${escapeHtml(companyName)} as <strong>${escapeHtml(roleLabel)}</strong>. Sign in with the details below.
+          </p>
+          <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin:0 0 20px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px">
+            <tr><td style="padding:16px 18px;font-size:14px;color:#0f172a;line-height:1.9">
+              <div><span style="color:#64748b">Email:</span> <strong>${escapeHtml(args.email)}</strong></div>
+              <div><span style="color:#64748b">Temporary password:</span> <strong style="font-family:Menlo,Consolas,monospace">${escapeHtml(args.tempPassword)}</strong></div>
+            </td></tr>
+          </table>
+          <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 20px"><tr><td align="center" style="border-radius:10px;background:${accent}">
+            <a href="${loginUrl}" style="display:inline-block;padding:14px 28px;font-weight:600;font-size:15px;color:#ffffff;text-decoration:none">Sign in to your portal</a>
+          </td></tr></table>
+          <p style="margin:0 0 6px;font-size:13px;color:#94a3b8">Or paste this URL in your browser:</p>
+          <p style="margin:0 0 20px;font-size:12px;word-break:break-all;color:#475569">${loginUrl}</p>
+          <p style="margin:0;font-size:13px;line-height:1.6;color:#94a3b8">
+            For your security, please change this password after your first sign-in.
+          </p>
+        </td></tr>
+        <tr><td style="padding:20px 28px;border-top:1px solid #e2e8f0;background:#f8fafc;font-size:12px;color:#94a3b8;line-height:1.5">
+          Sent by ${escapeHtml(companyName)} via CateringMS.
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`;
+
+    await emailService.sendEmail({
+      companyId: args.companyId,
+      to: args.email,
+      subject: `Your ${companyName} staff sign-in details`,
+      body: html,
+      bypassQuarantine: true,
+      _client: admin,
+    } as any);
+  } catch (e: any) {
+    console.warn("[create-user] staff credentials email failed (non-blocking):", e?.message);
+  }
+}
 
 
 // Map UserRole enum values to database-accepted role values.
@@ -174,6 +277,12 @@ async function handler(
     }
     const password = generatePassword();
 
+    // Origin for the staff member's login link in the onboarding email.
+    const baseUrl =
+      process.env.NEXT_PUBLIC_SITE_URL ||
+      (req.headers.origin as string) ||
+      `https://${req.headers.host || "cateringms.com"}`;
+
     if (callerRole !== "super_admin") {
       if ((callerProfile as any).company_id !== company_id) {
         return res.status(403).json({ error: "Cannot create users for another company" });
@@ -244,6 +353,15 @@ async function handler(
             console.error("Healing orphan profile failed:", insErr);
             return res.status(500).json({ error: `Could not finish creating user: ${insErr.message}` });
           }
+          // Email the (re)issued credentials to the staff member.
+          await sendStaffCredentialsEmail(admin, {
+            email,
+            fullName: full_name,
+            role,
+            companyId: company_id,
+            tempPassword: password,
+            baseUrl,
+          });
           return res.status(201).json({
             message: "User restored",
             user: { id: match.id, email },
@@ -321,11 +439,22 @@ async function handler(
       });
     }
 
-    // Surface the password ONCE in the response so the admin can
-    // hand it to the new staff member via their own secure channel
-    // (WhatsApp, password manager). It is never logged or stored
-    // anywhere except auth.users (hashed). The UI must prompt the
-    // new staff member to change it on first login.
+    // Email the staff member their login link + temp password directly
+    // so onboarding doesn't depend on the admin manually relaying it.
+    await sendStaffCredentialsEmail(admin, {
+      email,
+      fullName: full_name,
+      role,
+      companyId: company_id,
+      tempPassword: password,
+      baseUrl,
+    });
+
+    // Also surface the password ONCE in the response so the admin has a
+    // fallback when the tenant has no email provider wired up yet. It is
+    // never logged or stored anywhere except auth.users (hashed). The UI
+    // prompts the admin to share it securely + tells the user to change
+    // it on first login.
     return res.status(201).json({
       message: "User created successfully",
       user: { id: newUserId, email },
