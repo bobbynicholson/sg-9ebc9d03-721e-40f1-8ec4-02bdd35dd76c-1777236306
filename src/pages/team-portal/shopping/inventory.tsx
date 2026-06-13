@@ -191,7 +191,7 @@ export default function ShoppingInventoryPage() {
       </Head>
       <NoIndexMeta />
       <ShoppingNav />
-      <main className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 via-white to-emerald-50 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+      <main className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
         <div className="px-3 sm:px-4 md:px-6 py-6 sm:py-8 max-w-full">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between mb-6">
             {/* Wave 34: gradient-box icon header to match the rest

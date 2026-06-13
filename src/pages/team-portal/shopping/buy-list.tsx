@@ -289,7 +289,7 @@ export default function ShoppingBuyListPage() {
       <Head><title>Buy list - CateringMS</title></Head>
       <ShoppingNav />
 
-      <main className="min-h-screen bg-gradient-to-br from-emerald-50 to-green-50 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+      <main className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
         <div className="px-3 sm:px-4 md:px-6 py-6 sm:py-8 max-w-full pb-24">
           {/* Header */}
           <div className="mb-6 flex flex-col sm:flex-row sm:items-center gap-4">
