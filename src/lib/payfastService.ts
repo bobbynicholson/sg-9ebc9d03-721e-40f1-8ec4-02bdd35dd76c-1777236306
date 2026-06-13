@@ -102,8 +102,14 @@ export class PayFastService {
       merchant_id: this.config.merchantId,
       merchant_key: this.config.merchantKey,
       return_url: `${window.location.origin}/subscription/success`,
-      cancel_url: `${window.location.origin}/subscription/cancelled`,
-      notify_url: `${window.location.origin}/api/payfast/notify`,
+      // /subscription/cancelled doesn't exist; send a cancelled checkout
+      // back to the subscription page so they can retry.
+      cancel_url: `${window.location.origin}/admin/subscription?cancelled=1`,
+      // ITN target. Was /api/payfast/notify, which doesn't exist (404) -
+      // so PayFast's payment notification never landed and the company
+      // was never flipped to 'active'. The real subscription webhook is
+      // /api/webhooks/subscriptions/payfast.
+      notify_url: `${window.location.origin}/api/webhooks/subscriptions/payfast`,
       name_first: user.firstName,
       name_last: user.lastName,
       email_address: user.email,

@@ -21,10 +21,18 @@ import {
 } from "lucide-react";
 import { PayFastService, getPlanById, formatCurrency, calculateTrialEndDate } from "@/lib/payfastService";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function CheckoutPage() {
   const router = useRouter();
   const { plan: planId, cycle } = router.query;
+  // The buyer is the logged-in catering company upgrading their plan.
+  // We pass their company_id to PayFast (custom_str1) so the subscription
+  // webhook can flip THIS company to 'active'. Prospects who aren't
+  // signed in yet are sent to register first (a subscription must attach
+  // to a real company).
+  const { user, profile, company: authCompany, loading: authLoading } = useAuth() as any;
+  const companyId: string | null = authCompany?.id || profile?.company_id || null;
 
   const [billingCycle, setBillingCycle] = useState<"monthly" | "annual">(
     (cycle as "monthly" | "annual") || "monthly"
@@ -46,6 +54,27 @@ export default function CheckoutPage() {
       router.push("/pricing");
     }
   }, [plan, planId, router]);
+
+  // Prefill the form from the signed-in company's profile.
+  useEffect(() => {
+    if (profile?.full_name) {
+      const parts = String(profile.full_name).trim().split(/\s+/);
+      setFirstName((p) => p || parts[0] || "");
+      setLastName((p) => p || parts.slice(1).join(" ") || "");
+    }
+    const e = profile?.email || user?.email;
+    if (e) setEmail((p) => p || e);
+    if (authCompany?.company_name) setCompany((p) => p || authCompany.company_name);
+  }, [profile, user, authCompany]);
+
+  // A subscription has to attach to a real company. If the visitor isn't
+  // signed in (a prospect arriving from /pricing), send them to register
+  // first - they get a trial, then upgrade from Admin -> Subscription.
+  useEffect(() => {
+    if (!authLoading && !user && planId) {
+      router.replace("/company-signup");
+    }
+  }, [authLoading, user, planId, router]);
 
   if (!plan) {
     return null;
@@ -82,19 +111,23 @@ export default function CheckoutPage() {
 
       const payfastService = new PayFastService(payfastConfig);
 
-      // We don't have a logged-in catering company yet at this point
-      // (prospect arriving from /pricing). Use the email as the
-      // reconciliation key in custom_str1 so the webhook can match
-      // the eventual subscription to the right tenant once the user
-      // creates an account. Previously sent a `temp_${Date.now()}`
-      // orphan that nothing downstream could ever join back to.
+      // Reconciliation key in custom_str1: the company_id. The
+      // subscription webhook resolves the tenant by .eq("id", custom_str1)
+      // and flips THAT company to 'active', so this MUST be the real
+      // company UUID (not an email - that's why upgrades never landed
+      // before). The require-login guard above guarantees we have one.
+      if (!companyId) {
+        setError("We couldn't link this payment to your company. Please sign in again and retry.");
+        setIsProcessing(false);
+        return;
+      }
       const subscriptionParams = payfastService.createSubscriptionParams(
         plan,
         {
           firstName,
           lastName,
           email,
-          userId: email.trim().toLowerCase(),
+          userId: companyId,
         },
         billingCycle
       );

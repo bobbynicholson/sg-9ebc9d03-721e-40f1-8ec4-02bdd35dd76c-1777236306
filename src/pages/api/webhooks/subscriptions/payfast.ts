@@ -105,9 +105,16 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const merchantId = process.env.PAYFAST_PLATFORM_MERCHANT_ID;
-  const merchantKey = process.env.PAYFAST_PLATFORM_MERCHANT_KEY;
-  const passphrase = process.env.PAYFAST_PLATFORM_PASSPHRASE;
+  // Must match the credentials the checkout signed with. The
+  // subscription checkout runs client-side and can therefore only read
+  // the NEXT_PUBLIC_PAYFAST_* vars, so those are the source of truth for
+  // platform subscription billing; PAYFAST_PLATFORM_* is accepted as an
+  // optional override if an operator mirrored it server-side. Reading a
+  // different var than the checkout used is exactly why the ITN failed
+  // verification and the company never went active.
+  const merchantId = process.env.NEXT_PUBLIC_PAYFAST_MERCHANT_ID || process.env.PAYFAST_PLATFORM_MERCHANT_ID;
+  const merchantKey = process.env.NEXT_PUBLIC_PAYFAST_MERCHANT_KEY || process.env.PAYFAST_PLATFORM_MERCHANT_KEY;
+  const passphrase = process.env.NEXT_PUBLIC_PAYFAST_PASSPHRASE || process.env.PAYFAST_PLATFORM_PASSPHRASE || "";
 
   if (!merchantId || !merchantKey) {
     console.warn(
@@ -216,6 +223,10 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     // ITNs resolve via the token path above.
     const companyPatch: Record<string, unknown> = { subscription_status: newStatus };
     if (token) companyPatch.payfast_subscription_token = token;
+    // custom_str2 carries the plan id (createSubscriptionParams sets it),
+    // so the company's stored plan reflects what they actually bought.
+    const planFromCustom = (body.custom_str2 || "").trim();
+    if (planFromCustom) companyPatch.subscription_plan = planFromCustom;
     await sb.from("companies").update(companyPatch).eq("id", companyId);
 
     // billing_history row for the operator's records.

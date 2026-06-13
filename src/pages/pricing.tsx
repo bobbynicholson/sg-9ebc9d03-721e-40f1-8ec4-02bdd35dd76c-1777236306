@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Check, ArrowRight, Info } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 // Pricing rendering is driven by getAllPricingOptions() + applyLivePlans()
 // pulling from /api/platform/pricing-plans (single source of truth in
@@ -21,6 +22,16 @@ export default function PricingPage() {
   const [billingCycle, setBillingCycle] = useState<"monthly" | "annually">("monthly");
   const [isLoading, setIsLoading] = useState(true);
   const [livePlans, setLivePlans] = useState<LivePlan[] | null>(null);
+  // When a signed-in company views pricing, the plan CTA takes them
+  // straight to checkout (upgrade). Logged-out prospects register first.
+  const [loggedIn, setLoggedIn] = useState(false);
+
+  useEffect(() => {
+    supabase.auth
+      .getSession()
+      .then(({ data }) => setLoggedIn(!!data.session))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     const initRegion = async () => {
@@ -175,17 +186,31 @@ export default function PricingPage() {
                     ))}
                   </ul>
 
-                  {/* Mobile-Optimized CTA Button */}
-                  <Link href="/company-signup" className="block mt-6">
-                    <Button 
-                      className="w-full h-12 text-base"
-                      variant={index === 1 ? "default" : "outline"}
-                      size="lg"
-                    >
-                      Start Free Trial
-                      <ArrowRight className="ml-2 w-4 h-4" />
-                    </Button>
-                  </Link>
+                  {/* Mobile-Optimized CTA Button.
+                      Signed-in companies go straight to checkout for the
+                      chosen plan; prospects register first (then upgrade
+                      from Admin -> Subscription). The middle tier's slug
+                      is "pro" here but "professional" in the billing
+                      plans (getPlanById), so map it. */}
+                  {(() => {
+                    const checkoutPlanId = plan.id === "pro" ? "professional" : plan.id;
+                    const cycleParam = billingCycle === "annually" ? "annual" : "monthly";
+                    const href = loggedIn
+                      ? `/subscription/checkout?plan=${checkoutPlanId}&cycle=${cycleParam}`
+                      : "/company-signup";
+                    return (
+                      <Link href={href} className="block mt-6">
+                        <Button
+                          className="w-full h-12 text-base"
+                          variant={index === 1 ? "default" : "outline"}
+                          size="lg"
+                        >
+                          {loggedIn ? "Choose this plan" : "Start Free Trial"}
+                          <ArrowRight className="ml-2 w-4 h-4" />
+                        </Button>
+                      </Link>
+                    );
+                  })()}
                 </CardContent>
               </Card>
             );
