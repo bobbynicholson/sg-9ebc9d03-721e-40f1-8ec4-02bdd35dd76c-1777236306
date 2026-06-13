@@ -165,6 +165,10 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
             invoice_url: payLink,
           },
           orderId: order.id,
+          // Service-role client: cron runs unauthenticated, so without it
+          // the provider lookup is RLS-blocked and the send silently
+          // no-ops (logged "sent" but never delivered).
+          _client: sb,
         } as any);
         queued += 1;
       } catch (e: any) {

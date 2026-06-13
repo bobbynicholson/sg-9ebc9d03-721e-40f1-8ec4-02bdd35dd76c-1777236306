@@ -109,6 +109,10 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           body: resolved.bodyHtml,
           orderId: inv.order_id,
           templateType: "balance_invoice_issued",
+          // Service-role client: this runs as an unauthenticated cron, so
+          // without it the provider lookup is RLS-blocked and the send
+          // silently no-ops (logged "sent" but never delivered).
+          _client: sb,
         } as any);
         queued += 1;
       } catch (e: any) {

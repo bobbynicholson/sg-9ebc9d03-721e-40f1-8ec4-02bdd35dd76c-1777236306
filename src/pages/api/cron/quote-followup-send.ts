@@ -125,6 +125,10 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
             to: quote.client_email,
             subject: resolved.subject,
             body: resolved.bodyHtml,
+            // Service-role client: cron runs unauthenticated, so without
+            // it the provider lookup is RLS-blocked and the send silently
+            // no-ops (logged "sent" but never delivered).
+            _client: sb,
           } as any);
 
           await recordFollowupSent({

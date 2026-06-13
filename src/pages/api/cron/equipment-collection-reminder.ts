@@ -109,6 +109,10 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           body: resolved.bodyHtml,
           orderId: a.order_id,
           templateType: "equipment_collection_reminder",
+          // Service-role client: cron runs unauthenticated, so without it
+          // the provider lookup is RLS-blocked and the send silently
+          // no-ops (logged "sent" but never delivered).
+          _client: sb,
         } as any);
         sent += 1;
       } catch (e: any) {

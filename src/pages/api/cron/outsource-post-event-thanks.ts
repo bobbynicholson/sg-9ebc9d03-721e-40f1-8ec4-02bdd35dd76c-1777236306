@@ -177,6 +177,10 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
             .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</pre>`,
           orderId: a.order_id,
           templateType: "outsource_post_event_thanks",
+          // Service-role client: cron runs unauthenticated, so without it
+          // the provider lookup is RLS-blocked and the send silently
+          // no-ops (logged "sent" but never delivered).
+          _client: sb,
         } as any);
         if (result) sent += 1;
         else skipped += 1;
