@@ -252,7 +252,7 @@ async function handler(
             return res.status(500).json({ error: `Could not finish creating user: ${insErr.message}` });
           }
           // Email the staff member their invite / set-password link.
-          await sendStaffInviteEmail(admin, {
+          const healInvite = await sendStaffInviteEmail(admin, {
             email,
             fullName: full_name,
             role,
@@ -265,6 +265,9 @@ async function handler(
             user: { id: match.id, email },
             tempPassword: password,
             recovered: true,
+            emailDelivered: healInvite.emailed,
+            emailErrorCode: healInvite.errorCode,
+            loginUrl: healInvite.loginUrl,
           });
         }
 
@@ -339,7 +342,7 @@ async function handler(
 
     // Email the staff member their invite / set-password link so
     // onboarding doesn't depend on the admin manually relaying anything.
-    await sendStaffInviteEmail(admin, {
+    const inviteResult = await sendStaffInviteEmail(admin, {
       email,
       fullName: full_name,
       role,
@@ -348,15 +351,18 @@ async function handler(
       baseUrl,
     });
 
-    // Also surface the password ONCE in the response so the admin has a
-    // fallback when the tenant has no email provider wired up yet. It is
-    // never logged or stored anywhere except auth.users (hashed). The UI
-    // prompts the admin to share it securely + tells the user to change
-    // it on first login.
+    // Return the temp password + whether the invite actually emailed, so
+    // the UI can either confirm "invite sent" or, when the tenant has no
+    // email provider, show the credentials for the admin to share by
+    // hand. The password is never logged/stored except auth.users
+    // (hashed).
     return res.status(201).json({
       message: "User created successfully",
       user: { id: newUserId, email },
       tempPassword: password,
+      emailDelivered: inviteResult.emailed,
+      emailErrorCode: inviteResult.errorCode,
+      loginUrl: inviteResult.loginUrl,
     });
   } catch (outer: any) {
     // Unhandled error - without this catch, Next.js returns an HTML 500

@@ -80,7 +80,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       `https://${req.headers.host || "cateringms.com"}`;
 
     // No tempPassword passed: the helper mints a fresh set-password link.
-    const sent = await sendStaffInviteEmail(admin, {
+    const result = await sendStaffInviteEmail(admin, {
       email: t.email,
       fullName: t.full_name || "",
       role: t.role || "team member",
@@ -88,9 +88,13 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       baseUrl,
     });
 
-    if (!sent) {
+    if (!result.emailed) {
       return res.status(502).json({
-        error: "Couldn't send the invite email. Check this tenant's email provider is configured.",
+        error:
+          result.errorCode === "no_provider"
+            ? "This company hasn't set up an email sender yet, so the invite can't be emailed. Set one up under Email settings, then resend."
+            : "Couldn't send the invite email. Please try again.",
+        errorCode: result.errorCode,
       });
     }
 

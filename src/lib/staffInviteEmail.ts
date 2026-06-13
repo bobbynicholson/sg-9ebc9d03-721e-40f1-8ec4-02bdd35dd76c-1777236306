@@ -44,15 +44,27 @@ export interface StaffInviteArgs {
   tempPassword?: string;
 }
 
+export interface StaffInviteResult {
+  /** True only when the email provider actually accepted the send. */
+  emailed: boolean;
+  /** emailService error_code when emailed=false (e.g. "no_provider"). */
+  errorCode?: string;
+  /** Which variant was sent / attempted. */
+  via: "invite_link" | "temp_password" | "fallback";
+  /** Staff login URL, for the caller to surface when email failed. */
+  loginUrl: string;
+}
+
 /**
- * Build + send the invite email. Best-effort: returns true if a send was
- * attempted successfully, false on any failure (caller decides whether
- * that's fatal). Never throws.
+ * Build + send the invite email. Never throws. Returns a structured
+ * result so the caller can tell the admin whether the invite actually
+ * went out, and fall back to showing the credentials when it didn't
+ * (e.g. the tenant has no email provider configured yet).
  */
 export async function sendStaffInviteEmail(
   admin: any,
   args: StaffInviteArgs,
-): Promise<boolean> {
+): Promise<StaffInviteResult> {
   try {
     const { data: company } = await admin
       .from("companies")
@@ -93,7 +105,9 @@ export async function sendStaffInviteEmail(
 
     let inner: string;
     let subject: string;
+    let via: StaffInviteResult["via"] = "fallback";
     if (inviteLink) {
+      via = "invite_link";
       subject = `You've been invited to ${companyName}`;
       inner = `${header} Set your password to activate your account and sign in.
           </p>
@@ -106,6 +120,7 @@ export async function sendStaffInviteEmail(
             Once your password is set, sign in any time at <a href="${loginUrl}" style="color:${accent}">${loginUrl}</a>.
           </p>`;
     } else if (args.tempPassword) {
+      via = "temp_password";
       subject = `Your ${companyName} staff sign-in details`;
       inner = `${header} Sign in with the details below, then change your password.
           </p>
@@ -142,7 +157,7 @@ ${footer}
   </table>
 </body></html>`;
 
-    await emailService.sendEmail({
+    const detailed = await emailService.sendEmailDetailed({
       companyId: args.companyId,
       to: args.email,
       subject,
@@ -150,9 +165,14 @@ ${footer}
       bypassQuarantine: true,
       _client: admin,
     } as any);
-    return true;
+    return {
+      emailed: !!detailed.success,
+      errorCode: detailed.success ? undefined : ((detailed as any).error_code || "unknown"),
+      via,
+      loginUrl,
+    };
   } catch (e: any) {
     console.warn("[staffInviteEmail] send failed (non-blocking):", e?.message);
-    return false;
+    return { emailed: false, errorCode: "unknown", via: "fallback", loginUrl: `${args.baseUrl}/auth/login` };
   }
 }

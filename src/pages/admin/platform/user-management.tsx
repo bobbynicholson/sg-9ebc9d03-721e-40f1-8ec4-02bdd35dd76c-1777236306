@@ -41,7 +41,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { UserPlus, Trash2, Building2, Loader2, Search, Send } from "lucide-react";
+import { UserPlus, Trash2, Building2, Loader2, Search, Send, Copy, MailWarning } from "lucide-react";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
@@ -73,7 +73,35 @@ export default function UserManagementPage() {
   const [deleteUserId, setDeleteUserId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [resendingId, setResendingId] = useState<string | null>(null);
+  // Set when a user was created but the invite couldn't be emailed (no
+  // email sender configured) - drives the "share these details" panel.
+  const [createResult, setCreateResult] = useState<
+    { email: string; tempPassword?: string; loginUrl?: string } | null
+  >(null);
   const { toast } = useToast();
+
+  const closeAddUserDialog = (open: boolean) => {
+    setAddUserOpen(open);
+    if (!open) {
+      setCreateResult(null);
+      setNewUser({ email: "", full_name: "", password: "", role: "client", company_id: "" });
+    }
+  };
+
+  const copyCreateResult = async () => {
+    if (!createResult) return;
+    const text =
+      `Email: ${createResult.email}\n` +
+      (createResult.tempPassword ? `Temporary password: ${createResult.tempPassword}\n` : "") +
+      (createResult.loginUrl ? `Sign in at: ${createResult.loginUrl}\n` : "") +
+      `Please change your password after first sign-in.`;
+    try {
+      await navigator.clipboard.writeText(text);
+      toast({ title: "Copied", description: "Sign-in details copied to your clipboard." });
+    } catch {
+      toast({ title: "Couldn't copy", description: "Select and copy the details manually.", variant: "destructive" });
+    }
+  };
 
   // Form state
   const [newUser, setNewUser] = useState({
@@ -193,29 +221,26 @@ export default function UserManagementPage() {
         throw new Error(payload?.error || "Failed to create user");
       }
 
-      const tempPassword = (payload as any)?.tempPassword;
-      if (tempPassword && typeof window !== "undefined") {
-        try { await navigator.clipboard.writeText(tempPassword); } catch { /* clipboard blocked */ }
-        window.prompt(
-          `Temporary password for ${newUser.full_name} (copied to clipboard).\nShare it securely - they must change it on first login.`,
-          tempPassword,
-        );
-      }
+      const tempPassword = (payload as any)?.tempPassword as string | undefined;
+      const emailDelivered = !!(payload as any)?.emailDelivered;
+      const loginUrl = (payload as any)?.loginUrl as string | undefined;
+      const createdEmail = newUser.email;
 
-      toast({
-        title: "Success",
-        description: `User ${newUser.email} created successfully`,
-      });
-
-      setAddUserOpen(false);
-      setNewUser({
-        email: "",
-        full_name: "",
-        password: "",
-        role: "client",
-        company_id: "",
-      });
       loadUsers();
+
+      if (emailDelivered) {
+        // Invite went out - just confirm + close.
+        toast({
+          title: "User invited",
+          description: `We emailed an invite to ${createdEmail} to set their password.`,
+        });
+        setAddUserOpen(false);
+        setNewUser({ email: "", full_name: "", password: "", role: "client", company_id: "" });
+      } else {
+        // No email sender configured (or send failed): keep the dialog
+        // open and show the credentials so the admin can pass them on.
+        setCreateResult({ email: createdEmail, tempPassword, loginUrl });
+      }
     } catch (error: any) {
       console.error("Error creating user:", error);
       toast({
@@ -327,7 +352,7 @@ export default function UserManagementPage() {
             <h1 className="text-3xl font-bold text-slate-900">User Management</h1>
             <p className="text-slate-600 mt-1">Manage system users and permissions</p>
           </div>
-          <Dialog open={addUserOpen} onOpenChange={setAddUserOpen}>
+          <Dialog open={addUserOpen} onOpenChange={closeAddUserDialog}>
             <DialogTrigger asChild>
               <Button className="bg-brand-primary hover:opacity-90">
                 <UserPlus className="w-4 h-4 mr-2" />
@@ -335,6 +360,51 @@ export default function UserManagementPage() {
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[500px]">
+              {createResult ? (
+                <>
+                  <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2">
+                      <MailWarning className="w-5 h-5 text-amber-500" />
+                      Share these sign-in details
+                    </DialogTitle>
+                    <DialogDescription>
+                      <strong>{createResult.email}</strong> was created, but this company hasn&apos;t set up an email sender yet, so we couldn&apos;t email the invite. Pass these details on directly.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-3">
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm space-y-1.5">
+                      <div><span className="text-slate-500">Email:</span> <strong>{createResult.email}</strong></div>
+                      {createResult.tempPassword && (
+                        <div>
+                          <span className="text-slate-500">Temporary password:</span>{" "}
+                          <strong className="font-mono">{createResult.tempPassword}</strong>
+                        </div>
+                      )}
+                      {createResult.loginUrl && (
+                        <div>
+                          <span className="text-slate-500">Sign in at:</span>{" "}
+                          <strong className="break-all">{createResult.loginUrl}</strong>
+                        </div>
+                      )}
+                      <p className="text-xs text-slate-500 pt-1">
+                        They should change this password after their first sign-in.
+                      </p>
+                    </div>
+                    <p className="text-xs text-slate-500">
+                      Set up an email sender under <strong>Email settings</strong> (Admin → Settings → Email) so future invites send automatically.
+                    </p>
+                    <div className="flex justify-between gap-2 pt-2">
+                      <Button type="button" variant="outline" onClick={copyCreateResult} className="gap-1.5">
+                        <Copy className="w-4 h-4" /> Copy details
+                      </Button>
+                      <Button type="button" onClick={() => closeAddUserDialog(false)}>
+                        Done
+                      </Button>
+                    </div>
+                  </div>
+                </>
+              ) : (
+              <>
               <DialogHeader>
                 <DialogTitle>Create New User</DialogTitle>
                 <DialogDescription>
@@ -407,7 +477,7 @@ export default function UserManagementPage() {
                   </div>
                 )}
                 <div className="flex justify-end gap-2 pt-4">
-                  <Button type="button" variant="outline" onClick={() => setAddUserOpen(false)}>
+                  <Button type="button" variant="outline" onClick={() => closeAddUserDialog(false)}>
                     Cancel
                   </Button>
                   <Button type="submit" disabled={creating}>
@@ -422,6 +492,8 @@ export default function UserManagementPage() {
                   </Button>
                 </div>
               </form>
+              </>
+              )}
             </DialogContent>
           </Dialog>
         </div>
