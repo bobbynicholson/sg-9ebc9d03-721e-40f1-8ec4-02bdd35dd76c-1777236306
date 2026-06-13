@@ -23,17 +23,26 @@ describe('DriverService', () => {
         speed: 50,
       };
 
-      const mockSupabase = {
-        upsert: jest.fn().mockReturnThis(),
-        select: jest.fn().mockReturnThis(),
-        single: jest.fn().mockResolvedValue({ data: mockLocation, error: null }),
-      };
+      // updateDriverLocation touches three tables: it reads profiles
+      // (.select().eq().maybeSingle()), upserts driver_locations, then
+      // inserts a gps_tracking history row. A fully chainable, awaitable
+      // query-builder stub covers every call.
+      const result = { data: { company_id: 'company-1', ...mockLocation }, error: null };
+      const qb: any = {};
+      ['select', 'insert', 'update', 'upsert', 'delete', 'eq', 'is', 'in', 'order', 'limit', 'match'].forEach(
+        (m) => {
+          qb[m] = jest.fn(() => qb);
+        },
+      );
+      qb.single = jest.fn().mockResolvedValue(result);
+      qb.maybeSingle = jest.fn().mockResolvedValue(result);
+      qb.then = (resolve: (v: typeof result) => unknown) => resolve(result);
 
-      (supabase.from as jest.Mock).mockReturnValue(mockSupabase);
+      (supabase.from as jest.Mock).mockReturnValue(qb);
 
-      const result = await driverService.gps.updateDriverLocation('driver-1', mockLocation);
+      const saved = await driverService.gps.updateDriverLocation('driver-1', mockLocation);
 
-      expect(result.success).toBe(true);
+      expect(saved.success).toBe(true);
       expect(supabase.from).toHaveBeenCalledWith('gps_tracking');
     });
   });

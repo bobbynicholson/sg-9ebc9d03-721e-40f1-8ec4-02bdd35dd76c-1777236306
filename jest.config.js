@@ -11,10 +11,22 @@ const customJestConfig = {
   testEnvironment: 'jest-environment-jsdom',
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
+    // lucide-react ships ESM that Jest's transform doesn't process;
+    // stub every icon to a plain <svg> for render tests.
+    '^lucide-react$': '<rootDir>/__mocks__/lucide-react.js',
   },
   testMatch: [
     '**/__tests__/**/*.test.[jt]s?(x)',
     '**/?(*.)+(spec|test).[jt]s?(x)',
+  ],
+  // src/pages/** are Next.js routes, not tests. The default testMatch
+  // pattern `?(*.)test.ts` greedily matches API routes literally named
+  // test.ts (e.g. payment-gateways/[id]/test.ts) which then fail with
+  // "your test suite must contain at least one test". Ignore the pages
+  // tree for discovery - real tests live in __tests__ / *.test.*.
+  testPathIgnorePatterns: [
+    '/node_modules/',
+    '<rootDir>/src/pages/',
   ],
   collectCoverageFrom: [
     'src/**/*.{js,jsx,ts,tsx}',
