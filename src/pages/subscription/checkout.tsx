@@ -156,7 +156,7 @@ export default function CheckoutPage() {
     <>
       <NoIndexMeta />
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50">
-        <div className="container mx-auto px-4 py-8 max-w-6xl">
+        <div className="px-4 sm:px-6 lg:px-8 py-8 max-w-full">
           <title>Checkout - CateringMS</title>
           <Link href="/pricing">
             <Button variant="ghost" className="mb-4">
