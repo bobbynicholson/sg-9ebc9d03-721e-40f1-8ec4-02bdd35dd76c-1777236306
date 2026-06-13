@@ -58,7 +58,7 @@ function ReceiptsImportPage() {
       <AdminNav />
 
       <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
-        <div className="px-4 py-8 max-w-screen-xl mx-auto">
+        <div className="px-4 sm:px-6 pt-20 lg:pt-8 pb-12 max-w-full">
 
           {/* Header */}
           <div className="mb-4">

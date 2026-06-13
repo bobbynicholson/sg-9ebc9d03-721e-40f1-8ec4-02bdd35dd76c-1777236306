@@ -294,7 +294,7 @@ function ClientImportPage() {
       <AdminNav />
 
       <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
-        <div className="px-4 py-6 lg:py-10 max-w-full">
+        <div className="px-4 sm:px-6 pt-20 lg:pt-8 pb-12 max-w-full">
           <Link
             href={withSlug("/admin/onboarding/imports")}
             className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-900 mb-3"

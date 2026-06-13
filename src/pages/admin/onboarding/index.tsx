@@ -330,7 +330,7 @@ function OnboardingWizard() {
       <AdminNav />
 
       <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
-        <div className="px-3 sm:px-4 md:px-6 pt-20 lg:pt-6 pb-12 max-w-3xl">
+        <div className="px-4 sm:px-6 pt-20 lg:pt-8 pb-12 max-w-full">
           {/* Progress strip across the top - step pills + filled bar.
               On phones the labels collapse to icons only so the row
               doesn't crush. */}
