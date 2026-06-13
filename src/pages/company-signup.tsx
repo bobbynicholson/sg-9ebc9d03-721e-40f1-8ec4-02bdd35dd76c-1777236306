@@ -10,7 +10,6 @@ import { Building2, CheckCircle, DollarSign, AlertCircle, Loader2, X } from "luc
 import Link from "next/link";
 import { AuthShell } from "@/components/auth/AuthShell";
 import { isValidEmail, validateNewPassword } from "@/lib/validation/authValidation";
-import { companyService } from "@/services/companyService";
 import { roleService } from "@/services/roleService";
 import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
@@ -287,63 +286,44 @@ export default function CompanySignupPage() {
         return;
       }
 
-      // Step 3: Create company record.
-      // The slug here is permanent - the trigger
-      // trg_companies_slug_immutable rejects any later UPDATE that
-      // tries to change it, and the slug becomes part of every URL the
-      // tenant will ever see.
-      console.log("🏢 Step 3: Creating company record...");
+      // Step 3: Create company + link profile + seed region, server-side.
+      // This MUST run on the server with the service role: when email
+      // confirmation is enabled, signUp returns no session, so a
+      // browser-side insert runs as the anon role and the companies
+      // INSERT policy (TO authenticated, owner_id = auth.uid()) rejects
+      // it with "new row violates row-level security policy for table
+      // companies". The route hard-binds owner_id to our verified userId.
+      // The slug is permanent - trg_companies_slug_immutable blocks any
+      // later change, and it becomes part of every URL the tenant sees.
+      console.log("🏢 Step 3: Provisioning company (server-side)...");
       const companySlug = formData.customSlug;
-      
-      const companyResult = await companyService.createCompany({
-        name: formData.companyName,
-        owner_id: userId,
-        currency: formData.currency,
-        phone: formData.phone,
-        email: formData.email,
-        company_slug: companySlug,
-      });
 
-      if (!companyResult.success || !companyResult.company) {
-        console.error("❌ Company creation failed:", companyResult.error);
-        setError(companyResult.error || "Failed to create company. Please contact support.");
+      const provisionRes = await fetch("/api/auth/provision-company", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId,
+          email: formData.email,
+          companyName: formData.companyName,
+          slug: companySlug,
+          currency: formData.currency,
+          phone: formData.phone,
+          ownerName: formData.ownerName,
+        }),
+      });
+      const provisionJson = await provisionRes.json().catch(() => ({}));
+
+      if (!provisionRes.ok || !provisionJson?.ok || !provisionJson?.company) {
+        console.error("❌ Company provisioning failed:", provisionJson?.error);
+        setError(provisionJson?.error || "Failed to create company. Please contact support.");
         setLoading(false);
         return;
       }
 
-      companyId = companyResult.company.id;
-      console.log("✅ Company created:", companyId);
-
-      // Step 4: Link profile to company (with retry)
-      console.log("🔗 Step 4: Linking profile to company...");
-      try {
-        await retryProfileOperation(
-          async () => {
-            const { data: updateResult, error: profileUpdateError } = await supabase
-              .from("profiles")
-              .update({
-                company_id: companyId,
-                role: "company_admin",
-                active_role: "company_admin",
-                full_name: formData.ownerName,
-                phone: formData.phone,
-              })
-              .eq("id", userId)
-              .select()
-              .single();
-
-            if (profileUpdateError) throw profileUpdateError;
-            return updateResult;
-          },
-          5,
-          "Profile company linkage"
-        );
-        console.log("✅ Profile linked to company");
-      } catch (linkError) {
-        console.error("❌ Profile linking failed:", linkError);
-        setError("Company created but failed to link your account. Please contact support.");
-        setLoading(false);
-        return;
+      companyId = provisionJson.company.id;
+      console.log("✅ Company created + profile linked:", companyId);
+      if (provisionJson.profileLinked === false) {
+        console.warn("⚠️ Profile link reported incomplete; will reconcile on first login.");
       }
 
       // Step 5: Assign company_admin role (non-blocking)
