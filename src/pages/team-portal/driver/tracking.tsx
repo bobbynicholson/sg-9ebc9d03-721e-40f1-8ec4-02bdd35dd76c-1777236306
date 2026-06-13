@@ -252,7 +252,7 @@ function DriverTrackingInner() {
       heading="Current Delivery"
       subheading="Track your active delivery"
       icon={Navigation}
-      width="narrow"
+      width="full"
       hideFooter
     >
           {loading ? (
