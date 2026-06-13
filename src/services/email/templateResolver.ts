@@ -49,17 +49,26 @@ export interface TemplateResolveInput {
   client?: any;
 }
 
-/** Mustache-style {{var}} substitution. Leaves unknown keys intact. */
+/**
+ * Mustache-style {{var}} substitution.
+ *
+ * Single regex pass so it is:
+ *   - whitespace-tolerant: `{{ first_name }}` resolves the same as
+ *     `{{first_name}}` (the old key-by-key split only matched the
+ *     no-space form, so spaced tags leaked through verbatim);
+ *   - leak-proof: any placeholder the caller didn't supply is replaced
+ *     with "" rather than left intact. The previous version left
+ *     unknown keys in place, which is why recipients occasionally saw a
+ *     raw `Hi {{first_name}}` whenever a caller forgot a variable.
+ */
 function substitute(
   template: string,
   vars: Record<string, string | number | null | undefined>,
 ): string {
-  let out = template;
-  for (const [k, v] of Object.entries(vars)) {
-    const value = v === null || v === undefined ? "" : String(v);
-    out = out.split(`{{${k}}}`).join(value);
-  }
-  return out;
+  return template.replace(/{{\s*([\w.]+)\s*}}/g, (_match, key: string) => {
+    const v = vars[key];
+    return v === null || v === undefined ? "" : String(v);
+  });
 }
 
 interface TemplateRow {
