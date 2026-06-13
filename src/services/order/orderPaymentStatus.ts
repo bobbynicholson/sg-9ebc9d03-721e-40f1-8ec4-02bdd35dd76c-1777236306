@@ -170,7 +170,14 @@ export function deriveOrderPaymentStatus(
   totalPaid: number,
   totalAmount: number,
 ): "pending" | "partial" | "paid" {
-  if (totalAmount > 0 && totalPaid >= totalAmount) return "paid";
-  if (totalPaid > 0) return "partial";
+  // Compare in integer cents. Summing payment rows in floating point
+  // accumulates drift, so a fully-settled order can land at
+  // 752.4999998 vs a 752.50 total and a raw `totalPaid >= totalAmount`
+  // would leave it stuck at "partial" forever (balance owing reads as
+  // a fraction of a cent). Rounding both sides to cents settles it.
+  const paidCents = Math.round((totalPaid || 0) * 100);
+  const totalCents = Math.round((totalAmount || 0) * 100);
+  if (totalCents > 0 && paidCents >= totalCents) return "paid";
+  if (paidCents > 0) return "partial";
   return "pending";
 }

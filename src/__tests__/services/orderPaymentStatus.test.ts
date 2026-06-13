@@ -189,4 +189,14 @@ describe("deriveOrderPaymentStatus", () => {
     const v = deriveOrderPaymentStatus(0, 1000);
     expect(v).not.toBe("unpaid");
   });
+  it("returns 'paid' despite sub-cent floating-point drift", () => {
+    // Summing payment rows in floating point accumulates error, so a
+    // fully-settled order can land a fraction of a cent under the total.
+    // A raw `>=` comparison would leave it stuck at "partial"; the
+    // cents-rounded comparison must still settle it as paid.
+    const total = 752.5;
+    const drifted = total - 1e-9;
+    expect(drifted).toBeLessThan(total); // confirms the drift is real
+    expect(deriveOrderPaymentStatus(drifted, total)).toBe("paid");
+  });
 });
