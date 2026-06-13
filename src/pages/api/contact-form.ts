@@ -19,7 +19,9 @@ import { withApiLogging } from "@/lib/withApiLogging";
 
 const SUPPORT_INBOX =
   process.env.PLATFORM_SUPPORT_INBOX || "support@cateringms.com";
-const FROM_ADDRESS = process.env.PLATFORM_FROM_EMAIL || "onboarding@resend.dev";
+// Verified shared sender by default (not Resend's sandbox address,
+// which only delivers to the account owner). Explicit env still wins.
+const FROM_ADDRESS = process.env.PLATFORM_FROM_EMAIL || "noreply@send.cateringms.com";
 
 interface Body {
   name?: string;

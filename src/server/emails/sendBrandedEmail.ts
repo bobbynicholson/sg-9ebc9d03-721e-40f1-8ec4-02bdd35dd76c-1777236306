@@ -60,7 +60,12 @@ interface SendResult {
 // config change - no code edit, no rebuild beyond a redeploy. Fall
 // back to CateringMS so nothing breaks if the env var isn't set.
 const PLATFORM_FROM_NAME = process.env.PLATFORM_BRAND_NAME || "CateringMS";
-const PLATFORM_FROM_EMAIL = process.env.PLATFORM_FROM_EMAIL || "onboarding@resend.dev";
+// Default to the platform's VERIFIED shared sender, not Resend's sandbox
+// address (onboarding@resend.dev only delivers to the Resend account
+// owner, so platform mail silently never reached real recipients when
+// PLATFORM_FROM_EMAIL wasn't set). Matches SHARED_FROM_EMAIL in
+// emailService. An explicit PLATFORM_FROM_EMAIL env still wins.
+const PLATFORM_FROM_EMAIL = process.env.PLATFORM_FROM_EMAIL || "noreply@send.cateringms.com";
 
 export async function sendBrandedEmail(args: SendBrandedEmailArgs): Promise<SendResult> {
   const html = await render(args.component);
