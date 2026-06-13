@@ -330,7 +330,13 @@ export async function generateInvoiceData(
       total = Number((invoiceSubtotal + taxAmount).toFixed(2));
     }
     const depositPaid = orderData.amount_paid || 0;
-    const balanceDue = total - depositPaid;
+    // Round to cents and clamp at zero. Raw `total - depositPaid` can
+    // leave a fraction-of-a-cent residue from float subtraction (a
+    // fully-paid invoice would then read balance > 0 and the status
+    // below would stick at "sent" instead of "paid"), and an
+    // over-payment would produce a negative balance. Mirrors the
+    // recalc path's Math.max(0, ...toFixed(2)) treatment.
+    const balanceDue = Math.max(0, Number((total - depositPaid).toFixed(2)));
 
     // 5. Format client details
     const client = (orderData.clients || {}) as any;
