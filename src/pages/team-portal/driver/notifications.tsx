@@ -172,7 +172,7 @@ export default function DriverNotificationsPage() {
       heading="Notifications"
       subheading="Dispatch alerts, route changes, customer messages."
       icon={Bell}
-      width="narrow"
+      width="full"
       headerAction={headerActions}
     >
       <div className="space-y-4">
