@@ -163,6 +163,10 @@ ${footer}
       subject,
       body: html,
       bypassQuarantine: true,
+      // Brand-new companies have no email sender yet; let the invite go
+      // out via the platform shared sender so the first staff member can
+      // still be onboarded.
+      allowPlatformFallback: true,
       _client: admin,
     } as any);
     return {

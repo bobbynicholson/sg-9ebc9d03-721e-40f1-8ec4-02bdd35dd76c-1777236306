@@ -75,6 +75,17 @@ export interface SendEmailPayload {
    */
   bypassQuarantine?: boolean;
   /**
+   * For system-critical onboarding mail (staff invite, magic-link
+   * sign-in) only. When the tenant has NOT configured an email provider
+   * yet - true for every brand-new company - fall back to the platform
+   * shared Resend sender (noreply@send.cateringms.com) instead of
+   * failing with no_provider, so the very first invite / sign-in link
+   * can still go out. Does NOT change behaviour for normal tenant mail
+   * (quotes, invoices, automations), which still requires the tenant to
+   * opt into a sender. No-op if RESEND_API_KEY isn't set platform-side.
+   */
+  allowPlatformFallback?: boolean;
+  /**
    * Optional file attachments. Used initially for the Quote PDF on
    * quote-send; older clients expect the document inline so they can
    * save / forward without clicking through. Both Resend and
@@ -468,31 +479,66 @@ export const emailService = {
     // Server-side callers (e.g. unauthenticated magic-link sign-in)
     // pass a service-role client via _client so the email_settings
     // lookup isn't blocked by RLS.
-    const config = await this.getEmailConfig(payload.companyId, payload._client);
+    let config = await this.getEmailConfig(payload.companyId, payload._client);
 
     if (!config || !config.enabled) {
-      console.warn(`Email automation is disabled or not configured for company ${payload.companyId}`);
-      // Log the failure so the operator sees it in the dashboard.
-      try {
-        await this.logEmailSent(
-          payload.companyId,
-          payload.template || "custom",
-          payload.to,
-          payload.variables?.clientName || "N/A",
-          payload.subject,
-          payload.orderId,
-          payload.quoteId,
-          (payload as any)._client,
-          "failed",
-          "No email provider configured",
-        );
-      } catch { /* logging failure must not crash the send path */ }
-      return {
-        success: false,
-        error: "You haven't set up an email sender yet.",
-        error_code: "no_provider",
-        fix_link: "/admin/email-settings",
-      };
+      // Platform fallback for system-critical onboarding mail: a
+      // brand-new company has no provider row yet, which would otherwise
+      // block its first staff invite / magic-link. When the caller opts
+      // in (allowPlatformFallback) and the platform Resend key exists,
+      // synthesise a shared-sender config so the mail still goes out
+      // from noreply@send.cateringms.com (replies route to the company
+      // email when known). Normal tenant mail does NOT set the flag, so
+      // its no_provider behaviour is unchanged.
+      const canFallback =
+        !!(payload as any).allowPlatformFallback && !!process.env.RESEND_API_KEY;
+      if (canFallback) {
+        let companyName = "CateringMS";
+        let companyEmail: string | null = null;
+        try {
+          const sb2 = payload._client || supabase;
+          const { data: c } = await sb2
+            .from("companies")
+            .select("company_name, email")
+            .eq("id", payload.companyId)
+            .maybeSingle();
+          if ((c as any)?.company_name) companyName = (c as any).company_name;
+          if ((c as any)?.email) companyEmail = (c as any).email;
+        } catch { /* keep defaults */ }
+        config = {
+          id: "platform-fallback",
+          company_id: payload.companyId,
+          enabled: true,
+          provider: "resend",
+          from_email: companyEmail, // used only as reply-to via resolveFromAddress
+          from_name: companyName,
+          is_verified: false,
+        } as any;
+        console.warn(`[emailService] using platform shared sender for ${payload.companyId} (no tenant provider yet)`);
+      } else {
+        console.warn(`Email automation is disabled or not configured for company ${payload.companyId}`);
+        // Log the failure so the operator sees it in the dashboard.
+        try {
+          await this.logEmailSent(
+            payload.companyId,
+            payload.template || "custom",
+            payload.to,
+            payload.variables?.clientName || "N/A",
+            payload.subject,
+            payload.orderId,
+            payload.quoteId,
+            (payload as any)._client,
+            "failed",
+            "No email provider configured",
+          );
+        } catch { /* logging failure must not crash the send path */ }
+        return {
+          success: false,
+          error: "You haven't set up an email sender yet.",
+          error_code: "no_provider",
+          fix_link: "/admin/email-settings",
+        };
+      }
     }
 
     // Negative gates - these run for every send path, including

@@ -98,6 +98,30 @@ export default function CompanySignupPage() {
   const [slugAvailability, setSlugAvailability] =
     useState<SlugAvailability>({ state: "idle" });
 
+  // Block already-signed-in users from the public owner self-signup.
+  // This page calls supabase.auth.signUp, which replaces the current
+  // browser session with the brand-new owner's - a footgun an admin can
+  // trigger just by opening it while logged in (they "become" the new
+  // owner). Bounce them to their own area; a super_admin who wants to
+  // create a company FOR someone else should use Platform -> Company
+  // Database, which provisions via the service role and never touches
+  // their session.
+  const [checkingSession, setCheckingSession] = useState(true);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!cancelled && user) {
+          router.replace("/");
+          return;
+        }
+      } catch { /* treat as logged-out and show the form */ }
+      if (!cancelled) setCheckingSession(false);
+    })();
+    return () => { cancelled = true; };
+  }, [router]);
+
   // Live availability check via the SECURITY DEFINER RPC. Debounced so
   // we aren't pinging on every keystroke. The RPC returns only a
   // boolean + reason code - it never reveals which company holds a
@@ -407,6 +431,14 @@ export default function CompanySignupPage() {
       setLoading(false);
     }
   };
+
+  if (checkingSession) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
+        <Loader2 className="w-7 h-7 animate-spin text-slate-400" />
+      </div>
+    );
+  }
 
   if (success) {
     // Two flavours of success: actually-logged-in vs verify-your-email.

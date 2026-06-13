@@ -318,6 +318,10 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         subject,
         body: html,
         bypassQuarantine: true,
+        // A brand-new tenant may not have configured an email sender
+        // yet; the sign-in link is system-critical, so fall back to the
+        // platform shared sender rather than silently not sending.
+        allowPlatformFallback: true,
         _client: admin,
       } as any);
     } catch (e: any) {

@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Users, UserPlus, Mail, Shield, Trash2, Loader2, CheckCircle2, AlertCircle, Truck, ChefHat, ShoppingCart, Sparkles, User, Activity, Clock, AlertTriangle } from "lucide-react";
+import { Users, UserPlus, Mail, Shield, Trash2, Loader2, CheckCircle2, AlertCircle, Truck, ChefHat, ShoppingCart, Sparkles, User, Activity, Clock, AlertTriangle, Send, Copy, MailWarning } from "lucide-react";
 import { loginActivityBucket } from "@/lib/loginActivity";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -59,6 +59,13 @@ export default function StaffManagementPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [resendingId, setResendingId] = useState<string | null>(null);
+  // Set when a staff member was created but the invite couldn't be
+  // emailed (no email sender configured) - drives the "share these
+  // details" panel inside the dialog.
+  const [createResult, setCreateResult] = useState<
+    { email: string; name: string; tempPassword?: string; loginUrl?: string } | null
+  >(null);
 
   // New staff form
   const [newStaff, setNewStaff] = useState({
@@ -158,35 +165,28 @@ export default function StaffManagementPage() {
         throw new Error(payload?.error || "Failed to create staff");
       }
 
-      const tempPassword = (payload as any)?.tempPassword;
-      if (tempPassword && typeof window !== "undefined") {
-        try { await navigator.clipboard.writeText(tempPassword); } catch { /* clipboard blocked */ }
-        // Surface ONCE in a window.prompt so the admin can copy + send
-        // it via their own secure channel. The server never stores or
-        // logs the plaintext.
-        window.prompt(
-          `Temporary password for ${newStaff.full_name} (copied to clipboard).\nShare it via WhatsApp / in person - staff must change it on first login.`,
-          tempPassword,
-        );
-      }
+      const tempPassword = (payload as any)?.tempPassword as string | undefined;
+      const emailDelivered = !!(payload as any)?.emailDelivered;
+      const loginUrl = (payload as any)?.loginUrl as string | undefined;
+      const addedName = newStaff.full_name;
+      const addedEmail = newStaff.email;
 
-      toast({
-        title: "Staff Added!",
-        description: tempPassword
-          ? `${newStaff.full_name} added. Temporary password shown once - share it now.`
-          : `${newStaff.full_name} has been added to your team`,
-      });
-
-      // Reset form
-      setNewStaff({
-        email: "",
-        full_name: "",
-        role: "driver",
-      });
+      loadStaff();
       setRegionIds([]);
 
-      setIsDialogOpen(false);
-      loadStaff();
+      if (emailDelivered) {
+        // Invite went out - confirm + close.
+        toast({
+          title: "Staff invited",
+          description: `We emailed an invite to ${addedEmail} to set their password.`,
+        });
+        setNewStaff({ email: "", full_name: "", role: "driver" });
+        setIsDialogOpen(false);
+      } else {
+        // No email sender configured (or send failed): keep the dialog
+        // open and show the credentials so the admin can pass them on.
+        setCreateResult({ email: addedEmail, name: addedName, tempPassword, loginUrl });
+      }
     } catch (error: any) {
       console.error("Error adding staff:", error);
       toast({
@@ -196,6 +196,52 @@ export default function StaffManagementPage() {
       });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const closeStaffDialog = (open: boolean) => {
+    setIsDialogOpen(open);
+    if (!open) {
+      setCreateResult(null);
+      setNewStaff({ email: "", full_name: "", role: "driver" });
+      setRegionIds([]);
+    }
+  };
+
+  const copyCreateResult = async () => {
+    if (!createResult) return;
+    const text =
+      `Email: ${createResult.email}\n` +
+      (createResult.tempPassword ? `Temporary password: ${createResult.tempPassword}\n` : "") +
+      (createResult.loginUrl ? `Sign in at: ${createResult.loginUrl}\n` : "") +
+      `Please change your password after first sign-in.`;
+    try {
+      await navigator.clipboard.writeText(text);
+      toast({ title: "Copied", description: "Sign-in details copied to your clipboard." });
+    } catch {
+      toast({ title: "Couldn't copy", description: "Select and copy the details manually.", variant: "destructive" });
+    }
+  };
+
+  const handleResendInvite = async (staffId: string, staffName: string) => {
+    setResendingId(staffId);
+    try {
+      const res = await fetch("/api/admin/resend-invite", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: staffId }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok || !j?.ok) throw new Error(j?.error || "Failed to resend invite");
+      toast({ title: "Invite sent", description: `Re-sent the set-password link to ${staffName}.` });
+    } catch (error: any) {
+      toast({
+        title: "Couldn't resend invite",
+        description: error?.message || "Try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setResendingId(null);
     }
   };
 
@@ -259,7 +305,7 @@ export default function StaffManagementPage() {
             <p className="text-slate-600">Manage your team members and their roles</p>
           </div>
 
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <Dialog open={isDialogOpen} onOpenChange={closeStaffDialog}>
             <DialogTrigger asChild>
               <Button className="bg-gradient-to-r from-purple-500 to-pink-500 hover:opacity-90">
                 <UserPlus className="w-4 h-4 mr-2" />
@@ -267,10 +313,55 @@ export default function StaffManagementPage() {
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-md">
+              {createResult ? (
+                <>
+                  <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2">
+                      <MailWarning className="w-5 h-5 text-amber-500" />
+                      Share these sign-in details
+                    </DialogTitle>
+                    <DialogDescription>
+                      <strong>{createResult.name || createResult.email}</strong> was added, but your business hasn&apos;t set up an email sender yet, so we couldn&apos;t email the invite. Pass these details on directly.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-3">
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm space-y-1.5">
+                      <div><span className="text-slate-500">Email:</span> <strong>{createResult.email}</strong></div>
+                      {createResult.tempPassword && (
+                        <div>
+                          <span className="text-slate-500">Temporary password:</span>{" "}
+                          <strong className="font-mono">{createResult.tempPassword}</strong>
+                        </div>
+                      )}
+                      {createResult.loginUrl && (
+                        <div>
+                          <span className="text-slate-500">Sign in at:</span>{" "}
+                          <strong className="break-all">{createResult.loginUrl}</strong>
+                        </div>
+                      )}
+                      <p className="text-xs text-slate-500 pt-1">
+                        They should change this password after their first sign-in.
+                      </p>
+                    </div>
+                    <p className="text-xs text-slate-500">
+                      Set up an email sender under <strong>Settings → Email</strong> so future invites send automatically.
+                    </p>
+                    <div className="flex justify-between gap-2 pt-2">
+                      <Button type="button" variant="outline" onClick={copyCreateResult} className="gap-1.5">
+                        <Copy className="w-4 h-4" /> Copy details
+                      </Button>
+                      <Button type="button" onClick={() => closeStaffDialog(false)}>
+                        Done
+                      </Button>
+                    </div>
+                  </div>
+                </>
+              ) : (
+              <>
               <DialogHeader>
                 <DialogTitle>Add New Staff Member</DialogTitle>
                 <DialogDescription>
-                  Create a new team member account. They'll receive login credentials via email.
+                  Create a new team member account. They'll get an email invite to set their own password. If your business hasn't set up an email sender yet, we'll show you their sign-in details to share.
                 </DialogDescription>
               </DialogHeader>
 
@@ -402,13 +493,15 @@ export default function StaffManagementPage() {
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() => setIsDialogOpen(false)}
+                    onClick={() => closeStaffDialog(false)}
                     disabled={saving}
                   >
                     Cancel
                   </Button>
                 </div>
               </form>
+              </>
+              )}
             </DialogContent>
           </Dialog>
         </div>
@@ -504,6 +597,26 @@ export default function StaffManagementPage() {
 
                       <div className="flex items-center gap-3 flex-shrink-0">
                         {getRoleBadge(member.active_role)}
+
+                        {/* Pending = never signed in (invite not yet
+                            accepted). Offer a resend; hidden once they've
+                            signed in so it isn't shown again and again. */}
+                        {member.id !== user?.id && !member.last_sign_in_at && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={resendingId === member.id}
+                            onClick={() => handleResendInvite(member.id, member.full_name)}
+                            className="text-purple-600 hover:text-purple-700 hover:bg-purple-50 gap-1.5"
+                          >
+                            {resendingId === member.id ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <Send className="w-4 h-4" />
+                            )}
+                            Resend invite
+                          </Button>
+                        )}
 
                         {member.id !== user?.id && (
                           <Button
