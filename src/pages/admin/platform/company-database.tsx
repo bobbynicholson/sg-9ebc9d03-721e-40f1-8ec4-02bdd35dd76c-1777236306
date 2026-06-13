@@ -2,7 +2,6 @@ import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/router";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import { useAuth } from "@/contexts/AuthContext";
-import { Header } from "@/components/Header";
 import { PlatformNav } from "@/components/admin/PlatformNav";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -413,8 +412,8 @@ export default function CompanyDatabasePage() {
 
   if (profile?.active_role !== "super_admin") {
     return (
-      <div className="min-h-screen bg-slate-50">
-        <Header />
+      <div className="min-h-screen overflow-x-hidden bg-slate-50 lg:pl-72 xl:pl-80 pt-20 lg:pt-0">
+        <PlatformNav />
         <div className="px-4 py-12">
           <Card>
             <CardContent className="p-12 text-center">
@@ -433,7 +432,6 @@ export default function CompanyDatabasePage() {
   return (
     <div className="min-h-screen overflow-x-hidden bg-slate-50 lg:pl-72 xl:pl-80 pt-20 lg:pt-0">
       <PlatformNav />
-      <Header />
 
       <div className="px-4 py-8">
         {/* Header */}
