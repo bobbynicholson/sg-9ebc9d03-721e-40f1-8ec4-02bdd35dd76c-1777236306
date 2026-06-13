@@ -9,11 +9,13 @@
  *     failure is logged in email_automation_log but the user still gets
  *     their success page.
  *
- * Auth: lightweight - caller must pass the userId of the freshly-
- * created auth user, and we verify the request originates from the
- * matching authenticated session via Supabase cookie. Service-role
- * isn't needed; anyone who can pass our auth check is allowed to fire
- * their own welcome.
+ * Auth: lightweight. The caller passes the freshly-created userId +
+ * companyId; we confirm that pair maps to a real profile, and then
+ * send ONLY to that profile's own email (the body's `email` is
+ * display-only and ignored as the recipient). This means even a forged
+ * POST with a valid id pair can do nothing worse than re-send a welcome
+ * to the legitimate account owner - it can't be used as an open relay
+ * to mail arbitrary addresses.
  */
 import type { NextApiRequest, NextApiResponse } from "next";
 import * as React from "react";
@@ -57,7 +59,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
   const { data: profile, error: profileErr } = await sb
     .from("profiles")
-    .select("id,company_id")
+    .select("id,company_id,email")
     .eq("id", userId)
     .maybeSingle();
   if (profileErr) {
@@ -65,6 +67,23 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   }
   if (!profile || profile.company_id !== companyId) {
     return res.status(403).json({ error: "Profile / company mismatch" });
+  }
+
+  // Send ONLY to the verified profile's own email, never to the
+  // address in the request body. The userId/companyId check above
+  // proves the pair is internally consistent but says nothing about
+  // who `body.email` belongs to - trusting it would turn this into an
+  // open relay that mails a branded welcome (attacker-controlled
+  // company name / onboarding link) to any address. Bind the recipient
+  // to the account we just authenticated instead.
+  const recipient = (profile as { email?: string | null }).email;
+  if (!recipient) {
+    return res.status(422).json({ error: "Profile has no email on file" });
+  }
+  if (email && email.trim().toLowerCase() !== recipient.trim().toLowerCase()) {
+    console.warn(
+      "[emails/owner-welcome] body email differs from profile email; using profile email",
+    );
   }
 
   const origin = req.headers.origin || `https://${req.headers.host}`;
@@ -78,7 +97,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       onboardingUrl,
       brand: { name: companyName },
     }),
-    to: email,
+    to: recipient,
     subject: `Welcome to ${process.env.PLATFORM_BRAND_NAME || "CateringMS"}, ${firstName}`,
     companyId,
     templateType: "owner_welcome",

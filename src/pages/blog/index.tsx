@@ -9,6 +9,7 @@ import { Header } from "@/components/Header";
 import Head from "next/head";
 import Image from "next/image";
 import blogPosts from "@/lib/blog.json";
+import { jsonLdSafe } from "@/lib/jsonLd";
 
 interface BlogPost {
   slug: string;
@@ -90,11 +91,11 @@ export default function BlogPage() {
         
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(collectionSchema) }}
+          dangerouslySetInnerHTML={{ __html: jsonLdSafe(collectionSchema) }}
         />
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(itemListSchema) }}
+          dangerouslySetInnerHTML={{ __html: jsonLdSafe(itemListSchema) }}
         />
       </Head>
 
