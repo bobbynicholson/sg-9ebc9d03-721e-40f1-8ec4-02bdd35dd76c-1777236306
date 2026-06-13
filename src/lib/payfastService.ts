@@ -88,8 +88,16 @@ export class PayFastService {
       email: string;
       userId: string;
     },
-    billingCycle: "monthly" | "annual"
+    billingCycle: "monthly" | "annual",
+    // Origin for the return/cancel/notify URLs. Passed explicitly so this
+    // can run SERVER-side (where there's no window) - the subscription
+    // form is now built in /api/subscription/create-session so the
+    // passphrase never reaches the browser. Falls back to window for any
+    // legacy client-side caller.
+    baseUrl?: string,
   ): PayFastSubscriptionParams {
+    const origin =
+      baseUrl || (typeof window !== "undefined" ? window.location.origin : "");
     const amount =
       billingCycle === "monthly" ? plan.monthlyPrice : plan.annualPrice;
     const frequency = billingCycle === "monthly" ? "3" : "6";
@@ -101,15 +109,15 @@ export class PayFastService {
     const params: Record<string, string> = {
       merchant_id: this.config.merchantId,
       merchant_key: this.config.merchantKey,
-      return_url: `${window.location.origin}/subscription/success`,
+      return_url: `${origin}/subscription/success`,
       // /subscription/cancelled doesn't exist; send a cancelled checkout
       // back to the subscription page so they can retry.
-      cancel_url: `${window.location.origin}/admin/subscription?cancelled=1`,
+      cancel_url: `${origin}/admin/subscription?cancelled=1`,
       // ITN target. Was /api/payfast/notify, which doesn't exist (404) -
       // so PayFast's payment notification never landed and the company
       // was never flipped to 'active'. The real subscription webhook is
       // /api/webhooks/subscriptions/payfast.
-      notify_url: `${window.location.origin}/api/webhooks/subscriptions/payfast`,
+      notify_url: `${origin}/api/webhooks/subscriptions/payfast`,
       name_first: user.firstName,
       name_last: user.lastName,
       email_address: user.email,

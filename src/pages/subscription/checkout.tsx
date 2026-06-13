@@ -19,7 +19,7 @@ import {
   AlertCircle,
   Sparkles,
 } from "lucide-react";
-import { PayFastService, getPlanById, formatCurrency, calculateTrialEndDate } from "@/lib/payfastService";
+import { getPlanById, formatCurrency, calculateTrialEndDate } from "@/lib/payfastService";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -102,48 +102,37 @@ export default function CheckoutPage() {
     setIsProcessing(true);
 
     try {
-      const payfastConfig = {
-        merchantId: process.env.NEXT_PUBLIC_PAYFAST_MERCHANT_ID || "",
-        merchantKey: process.env.NEXT_PUBLIC_PAYFAST_MERCHANT_KEY || "",
-        passphrase: process.env.NEXT_PUBLIC_PAYFAST_PASSPHRASE || "",
-        testMode: process.env.NEXT_PUBLIC_PAYFAST_TEST_MODE === "true",
-      };
-
-      const payfastService = new PayFastService(payfastConfig);
-
-      // Reconciliation key in custom_str1: the company_id. The
-      // subscription webhook resolves the tenant by .eq("id", custom_str1)
-      // and flips THAT company to 'active', so this MUST be the real
-      // company UUID (not an email - that's why upgrades never landed
-      // before). The require-login guard above guarantees we have one.
-      if (!companyId) {
-        setError("We couldn't link this payment to your company. Please sign in again and retry.");
-        setIsProcessing(false);
-        return;
-      }
-      const subscriptionParams = payfastService.createSubscriptionParams(
-        plan,
-        {
+      // Build + sign the PayFast subscription form SERVER-side so the
+      // passphrase never reaches the browser and the company_id is
+      // resolved from the session (not spoofable). The server returns a
+      // self-submitting <form>; we inject + submit it - same pattern as
+      // the order/deposit payment page.
+      const resp = await fetch("/api/subscription/create-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          planId: plan.id,
+          cycle: billingCycle,
           firstName,
           lastName,
           email,
-          userId: companyId,
-        },
-        billingCycle
-      );
-
-      const form = document.createElement("form");
-      form.method = "POST";
-      form.action = payfastService.getPaymentFormUrl();
-
-      Object.entries(subscriptionParams).forEach(([key, value]) => {
-        const input = document.createElement("input");
-        input.type = "hidden";
-        input.name = key;
-        input.value = value as string;
-        form.appendChild(input);
+        }),
       });
+      const json = await resp.json().catch(() => ({}));
+      if (!resp.ok || !json?.ok || !json?.html) {
+        setError(json?.error || "Could not start checkout. Please try again.");
+        setIsProcessing(false);
+        return;
+      }
 
+      const wrapper = document.createElement("div");
+      wrapper.innerHTML = json.html;
+      const form = wrapper.querySelector("form");
+      if (!form) {
+        setError("Could not render the payment form. Please try again.");
+        setIsProcessing(false);
+        return;
+      }
       document.body.appendChild(form);
       form.submit();
     } catch (err) {

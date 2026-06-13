@@ -112,9 +112,9 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   // optional override if an operator mirrored it server-side. Reading a
   // different var than the checkout used is exactly why the ITN failed
   // verification and the company never went active.
-  const merchantId = process.env.NEXT_PUBLIC_PAYFAST_MERCHANT_ID || process.env.PAYFAST_PLATFORM_MERCHANT_ID;
-  const merchantKey = process.env.NEXT_PUBLIC_PAYFAST_MERCHANT_KEY || process.env.PAYFAST_PLATFORM_MERCHANT_KEY;
-  const passphrase = process.env.NEXT_PUBLIC_PAYFAST_PASSPHRASE || process.env.PAYFAST_PLATFORM_PASSPHRASE || "";
+  const merchantId = process.env.PAYFAST_PLATFORM_MERCHANT_ID || process.env.NEXT_PUBLIC_PAYFAST_MERCHANT_ID;
+  const merchantKey = process.env.PAYFAST_PLATFORM_MERCHANT_KEY || process.env.NEXT_PUBLIC_PAYFAST_MERCHANT_KEY;
+  const passphrase = process.env.PAYFAST_PLATFORM_PASSPHRASE || process.env.NEXT_PUBLIC_PAYFAST_PASSPHRASE || "";
 
   if (!merchantId || !merchantKey) {
     console.warn(
