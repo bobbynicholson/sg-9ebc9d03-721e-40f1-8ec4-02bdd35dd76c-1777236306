@@ -138,17 +138,30 @@ export function formatZAR(
   if (!Number.isFinite(n)) return "--";
   const decimals = opts.decimals ?? 2;
   try {
-    const formatted = new Intl.NumberFormat(DEFAULT_LOCALE, {
+    // Build from parts and force the separators explicitly: space for
+    // grouping, dot for decimal. The codebase + Bobby's screenshots use
+    // "R 15 453.50" everywhere. The previous `format().replace(",", ".")`
+    // only swapped the FIRST comma, assuming the sole comma was the
+    // decimal point - true on a full-ICU en-ZA build ("R 15 453,50") but
+    // NOT on a minimal-ICU runtime that falls back to comma grouping
+    // ("R15,453.50"), where the naive replace mangled it to
+    // "R15.453.50". formatToParts is deterministic across ICU builds.
+    const parts = new Intl.NumberFormat(DEFAULT_LOCALE, {
       style: "currency",
       currency: opts.currency || "ZAR",
       minimumFractionDigits: decimals,
       maximumFractionDigits: decimals,
-    }).format(n);
-    // Intl returns "R 15 453,50" by default (comma decimal). The
-    // codebase + Bobby's screenshots use dot decimal everywhere
-    // (R 15 453.50) - normalise so display matches the rest of
-    // the platform.
-    return formatted.replace(",", ".");
+    }).formatToParts(n);
+    return parts
+      .map((p) => {
+        if (p.type === "group") return " ";
+        if (p.type === "decimal") return ".";
+        // ICU emits no-break / narrow-no-break spaces in literals
+        // (around the symbol); normalise to plain spaces so output is
+        // predictable and identical across ICU builds.
+        return p.value.replace(/\s/g, " ");
+      })
+      .join("");
   } catch {
     // Fallback: bare prefix + fixed-decimal string (matches the old
     // useTenantCurrency behaviour) so a missing Intl runtime never
