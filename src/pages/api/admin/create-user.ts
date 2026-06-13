@@ -5,13 +5,29 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { withApiLogging } from "@/lib/withApiLogging";
 
 
-// Map UserRole enum values to database-accepted role values
+// Map UserRole enum values to database-accepted role values.
+//
+// FIX (2026-06-13): the staff roles used to map to short forms
+// (kitchen_staff -> "kitchen", etc.). That was correct when
+// profiles.role was a free-text column, but the live `user_role` enum
+// only has the *_staff forms (kitchen_staff / shopping_staff /
+// cleaning_staff) - there is no "kitchen"/"shopping"/"cleaning" member.
+// So the upsert here failed with "invalid input value for enum
+// user_role: 'kitchen'", the handler rolled back the auth user, and
+// kitchen / shopping / cleaning staff could never be created (and thus
+// never sign in). Map each role to its canonical enum value instead;
+// roles not listed fall through unchanged (driver, waiter, outsource,
+// company_admin, region_admin, sales_admin, super_admin all already
+// equal their enum value).
 function mapRoleToDatabase(role: string): string {
   const roleMap: Record<string, string> = {
-    "kitchen_staff": "kitchen",
-    "cleaning_staff": "cleaning",
-    "shopping_staff": "shopping",
+    "kitchen_staff": "kitchen_staff",
+    "cleaning_staff": "cleaning_staff",
+    "shopping_staff": "shopping_staff",
     "super_admin": "super_admin",
+    // 'owner' is a valid enum value, but the platform treats company
+    // owners as 'admin' for routing + RLS, so keep the existing
+    // downgrade rather than introduce a second admin-tier role here.
     "owner": "admin",
     "admin": "admin",
     "driver": "driver",
