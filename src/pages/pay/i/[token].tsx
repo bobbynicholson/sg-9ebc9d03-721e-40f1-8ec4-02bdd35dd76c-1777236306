@@ -30,8 +30,13 @@ import {
   Calendar, Printer, Wallet,
 } from "lucide-react";
 import { PayFastService } from "@/lib/payfastService";
+import { formatZAR } from "@/lib/formatters";
 
-const fmtMoney = new Intl.NumberFormat("en-ZA", { style: "currency", currency: "ZAR", maximumFractionDigits: 2 });
+// Use the platform's canonical ZAR formatter (space thousands, dot
+// decimal, single "R") instead of raw Intl, which renders a COMMA
+// decimal on full-ICU en-ZA and reads inconsistent with every other
+// money surface in the app. `.format` shim keeps the call sites tidy.
+const fmtMoney = { format: (n: number) => formatZAR(n) };
 
 interface InvoiceView {
   id: string;

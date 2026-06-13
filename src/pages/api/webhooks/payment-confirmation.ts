@@ -705,6 +705,71 @@ async function handler(
       await sendClientPaymentConfirmation(order, "balance", amount_gross);
     }
 
+    // Reconcile the linked INVOICE row. record_order_payment (above)
+    // only updates the order's payment_status/amount_paid -- it never
+    // touches the invoice. Without this, a client who paid their
+    // deposit/balance invoice via PayFast leaves the invoice stuck at
+    // 'sent' with the full balance_due forever (admin invoice list +
+    // public pay link both keep showing it unpaid). Deposit/balance
+    // IPNs now carry the invoice id in custom_str4; older links fall
+    // back to the order's earliest open invoice. Best-effort + logged:
+    // the order side is already settled, so a failure here is a
+    // reconciliation gap, not lost money. The pf_payment_id dedup at
+    // the top of the order branch guarantees this runs at most once.
+    try {
+      let targetInvoiceId: string | null =
+        custom_str4 && /^[0-9a-f-]{36}$/i.test(custom_str4) ? custom_str4 : null;
+      if (!targetInvoiceId) {
+        const { data: openInv } = await supabase
+          .from("invoices")
+          .select("id")
+          .eq("order_id", order.id)
+          .neq("status", "paid")
+          .is("deleted_at", null)
+          .order("created_at", { ascending: true })
+          .limit(1)
+          .maybeSingle();
+        targetInvoiceId = (openInv as any)?.id || null;
+      }
+      if (targetInvoiceId) {
+        const { data: inv } = await supabase
+          .from("invoices")
+          .select("id, total_amount, amount_paid, status")
+          .eq("id", targetInvoiceId)
+          .maybeSingle();
+        if (inv) {
+          const invData = inv as any;
+          const newAmountPaid =
+            Math.round(((Number(invData.amount_paid) || 0) + Number(amount_gross)) * 100) / 100;
+          const newBalance = Math.max(
+            0,
+            Math.round(((Number(invData.total_amount) || 0) - newAmountPaid) * 100) / 100,
+          );
+          // < 1c tolerance mirrors record_invoice_payment so float drift
+          // on inc-VAT deposit splits doesn't leave it stuck at partial.
+          const nextStatus =
+            newBalance < 0.01 ? "paid" : newAmountPaid > 0 ? "partially_paid" : "sent";
+          const invUpdate: any = {
+            amount_paid: newAmountPaid,
+            balance_due: newBalance,
+            status: nextStatus,
+            updated_at: new Date().toISOString(),
+          };
+          if (nextStatus === "paid") invUpdate.paid_at = new Date().toISOString();
+          await supabase.from("invoices").update(invUpdate).eq("id", targetInvoiceId);
+          // Link the gateway payment row to the invoice for ledger
+          // completeness (record_order_payment leaves invoice_id null).
+          await supabase
+            .from("payments")
+            .update({ invoice_id: targetInvoiceId })
+            .eq("gateway_transaction_id", pf_payment_id)
+            .is("invoice_id", null);
+        }
+      }
+    } catch (invReconcileErr) {
+      console.warn("[payment-webhook] invoice reconcile failed (non-blocking):", invReconcileErr);
+    }
+
     // Owner / admin in-app notification (kept legacy shape for the
     // notifications inbox the owner already uses).
     await supabase.from("notifications").insert([{
