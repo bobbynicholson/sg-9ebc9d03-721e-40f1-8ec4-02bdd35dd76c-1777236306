@@ -18,30 +18,88 @@ export default function ResetPassword() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [validatingSession, setValidatingSession] = useState(true);
+  // Staff-invite mode: the link is /auth/reset-password?invite=1, sent
+  // when an admin adds a new staff member. Same set-password mechanic,
+  // but invite-flavoured copy and a straight-into-the-app redirect.
+  const [isInvite, setIsInvite] = useState(false);
 
   useEffect(() => {
-    // Check if user has a valid session from the reset link
-    const checkSession = async () => {
+    if (!router.isReady) return;
+    const invite = router.query.invite === "1" || router.query.type === "invite";
+    setIsInvite(invite);
+
+    // Establish the session from the link BEFORE calling getSession.
+    // Supabase recovery/invite links arrive as #access_token=... hash
+    // tokens (or a ?code= for PKCE); the browser client auto-detects
+    // them asynchronously, which races a bare getSession() and made the
+    // page report "invalid or expired link" for valid links. Seed the
+    // session ourselves first (same pattern as the magic-link callback).
+    const establish = async () => {
       try {
+        if (typeof window !== "undefined") {
+          const hash = window.location.hash || "";
+          if (hash.includes("error=")) {
+            const params = new URLSearchParams(hash.slice(1));
+            const desc =
+              params.get("error_description") ||
+              params.get("error") ||
+              "This link could not be used.";
+            setError(
+              decodeURIComponent(desc.replace(/\+/g, " ")) +
+                " Please request a new link.",
+            );
+            setValidatingSession(false);
+            return;
+          }
+          if (hash.includes("access_token=")) {
+            const params = new URLSearchParams(hash.slice(1));
+            const access_token = params.get("access_token") || "";
+            const refresh_token = params.get("refresh_token") || "";
+            if (access_token && refresh_token) {
+              const { error: setErr } = await supabase.auth.setSession({ access_token, refresh_token });
+              if (setErr) {
+                setError("Invalid or expired link. Please request a new one.");
+                setValidatingSession(false);
+                return;
+              }
+              try {
+                window.history.replaceState(null, "", window.location.pathname + window.location.search);
+              } catch { /* non-fatal */ }
+            }
+          }
+          const url = new URL(window.location.href);
+          const code = url.searchParams.get("code");
+          if (code) {
+            const { error: exErr } = await supabase.auth.exchangeCodeForSession(code);
+            if (exErr) {
+              setError("Invalid or expired link. Please request a new one.");
+              setValidatingSession(false);
+              return;
+            }
+          }
+        }
+
         const { data: { session } } = await supabase.auth.getSession();
-        
         if (!session) {
-          setError("Invalid or expired reset link. Please request a new password reset.");
+          setError(
+            invite
+              ? "This invite link is invalid or has expired. Ask your administrator to resend it."
+              : "Invalid or expired reset link. Please request a new password reset.",
+          );
           setValidatingSession(false);
-          setTimeout(() => router.push("/auth/login"), 3000);
+          if (!invite) setTimeout(() => router.push("/auth/login"), 3000);
           return;
         }
-        
         setValidatingSession(false);
       } catch (err) {
         console.error("Session check error:", err);
-        setError("Failed to validate reset link. Please try again.");
+        setError("Failed to validate the link. Please try again.");
         setValidatingSession(false);
       }
     };
 
-    checkSession();
-  }, [router]);
+    establish();
+  }, [router.isReady, router.query.invite, router.query.type, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -72,10 +130,13 @@ export default function ResetPassword() {
       }
 
       setSuccess(true);
-      
-      // Redirect to login after 2 seconds
+
+      // After setting the password the user already has a live session.
+      // Invite flow: send them straight to "/" so middleware lands them
+      // in their role's portal. Normal reset: back to login to re-auth.
       setTimeout(() => {
-        router.push("/auth/login?reset=success");
+        if (isInvite) router.replace("/");
+        else router.push("/auth/login?reset=success");
       }, 2000);
 
     } catch (err: any) {
@@ -107,12 +168,16 @@ export default function ResetPassword() {
           <CardContent className="pt-6">
             <div className="flex flex-col items-center justify-center py-8">
               <CheckCircle2 className="h-16 w-16 text-green-500 mb-4" />
-              <h2 className="text-2xl font-bold text-slate-900 mb-2">Password Reset Successful!</h2>
+              <h2 className="text-2xl font-bold text-slate-900 mb-2">
+                {isInvite ? "You're all set!" : "Password Reset Successful!"}
+              </h2>
               <p className="text-slate-600 text-center mb-4">
-                Your password has been updated successfully.
+                {isInvite
+                  ? "Your password is set and your account is active."
+                  : "Your password has been updated successfully."}
               </p>
               <p className="text-sm text-slate-500">
-                Redirecting to login page...
+                {isInvite ? "Taking you to your portal..." : "Redirecting to login page..."}
               </p>
             </div>
           </CardContent>
@@ -130,9 +195,13 @@ export default function ResetPassword() {
               <Lock className="h-8 w-8 text-purple-600" />
             </div>
           </div>
-          <CardTitle className="text-2xl font-bold">Reset Your Password</CardTitle>
+          <CardTitle className="text-2xl font-bold">
+            {isInvite ? "Set Your Password" : "Reset Your Password"}
+          </CardTitle>
           <CardDescription>
-            Enter your new password below
+            {isInvite
+              ? "Choose a password to activate your account"
+              : "Enter your new password below"}
           </CardDescription>
         </CardHeader>
         <CardContent>

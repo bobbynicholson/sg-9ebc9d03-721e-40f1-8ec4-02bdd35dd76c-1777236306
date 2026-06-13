@@ -41,7 +41,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { UserPlus, Trash2, Building2, Loader2, Search } from "lucide-react";
+import { UserPlus, Trash2, Building2, Loader2, Search, Send } from "lucide-react";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
@@ -58,6 +58,10 @@ type User = {
   company_name?: string;
   email_verified: boolean;
   created_at: string;
+  // Derived from auth.users.last_sign_in_at via /api/admin/users-activity.
+  // null until the user first signs in (accepts their invite).
+  last_sign_in_at?: string | null;
+  invite_status?: "active" | "pending";
 };
 
 export default function UserManagementPage() {
@@ -68,6 +72,7 @@ export default function UserManagementPage() {
   const [addUserOpen, setAddUserOpen] = useState(false);
   const [deleteUserId, setDeleteUserId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const [resendingId, setResendingId] = useState<string | null>(null);
   const { toast } = useToast();
 
   // Form state
@@ -111,7 +116,29 @@ export default function UserManagementPage() {
         company_name: user.company_id ? companyMap.get(user.company_id)?.company_name ?? null : null,
       }));
 
-      setUsers(usersWithCompany as any);
+      // Enrich with auth sign-in activity to derive invite status. A
+      // user is "pending" until they first sign in via their invite /
+      // set-password link (last_sign_in_at is null), then "active". If
+      // the enrichment call fails we leave status undefined and fall
+      // back to email_verified in the UI.
+      let activity: Record<string, { last_sign_in_at: string | null }> = {};
+      try {
+        const r = await fetch("/api/admin/users-activity");
+        const j = await r.json().catch(() => ({}));
+        if (r.ok && j?.activity) activity = j.activity;
+      } catch (e) {
+        console.warn("[user-management] users-activity fetch failed:", e);
+      }
+      const enriched = usersWithCompany.map((u: any) => {
+        const lastSignIn = activity[u.id]?.last_sign_in_at ?? null;
+        return {
+          ...u,
+          last_sign_in_at: lastSignIn,
+          invite_status: lastSignIn ? "active" : "pending",
+        };
+      });
+
+      setUsers(enriched as any);
     } catch (error: any) {
       console.error("Error loading users:", error);
       toast({
@@ -201,6 +228,28 @@ export default function UserManagementPage() {
     }
   };
 
+  const handleResendInvite = async (userId: string) => {
+    setResendingId(userId);
+    try {
+      const res = await fetch("/api/admin/resend-invite", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok || !j?.ok) throw new Error(j?.error || "Failed to resend invite");
+      toast({ title: "Invite sent", description: j.message || "Invitation re-sent." });
+    } catch (error: any) {
+      toast({
+        title: "Couldn't resend invite",
+        description: error?.message || "Try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setResendingId(null);
+    }
+  };
+
   const handleDeleteUser = async () => {
     if (!deleteUserId) return;
 
@@ -247,7 +296,7 @@ export default function UserManagementPage() {
     { key: "user",    accessor: (u) => u.full_name || u.email,                  type: "string" },
     { key: "role",    accessor: (u) => u.role,                                  type: "string" },
     { key: "company", accessor: (u) => u.company_name || "",                    type: "string" },
-    { key: "status",  accessor: (u) => u.email_verified ? "active" : "pending", type: "string" },
+    { key: "status",  accessor: (u) => u.invite_status || (u.email_verified ? "active" : "pending"), type: "string" },
     { key: "created", accessor: (u) => u.created_at,                            type: "date"   },
   ], []);
   const sortedUsers = useSortable<any>(fuzzyUsers, userSortColumns, { defaultKey: "created", defaultDir: "desc" });
@@ -289,7 +338,7 @@ export default function UserManagementPage() {
               <DialogHeader>
                 <DialogTitle>Create New User</DialogTitle>
                 <DialogDescription>
-                  Add a new user to the system. They will receive login credentials.
+                  Add a new user. They'll get an email invite to set their own password and sign in. You can resend the invite later from the user list if they're still pending.
                 </DialogDescription>
               </DialogHeader>
               <form onSubmit={handleCreateUser} className="space-y-4">
@@ -382,7 +431,7 @@ export default function UserManagementPage() {
             <div className="flex items-center justify-between">
               <CardTitle className="flex items-center gap-2">
                 All Users ({filteredUsers.length})
-                <InfoTooltip content="Every user account across every tenant on the platform, with the company they belong to.\n\nThe status badge reflects email verification, Active means confirmed, Pending means they haven't verified yet." />
+                <InfoTooltip content="Every user account across every tenant on the platform, with the company they belong to.\n\nStatus reflects invite acceptance: Active means the user has signed in (accepted their invite / set their password); Pending means they were invited but haven't signed in yet. Use Resend invite to send a pending staff member a fresh set-password link." />
               </CardTitle>
               <div className="relative w-64">
                 <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
@@ -443,13 +492,13 @@ export default function UserManagementPage() {
                         )}
                       </TableCell>
                       <TableCell>
-                        {user.email_verified ? (
+                        {(user.invite_status || (user.email_verified ? "active" : "pending")) === "active" ? (
                           <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
                             Active
                           </Badge>
                         ) : (
                           <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">
-                            Pending
+                            Invited · Pending
                           </Badge>
                         )}
                       </TableCell>
@@ -459,14 +508,37 @@ export default function UserManagementPage() {
                         </span>
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setDeleteUserId(user.id)}
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
+                        <div className="flex items-center justify-end gap-1">
+                          {/* Resend invite only for pending STAFF (clients
+                              sign in via magic-link, not a set-password
+                              invite). Hidden once the user is active so the
+                              option isn't shown again and again. */}
+                          {(user.invite_status || (user.email_verified ? "active" : "pending")) !== "active" &&
+                            user.role !== "client" && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                disabled={resendingId === user.id}
+                                onClick={() => handleResendInvite(user.id)}
+                                className="text-brand-primary hover:bg-brand-primary/10 gap-1.5"
+                              >
+                                {resendingId === user.id ? (
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : (
+                                  <Send className="w-4 h-4" />
+                                )}
+                                Resend invite
+                              </Button>
+                            )}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setDeleteUserId(user.id)}
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
