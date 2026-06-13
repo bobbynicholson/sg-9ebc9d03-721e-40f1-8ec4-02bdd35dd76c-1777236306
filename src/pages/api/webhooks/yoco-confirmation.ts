@@ -31,6 +31,7 @@ import { getServiceSupabase } from "@/lib/supabase/service";
 import { orderService } from "@/services/orderService";
 import { paymentProcessingService } from "@/services/paymentProcessingService";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { paymentExistsByGatewayId } from "@/lib/paymentDedup";
 
 
 // We need the raw body for HMAC verification.
@@ -204,16 +205,12 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 // network blip would silently double-process the payment. Returning
 // "error" lets the caller fail closed; Yoco retries on 5xx.
 async function isDuplicateYocoPayment(sb: any, yocoTxId: string): Promise<"duplicate" | "unique" | "error"> {
-  const { data, error } = await sb
-    .from("payments")
-    .select("id")
-    .or(`gateway_transaction_id.eq.${yocoTxId},transaction_id.eq.${yocoTxId}`)
-    .limit(1);
+  const { exists, error } = await paymentExistsByGatewayId(sb, yocoTxId);
   if (error) {
-    console.warn("[yoco-webhook] dedup check failed:", error.message);
+    console.warn("[yoco-webhook] dedup check failed");
     return "error";
   }
-  return Array.isArray(data) && data.length > 0 ? "duplicate" : "unique";
+  return exists ? "duplicate" : "unique";
 }
 
 export default withApiLogging(handler);

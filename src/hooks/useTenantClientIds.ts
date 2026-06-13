@@ -83,8 +83,21 @@ export function useTenantClientIds(
   ): T => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const b = builder as any;
+    // `email` gets interpolated raw into the PostgREST .or() string
+    // below, where whitespace, commas, parentheses and * are filter
+    // syntax. A genuine email contains none of these; treat anything
+    // else as unsafe and avoid the inline form so a crafted value can't
+    // widen the predicate (PostgREST filter injection). The .ilike()
+    // builder call further down encodes its value safely on its own.
+    const emailInlineSafe = !!email && !/[\s,()*]/.test(email);
     if (clientIds.length > 0 && email) {
-      return b.or(`client_id.in.(${clientIds.join(",")}),${emailColumn}.ilike.${email}`);
+      if (emailInlineSafe) {
+        return b.or(`client_id.in.(${clientIds.join(",")}),${emailColumn}.ilike.${email}`);
+      }
+      // Unsafe email value: fall back to the tenant-scoped id list
+      // only. This can only narrow the result set, never leak another
+      // tenant's rows.
+      return b.in("client_id", clientIds);
     }
     if (clientIds.length > 0) {
       return b.in("client_id", clientIds);

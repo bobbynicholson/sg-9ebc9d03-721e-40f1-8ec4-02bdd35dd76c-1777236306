@@ -27,6 +27,7 @@ const supabase: any = new Proxy({}, {
 import { emailService } from "@/services/emailService";
 import crypto from "crypto";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { paymentExistsByGatewayId } from "@/lib/paymentDedup";
 
 
 /**
@@ -790,21 +791,16 @@ async function handler(
  * of which column variant a previous run used.
  */
 async function isDuplicatePayFastPayment(pfPaymentId: string | undefined | null): Promise<boolean> {
-  if (!pfPaymentId) return false;
-  const { data, error } = await supabase
-    .from("payments")
-    .select("id")
-    .or(`gateway_transaction_id.eq.${pfPaymentId},transaction_id.eq.${pfPaymentId}`)
-    .limit(1);
+  const { exists, error } = await paymentExistsByGatewayId(supabase, pfPaymentId);
   if (error) {
     // Fail open - if the dedup query itself errors we'd rather process
     // and risk a later cleanup than silently drop a real payment. The
     // amount-mismatch + downstream FK constraints provide a second line
     // of defence.
-    console.warn("Idempotency check failed, proceeding:", error.message);
+    console.warn("Idempotency check failed, proceeding");
     return false;
   }
-  return Array.isArray(data) && data.length > 0;
+  return exists;
 }
 
 /**

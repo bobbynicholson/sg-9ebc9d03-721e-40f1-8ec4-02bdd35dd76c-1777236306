@@ -20,6 +20,7 @@ import { orderService } from "@/services/orderService";
 import { paymentProcessingService } from "@/services/paymentProcessingService";
 import type Stripe from "stripe";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { paymentExistsByGatewayId } from "@/lib/paymentDedup";
 
 
 export const config = { api: { bodyParser: false } };
@@ -179,13 +180,9 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 // twice, the operator chases a phantom credit). Returning "error"
 // lets the caller fail closed - Stripe + Yoco both retry on 5xx.
 async function isDuplicateStripePayment(sb: any, stripeTxId: string): Promise<"duplicate" | "unique" | "error"> {
-  const { data, error } = await sb
-    .from("payments")
-    .select("id")
-    .or(`gateway_transaction_id.eq.${stripeTxId},transaction_id.eq.${stripeTxId}`)
-    .limit(1);
+  const { exists, error } = await paymentExistsByGatewayId(sb, stripeTxId);
   if (error) return "error";
-  return Array.isArray(data) && data.length > 0 ? "duplicate" : "unique";
+  return exists ? "duplicate" : "unique";
 }
 
 export default withApiLogging(handler);
