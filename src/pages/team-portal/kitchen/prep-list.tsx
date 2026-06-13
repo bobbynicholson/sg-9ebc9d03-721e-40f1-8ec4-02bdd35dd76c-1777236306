@@ -491,7 +491,7 @@ export default function KitchenPrepListPage() {
       <Head><title>Pull list - CateringMS</title></Head>
       <KitchenNav />
 
-      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-orange-50 to-red-50 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
         <div className="px-4 sm:px-6 py-6 sm:py-8 max-w-full">
           {/* Header */}
           <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
