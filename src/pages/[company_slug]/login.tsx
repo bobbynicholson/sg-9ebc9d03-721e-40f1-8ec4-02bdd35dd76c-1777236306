@@ -293,39 +293,68 @@ export default function CompanyStaffLoginPage({
         <title>{companyBrand ? `${companyBrand.name} | Sign in` : "Sign in"}</title>
         <meta name="robots" content="noindex, nofollow" />
       </Head>
-      <div
-        className="min-h-screen flex items-center justify-center px-4 py-10"
-        style={{
-          background: "linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)",
-          paddingTop: "max(2.5rem, env(safe-area-inset-top, 2.5rem))",
-          paddingBottom: "max(2.5rem, env(safe-area-inset-bottom, 2.5rem))",
-        }}
-      >
-        <Card className="w-full max-w-md border-0 shadow-2xl rounded-3xl overflow-hidden">
-          <div className="px-7 pt-7 pb-6" style={{ background: brandGradient }}>
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl bg-white/20 backdrop-blur flex items-center justify-center shadow-lg flex-shrink-0">
-                {companyBrand?.logo ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={companyBrand.logo}
-                    alt={companyBrand.name}
-                    className="w-10 h-10 object-contain rounded-lg"
-                  />
-                ) : (
-                  <Building2 className="w-6 h-6 text-white" />
-                )}
-              </div>
-              <div className="min-w-0">
-                <h1 className="text-lg sm:text-xl font-bold text-white truncate">
-                  {companyBrand?.name || "Your portal"}
-                </h1>
-                <p className="text-xs sm:text-sm text-white/80">Staff sign-in</p>
-              </div>
+      <div className="min-h-screen lg:grid lg:grid-cols-2 bg-white">
+        {/* Brand showcase panel - desktop only, tenant-branded */}
+        <div
+          className="relative hidden lg:flex lg:sticky lg:top-0 lg:h-screen lg:self-start flex-col justify-between overflow-hidden p-12 text-white"
+          style={{ background: brandGradient }}
+        >
+          <div
+            className="pointer-events-none absolute inset-0 opacity-[0.12]"
+            style={{ backgroundImage: "radial-gradient(circle, #ffffff 1px, transparent 1px)", backgroundSize: "22px 22px" }}
+          />
+          <div className="pointer-events-none absolute -top-24 -left-24 h-96 w-96 rounded-full bg-white/15 blur-3xl" />
+          <div className="pointer-events-none absolute -bottom-32 -right-16 h-[28rem] w-[28rem] rounded-full bg-white/10 blur-3xl" />
+
+          <div className="relative flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/15 shadow-lg backdrop-blur">
+              {companyBrand?.logo ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={companyBrand.logo} alt={companyBrand.name} className="h-10 w-10 rounded-lg object-contain" />
+              ) : (
+                <Building2 className="h-6 w-6 text-white" />
+              )}
             </div>
+            <span className="text-xl font-bold tracking-tight truncate">{companyBrand?.name || "Your portal"}</span>
           </div>
 
-          <CardContent className="p-7 sm:p-8">
+          <div className="relative max-w-md">
+            <h2 className="text-[2.6rem] font-bold leading-[1.1] tracking-tight">Welcome back.</h2>
+            <p className="mt-4 text-lg text-white/85">
+              Sign in to manage quotes, kitchen prep, dispatch and deliveries — your whole operation in one place.
+            </p>
+          </div>
+
+          <p className="relative text-sm text-white/70">Powered by CateringMS</p>
+        </div>
+
+        {/* Form column */}
+        <div
+          className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 px-4 py-10 lg:min-h-0 lg:bg-white lg:bg-none"
+          style={{
+            paddingTop: "max(2.5rem, env(safe-area-inset-top, 2.5rem))",
+            paddingBottom: "max(2.5rem, env(safe-area-inset-bottom, 2.5rem))",
+          }}
+        >
+          {/* Mobile brand badge */}
+          <div className="mb-6 flex items-center gap-2.5 lg:hidden">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl shadow-md" style={{ background: brandGradient }}>
+              {companyBrand?.logo ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={companyBrand.logo} alt={companyBrand.name} className="h-8 w-8 rounded-md object-contain" />
+              ) : (
+                <Building2 className="h-5 w-5 text-white" />
+              )}
+            </div>
+            <span className="text-lg font-bold tracking-tight text-slate-800 truncate max-w-[60vw]">{companyBrand?.name || "Your portal"}</span>
+          </div>
+
+          <Card className="w-full max-w-md border border-slate-200/70 shadow-2xl shadow-slate-200/60 rounded-2xl">
+          <CardContent className="p-6 sm:p-8">
+            <div className="mb-7">
+              <h1 className="text-3xl font-bold tracking-tight text-slate-900">Staff sign-in</h1>
+              <p className="text-sm text-slate-500 mt-1.5">Welcome back — sign in to your portal.</p>
+            </div>
             <form onSubmit={handleStaffLogin} className="space-y-5">
               {error && (
                 <Alert variant="destructive" className="text-sm">
@@ -409,6 +438,7 @@ export default function CompanyStaffLoginPage({
             </form>
           </CardContent>
         </Card>
+        </div>
       </div>
     </>
   );
