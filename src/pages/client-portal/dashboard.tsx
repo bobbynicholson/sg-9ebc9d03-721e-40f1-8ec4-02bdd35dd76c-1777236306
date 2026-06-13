@@ -487,6 +487,14 @@ function ClientPortalDashboardInner() {
           .select(
             "id, order_number, event_name, event_date, event_time, guest_count, venue_name, venue_address, venue_lat, venue_lng, status, payment_status, total_amount, driver_id",
           )
+          // Tenant-scope to the URL-slug company, same as the quotes and
+          // invoices queries below. Without this the client_email branch
+          // of the .or() isn't company-scoped, so a client who books with
+          // two caterers using the same email would see the other
+          // tenant's orders bleed into this portal. client_id rows are
+          // already tenant-scoped (clientIds resolves with company_id),
+          // but the email branch needs this guard too.
+          .eq("company_id", tenantCompanyId)
           .is("deleted_at", null)
           .gte("event_date", lookbackIso)
           .order("event_date", { ascending: false })
