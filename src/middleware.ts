@@ -325,6 +325,7 @@ export async function middleware(request: NextRequest) {
   let profileCompanyId: string | null = null;
   let userCompanySlug: string | undefined;
   let onboardingCompletedAt: string | null = null;
+  let subscriptionStatus: string | null = null;
   let cacheHit = false;
 
   const cached = await readCachedProfile(request, user.id);
@@ -333,6 +334,7 @@ export async function middleware(request: NextRequest) {
     profileCompanyId = cached.company_id;
     userCompanySlug = cached.slug ?? undefined;
     onboardingCompletedAt = cached.onboarding_completed_at;
+    subscriptionStatus = cached.subscription_status ?? null;
     cacheHit = true;
   } else {
     try {
@@ -354,11 +356,12 @@ export async function middleware(request: NextRequest) {
       try {
         const { data: company } = await supabase
           .from("companies")
-          .select("slug, onboarding_completed_at")
+          .select("slug, onboarding_completed_at, subscription_status")
           .eq("id", profileCompanyId)
           .single();
         userCompanySlug = company?.slug ?? undefined;
         onboardingCompletedAt = company?.onboarding_completed_at ?? null;
+        subscriptionStatus = (company as any)?.subscription_status ?? null;
       } catch (error) {
         console.error("[Middleware] Error fetching user company slug:", error);
       }
@@ -459,9 +462,49 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // ✅ Route authorization (deny-default for any non-public route)
   // Strip validated slug prefix so /[slug]/admin/... matches the /admin guard.
   const guardPath = companySlug ? pathname.replace(`/${companySlug}`, "") || "/" : pathname;
+
+  // ✅ Expired-plan access gate.
+  // When a company's subscription has lapsed (the expire-trials cron flips
+  // an expired trial to 'suspended'; a cancellation sets 'cancelled') its
+  // staff/admins lose access to the tenant app. We keep the billing
+  // surfaces reachable so an owner can pay and restore access, and exempt:
+  //   - super_admin (navigates across tenants), and
+  //   - client (a caterer's billing state must not lock their end
+  //     customers out of the client portal).
+  // Fails OPEN: if subscription_status is null/unknown we never block.
+  const NON_ACCESS_STATUSES = new Set(["cancelled", "suspended"]);
+  if (
+    profileRole &&
+    profileRole !== "super_admin" &&
+    profileRole !== "client" &&
+    subscriptionStatus &&
+    NON_ACCESS_STATUSES.has(subscriptionStatus)
+  ) {
+    // Always-reachable so the owner can reactivate (and to avoid a
+    // redirect loop). /pricing is a public route and isn't gated here.
+    const billingAllowed =
+      guardPath.startsWith("/admin/subscription") || guardPath.startsWith("/account");
+    if (!billingAllowed) {
+      const url = request.nextUrl.clone();
+      if (ADMIN_PORTAL_ROLES.includes(profileRole) && userCompanySlug) {
+        // Owners / admins -> the subscription page where they can pay.
+        url.pathname = `/${userCompanySlug}/admin/subscription`;
+        url.search = "";
+        url.searchParams.set("expired", "1");
+      } else {
+        // Staff can't pay -> tenant login with a notice (terminal, no loop).
+        url.pathname = userCompanySlug ? `/${userCompanySlug}/login` : "/auth/login";
+        url.search = "";
+        url.searchParams.set("message", "subscription_expired");
+      }
+      mwLog("DENY", "subscription_expired", { role: profileRole, status: subscriptionStatus, path: pathname });
+      return NextResponse.redirect(url);
+    }
+  }
+
+  // ✅ Route authorization (deny-default for any non-public route)
   if (!isPublic && profileRole) {
     if (!isAuthorizedForRoute(guardPath, profileRole)) {
       mwLog("DENY", "unauthorized", { role: profileRole, path: pathname, guardPath });
@@ -498,6 +541,7 @@ export async function middleware(request: NextRequest) {
       company_id: profileCompanyId,
       slug: userCompanySlug ?? null,
       onboarding_completed_at: onboardingCompletedAt,
+      subscription_status: subscriptionStatus,
     });
   }
 

@@ -28,6 +28,9 @@ export interface CachedProfilePayload {
   company_id: string | null;
   slug: string | null;
   onboarding_completed_at: string | null;
+  /** Company subscription_status, for the expired-plan access gate.
+   *  Optional so cookies signed before this field shipped still parse. */
+  subscription_status?: string | null;
   exp: number; // unix seconds
 }
 

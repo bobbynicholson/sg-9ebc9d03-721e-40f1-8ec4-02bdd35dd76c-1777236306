@@ -164,6 +164,13 @@ export default function CompanyStaffLoginPage({
         variant: "destructive",
         duration: 4000,
       });
+    } else if (message === "subscription_expired") {
+      toast({
+        title: "Subscription expired",
+        description: "This company's subscription has lapsed. Ask your administrator to renew it to restore access.",
+        variant: "destructive",
+        duration: 6000,
+      });
     }
   }, [message, toast]);
 
