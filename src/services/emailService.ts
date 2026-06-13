@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { supabase } from "@/integrations/supabase/client";
 import { buildUnsubscribeUrl } from "@/lib/emailUnsubscribe";
+import { normalizeEmailVariables } from "@/lib/emailVariables";
 
 export interface EmailSettings {
   id: string;
@@ -357,6 +358,12 @@ export const emailService = {
         }
       }
     }
+    // Leak guard: blank any double-curly placeholder the caller didn't
+    // supply so a recipient never sees a raw {{first_name}} on the
+    // raw-body send path (templateResolver already does this for DB
+    // templates). Only {{...}} is stripped - single braces are left
+    // alone so inline CSS ({ color: ... }) in HTML bodies is untouched.
+    result = result.replace(/{{\s*[\w.]+\s*}}/g, "");
     return result;
   },
 
@@ -627,6 +634,11 @@ export const emailService = {
 
     let finalBody = payload.body || "";
 
+    // Normalise the variable bag once so placeholders resolve regardless
+    // of camelCase/snake_case and common aliases (see emailVariables).
+    // Used for both the template resolve and the raw-body/subject pass.
+    const normVars = normalizeEmailVariables(payload.variables || {});
+
     if (payload.template) {
       // ODOC H.14: route through resolveEmailTemplate so the
       // tenant-override -> global-default -> caller-fallback ladder
@@ -642,7 +654,7 @@ export const emailService = {
       const resolved = await resolveEmailTemplate({
         companyId: payload.companyId,
         templateType: payload.template,
-        variables: payload.variables ?? {},
+        variables: normVars,
         fallback: {
           subject: payload.subject || "",
           bodyHtml: payload.body || "",
@@ -661,8 +673,8 @@ export const emailService = {
       (payload as any)._templateSource = resolved.source;
     }
 
-    const finalSubject = this.replaceVariables(payload.subject, payload.variables || {});
-    finalBody = this.replaceVariables(finalBody, payload.variables || {});
+    const finalSubject = this.replaceVariables(payload.subject, normVars);
+    finalBody = this.replaceVariables(finalBody, normVars);
 
     // TIGHTEN I.124 (2026-06-03): auto-wrap plain or fragment HTML
     // bodies in a branded email shell. Reads company logo + brand

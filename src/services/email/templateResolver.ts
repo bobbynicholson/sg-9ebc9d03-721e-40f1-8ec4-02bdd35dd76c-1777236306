@@ -26,6 +26,7 @@
  * the email still goes out.
  */
 import { supabase } from "@/integrations/supabase/client";
+import { normalizeEmailVariables } from "@/lib/emailVariables";
 
 export interface ResolvedTemplate {
   subject: string;
@@ -109,7 +110,11 @@ export async function resolveEmailTemplate(
   input: TemplateResolveInput,
 ): Promise<ResolvedTemplate> {
   const sb = input.client || supabase;
-  const vars = input.variables || {};
+  // Normalise so a placeholder resolves whether the template author
+  // wrote {{first_name}} or {{firstName}}, and so common cross-field
+  // aliases (first_name from a full name, company/tenant name,
+  // order/invoice number) fill in when the exact key wasn't supplied.
+  const vars = normalizeEmailVariables(input.variables || {});
 
   // 1. Tenant override.
   const tenantRow = await fetchRow(sb, input.companyId, input.templateType);
