@@ -112,9 +112,6 @@ export function SlimInternalFooter({
             <Link href="/terms" className="hover:text-slate-700 dark:hover:text-slate-300 transition-colors">
               Terms
             </Link>
-            <Link href="/cookies" className="hover:text-slate-700 dark:hover:text-slate-300 transition-colors">
-              Cookies
-            </Link>
           </div>
         </div>
       </div>
@@ -383,9 +380,6 @@ export function Footer() {
               </Link>
               <Link href="/terms">
                 <span className="hover:text-white transition-colors">Terms of Service</span>
-              </Link>
-              <Link href="/cookies">
-                <span className="hover:text-white transition-colors">Cookie Policy</span>
               </Link>
             </div>
           </div>
