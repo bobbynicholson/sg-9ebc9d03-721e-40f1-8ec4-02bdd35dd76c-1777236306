@@ -62,9 +62,9 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     const companyId = profile?.company_id as string | null;
     if (!companyId) return res.status(403).json({ error: "Account is not linked to a company" });
 
-    if (!process.env.GROQ_API_KEY) {
+    if (!process.env.ANTHROPIC_API_KEY && !process.env.GROQ_API_KEY) {
       return res.status(500).json({
-        error: "AI receipt scanning is not configured, set GROQ_API_KEY on the server.",
+        error: "AI receipt scanning is not configured, set ANTHROPIC_API_KEY or GROQ_API_KEY on the server.",
       });
     }
 

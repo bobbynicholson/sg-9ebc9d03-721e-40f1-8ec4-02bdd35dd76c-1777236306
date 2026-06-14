@@ -364,14 +364,17 @@ export interface ReceiptExtraction {
   warnings: string[];
 }
 
-// Receipt OCR runs on Groq's OpenAI-compatible vision API. Llama 4
-// Scout is the cheap/fast default; Maverick is the higher-capability
-// fallback when Scout returns 0 lines (faded thermal slips, sideways
-// images, dense text). Both env-overridable so we can swap the exact
-// model id without a deploy. GROQ_API_KEY must be set on the server.
+// Receipt OCR supports two providers and prefers Anthropic when its
+// key is present, falling back to Groq otherwise (or when Anthropic
+// errors / returns nothing). Within each provider there's a cheap
+// primary model and a higher-capability fallback used when the primary
+// returns 0 lines (faded thermal slips, sideways images, dense text).
+// All env-overridable so models can be swapped without a deploy.
+const ANTHROPIC_PRIMARY_MODEL = process.env.ANTHROPIC_RECEIPT_MODEL || "claude-haiku-4-5";
+const ANTHROPIC_FALLBACK_MODEL = process.env.ANTHROPIC_RECEIPT_FALLBACK_MODEL || "claude-sonnet-4-5";
 const GROQ_BASE_URL = process.env.GROQ_BASE_URL || "https://api.groq.com/openai/v1";
-const RECEIPT_PRIMARY_MODEL = process.env.GROQ_RECEIPT_MODEL || "meta-llama/llama-4-scout-17b-16e-instruct";
-const RECEIPT_FALLBACK_MODEL = process.env.GROQ_RECEIPT_FALLBACK_MODEL || "meta-llama/llama-4-maverick-17b-128e-instruct";
+const GROQ_PRIMARY_MODEL = process.env.GROQ_RECEIPT_MODEL || "meta-llama/llama-4-scout-17b-16e-instruct";
+const GROQ_FALLBACK_MODEL = process.env.GROQ_RECEIPT_FALLBACK_MODEL || "meta-llama/llama-4-maverick-17b-128e-instruct";
 
 const RECEIPT_SYSTEM_BASE = `You read photos of South African supplier receipts / slips for a catering company. Your job is to extract the structured fields the catering team needs to load into their inventory: supplier, date, line items with quantities + unit prices, totals.
 
@@ -457,6 +460,144 @@ function parseReceiptJson(text: string): any | null {
     try { return JSON.parse(t.slice(first, last + 1)); } catch { /* give up */ }
   }
   return null;
+}
+
+/**
+ * Single Anthropic (Claude) vision call against a chosen model. Uses
+ * tool-use to force structured JSON. Kept as the preferred provider:
+ * when ANTHROPIC_API_KEY is set the dispatcher tries this first.
+ */
+async function callAnthropicForReceipt(args: {
+  imageBase64: string;
+  imageMime: string;
+  taxRules?: TaxRuleForPrompt[];
+  model: string;
+}): Promise<{ extraction: ReceiptExtraction; tokens_in: number; tokens_out: number; model_used: string }> {
+  const systemText = RECEIPT_SYSTEM_BASE + buildTaxRulesPrompt(args.taxRules || []);
+  const response: any = await (client().messages.create as any)({
+    model: args.model,
+    max_tokens: 8192,
+    system: [
+      { type: "text", text: systemText, cache_control: { type: "ephemeral" } },
+    ],
+    tools: [
+      {
+        name: "return_receipt",
+        description: "Return the structured contents of the receipt.",
+        input_schema: {
+          type: "object",
+          properties: {
+            supplier_name:        { type: ["string", "null"] },
+            supplier_vat_number:  { type: ["string", "null"] },
+            receipt_date:         { type: ["string", "null"], description: "ISO yyyy-mm-dd" },
+            receipt_number:       { type: ["string", "null"] },
+            currency:             { type: ["string", "null"], description: "ISO currency code, usually ZAR" },
+            subtotal:             { type: ["number", "null"] },
+            vat:                  { type: ["number", "null"] },
+            total:                { type: ["number", "null"] },
+            payment_method:       { type: ["string", "null"], description: "card / cash / eft / unknown" },
+            line_items: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  description:        { type: "string" },
+                  quantity:           { type: ["number", "null"] },
+                  unit:               { type: ["string", "null"], description: "e.g. kg, ea, L" },
+                  unit_price:         { type: ["number", "null"] },
+                  line_total:         { type: ["number", "null"] },
+                  tax_category_code:  { type: ["string", "null"], description: "category_code from the supplied rules list, or null if no fit" },
+                  is_deductible:      { type: ["boolean", "null"], description: "Derived from the matched rule" },
+                  match_confidence:   { type: ["number", "null"], description: "0-1 confidence in the rule match" },
+                },
+                required: ["description", "quantity", "unit", "unit_price", "line_total", "tax_category_code", "is_deductible", "match_confidence"],
+                additionalProperties: false,
+              },
+            },
+            warnings: {
+              type: "array",
+              items: { type: "string" },
+              description: "Plain-English notes about anything that was hard to read.",
+            },
+          },
+          required: [
+            "supplier_name", "supplier_vat_number", "receipt_date", "receipt_number",
+            "currency", "subtotal", "vat", "total", "payment_method",
+            "line_items", "warnings",
+          ],
+          additionalProperties: false,
+        },
+      },
+    ],
+    tool_choice: { type: "tool", name: "return_receipt" },
+    messages: [
+      {
+        role: "user",
+        content: [
+          { type: "image", source: { type: "base64", media_type: args.imageMime, data: args.imageBase64 } },
+          { type: "text", text: "Extract every line item, totals, supplier and date from this receipt. Use the return_receipt tool." },
+        ],
+      },
+    ],
+  });
+
+  const tokensIn = response?.usage?.input_tokens ?? 0;
+  const tokensOut = response?.usage?.output_tokens ?? 0;
+  const truncated = response?.stop_reason === "max_tokens";
+
+  let extraction: ReceiptExtraction = {
+    supplier_name: null, supplier_vat_number: null, receipt_date: null,
+    receipt_number: null, currency: null, subtotal: null, vat: null, total: null,
+    payment_method: null, line_items: [],
+    warnings: truncated
+      ? ["Output was cut off before the model finished - raise max_tokens or split the receipt."]
+      : ["No structured response from model"],
+  };
+
+  const blocks: any[] = Array.isArray(response?.content) ? response.content : [];
+  const textCommentary: string[] = [];
+  for (const block of blocks) {
+    if (block?.type === "text" && typeof block.text === "string" && block.text.trim()) {
+      textCommentary.push(block.text.trim());
+    }
+  }
+  for (const block of blocks) {
+    if (block?.type === "tool_use" && block?.name === "return_receipt") {
+      const input = block.input as any;
+      extraction = {
+        supplier_name: input.supplier_name ?? null,
+        supplier_vat_number: input.supplier_vat_number ?? null,
+        receipt_date: input.receipt_date ?? null,
+        receipt_number: input.receipt_number ?? null,
+        currency: input.currency ?? null,
+        subtotal: typeof input.subtotal === "number" ? input.subtotal : null,
+        vat: typeof input.vat === "number" ? input.vat : null,
+        total: typeof input.total === "number" ? input.total : null,
+        payment_method: input.payment_method ?? null,
+        line_items: Array.isArray(input.line_items) ? input.line_items.map((li: any) => ({
+          description: String(li.description ?? "").trim(),
+          quantity: typeof li.quantity === "number" ? li.quantity : null,
+          unit: li.unit ?? null,
+          unit_price: typeof li.unit_price === "number" ? li.unit_price : null,
+          line_total: typeof li.line_total === "number" ? li.line_total : null,
+          tax_category_code: typeof li.tax_category_code === "string" ? li.tax_category_code : null,
+          is_deductible: typeof li.is_deductible === "boolean" ? li.is_deductible : null,
+          match_confidence: typeof li.match_confidence === "number" ? li.match_confidence : null,
+        })) : [],
+        warnings: Array.isArray(input.warnings) ? input.warnings.map((w: any) => String(w)) : [],
+      };
+      if (textCommentary.length > 0) extraction.warnings = [...extraction.warnings, ...textCommentary];
+      if (truncated) {
+        extraction.warnings = [
+          "Output was cut off mid-receipt (max_tokens hit). Lines below may be incomplete.",
+          ...extraction.warnings,
+        ];
+      }
+      break;
+    }
+  }
+
+  return { extraction, tokens_in: tokensIn, tokens_out: tokensOut, model_used: args.model };
 }
 
 /**
@@ -594,39 +735,49 @@ export async function extractReceiptViaAI(args: {
 }): Promise<{ extraction: ReceiptExtraction; tokens_in: number; tokens_out: number; model_used?: string }> {
   const compressed = await compressReceiptImage(args.imageBase64, args.imageMime);
 
-  const result = await callGroqForReceipt({
-    imageBase64: compressed.base64,
-    imageMime: compressed.mime,
-    taxRules: args.taxRules,
-    model: RECEIPT_PRIMARY_MODEL,
-  });
-
-  // Fallback to the higher-tier model when the primary returned no
-  // structured lines. Skipped if both env-vars resolved to the same
-  // model - no point retrying with the same engine.
-  if (
-    result.extraction.line_items.length === 0 &&
-    RECEIPT_PRIMARY_MODEL !== RECEIPT_FALLBACK_MODEL
-  ) {
-    console.log(
-      `[receipt] primary ${RECEIPT_PRIMARY_MODEL} returned 0 lines, retrying with ${RECEIPT_FALLBACK_MODEL}`,
-    );
-    const fallback = await callGroqForReceipt({
-      imageBase64: compressed.base64,
-      imageMime: compressed.mime,
-      taxRules: args.taxRules,
-      model: RECEIPT_FALLBACK_MODEL,
-    });
-    // Stash a warning so the operator sees we escalated - helpful when
-    // they're triaging which slips need a clearer photo next time.
-    fallback.extraction.warnings = [
-      `Switched to ${RECEIPT_FALLBACK_MODEL} after ${RECEIPT_PRIMARY_MODEL} returned no lines.`,
-      ...(fallback.extraction.warnings || []).filter(
-        (w) => !w.startsWith("No structured response"),
-      ),
-    ];
-    return fallback;
+  // Provider order: Anthropic first when its key is set, then Groq.
+  // Each provider runs its own cheap-primary -> higher-tier-fallback
+  // when the primary returns 0 lines. If a provider errors (bad key,
+  // outage) or still yields 0 lines, we fall through to the next.
+  const providers: Array<"anthropic" | "groq"> = [];
+  if (process.env.ANTHROPIC_API_KEY) providers.push("anthropic");
+  if (process.env.GROQ_API_KEY) providers.push("groq");
+  if (providers.length === 0) {
+    throw new Error("AI receipt scanning is not configured - set ANTHROPIC_API_KEY or GROQ_API_KEY on the server.");
   }
 
-  return result;
+  const runProvider = async (provider: "anthropic" | "groq") => {
+    const isAnthropic = provider === "anthropic";
+    const call = isAnthropic ? callAnthropicForReceipt : callGroqForReceipt;
+    const primary = isAnthropic ? ANTHROPIC_PRIMARY_MODEL : GROQ_PRIMARY_MODEL;
+    const fallback = isAnthropic ? ANTHROPIC_FALLBACK_MODEL : GROQ_FALLBACK_MODEL;
+    const res = await call({ imageBase64: compressed.base64, imageMime: compressed.mime, taxRules: args.taxRules, model: primary });
+    if (res.extraction.line_items.length === 0 && primary !== fallback) {
+      console.log(`[receipt] ${provider} primary ${primary} returned 0 lines, retrying with ${fallback}`);
+      const fb = await call({ imageBase64: compressed.base64, imageMime: compressed.mime, taxRules: args.taxRules, model: fallback });
+      fb.extraction.warnings = [
+        `Switched to ${fallback} after ${primary} returned no lines.`,
+        ...(fb.extraction.warnings || []).filter((w) => !w.startsWith("No structured response")),
+      ];
+      return fb;
+    }
+    return res;
+  };
+
+  let lastResult: { extraction: ReceiptExtraction; tokens_in: number; tokens_out: number; model_used?: string } | null = null;
+  let lastErr: unknown = null;
+  for (const provider of providers) {
+    try {
+      const result = await runProvider(provider);
+      if (result.extraction.line_items.length > 0) return result;
+      // Zero lines from this provider - keep it as a fallback result
+      // but try the next provider for a better read.
+      lastResult = result;
+    } catch (e) {
+      console.warn(`[receipt] provider ${provider} failed:`, e);
+      lastErr = e;
+    }
+  }
+  if (lastResult) return lastResult;
+  throw lastErr instanceof Error ? lastErr : new Error("Receipt extraction failed");
 }
