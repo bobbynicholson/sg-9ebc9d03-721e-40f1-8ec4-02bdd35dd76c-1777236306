@@ -43,6 +43,8 @@ import {
   Clock,
   Mail,
   Trash2,
+  Copy,
+  MailWarning,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import Head from "next/head";
@@ -87,6 +89,14 @@ function AdminUsersPage() {
   const [inviteName, setInviteName] = useState("");
   const [inviteRole, setInviteRole] = useState<UserRole>("kitchen_staff" as UserRole);
   const [inviting, setInviting] = useState(false);
+  // After Add user: the server-generated temp password (a real, working
+  // login) + whether an invite email also went out. Drives the
+  // "sign-in details" panel so the operator always has a way in, even
+  // when no email sender is configured. Mirrors the other admin
+  // add-user surfaces (/[slug]/admin/users, drivers, platform).
+  const [createResult, setCreateResult] = useState<
+    { email: string; name: string; tempPassword?: string; loginUrl?: string; emailed?: boolean } | null
+  >(null);
   // USR-C: Deactivate-confirm + role-mutation tracking. Held on a
   // per-user id so two clicks on different rows don't race.
   const [confirmDeactivate, setConfirmDeactivate] = useState<UserWithDepartments | null>(null);
@@ -368,8 +378,14 @@ function AdminUsersPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.company_id]);
 
-  // USR-C: invite-new-user submit handler. Validates input,
-  // calls existing inviteStaffMember service, resets the dialog.
+  // Add-new-user submit handler. Was the magic-link-only invite flow
+  // (staff_invitations + email, no usable login until the invitee
+  // clicked the email). That left no temp password on screen and broke
+  // completely when no email sender was configured. Now routes through
+  // /api/admin/create-user - the same server-side, service-role flow the
+  // other admin surfaces use: it creates an ACTIVE user immediately,
+  // generates a random password, emails an invite when possible, and
+  // returns the temp password so we can always show it on screen.
   const handleInviteSubmit = async () => {
     if (!user?.company_id || !user.id) return;
     const trimmedEmail = inviteEmail.trim();
@@ -380,36 +396,62 @@ function AdminUsersPage() {
     }
     setInviting(true);
     try {
-      const res = await userManagementService.inviteStaffMember(
-        user.company_id,
-        trimmedEmail,
-        inviteRole,
-        trimmedName || trimmedEmail.split("@")[0],
-        user.id,
-      );
-      if (!res.success) {
-        toast({ title: "Could not invite", description: res.error || "Unknown error", variant: "destructive" });
+      const res = await fetch("/api/admin/create-user", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({
+          email: trimmedEmail.toLowerCase(),
+          full_name: trimmedName || trimmedEmail.split("@")[0],
+          role: String(inviteRole),
+          company_id: user.company_id,
+        }),
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast({ title: "Could not add user", description: payload?.error || `Server returned ${res.status}`, variant: "destructive" });
         return;
       }
-      toast({
-        title: "Invitation sent",
-        description: res.error
-          ? `Invite created but email failed: ${res.error}`
-          : `Magic-link email queued to ${trimmedEmail}.`,
-      });
-      setInviteOpen(false);
-      setInviteEmail("");
-      setInviteName("");
-      setInviteRole("kitchen_staff" as UserRole);
+
+      // Refresh both lists (the user is active now; any stale pending
+      // invite row for this email is harmless).
+      void loadUsers();
       void loadInvitations();
+
+      // Always surface the credentials. The temp password is a working
+      // login even when the invite email goes out (the email only sends
+      // a set-password link, which doesn't invalidate the temp password).
+      setCreateResult({
+        email: trimmedEmail,
+        name: trimmedName || trimmedEmail.split("@")[0],
+        tempPassword: (payload as any)?.tempPassword,
+        loginUrl: (payload as any)?.loginUrl,
+        emailed: !!(payload as any)?.emailDelivered,
+      });
     } catch (err) {
       toast({
-        title: "Could not invite",
+        title: "Could not add user",
         description: err instanceof Error ? err.message : String(err),
         variant: "destructive",
       });
     } finally {
       setInviting(false);
+    }
+  };
+
+  // Copy the new user's sign-in details as a ready-to-send message.
+  const copyCreateResult = async () => {
+    if (!createResult) return;
+    const text =
+      `Email: ${createResult.email}\n` +
+      (createResult.tempPassword ? `Temporary password: ${createResult.tempPassword}\n` : "") +
+      (createResult.loginUrl ? `Sign in at: ${createResult.loginUrl}\n` : "") +
+      `Please change your password after first sign-in.`;
+    try {
+      await navigator.clipboard.writeText(text);
+      toast({ title: "Details copied", description: "Sign-in details copied to clipboard." });
+    } catch {
+      toast({ title: "Copy failed", description: "Browser blocked clipboard access.", variant: "destructive" });
     }
   };
 
@@ -722,7 +764,7 @@ function AdminUsersPage() {
                   className="bg-brand-primary hover:opacity-90 gap-1.5"
                 >
                   <UserPlus className="w-4 h-4" />
-                  Invite user
+                  Add user
                 </Button>
                 <Button
                   variant="outline"
@@ -1196,15 +1238,80 @@ function AdminUsersPage() {
       {/* USR-C (task #208, 2026-05-24): Invite User dialog. Calls
           the existing inviteStaffMember service (now functional
           after the staff_invitations email + full_name migration). */}
-      <Dialog open={inviteOpen} onOpenChange={(o) => { if (!o) setInviteOpen(false); }}>
+      <Dialog
+        open={inviteOpen}
+        onOpenChange={(o) => {
+          if (!o) {
+            setInviteOpen(false);
+            setCreateResult(null);
+            setInviteEmail("");
+            setInviteName("");
+            setInviteRole("kitchen_staff" as UserRole);
+          }
+        }}
+      >
         <DialogContent className="max-w-md">
+          {createResult ? (
+            <>
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <MailWarning className="w-5 h-5 text-amber-500" />
+                  {createResult.emailed ? "User added — sign-in details" : "Share these sign-in details"}
+                </DialogTitle>
+                <DialogDescription>
+                  {createResult.emailed
+                    ? "We emailed them a link to set their own password. They can also sign in right away with the temporary password below."
+                    : "No email sender is set up yet, so we couldn't email the invite. Pass these details to the user directly."}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-3">
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm space-y-1.5">
+                  <div><span className="text-slate-500">Email:</span> <strong>{createResult.email}</strong></div>
+                  {createResult.tempPassword && (
+                    <div>
+                      <span className="text-slate-500">Temporary password:</span>{" "}
+                      <strong className="font-mono">{createResult.tempPassword}</strong>
+                    </div>
+                  )}
+                  {createResult.loginUrl && (
+                    <div>
+                      <span className="text-slate-500">Sign in at:</span>{" "}
+                      <strong className="break-all">{createResult.loginUrl}</strong>
+                    </div>
+                  )}
+                  <p className="text-xs text-slate-500 pt-1">
+                    They should change this password after their first sign-in.
+                  </p>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={copyCreateResult} className="gap-1.5">
+                  <Copy className="w-4 h-4" /> Copy details
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => {
+                    setInviteOpen(false);
+                    setCreateResult(null);
+                    setInviteEmail("");
+                    setInviteName("");
+                    setInviteRole("kitchen_staff" as UserRole);
+                  }}
+                  className="bg-brand-primary hover:opacity-90"
+                >
+                  Done
+                </Button>
+              </DialogFooter>
+            </>
+          ) : (
+          <>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <UserPlus className="w-5 h-5 text-purple-600" />
-              Invite new user
+              Add new user
             </DialogTitle>
             <DialogDescription>
-              They'll get a magic-link email to set their password and pick their portal. Expires in 7 days.
+              They're created right away and we'll show you a temporary password to share. If an email sender is set up, they also get an invite link to set their own password.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
@@ -1259,10 +1366,12 @@ function AdminUsersPage() {
               disabled={inviting || !inviteEmail.trim()}
               className="bg-brand-primary hover:opacity-90 gap-1.5"
             >
-              {inviting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />}
-              {inviting ? "Sending..." : "Send invite"}
+              {inviting ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4" />}
+              {inviting ? "Adding..." : "Add user"}
             </Button>
           </DialogFooter>
+          </>
+          )}
         </DialogContent>
       </Dialog>
 
