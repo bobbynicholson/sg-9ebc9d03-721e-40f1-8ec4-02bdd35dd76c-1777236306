@@ -400,6 +400,36 @@ export const driverConfirmationService = {
       console.warn("[completeCollection] equipment return cascade crashed (non-blocking):", e);
     }
 
+    // Communication: the gear is back at the hub - tell the cleaning team
+    // there's a return to process. returnEquipment only flips status to
+    // 'returned' (no cleaning_job is created on this path), so nothing
+    // else pings them and handovers relied on a verbal nudge. One ping
+    // per collection trip. Best-effort.
+    try {
+      const { data: orderRow2 } = await (supabase as any)
+        .from("orders")
+        .select("company_id, order_number")
+        .eq("id", orderId)
+        .maybeSingle();
+      const handoverCompanyId = (orderRow2 as any)?.company_id;
+      if (handoverCompanyId) {
+        await notificationService.broadcastNotification({
+          companyId: handoverCompanyId,
+          type: "equipment_returned",
+          title: "Equipment returned for cleaning",
+          message: `Gear from order ${(orderRow2 as any)?.order_number || orderId.slice(0, 8)} is back at the hub and ready for cleaning intake.`,
+          targetRoles: ["cleaning_staff" as any],
+          priority: "normal",
+          link: "/team-portal/cleaning",
+          relatedEntityType: "order",
+          relatedEntityId: orderId,
+          dedup: true,
+        });
+      }
+    } catch (notifyErr) {
+      console.warn("[completeCollection] cleaning handover notification failed (non-blocking):", notifyErr);
+    }
+
     // autoClockOut to close the collection shift. Same pattern as
     // confirmAtVenue so single-driver days end cleanly.
     try {

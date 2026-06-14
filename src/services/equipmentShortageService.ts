@@ -73,29 +73,35 @@ export const equipmentShortageService = {
   },
 
   async createShortageNotification(flag: EquipmentShortageFlag) {
-    const { error } = await supabase
-      .from("notifications")
-      .insert({
-        user_id: flag.user_id,
-        recipient_id: flag.user_id,
-        notification_type: "equipment_shortage",
-        title: "Equipment Shortage Detected",
-        message: `${flag.client_name} returned ${flag.returned_quantity} of ${flag.expected_quantity} ${flag.equipment_name}. Shortage: ${flag.shortage_quantity} items.`,
+    // Audit: this inserted a single row with recipient_id = flag.user_id
+    // (the booking owner) despite the "for admin" intent, so the
+    // dispatch/admin team that actually resolves shortages never saw
+    // them. Broadcast to admin roles instead. company_id is now stamped
+    // on the flag (Wave 4 fix), so the fan-out can scope to the tenant.
+    const companyId = (flag as any).company_id;
+    if (!companyId) {
+      console.warn("[equipmentShortageService] shortage flag missing company_id; skipping notification");
+      return;
+    }
+    try {
+      const { notificationService } = await import("@/services/notificationService");
+      await notificationService.broadcastNotification({
+        companyId,
+        type: "equipment_shortage",
+        title: "Equipment shortage detected",
+        message: `${flag.client_name} returned ${flag.returned_quantity} of ${flag.expected_quantity} ${flag.equipment_name}. Shortage: ${flag.shortage_quantity} item${flag.shortage_quantity === 1 ? "" : "s"}.`,
+        targetRoles: ["super_admin", "company_admin", "admin", "region_admin", "owner"] as any,
+        priority: flag.priority === "urgent" || flag.priority === "high" ? "high" : "normal",
         // Equipment hub-with-tabs is the canonical home now. The
         // standalone /admin/equipment-shortages URL still resolves
         // for old bookmarks, but new notifications land in the tab.
         link: `/admin/equipment?tab=shortages&flag=${flag.id}`,
-        priority: flag.priority === "urgent" || flag.priority === "high" ? "high" : "normal",
-        metadata: {
-          flagId: flag.id,
-          orderId: flag.order_id,
-          equipmentId: flag.equipment_id,
-          shortageQuantity: flag.shortage_quantity
-        }
-      } as any);
-
-    if (error) {
-      console.error("Failed to create shortage notification:", error);
+        relatedEntityType: "equipment_shortage_flag",
+        relatedEntityId: flag.id,
+        dedup: true,
+      });
+    } catch (err) {
+      console.error("Failed to create shortage notification:", err);
     }
   },
 
