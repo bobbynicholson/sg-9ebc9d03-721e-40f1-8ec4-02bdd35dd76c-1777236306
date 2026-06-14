@@ -241,6 +241,45 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         payment_method: "payfast",
       } as any);
     }
+
+    // Notify owner/admins about the subscription lifecycle event - the
+    // webhook updated the DB but previously told no one. Best-effort,
+    // using the service client so the cross-tenant insert isn't RLS-
+    // blocked. Renewal success is informational; a failed renewal is
+    // urgent (access is at risk).
+    try {
+      const { notificationService } = await import("@/services/notificationService");
+      const billingRoles = ["owner", "company_admin", "super_admin", "admin"] as any;
+      if (paymentStatus === "COMPLETE" && !isFirstPayment) {
+        await notificationService.broadcastNotification({
+          companyId,
+          type: "subscription_renewed",
+          title: "Subscription renewed",
+          message: "Your CateringMS subscription renewed successfully.",
+          targetRoles: billingRoles,
+          priority: "normal",
+          link: "/admin/subscription",
+          relatedEntityType: "company",
+          relatedEntityId: companyId,
+          dedup: true,
+        }, sb);
+      } else if (paymentStatus === "FAILED") {
+        await notificationService.broadcastNotification({
+          companyId,
+          type: "payment_reminder",
+          title: "Subscription payment failed",
+          message: "Your latest subscription payment didn't go through. Update your payment method to avoid losing access.",
+          targetRoles: billingRoles,
+          priority: "urgent",
+          link: "/admin/subscription",
+          relatedEntityType: "company",
+          relatedEntityId: companyId,
+          dedup: true,
+        }, sb);
+      }
+    } catch (notifyErr) {
+      console.warn("[subscriptions/payfast] notification failed:", notifyErr);
+    }
   } catch (e: any) {
     console.error("[subscriptions/payfast] handler failed:", e);
     return res.status(500).json({ error: e?.message || "handler failed" });

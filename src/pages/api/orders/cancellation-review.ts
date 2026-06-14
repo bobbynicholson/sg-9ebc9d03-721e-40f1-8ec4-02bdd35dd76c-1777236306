@@ -456,6 +456,35 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       return res.status(500).json({ error: cancelResult.error || "Cancel failed" });
     }
 
+    // Tell the assigned staff to stand down. releaseResources (inside
+    // cancelOrder) reverses the DB allocations - prep tasks, equipment +
+    // vehicle bookings, driver assignments - but never told the people
+    // actually working the job. Broadcast to the ops roles + admins so
+    // no one shows up for a cancelled event. Best-effort, service client.
+    try {
+      const { data: ordRow } = await ssr
+        .from("orders")
+        .select("order_number")
+        .eq("id", (request as any).order_id)
+        .maybeSingle();
+      const orderLabel = (ordRow as any)?.order_number || String((request as any).order_id).slice(0, 8);
+      const { notificationService } = await import("@/services/notificationService");
+      await notificationService.broadcastNotification({
+        companyId: (request as any).company_id,
+        type: "cancellation_approved",
+        title: "Order cancelled - stand down",
+        message: `Order ${orderLabel} has been cancelled. Any prep, delivery or cleaning for it is off.`,
+        targetRoles: ["kitchen_staff", "driver", "cleaning_staff", "company_admin", "admin", "owner", "super_admin"] as any,
+        priority: "high",
+        link: `/admin/orders?orderId=${(request as any).order_id}`,
+        relatedEntityType: "order",
+        relatedEntityId: (request as any).order_id,
+        dedup: true,
+      }, ssr);
+    } catch (notifyErr) {
+      console.warn("[cancellation-review] staff stand-down notification failed:", notifyErr);
+    }
+
     await ssr.from("cancellation_requests").update({
       status: "approved",
       reviewed_by_user_id: user.id,
