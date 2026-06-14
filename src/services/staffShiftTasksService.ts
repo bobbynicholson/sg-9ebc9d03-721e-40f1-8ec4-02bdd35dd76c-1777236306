@@ -138,6 +138,79 @@ export async function createTask(
   }
 }
 
+/**
+ * Mark a shift task done. The table has no status enum - completion is
+ * `actual_end IS NOT NULL` (same convention as kitchen_shifts /
+ * driver_shifts), so we stamp actual_end now and backfill actual_start if
+ * the task was never explicitly started.
+ *
+ * Communication (notification-audit gap #11): when a staffer ticks off a
+ * task that an operator added to their shift, ping that operator so they
+ * know the work is done without having to chase. Mirrors createTask's
+ * assignment ping in reverse - best-effort, dedup'd, skips self (an
+ * operator closing out their own task doesn't need to notify themselves).
+ */
+export async function completeTask(
+  supabase: SupabaseClient,
+  taskId: string,
+  actorUserId?: string | null,
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const { data: row } = await (supabase as any)
+      .from("staff_shift_tasks")
+      .select("company_id, created_by_user_id, task_type, actual_start")
+      .eq("id", taskId)
+      .maybeSingle();
+
+    const nowIso = new Date().toISOString();
+    const { error } = await (supabase as any)
+      .from("staff_shift_tasks")
+      .update({
+        actual_end: nowIso,
+        actual_start: (row as any)?.actual_start ?? nowIso,
+      })
+      .eq("id", taskId);
+    if (error) return { ok: false, error: error.message };
+
+    const createdBy = (row as any)?.created_by_user_id;
+    if (createdBy && createdBy !== actorUserId) {
+      try {
+        const { notificationService } = await import("@/services/notificationService");
+        await notificationService.createNotification({
+          company_id: (row as any).company_id,
+          recipient_id: createdBy,
+          type: "shift_task_completed",
+          title: "Shift task completed",
+          message: `A ${(row as any)?.task_type || "shift"} task you added was marked done.`,
+          priority: "normal",
+          related_entity_type: "staff_shift_task",
+          related_entity_id: taskId,
+          dedup: true,
+        }, supabase);
+      } catch (notifyErr) {
+        console.warn("[staffShiftTasksService.completeTask] completion notify failed:", notifyErr);
+      }
+    }
+    return { ok: true };
+  } catch (e: any) {
+    return { ok: false, error: e?.message || "completeTask crashed" };
+  }
+}
+
+/** Undo a completion (clears actual_end). No notification - reopening is an
+ *  operator correction, not a communication event. */
+export async function reopenTask(
+  supabase: SupabaseClient,
+  taskId: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const { error } = await (supabase as any)
+    .from("staff_shift_tasks")
+    .update({ actual_end: null })
+    .eq("id", taskId);
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
+}
+
 export async function deleteTask(
   supabase: SupabaseClient,
   taskId: string,

@@ -606,6 +606,39 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       console.warn("[amendment-review] approve notify failed:", e);
     }
 
+    // Notification-audit gap #7: tell the working staff the order changed
+    // so they re-check their tasks against the amended details. The cascade
+    // above regenerates kitchen prep + inventory + invoice, but kitchen /
+    // driver / cleaning never heard about it, so they could keep working off
+    // stale guest counts / menus / venues. Mirrors the cancellation "stand
+    // down" broadcast. Best-effort + dedup'd; never rolls back the amendment.
+    try {
+      const { data: ordRow } = await ssr
+        .from("orders")
+        .select("order_number")
+        .eq("id", (request as any).order_id)
+        .maybeSingle();
+      const orderLabel = (ordRow as any)?.order_number || String((request as any).order_id).slice(0, 8);
+      const appliedHuman = Object.keys(toApply)
+        .map((k) => k.replace(/_/g, " "))
+        .join(", ") || "details";
+      const { notificationService } = await import("@/services/notificationService");
+      await notificationService.broadcastNotification({
+        companyId: (request as any).company_id,
+        type: "amendment_approved",
+        title: "Order amended — re-check your tasks",
+        message: `Order ${orderLabel} was amended (${appliedHuman}). Prep, delivery and equipment for it may have changed — please re-check your assigned work.`,
+        targetRoles: ["kitchen_staff", "driver", "cleaning_staff", "company_admin", "admin", "owner", "super_admin"] as any,
+        priority: "high",
+        link: `/admin/orders?orderId=${(request as any).order_id}`,
+        relatedEntityType: "order",
+        relatedEntityId: (request as any).order_id,
+        dedup: true,
+      }, ssr);
+    } catch (notifyErr) {
+      console.warn("[amendment-review] staff broadcast failed:", notifyErr);
+    }
+
     // LCF-T: client email so the change lands even for clients who
     // don't live in the portal. Uses the order_changed template (with
     // a partial flag when only some keys applied) so an operator can

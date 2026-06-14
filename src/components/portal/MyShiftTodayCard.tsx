@@ -174,6 +174,7 @@ export function MyShiftTodayCard({
                   tasks={tasksByShift.get(s.id) || []}
                   onAddClick={() => setAddTaskTarget({ shiftId: s.id })}
                   onChanged={refresh}
+                  actorUserId={userId}
                 />
               </div>
             );
