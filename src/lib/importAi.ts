@@ -36,6 +36,58 @@ function client(): any {
   return _client;
 }
 
+// ── Provider selection (shared) ───────────────────────────────────────
+// Anthropic-first when its key is present, Groq as the fallback. Callers
+// loop this order and fall through to the next provider on error.
+function aiProviderOrder(): Array<"anthropic" | "groq"> {
+  const order: Array<"anthropic" | "groq"> = [];
+  if (process.env.ANTHROPIC_API_KEY) order.push("anthropic");
+  if (process.env.GROQ_API_KEY) order.push("groq");
+  return order;
+}
+
+// Text-only Groq model for the structured-JSON tasks (column mapping,
+// row repair, blog draft). Vision tasks use the receipt models below.
+const GROQ_TEXT_MODEL = process.env.GROQ_TEXT_MODEL || "llama-3.3-70b-versatile";
+
+/**
+ * Generic Groq JSON call. Groq's OpenAI-compatible endpoint with
+ * response_format=json_object, parsed defensively. Used by the text
+ * tasks that previously relied on Anthropic tool-use.
+ */
+async function callGroqJson(args: {
+  system: string;
+  user: string;
+  model?: string;
+  maxTokens?: number;
+}): Promise<{ data: any; tokens_in: number; tokens_out: number }> {
+  const apiKey = process.env.GROQ_API_KEY;
+  if (!apiKey) throw new Error("GROQ_API_KEY is not configured");
+  const res = await fetch(`${GROQ_BASE_URL}/chat/completions`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: args.model || GROQ_TEXT_MODEL,
+      temperature: 0,
+      max_tokens: args.maxTokens ?? 2048,
+      response_format: { type: "json_object" },
+      messages: [
+        { role: "system", content: args.system },
+        { role: "user", content: args.user },
+      ],
+    }),
+  });
+  if (!res.ok) {
+    const t = await res.text().catch(() => "");
+    throw new Error(`Groq API ${res.status}: ${t.slice(0, 300) || res.statusText}`);
+  }
+  const json: any = await res.json();
+  const content: string = json?.choices?.[0]?.message?.content ?? "";
+  let data: any = null;
+  try { data = JSON.parse(content); } catch { data = parseReceiptJson(content); }
+  return { data, tokens_in: json?.usage?.prompt_tokens ?? 0, tokens_out: json?.usage?.completion_tokens ?? 0 };
+}
+
 // ── Target schemas ────────────────────────────────────────────────────
 
 /** Fields the importer can fill on the clients table. */
@@ -121,78 +173,98 @@ export async function mapColumnsViaAI(args: MapColumnsArgs): Promise<{
     sample_rows: samples,
   });
 
-  // Cast the SDK call to any: the @anthropic-ai/sdk types tighten
-  // tool_choice + content block shapes between minor versions and
-  // we don't want a future SDK upgrade to break compile. Runtime
-  // shape is stable.
-  const response: any = await (client().messages.create as any)({
-    model: DEFAULT_MODEL,
-    max_tokens: 1024,
-    system: SYSTEM_PROMPT,
-    tools: [
-      {
-        name: "return_mapping",
-        description:
-          "Return the header -> target mapping. One entry per source header.",
-        input_schema: {
-          type: "object",
-          properties: {
-            mappings: {
-              type: "array",
-              items: {
+  // Provider chain: Anthropic (tool-use) first when its key is set,
+  // then Groq (JSON mode). Falls through to the next provider on error.
+  const providers = aiProviderOrder();
+  if (providers.length === 0) {
+    throw new Error("No AI key configured - set ANTHROPIC_API_KEY or GROQ_API_KEY on the server.");
+  }
+
+  let lastErr: unknown = null;
+  for (const provider of providers) {
+    try {
+      let rawMappings: any[] = [];
+      let tokensIn = 0;
+      let tokensOut = 0;
+
+      if (provider === "anthropic") {
+        // Cast the SDK call to any: the @anthropic-ai/sdk types tighten
+        // tool_choice + content block shapes between minor versions.
+        const response: any = await (client().messages.create as any)({
+          model: DEFAULT_MODEL,
+          max_tokens: 1024,
+          system: SYSTEM_PROMPT,
+          tools: [
+            {
+              name: "return_mapping",
+              description: "Return the header -> target mapping. One entry per source header.",
+              input_schema: {
                 type: "object",
                 properties: {
-                  source_header: { type: "string" },
-                  target: { type: "string" },
-                  confidence: { type: "number", minimum: 0, maximum: 1 },
-                  rationale: { type: "string" },
+                  mappings: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      properties: {
+                        source_header: { type: "string" },
+                        target: { type: "string" },
+                        confidence: { type: "number", minimum: 0, maximum: 1 },
+                        rationale: { type: "string" },
+                      },
+                      required: ["source_header", "target", "confidence", "rationale"],
+                      additionalProperties: false,
+                    },
+                  },
                 },
-                required: ["source_header", "target", "confidence", "rationale"],
+                required: ["mappings"],
                 additionalProperties: false,
               },
             },
-          },
-          required: ["mappings"],
-          additionalProperties: false,
-        },
-      },
-    ],
-    tool_choice: { type: "tool", name: "return_mapping" },
-    messages: [{ role: "user", content: userMessage }],
-  });
-
-  const tokensIn: number = response?.usage?.input_tokens ?? 0;
-  const tokensOut: number = response?.usage?.output_tokens ?? 0;
-
-  // Pull the tool_use block. With tool_choice forced, this is the
-  // only content we expect.
-  let mapping: ColumnMappingResult[] = [];
-  const blocks: any[] = Array.isArray(response?.content) ? response.content : [];
-  for (const block of blocks) {
-    if (block?.type === "tool_use" && block?.name === "return_mapping") {
-      const input = block.input as any;
-      if (Array.isArray(input?.mappings)) {
-        mapping = input.mappings.map((m: any) => ({
-          source_header: String(m.source_header ?? ""),
-          target: String(m.target ?? "skip"),
-          confidence: Number(m.confidence ?? 0),
-          rationale: String(m.rationale ?? ""),
-        }));
+          ],
+          tool_choice: { type: "tool", name: "return_mapping" },
+          messages: [{ role: "user", content: userMessage }],
+        });
+        tokensIn = response?.usage?.input_tokens ?? 0;
+        tokensOut = response?.usage?.output_tokens ?? 0;
+        const blocks: any[] = Array.isArray(response?.content) ? response.content : [];
+        for (const block of blocks) {
+          if (block?.type === "tool_use" && block?.name === "return_mapping") {
+            if (Array.isArray(block.input?.mappings)) rawMappings = block.input.mappings;
+            break;
+          }
+        }
+      } else {
+        const groqSystem = SYSTEM_PROMPT +
+          `\n\nReturn ONLY a JSON object: { "mappings": [ { "source_header": string, "target": string, "confidence": number, "rationale": string } ] }`;
+        const { data, tokens_in, tokens_out } = await callGroqJson({ system: groqSystem, user: userMessage });
+        tokensIn = tokens_in;
+        tokensOut = tokens_out;
+        if (Array.isArray(data?.mappings)) rawMappings = data.mappings;
       }
-      break;
+
+      const mapping: ColumnMappingResult[] = rawMappings.map((m: any) => ({
+        source_header: String(m.source_header ?? ""),
+        target: String(m.target ?? "skip"),
+        confidence: Number(m.confidence ?? 0),
+        rationale: String(m.rationale ?? ""),
+      }));
+
+      // Belt-and-braces: ensure every source header has a row. The model
+      // sometimes drops blanks; we default missing ones to 'skip'.
+      const seen = new Set(mapping.map((m) => m.source_header));
+      for (const h of args.headers) {
+        if (!seen.has(h)) {
+          mapping.push({ source_header: h, target: "skip", confidence: 0, rationale: "Not returned by model" });
+        }
+      }
+
+      return { mapping, tokens_in: tokensIn, tokens_out: tokensOut };
+    } catch (e) {
+      console.warn(`[mapColumnsViaAI] provider ${provider} failed:`, e);
+      lastErr = e;
     }
   }
-
-  // Belt-and-braces: ensure every source header has a row. The model
-  // sometimes drops blanks; we default missing ones to 'skip'.
-  const seen = new Set(mapping.map((m) => m.source_header));
-  for (const h of args.headers) {
-    if (!seen.has(h)) {
-      mapping.push({ source_header: h, target: "skip", confidence: 0, rationale: "Not returned by model" });
-    }
-  }
-
-  return { mapping, tokens_in: tokensIn, tokens_out: tokensOut };
+  throw lastErr instanceof Error ? lastErr : new Error("Column mapping failed");
 }
 
 // ── Orphan-row fixer ────────────────────────────────────────────────────
@@ -262,61 +334,84 @@ ${args.errorMessage ? `- ERROR: ${args.errorMessage}\n` : ""}${args.warnings.map
 
 Return only the fields where you can improve on the current mapping. Use the return_repair tool.`;
 
-  const response: any = await (client().messages.create as any)({
-    model: ROW_REPAIR_MODEL,
-    max_tokens: 1024,
-    system: REPAIR_SYSTEM,
-    tools: [
-      {
-        name: "return_repair",
-        description: "Return repaired field values plus a short explanation.",
-        input_schema: {
-          type: "object",
-          properties: {
-            fixes: {
-              type: "object",
-              description: "Map of target_field -> repaired value. Omit fields you can't improve.",
-              additionalProperties: { type: ["string", "number", "null"] },
-            },
-            rationale: {
-              type: "string",
-              description: "One sentence explaining what was changed and why.",
-            },
-            unresolved: {
-              type: "array",
-              items: { type: "string" },
-              description: "Issues you couldn't fix automatically. Operator follow-up needed.",
-            },
-          },
-          required: ["fixes", "rationale", "unresolved"],
-          additionalProperties: false,
-        },
-      },
-    ],
-    tool_choice: { type: "tool", name: "return_repair" },
-    messages: [{ role: "user", content: userMessage }],
-  });
-
-  const tokensIn = response?.usage?.input_tokens || 0;
-  const tokensOut = response?.usage?.output_tokens || 0;
-
-  let result: RepairRowResult = { fixes: {}, rationale: "", unresolved: [] };
-  const blocks: any[] = Array.isArray(response?.content) ? response.content : [];
-  for (const block of blocks) {
-    if (block?.type === "tool_use" && block?.name === "return_repair") {
-      const input = block.input as any;
-      result = {
-        fixes: (input?.fixes && typeof input.fixes === "object") ? input.fixes : {},
-        rationale: String(input?.rationale ?? ""),
-        unresolved: Array.isArray(input?.unresolved)
-          ? input.unresolved.map((s: any) => String(s))
-          : [],
-      };
-      break;
-    }
+  const providers = aiProviderOrder();
+  if (providers.length === 0) {
+    throw new Error("No AI key configured - set ANTHROPIC_API_KEY or GROQ_API_KEY on the server.");
   }
 
-  return { result, tokens_in: tokensIn, tokens_out: tokensOut };
+  let lastErr: unknown = null;
+  for (const provider of providers) {
+    try {
+      let result: RepairRowResult = { fixes: {}, rationale: "", unresolved: [] };
+      let tokensIn = 0;
+      let tokensOut = 0;
+
+      if (provider === "anthropic") {
+        const response: any = await (client().messages.create as any)({
+          model: ROW_REPAIR_MODEL,
+          max_tokens: 1024,
+          system: REPAIR_SYSTEM,
+          tools: [
+            {
+              name: "return_repair",
+              description: "Return repaired field values plus a short explanation.",
+              input_schema: {
+                type: "object",
+                properties: {
+                  fixes: {
+                    type: "object",
+                    description: "Map of target_field -> repaired value. Omit fields you can't improve.",
+                    additionalProperties: { type: ["string", "number", "null"] },
+                  },
+                  rationale: { type: "string", description: "One sentence explaining what was changed and why." },
+                  unresolved: {
+                    type: "array",
+                    items: { type: "string" },
+                    description: "Issues you couldn't fix automatically. Operator follow-up needed.",
+                  },
+                },
+                required: ["fixes", "rationale", "unresolved"],
+                additionalProperties: false,
+              },
+            },
+          ],
+          tool_choice: { type: "tool", name: "return_repair" },
+          messages: [{ role: "user", content: userMessage }],
+        });
+        tokensIn = response?.usage?.input_tokens || 0;
+        tokensOut = response?.usage?.output_tokens || 0;
+        const blocks: any[] = Array.isArray(response?.content) ? response.content : [];
+        for (const block of blocks) {
+          if (block?.type === "tool_use" && block?.name === "return_repair") {
+            const input = block.input as any;
+            result = {
+              fixes: (input?.fixes && typeof input.fixes === "object") ? input.fixes : {},
+              rationale: String(input?.rationale ?? ""),
+              unresolved: Array.isArray(input?.unresolved) ? input.unresolved.map((s: any) => String(s)) : [],
+            };
+            break;
+          }
+        }
+      } else {
+        const groqSystem = REPAIR_SYSTEM +
+          `\n\nReturn ONLY a JSON object: { "fixes": { <field>: <value> }, "rationale": string, "unresolved": [string] }`;
+        const { data, tokens_in, tokens_out } = await callGroqJson({ system: groqSystem, user: userMessage });
+        tokensIn = tokens_in;
+        tokensOut = tokens_out;
+        result = {
+          fixes: (data?.fixes && typeof data.fixes === "object") ? data.fixes : {},
+          rationale: String(data?.rationale ?? ""),
+          unresolved: Array.isArray(data?.unresolved) ? data.unresolved.map((s: any) => String(s)) : [],
+        };
+      }
+
+      return { result, tokens_in: tokensIn, tokens_out: tokensOut };
+    } catch (e) {
+      console.warn(`[repairRowViaAI] provider ${provider} failed:`, e);
+      lastErr = e;
+    }
+  }
+  throw lastErr instanceof Error ? lastErr : new Error("Row repair failed");
 }
 
 // ── Receipt vision extractor ─────────────────────────────────────────────
