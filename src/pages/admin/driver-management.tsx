@@ -14,7 +14,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Truck, UserPlus, Mail, Phone, Search, MoreVertical, Activity, Clock, Settings, MapPin, Calendar, Snowflake, Flame, Users, User, Building2, Download, X, RefreshCw } from "lucide-react";
+import { Truck, UserPlus, Mail, Phone, Search, MoreVertical, Activity, Clock, Settings, MapPin, Calendar, Snowflake, Flame, Users, User, Building2, Download, X, RefreshCw, Copy, MailWarning } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { LogDriverShiftModal } from "@/components/admin/LogDriverShiftModal";
@@ -93,6 +93,15 @@ function DriverManagementPage() {
   // Phase 29 #10: "n" opens the Add New Driver dialog.
   const searchRef = useRef<HTMLInputElement>(null);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  // After a driver is created, the server returns a one-time temp
+  // password (it generates its own random one - the password field the
+  // operator types is ignored server-side). When the invite email can't
+  // be sent (tenant has no email provider), we keep the dialog open and
+  // show these credentials so the operator can pass them on by hand.
+  // Mirrors the Staff Management page (/[slug]/admin/users).
+  const [createResult, setCreateResult] = useState<
+    { email: string; name: string; tempPassword?: string; loginUrl?: string } | null
+  >(null);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement) return;
@@ -420,13 +429,11 @@ function DriverManagementPage() {
     setAddDriverLoading(true);
 
     // ── Validate driver basics ──
-    if (!newDriver.name || !newDriver.email || !newDriver.phone || !newDriver.password) {
-      setError("Fill in name, email, phone and password.");
-      setAddDriverLoading(false);
-      return;
-    }
-    if (newDriver.password.length < 6) {
-      setError("Password must be at least 6 characters long.");
+    // No password field: the server generates a per-user random password
+    // and returns it once (security fix, May 2026 - the old typed/shared
+    // password was a hole). We surface that temp password after creation.
+    if (!newDriver.name || !newDriver.email || !newDriver.phone) {
+      setError("Fill in name, email and phone.");
       setAddDriverLoading(false);
       return;
     }
@@ -462,7 +469,6 @@ function DriverManagementPage() {
         credentials: "same-origin",
         body: JSON.stringify({
           email: newDriver.email,
-          password: newDriver.password,
           full_name: newDriver.name,
           phone: newDriver.phone,
           role: "driver",
@@ -488,6 +494,11 @@ function DriverManagementPage() {
       }
 
       newDriverId = payload?.user?.id || null;
+
+      // One-time sign-in details the server minted for this driver.
+      const tempPassword = payload?.tempPassword as string | undefined;
+      const emailDelivered = !!payload?.emailDelivered;
+      const loginUrl = payload?.loginUrl as string | undefined;
 
       // Stamp the optional ops fields the API doesn't write (postcode,
       // max jobs per shift, pay-rate overrides). Done as a separate
@@ -595,17 +606,49 @@ function DriverManagementPage() {
         duration: 4000,
       });
 
-      setIsAddDialogOpen(false);
-      resetNewDriver();
       loadDrivers();
       // Refresh the local vehicle list so the new driver-owned vehicle
       // (or the freshly-claimed company vehicle) reflects in pickers.
       vehicleService.getVehiclesForCompany(user.company_id).then(setVehicles);
+
+      if (emailDelivered) {
+        // Invite emailed - the driver sets their own password. Close up.
+        setIsAddDialogOpen(false);
+        resetNewDriver();
+      } else {
+        // No email sender configured (or send failed): keep the dialog
+        // open and show the credentials so the operator can pass them on.
+        // Without this the random server-generated password is lost and
+        // the driver can never sign in.
+        setCreateResult({
+          email: newDriver.email,
+          name: newDriver.name,
+          tempPassword,
+          loginUrl,
+        });
+      }
     } catch (err: any) {
       console.error("Error adding driver:", err);
       setError(err?.message || "Network or browser error, check the console for details.");
     } finally {
       setAddDriverLoading(false);
+    }
+  };
+
+  // Copy the freshly-created driver's sign-in details as a ready-to-send
+  // message (the operator pastes it into WhatsApp / SMS / email).
+  const copyDriverCreds = async () => {
+    if (!createResult) return;
+    const text =
+      `Email: ${createResult.email}\n` +
+      (createResult.tempPassword ? `Temporary password: ${createResult.tempPassword}\n` : "") +
+      (createResult.loginUrl ? `Sign in at: ${createResult.loginUrl}\n` : "") +
+      `Please change your password after first sign-in.`;
+    try {
+      await navigator.clipboard.writeText(text);
+      toast({ title: "Details copied", description: "Sign-in details copied to clipboard." });
+    } catch {
+      toast({ title: "Copy failed", description: "Browser blocked clipboard access.", variant: "destructive" });
     }
   };
 
@@ -794,7 +837,7 @@ function DriverManagementPage() {
                 open={isAddDialogOpen}
                 onOpenChange={(o) => {
                   setIsAddDialogOpen(o);
-                  if (!o) { resetNewDriver(); setError(""); }
+                  if (!o) { resetNewDriver(); setError(""); setCreateResult(null); }
                 }}
               >
                 <DialogTrigger asChild>
@@ -806,13 +849,51 @@ function DriverManagementPage() {
                 <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                   <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
-                      <UserPlus className="w-5 h-5 text-indigo-600" />
-                      Add New Driver
+                      {createResult ? (
+                        <><MailWarning className="w-5 h-5 text-amber-500" /> Share these sign-in details</>
+                      ) : (
+                        <><UserPlus className="w-5 h-5 text-indigo-600" /> Add New Driver</>
+                      )}
                     </DialogTitle>
                     <p className="text-sm text-slate-500 mt-1">
-                      Driver basics, operational details and the vehicle, all in one go.
+                      {createResult
+                        ? "We couldn't email the invite (no email sender set up yet). Pass these details to the driver directly."
+                        : "Driver basics, operational details and the vehicle, all in one go."}
                     </p>
                   </DialogHeader>
+                  {createResult ? (
+                    <div className="space-y-3">
+                      <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm space-y-1.5">
+                        <div><span className="text-slate-500">Email:</span> <strong>{createResult.email}</strong></div>
+                        {createResult.tempPassword && (
+                          <div>
+                            <span className="text-slate-500">Temporary password:</span>{" "}
+                            <strong className="font-mono">{createResult.tempPassword}</strong>
+                          </div>
+                        )}
+                        {createResult.loginUrl && (
+                          <div>
+                            <span className="text-slate-500">Sign in at:</span>{" "}
+                            <strong className="break-all">{createResult.loginUrl}</strong>
+                          </div>
+                        )}
+                        <p className="text-xs text-slate-500 pt-1">
+                          The driver should change this password after their first sign-in.
+                        </p>
+                      </div>
+                      <div className="flex justify-between gap-2 pt-1">
+                        <Button type="button" variant="outline" onClick={copyDriverCreds} className="gap-1.5">
+                          <Copy className="w-4 h-4" /> Copy details
+                        </Button>
+                        <Button
+                          type="button"
+                          onClick={() => { setIsAddDialogOpen(false); resetNewDriver(); setCreateResult(null); }}
+                        >
+                          Done
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
                   <form onSubmit={handleAddDriver} className="space-y-5">
                     {error && (
                       <Alert variant="destructive">
@@ -864,16 +945,12 @@ function DriverManagementPage() {
                             />
                           </div>
                           <div>
-                            <Label htmlFor="password">Password *</Label>
-                            <Input
-                              id="password"
-                              type="password"
-                              value={newDriver.password}
-                              onChange={(e) => setNewDriver({ ...newDriver, password: e.target.value })}
-                              placeholder="At least 6 characters"
-                              className="mt-1"
-                              required
-                            />
+                            <Label className="text-slate-500">Password</Label>
+                            <p className="mt-1 text-xs text-slate-500 leading-relaxed">
+                              Auto-generated. We&apos;ll show you a temporary password to
+                              share once the driver is created (or email them an invite
+                              if your business has an email sender set up).
+                            </p>
                           </div>
                         </div>
                       </CardContent>
@@ -1193,6 +1270,7 @@ function DriverManagementPage() {
                       {addDriverLoading ? "Adding driver..." : "Add driver"}
                     </Button>
                   </form>
+                  )}
                 </DialogContent>
               </Dialog>
             </div>
