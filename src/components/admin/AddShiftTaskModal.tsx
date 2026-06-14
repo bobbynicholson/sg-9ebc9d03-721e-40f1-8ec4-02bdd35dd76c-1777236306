@@ -51,6 +51,9 @@ interface Props {
   /** Default selection (e.g. 'cleaning' from cleaning-schedule). */
   defaultType?: TaskType;
   actorUserId?: string | null;
+  /** Profile id of the staffer who owns this shift, so the new task
+   *  pings them. Resolved by the caller (the shift row holds it). */
+  assignedUserId?: string | null;
   onCreated?: () => void;
 }
 
@@ -89,6 +92,7 @@ export function AddShiftTaskModal({
   allowedTypes,
   defaultType,
   actorUserId,
+  assignedUserId,
   onCreated,
 }: Props) {
   const { toast } = useToast();
@@ -218,6 +222,7 @@ export function AddShiftTaskModal({
         billable,
         notes,
         actorUserId,
+        assignedUserId: assignedUserId ?? null,
       });
       if (!taskRes.ok) {
         setError(taskRes.error || "Could not save task");

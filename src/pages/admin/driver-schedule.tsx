@@ -113,7 +113,7 @@ function DriverScheduleGrid() {
   // schedule grids so a driver shift can carry typed tasks
   // (delivery / waitering / setup / breakdown / etc).
   const [tasksByShift, setTasksByShift] = useState<Map<string, ShiftTaskRow[]>>(new Map());
-  const [addTaskTarget, setAddTaskTarget] = useState<{ shiftId: string } | null>(null);
+  const [addTaskTarget, setAddTaskTarget] = useState<{ shiftId: string; assignedUserId: string | null } | null>(null);
   const todayIso = useMemo(() => toLocalISO(new Date()), []);
 
   const weekDays = useMemo(
@@ -441,7 +441,7 @@ function DriverScheduleGrid() {
                                               <div onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
                                                 <ShiftTasksChips
                                                   tasks={tasksByShift.get(s.id) || []}
-                                                  onAddClick={() => setAddTaskTarget({ shiftId: s.id })}
+                                                  onAddClick={() => setAddTaskTarget({ shiftId: s.id, assignedUserId: s.driver_id })}
                                                   onChanged={refreshTasks}
                                                 />
                                               </div>
@@ -531,6 +531,7 @@ function DriverScheduleGrid() {
           onOpenChange={(o) => !o && setAddTaskTarget(null)}
           companyId={companyId}
           shiftId={addTaskTarget.shiftId}
+          assignedUserId={addTaskTarget.assignedUserId}
           defaultType="delivery"
           actorUserId={user?.id ?? null}
           onCreated={() => { setAddTaskTarget(null); void refreshTasks(); }}

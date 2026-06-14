@@ -85,6 +85,11 @@ export async function createTask(
     relatedEntityId?: string | null;
     notes?: string | null;
     actorUserId?: string | null;
+    /** Profile id of the staffer who owns the parent shift. The shift
+     *  tables are polymorphic (kitchen_shifts.staff_id /
+     *  driver_shifts.driver_id), so the caller - which holds the shift
+     *  row - resolves this and passes it in for the assignment ping. */
+    assignedUserId?: string | null;
   },
 ): Promise<{ ok: boolean; taskId?: string; error?: string }> {
   try {
@@ -104,7 +109,30 @@ export async function createTask(
       .select("id")
       .single();
     if (error) return { ok: false, error: error.message };
-    return { ok: true, taskId: (data as any)?.id };
+    const taskId = (data as any)?.id;
+    // Communication: tell the staffer a task was added to their shift so
+    // they aren't blindsided on the day. Best-effort - a notify failure
+    // must never fail task creation. Skip self-assignment (an operator
+    // adding a task to their own shift doesn't need a ping).
+    if (args.assignedUserId && args.assignedUserId !== args.actorUserId) {
+      try {
+        const { notificationService } = await import("@/services/notificationService");
+        await notificationService.createNotification({
+          company_id: args.companyId,
+          recipient_id: args.assignedUserId,
+          type: "shift_task_assigned",
+          title: "New task on your shift",
+          message: `A ${args.taskType} task was added to your shift${args.plannedMinutes ? ` (${args.plannedMinutes} min)` : ""}.`,
+          priority: "normal",
+          related_entity_type: "staff_shift_task",
+          related_entity_id: taskId ?? undefined,
+          dedup: true,
+        }, supabase);
+      } catch (notifyErr) {
+        console.warn("[staffShiftTasksService.createTask] assignment notify failed:", notifyErr);
+      }
+    }
+    return { ok: true, taskId };
   } catch (e: any) {
     return { ok: false, error: e?.message || "createTask crashed" };
   }

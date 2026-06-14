@@ -165,7 +165,7 @@ function KitchenScheduleGrid() {
   // delivery / shopping / waitering / setup / breakdown / admin).
   // Indexed by shift_id for O(1) cell render lookup.
   const [tasksByShift, setTasksByShift] = useState<Map<string, ShiftTaskRow[]>>(new Map());
-  const [addTaskTarget, setAddTaskTarget] = useState<{ shiftId: string } | null>(null);
+  const [addTaskTarget, setAddTaskTarget] = useState<{ shiftId: string; assignedUserId: string | null } | null>(null);
 
   const weekDays = useMemo(
     () => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)),
@@ -713,7 +713,7 @@ function KitchenScheduleGrid() {
                                               {/* Wave 41 Phase 3: typed task chips. */}
                                               <ShiftTasksChips
                                                 tasks={tasksByShift.get(s.id) || []}
-                                                onAddClick={() => setAddTaskTarget({ shiftId: s.id })}
+                                                onAddClick={() => setAddTaskTarget({ shiftId: s.id, assignedUserId: s.staff_id })}
                                                 onChanged={refreshTasks}
                                               />
                                             </div>
@@ -916,6 +916,7 @@ function KitchenScheduleGrid() {
           onOpenChange={(o) => !o && setAddTaskTarget(null)}
           companyId={companyId}
           shiftId={addTaskTarget.shiftId}
+          assignedUserId={addTaskTarget.assignedUserId}
           defaultType="kitchen"
           actorUserId={user?.id ?? null}
           onCreated={() => { setAddTaskTarget(null); void refreshTasks(); }}
