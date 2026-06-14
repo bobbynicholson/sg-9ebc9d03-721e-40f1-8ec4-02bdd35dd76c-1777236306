@@ -96,20 +96,33 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     }
 
     // 2. Notify the client (if there is a linked client account).
+    //    NOTE: orders.client_id is a FK to clients.id, NOT an auth user id.
+    //    notifications.recipient_id must be an auth user id (RLS filters on
+    //    it), so resolve the real auth uid first — otherwise the row inserts
+    //    against a clients.id that no auth user matches and the client never
+    //    sees it. Mirrors orderWorkflow.sendStatusNotifications.
+    let notifiedClient = false;
     if ((order as any).client_id) {
       try {
-        await notificationService.createNotification({
-          company_id: (order as any).company_id,
-          user_id: (order as any).client_id,
-          recipient_id: (order as any).client_id,
-          notification_type: "delivery_eta_changed",
-          title: `Update on your delivery`,
-          message: `Your driver is running ~${delayMinutes} minutes late for order ${orderLabel}. They're on the way.`,
-          priority: "normal",
-          link: `/client-portal/tracking`,
-          related_entity_type: "order",
-          related_entity_id: orderId,
-        } as any);
+        const { resolveClientUserId } = await import("@/services/lifecycle/resolveClientUserId");
+        const clientAuthUid = await resolveClientUserId(ssr, (order as any).client_id);
+        if (clientAuthUid) {
+          await notificationService.createNotification({
+            company_id: (order as any).company_id,
+            user_id: clientAuthUid,
+            recipient_id: clientAuthUid,
+            notification_type: "delivery_eta_changed",
+            title: `Update on your delivery`,
+            message: `Your driver is running ~${delayMinutes} minutes late for order ${orderLabel}. They're on the way.`,
+            priority: "normal",
+            link: `/client-portal/tracking`,
+            related_entity_type: "order",
+            related_entity_id: orderId,
+          } as any);
+          notifiedClient = true;
+        } else {
+          console.warn(`[eta-change] no auth uid for client_id=${(order as any).client_id}; skipping client notify`);
+        }
       } catch (e) {
         console.warn("[eta-change] client notify failed:", e);
       }
@@ -120,7 +133,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       orderId,
       delay_minutes: delayMinutes,
       notified_admin: true,
-      notified_client: !!(order as any).client_id,
+      notified_client: notifiedClient,
       adminOverride: isAdminOverride,
     });
   } catch (err: any) {

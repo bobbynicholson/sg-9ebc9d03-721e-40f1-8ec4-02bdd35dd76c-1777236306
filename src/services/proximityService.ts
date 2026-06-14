@@ -2,6 +2,22 @@
 import { supabase } from "@/integrations/supabase/client";
 import { notificationService } from "./notificationService";
 
+// orders.client_id is a FK to clients.id, but notifications.recipient_id
+// must be an auth user id. Resolve the linked auth uid best-effort — this
+// runs on the driver's browser client, so RLS may block the clients/profiles
+// lookup; on any failure we return null and the caller falls back to a known
+// auth user (the order creator) rather than dropping the notification.
+async function resolveClientAuthUid(clientId: string | null): Promise<string | null> {
+  if (!clientId) return null;
+  try {
+    const { resolveClientUserId } = await import("./lifecycle/resolveClientUserId");
+    return await resolveClientUserId(supabase, clientId);
+  } catch (e) {
+    console.warn("[proximityService] resolveClientAuthUid failed:", e);
+    return null;
+  }
+}
+
 interface SimpleOrder {
   id: string;
   user_id: string | null;
@@ -222,10 +238,14 @@ async function checkProximityAndNotify(
         if (!arrived) {
           // Client-facing arrival ping. Deep-links to the client portal
           // tracking page where they can see the live driver position.
+          // orders.client_id is a clients.id FK, NOT an auth user id, so it
+          // can't be a notifications.recipient_id (RLS filters on the auth
+          // uid). Resolve the real auth uid; fall back to the order creator.
+          const clientAuthUid = await resolveClientAuthUid(order.client_id);
           await notificationService.createNotification({
             company_id: order.company_id,
             user_id: order.user_id,
-            recipient_id: order.client_id || order.user_id,
+            recipient_id: clientAuthUid || order.user_id,
             notification_type: "driver_arrived",
             title: "Driver Has Arrived! 🎉",
             message: `Your driver has arrived at ${order.venue_address}. Food delivery in progress!`,
@@ -257,11 +277,14 @@ async function checkProximityAndNotify(
       if (!recent && order.user_id && order.company_id) {
         // Client-facing ETA ping. Same deep-link target as the
         // arrival notification - the tracking page is where they
-        // can watch the driver come in.
+        // can watch the driver come in. Resolve the client's auth uid
+        // (client_id is a clients.id FK, not an auth user id); fall back
+        // to the order creator so the ping is never silently dropped.
+        const clientAuthUid = await resolveClientAuthUid(order.client_id);
         await notificationService.createNotification({
           company_id: order.company_id,
           user_id: order.user_id,
-          recipient_id: order.client_id || order.user_id,
+          recipient_id: clientAuthUid || order.user_id,
           notification_type: "driver_10_minutes_away",
           title: "Driver 10 Minutes Away ⏰",
           message: `Your driver is approximately 10 minutes from ${order.venue_address}. Please be ready to receive your delivery!`,
