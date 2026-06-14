@@ -197,22 +197,15 @@ export function useActiveShoppingList(): UseActiveShoppingList {
         isYours,
       });
 
-      // SHP2-F (SHP2-31): pull the linked inventory_item's preferred
-      // supplier so the dashboard can group "buy at PnP" vs "buy at
-      // Makro". One round trip - the select reaches through item_id
-      // -> inventory_items -> suppliers via the standard FK joins.
-      // Items without an inventory link (freestyle adds) get null
-      // supplier and fall into an "Other" group.
+      // Base item rows. NO PostgREST embeds here: shopping_list_items.
+      // item_id was added as a bare uuid column with no REFERENCES
+      // clause, so there's no FK for PostgREST to embed inventory_items
+      // through - the old nested select 400'd ("could not find a
+      // relationship"). We resolve supplier + assigned-shopper names in
+      // separate plain lookups below instead.
       const { data: itemRows, error: itemsErr } = await sb
         .from("shopping_list_items")
-        .select(`
-          *,
-          inventory_items:item_id (
-            preferred_supplier_id,
-            suppliers:preferred_supplier_id ( supplier_name )
-          ),
-          assigned_profile:assigned_shopper_id ( id, full_name )
-        `)
+        .select("*")
         .eq("shopping_list_id", row.id)
         // Soft-delete guard. shopping_list_items uses `removed_at` (with
         // removed_reason) - NOT deleted_at, which doesn't exist on this
@@ -225,14 +218,52 @@ export function useActiveShoppingList(): UseActiveShoppingList {
         setError(itemsErr.message || "Could not load list items");
         setItems([]);
       } else {
-        // Flatten the join into supplier_id / supplier_name on the
-        // ActiveListItem shape. Keeps the consumer code simple.
-        const flat = (itemRows || []).map((r: any) => ({
+        const rows = (itemRows || []) as any[];
+
+        // Resolve preferred supplier per linked inventory item (SHP2-F
+        // grouping) via two plain queries - no embeds. Freestyle adds
+        // (no item_id) just get null supplier and fall into "Other".
+        const supplierByItemId = new Map<string, { supplier_id: string | null; supplier_name: string | null }>();
+        const itemIds = [...new Set(rows.map(r => r.item_id).filter(Boolean))] as string[];
+        if (itemIds.length > 0) {
+          const { data: invRows } = await sb
+            .from("inventory_items")
+            .select("id, preferred_supplier_id")
+            .in("id", itemIds);
+          const supplierIds = [...new Set((invRows || []).map((r: any) => r.preferred_supplier_id).filter(Boolean))] as string[];
+          const nameById = new Map<string, string | null>();
+          if (supplierIds.length > 0) {
+            const { data: supRows } = await sb
+              .from("suppliers")
+              .select("id, supplier_name")
+              .in("id", supplierIds);
+            for (const s of (supRows || []) as any[]) nameById.set(s.id, s.supplier_name ?? null);
+          }
+          for (const ir of (invRows || []) as any[]) {
+            supplierByItemId.set(ir.id, {
+              supplier_id: ir.preferred_supplier_id ?? null,
+              supplier_name: ir.preferred_supplier_id ? (nameById.get(ir.preferred_supplier_id) ?? null) : null,
+            });
+          }
+        }
+
+        // Resolve claimed-by names (assigned_shopper_id) the same way.
+        const assignedNameById = new Map<string, string | null>();
+        const assignedIds = [...new Set(rows.map(r => r.assigned_shopper_id).filter(Boolean))] as string[];
+        if (assignedIds.length > 0) {
+          const { data: profRows } = await sb
+            .from("profiles")
+            .select("id, full_name")
+            .in("id", assignedIds);
+          for (const p of (profRows || []) as any[]) assignedNameById.set(p.id, p.full_name ?? null);
+        }
+
+        const flat = rows.map((r: any) => ({
           ...r,
-          supplier_id: r.inventory_items?.preferred_supplier_id ?? null,
-          supplier_name: r.inventory_items?.suppliers?.supplier_name ?? null,
+          supplier_id: r.item_id ? (supplierByItemId.get(r.item_id)?.supplier_id ?? null) : null,
+          supplier_name: r.item_id ? (supplierByItemId.get(r.item_id)?.supplier_name ?? null) : null,
           assigned_shopper_id: r.assigned_shopper_id ?? null,
-          assigned_shopper_name: r.assigned_profile?.full_name ?? null,
+          assigned_shopper_name: r.assigned_shopper_id ? (assignedNameById.get(r.assigned_shopper_id) ?? null) : null,
         })) as ActiveListItem[];
         setItems(flat);
         setError(null);
@@ -261,14 +292,22 @@ export function useActiveShoppingList(): UseActiveShoppingList {
   const activeListId = (list as any)?.id ?? null;
   useEffect(() => {
     if (!activeListId) return;
-    const sub = supabase
-      .channel(`shopping-list-${activeListId}`)
+    // Unique suffix per subscription instance. Supabase reuses an
+    // existing channel object when the name collides, so a remount
+    // (route nav, StrictMode, the list id arriving after first paint)
+    // lands on an already-subscribed channel and `.on()` throws
+    // "cannot add postgres_changes callbacks after subscribe()" - which
+    // bubbles up uncaught and white-screens the page. A random suffix +
+    // removeChannel cleanup guarantees a fresh channel every time (same
+    // fix the notification service already uses).
+    const channel = supabase
+      .channel(`shopping-list-${activeListId}-${Math.random().toString(36).slice(2, 10)}`)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .on("postgres_changes" as any, { event: "*", schema: "public", table: "shopping_list_items", filter: `shopping_list_id=eq.${activeListId}` }, () => { void load(); })
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .on("postgres_changes" as any, { event: "*", schema: "public", table: "shopping_lists", filter: `id=eq.${activeListId}` }, () => { void load(); })
       .subscribe();
-    return () => { void sub.unsubscribe(); };
+    return () => { void supabase.removeChannel(channel); };
   }, [activeListId, load]);
 
   const togglePurchased = useCallback(async (itemId: string, nextValue: boolean) => {
