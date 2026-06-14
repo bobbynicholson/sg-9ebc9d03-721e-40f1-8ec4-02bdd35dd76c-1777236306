@@ -138,9 +138,14 @@ export function useActiveShoppingList(): UseActiveShoppingList {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const sb = supabase as any;
 
-      // SHP2-D (shopping deep audit, SHP2-14): soft-delete guard on
-      // shopping_lists reads. driver_shifts has this; shopping did not.
-      // A soft-deleted list could ghost into the user's "active list".
+      // NOTE: shopping_lists has NO deleted_at column. The SHP2-D
+      // "soft-delete guard" filtered on a column that was never added by
+      // any migration, so every read failed with column-not-found and
+      // the active list came back empty - the user saw "No active
+      // shopping list" even right after a successful add (the insert
+      // only touches columns that exist, so it succeeded). shopping_lists
+      // is not soft-deleted, so drop the filter entirely.
+      // (shopping_list_items uses removed_at - handled below.)
 
       // 1. Try lists assigned to the current shopper first.
       const { data: mineRows } = await sb
@@ -148,7 +153,6 @@ export function useActiveShoppingList(): UseActiveShoppingList {
         .select("*")
         .eq("company_id", companyId)
         .eq("shopper_id", userId)
-        .is("deleted_at", null)
         .in("status", ACTIVE_STATUSES)
         .order("list_date", { ascending: false })
         .limit(1);
@@ -164,7 +168,6 @@ export function useActiveShoppingList(): UseActiveShoppingList {
           .select("*")
           .eq("company_id", companyId)
           .is("shopper_id", null)
-          .is("deleted_at", null)
           .in("status", ACTIVE_STATUSES)
           .order("list_date", { ascending: false })
           .limit(1);
@@ -211,8 +214,10 @@ export function useActiveShoppingList(): UseActiveShoppingList {
           assigned_profile:assigned_shopper_id ( id, full_name )
         `)
         .eq("shopping_list_id", row.id)
-        // SHP2-D (SHP2-15): same soft-delete guard on items.
-        .is("deleted_at", null)
+        // Soft-delete guard. shopping_list_items uses `removed_at` (with
+        // removed_reason) - NOT deleted_at, which doesn't exist on this
+        // table and made this read fail with column-not-found.
+        .is("removed_at", null)
         .order("purchased", { ascending: true })
         .order("name", { ascending: true });
 
@@ -462,10 +467,12 @@ export function useActiveShoppingList(): UseActiveShoppingList {
     if (!list) return;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const sb = supabase as any;
+    // shopping_lists has neither completed_at nor updated_at columns
+    // (only created_at). Writing them made the UPDATE fail with
+    // column-not-found, so a list could never be marked complete. Set
+    // only the columns that exist: status (+ actual_total when given).
     const patch: Record<string, unknown> = {
       status: "completed",
-      completed_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
     };
     if (typeof actualTotal === "number") patch.actual_total = actualTotal;
     const { error: cErr } = await sb
