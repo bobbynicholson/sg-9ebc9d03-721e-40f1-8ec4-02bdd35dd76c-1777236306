@@ -114,6 +114,10 @@ export default function CompanyStaffLoginPage({
     brandFromInitial(initialBranding),
   );
   const [companyLookupFailed, setCompanyLookupFailed] = useState(slugNotFound);
+  // True once the client-side branding RPC has run. Gates the
+  // auto-redirect below so a freshly-created company whose ISR page was
+  // cached as "not found" gets a second chance before we bounce it.
+  const [clientLookupDone, setClientLookupDone] = useState(false);
 
   // Refresh branding from the SECURITY DEFINER RPC once we're on the
   // client. Catches the case where the operator has just saved new
@@ -133,20 +137,35 @@ export default function CompanyStaffLoginPage({
       const row = Array.isArray(data) ? data[0] : data;
       if (!row) {
         if (!initialBranding) setCompanyLookupFailed(true);
-        return;
+      } else {
+        setCompanyBrand({
+          name: (row as any).company_name || "Your portal",
+          logo: (row as any).logo_url || null,
+          primary: (row as any).primary_color || DEFAULT_PRIMARY,
+          secondary: (row as any).secondary_color || DEFAULT_SECONDARY,
+        });
+        setCompanyLookupFailed(false);
       }
-      setCompanyBrand({
-        name: (row as any).company_name || "Your portal",
-        logo: (row as any).logo_url || null,
-        primary: (row as any).primary_color || DEFAULT_PRIMARY,
-        secondary: (row as any).secondary_color || DEFAULT_SECONDARY,
-      });
-      setCompanyLookupFailed(false);
+      setClientLookupDone(true);
     })();
     return () => {
       cancelled = true;
     };
   }, [company_slug, initialBranding]);
+
+  // Auto-recover a mistyped / forgotten company slug: once the client
+  // lookup confirms the company genuinely doesn't exist, send the user
+  // straight to the slug-less generic login rather than stranding them
+  // on the "Company not found" card. Skipped for misconfig/server-error
+  // (those need their real message shown, and the email login would fail
+  // the same way). router.replace so Back doesn't bounce them into the
+  // dead slug again. The "Company not found" card still renders as the
+  // no-JS / pre-redirect fallback.
+  useEffect(() => {
+    if (!clientLookupDone || !companyLookupFailed) return;
+    if (slugFailureReason === "not_configured" || slugFailureReason === "server_error") return;
+    router.replace("/auth/login?message=company_not_found");
+  }, [clientLookupDone, companyLookupFailed, slugFailureReason, router]);
 
   // Toast for redirect messages from middleware.
   useEffect(() => {

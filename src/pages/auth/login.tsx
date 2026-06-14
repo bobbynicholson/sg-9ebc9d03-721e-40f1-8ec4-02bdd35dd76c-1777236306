@@ -139,6 +139,15 @@ export default function LoginPage() {
         description: "Please check your email to sign in.",
         duration: 5000,
       });
+    } else if (message === "company_not_found") {
+      // Sent here by the tenant login page when the company slug in the
+      // URL didn't exist. Reassure rather than alarm - they don't need
+      // the URL, just their email + password.
+      toast({
+        title: "We couldn't find that company link",
+        description: "No problem — just sign in with your email and we'll take you to the right place.",
+        duration: 6000,
+      });
     }
   }, [message, toast]);
 
