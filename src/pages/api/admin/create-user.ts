@@ -45,6 +45,50 @@ function mapRoleToDatabase(role: string): string {
 // regions_covered are only meaningful for these.
 const REGION_SCOPED_ROLES = new Set(["region_admin", "kitchen", "kitchen_staff", "driver", "shopping", "shopping_staff", "cleaning", "cleaning_staff"]);
 
+// Map a profiles.role (enum, *_staff form) to the user_departments
+// .department value. NOTE the inversion vs profiles.role: the
+// user_departments.department column is TEXT with a CHECK constraint that
+// only permits the SHORT forms ('admin','kitchen','driver','cleaning',
+// 'buyer','client'). Writing 'cleaning_staff' there violates the check.
+// create-user previously seeded NO department row at all, so every user
+// it created showed "No departments assigned" on /admin/users (the old
+// invite flow seeded this via assignDepartments; create-user never did).
+const ROLE_TO_DEPARTMENT: Record<string, string> = {
+  kitchen_staff: "kitchen",
+  cleaning_staff: "cleaning",
+  shopping_staff: "buyer",
+  driver: "driver",
+  waiter: "driver",
+  client: "client",
+  admin: "admin",
+  company_admin: "admin",
+  owner: "admin",
+  region_admin: "admin",
+  sales_admin: "admin",
+  super_admin: "admin",
+};
+
+// Seed the user's primary department so it shows on the Users page
+// immediately. Runs with the service-role client, so it bypasses the
+// user_departments RLS (which only admits admin/owner/super_admin
+// active_role) and the CHECK constraint is satisfied by the short form.
+// Non-fatal: a missing department row must not fail user creation.
+async function seedPrimaryDepartment(admin: any, userId: string, dbRole: string, assignedBy: string) {
+  const department = ROLE_TO_DEPARTMENT[dbRole];
+  if (!department) return;
+  try {
+    await admin.from("user_departments").delete().eq("user_id", userId);
+    await admin.from("user_departments").insert({
+      user_id: userId,
+      department,
+      is_primary: true,
+      assigned_by: assignedBy,
+    });
+  } catch (e: any) {
+    console.warn("[create-user] seeding user_departments failed (non-fatal):", e?.message);
+  }
+}
+
 // Roles permitted to create users via this endpoint.
 const CALLER_ROLES_ALLOWED = new Set(["super_admin", "company_admin", "admin", "owner"]);
 
@@ -251,6 +295,8 @@ async function handler(
             console.error("Healing orphan profile failed:", insErr);
             return res.status(500).json({ error: `Could not finish creating user: ${insErr.message}` });
           }
+          // Seed the primary department so it shows on the Users page.
+          await seedPrimaryDepartment(admin, match.id, dbRole, callerAuth.id);
           // Email the staff member their invite / set-password link.
           const healInvite = await sendStaffInviteEmail(admin, {
             email,
@@ -339,6 +385,9 @@ async function handler(
         error: `Could not save profile: ${upsertErr.message}. Try again.`,
       });
     }
+
+    // Seed the primary department so the Users page shows it right away.
+    await seedPrimaryDepartment(admin, newUserId, dbRole, callerAuth.id);
 
     // Email the staff member their invite / set-password link so
     // onboarding doesn't depend on the admin manually relaying anything.
