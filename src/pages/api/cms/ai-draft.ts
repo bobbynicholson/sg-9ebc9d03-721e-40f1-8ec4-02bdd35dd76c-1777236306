@@ -36,6 +36,43 @@ function client(): any {
   return _client;
 }
 
+// Groq fallback (OpenAI-compatible). Used when ANTHROPIC_API_KEY is
+// absent or Anthropic errors. JSON mode instead of tool-use.
+const GROQ_BASE_URL = process.env.GROQ_BASE_URL || "https://api.groq.com/openai/v1";
+const GROQ_BLOG_MODEL = process.env.GROQ_BLOG_MODEL || "llama-3.3-70b-versatile";
+
+async function callGroqBlog(system: string, user: string): Promise<{ data: any; tokens_in: number; tokens_out: number }> {
+  const apiKey = process.env.GROQ_API_KEY;
+  if (!apiKey) throw new Error("GROQ_API_KEY is not configured");
+  const res = await fetch(`${GROQ_BASE_URL}/chat/completions`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: GROQ_BLOG_MODEL,
+      temperature: 0.4,
+      max_tokens: 4096,
+      response_format: { type: "json_object" },
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: user },
+      ],
+    }),
+  });
+  if (!res.ok) {
+    const t = await res.text().catch(() => "");
+    throw new Error(`Groq API ${res.status}: ${t.slice(0, 300) || res.statusText}`);
+  }
+  const json: any = await res.json();
+  const content: string = json?.choices?.[0]?.message?.content ?? "";
+  let data: any = null;
+  try { data = JSON.parse(content); } catch {
+    const f = content.indexOf("{");
+    const l = content.lastIndexOf("}");
+    if (f !== -1 && l > f) { try { data = JSON.parse(content.slice(f, l + 1)); } catch { /* give up */ } }
+  }
+  return { data, tokens_in: json?.usage?.prompt_tokens ?? 0, tokens_out: json?.usage?.completion_tokens ?? 0 };
+}
+
 const SYSTEM_PROMPT = `You write blog posts for CateringMS, a multi-tenant SaaS for South African catering businesses (companies that run spit braais, weddings, corporate events). The CateringMS marketing site lives at cateringms.com. Posts you write get published there.
 
 Audience: catering company owners, operations managers, head chefs running 5-50 staff. Pragmatic, time-poor, allergic to corporate fluff.
@@ -101,66 +138,77 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       seo_keywords: typeof keywords === "string" ? keywords.trim() : undefined,
     });
 
-    const response: any = await (client().messages.create as any)({
-      model: DEFAULT_MODEL,
-      max_tokens: 4096,
-      system: SYSTEM_PROMPT,
-      tools: [
-        {
-          name: "return_blog_post",
-          description:
-            "Return the completed blog post as structured fields ready to drop into the CMS form.",
-          input_schema: {
-            type: "object",
-            properties: {
-              title: {
-                type: "string",
-                description: "Punchy headline, 6-12 words, no clickbait.",
-              },
-              slug: {
-                type: "string",
-                description:
-                  "URL slug derived from the title. Lowercase a-z 0-9 hyphens only, no leading/trailing hyphens, max 80 chars.",
-              },
-              content: {
-                type: "string",
-                description:
-                  "Full body of the post in Markdown. Open with one strong intro paragraph, no heading. Use ## for section headings. Aim for the requested word count ±10%.",
-              },
-              meta_description: {
-                type: "string",
-                description:
-                  "SEO meta description, 150-155 characters, plain text, must read naturally as a search snippet.",
-              },
-              meta_keywords: {
-                type: "string",
-                description:
-                  "Comma-separated SEO keywords (5-8 of them), no quotes, no hashtags.",
-              },
-            },
-            required: ["title", "slug", "content", "meta_description", "meta_keywords"],
-            additionalProperties: false,
-          },
-        },
-      ],
-      tool_choice: { type: "tool", name: "return_blog_post" },
-      messages: [{ role: "user", content: userPayload }],
-    });
-
-    const tokensIn: number = response?.usage?.input_tokens ?? 0;
-    const tokensOut: number = response?.usage?.output_tokens ?? 0;
+    // Provider chain: Anthropic first (tool-use) when its key is set,
+    // then Groq (JSON mode). Falls through on error.
+    const providers: Array<"anthropic" | "groq"> = [];
+    if (process.env.ANTHROPIC_API_KEY) providers.push("anthropic");
+    if (process.env.GROQ_API_KEY) providers.push("groq");
+    if (providers.length === 0) {
+      return res.status(500).json({ error: "AI blog drafting is not configured - set ANTHROPIC_API_KEY or GROQ_API_KEY on the server." });
+    }
 
     let draft: any = null;
-    const blocks: any[] = Array.isArray(response?.content) ? response.content : [];
-    for (const block of blocks) {
-      if (block?.type === "tool_use" && block?.name === "return_blog_post") {
-        draft = block.input;
-        break;
+    let tokensIn = 0;
+    let tokensOut = 0;
+    let modelUsed = "";
+    let lastErr: unknown = null;
+
+    for (const provider of providers) {
+      try {
+        if (provider === "anthropic") {
+          modelUsed = DEFAULT_MODEL;
+          const response: any = await (client().messages.create as any)({
+            model: DEFAULT_MODEL,
+            max_tokens: 4096,
+            system: SYSTEM_PROMPT,
+            tools: [
+              {
+                name: "return_blog_post",
+                description: "Return the completed blog post as structured fields ready to drop into the CMS form.",
+                input_schema: {
+                  type: "object",
+                  properties: {
+                    title: { type: "string", description: "Punchy headline, 6-12 words, no clickbait." },
+                    slug: { type: "string", description: "URL slug derived from the title. Lowercase a-z 0-9 hyphens only, no leading/trailing hyphens, max 80 chars." },
+                    content: { type: "string", description: "Full body of the post in Markdown. Open with one strong intro paragraph, no heading. Use ## for section headings. Aim for the requested word count ±10%." },
+                    meta_description: { type: "string", description: "SEO meta description, 150-155 characters, plain text, must read naturally as a search snippet." },
+                    meta_keywords: { type: "string", description: "Comma-separated SEO keywords (5-8 of them), no quotes, no hashtags." },
+                  },
+                  required: ["title", "slug", "content", "meta_description", "meta_keywords"],
+                  additionalProperties: false,
+                },
+              },
+            ],
+            tool_choice: { type: "tool", name: "return_blog_post" },
+            messages: [{ role: "user", content: userPayload }],
+          });
+          tokensIn = response?.usage?.input_tokens ?? 0;
+          tokensOut = response?.usage?.output_tokens ?? 0;
+          const blocks: any[] = Array.isArray(response?.content) ? response.content : [];
+          for (const block of blocks) {
+            if (block?.type === "tool_use" && block?.name === "return_blog_post") { draft = block.input; break; }
+          }
+        } else {
+          modelUsed = GROQ_BLOG_MODEL;
+          const groqSystem = SYSTEM_PROMPT.replace(
+            "Output via the return_blog_post tool. Never write free prose outside the tool.",
+            'Return ONLY a JSON object (no markdown fences) with keys: "title", "slug", "content", "meta_description", "meta_keywords". The "content" value is the full Markdown body.',
+          );
+          const { data, tokens_in, tokens_out } = await callGroqBlog(groqSystem, userPayload);
+          tokensIn = tokens_in;
+          tokensOut = tokens_out;
+          if (data && typeof data === "object") draft = data;
+        }
+        if (draft) break;
+      } catch (e) {
+        console.warn(`[ai-draft] provider ${provider} failed:`, e);
+        lastErr = e;
       }
     }
+
     if (!draft) {
       return res.status(502).json({
-        error: "Model returned no draft. Try a more specific topic.",
+        error: lastErr instanceof Error ? lastErr.message : "Model returned no draft. Try a more specific topic.",
       });
     }
 
@@ -173,7 +221,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       meta_keywords: String(draft.meta_keywords || "").trim(),
       tokens_in: tokensIn,
       tokens_out: tokensOut,
-      model: DEFAULT_MODEL,
+      model: modelUsed,
     });
   } catch (e: any) {
     console.error("/api/cms/ai-draft crashed:", e);
