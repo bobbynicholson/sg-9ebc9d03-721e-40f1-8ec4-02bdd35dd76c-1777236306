@@ -76,7 +76,7 @@ export default function UserManagementPage() {
   // Set when a user was created but the invite couldn't be emailed (no
   // email sender configured) - drives the "share these details" panel.
   const [createResult, setCreateResult] = useState<
-    { email: string; tempPassword?: string; loginUrl?: string } | null
+    { email: string; tempPassword?: string; loginUrl?: string; emailed?: boolean } | null
   >(null);
   const { toast } = useToast();
 
@@ -228,19 +228,13 @@ export default function UserManagementPage() {
 
       loadUsers();
 
-      if (emailDelivered) {
-        // Invite went out - just confirm + close.
-        toast({
-          title: "User invited",
-          description: `We emailed an invite to ${createdEmail} to set their password.`,
-        });
-        setAddUserOpen(false);
-        setNewUser({ email: "", full_name: "", password: "", role: "client", company_id: "" });
-      } else {
-        // No email sender configured (or send failed): keep the dialog
-        // open and show the credentials so the admin can pass them on.
-        setCreateResult({ email: createdEmail, tempPassword, loginUrl });
-      }
+      // Always surface the credentials. The temp password is a working
+      // login even when the invite emails (the email only sends a
+      // set-password link, which doesn't invalidate the temp password).
+      // Hiding it on email-success left no way in if the email never
+      // arrived. We keep the dialog open and note whether an invite was
+      // also emailed.
+      setCreateResult({ email: createdEmail, tempPassword, loginUrl, emailed: emailDelivered });
     } catch (error: any) {
       console.error("Error creating user:", error);
       toast({
@@ -365,10 +359,14 @@ export default function UserManagementPage() {
                   <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
                       <MailWarning className="w-5 h-5 text-amber-500" />
-                      Share these sign-in details
+                      {createResult.emailed ? "User created — sign-in details" : "Share these sign-in details"}
                     </DialogTitle>
                     <DialogDescription>
-                      <strong>{createResult.email}</strong> was created, but this company hasn&apos;t set up an email sender yet, so we couldn&apos;t email the invite. Pass these details on directly.
+                      {createResult.emailed ? (
+                        <><strong>{createResult.email}</strong> was created and emailed a link to set their own password. They can also sign in right away with the temporary password below.</>
+                      ) : (
+                        <><strong>{createResult.email}</strong> was created, but this company hasn&apos;t set up an email sender yet, so we couldn&apos;t email the invite. Pass these details on directly.</>
+                      )}
                     </DialogDescription>
                   </DialogHeader>
                   <div className="space-y-3">
@@ -390,9 +388,11 @@ export default function UserManagementPage() {
                         They should change this password after their first sign-in.
                       </p>
                     </div>
-                    <p className="text-xs text-slate-500">
-                      Set up an email sender under <strong>Email settings</strong> (Admin → Settings → Email) so future invites send automatically.
-                    </p>
+                    {!createResult.emailed && (
+                      <p className="text-xs text-slate-500">
+                        Set up an email sender under <strong>Email settings</strong> (Admin → Settings → Email) so future invites send automatically.
+                      </p>
+                    )}
                     <div className="flex justify-between gap-2 pt-2">
                       <Button type="button" variant="outline" onClick={copyCreateResult} className="gap-1.5">
                         <Copy className="w-4 h-4" /> Copy details

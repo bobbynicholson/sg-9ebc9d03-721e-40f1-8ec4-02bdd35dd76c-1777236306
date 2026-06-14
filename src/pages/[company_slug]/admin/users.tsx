@@ -64,7 +64,7 @@ export default function StaffManagementPage() {
   // emailed (no email sender configured) - drives the "share these
   // details" panel inside the dialog.
   const [createResult, setCreateResult] = useState<
-    { email: string; name: string; tempPassword?: string; loginUrl?: string } | null
+    { email: string; name: string; tempPassword?: string; loginUrl?: string; emailed?: boolean } | null
   >(null);
 
   // New staff form
@@ -174,19 +174,14 @@ export default function StaffManagementPage() {
       loadStaff();
       setRegionIds([]);
 
-      if (emailDelivered) {
-        // Invite went out - confirm + close.
-        toast({
-          title: "Staff invited",
-          description: `We emailed an invite to ${addedEmail} to set their password.`,
-        });
-        setNewStaff({ email: "", full_name: "", role: "driver" });
-        setIsDialogOpen(false);
-      } else {
-        // No email sender configured (or send failed): keep the dialog
-        // open and show the credentials so the admin can pass them on.
-        setCreateResult({ email: addedEmail, name: addedName, tempPassword, loginUrl });
-      }
+      // Always show the credentials on screen. The server-generated temp
+      // password is a real, working login even when the invite email goes
+      // out (the email only sends a "set your own password" link, which
+      // doesn't invalidate the temp password). Hiding it when email
+      // "succeeded" left the admin with no way in if the email never
+      // arrived - so we surface it every time and just note whether an
+      // invite was also emailed.
+      setCreateResult({ email: addedEmail, name: addedName, tempPassword, loginUrl, emailed: emailDelivered });
     } catch (error: any) {
       console.error("Error adding staff:", error);
       toast({
@@ -318,10 +313,14 @@ export default function StaffManagementPage() {
                   <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
                       <MailWarning className="w-5 h-5 text-amber-500" />
-                      Share these sign-in details
+                      {createResult.emailed ? "User added — sign-in details" : "Share these sign-in details"}
                     </DialogTitle>
                     <DialogDescription>
-                      <strong>{createResult.name || createResult.email}</strong> was added, but your business hasn&apos;t set up an email sender yet, so we couldn&apos;t email the invite. Pass these details on directly.
+                      {createResult.emailed ? (
+                        <><strong>{createResult.name || createResult.email}</strong> was added and emailed a link to set their own password. They can also sign in right away with the temporary password below.</>
+                      ) : (
+                        <><strong>{createResult.name || createResult.email}</strong> was added, but your business hasn&apos;t set up an email sender yet, so we couldn&apos;t email the invite. Pass these details on directly.</>
+                      )}
                     </DialogDescription>
                   </DialogHeader>
                   <div className="space-y-3">
@@ -343,9 +342,11 @@ export default function StaffManagementPage() {
                         They should change this password after their first sign-in.
                       </p>
                     </div>
-                    <p className="text-xs text-slate-500">
-                      Set up an email sender under <strong>Settings → Email</strong> so future invites send automatically.
-                    </p>
+                    {!createResult.emailed && (
+                      <p className="text-xs text-slate-500">
+                        Set up an email sender under <strong>Settings → Email</strong> so future invites send automatically.
+                      </p>
+                    )}
                     <div className="flex justify-between gap-2 pt-2">
                       <Button type="button" variant="outline" onClick={copyCreateResult} className="gap-1.5">
                         <Copy className="w-4 h-4" /> Copy details

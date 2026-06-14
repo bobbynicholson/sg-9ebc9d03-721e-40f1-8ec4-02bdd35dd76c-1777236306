@@ -100,7 +100,7 @@ function DriverManagementPage() {
   // show these credentials so the operator can pass them on by hand.
   // Mirrors the Staff Management page (/[slug]/admin/users).
   const [createResult, setCreateResult] = useState<
-    { email: string; name: string; tempPassword?: string; loginUrl?: string } | null
+    { email: string; name: string; tempPassword?: string; loginUrl?: string; emailed?: boolean } | null
   >(null);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -611,22 +611,20 @@ function DriverManagementPage() {
       // (or the freshly-claimed company vehicle) reflects in pickers.
       vehicleService.getVehiclesForCompany(user.company_id).then(setVehicles);
 
-      if (emailDelivered) {
-        // Invite emailed - the driver sets their own password. Close up.
-        setIsAddDialogOpen(false);
-        resetNewDriver();
-      } else {
-        // No email sender configured (or send failed): keep the dialog
-        // open and show the credentials so the operator can pass them on.
-        // Without this the random server-generated password is lost and
-        // the driver can never sign in.
-        setCreateResult({
-          email: newDriver.email,
-          name: newDriver.name,
-          tempPassword,
-          loginUrl,
-        });
-      }
+      // Always show the credentials. The server-generated temp password
+      // is a working login even when the invite email goes out (the email
+      // only sends a "set your own password" link, which doesn't
+      // invalidate the temp password). Hiding it on email-success left no
+      // way in if the email never arrived - the random password is lost
+      // and the driver can never sign in. Keep the dialog open and note
+      // whether an invite was also emailed.
+      setCreateResult({
+        email: newDriver.email,
+        name: newDriver.name,
+        tempPassword,
+        loginUrl,
+        emailed: emailDelivered,
+      });
     } catch (err: any) {
       console.error("Error adding driver:", err);
       setError(err?.message || "Network or browser error, check the console for details.");
@@ -857,7 +855,9 @@ function DriverManagementPage() {
                     </DialogTitle>
                     <p className="text-sm text-slate-500 mt-1">
                       {createResult
-                        ? "We couldn't email the invite (no email sender set up yet). Pass these details to the driver directly."
+                        ? (createResult.emailed
+                            ? "We emailed the driver a link to set their own password. They can also sign in right away with the temporary password below."
+                            : "We couldn't email the invite (no email sender set up yet). Pass these details to the driver directly.")
                         : "Driver basics, operational details and the vehicle, all in one go."}
                     </p>
                   </DialogHeader>
