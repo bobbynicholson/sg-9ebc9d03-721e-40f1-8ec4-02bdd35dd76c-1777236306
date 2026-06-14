@@ -283,6 +283,25 @@ export default function CompanyStaffLoginPage({
             <Building2 className="w-10 h-10 mx-auto mb-3 text-slate-400" />
             <h1 className="text-lg font-semibold text-slate-900 mb-1">{title}</h1>
             <p className="text-sm text-slate-600">{body}</p>
+            {/* Recovery hatch: a genuine bad/forgotten slug is the common
+                case here. Don't dead-end the user on "double-check the
+                link" - the generic email login needs no slug and the
+                middleware routes them to their own portal after sign-in.
+                Hidden for misconfig/server-error (the email login would
+                fail the same way), shown only for the real "not found". */}
+            {!isMisconfig && !isServerErr && (
+              <div className="mt-5">
+                <Link
+                  href="/auth/login"
+                  className="inline-flex items-center justify-center h-11 px-5 rounded-lg bg-slate-900 text-white text-sm font-semibold hover:bg-slate-800 transition-colors"
+                >
+                  Sign in with your email instead →
+                </Link>
+                <p className="text-xs text-slate-400 mt-2">
+                  Don&apos;t know your company&apos;s web address? Sign in with your email and we&apos;ll take you straight to the right place.
+                </p>
+              </div>
+            )}
             {slugFailureDebug && (isMisconfig || isServerErr) && (
               <p className="text-[11px] text-slate-400 mt-3 font-mono break-words">
                 debug: {slugFailureDebug}
@@ -434,6 +453,18 @@ export default function CompanyStaffLoginPage({
                   className="text-sm text-slate-600 hover:text-slate-900 underline underline-offset-2"
                 >
                   Are you a customer? Sign in here
+                </Link>
+              </div>
+
+              {/* Forgot-slug recovery: staff who bookmarked the wrong/old
+                  company URL can sign in by email instead - middleware
+                  routes them to their own portal, no slug needed. */}
+              <div className="text-center">
+                <Link
+                  href="/auth/login"
+                  className="text-sm text-slate-500 hover:text-slate-800 underline underline-offset-2"
+                >
+                  Don&apos;t know your company URL? Sign in with email
                 </Link>
               </div>
 
