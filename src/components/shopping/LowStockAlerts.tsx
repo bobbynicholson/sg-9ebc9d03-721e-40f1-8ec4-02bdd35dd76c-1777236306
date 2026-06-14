@@ -35,7 +35,7 @@ export function LowStockAlerts() {
       // the channel name was previously global which is harmless but
       // noisy.
       const channel = supabase
-        .channel(`inventory-changes:${profile.company_id}`)
+        .channel(`inventory-changes:${profile.company_id}-${Math.random().toString(36).slice(2)}`)
         .on(
           'postgres_changes',
           {

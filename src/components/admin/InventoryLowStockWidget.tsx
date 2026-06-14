@@ -213,7 +213,7 @@ export function InventoryLowStockWidget({ companyId }: Props) {
     // is adjusted. Refetching the whole view is cheap, the result
     // set is small.
     const ch = supabase
-      .channel(`dashboard-low-stock:${companyId}`)
+      .channel(`dashboard-low-stock:${companyId}-${Math.random().toString(36).slice(2)}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "orders", filter: `company_id=eq.${companyId}` },
@@ -230,7 +230,7 @@ export function InventoryLowStockWidget({ companyId }: Props) {
         () => load(),
       )
       .subscribe();
-    return () => { ch.unsubscribe(); };
+    return () => { supabase.removeChannel(ch); };
   }, [companyId, load]);
 
   /* Drilldown: load the per-order breakdown lazily ------------------- */

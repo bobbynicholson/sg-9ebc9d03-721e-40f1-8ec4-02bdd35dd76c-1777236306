@@ -133,7 +133,7 @@ export function AvailableJobsCard({ onClaimed }: Props) {
     }, 60000);
     // Realtime: any order assignment change invalidates the list.
     const channel = (supabase as any)
-      .channel(`available-jobs-${companyId}`)
+      .channel(`available-jobs-${companyId}-${Math.random().toString(36).slice(2)}`)
       .on(
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "orders", filter: `company_id=eq.${companyId}` },

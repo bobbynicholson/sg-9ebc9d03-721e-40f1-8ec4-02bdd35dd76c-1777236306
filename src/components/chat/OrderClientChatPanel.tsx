@@ -90,7 +90,7 @@ export function OrderClientChatPanel({
   useEffect(() => {
     if (!orderId) return;
     const channel = supabase
-      .channel(`order-chat-${orderId}`)
+      .channel(`order-chat-${orderId}-${Math.random().toString(36).slice(2)}`)
       .on("postgres_changes",
         { event: "INSERT", schema: "public", table: "order_chat_messages", filter: `order_id=eq.${orderId}` },
         async (payload: any) => {
@@ -113,7 +113,7 @@ export function OrderClientChatPanel({
         },
       )
       .subscribe();
-    return () => { channel.unsubscribe(); };
+    return () => { supabase.removeChannel(channel); };
   }, [orderId, isStaff]);
 
   useEffect(() => {

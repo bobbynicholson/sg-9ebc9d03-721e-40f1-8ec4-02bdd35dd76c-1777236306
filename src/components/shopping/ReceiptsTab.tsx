@@ -204,7 +204,7 @@ export function ReceiptsTab({ companyId, userId }: Props) {
       timer = setTimeout(() => { reload(); }, 1500);
     };
     const channel = supabase
-      .channel(`receipts-tab:${companyId}`)
+      .channel(`receipts-tab:${companyId}-${Math.random().toString(36).slice(2)}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "purchase_receipts", filter: `company_id=eq.${companyId}` }, bump)
       .on("postgres_changes", { event: "*", schema: "public", table: "purchase_receipt_items", filter: `company_id=eq.${companyId}` }, bump)
       .subscribe();

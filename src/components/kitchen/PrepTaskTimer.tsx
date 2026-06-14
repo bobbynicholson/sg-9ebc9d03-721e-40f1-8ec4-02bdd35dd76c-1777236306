@@ -219,7 +219,7 @@ export function PrepTaskTimer({ orderId }: PrepTaskTimerProps) {
 
   useEffect(() => {
     const sub = supabase
-      .channel(`prep-timer-${orderId}`)
+      .channel(`prep-timer-${orderId}-${Math.random().toString(36).slice(2)}`)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .on("postgres_changes" as any, {
         event: "*",
@@ -228,7 +228,7 @@ export function PrepTaskTimer({ orderId }: PrepTaskTimerProps) {
         filter: `order_id=eq.${orderId}`,
       }, () => { void load(); })
       .subscribe();
-    return () => { void sub.unsubscribe(); };
+    return () => { supabase.removeChannel(sub); };
   }, [orderId, load]);
 
   const handleAlert = useCallback((task: PrepTask) => {

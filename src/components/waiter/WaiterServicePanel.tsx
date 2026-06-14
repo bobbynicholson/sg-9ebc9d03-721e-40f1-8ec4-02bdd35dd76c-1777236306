@@ -138,7 +138,7 @@ export function WaiterServicePanel() {
   useEffect(() => {
     if (!user?.company_id || !user?.id) return;
     const channel = supabase
-      .channel(`waiter-attendance:${user.id}`)
+      .channel(`waiter-attendance:${user.id}-${Math.random().toString(36).slice(2)}`)
       .on("postgres_changes",
         { event: "*", schema: "public", table: "event_attendance", filter: `waiter_id=eq.${user.id}` },
         () => load(),
