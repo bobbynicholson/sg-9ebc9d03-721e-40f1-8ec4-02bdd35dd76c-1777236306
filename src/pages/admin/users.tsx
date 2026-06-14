@@ -418,6 +418,29 @@ function AdminUsersPage() {
       void loadUsers();
       void loadInvitations();
 
+      // Email the invite. create-user already tries server-side (Resend,
+      // direct). If that didn't go out, fall back to the SAME browser
+      // path the old invite flow used - billingEmailService routes
+      // through /api/send-email, which reliably delivers for tenants with
+      // a configured sender. Only fire the fallback when the server send
+      // failed, so we never double-send.
+      let emailed = !!(payload as any)?.emailDelivered;
+      if (!emailed) {
+        try {
+          const { billingEmailService } = await import("@/services/billingEmailService");
+          const sent = await billingEmailService.sendStaffInvitationEmail(
+            trimmedEmail.toLowerCase(),
+            (user as any).full_name || (user as any).email || "your admin",
+            (user as any).company_name || "your team",
+            (payload as any)?.loginUrl || `${window.location.origin}/auth/login`,
+            user.company_id,
+          );
+          emailed = !!sent;
+        } catch (e) {
+          console.error("Fallback staff invite email failed:", e);
+        }
+      }
+
       // Always surface the credentials. The temp password is a working
       // login even when the invite email goes out (the email only sends
       // a set-password link, which doesn't invalidate the temp password).
@@ -426,7 +449,7 @@ function AdminUsersPage() {
         name: trimmedName || trimmedEmail.split("@")[0],
         tempPassword: (payload as any)?.tempPassword,
         loginUrl: (payload as any)?.loginUrl,
-        emailed: !!(payload as any)?.emailDelivered,
+        emailed,
       });
     } catch (err) {
       toast({
