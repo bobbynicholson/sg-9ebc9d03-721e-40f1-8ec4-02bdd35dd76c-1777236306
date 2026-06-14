@@ -49,11 +49,27 @@ export default function CleaningNotificationsPage() {
   const [notifs, setNotifs] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<"all" | "unread">("all");
+  // Bumped by the realtime subscription so new notifications surface
+  // without a manual refresh (admin + client portals already do this).
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     if (!user?.id) return;
     load();
-  }, [user?.id, tab]);
+  }, [user?.id, tab, refreshKey]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    const channel = supabase
+      .channel(`notif-page-${user.id}-${Math.random().toString(36).slice(2, 8)}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "notifications", filter: `recipient_id=eq.${user.id}` },
+        () => setRefreshKey((k) => k + 1),
+      )
+      .subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, [user?.id]);
 
   const load = async () => {
     if (!user?.id) return;
