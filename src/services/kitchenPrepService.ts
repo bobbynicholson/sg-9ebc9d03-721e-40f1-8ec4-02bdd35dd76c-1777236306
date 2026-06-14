@@ -760,11 +760,23 @@ export const kitchenPrepService = {
     toDate: string,
     regionId: string | null = null,
   ): Promise<IngredientDemand[]> {
-    // Pull confirmed / preparing / ready orders in the date window
+    // Source per-(order, ingredient) demand from the SAME
+    // order_ingredient_demand view the by-order tab reads, so the two
+    // tabs can never disagree. The view joins order_items -> recipes by
+    // menu_item_id (robust to duplicate / renamed menu-item names), only
+    // emits ingredients linked to inventory, and already UNIONs the
+    // buy-and-sell path - so we don't re-derive any of that here. Earlier
+    // attempts rebuilt demand from orders.menu_items (JSONB, empty on
+    // quote->order rows) and then from order_items + lookup-by-name
+    // (fragile - missed renamed/duplicate items); both left this tab
+    // empty while the by-order tab worked.
+
+    // 1. Resolve the in-window orders for region scoping + client names.
+    //    The view carries no region_id, so we scope by the set of order
+    //    ids the caller's branch is allowed to see.
     let ordersQuery = supabase
       .from("orders")
-      // Wave 66.9 trap: final_guest_count doesn't exist on orders.
-      .select("id, client_name, event_date, menu_items, guest_count, status, region_id")
+      .select("id, client_name, event_date, region_id")
       .eq("company_id", companyId)
       .gte("event_date", fromDate)
       .lte("event_date", toDate)
@@ -777,123 +789,62 @@ export const kitchenPrepService = {
     }
     const { data: orders } = await ordersQuery;
     if (!orders || orders.length === 0) return [];
+    const orderMeta = new Map<string, any>((orders as any[]).map((o) => [o.id, o]));
 
-    // Aggregate demand per ingredient name.
+    // 2. Pull demand rows from the view (same filters as the by-order tab).
+    const { data: demandRows, error: demandErr } = await supabase
+      .from("order_ingredient_demand")
+      .select("order_id, ingredient_name, unit, inventory_item_id, quantity_required, event_date")
+      .eq("company_id", companyId)
+      .gte("event_date", fromDate)
+      .lte("event_date", toDate)
+      .in("order_status", ["confirmed", "preparing", "ready"]);
+    if (demandErr) {
+      console.error("[kitchenPrepService] order_ingredient_demand fetch failed:", demandErr);
+      return [];
+    }
+
     const demandByIngredient = new Map<string, IngredientDemand>();
+    for (const r of (demandRows || []) as any[]) {
+      // Region scope: keep only rows for orders the branch can see.
+      if (!orderMeta.has(r.order_id)) continue;
+      const name = String(r.ingredient_name || "").trim();
+      const unit = String(r.unit || "");
+      const qty = Number(r.quantity_required || 0);
+      if (!name || qty <= 0) continue;
 
-    // Source line items from the relational `order_items` table, NOT the
-    // `orders.menu_items` JSONB column. Orders created via the quote->order
-    // flow populate order_items but leave the JSONB empty, so the old
-    // JSONB read returned nothing and the by-ingredient tab was always
-    // empty for recipe-based menus - even though the by-order tab (which
-    // reads the order_ingredient_demand view, also order_items-backed)
-    // listed every ingredient. One fetch drives BOTH paths below.
-    const ordersById = new Map<string, any>((orders as any[]).map((o) => [o.id, o]));
-    let orderItems: any[] = [];
-    try {
-      const orderIds = (orders as any[]).map((o) => o.id);
-      if (orderIds.length > 0) {
-        const { data: oiRows } = await supabase
-          .from("order_items")
-          .select(`
-            order_id,
-            item_name,
-            quantity,
-            menu_item:menu_item_id (
-              id,
-              is_buy_and_sell,
-              linked_inventory_item_id,
-              recipes ( id )
-            )
-          `)
-          .in("order_id", orderIds);
-        orderItems = (oiRows || []) as any[];
-      }
-    } catch (oiErr) {
-      console.warn("[kitchenPrepService] order_items fetch failed:", oiErr);
-    }
-
-    // Recipe path: scale each order line by its portions ordered. NOTE:
-    // order_items.quantity already equals total portions (= guest count),
-    // so we scale by it directly - matching order_ingredient_demand's
-    // (oi.quantity / base_servings) maths. The old code fed
-    // guestCount * item.quantity, which double-counted once the source
-    // moved to the (already per-portion) relational table.
-    for (const oi of orderItems) {
-      const order = ordersById.get(oi.order_id);
-      if (!order) continue;
-      const name = oi.item_name;
-      const portions = Number(oi.quantity ?? 0);
-      if (!name || portions <= 0) continue;
-
-      const recipe = await this.lookupRecipe(companyId, name);
-      if (!recipe) continue;
-
-      const scaled = this.scaleRecipe(name, recipe, portions);
-
-      for (const ing of scaled.ingredients) {
-        const key = `${ing.name.toLowerCase()}|${ing.scaled_unit.toLowerCase()}`;
-        const existing = demandByIngredient.get(key);
-        if (existing) {
-          existing.total_quantity += ing.scaled_quantity;
-          existing.used_by.push({
-            order_id: order.id,
-            client_name: order.client_name,
-            event_date: order.event_date,
-            qty: ing.scaled_quantity,
-          });
-        } else {
-          demandByIngredient.set(key, {
-            name: ing.name,
-            unit: ing.scaled_unit,
-            total_quantity: ing.scaled_quantity,
-            on_hand: 0,
-            shortfall: 0,
-            inventory_item_id: ing.inventory_item_id ?? null,
-            used_by: [{
-              order_id: order.id,
-              client_name: order.client_name,
-              event_date: order.event_date,
-              qty: ing.scaled_quantity,
-            }],
-          });
-        }
-      }
-    }
-
-    // KIT3-E (task #248): buy-and-sell path. Items whose menu_item is
-    // is_buy_and_sell=true with a linked_inventory_item_id and NO recipe
-    // (the recipe arm above already counted recipe-bearing items). Mirrors
-    // the order_ingredient_demand view's UNION + NOT EXISTS(recipes) guard
-    // so we don't double-count. Reuses the single order_items fetch above
-    // and is folded into demandByIngredient after the inventory pull below
-    // (when we have item names + units to key on).
-    const bsRowsForJoin: Array<{ invId: string; qty: number; order: any }> = [];
-    for (const r of orderItems) {
-      const mi = r.menu_item;
-      if (!mi) continue;
-      if (!mi.is_buy_and_sell) continue;
-      if (!mi.linked_inventory_item_id) continue;
-      if (Array.isArray(mi.recipes) && mi.recipes.length > 0) continue;
-
-      const order = ordersById.get(r.order_id);
-      if (!order) continue;
-      const qty = Number(r.quantity || 0);
-      if (qty <= 0) continue;
-
-      bsRowsForJoin.push({
-        invId: mi.linked_inventory_item_id as string,
+      const key = `${name.toLowerCase()}|${unit.toLowerCase()}`;
+      const ord = orderMeta.get(r.order_id);
+      const usedBy = {
+        order_id: r.order_id as string,
+        client_name: ord?.client_name,
+        event_date: r.event_date,
         qty,
-        order,
-      });
+      };
+      const existing = demandByIngredient.get(key);
+      if (existing) {
+        existing.total_quantity += qty;
+        if (!existing.inventory_item_id && r.inventory_item_id) existing.inventory_item_id = r.inventory_item_id;
+        existing.used_by.push(usedBy);
+      } else {
+        demandByIngredient.set(key, {
+          name,
+          unit,
+          total_quantity: qty,
+          on_hand: 0,
+          shortfall: 0,
+          inventory_item_id: r.inventory_item_id ?? null,
+          used_by: [usedBy],
+        });
+      }
     }
 
-    if (demandByIngredient.size === 0 && bsRowsForJoin.length === 0) return [];
+    if (demandByIngredient.size === 0) return [];
 
-    // Join to inventory by name to get on_hand. When the caller asked
-    // for a region-scoped demand view, only consider the branch's own
-    // pool plus shared items so the shortfall numbers reflect what
-    // that kitchen can actually draw on.
+    // 3. Join inventory for on-hand + shortfall. Region-scope the pool to
+    //    the branch's own items + shared stock so shortfall reflects what
+    //    that kitchen can actually draw on. Prefer the exact
+    //    inventory_item_id from the view, fall back to a name match.
     let invQuery = supabase
       .from("inventory_items")
       .select("id, item_name, current_stock, unit_of_measure, region_id, is_shared")
@@ -910,44 +861,11 @@ export const kitchenPrepService = {
       if (i.id) invById.set(i.id as string, i);
     }
 
-    // KIT3-E: fold buy-and-sell rows into demandByIngredient now
-    // that we know the inventory item names + units. Same key
-    // shape as the recipe loop so a recipe ingredient and a buy-
-    // and-sell linked-inventory entry that share a name/unit roll
-    // up into one row.
-    for (const bs of bsRowsForJoin) {
-      const inv = invById.get(bs.invId);
-      if (!inv) continue;
-      const name = String(inv.item_name || "").trim();
-      const unit = String(inv.unit_of_measure || "");
-      if (!name) continue;
-      const key = `${name.toLowerCase()}|${unit.toLowerCase()}`;
-      const existing = demandByIngredient.get(key);
-      const usedBy = {
-        order_id: bs.order.id as string,
-        client_name: bs.order.client_name,
-        event_date: bs.order.event_date,
-        qty: bs.qty,
-      };
-      if (existing) {
-        existing.total_quantity += bs.qty;
-        existing.used_by.push(usedBy);
-      } else {
-        demandByIngredient.set(key, {
-          name,
-          unit,
-          total_quantity: bs.qty,
-          on_hand: 0,
-          shortfall: 0,
-          inventory_item_id: bs.invId,
-          used_by: [usedBy],
-        });
-      }
-    }
-
     const out: IngredientDemand[] = [];
     for (const d of demandByIngredient.values()) {
-      const match = invByName.get(d.name.toLowerCase());
+      const match =
+        (d.inventory_item_id ? invById.get(d.inventory_item_id) : null) ||
+        invByName.get(d.name.toLowerCase());
       d.on_hand = match ? Number(match.current_stock || 0) : 0;
       d.shortfall = Math.max(0, Math.round((d.total_quantity - d.on_hand) * 100) / 100);
       d.total_quantity = Math.round(d.total_quantity * 100) / 100;
