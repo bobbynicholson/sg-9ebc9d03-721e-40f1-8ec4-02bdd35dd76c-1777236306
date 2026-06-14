@@ -557,6 +557,28 @@ export const kitchenPrepService = {
       console.error("Error inserting prep tasks:", error);
       return { created: 0, skippedReason: `insert_failed:${error.message}` };
     }
+    // Communication: a prep plan landed - tell the kitchen team so they
+    // aren't polling the board for new work. Best-effort; a notification
+    // failure must never fail the cascade that created the tasks. Pass
+    // the injected client so server-side cascade/cron callers (service
+    // role) aren't blocked by RLS. dedup guards a re-run from re-pinging.
+    try {
+      const { notificationService } = await import("@/services/notificationService");
+      await notificationService.broadcastNotification({
+        companyId,
+        type: "kitchen_prep_planned",
+        title: "Prep plan ready",
+        message: `${rows.length} prep task${rows.length === 1 ? "" : "s"} scheduled. Open the prep list to start.`,
+        targetRoles: ["kitchen_staff" as any],
+        priority: "normal",
+        link: "/team-portal/kitchen/prep-list",
+        relatedEntityType: "order",
+        relatedEntityId: orderId,
+        dedup: true,
+      }, client);
+    } catch (notifyErr) {
+      console.warn("[kitchenPrepService] prep-plan notification failed:", notifyErr);
+    }
     return { created: rows.length };
   },
 

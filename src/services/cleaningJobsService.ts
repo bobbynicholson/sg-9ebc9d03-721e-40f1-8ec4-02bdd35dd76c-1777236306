@@ -268,7 +268,29 @@ export async function createJob(
       .select("id")
       .single();
     if (error) return { ok: false, error: error.message };
-    return { ok: true, jobId: (data as any)?.id };
+    const jobId = (data as any)?.id;
+    // Communication: a new cleaning job means the cleaning team has work
+    // waiting - ping cleaning_staff so they don't have to poll the board
+    // (mirrors the kitchen prep + shopping list pings). Best-effort; a
+    // notification failure must never fail job creation. Pass the same
+    // client so service-role callers aren't blocked by RLS.
+    try {
+      const { notificationService } = await import("@/services/notificationService");
+      await notificationService.broadcastNotification({
+        companyId: args.companyId,
+        type: "cleaning_job_assigned",
+        title: "New cleaning job",
+        message: `${args.quantity}x ${(equipment as any).name} to clean (${args.method.replace("_", " ")}).`,
+        targetRoles: ["cleaning_staff" as any],
+        priority: "normal",
+        link: "/team-portal/cleaning",
+        relatedEntityType: "cleaning_job",
+        relatedEntityId: jobId ?? undefined,
+      }, supabase);
+    } catch (notifyErr) {
+      console.warn("[cleaningJobsService] new-job notification failed:", notifyErr);
+    }
+    return { ok: true, jobId };
   } catch (e: any) {
     return { ok: false, error: e?.message || "createJob crashed" };
   }

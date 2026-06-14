@@ -589,7 +589,10 @@ export async function deductInventoryForOrder(
           const { notificationService } = await import("@/services/notificationService");
           await notificationService.broadcastNotification({
             companyId,
-            targetRoles: ["shopping_staff" as any],
+            // Shopping does the buying, but admins/owners need the same
+            // visibility in their bell (they were relying on the single
+            // recipient insert above, which only the trigger-er saw).
+            targetRoles: ["shopping_staff", "company_admin", "admin", "owner", "super_admin"] as any,
             title,
             message: `${message}. Add to next shopping run.`,
             type: "stock_low",
@@ -597,6 +600,7 @@ export async function deductInventoryForOrder(
             link: `/team-portal/shopping/inventory?itemId=${inventoryItem.id}`,
             relatedEntityType: "inventory_item",
             relatedEntityId: inventoryItem.id,
+            dedup: true,
           });
         } catch (broadcastErr) {
           console.warn("[inventoryDeduction] shopping broadcast failed:", broadcastErr);
