@@ -144,26 +144,36 @@ export const kitchenDutyService = {
 
     if (error) throw error;
 
-    // NOTIFICATION: Kitchen staff clocked out → Notification to admin
-    if (data) {
-        const {data: order} = await supabase.from('orders').select('company_id').eq('id', data.order_id).single();
-        if (order) {
-            await notificationService.createNotification({
-                company_id: order.company_id,
-                user_id: data.user_id,
-                recipient_id: data.user_id, // Admin
-                title: "Kitchen Staff Clocked Out",
-                message: `A staff member has clocked out from kitchen duty.`,
-                notification_type: "kitchen_clock_out",
-                priority: "low",
-                // Phase 3b kitchen sweep: see the clock-in notification
-                // above. Point at the dispatcher's weekly schedule
-                // instead of the redirect-to-kitchen-portal stub.
-                link: `/admin/kitchen-schedule?shiftId=${shiftId}`,
-                related_entity_type: "kitchen_shift",
-                related_entity_id: shiftId,
-            });
+    // NOTIFICATION: Kitchen staff clocked out -> admins. The clock-IN +
+    // task-complete paths were fixed (May 2026 audit) to broadcast to
+    // admin roles, but clock-OUT still set recipient_id = data.user_id
+    // (the staffer, mislabelled "// Admin") so admins never saw it - and
+    // the call was unguarded, so a failed insert would throw and break
+    // clock-out entirely. Broadcast to KITCHEN_ADMIN_ROLES, best-effort.
+    if (data && data.order_id) {
+      try {
+        const { data: order } = await supabase
+          .from("orders")
+          .select("company_id")
+          .eq("id", data.order_id)
+          .maybeSingle();
+        if (order?.company_id) {
+          await notificationService.broadcastNotification({
+            companyId: order.company_id,
+            type: "kitchen_clock_out",
+            title: "Kitchen staff clocked out",
+            message: "A kitchen staff member has clocked out from duty.",
+            targetRoles: KITCHEN_ADMIN_ROLES,
+            priority: "low",
+            // Point at the dispatcher's weekly schedule (matches clock-in).
+            link: `/admin/kitchen-schedule?shiftId=${shiftId}`,
+            relatedEntityType: "kitchen_shift",
+            relatedEntityId: shiftId,
+          });
         }
+      } catch (notifyErr) {
+        console.warn("[kitchenDutyService.endDutyShift] notify failed:", notifyErr);
+      }
     }
 
     return data;

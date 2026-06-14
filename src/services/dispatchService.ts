@@ -770,6 +770,30 @@ export const dispatchService = {
       console.error("[dispatchService] driver_assignments write crashed:", daCatch);
     }
 
+    // Communication: ping the assigned driver so they actually know they
+    // have a run. Admin-pushed assignments are auto-accepted (no separate
+    // consent flow that would otherwise notify them), so without this the
+    // driver only finds out by checking email/SMS externally. The
+    // self-claim RPC path is the driver's own action; this covers admin
+    // dispatch. Best-effort + dedup so a re-assign doesn't double-ping.
+    try {
+      const { notificationService } = await import("./notificationService");
+      await notificationService.createNotification({
+        company_id: payload.companyId,
+        recipient_id: payload.driverId,
+        type: "driver_assigned",
+        title: "New delivery assigned",
+        message: `You're assigned order ${(existing as any)?.order_number || payload.orderId.slice(0, 8)}${(existing as any)?.event_time ? ` at ${(existing as any).event_time}` : ""}.`,
+        priority: "high",
+        link: "/team-portal/driver/dashboard",
+        related_entity_type: "order",
+        related_entity_id: payload.orderId,
+        dedup: true,
+      });
+    } catch (notifyErr) {
+      console.warn("[dispatchService] driver-assigned notification failed:", notifyErr);
+    }
+
     // Auto-book the best vehicle for the run, unless the caller has
     // taken over vehicle picking themselves. Failure here is non-
     // fatal: the driver assignment already happened. We surface a
