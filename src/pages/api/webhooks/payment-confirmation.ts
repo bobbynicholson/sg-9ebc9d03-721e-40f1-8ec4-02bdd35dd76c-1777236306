@@ -386,15 +386,23 @@ async function handler(
           });
         }
 
-        // Send notification
-        await supabase.from("notifications").insert([{
-          company_id: companyId,
-          user_id: companyData.owner_id || companyId,
-          title: `Invoice Payment Received - ${invoiceData.invoice_number}`,
-          message: `Payment of R${amount_gross} received for invoice ${invoiceData.invoice_number}`,
-          type: "payment_received",
-          channels: ["in_app", "email"]
-        }]);
+        // Send notification. recipient must be an auth uid (RLS filters
+        // reads on it); companies.owner_id is a FK to profiles(id) so it's
+        // valid, but the old `|| companyId` fallback wrote a companies.id
+        // when owner_id was null — a row no auth user could ever read.
+        // Gate on a real owner uid instead of writing a junk recipient.
+        if (companyData.owner_id) {
+          await supabase.from("notifications").insert([{
+            company_id: companyId,
+            user_id: companyData.owner_id,
+            title: `Invoice Payment Received - ${invoiceData.invoice_number}`,
+            message: `Payment of R${amount_gross} received for invoice ${invoiceData.invoice_number}`,
+            type: "payment_received",
+            channels: ["in_app", "email"]
+          }]);
+        } else {
+          console.warn(`[payment-confirmation] company ${companyId} has no owner_id; skipping payment-received notification`);
+        }
 
         // Invoice payment confirmation - "thank you, payment received".
         // Emit through emailService so it picks up the company's
