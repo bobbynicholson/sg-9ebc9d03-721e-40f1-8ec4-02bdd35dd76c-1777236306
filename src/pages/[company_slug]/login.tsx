@@ -290,16 +290,20 @@ export default function CompanyStaffLoginPage({
                 Hidden for misconfig/server-error (the email login would
                 fail the same way), shown only for the real "not found". */}
             {!isMisconfig && !isServerErr && (
-              <div className="mt-5">
+              <div className="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-5">
+                <p className="text-sm font-semibold text-slate-800 mb-1">
+                  Forgot your company&apos;s web address? No problem.
+                </p>
+                <p className="text-xs text-slate-500 mb-4 leading-relaxed">
+                  You don&apos;t need it. Just sign in with your email and password and we&apos;ll take
+                  you straight to your own portal.
+                </p>
                 <Link
                   href="/auth/login"
-                  className="inline-flex items-center justify-center h-11 px-5 rounded-lg bg-slate-900 text-white text-sm font-semibold hover:bg-slate-800 transition-colors"
+                  className="inline-flex items-center justify-center h-11 px-5 w-full rounded-lg bg-slate-900 text-white text-sm font-semibold hover:bg-slate-800 transition-colors"
                 >
-                  Sign in with your email instead →
+                  Sign in with your email →
                 </Link>
-                <p className="text-xs text-slate-400 mt-2">
-                  Don&apos;t know your company&apos;s web address? Sign in with your email and we&apos;ll take you straight to the right place.
-                </p>
               </div>
             )}
             {slugFailureDebug && (isMisconfig || isServerErr) && (
@@ -456,16 +460,37 @@ export default function CompanyStaffLoginPage({
                 </Link>
               </div>
 
-              {/* Forgot-slug recovery: staff who bookmarked the wrong/old
-                  company URL can sign in by email instead - middleware
-                  routes them to their own portal, no slug needed. */}
-              <div className="text-center">
-                <Link
-                  href="/auth/login"
-                  className="text-sm text-slate-500 hover:text-slate-800 underline underline-offset-2"
-                >
-                  Don&apos;t know your company URL? Sign in with email
-                </Link>
+              {/* Highlighted recovery box. A small link was too easy to
+                  miss, so non-technical staff who can't get in (wrong/old
+                  company URL, or never received their invite email) get an
+                  obvious "here's what to do" panel instead of a dead end. */}
+              <div className="mt-2 rounded-xl border border-amber-200 bg-amber-50 p-4 text-left">
+                <p className="text-sm font-semibold text-amber-900 mb-2 flex items-center gap-1.5">
+                  <span aria-hidden>💡</span> Trouble signing in?
+                </p>
+                <ul className="space-y-2.5 text-sm text-amber-900/90">
+                  <li className="flex gap-2">
+                    <span aria-hidden>🔑</span>
+                    <span>
+                      Don&apos;t know your company&apos;s web address?{" "}
+                      <Link
+                        href="/auth/login"
+                        className="font-semibold underline underline-offset-2 hover:text-amber-700"
+                      >
+                        Sign in with your email →
+                      </Link>{" "}
+                      and we&apos;ll take you to the right place.
+                    </span>
+                  </li>
+                  <li className="flex gap-2">
+                    <span aria-hidden>✉️</span>
+                    <span>
+                      Didn&apos;t get your invite or sign-in email? Check your{" "}
+                      <span className="font-semibold">spam / promotions</span> folder, then ask your manager to
+                      resend it from their <span className="font-semibold">Team</span> page.
+                    </span>
+                  </li>
+                </ul>
               </div>
 
               <p className="text-xs text-slate-400 text-center pt-1">
