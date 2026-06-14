@@ -82,8 +82,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     const companyId = profile?.company_id as string | null;
     if (!companyId) return res.status(403).json({ error: "Account is not linked to a company" });
 
-    if (!process.env.ANTHROPIC_API_KEY) {
-      return res.status(500).json({ error: "AI is not configured - set ANTHROPIC_API_KEY on the server." });
+    if (!process.env.GROQ_API_KEY) {
+      return res.status(500).json({ error: "AI is not configured - set GROQ_API_KEY on the server." });
     }
 
     const receiptId = String(req.query.id || "");

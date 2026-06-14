@@ -364,14 +364,14 @@ export interface ReceiptExtraction {
   warnings: string[];
 }
 
-// Cost-tiered model selection. Haiku 4-5 is the default workhorse for
-// receipt OCR - it's ~4x cheaper than Sonnet and the structured-vision
-// extraction quality is fine for clear till slips. Sonnet is held in
-// reserve as the fallback when Haiku returns 0 lines (a signal that
-// the slip is genuinely tricky - thermal-faded, wrinkled, sideways).
-// Both are env-overridable so we can flip without a deploy.
-const RECEIPT_PRIMARY_MODEL = process.env.ANTHROPIC_RECEIPT_MODEL || "claude-haiku-4-5";
-const RECEIPT_FALLBACK_MODEL = process.env.ANTHROPIC_RECEIPT_FALLBACK_MODEL || "claude-sonnet-4-5";
+// Receipt OCR runs on Groq's OpenAI-compatible vision API. Llama 4
+// Scout is the cheap/fast default; Maverick is the higher-capability
+// fallback when Scout returns 0 lines (faded thermal slips, sideways
+// images, dense text). Both env-overridable so we can swap the exact
+// model id without a deploy. GROQ_API_KEY must be set on the server.
+const GROQ_BASE_URL = process.env.GROQ_BASE_URL || "https://api.groq.com/openai/v1";
+const RECEIPT_PRIMARY_MODEL = process.env.GROQ_RECEIPT_MODEL || "meta-llama/llama-4-scout-17b-16e-instruct";
+const RECEIPT_FALLBACK_MODEL = process.env.GROQ_RECEIPT_FALLBACK_MODEL || "meta-llama/llama-4-maverick-17b-128e-instruct";
 
 const RECEIPT_SYSTEM_BASE = `You read photos of South African supplier receipts / slips for a catering company. Your job is to extract the structured fields the catering team needs to load into their inventory: supplier, date, line items with quantities + unit prices, totals.
 
@@ -381,7 +381,7 @@ Rules:
 - Line items: only food / consumables / equipment that go INTO the catering business. Skip "thank you", footer text, store address.
 - If a line price is hidden (folded slip, cropped), set it to null and add a warning, never guess.
 - If you can't read the supplier name or date, return null and warn.
-- Output via the return_receipt tool. No free-form prose.`;
+- Output ONLY a single JSON object matching the schema you are given. No markdown, no code fences, no commentary.`;
 
 function buildTaxRulesPrompt(rules: TaxRuleForPrompt[]): string {
   if (!rules.length) return "";
@@ -421,185 +421,145 @@ async function compressReceiptImage(base64: string, mime: string): Promise<{ bas
   }
 }
 
+/** Compact JSON schema appended to the prompt. Groq vision calls use
+ *  plain JSON output (not Anthropic tool-use), so we describe the shape
+ *  in the prompt and parse the returned JSON ourselves. */
+const RECEIPT_JSON_INSTRUCTION = `
+
+Respond with ONLY a single JSON object (no markdown fences, no prose) with EXACTLY these keys:
+{
+  "supplier_name": string|null,
+  "supplier_vat_number": string|null,
+  "receipt_date": string|null,
+  "receipt_number": string|null,
+  "currency": string|null,
+  "subtotal": number|null,
+  "vat": number|null,
+  "total": number|null,
+  "payment_method": string|null,
+  "line_items": [
+    { "description": string, "quantity": number|null, "unit": string|null, "unit_price": number|null, "line_total": number|null, "tax_category_code": string|null, "is_deductible": boolean|null, "match_confidence": number|null }
+  ],
+  "warnings": [string]
+}`;
+
+/** Strip markdown fences / surrounding prose and JSON.parse the model
+ *  output. Returns null when nothing parseable is found. */
+function parseReceiptJson(text: string): any | null {
+  if (!text) return null;
+  let t = text.trim();
+  const fence = t.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fence) t = fence[1].trim();
+  try { return JSON.parse(t); } catch { /* fall through to slice */ }
+  const first = t.indexOf("{");
+  const last = t.lastIndexOf("}");
+  if (first !== -1 && last > first) {
+    try { return JSON.parse(t.slice(first, last + 1)); } catch { /* give up */ }
+  }
+  return null;
+}
+
 /**
- * Single Anthropic call against a chosen model. Extracted so the outer
- * dispatcher can retry against a higher-tier model on Haiku-zero-line
- * fallback without duplicating the schema + extraction parsing.
- *
- * Prompt caching: the system prompt + tax-rules table are identical
- * across every receipt scan, so we mark the system block as cacheable.
- * After the first call within a 5-minute window, the prefix is billed
- * at 10% of normal input rate. The image stays uncached (it's unique
- * per call). Tools are part of the cached prefix automatically.
+ * Single Groq vision call against a chosen model. Groq exposes an
+ * OpenAI-compatible /chat/completions endpoint, so we send the receipt
+ * as an image_url (base64 data URL) plus a JSON-only instruction and
+ * parse the returned JSON. Extracted so the outer dispatcher can retry
+ * against a higher-tier model when the primary returns 0 lines.
  */
-async function callClaudeForReceipt(args: {
+async function callGroqForReceipt(args: {
   imageBase64: string;
   imageMime: string;
   taxRules?: TaxRuleForPrompt[];
   model: string;
 }): Promise<{ extraction: ReceiptExtraction; tokens_in: number; tokens_out: number; model_used: string }> {
-  const systemText = RECEIPT_SYSTEM_BASE + buildTaxRulesPrompt(args.taxRules || []);
-  // 8192 output tokens leaves comfortable headroom for till-roll receipts
-  // (think Pick n Pay / Makro / Spar) where the line_items array can run
-  // 30+ rows - each carries description + qty + unit + unit_price +
-  // line_total + tax_category_code + is_deductible + match_confidence,
-  // so 30 lines is roughly 1500-2000 tokens just on items. The previous
-  // 2048 cap routinely cut JSON mid-array, which produced 0 line items
-  // back to the UI ("AI couldn't read line items"). Both Haiku 4-5 and
-  // Sonnet 4-5 support far more than 8k; we cap here to avoid runaway
-  // cost on a corrupted image that loops the model.
-  const response: any = await (client().messages.create as any)({
-    model: args.model,
-    max_tokens: 8192,
-    system: [
-      {
-        type: "text",
-        text: systemText,
-        cache_control: { type: "ephemeral" },
-      },
-    ],
-    tools: [
-      {
-        name: "return_receipt",
-        description: "Return the structured contents of the receipt.",
-        input_schema: {
-          type: "object",
-          properties: {
-            supplier_name:        { type: ["string", "null"] },
-            supplier_vat_number:  { type: ["string", "null"] },
-            receipt_date:         { type: ["string", "null"], description: "ISO yyyy-mm-dd" },
-            receipt_number:       { type: ["string", "null"] },
-            currency:             { type: ["string", "null"], description: "ISO currency code, usually ZAR" },
-            subtotal:             { type: ["number", "null"] },
-            vat:                  { type: ["number", "null"] },
-            total:                { type: ["number", "null"] },
-            payment_method:       { type: ["string", "null"], description: "card / cash / eft / unknown" },
-            line_items: {
-              type: "array",
-              items: {
-                type: "object",
-                properties: {
-                  description:        { type: "string" },
-                  quantity:           { type: ["number", "null"] },
-                  unit:               { type: ["string", "null"], description: "e.g. kg, ea, L" },
-                  unit_price:         { type: ["number", "null"] },
-                  line_total:         { type: ["number", "null"] },
-                  tax_category_code:  { type: ["string", "null"], description: "category_code from the supplied rules list, or null if no fit" },
-                  is_deductible:      { type: ["boolean", "null"], description: "Derived from the matched rule" },
-                  match_confidence:   { type: ["number", "null"], description: "0-1 confidence in the rule match" },
-                },
-                required: ["description", "quantity", "unit", "unit_price", "line_total", "tax_category_code", "is_deductible", "match_confidence"],
-                additionalProperties: false,
-              },
-            },
-            warnings: {
-              type: "array",
-              items: { type: "string" },
-              description: "Plain-English notes about anything that was hard to read.",
-            },
-          },
-          required: [
-            "supplier_name", "supplier_vat_number", "receipt_date", "receipt_number",
-            "currency", "subtotal", "vat", "total", "payment_method",
-            "line_items", "warnings",
+  const apiKey = process.env.GROQ_API_KEY;
+  if (!apiKey) throw new Error("GROQ_API_KEY is not configured");
+
+  const systemText = RECEIPT_SYSTEM_BASE + buildTaxRulesPrompt(args.taxRules || []) + RECEIPT_JSON_INSTRUCTION;
+  const dataUrl = `data:${args.imageMime};base64,${args.imageBase64}`;
+
+  // 8192 output tokens leaves headroom for till-roll receipts (Pick n
+  // Pay / Makro / Spar) whose line_items array can run 30+ rows.
+  const res = await fetch(`${GROQ_BASE_URL}/chat/completions`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: args.model,
+      temperature: 0,
+      max_tokens: 8192,
+      messages: [
+        { role: "system", content: systemText },
+        {
+          role: "user",
+          content: [
+            { type: "text", text: "Extract every line item, totals, supplier and date from this receipt. Respond with ONLY the JSON object." },
+            { type: "image_url", image_url: { url: dataUrl } },
           ],
-          additionalProperties: false,
         },
-      },
-    ],
-    tool_choice: { type: "tool", name: "return_receipt" },
-    messages: [
-      {
-        role: "user",
-        content: [
-          {
-            type: "image",
-            source: {
-              type: "base64",
-              media_type: args.imageMime,
-              data: args.imageBase64,
-            },
-          },
-          {
-            type: "text",
-            text: "Extract every line item, totals, supplier and date from this receipt. Use the return_receipt tool.",
-          },
-        ],
-      },
-    ],
+      ],
+    }),
   });
 
-  const tokensIn = response?.usage?.input_tokens ?? 0;
-  const tokensOut = response?.usage?.output_tokens ?? 0;
-  // stop_reason tells us why the model finished. "end_turn" or
-  // "tool_use" = clean. "max_tokens" = we ran out of room mid-output;
-  // any line_items we got back are partial and the JSON might be
-  // malformed. We surface this explicitly in warnings so the UI toast
-  // can tell the operator the real cause instead of "try a clearer
-  // photo" - the photo is fine, the cap was the problem.
-  const stopReason: string | undefined = response?.stop_reason;
-  const truncated = stopReason === "max_tokens";
+  if (!res.ok) {
+    // Surface the real Groq error (bad key, bad model id, rate limit) so
+    // the upload route + UI banner can show the operator what to fix.
+    const errText = await res.text().catch(() => "");
+    throw new Error(`Groq API ${res.status}: ${errText.slice(0, 300) || res.statusText}`);
+  }
 
-  let extraction: ReceiptExtraction = {
-    supplier_name: null, supplier_vat_number: null, receipt_date: null,
-    receipt_number: null, currency: null, subtotal: null, vat: null, total: null,
-    payment_method: null, line_items: [],
-    warnings: truncated
-      ? ["Output was cut off before the model finished - raise max_tokens or split the receipt."]
-      : ["No structured response from model"],
+  const json: any = await res.json();
+  const tokensIn: number = json?.usage?.prompt_tokens ?? 0;
+  const tokensOut: number = json?.usage?.completion_tokens ?? 0;
+  const choice: any = json?.choices?.[0];
+  const truncated = choice?.finish_reason === "length";
+  const content: string = choice?.message?.content ?? "";
+  const parsed = parseReceiptJson(content);
+
+  if (!parsed) {
+    return {
+      extraction: {
+        supplier_name: null, supplier_vat_number: null, receipt_date: null,
+        receipt_number: null, currency: null, subtotal: null, vat: null, total: null,
+        payment_method: null, line_items: [],
+        warnings: truncated
+          ? ["Output was cut off before the model finished - raise max_tokens or split the receipt."]
+          : [content.trim() ? `Model did not return valid JSON: ${content.trim().slice(0, 200)}` : "No structured response from model"],
+      },
+      tokens_in: tokensIn, tokens_out: tokensOut, model_used: args.model,
+    };
+  }
+
+  const extraction: ReceiptExtraction = {
+    supplier_name: parsed.supplier_name ?? null,
+    supplier_vat_number: parsed.supplier_vat_number ?? null,
+    receipt_date: parsed.receipt_date ?? null,
+    receipt_number: parsed.receipt_number ?? null,
+    currency: parsed.currency ?? null,
+    subtotal: typeof parsed.subtotal === "number" ? parsed.subtotal : null,
+    vat: typeof parsed.vat === "number" ? parsed.vat : null,
+    total: typeof parsed.total === "number" ? parsed.total : null,
+    payment_method: parsed.payment_method ?? null,
+    line_items: Array.isArray(parsed.line_items) ? parsed.line_items.map((li: any) => ({
+      description: String(li?.description ?? "").trim(),
+      quantity: typeof li?.quantity === "number" ? li.quantity : null,
+      unit: li?.unit ?? null,
+      unit_price: typeof li?.unit_price === "number" ? li.unit_price : null,
+      line_total: typeof li?.line_total === "number" ? li.line_total : null,
+      tax_category_code: typeof li?.tax_category_code === "string" ? li.tax_category_code : null,
+      is_deductible: typeof li?.is_deductible === "boolean" ? li.is_deductible : null,
+      match_confidence: typeof li?.match_confidence === "number" ? li.match_confidence : null,
+    })) : [],
+    warnings: Array.isArray(parsed.warnings) ? parsed.warnings.map((w: any) => String(w)) : [],
   };
 
-  const blocks: any[] = Array.isArray(response?.content) ? response.content : [];
-  // Capture any text the model returned alongside the tool call - if it
-  // refused or struggled with the image, the explanation lives here.
-  const textCommentary: string[] = [];
-  for (const block of blocks) {
-    if (block?.type === "text" && typeof block.text === "string" && block.text.trim()) {
-      textCommentary.push(block.text.trim());
-    }
-  }
-  for (const block of blocks) {
-    if (block?.type === "tool_use" && block?.name === "return_receipt") {
-      const input = block.input as any;
-      extraction = {
-        supplier_name: input.supplier_name ?? null,
-        supplier_vat_number: input.supplier_vat_number ?? null,
-        receipt_date: input.receipt_date ?? null,
-        receipt_number: input.receipt_number ?? null,
-        currency: input.currency ?? null,
-        subtotal: typeof input.subtotal === "number" ? input.subtotal : null,
-        vat: typeof input.vat === "number" ? input.vat : null,
-        total: typeof input.total === "number" ? input.total : null,
-        payment_method: input.payment_method ?? null,
-        line_items: Array.isArray(input.line_items) ? input.line_items.map((li: any) => ({
-          description: String(li.description ?? "").trim(),
-          quantity: typeof li.quantity === "number" ? li.quantity : null,
-          unit: li.unit ?? null,
-          unit_price: typeof li.unit_price === "number" ? li.unit_price : null,
-          line_total: typeof li.line_total === "number" ? li.line_total : null,
-          tax_category_code: typeof li.tax_category_code === "string" ? li.tax_category_code : null,
-          is_deductible: typeof li.is_deductible === "boolean" ? li.is_deductible : null,
-          match_confidence: typeof li.match_confidence === "number" ? li.match_confidence : null,
-        })) : [],
-        warnings: Array.isArray(input.warnings) ? input.warnings.map((w: any) => String(w)) : [],
-      };
-      // Fold any model commentary into warnings so the operator sees
-      // it (e.g. "Image is rotated sideways", "Slip is too blurry to
-      // read totals"). Helpful for debugging zero-line responses.
-      if (textCommentary.length > 0) {
-        extraction.warnings = [...extraction.warnings, ...textCommentary];
-      }
-      // If the response was truncated mid-output, prepend an explicit
-      // truncation warning - the operator should know the line list
-      // they're seeing is incomplete, not "the AI couldn't read it".
-      if (truncated) {
-        extraction.warnings = [
-          "Output was cut off mid-receipt (max_tokens hit). Lines below may be incomplete.",
-          ...extraction.warnings,
-        ];
-      }
-      break;
-    }
+  if (truncated) {
+    extraction.warnings = [
+      "Output was cut off mid-receipt (max_tokens hit). Lines below may be incomplete.",
+      ...extraction.warnings,
+    ];
   }
 
   return { extraction, tokens_in: tokensIn, tokens_out: tokensOut, model_used: args.model };
@@ -634,7 +594,7 @@ export async function extractReceiptViaAI(args: {
 }): Promise<{ extraction: ReceiptExtraction; tokens_in: number; tokens_out: number; model_used?: string }> {
   const compressed = await compressReceiptImage(args.imageBase64, args.imageMime);
 
-  const result = await callClaudeForReceipt({
+  const result = await callGroqForReceipt({
     imageBase64: compressed.base64,
     imageMime: compressed.mime,
     taxRules: args.taxRules,
@@ -651,7 +611,7 @@ export async function extractReceiptViaAI(args: {
     console.log(
       `[receipt] primary ${RECEIPT_PRIMARY_MODEL} returned 0 lines, retrying with ${RECEIPT_FALLBACK_MODEL}`,
     );
-    const fallback = await callClaudeForReceipt({
+    const fallback = await callGroqForReceipt({
       imageBase64: compressed.base64,
       imageMime: compressed.mime,
       taxRules: args.taxRules,
