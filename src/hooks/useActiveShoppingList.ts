@@ -21,6 +21,8 @@ import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toLocalISO } from "@/lib/localDate";
+import { notificationService } from "@/services/notificationService";
+import { UserRole } from "@/types/app";
 
 export interface ActiveListItem {
   id: string;
@@ -116,6 +118,10 @@ export function useActiveShoppingList(): UseActiveShoppingList {
   const { user } = useAuth();
   const companyId = (user as { company_id?: string } | null)?.company_id;
   const userId = (user as { id?: string } | null)?.id;
+  // Creator's role decides ownership of a freshly created list (see
+  // ensureList): a shopper owns their own run; an admin/owner starts a
+  // shared "team list" that any shopper can pick up + gets pinged about.
+  const role = (user as { role?: string } | null)?.role;
 
   const [list, setList] = useState<ActiveList | null>(null);
   const [items, setItems] = useState<ActiveListItem[]>([]);
@@ -329,18 +335,28 @@ export function useActiveShoppingList(): UseActiveShoppingList {
     }
   }, [items]);
 
-  // Create a fresh list, auto-assigning shopper_id to current user.
+  // Create a fresh list.
+  //
+  // Ownership rule: a shopper starting their own run owns it (shopper_id
+  // = themselves -> "your list"). An admin/owner/manager who kicks off a
+  // run on behalf of the team leaves shopper_id NULL so the list surfaces
+  // as the shared "team list" that ANY shopping_staff member picks up via
+  // resolution fallback #2. Previously every list was stamped with the
+  // creator's id, so an admin-created list was invisible to the actual
+  // shoppers - they'd open the dashboard and see "No active shopping list".
   const ensureList = useCallback(async (): Promise<string | null> => {
     if (list) return list.id;
     if (!companyId || !userId) return null;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const sb = supabase as any;
+    const isShopper = role === UserRole.SHOPPING_STAFF;
+    const shopperId = isShopper ? userId : null;
     const { data: created, error: cErr } = await sb
       .from("shopping_lists")
       .insert([{
         company_id: companyId,
         user_id: userId,
-        shopper_id: userId,
+        shopper_id: shopperId,
         list_date: toLocalISO(new Date()),
         status: "in_progress",
         source: "manual",
@@ -352,8 +368,31 @@ export function useActiveShoppingList(): UseActiveShoppingList {
       setError(cErr?.message || "Could not create list");
       return null;
     }
+    // Communication: when an admin/owner starts a team list, ping the
+    // shopping team so the assigned shopper isn't left polling the buy
+    // list. Self-started shopper runs skip this (they already know).
+    // Best-effort - a notification failure must never block list
+    // creation. dedup guards against a double-create race re-pinging.
+    if (!isShopper) {
+      try {
+        await notificationService.broadcastNotification({
+          companyId,
+          type: "shopping_list_created",
+          title: "New shopping list ready",
+          message: "A shopping run has been started for the team. Open the Buy list to see what's short and tick items as you buy them.",
+          targetRoles: [UserRole.SHOPPING_STAFF],
+          priority: "normal",
+          link: "/team-portal/shopping/dashboard",
+          relatedEntityType: "shopping_list",
+          relatedEntityId: created.id as string,
+          dedup: true,
+        });
+      } catch (notifyErr) {
+        console.warn("[useActiveShoppingList] new-list notification failed:", notifyErr);
+      }
+    }
     return created.id as string;
-  }, [list, companyId, userId]);
+  }, [list, companyId, userId, role]);
 
   const addItem = useCallback(async (input: {
     name: string;
@@ -481,6 +520,30 @@ export function useActiveShoppingList(): UseActiveShoppingList {
         }));
       } catch { /* old browsers without CustomEvent polyfill */ }
     }
+    // Communication: close the loop back to the admins/owners so they
+    // know the run is done and can verify receipts + close out. Mirrors
+    // the "new list ready" ping that goes the other way to shoppers.
+    // Best-effort - never block list completion on a notification error.
+    if (companyId) {
+      try {
+        await notificationService.broadcastNotification({
+          companyId,
+          type: "shopping_completed",
+          title: "Shopping completed",
+          message: typeof actualTotal === "number" && actualTotal > 0
+            ? `${list.title || "A shopping list"} is done - actual spend recorded. Snap the receipt to reconcile.`
+            : `${list.title || "A shopping list"} is done. Awaiting a receipt to close it out.`,
+          targetRoles: [UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.OWNER, UserRole.ADMIN],
+          priority: "normal",
+          link: `/admin/shopping?listId=${list.id}`,
+          relatedEntityType: "shopping_list",
+          relatedEntityId: list.id,
+          dedup: true,
+        });
+      } catch (notifyErr) {
+        console.warn("[useActiveShoppingList] completion notification failed:", notifyErr);
+      }
+    }
     await load();
   }, [list, load, userId, companyId]);
 
@@ -530,8 +593,31 @@ export function useActiveShoppingList(): UseActiveShoppingList {
         prev.map((i) => (i.id === itemId ? { ...i, notes: currentNotes || null } : i)),
       );
       setError(updErr.message || "Could not save out-of-stock flag");
+      return;
     }
-  }, [items]);
+    // Communication: a freshly-flagged out-of-stock item means the run
+    // can't fully cover demand - tell the admins/owners so they can
+    // re-source or adjust the order. Only on flag-on; clearing the tag
+    // is silent. dedup keeps a toggle from re-pinging for the same item.
+    if (!alreadyFlagged && companyId) {
+      try {
+        await notificationService.broadcastNotification({
+          companyId,
+          type: "shopping_item_out_of_stock",
+          title: "Item out of stock",
+          message: `${target.name} couldn't be bought at ${supplier}. It may need re-sourcing or an order adjustment.`,
+          targetRoles: [UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.OWNER, UserRole.ADMIN],
+          priority: "normal",
+          link: "/admin/shopping",
+          relatedEntityType: "shopping_list_item",
+          relatedEntityId: itemId,
+          dedup: true,
+        });
+      } catch (notifyErr) {
+        console.warn("[useActiveShoppingList] out-of-stock notification failed:", notifyErr);
+      }
+    }
+  }, [items, companyId]);
 
   // SHP2-H (shopping deep audit, SHP2-22): tick by inventory_item_id
   // resolved from a barcode scan. Finds the matching shopping_list_items
