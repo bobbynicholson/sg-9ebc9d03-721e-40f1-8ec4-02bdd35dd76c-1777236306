@@ -168,13 +168,16 @@ export const shoppingService = {
   },
 
   async completeShopping(listId: string, totalCost?: number): Promise<ShoppingList | null> {
+    // shopping_lists has NO completed_at / total_cost / updated_at columns —
+    // writing them made the UPDATE fail with column-not-found and (since the
+    // error is re-thrown below) crash the caller. Real columns: `status` and
+    // `actual_total`. The canonical useActiveShoppingList hook already learnt
+    // this the hard way; mirror it here so this path is safe if ever wired up.
     const { data, error } = await supabase
       .from("shopping_lists")
       .update({
         status: "completed",
-        completed_at: new Date().toISOString(),
-        total_cost: totalCost || null,
-        updated_at: new Date().toISOString()
+        actual_total: totalCost ?? null,
       } as any)
       .eq("id", listId)
       .select()
