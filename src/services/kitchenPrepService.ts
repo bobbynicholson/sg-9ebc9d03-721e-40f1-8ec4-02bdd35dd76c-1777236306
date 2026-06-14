@@ -778,71 +778,26 @@ export const kitchenPrepService = {
     const { data: orders } = await ordersQuery;
     if (!orders || orders.length === 0) return [];
 
-    // Aggregate demand per ingredient name
+    // Aggregate demand per ingredient name.
     const demandByIngredient = new Map<string, IngredientDemand>();
 
-    for (const order of orders as any[]) {
-      const guestCount = Number(order.final_guest_count || order.guest_count || 1);
-      const items: any[] = Array.isArray(order.menu_items) ? order.menu_items : [];
-
-      for (const item of items) {
-        const name = item?.name || item?.item_name || item?.menu_item_name;
-        if (!name) continue;
-
-        const recipe = await this.lookupRecipe(companyId, name);
-        if (!recipe) continue;
-
-        const scaled = this.scaleRecipe(name, recipe, guestCount * Number(item?.quantity ?? 1));
-
-        for (const ing of scaled.ingredients) {
-          const key = `${ing.name.toLowerCase()}|${ing.scaled_unit.toLowerCase()}`;
-          const existing = demandByIngredient.get(key);
-          if (existing) {
-            existing.total_quantity += ing.scaled_quantity;
-            existing.used_by.push({
-              order_id: order.id,
-              client_name: order.client_name,
-              event_date: order.event_date,
-              qty: ing.scaled_quantity,
-            });
-          } else {
-            demandByIngredient.set(key, {
-              name: ing.name,
-              unit: ing.scaled_unit,
-              total_quantity: ing.scaled_quantity,
-              on_hand: 0,
-              shortfall: 0,
-              inventory_item_id: ing.inventory_item_id ?? null,
-              used_by: [{
-                order_id: order.id,
-                client_name: order.client_name,
-                event_date: order.event_date,
-                qty: ing.scaled_quantity,
-              }],
-            });
-          }
-        }
-      }
-    }
-
-    // KIT3-E (task #248): also walk the buy-and-sell path. The
-    // `order_ingredient_demand` DB view does a UNION between the
-    // recipe path AND any order_items whose menu_item is
-    // is_buy_and_sell=true with a linked_inventory_item_id set.
-    // The recipe-only path above missed these entirely, so a tenant
-    // whose menu is configured as buy-and-sell (no recipes) saw an
-    // empty by-ingredient tab while the by-order tab listed every
-    // ingredient correctly. We stash the raw rows here and fold them
-    // in after the inventory pull below (when we have item names +
-    // units to key on).
-    const bsRowsForJoin: Array<{ invId: string; qty: number; order: any }> = [];
+    // Source line items from the relational `order_items` table, NOT the
+    // `orders.menu_items` JSONB column. Orders created via the quote->order
+    // flow populate order_items but leave the JSONB empty, so the old
+    // JSONB read returned nothing and the by-ingredient tab was always
+    // empty for recipe-based menus - even though the by-order tab (which
+    // reads the order_ingredient_demand view, also order_items-backed)
+    // listed every ingredient. One fetch drives BOTH paths below.
+    const ordersById = new Map<string, any>((orders as any[]).map((o) => [o.id, o]));
+    let orderItems: any[] = [];
     try {
       const orderIds = (orders as any[]).map((o) => o.id);
       if (orderIds.length > 0) {
-        const { data: bsRows } = await supabase
+        const { data: oiRows } = await supabase
           .from("order_items")
           .select(`
             order_id,
+            item_name,
             quantity,
             menu_item:menu_item_id (
               id,
@@ -852,35 +807,85 @@ export const kitchenPrepService = {
             )
           `)
           .in("order_id", orderIds);
+        orderItems = (oiRows || []) as any[];
+      }
+    } catch (oiErr) {
+      console.warn("[kitchenPrepService] order_items fetch failed:", oiErr);
+    }
 
-        const ordersById = new Map<string, any>(
-          (orders as any[]).map((o) => [o.id, o]),
-        );
-        for (const r of (bsRows || []) as any[]) {
-          const mi = r.menu_item;
-          if (!mi) continue;
-          if (!mi.is_buy_and_sell) continue;
-          if (!mi.linked_inventory_item_id) continue;
-          // Skip when the menu item also has a recipe row - the
-          // recipe arm of the main loop already counted it. Mirrors
-          // the view's `NOT EXISTS (SELECT 1 FROM recipes ...)` guard
-          // so we don't double-count.
-          if (Array.isArray(mi.recipes) && mi.recipes.length > 0) continue;
+    // Recipe path: scale each order line by its portions ordered. NOTE:
+    // order_items.quantity already equals total portions (= guest count),
+    // so we scale by it directly - matching order_ingredient_demand's
+    // (oi.quantity / base_servings) maths. The old code fed
+    // guestCount * item.quantity, which double-counted once the source
+    // moved to the (already per-portion) relational table.
+    for (const oi of orderItems) {
+      const order = ordersById.get(oi.order_id);
+      if (!order) continue;
+      const name = oi.item_name;
+      const portions = Number(oi.quantity ?? 0);
+      if (!name || portions <= 0) continue;
 
-          const order = ordersById.get(r.order_id);
-          if (!order) continue;
-          const qty = Number(r.quantity || 0);
-          if (qty <= 0) continue;
+      const recipe = await this.lookupRecipe(companyId, name);
+      if (!recipe) continue;
 
-          bsRowsForJoin.push({
-            invId: mi.linked_inventory_item_id as string,
-            qty,
-            order,
+      const scaled = this.scaleRecipe(name, recipe, portions);
+
+      for (const ing of scaled.ingredients) {
+        const key = `${ing.name.toLowerCase()}|${ing.scaled_unit.toLowerCase()}`;
+        const existing = demandByIngredient.get(key);
+        if (existing) {
+          existing.total_quantity += ing.scaled_quantity;
+          existing.used_by.push({
+            order_id: order.id,
+            client_name: order.client_name,
+            event_date: order.event_date,
+            qty: ing.scaled_quantity,
+          });
+        } else {
+          demandByIngredient.set(key, {
+            name: ing.name,
+            unit: ing.scaled_unit,
+            total_quantity: ing.scaled_quantity,
+            on_hand: 0,
+            shortfall: 0,
+            inventory_item_id: ing.inventory_item_id ?? null,
+            used_by: [{
+              order_id: order.id,
+              client_name: order.client_name,
+              event_date: order.event_date,
+              qty: ing.scaled_quantity,
+            }],
           });
         }
       }
-    } catch (bsErr) {
-      console.warn("[kitchenPrepService] buy-and-sell demand pass failed:", bsErr);
+    }
+
+    // KIT3-E (task #248): buy-and-sell path. Items whose menu_item is
+    // is_buy_and_sell=true with a linked_inventory_item_id and NO recipe
+    // (the recipe arm above already counted recipe-bearing items). Mirrors
+    // the order_ingredient_demand view's UNION + NOT EXISTS(recipes) guard
+    // so we don't double-count. Reuses the single order_items fetch above
+    // and is folded into demandByIngredient after the inventory pull below
+    // (when we have item names + units to key on).
+    const bsRowsForJoin: Array<{ invId: string; qty: number; order: any }> = [];
+    for (const r of orderItems) {
+      const mi = r.menu_item;
+      if (!mi) continue;
+      if (!mi.is_buy_and_sell) continue;
+      if (!mi.linked_inventory_item_id) continue;
+      if (Array.isArray(mi.recipes) && mi.recipes.length > 0) continue;
+
+      const order = ordersById.get(r.order_id);
+      if (!order) continue;
+      const qty = Number(r.quantity || 0);
+      if (qty <= 0) continue;
+
+      bsRowsForJoin.push({
+        invId: mi.linked_inventory_item_id as string,
+        qty,
+        order,
+      });
     }
 
     if (demandByIngredient.size === 0 && bsRowsForJoin.length === 0) return [];
