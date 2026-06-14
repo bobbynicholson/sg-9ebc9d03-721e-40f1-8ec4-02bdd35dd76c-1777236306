@@ -80,6 +80,36 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       return res.status(500).json({ error: updErr.message });
     }
 
+    // Communication: tell each lapsed tenant's owners/admins their trial
+    // ended and access is now limited, so they're routed to pick a plan.
+    // The TrialExpiryBanner counted down to 0 but nothing actually
+    // pinged them when the gate closed. Best-effort, per-tenant; a notify
+    // failure must never fail the cron. Pass the service-role client so
+    // RLS doesn't block these cross-tenant inserts.
+    try {
+      const { notificationService } = await import("@/services/notificationService");
+      for (const c of (lapsed as any[]) || []) {
+        try {
+          await notificationService.broadcastNotification({
+            companyId: c.id,
+            type: "trial_expiring",
+            title: "Your free trial has ended",
+            message: "Your trial period is over and access is now limited. Pick a plan to restore full access.",
+            targetRoles: ["owner", "company_admin", "super_admin", "admin"] as any,
+            priority: "urgent",
+            link: "/admin/subscription",
+            relatedEntityType: "company",
+            relatedEntityId: c.id,
+            dedup: true,
+          }, sb);
+        } catch (perCoErr) {
+          console.warn("[expire-trials] notify failed for company", c.id, perCoErr);
+        }
+      }
+    } catch (notifyErr) {
+      console.warn("[expire-trials] notification cascade crashed (non-blocking):", notifyErr);
+    }
+
     await recordCronHeartbeat(sb, CRON_NAME, "ok", { source: auth.source, expired: ids.length });
     return res.status(200).json({ ok: true, expired: ids.length });
   } catch (e: any) {
