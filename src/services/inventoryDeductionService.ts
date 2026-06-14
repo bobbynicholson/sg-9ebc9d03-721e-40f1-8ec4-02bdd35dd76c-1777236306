@@ -416,7 +416,10 @@ export async function deductInventoryForOrder(
   const deducted: Array<{ item: string; quantity: number; unit: string }> = [];
   const warnings: Array<{ item: string; message: string }> = [];
   const errors: string[] = [];
-  
+  // Set once we atomically claim inventory_deducted_at below. Lets the
+  // failure paths (and the catch) roll the claim back so a retry can run.
+  let claimed = false;
+
   try {
     // 1. Get order details
     const { data: orderData, error: orderError } = await supabase
@@ -489,6 +492,34 @@ export async function deductInventoryForOrder(
       return { success: false, deducted, warnings, errors };
     }
     
+    // 3b. Atomic claim — the real race guard. The top-of-function check
+    // reads inventory_deducted_at from a plain SELECT, so two concurrent
+    // "delivered" flips both see null and both deduct (double inventory
+    // loss → wrong COGS/margin). A conditional UPDATE ... WHERE
+    // inventory_deducted_at IS NULL only ever affects the row for ONE
+    // caller; the loser gets 0 rows back and no-ops. Done here (after the
+    // no-op early-returns above) so an order with nothing to deduct isn't
+    // wrongly marked deducted. On failure we roll this back below so a
+    // retry can run [P1-14 hardening].
+    {
+      const { data: claimRows, error: claimErr } = await (supabase as any)
+        .from("orders")
+        .update({ inventory_deducted_at: new Date().toISOString() })
+        .eq("id", orderId)
+        .is("inventory_deducted_at", null)
+        .select("id");
+      if (claimErr) {
+        errors.push(`Couldn't claim inventory deduction: ${claimErr.message}`);
+        return { success: false, deducted, warnings, errors };
+      }
+      if (!claimRows || claimRows.length === 0) {
+        // Another worker holds the claim (or it's already deducted).
+        warnings.push({ item: "Order", message: "Inventory deduction already claimed/done. No-op." });
+        return { success: true, deducted, warnings, errors };
+      }
+      claimed = true;
+    }
+
     // 4. Process each ingredient
     for (const [ingredientName, needed] of ingredientNeeds.entries()) {
       const inventoryItem = inventoryItems?.find(
@@ -608,22 +639,16 @@ export async function deductInventoryForOrder(
       }
     }
     
-    // Stamp inventory_deducted_at on success so a subsequent call
-    // no-ops via the guard at the top of the function [P1-14].
-    // Cast: column added in 20260507160000 migration, types haven't
-    // been regenerated yet.
-    if (errors.length === 0 && deducted.length > 0) {
-      const { error: stampErr } = await (supabase as any)
+    // inventory_deducted_at was already stamped by the atomic claim above.
+    // Keep it on success; roll it back to NULL on failure (errors, or
+    // nothing actually deducted) so a retry can re-run instead of being
+    // permanently no-op'd by the guard [P1-14].
+    if (claimed && !(errors.length === 0 && deducted.length > 0)) {
+      const { error: rbErr } = await (supabase as any)
         .from("orders")
-        .update({ inventory_deducted_at: new Date().toISOString() })
+        .update({ inventory_deducted_at: null })
         .eq("id", orderId);
-      if (stampErr) {
-        console.warn("[deductInventoryForOrder] inventory_deducted_at stamp failed:", stampErr.message);
-        warnings.push({
-          item: "Order",
-          message: "Deduction succeeded but the idempotency stamp failed; a retry could double-deduct.",
-        });
-      }
+      if (rbErr) console.warn("[deductInventoryForOrder] claim rollback failed:", rbErr.message);
     }
 
     return {
@@ -636,6 +661,17 @@ export async function deductInventoryForOrder(
   } catch (error: any) {
     console.error("Inventory deduction failed:", error);
     errors.push(error.message || "Unknown error");
+    // Release the claim so the crash doesn't permanently block a retry.
+    if (claimed) {
+      try {
+        await (supabase as any)
+          .from("orders")
+          .update({ inventory_deducted_at: null })
+          .eq("id", orderId);
+      } catch (rbErr) {
+        console.warn("[deductInventoryForOrder] claim rollback (catch) failed:", rbErr);
+      }
+    }
     return { success: false, deducted, warnings, errors };
   }
 }
@@ -673,12 +709,16 @@ export async function recalculateInventoryForOrder(
 
   try {
     // 1. Pull every prior 'usage' transaction for this order.
+    // Match on the order_id FK (the deduction stamps it on every usage row),
+    // not a `notes ILIKE %order #<last8>%` text scan. The text match was
+    // fragile: it broke if the audit note was edited and could in theory
+    // match a different order sharing the same 8-char UUID suffix.
     const { data: priorTx, error: txErr } = await (supabase as any)
       .from("inventory_transactions")
       .select("id, inventory_item_id, quantity")
       .eq("company_id", companyId)
       .eq("transaction_type", "usage")
-      .ilike("notes", `%order #${orderTag}%`);
+      .eq("order_id", orderId);
     if (txErr) {
       errors.push(`Couldn't read prior transactions: ${txErr.message}`);
       return { success: false, reversed: 0, deducted: [], warnings: [], errors };
@@ -766,12 +806,16 @@ export async function reverseInventoryForOrder(
   let reversed = 0;
 
   try {
+    // Match on the order_id FK (the deduction stamps it on every usage row),
+    // not a `notes ILIKE %order #<last8>%` text scan. The text match was
+    // fragile: it broke if the audit note was edited and could in theory
+    // match a different order sharing the same 8-char UUID suffix.
     const { data: priorTx, error: txErr } = await (supabase as any)
       .from("inventory_transactions")
       .select("id, inventory_item_id, quantity")
       .eq("company_id", companyId)
       .eq("transaction_type", "usage")
-      .ilike("notes", `%order #${orderTag}%`);
+      .eq("order_id", orderId);
     if (txErr) {
       errors.push(`Couldn't read prior transactions: ${txErr.message}`);
       return { success: false, reversed: 0, errors };

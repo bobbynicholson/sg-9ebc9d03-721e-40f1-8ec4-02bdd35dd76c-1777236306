@@ -436,8 +436,11 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     const refund_final = (() => {
       if (refund_override === null) return refund_calc;
       if (!Number.isFinite(refund_override) || refund_override < 0) return refund_calc;
-      const capped = Math.min(refund_override, totalPaid);
-      return Number(capped.toFixed(2));
+      // Clamp in integer cents. Doing Math.min on floats then .toFixed(2)
+      // could round a sub-cent override UP past totalPaid (e.g. 100.005 vs
+      // 100.00 → 100.01), over-refunding by a cent. Compare/clamp in cents.
+      const cappedCents = Math.min(Math.round(refund_override * 100), Math.round(totalPaid * 100));
+      return cappedCents / 100;
     })();
     if (refund_override !== null && refund_override > totalPaid + 0.01) {
       console.warn(
