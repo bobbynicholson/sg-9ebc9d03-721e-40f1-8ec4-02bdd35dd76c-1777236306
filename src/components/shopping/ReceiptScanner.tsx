@@ -89,6 +89,10 @@ export function ReceiptScanner({
   const [rows, setRows] = useState<RowShape[]>([]);
   const [reconcileRow, setReconcileRow] = useState<RowShape | null>(null);
   const [savedRowIds, setSavedRowIds] = useState<Set<string>>(new Set());
+  // Persistent scan outcome banner. Toasts auto-dismiss, so a failed or
+  // empty scan left nothing on screen and the user couldn't tell what
+  // happened. This keeps the result visible until the next scan.
+  const [scanStatus, setScanStatus] = useState<{ kind: "success" | "empty" | "error"; message: string } | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
   // SHOP-B: monthly scan quota. Replaces the misleading hardcoded
   // "around ZAR 0.05 per batch" line that was ~80x understated.
@@ -152,6 +156,7 @@ export function ReceiptScanner({
       return;
     }
     setBusy(true);
+    setScanStatus(null);
     try {
       const fd = new FormData();
       picked.forEach((f) => fd.append("files", f));
@@ -162,17 +167,46 @@ export function ReceiptScanner({
       const json = await res.json();
       if (!res.ok) throw new Error(json?.error || "Upload failed");
       setJobId(json.jobId);
-      toast({
-        title: `Scanned ${json.processed} receipt${json.processed === 1 ? "" : "s"}`,
-        description: `${json.ai?.tokens_out || 0} tokens read by the model. Review the extractions below.`,
-      });
+      const processed = json.processed ?? 0;
+
+      // Pull the per-receipt rows so we can report read/failed counts.
+      let fetchedRows: RowShape[] = [];
       try {
         const r = await fetch(`/api/imports/${json.jobId}?rows=1`);
         const rj = await r.json();
-        if (r.ok) setRows(rj.rows || []);
+        if (r.ok) { fetchedRows = (rj.rows || []) as RowShape[]; setRows(fetchedRows); }
       } catch { /* non-fatal */ }
+
+      const okCount = fetchedRows.filter((r) => r.status !== "error").length;
+      const errCount = fetchedRows.filter((r) => r.status === "error").length;
+
+      // Persistent, on-page outcome - always shown so the user knows
+      // exactly what happened, even when nothing was read.
+      if (processed === 0 || fetchedRows.length === 0) {
+        setScanStatus({
+          kind: "empty",
+          message: "The scan ran but nothing could be read from the image. Try a clearer, well-lit photo with the whole slip in frame, or type the details in manually.",
+        });
+      } else if (okCount === 0 && errCount > 0) {
+        setScanStatus({
+          kind: "error",
+          message: `Couldn't read ${errCount} receipt${errCount === 1 ? "" : "s"}. See the reason on the card${errCount === 1 ? "" : "s"} below.`,
+        });
+      } else {
+        setScanStatus({
+          kind: "success",
+          message: `Read ${okCount} receipt${okCount === 1 ? "" : "s"}${errCount ? `, ${errCount} failed` : ""}. Review and tap "Reconcile & save" below to record the spend.`,
+        });
+      }
+
+      toast({
+        title: `Scanned ${processed} receipt${processed === 1 ? "" : "s"}`,
+        description: `${json.ai?.tokens_out || 0} tokens read by the model. Review the extractions below.`,
+      });
     } catch (e: any) {
-      toast({ title: "Receipt scan failed", description: e?.message || "", variant: "destructive" });
+      const msg = e?.message || "The scan failed. Please try again with a clearer photo.";
+      setScanStatus({ kind: "error", message: msg });
+      toast({ title: "Receipt scan failed", description: msg, variant: "destructive" });
     } finally {
       setBusy(false);
     }
@@ -276,6 +310,41 @@ export function ReceiptScanner({
           </div>
         </CardContent>
       </Card>
+
+      {/* Persistent scan outcome - stays on screen until the next scan
+          so the user always knows the result (toasts auto-dismiss). */}
+      {scanStatus && (
+        <Card
+          className={`border mb-4 ${
+            scanStatus.kind === "success"
+              ? "border-emerald-200 bg-emerald-50"
+              : scanStatus.kind === "empty"
+                ? "border-amber-200 bg-amber-50"
+                : "border-rose-200 bg-rose-50"
+          }`}
+        >
+          <CardContent className="p-4 flex items-start gap-2 text-sm">
+            {scanStatus.kind === "success" ? (
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 mt-0.5 flex-shrink-0" />
+            ) : (
+              <AlertTriangle
+                className={`w-4 h-4 mt-0.5 flex-shrink-0 ${scanStatus.kind === "empty" ? "text-amber-600" : "text-rose-600"}`}
+              />
+            )}
+            <span
+              className={
+                scanStatus.kind === "success"
+                  ? "text-emerald-800"
+                  : scanStatus.kind === "empty"
+                    ? "text-amber-800"
+                    : "text-rose-800"
+              }
+            >
+              {scanStatus.message}
+            </span>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Per-receipt extraction results */}
       {stats && (
