@@ -17,8 +17,6 @@ import {
   Check,
   Calculator
 } from "lucide-react";
-import { Header } from "@/components/Header";
-import { Footer } from "@/components/Footer";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
@@ -184,12 +182,11 @@ function PricingManagementPage() {
   return (
     <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
       <PlatformNav />
-      <Header />
 
       <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
         <PortalHeader
-          title="CateringMS Package Prices (ADMIN)"
-          subtitle="Manage pricing for South Africa, United States, and United Kingdom markets"
+          title="Package Pricing"
+          subtitle="Subscription pricing across the SA, US, UK and EU markets"
           icon={DollarSign}
           actions={
             /* Cross-link to the COGS calculator - seeing the input cost
@@ -197,7 +194,7 @@ function PricingManagementPage() {
                that loses money at scale. */
             <a
               href="/admin/platform/tech-costs"
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-800 text-sm font-medium hover:bg-emerald-100 transition w-fit"
+              className="inline-flex w-fit items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-amber-300 hover:text-amber-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:text-amber-400"
             >
               See your COGS at this price
               <span aria-hidden>→</span>
@@ -205,94 +202,73 @@ function PricingManagementPage() {
           }
         />
 
-        {/* Mobile-Optimized Info Alert */}
-        <Alert className="mb-6 sm:mb-8 border-purple-200 bg-purple-50">
-          <Info className="h-4 w-4 sm:h-5 sm:w-5 text-purple-600 flex-shrink-0 mt-0.5" />
-          <AlertDescription className="text-slate-700">
-            <p className="font-semibold mb-2 text-sm sm:text-base">How Pricing Updates Work:</p>
-            <ul className="space-y-1.5 text-xs sm:text-sm">
-              <li className="flex items-start gap-2">
-                <span className="text-purple-600 mt-0.5 flex-shrink-0">•</span>
-                <span><strong>Change ZAR pricing</strong> and foreign currencies auto-calculate using the formula below</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-purple-600 mt-0.5 flex-shrink-0">•</span>
-                <span><strong>Manual adjustments</strong> are allowed for USD, GBP, and EUR if needed</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-purple-600 mt-0.5 flex-shrink-0">•</span>
-                <span><strong>Click Save</strong> to update pricing on all front-end pages (SA, US, UK sites)</span>
-              </li>
-            </ul>
-          </AlertDescription>
-        </Alert>
-
-        {/* Mobile-Optimized Formula Card */}
-        <PortalCard className="mb-6 sm:mb-8">
-          <PortalCardHeader
-            title={
-              <span className="flex items-center gap-2">
-                <Calculator className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600 flex-shrink-0" />
-                Pricing Conversion Formula
-                <InfoTooltip content="The formula that converts ZAR pricing into the other supported currencies, using a fixed exchange rate per market.\n\nPrices are stored in the platform_pricing_plans table, saves here update /pricing for every visitor immediately." />
-              </span>
-            }
-          />
-          <p className="-mt-2 mb-3 text-xs sm:text-sm text-slate-500 dark:text-slate-400">
-            This formula ensures consistent international pricing based on ZAR
-          </p>
-          <div>
-            <div className="bg-white rounded-lg p-3 sm:p-4 border border-purple-200">
-              <p className="text-sm sm:text-xl font-mono font-bold text-purple-900 mb-3 sm:mb-4 break-words">
-                {PRICING_FORMULA}
-              </p>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 text-xs sm:text-sm">
-                <div className="flex items-center gap-2">
-                  <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-xs">
-                    USD
-                  </Badge>
-                  <span className="text-slate-600">÷ {EXCHANGE_RATES.USD}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 text-xs">
-                    GBP
-                  </Badge>
-                  <span className="text-slate-600">÷ {EXCHANGE_RATES.GBP}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200 text-xs">
-                    EUR
-                  </Badge>
-                  <span className="text-slate-600">÷ {EXCHANGE_RATES.EUR}</span>
-                </div>
-              </div>
+        {/* How it works - quiet inline note, not a loud coloured alert */}
+        <PortalCard className="mb-6">
+          <div className="flex gap-3">
+            <Info className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-600 dark:text-amber-500" />
+            <div className="min-w-0 text-sm text-slate-600 dark:text-slate-400">
+              <p className="mb-1.5 font-semibold text-slate-900 dark:text-white">How pricing updates work</p>
+              <ul className="space-y-1">
+                <li>Edit the <strong className="text-slate-700 dark:text-slate-300">ZAR price</strong> - USD, GBP and EUR auto-calculate from the formula.</li>
+                <li>Manual overrides are allowed for USD, GBP and EUR.</li>
+                <li><strong className="text-slate-700 dark:text-slate-300">Save</strong> pushes the new prices live on the SA, US, UK and EU pages.</li>
+              </ul>
             </div>
           </div>
         </PortalCard>
 
-        {/* Mobile-Optimized Success Alert */}
+        {/* Conversion formula */}
+        <PortalCard className="mb-6">
+          <PortalCardHeader
+            title={
+              <span className="flex items-center gap-2">
+                <Calculator className="h-4 w-4 flex-shrink-0 text-amber-600 dark:text-amber-500" />
+                Conversion formula
+                <InfoTooltip content="The formula that converts ZAR pricing into the other supported currencies, using a fixed exchange rate per market.\n\nPrices are stored in the platform_pricing_plans table, saves here update /pricing for every visitor immediately." />
+              </span>
+            }
+          />
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800/50">
+            <p className="mb-3 break-words font-mono text-sm font-semibold text-slate-900 dark:text-white sm:text-base">
+              {PRICING_FORMULA}
+            </p>
+            <div className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-3">
+              {([["USD", EXCHANGE_RATES.USD], ["GBP", EXCHANGE_RATES.GBP], ["EUR", EXCHANGE_RATES.EUR]] as const).map(
+                ([code, rate]) => (
+                  <div key={code} className="flex items-center gap-2">
+                    <Badge variant="outline" className="border-slate-200 bg-white text-xs font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
+                      {code}
+                    </Badge>
+                    <span className="text-slate-500 dark:text-slate-400">÷ {rate}</span>
+                  </div>
+                ),
+              )}
+            </div>
+          </div>
+        </PortalCard>
+
         {saveSuccess && (
-          <Alert className="mb-4 sm:mb-6 border-green-200 bg-green-50">
-            <Check className="h-4 w-4 sm:h-5 sm:w-5 text-green-600 flex-shrink-0" />
-            <AlertDescription className="text-green-800 font-medium text-xs sm:text-sm">
-              Pricing updated successfully! Changes are now live on all front-end pages.
+          <Alert className="mb-6 border-emerald-200 bg-emerald-50 dark:border-emerald-500/30 dark:bg-emerald-500/10">
+            <Check className="h-4 w-4 flex-shrink-0 text-emerald-600 dark:text-emerald-400" />
+            <AlertDescription className="text-sm font-medium text-emerald-800 dark:text-emerald-300">
+              Pricing updated. Changes are now live on all front-end pages.
             </AlertDescription>
           </Alert>
         )}
 
         {errorMsg && (
-          <Alert className="mb-4 sm:mb-6 border-rose-200 bg-rose-50">
-            <AlertCircle className="h-4 w-4 sm:h-5 sm:w-5 text-rose-600 flex-shrink-0" />
-            <AlertDescription className="text-rose-800 font-medium text-xs sm:text-sm">
+          <Alert className="mb-6 border-rose-200 bg-rose-50 dark:border-rose-500/30 dark:bg-rose-500/10">
+            <AlertCircle className="h-4 w-4 flex-shrink-0 text-rose-600 dark:text-rose-400" />
+            <AlertDescription className="text-sm font-medium text-rose-800 dark:text-rose-300">
               {errorMsg}
             </AlertDescription>
           </Alert>
         )}
 
         {loading && (
-          <Alert className="mb-4 sm:mb-6 border-slate-200 bg-slate-50">
-            <RefreshCw className="h-4 w-4 sm:h-5 sm:w-5 text-slate-500 flex-shrink-0 animate-spin" />
-            <AlertDescription className="text-slate-700 text-xs sm:text-sm">
+          <Alert className="mb-6 border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
+            <RefreshCw className="h-4 w-4 flex-shrink-0 animate-spin text-slate-500" />
+            <AlertDescription className="text-sm text-slate-600 dark:text-slate-400">
               Loading current live pricing...
             </AlertDescription>
           </Alert>
@@ -329,7 +305,7 @@ function PricingManagementPage() {
                   {/* South Africa ZAR - Mobile Optimized */}
                   <div className="space-y-2">
                     <div className="flex items-center gap-2 mb-2">
-                      <Badge className="bg-gradient-to-r from-brand-primary to-brand-secondary text-white text-xs">
+                      <Badge variant="outline" className="border-amber-200 bg-amber-50 text-xs font-medium text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-400">
                         🇿🇦 South Africa
                       </Badge>
                     </div>
@@ -345,7 +321,7 @@ function PricingManagementPage() {
                         type="number"
                         value={tier.zarPrice}
                         onChange={(e) => handleZARChange(index, e.target.value)}
-                        className="pl-7 sm:pl-8 text-base sm:text-lg font-bold border-2 border-green-200 focus:border-green-400 h-12"
+                        className="h-12 border-amber-200 pl-7 text-base font-bold focus:border-amber-400 dark:border-amber-500/40 sm:pl-8 sm:text-lg"
                       />
                     </div>
                     <p className="text-xs text-slate-500 mt-1">
@@ -356,7 +332,7 @@ function PricingManagementPage() {
                   {/* United States USD - Mobile Optimized */}
                   <div className="space-y-2">
                     <div className="flex items-center gap-2 mb-2">
-                      <Badge className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white text-xs">
+                      <Badge variant="outline" className="border-slate-200 bg-slate-50 text-xs font-medium text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
                         🇺🇸 United States
                       </Badge>
                     </div>
@@ -372,7 +348,7 @@ function PricingManagementPage() {
                         type="number"
                         value={tier.usdPrice}
                         onChange={(e) => handleForeignPriceChange(index, "usdPrice", e.target.value)}
-                        className="pl-7 sm:pl-8 text-base sm:text-lg font-bold border-2 border-blue-200 focus:border-blue-400 h-12"
+                        className="h-12 border-slate-200 pl-7 text-base font-semibold focus:border-amber-400 dark:border-slate-700 sm:pl-8 sm:text-lg"
                       />
                     </div>
                     <p className="text-xs text-slate-500 mt-1 break-words">
@@ -383,7 +359,7 @@ function PricingManagementPage() {
                   {/* United Kingdom GBP - Mobile Optimized */}
                   <div className="space-y-2">
                     <div className="flex items-center gap-2 mb-2">
-                      <Badge className="bg-gradient-to-r from-red-500 to-pink-500 text-white text-xs">
+                      <Badge variant="outline" className="border-slate-200 bg-slate-50 text-xs font-medium text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
                         🇬🇧 United Kingdom
                       </Badge>
                     </div>
@@ -399,7 +375,7 @@ function PricingManagementPage() {
                         type="number"
                         value={tier.gbpPrice}
                         onChange={(e) => handleForeignPriceChange(index, "gbpPrice", e.target.value)}
-                        className="pl-7 sm:pl-8 text-base sm:text-lg font-bold border-2 border-red-200 focus:border-red-400 h-12"
+                        className="h-12 border-slate-200 pl-7 text-base font-semibold focus:border-amber-400 dark:border-slate-700 sm:pl-8 sm:text-lg"
                       />
                     </div>
                     <p className="text-xs text-slate-500 mt-1 break-words">
@@ -410,7 +386,7 @@ function PricingManagementPage() {
                   {/* Europe EUR - Mobile Optimized */}
                   <div className="space-y-2">
                     <div className="flex items-center gap-2 mb-2">
-                      <Badge className="bg-gradient-to-r from-purple-500 to-indigo-500 text-white text-xs">
+                      <Badge variant="outline" className="border-slate-200 bg-slate-50 text-xs font-medium text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
                         🇪🇺 Europe
                       </Badge>
                     </div>
@@ -426,7 +402,7 @@ function PricingManagementPage() {
                         type="number"
                         value={tier.eurPrice}
                         onChange={(e) => handleForeignPriceChange(index, "eurPrice", e.target.value)}
-                        className="pl-7 sm:pl-8 text-base sm:text-lg font-bold border-2 border-purple-200 focus:border-purple-400 h-12"
+                        className="h-12 border-slate-200 pl-7 text-base font-semibold focus:border-amber-400 dark:border-slate-700 sm:pl-8 sm:text-lg"
                       />
                     </div>
                     <p className="text-xs text-slate-500 mt-1 break-words">
@@ -439,76 +415,74 @@ function PricingManagementPage() {
           ))}
         </div>
 
-        {/* Mobile-Optimized Action Buttons */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 sm:p-6 bg-white rounded-xl border-2 border-slate-200 sticky bottom-4 shadow-lg">
-          <div className="flex items-center gap-3 justify-center sm:justify-start">
+        {/* Sticky save bar */}
+        <div className="sticky bottom-4 flex flex-col justify-between gap-4 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_10px_30px_-16px_rgba(15,23,42,0.12)] dark:border-slate-800 dark:bg-slate-900 sm:flex-row sm:items-center sm:p-5">
+          <div className="flex items-center justify-center gap-2 sm:justify-start">
             {hasChanges ? (
-              <div className="flex items-center gap-2 text-orange-600">
-                <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
-                <span className="font-medium text-sm sm:text-base">You have unsaved changes</span>
+              <div className="flex items-center gap-2 text-amber-600 dark:text-amber-500">
+                <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                <span className="text-sm font-medium">You have unsaved changes</span>
               </div>
             ) : (
-              <div className="flex items-center gap-2 text-green-600">
-                <Check className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
-                <span className="font-medium text-sm sm:text-base">All changes saved</span>
+              <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
+                <Check className="h-4 w-4 flex-shrink-0" />
+                <span className="text-sm font-medium">All changes saved</span>
               </div>
             )}
           </div>
-          
-          <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+
+          <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
             <Button
               variant="outline"
               onClick={handleReset}
               disabled={!hasChanges}
-              className="gap-2 w-full sm:w-auto h-12 text-sm sm:text-base"
+              className="h-11 w-full gap-2 text-sm sm:w-auto"
             >
-              <RefreshCw className="w-4 h-4" />
-              Reset Changes
+              <RefreshCw className="h-4 w-4" />
+              Reset
             </Button>
             <Button
               onClick={handleSave}
               disabled={!hasChanges || saving || loading}
-              className="gap-2 w-full sm:w-auto h-12 text-sm sm:text-base bg-gradient-to-r from-brand-primary to-brand-secondary hover:opacity-90"
+              className="h-11 w-full gap-2 text-sm sm:w-auto"
             >
-              {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-              {saving ? "Saving..." : "Save & Update Live Pricing"}
+              {saving ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              {saving ? "Saving..." : "Save & update live pricing"}
             </Button>
           </div>
         </div>
 
-        {/* Mobile-Optimized Info Box */}
-        <PortalCard className="mt-6 sm:mt-8">
-          <div>
-            <div className="flex flex-col sm:flex-row gap-4">
-              <Globe className="w-10 h-10 sm:w-12 sm:h-12 text-blue-600 flex-shrink-0" />
-              <div className="space-y-2">
-                <h3 className="font-bold text-base sm:text-lg text-slate-900">
-                  Multi-Region Pricing Impact
-                </h3>
-                <p className="text-slate-700 text-xs sm:text-sm">
-                  When you save pricing changes, they automatically update across all market-specific pages:
-                </p>
-                <ul className="space-y-1.5 text-xs sm:text-sm text-slate-600">
-                  <li className="flex items-center gap-2">
-                    <TrendingUp className="w-3 h-3 sm:w-4 sm:h-4 text-green-600 flex-shrink-0" />
-                    <span><strong>/pricing</strong> (South African site - ZAR pricing)</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <TrendingUp className="w-3 h-3 sm:w-4 sm:h-4 text-blue-600 flex-shrink-0" />
-                    <span><strong>/us/pricing</strong> (United States site - USD pricing)</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <TrendingUp className="w-3 h-3 sm:w-4 sm:h-4 text-red-600 flex-shrink-0" />
-                    <span><strong>/uk/pricing</strong> (United Kingdom site - GBP pricing)</span>
-                  </li>
-                </ul>
-              </div>
+        {/* Where saves land */}
+        <PortalCard className="mt-6">
+          <div className="flex flex-col gap-4 sm:flex-row">
+            <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-amber-600 dark:border-slate-700 dark:bg-slate-900 dark:text-amber-500">
+              <Globe className="h-5 w-5" />
+            </span>
+            <div className="space-y-2">
+              <h3 className="text-base font-semibold text-slate-900 dark:text-white">
+                Where these prices go live
+              </h3>
+              <p className="text-sm text-slate-600 dark:text-slate-400">
+                Saving updates every market-specific pricing page automatically:
+              </p>
+              <ul className="space-y-1.5 text-sm text-slate-600 dark:text-slate-400">
+                <li className="flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4 flex-shrink-0 text-amber-600 dark:text-amber-500" />
+                  <span><strong className="text-slate-700 dark:text-slate-300">/pricing</strong> — South Africa (ZAR)</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4 flex-shrink-0 text-amber-600 dark:text-amber-500" />
+                  <span><strong className="text-slate-700 dark:text-slate-300">/us/pricing</strong> — United States (USD)</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4 flex-shrink-0 text-amber-600 dark:text-amber-500" />
+                  <span><strong className="text-slate-700 dark:text-slate-300">/uk/pricing</strong> — United Kingdom (GBP)</span>
+                </li>
+              </ul>
             </div>
           </div>
         </PortalCard>
       </PortalShell>
-
-      <Footer />
     </div>
   );
 }
