@@ -18,7 +18,7 @@ import {
   ArrowRight
 } from "lucide-react";
 import { Reveal, Stagger, StaggerItem } from "@/components/motion/Reveal";
-import { EASE, cardBase, btnPress, iconChip, Eyebrow } from "@/components/motion/marketing";
+import { EASE, btnPress } from "@/components/motion/marketing";
 
 export default function SecurityPage() {
   const securityFeatures = [
@@ -132,41 +132,35 @@ export default function SecurityPage() {
 
       <Header />
 
-      <div className="min-h-screen bg-white text-slate-900">
+      <div className="font-body min-h-screen bg-white text-stone-900">
         <main>
           {/* ===================== HERO ===================== */}
-          <section className="relative overflow-hidden border-b border-slate-100 bg-white">
-            {/* Soft brand glow + faint grid, masked so it fades into the page. */}
-            <div className="pointer-events-none absolute inset-x-0 -top-40 h-[560px] bg-[radial-gradient(60%_60%_at_50%_0%,rgba(124,58,237,0.12),transparent)]" />
-            <div className="pointer-events-none absolute inset-0 [background-image:linear-gradient(to_right,rgba(15,23,42,0.04)_1px,transparent_1px),linear-gradient(to_bottom,rgba(15,23,42,0.04)_1px,transparent_1px)] [background-size:46px_46px] [mask-image:radial-gradient(70%_55%_at_50%_0%,black,transparent)]" />
-
-            <div className="relative mx-auto max-w-7xl px-4 py-20 md:py-28">
+          <section className="border-b border-stone-200 bg-stone-50">
+            <div className="mx-auto max-w-7xl px-4 py-20 md:py-28">
               <Stagger className="mx-auto max-w-3xl text-center" gap={0.07}>
-                <StaggerItem className="mb-6 flex justify-center">
-                  <Eyebrow icon={ShieldCheck} className="border-emerald-200 bg-emerald-50 text-emerald-600">
-                    Enterprise-Grade Security
-                  </Eyebrow>
+                <StaggerItem className="mb-7 flex justify-center">
+                  <span className="inline-flex h-16 w-16 items-center justify-center rounded-2xl border border-amber-200 bg-amber-50 text-amber-700">
+                    <ShieldCheck className="h-8 w-8" />
+                  </span>
                 </StaggerItem>
 
                 <StaggerItem>
-                  <h1 className="text-balance text-4xl font-bold tracking-tight text-slate-900 sm:text-5xl lg:text-6xl">
+                  <h1 className="text-balance font-display text-4xl font-semibold leading-[1.08] tracking-tight text-stone-900 sm:text-5xl lg:text-6xl">
                     Your Data Security is Our{" "}
-                    <span className="bg-gradient-to-r from-violet-600 via-fuchsia-600 to-rose-500 bg-clip-text text-transparent">
-                      Top Priority
-                    </span>
+                    <span className="text-amber-700">Top Priority</span>
                   </h1>
                 </StaggerItem>
 
                 <StaggerItem>
-                  <p className="mx-auto mt-6 max-w-2xl text-balance text-lg leading-relaxed text-slate-600 sm:text-xl">
+                  <p className="mx-auto mt-6 max-w-2xl text-pretty text-lg leading-relaxed text-stone-700 sm:text-xl">
                     Bank-level encryption, GDPR compliance, and enterprise infrastructure protecting your catering business data 24/7
                   </p>
                 </StaggerItem>
 
-                <StaggerItem className="mx-auto mt-8 flex max-w-md flex-col items-stretch justify-center gap-3 sm:max-w-none sm:flex-row sm:items-center">
+                <StaggerItem className="mx-auto mt-9 flex max-w-md flex-col items-stretch justify-center gap-3 sm:max-w-none sm:flex-row sm:items-center">
                   <Button
                     size="lg"
-                    className={`h-12 w-full rounded-full bg-gradient-to-b from-violet-600 to-violet-700 px-8 text-base font-semibold text-white shadow-lg shadow-violet-600/20 hover:from-violet-600 hover:to-violet-800 hover:shadow-xl hover:shadow-violet-600/30 sm:w-auto ${btnPress}`}
+                    className={`group h-12 w-full rounded-full bg-gradient-to-b from-amber-500 to-amber-600 px-8 text-base font-semibold text-white shadow-lg shadow-amber-700/25 hover:from-amber-500 hover:to-amber-700 hover:shadow-xl hover:shadow-amber-700/30 sm:w-auto ${btnPress}`}
                     asChild
                   >
                     <Link href="/company-signup">
@@ -178,7 +172,7 @@ export default function SecurityPage() {
                   <Button
                     size="lg"
                     variant="outline"
-                    className={`h-12 w-full rounded-full border-slate-300 bg-white px-8 text-base font-semibold text-slate-700 hover:border-slate-400 hover:bg-slate-50 sm:w-auto ${btnPress}`}
+                    className={`h-12 w-full rounded-full border-stone-300 bg-white px-8 text-base font-semibold text-stone-800 hover:border-stone-400 hover:bg-stone-50 sm:w-auto ${btnPress}`}
                     asChild
                   >
                     <Link href="/contact">
@@ -191,17 +185,16 @@ export default function SecurityPage() {
           </section>
 
           {/* ===================== TRUST INDICATORS ===================== */}
-          <section className="border-b border-slate-100 bg-white py-16">
-            <div className="mx-auto max-w-7xl px-4">
-              <Stagger className="flex flex-wrap justify-center gap-8 md:gap-12" gap={0.06}>
+          {/* Hairline-divided row, not chip cards: compliance marks read as a
+              credential strip rather than four identical tiles. */}
+          <section className="border-b border-stone-200 bg-white py-14">
+            <div className="mx-auto max-w-6xl px-4">
+              <Stagger className="grid divide-stone-200 sm:grid-cols-2 sm:divide-x lg:grid-cols-4" gap={0.06}>
                 {complianceStandards.map((standard, index) => (
                   <StaggerItem key={index}>
-                    <div className="group flex flex-col items-center text-center">
-                      <div className={`${iconChip} mb-3 h-20 w-20 bg-gradient-to-br from-violet-100 to-fuchsia-100`}>
-                        <ShieldCheck className="h-10 w-10 text-violet-600" />
-                      </div>
-                      <p className="font-semibold text-slate-900">{standard.name}</p>
-                      <p className="mt-1 max-w-[150px] text-sm text-slate-600">{standard.description}</p>
+                    <div className="flex h-full flex-col items-center px-6 py-4 text-center">
+                      <p className="font-display text-xl font-semibold text-stone-900">{standard.name}</p>
+                      <p className="mt-2 max-w-[18ch] text-sm leading-relaxed text-stone-600">{standard.description}</p>
                     </div>
                   </StaggerItem>
                 ))}
@@ -210,31 +203,29 @@ export default function SecurityPage() {
           </section>
 
           {/* ===================== SECURITY FEATURES ===================== */}
-          <section className="bg-slate-50 py-20 md:py-28">
+          <section className="bg-stone-50 py-20 md:py-28">
             <div className="mx-auto max-w-7xl px-4">
-              <Reveal className="mx-auto mb-16 max-w-3xl text-center">
-                <Eyebrow icon={Shield} className="border-violet-200 bg-violet-50 text-violet-700">
-                  Defence in depth
-                </Eyebrow>
-                <h2 className="mt-5 text-balance text-3xl font-bold tracking-tight text-slate-900 md:text-5xl">
+              <Reveal className="mx-auto mb-14 max-w-2xl text-center">
+                <h2 className="text-balance font-display text-3xl font-semibold tracking-tight text-stone-900 md:text-[2.75rem] md:leading-[1.1]">
                   Comprehensive Security Measures
                 </h2>
-                <p className="mt-4 text-balance text-lg text-slate-600">
+                <p className="mt-4 text-pretty text-lg leading-relaxed text-stone-700">
                   Multiple layers of protection ensure your business and client data remains secure
                 </p>
               </Reveal>
 
-              <Stagger className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+              {/* Icon-led tiles with a hairline top rule and a quiet amber glyph.
+                  No filled gradient chips, so the grid reads as a list of
+                  measures rather than eight identical badges. */}
+              <Stagger className="grid gap-x-8 gap-y-10 sm:grid-cols-2 lg:grid-cols-4">
                 {securityFeatures.map((feature, index) => {
                   const Icon = feature.icon;
                   return (
                     <StaggerItem key={index}>
-                      <div className={`${cardBase} flex h-full flex-col p-7`}>
-                        <div className={`${iconChip} mb-5 h-14 w-14 bg-gradient-to-br from-violet-500 to-fuchsia-500`}>
-                          <Icon className="h-7 w-7 text-white" />
-                        </div>
-                        <h3 className="mb-2 text-lg font-semibold text-slate-900">{feature.title}</h3>
-                        <p className="text-sm leading-relaxed text-slate-600">{feature.description}</p>
+                      <div className="group flex h-full flex-col border-t border-stone-200 pt-5">
+                        <Icon className={`h-7 w-7 text-amber-600 transition-transform duration-300 ${EASE} group-hover:-translate-y-0.5`} />
+                        <h3 className="mb-2 mt-4 font-display text-lg font-semibold text-stone-900">{feature.title}</h3>
+                        <p className="text-sm leading-relaxed text-stone-600">{feature.description}</p>
                       </div>
                     </StaggerItem>
                   );
@@ -246,30 +237,26 @@ export default function SecurityPage() {
           {/* ===================== DATA PROTECTION DETAILS ===================== */}
           <section className="bg-white py-20 md:py-28">
             <div className="mx-auto max-w-5xl px-4">
-              <Reveal className="mb-16 text-center">
-                <Eyebrow icon={Lock} className="border-emerald-200 bg-emerald-50 text-emerald-600">
-                  Under the hood
-                </Eyebrow>
-                <h2 className="mt-5 text-balance text-3xl font-bold tracking-tight text-slate-900 md:text-5xl">
+              <Reveal className="mb-14">
+                <h2 className="max-w-2xl text-balance font-display text-3xl font-semibold tracking-tight text-stone-900 md:text-[2.75rem] md:leading-[1.1]">
                   How We Protect Your Data
                 </h2>
               </Reveal>
 
-              <Stagger className="space-y-6">
+              {/* Two-column editorial list. Each cluster leads with a numbered
+                  display heading; emphasis comes from type, not a card box. */}
+              <Stagger className="grid gap-x-12 gap-y-12 md:grid-cols-2">
                 {protectionSections.map((section, index) => (
                   <StaggerItem key={index}>
-                    <div className={`${cardBase} p-8`}>
-                      <h3 className="mb-5 flex items-center gap-3 text-2xl font-bold tracking-tight text-slate-900">
-                        <span className={`${iconChip} h-10 w-10 bg-gradient-to-br from-violet-100 to-fuchsia-100`}>
-                          <CheckCircle2 className="h-6 w-6 text-violet-600" />
-                        </span>
+                    <div className="border-t-2 border-amber-200 pt-6">
+                      <h3 className="font-display text-2xl font-semibold tracking-tight text-stone-900">
                         {section.title}
                       </h3>
-                      <ul className="space-y-3 pl-1">
+                      <ul className="mt-5 space-y-3">
                         {section.items.map((item, itemIndex) => (
                           <li key={itemIndex} className="flex items-start gap-3">
-                            <CheckCircle2 className="mt-0.5 h-5 w-5 flex-shrink-0 text-emerald-600" />
-                            <span className="text-slate-600">{item}</span>
+                            <CheckCircle2 className="mt-0.5 h-5 w-5 flex-shrink-0 text-amber-600" />
+                            <span className="leading-relaxed text-stone-700">{item}</span>
                           </li>
                         ))}
                       </ul>
@@ -281,16 +268,16 @@ export default function SecurityPage() {
           </section>
 
           {/* ===================== INCIDENT RESPONSE ===================== */}
-          <section className="bg-slate-50 py-20 md:py-28">
+          <section className="bg-stone-50 py-20 md:py-28">
             <div className="mx-auto max-w-4xl px-4">
               <Reveal className="mb-10">
                 <div className="flex items-start gap-4">
-                  <div className={`${iconChip} h-16 w-16 shrink-0 bg-gradient-to-br from-orange-100 to-amber-100`}>
-                    <AlertTriangle className="h-8 w-8 text-orange-600" />
-                  </div>
+                  <span className="inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-amber-300 bg-amber-50 text-amber-700">
+                    <AlertTriangle className="h-7 w-7" />
+                  </span>
                   <div>
-                    <h2 className="text-3xl font-bold tracking-tight text-slate-900">Security Incident Response</h2>
-                    <p className="mt-3 text-lg text-slate-600">
+                    <h2 className="font-display text-3xl font-semibold tracking-tight text-stone-900">Security Incident Response</h2>
+                    <p className="mt-3 text-lg leading-relaxed text-stone-700">
                       In the unlikely event of a security incident, we have a comprehensive response plan
                     </p>
                   </div>
@@ -298,15 +285,15 @@ export default function SecurityPage() {
               </Reveal>
 
               <Reveal delay={0.05}>
-                <div className="rounded-2xl border border-orange-200 bg-white p-8 shadow-sm">
-                  <Stagger className="space-y-4" gap={0.05}>
+                <div className="rounded-2xl border border-stone-200 bg-white p-8 shadow-sm">
+                  <Stagger className="space-y-5" gap={0.05}>
                     {incidentSteps.map((step, index) => (
                       <StaggerItem key={index}>
                         <div className="flex items-start gap-4">
-                          <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-orange-500 to-amber-600 font-bold text-white">
+                          <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-amber-600 font-display text-sm font-semibold text-white">
                             {index + 1}
                           </div>
-                          <span className="pt-1 text-slate-600">{step}</span>
+                          <span className="pt-1 leading-relaxed text-stone-700">{step}</span>
                         </div>
                       </StaggerItem>
                     ))}
@@ -316,23 +303,22 @@ export default function SecurityPage() {
             </div>
           </section>
 
-          {/* ===================== TRUST CTA (dark) ===================== */}
+          {/* ===================== TRUST CTA (warm solid) ===================== */}
           <section className="px-4 py-20 md:py-24">
-            <Reveal className="relative mx-auto max-w-6xl overflow-hidden rounded-3xl bg-gradient-to-br from-violet-600 via-fuchsia-600 to-rose-500 px-6 py-16 text-center shadow-2xl shadow-violet-600/20 sm:px-12 md:py-20">
-              <div className="pointer-events-none absolute inset-0 [background-image:linear-gradient(to_right,rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.08)_1px,transparent_1px)] [background-size:40px_40px] [mask-image:radial-gradient(70%_70%_at_50%_50%,black,transparent)]" />
-              <div className="relative mx-auto max-w-3xl">
-                <Eye className="mx-auto mb-6 h-16 w-16 text-white/90" />
-                <h2 className="text-balance text-3xl font-bold tracking-tight text-white sm:text-4xl md:text-5xl">
+            <Reveal className="mx-auto max-w-6xl rounded-3xl bg-stone-900 px-6 py-16 text-center shadow-2xl shadow-stone-900/20 sm:px-12 md:py-20">
+              <div className="mx-auto max-w-3xl">
+                <Eye className="mx-auto mb-6 h-14 w-14 text-amber-400" />
+                <h2 className="text-balance font-display text-3xl font-semibold tracking-tight text-white sm:text-4xl md:text-5xl">
                   Transparency is Our Policy
                 </h2>
-                <p className="mx-auto mt-6 max-w-2xl text-balance text-lg text-violet-50 sm:text-xl">
+                <p className="mx-auto mt-6 max-w-2xl text-pretty text-lg leading-relaxed text-stone-300 sm:text-xl">
                   We believe security through transparency builds trust. Have questions about our security measures? Our team is here to help.
                 </p>
 
-                <div className="mx-auto mt-8 flex max-w-md flex-col gap-3 sm:max-w-none sm:flex-row sm:justify-center">
+                <div className="mx-auto mt-9 flex max-w-md flex-col gap-3 sm:max-w-none sm:flex-row sm:justify-center">
                   <Button
                     size="lg"
-                    className={`h-12 w-full rounded-full bg-white px-9 text-base font-semibold text-violet-700 shadow-xl hover:bg-violet-50 sm:w-auto ${btnPress}`}
+                    className={`group h-12 w-full rounded-full bg-amber-500 px-9 text-base font-semibold text-stone-950 shadow-xl hover:bg-amber-400 sm:w-auto ${btnPress}`}
                     asChild
                   >
                     <Link href="/contact">
@@ -343,7 +329,7 @@ export default function SecurityPage() {
                   <Button
                     size="lg"
                     variant="outline"
-                    className={`h-12 w-full rounded-full border-white/60 bg-transparent px-9 text-base font-semibold text-white hover:border-white hover:bg-white/10 sm:w-auto ${btnPress}`}
+                    className={`h-12 w-full rounded-full border-white/40 bg-transparent px-9 text-base font-semibold text-white hover:border-white hover:bg-white/10 sm:w-auto ${btnPress}`}
                     asChild
                   >
                     <Link href="/privacy">

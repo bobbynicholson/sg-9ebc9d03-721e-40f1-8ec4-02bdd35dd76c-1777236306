@@ -13,14 +13,14 @@ import {
 import {
   Star, ArrowRight, Phone, CheckCircle, Check, Zap, Users, Clock, Sparkles,
   Heart, Building2, PartyPopper, Crown, ChefHat, FileText, Calendar, Truck,
-  RefreshCw, TrendingUp, Bell, Leaf, Shield, Award, Quote, MapPin, Utensils,
+  RefreshCw, Leaf, Shield, Award, Quote, MapPin,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { LandingFooter } from "@/components/landing/LandingFooter";
 import { LandingHeader } from "@/components/landing/LandingHeader";
 import { ProductPreview } from "@/components/landing/ProductPreview";
 import { Reveal, Stagger, StaggerItem } from "@/components/motion/Reveal";
-import { EASE, btnPress, Eyebrow } from "@/components/motion/marketing";
+import { EASE, btnPress } from "@/components/motion/marketing";
 
 // Phone number (mirrors the JSON-LD contactPoint) — wired for click-to-call.
 const PHONE_DISPLAY = "+27 83 652 5755";
@@ -221,10 +221,10 @@ export default function HomePage() {
 
   // prefix/suffix preserve the honest range; CountUp animates the headline figure.
   const stats = [
-    { prefix: "", to: 12, suffix: "+", label: "Hours saved every week", icon: Clock },
-    { prefix: "50–", to: 55, suffix: "%", label: "Fewer admin calls", icon: Bell },
-    { prefix: "10–", to: 16, suffix: "%", label: "Higher profit margins", icon: TrendingUp },
-    { prefix: "1.5–", to: 2, suffix: "×", label: "More repeat bookings", icon: RefreshCw },
+    { prefix: "", to: 12, suffix: "+", label: "Hours saved every week" },
+    { prefix: "50–", to: 55, suffix: "%", label: "Fewer admin calls" },
+    { prefix: "10–", to: 16, suffix: "%", label: "Higher profit margins" },
+    { prefix: "1.5–", to: 2, suffix: "×", label: "More repeat bookings" },
   ];
 
   const integrations = ["PayFast", "Stripe", "Xero", "QuickBooks", "Sage", "Paystack"];
@@ -380,18 +380,10 @@ export default function HomePage() {
 
           <div className="relative mx-auto max-w-7xl px-4 pb-24 pt-14 md:pb-32 md:pt-20">
             <Stagger className="mx-auto max-w-3xl text-center" gap={0.08}>
-              <StaggerItem className="mb-6 flex justify-center">
-                <Eyebrow icon={Sparkles} className="border-amber-300/30 bg-white/10 text-amber-100 backdrop-blur-md">
-                  Trusted by catering teams across South Africa
-                </Eyebrow>
-              </StaggerItem>
-
               <StaggerItem>
-                <h1 className="text-balance font-display text-5xl font-semibold leading-[1.05] tracking-tight text-white sm:text-6xl lg:text-7xl">
+                <h1 className="text-balance font-display text-5xl font-medium leading-[1.04] tracking-tight text-white sm:text-6xl lg:text-[clamp(3.5rem,6vw,5.25rem)]">
                   Run a catering business your{" "}
-                  <span className="bg-gradient-to-r from-amber-300 via-amber-100 to-orange-300 bg-[length:200%_auto] bg-clip-text text-transparent animate-[shimmer_6s_linear_infinite] motion-reduce:animate-none">
-                    clients rave about
-                  </span>
+                  <em className="font-semibold not-italic text-amber-300">clients rave about</em>
                 </h1>
               </StaggerItem>
 
@@ -414,7 +406,7 @@ export default function HomePage() {
                   <Button
                     size="lg"
                     variant="outline"
-                    className={`h-12 w-full rounded-full border-white/30 bg-white/10 px-8 text-base font-semibold text-white backdrop-blur-md hover:border-white/50 hover:bg-white/15 sm:w-auto ${btnPress}`}
+                    className={`h-12 w-full rounded-full border-white/40 bg-white/10 px-8 text-base font-semibold text-white hover:border-white/60 hover:bg-white/15 sm:w-auto ${btnPress}`}
                   >
                     <Phone className="h-5 w-5" />
                     {PHONE_DISPLAY}
@@ -451,26 +443,31 @@ export default function HomePage() {
 
         {/* ===================== SOCIAL PROOF ===================== */}
         <section className="border-b border-stone-200 bg-white">
-          <div className="mx-auto max-w-7xl px-4 py-14 md:py-16">
-            <Stagger className="grid grid-cols-2 gap-6 md:grid-cols-4" gap={0.06}>
+          <div className="mx-auto max-w-7xl px-4 py-16 md:py-20">
+            {/* Editorial figures row — hairline-divided, no icon chips. The
+                numbers carry the weight; the labels sit quiet beside them. */}
+            <Stagger
+              className="grid grid-cols-2 divide-stone-200 sm:grid-cols-4 sm:divide-x"
+              gap={0.06}
+            >
               {stats.map((stat, index) => (
-                <StaggerItem key={index} className="text-center">
-                  <div className="flex flex-col items-center">
-                    <stat.icon className="mb-2 h-5 w-5 text-amber-500" />
-                    <CountUp
-                      to={stat.to}
-                      prefix={stat.prefix}
-                      suffix={stat.suffix}
-                      className="font-display text-4xl font-semibold tracking-tight text-stone-900 md:text-5xl"
-                    />
-                    <div className="mt-1 text-sm text-stone-500">{stat.label}</div>
-                  </div>
+                <StaggerItem
+                  key={index}
+                  className="border-b border-stone-200 px-2 py-6 sm:border-b-0 sm:px-8 sm:py-2 sm:first:pl-0 sm:last:pr-0"
+                >
+                  <CountUp
+                    to={stat.to}
+                    prefix={stat.prefix}
+                    suffix={stat.suffix}
+                    className="block font-display text-4xl font-medium tracking-tight text-stone-900 md:text-5xl"
+                  />
+                  <div className="mt-2 text-sm leading-snug text-stone-600">{stat.label}</div>
                 </StaggerItem>
               ))}
             </Stagger>
 
-            <Reveal className="mt-12">
-              <p className="text-center text-xs font-semibold uppercase tracking-[0.2em] text-stone-400">
+            <Reveal className="mt-14">
+              <p className="text-center text-xs font-semibold uppercase tracking-[0.2em] text-stone-500">
                 Payments &amp; accounting that just work
               </p>
               {/* Slow, seamless logo marquee (linear, pauses on hover, off under
@@ -480,7 +477,7 @@ export default function HomePage() {
                   {[...integrations, ...integrations].map((name, i) => (
                     <span
                       key={`${name}-${i}`}
-                      className="shrink-0 text-lg font-semibold tracking-tight text-stone-400 transition-colors duration-200 hover:text-stone-600"
+                      className="shrink-0 text-lg font-semibold tracking-tight text-stone-500 transition-colors duration-200 hover:text-stone-700"
                       aria-hidden={i >= integrations.length}
                     >
                       {name}
@@ -495,10 +492,7 @@ export default function HomePage() {
         {/* ===================== FEATURED SERVICES ===================== */}
         <section id="services" className="mx-auto max-w-7xl scroll-mt-24 px-4 py-20 md:py-28">
           <Reveal className="mx-auto mb-14 max-w-3xl text-center">
-            <Eyebrow icon={Utensils} className="border-amber-200 bg-amber-50 text-amber-700">
-              Every kind of event
-            </Eyebrow>
-            <h2 className="mt-5 text-balance font-display text-3xl font-semibold tracking-tight text-stone-900 md:text-5xl">
+            <h2 className="text-balance font-display text-3xl font-medium tracking-tight text-stone-900 md:text-5xl">
               Built for the way you actually cater
             </h2>
             <p className="mt-4 text-balance text-lg text-stone-600">
@@ -512,8 +506,8 @@ export default function HomePage() {
                 <div className={`${warmCard} flex flex-col`}>
                   <Photo src={service.img} alt={`${service.title} catering`} gradient={service.gradient} className="aspect-[4/3] w-full" zoom>
                     <div className="absolute inset-0 bg-gradient-to-t from-stone-900/50 to-transparent" />
-                    <div className={`${chip} absolute left-4 top-4 h-11 w-11 bg-white/90 backdrop-blur`}>
-                      <service.icon className="h-5 w-5 text-amber-600" />
+                    <div className={`${chip} absolute left-4 top-4 h-11 w-11 bg-white`}>
+                      <service.icon className="h-5 w-5 text-amber-700" />
                     </div>
                   </Photo>
                   <div className="flex flex-1 flex-col p-6">
@@ -530,10 +524,7 @@ export default function HomePage() {
         <section id="menu" className="scroll-mt-24 bg-stone-100 py-20 md:py-28">
           <div className="mx-auto max-w-7xl px-4">
             <Reveal className="mx-auto mb-14 max-w-3xl text-center">
-              <Eyebrow icon={ChefHat} className="border-amber-200 bg-amber-50 text-amber-700">
-                Signature menus
-              </Eyebrow>
-              <h2 className="mt-5 text-balance font-display text-3xl font-semibold tracking-tight text-stone-900 md:text-5xl">
+              <h2 className="text-balance font-display text-3xl font-medium tracking-tight text-stone-900 md:text-5xl">
                 Menus worth showing off
               </h2>
               <p className="mt-4 text-balance text-lg text-stone-600">
@@ -575,10 +566,7 @@ export default function HomePage() {
         {/* ===================== WHY CHOOSE US ===================== */}
         <section className="mx-auto max-w-7xl px-4 py-20 md:py-28">
           <Reveal className="mx-auto mb-14 max-w-3xl text-center">
-            <Eyebrow icon={Award} className="border-amber-200 bg-amber-50 text-amber-700">
-              Why caterers choose us
-            </Eyebrow>
-            <h2 className="mt-5 text-balance font-display text-3xl font-semibold tracking-tight text-stone-900 md:text-5xl">
+            <h2 className="text-balance font-display text-3xl font-medium tracking-tight text-stone-900 md:text-5xl">
               The difference is in the details
             </h2>
             <p className="mt-4 text-balance text-lg text-stone-600">
@@ -586,25 +574,27 @@ export default function HomePage() {
             </p>
           </Reveal>
 
-          <Stagger className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+          {/* Hairline-divided editorial pairs, not cloned tiles: a solid ink
+              icon leads each reason; hierarchy comes from the heading weight. */}
+          <Stagger className="mx-auto grid max-w-5xl gap-x-12 gap-y-10 sm:grid-cols-2">
             {reasons.map((reason, index) => (
               <StaggerItem key={index}>
-                <div className={`${warmCard} flex h-full flex-col p-7`}>
-                  <div className={`${chip} mb-5 h-14 w-14 bg-gradient-to-br from-amber-400 to-orange-500`}>
-                    <reason.icon className="h-7 w-7 text-white" />
+                <div className="flex gap-4 border-t border-stone-200 pt-6">
+                  <reason.icon className="mt-1 h-6 w-6 shrink-0 text-amber-700" strokeWidth={1.75} />
+                  <div>
+                    <h3 className="text-lg font-semibold text-stone-900">{reason.title}</h3>
+                    <p className="mt-2 max-w-[60ch] text-[15px] leading-relaxed text-stone-600">{reason.body}</p>
                   </div>
-                  <h3 className="mb-2 text-lg font-semibold text-stone-900">{reason.title}</h3>
-                  <p className="text-sm leading-relaxed text-stone-600">{reason.body}</p>
                 </div>
               </StaggerItem>
             ))}
           </Stagger>
 
-          <Stagger className="mt-12 flex flex-wrap justify-center gap-3" gap={0.05}>
+          <Stagger className="mt-14 flex flex-wrap justify-center gap-3" gap={0.05}>
             {trustChips.map((t, index) => (
               <StaggerItem key={index}>
                 <div className="flex items-center gap-2 rounded-full border border-stone-200 bg-white px-4 py-2 shadow-sm">
-                  <t.icon className="h-4 w-4 text-amber-500" />
+                  <t.icon className="h-4 w-4 text-amber-600" />
                   <span className="text-sm font-medium text-stone-700">{t.text}</span>
                 </div>
               </StaggerItem>
@@ -616,10 +606,7 @@ export default function HomePage() {
         <section id="reviews" className="scroll-mt-24 bg-stone-950 py-20 text-white md:py-28">
           <div className="mx-auto max-w-6xl px-4">
             <Reveal className="mb-14 text-center">
-              <Eyebrow icon={Star} className="border-amber-300/30 bg-white/10 text-amber-100 backdrop-blur-md">
-                Loved by caterers
-              </Eyebrow>
-              <h2 className="mt-5 text-balance font-display text-3xl font-semibold tracking-tight text-white md:text-5xl">
+              <h2 className="text-balance font-display text-3xl font-medium tracking-tight text-white md:text-5xl">
                 Real results from real businesses
               </h2>
               <p className="mt-4 text-lg text-stone-300">
@@ -630,7 +617,7 @@ export default function HomePage() {
             <Stagger className="grid gap-6 md:grid-cols-3">
               {testimonials.map((testimonial, index) => (
                 <StaggerItem key={index}>
-                  <div className="flex h-full flex-col rounded-2xl border border-white/10 bg-white/[0.05] p-7 backdrop-blur-md">
+                  <div className="flex h-full flex-col rounded-2xl border border-white/10 bg-stone-900 p-7">
                     <div className="mb-4 flex gap-1">
                       {[...Array(testimonial.rating)].map((_, i) => (
                         <Star key={i} className="h-5 w-5 fill-amber-400 text-amber-400" />
@@ -663,10 +650,7 @@ export default function HomePage() {
         {/* ===================== EVENT GALLERY ===================== */}
         <section id="gallery" className="mx-auto max-w-7xl scroll-mt-24 px-4 py-20 md:py-28">
           <Reveal className="mx-auto mb-14 max-w-3xl text-center">
-            <Eyebrow icon={Sparkles} className="border-amber-200 bg-amber-50 text-amber-700">
-              From our caterers&apos; events
-            </Eyebrow>
-            <h2 className="mt-5 text-balance font-display text-3xl font-semibold tracking-tight text-stone-900 md:text-5xl">
+            <h2 className="text-balance font-display text-3xl font-medium tracking-tight text-stone-900 md:text-5xl">
               Beautiful events, flawlessly run
             </h2>
             <p className="mt-4 text-balance text-lg text-stone-600">
@@ -691,10 +675,7 @@ export default function HomePage() {
         <section className="bg-stone-100 py-20 md:py-28">
           <div className="mx-auto max-w-7xl px-4">
             <Reveal className="mx-auto mb-14 max-w-3xl text-center">
-              <Eyebrow icon={FileText} className="border-amber-200 bg-amber-50 text-amber-700">
-                How it works
-              </Eyebrow>
-              <h2 className="mt-5 text-balance font-display text-3xl font-semibold tracking-tight text-stone-900 md:text-5xl">
+              <h2 className="text-balance font-display text-3xl font-medium tracking-tight text-stone-900 md:text-5xl">
                 From first enquiry to repeat booking
               </h2>
               <p className="mt-4 text-balance text-lg text-stone-600">
@@ -703,19 +684,20 @@ export default function HomePage() {
               </p>
             </Reveal>
 
-            <Stagger className="grid gap-6 sm:grid-cols-2 lg:grid-cols-5" gap={0.06}>
+            {/* A genuine ordered sequence (the numbers carry the order, which the
+                reader needs). Solid ink icons, no gradient chips; the hairline
+                top rule ties the five steps into one timeline. */}
+            <Stagger className="grid gap-x-8 gap-y-10 sm:grid-cols-2 lg:grid-cols-5" gap={0.06}>
               {workflow.map((stage, index) => (
                 <StaggerItem key={index}>
-                  <div className={`${warmCard} flex h-full flex-col p-6`}>
-                    <div className="mb-5 flex items-center justify-between">
-                      <div className={`${chip} h-12 w-12 bg-gradient-to-br from-amber-400 to-orange-500`}>
-                        <stage.icon className="h-6 w-6 text-white" />
-                      </div>
-                      <span className="font-display text-3xl font-semibold tabular-nums text-stone-200">
+                  <div className="flex h-full flex-col border-t-2 border-amber-700/70 pt-5">
+                    <div className="mb-4 flex items-baseline justify-between">
+                      <span className="font-display text-2xl font-medium tabular-nums text-amber-700">
                         {String(index + 1).padStart(2, "0")}
                       </span>
+                      <stage.icon className="h-5 w-5 text-stone-400" strokeWidth={1.75} />
                     </div>
-                    <h3 className="mb-2 text-lg font-semibold text-stone-900">{stage.step}</h3>
+                    <h3 className="mb-2 text-base font-semibold text-stone-900">{stage.step}</h3>
                     <p className="text-sm leading-relaxed text-stone-600">{stage.description}</p>
                   </div>
                 </StaggerItem>
@@ -727,10 +709,7 @@ export default function HomePage() {
         {/* ===================== FAQ ===================== */}
         <section className="mx-auto max-w-4xl px-4 py-20 md:py-28">
           <Reveal className="mb-14 text-center">
-            <Eyebrow icon={Sparkles} className="border-amber-200 bg-amber-50 text-amber-700">
-              Common questions
-            </Eyebrow>
-            <h2 className="mt-5 text-balance font-display text-3xl font-semibold tracking-tight text-stone-900 md:text-5xl">
+            <h2 className="text-balance font-display text-3xl font-medium tracking-tight text-stone-900 md:text-5xl">
               Everything you need to know
             </h2>
             <p className="mt-4 text-base text-stone-600">
@@ -745,7 +724,7 @@ export default function HomePage() {
               <StaggerItem key={index}>
                 <div className={`rounded-2xl border border-stone-200 bg-white p-6 transition-[border-color,box-shadow] duration-300 ${EASE} hover:border-amber-200 hover:shadow-sm`}>
                   <h3 className="mb-3 flex items-start gap-3 text-lg font-semibold text-stone-900">
-                    <CheckCircle className="mt-0.5 h-5 w-5 shrink-0 text-amber-500" />
+                    <CheckCircle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
                     {faq.question}
                   </h3>
                   <p className="pl-8 text-stone-600">{faq.answer}</p>
@@ -769,7 +748,7 @@ export default function HomePage() {
             <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(60%_60%_at_50%_0%,rgba(245,158,11,0.28),transparent)]" />
 
             <div className="relative mx-auto max-w-3xl">
-              <h2 className="text-balance font-display text-3xl font-semibold tracking-tight text-white sm:text-4xl md:text-5xl">
+              <h2 className="text-balance font-display text-3xl font-medium tracking-tight text-white sm:text-4xl md:text-5xl">
                 Let&apos;s make your next event effortless
               </h2>
               <p className="mx-auto mt-6 max-w-2xl text-balance text-lg text-stone-200 sm:text-xl">
@@ -788,7 +767,7 @@ export default function HomePage() {
                   <Button
                     size="lg"
                     variant="outline"
-                    className={`h-12 w-full rounded-full border-white/30 bg-white/10 px-9 text-base font-semibold text-white backdrop-blur-md hover:border-white/50 hover:bg-white/15 sm:w-auto ${btnPress}`}
+                    className={`h-12 w-full rounded-full border-white/40 bg-white/10 px-9 text-base font-semibold text-white hover:border-white/60 hover:bg-white/15 sm:w-auto ${btnPress}`}
                   >
                     <Phone className="h-5 w-5" />
                     Call {PHONE_DISPLAY}

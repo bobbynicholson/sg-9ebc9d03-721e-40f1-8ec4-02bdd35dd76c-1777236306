@@ -1,13 +1,12 @@
 import Link from "next/link";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, ArrowRight, Calendar, Clock, Search, TrendingUp, BookOpen } from "lucide-react";
+import { ArrowLeft, ArrowRight, Calendar, Clock, Search } from "lucide-react";
 import { Footer } from "@/components/Footer";
 import { Header } from "@/components/Header";
 import { Reveal, Stagger, StaggerItem } from "@/components/motion/Reveal";
-import { EASE, cardBase, btnPress, iconChip, Eyebrow } from "@/components/motion/marketing";
+import { EASE, btnPress } from "@/components/motion/marketing";
 import Head from "next/head";
 import Image from "next/image";
 import blogPosts from "@/lib/blog.json";
@@ -83,6 +82,8 @@ export default function BlogPage() {
 
   const categories = ["All", "Cost Management", "Automation", "Kitchen Management", "Logistics", "Inventory", "Client Relations"];
 
+  const [featured, ...rest] = posts;
+
   return (
     <>
       <Head>
@@ -90,7 +91,7 @@ export default function BlogPage() {
         <meta name="description" content="Expert insights on automation, profitability, and growth for catering businesses. Learn strategies to reduce costs, increase margins, and scale operations." />
         <meta name="keywords" content="catering business tips, catering automation, increase catering profits, catering operations, catering business growth" />
         <link rel="canonical" href="https://cateringms.com/blog" />
-        
+
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: jsonLdSafe(collectionSchema) }}
@@ -103,18 +104,14 @@ export default function BlogPage() {
 
       <Header />
 
-      <div className="min-h-screen bg-white text-slate-900">
+      <div className="font-body min-h-screen bg-stone-50 text-stone-900">
         {/* ===================== HEADER ===================== */}
-        <section className="relative overflow-hidden border-b border-slate-100 bg-white">
-          {/* Soft brand glow + faint grid, masked so it fades into the page. */}
-          <div className="pointer-events-none absolute inset-x-0 -top-40 h-[480px] bg-[radial-gradient(60%_60%_at_50%_0%,rgba(124,58,237,0.10),transparent)]" />
-          <div className="pointer-events-none absolute inset-0 [background-image:linear-gradient(to_right,rgba(15,23,42,0.04)_1px,transparent_1px),linear-gradient(to_bottom,rgba(15,23,42,0.04)_1px,transparent_1px)] [background-size:46px_46px] [mask-image:radial-gradient(70%_55%_at_50%_0%,black,transparent)]" />
-
-          <div className="relative mx-auto max-w-7xl px-4 py-12 md:py-16">
+        <section className="border-b border-stone-200 bg-stone-50">
+          <div className="mx-auto max-w-7xl px-4 pb-10 pt-12 md:pb-14 md:pt-16">
             <Reveal>
               <Link
                 href="/"
-                className={`mb-8 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-600 shadow-sm hover:border-slate-300 hover:text-slate-900 ${btnPress}`}
+                className={`mb-10 inline-flex items-center gap-2 rounded-full border border-stone-300 bg-white px-4 py-2 text-sm font-medium text-stone-700 shadow-sm hover:border-stone-400 hover:text-stone-900 ${btnPress}`}
               >
                 <ArrowLeft className="h-4 w-4" />
                 Back to Home
@@ -122,18 +119,11 @@ export default function BlogPage() {
             </Reveal>
 
             <Reveal className="max-w-3xl" delay={0.05}>
-              <div className="mb-5">
-                <Eyebrow icon={BookOpen} className="border-violet-200 bg-violet-50 text-violet-700">
-                  Insights & strategy
-                </Eyebrow>
-              </div>
-              <h1 className="text-balance text-4xl font-bold tracking-tight text-slate-900 sm:text-5xl lg:text-6xl">
+              <h1 className="text-balance font-display text-4xl font-medium leading-[1.05] tracking-tight text-stone-900 sm:text-5xl lg:text-6xl">
                 Catering Business{" "}
-                <span className="bg-gradient-to-r from-violet-600 via-fuchsia-600 to-rose-500 bg-clip-text text-transparent">
-                  Blog
-                </span>
+                <span className="text-amber-700">Blog</span>
               </h1>
-              <p className="mt-5 text-balance text-lg leading-relaxed text-slate-600 sm:text-xl">
+              <p className="mt-6 max-w-[60ch] text-pretty text-lg leading-relaxed text-stone-700 sm:text-xl">
                 Expert insights on automation, profitability, and growth for catering businesses
               </p>
             </Reveal>
@@ -141,26 +131,26 @@ export default function BlogPage() {
         </section>
 
         {/* ===================== BODY ===================== */}
-        <div className="mx-auto max-w-7xl px-4 py-12 md:py-16">
-          <div className="grid grid-cols-1 gap-8 lg:grid-cols-4">
+        <div className="mx-auto max-w-7xl px-4 py-14 md:py-20">
+          <div className="grid grid-cols-1 gap-10 lg:grid-cols-4 lg:gap-12">
             <div className="lg:col-span-3">
               <Reveal className="mb-6">
                 <div className="relative">
-                  <Search className="absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+                  <Search className="absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-stone-400" />
                   <Input
                     placeholder="Search articles..."
-                    className="h-12 rounded-full pl-11"
+                    className="h-12 rounded-full border-stone-300 pl-11"
                   />
                 </div>
               </Reveal>
 
-              <Stagger className="mb-10 flex flex-wrap gap-2" gap={0.04}>
+              <Stagger className="mb-12 flex flex-wrap gap-2" gap={0.04}>
                 {categories.map((category) => (
                   <StaggerItem key={category}>
                     <Button
                       variant="outline"
                       size="sm"
-                      className={`rounded-full border-slate-300 text-slate-700 hover:border-slate-400 hover:bg-slate-50 ${btnPress}`}
+                      className={`rounded-full border-stone-300 text-stone-700 hover:border-amber-300 hover:bg-amber-50 hover:text-amber-800 ${btnPress}`}
                     >
                       {category}
                     </Button>
@@ -168,12 +158,56 @@ export default function BlogPage() {
                 ))}
               </Stagger>
 
-              <Stagger className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                {posts.map((post) => (
+              {/* Featured post: wide editorial lead, not part of the uniform grid. */}
+              {featured && (
+                <Reveal className="mb-12">
+                  <Link href={`/blog/${featured.slug}`} className="group block">
+                    <article className="grid grid-cols-1 overflow-hidden rounded-3xl border border-stone-200 bg-white shadow-sm transition-[transform,box-shadow,border-color] duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] hover:-translate-y-1 hover:border-amber-200 hover:shadow-xl md:grid-cols-2">
+                      <div className="relative h-60 w-full overflow-hidden md:h-full md:min-h-[20rem]">
+                        <Image
+                          src={featured.image}
+                          alt={featured.title}
+                          layout="fill"
+                          objectFit="cover"
+                          className={`transition-transform duration-500 ${EASE} group-hover:scale-[1.03]`}
+                        />
+                      </div>
+                      <div className="flex flex-col justify-center p-7 md:p-9">
+                        <Badge variant="secondary" className="mb-3 w-fit bg-amber-100 text-amber-800">
+                          {getCategory(featured.title)}
+                        </Badge>
+                        <h2 className={`text-balance font-display text-2xl font-semibold leading-snug tracking-tight text-stone-900 transition-colors duration-200 ${EASE} group-hover:text-amber-800 md:text-3xl`}>
+                          {featured.title}
+                        </h2>
+                        <p className="mt-4 max-w-[60ch] text-pretty leading-relaxed text-stone-700">
+                          {getExcerpt(featured)}
+                        </p>
+                        <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-stone-600">
+                          <span className="inline-flex items-center gap-2">
+                            <Calendar className="h-4 w-4 text-stone-400" />
+                            {new Date(featured.date).toLocaleDateString("en-US", { year: 'numeric', month: 'long', day: 'numeric' })}
+                          </span>
+                          <span className="inline-flex items-center gap-2">
+                            <Clock className="h-4 w-4 text-stone-400" />
+                            {getReadTime(featured)}
+                          </span>
+                          <span className="ml-auto inline-flex items-center gap-1.5 font-medium text-amber-700 transition-colors duration-150 group-hover:text-amber-800">
+                            Read article
+                            <ArrowRight className={`h-4 w-4 transition-transform duration-200 ${EASE} group-hover:translate-x-0.5`} />
+                          </span>
+                        </div>
+                      </div>
+                    </article>
+                  </Link>
+                </Reveal>
+              )}
+
+              <Stagger className="grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-2">
+                {rest.map((post, i) => (
                   <StaggerItem key={post.slug}>
-                    <Link href={`/blog/${post.slug}`} className="block h-full">
-                      <Card className={`${cardBase} cursor-pointer overflow-hidden p-0`}>
-                        <div className="relative h-48 w-full overflow-hidden">
+                    <Link href={`/blog/${post.slug}`} className="group block h-full">
+                      <article className="flex h-full flex-col">
+                        <div className="relative mb-5 aspect-[16/10] w-full overflow-hidden rounded-2xl border border-stone-200 bg-stone-100">
                           <Image
                             src={post.image}
                             alt={post.title}
@@ -181,105 +215,95 @@ export default function BlogPage() {
                             objectFit="cover"
                             className={`transition-transform duration-500 ${EASE} group-hover:scale-[1.04]`}
                           />
-                        </div>
-                        <CardHeader>
-                          <Badge variant="secondary" className="mb-2 w-fit">
+                          <span className="absolute left-3 top-3 rounded-full bg-stone-900/85 px-3 py-1 text-xs font-medium text-stone-50">
                             {getCategory(post.title)}
-                          </Badge>
-                          <CardTitle className={`text-xl text-slate-900 transition-colors duration-200 ${EASE} group-hover:text-violet-600`}>
-                            {post.title}
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          <p className="mb-4 line-clamp-3 text-slate-600">{getExcerpt(post)}</p>
-                          <div className="flex items-center justify-between text-sm text-slate-500">
-                            <div className="flex items-center gap-2">
-                              <Calendar className="h-4 w-4" />
-                              {new Date(post.date).toLocaleDateString("en-US", { year: 'numeric', month: 'long', day: 'numeric' })}
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <Clock className="h-4 w-4" />
-                              {getReadTime(post)}
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
+                          </span>
+                        </div>
+                        <h3 className={`text-balance font-display text-xl font-semibold leading-snug tracking-tight text-stone-900 transition-colors duration-200 ${EASE} group-hover:text-amber-800`}>
+                          {post.title}
+                        </h3>
+                        {/* Show the excerpt on the first couple of cards only, so the column has rhythm instead of identical blocks. */}
+                        {i < 2 && (
+                          <p className="mt-3 line-clamp-2 max-w-[62ch] text-pretty leading-relaxed text-stone-700">
+                            {getExcerpt(post)}
+                          </p>
+                        )}
+                        <div className="mt-4 flex items-center gap-x-4 border-t border-stone-200 pt-4 text-sm text-stone-600">
+                          <span className="inline-flex items-center gap-1.5">
+                            <Calendar className="h-4 w-4 text-stone-400" />
+                            {new Date(post.date).toLocaleDateString("en-US", { year: 'numeric', month: 'short', day: 'numeric' })}
+                          </span>
+                          <span className="inline-flex items-center gap-1.5">
+                            <Clock className="h-4 w-4 text-stone-400" />
+                            {getReadTime(post)}
+                          </span>
+                        </div>
+                      </article>
                     </Link>
                   </StaggerItem>
                 ))}
               </Stagger>
             </div>
 
-            <Stagger className="space-y-6" gap={0.08}>
-              <StaggerItem>
-                <Card className={`${cardBase} border-violet-100 bg-gradient-to-br from-violet-50 to-fuchsia-50`}>
-                  <CardHeader>
-                    <CardTitle className="text-lg">Popular Topics</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-slate-700">Cost Reduction</span>
-                      <Badge className="bg-purple-100 text-purple-700">5 posts</Badge>
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-slate-700">Kitchen Management</span>
-                      <Badge className="bg-blue-100 text-blue-700">3 posts</Badge>
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-slate-700">Logistics</span>
-                      <Badge className="bg-green-100 text-green-700">2 posts</Badge>
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-slate-700">Equipment</span>
-                      <Badge className="bg-orange-100 text-orange-700">3 posts</Badge>
-                    </div>
-                  </CardContent>
-                </Card>
-              </StaggerItem>
-
-              <StaggerItem>
-                <Card className={cardBase}>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-lg">
-                      <span className={`${iconChip} h-8 w-8 bg-gradient-to-br from-violet-500 to-fuchsia-500`}>
-                        <TrendingUp className="h-4 w-4 text-white" />
-                      </span>
-                      Most Read
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    {posts.slice(0, 3).map((post) => (
-                      <Link href={`/blog/${post.slug}`} key={post.slug} className="block">
-                        <div className="space-y-1.5">
-                          <h4 className={`line-clamp-2 text-sm font-semibold text-slate-900 transition-colors duration-200 ${EASE} hover:text-violet-600`}>
-                            {post.title}
-                          </h4>
-                          <p className="text-xs text-slate-500">{new Date(post.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</p>
-                        </div>
-                      </Link>
+            <aside className="space-y-10">
+              <Reveal>
+                <div className="rounded-2xl border border-stone-200 bg-white p-6 shadow-sm">
+                  <h2 className="font-display text-lg font-semibold text-stone-900">Popular Topics</h2>
+                  <ul className="mt-4 divide-y divide-stone-200">
+                    {[
+                      { label: "Cost Reduction", count: "5 posts" },
+                      { label: "Kitchen Management", count: "3 posts" },
+                      { label: "Logistics", count: "2 posts" },
+                      { label: "Equipment", count: "3 posts" },
+                    ].map((topic) => (
+                      <li key={topic.label} className="flex items-center justify-between py-2.5 text-sm">
+                        <span className="text-stone-700">{topic.label}</span>
+                        <span className="text-stone-500">{topic.count}</span>
+                      </li>
                     ))}
-                  </CardContent>
-                </Card>
-              </StaggerItem>
+                  </ul>
+                </div>
+              </Reveal>
 
-              <StaggerItem>
-                <Card className={`${cardBase} border-emerald-100 bg-gradient-to-br from-emerald-50 to-green-50`}>
-                  <CardHeader>
-                    <CardTitle className="text-lg">Newsletter</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <p className="text-sm text-slate-600">
-                      Get weekly tips on catering business automation and profitability
-                    </p>
-                    <Input placeholder="Your email" type="email" className="rounded-full" />
-                    <Button className={`w-full rounded-full bg-gradient-to-b from-violet-600 to-violet-700 font-semibold text-white shadow-lg shadow-violet-600/20 hover:from-violet-600 hover:to-violet-800 ${btnPress}`}>
+              <Reveal delay={0.05}>
+                <div className="rounded-2xl border border-stone-200 bg-white p-6 shadow-sm">
+                  <h2 className="font-display text-lg font-semibold text-stone-900">Most Read</h2>
+                  <ol className="mt-4 space-y-5">
+                    {posts.slice(0, 3).map((post, idx) => (
+                      <li key={post.slug}>
+                        <Link href={`/blog/${post.slug}`} className="group flex gap-3.5">
+                          <span className="font-display text-lg font-semibold leading-none text-amber-700/70">
+                            {String(idx + 1).padStart(2, "0")}
+                          </span>
+                          <div className="space-y-1">
+                            <h4 className={`line-clamp-2 text-sm font-semibold leading-snug text-stone-900 transition-colors duration-200 ${EASE} group-hover:text-amber-800`}>
+                              {post.title}
+                            </h4>
+                            <p className="text-xs text-stone-500">{new Date(post.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</p>
+                          </div>
+                        </Link>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+              </Reveal>
+
+              <Reveal delay={0.1}>
+                <div className="rounded-2xl border border-amber-200 bg-amber-50 p-6 shadow-sm">
+                  <h2 className="font-display text-lg font-semibold text-stone-900">Newsletter</h2>
+                  <p className="mt-3 max-w-[42ch] text-sm leading-relaxed text-stone-700">
+                    Get weekly tips on catering business automation and profitability
+                  </p>
+                  <div className="mt-4 space-y-3">
+                    <Input placeholder="Your email" type="email" className="rounded-full border-stone-300 bg-white" />
+                    <Button className={`w-full rounded-full bg-amber-600 font-semibold text-white shadow-sm hover:bg-amber-700 ${btnPress}`}>
                       Subscribe
                       <ArrowRight className="h-4 w-4" />
                     </Button>
-                  </CardContent>
-                </Card>
-              </StaggerItem>
-            </Stagger>
+                  </div>
+                </div>
+              </Reveal>
+            </aside>
           </div>
         </div>
 

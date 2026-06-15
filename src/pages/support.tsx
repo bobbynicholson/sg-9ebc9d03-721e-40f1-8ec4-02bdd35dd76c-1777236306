@@ -13,11 +13,11 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
-import { Plus, Search, MessageSquare, Clock, Send, ArrowLeft, LifeBuoy, Lock } from "lucide-react";
+import { Plus, Search, MessageSquare, Clock, Send, ArrowLeft, Lock } from "lucide-react";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { Reveal, Stagger, StaggerItem } from "@/components/motion/Reveal";
-import { EASE, cardBase, btnPress, iconChip, Eyebrow } from "@/components/motion/marketing";
+import { cardBase, btnPress } from "@/components/motion/marketing";
 import { supportTicketService } from "@/services/supportTicketService";
 import type { Database } from "@/integrations/supabase/types";
 
@@ -133,15 +133,20 @@ export default function SupportPage() {
     return (
       <>
         <Header />
-        <div className="flex min-h-screen items-center justify-center bg-white px-4 text-slate-900">
+        <div className="font-body flex min-h-screen items-center justify-center bg-stone-50 px-4 text-stone-900">
           <Reveal className="w-full max-w-sm">
             <div className={`${cardBase} p-8 text-center`}>
-              <div className={`${iconChip} mx-auto mb-5 h-14 w-14 bg-gradient-to-br from-violet-500 to-fuchsia-500`}>
-                <Lock className="h-7 w-7 text-white" />
+              <div className="mx-auto mb-6 inline-flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 text-amber-700">
+                <Lock className="h-6 w-6" />
               </div>
-              <h1 className="text-2xl font-bold tracking-tight text-slate-900">Authentication Required</h1>
-              <p className="mt-2 text-slate-600">Please sign in to access support</p>
-              <Button onClick={() => router.push("/auth/login")} className="mt-6 h-11 w-full rounded-full">
+              <h1 className="font-display text-2xl font-semibold tracking-tight text-balance text-stone-900">
+                Sign in to view support
+              </h1>
+              <p className="mt-3 text-stone-600">Your tickets and conversations live behind your account.</p>
+              <Button
+                onClick={() => router.push("/auth/login")}
+                className={`mt-7 h-11 w-full rounded-full bg-amber-600 font-semibold text-white hover:bg-amber-700 ${btnPress}`}
+              >
                 Sign In
               </Button>
             </div>
@@ -156,7 +161,7 @@ export default function SupportPage() {
     return (
       <>
         <Header />
-        <div className="mx-auto max-w-4xl px-4 py-10 md:py-14">
+        <div className="font-body mx-auto max-w-4xl px-4 py-10 text-stone-900 md:py-16">
           <Head>
             <title>{selectedTicket.subject} - Support - CateringMS</title>
             <meta name="robots" content="noindex, nofollow" />
@@ -174,7 +179,7 @@ export default function SupportPage() {
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-2">
                     <span className="text-2xl">{supportTicketService.getCategoryIcon(selectedTicket.category)}</span>
-                    <CardTitle className="text-2xl">{selectedTicket.subject}</CardTitle>
+                    <CardTitle className="font-display text-2xl font-semibold tracking-tight text-balance">{selectedTicket.subject}</CardTitle>
                   </div>
                   <CardDescription>Ticket #{selectedTicket.ticket_number}</CardDescription>
                 </div>
@@ -190,19 +195,19 @@ export default function SupportPage() {
             </CardHeader>
 
             <CardContent>
-              <div className="bg-slate-50 rounded-lg p-4 mb-6">
-                <p className="text-sm font-medium text-slate-600 mb-2">Original Request</p>
-                <p className="text-slate-900 whitespace-pre-wrap">{selectedTicket.description}</p>
-                <p className="text-xs text-slate-500 mt-2">
+              <div className="rounded-xl border border-stone-200 bg-stone-50 p-4 mb-6">
+                <p className="text-sm font-semibold text-stone-700 mb-2">Original request</p>
+                <p className="text-stone-900 whitespace-pre-wrap">{selectedTicket.description}</p>
+                <p className="text-xs text-stone-500 mt-3">
                   Created {new Date(selectedTicket.created_at).toLocaleString()}
                 </p>
               </div>
 
-              <Separator className="my-6" />
+              <Separator className="my-8" />
 
               <div className="space-y-4 mb-6 max-h-96 overflow-y-auto">
                 {messages.length === 0 ? (
-                  <p className="text-center text-slate-500 py-8">No messages yet. Our support team will respond soon.</p>
+                  <p className="text-center text-stone-500 py-8">No messages yet. Our support team will respond soon.</p>
                 ) : (
                   messages.map((message) => (
                     <div
@@ -210,17 +215,17 @@ export default function SupportPage() {
                       className={`flex ${message.is_from_staff ? "justify-start" : "justify-end"}`}
                     >
                       <div
-                        className={`max-w-[80%] rounded-lg p-4 ${
+                        className={`max-w-[80%] rounded-2xl p-4 ${
                           message.is_from_staff
-                            ? "bg-blue-50 border border-blue-200"
-                            : "bg-purple-50 border border-purple-200"
+                            ? "bg-stone-100 border border-stone-200"
+                            : "bg-amber-50 border border-amber-200"
                         }`}
                       >
-                        <p className="text-sm font-medium mb-1">
+                        <p className="text-sm font-semibold mb-1 text-stone-700">
                           {message.is_from_staff ? "CateringMS Support" : "You"}
                         </p>
-                        <p className="text-slate-900 whitespace-pre-wrap">{message.message}</p>
-                        <p className="text-xs text-slate-500 mt-2">
+                        <p className="text-stone-900 whitespace-pre-wrap">{message.message}</p>
+                        <p className="text-xs text-stone-500 mt-2">
                           {new Date(message.created_at).toLocaleString()}
                         </p>
                       </div>
@@ -237,7 +242,11 @@ export default function SupportPage() {
                   rows={3}
                   className="flex-1"
                 />
-                <Button onClick={handleSendMessage} disabled={!newMessage.trim()}>
+                <Button
+                  onClick={handleSendMessage}
+                  disabled={!newMessage.trim()}
+                  className={`bg-amber-600 font-semibold text-white hover:bg-amber-700 ${btnPress}`}
+                >
                   <Send className="h-4 w-4 mr-2" />
                   Send
                 </Button>
@@ -254,32 +263,32 @@ export default function SupportPage() {
   return (
     <>
       <Header />
-      <div className="mx-auto max-w-6xl px-4 py-10 md:py-14">
+      <div className="font-body mx-auto max-w-6xl px-4 py-10 text-stone-900 md:py-16">
         <Head>
           <title>Support - CateringMS</title>
           <meta name="robots" content="noindex, nofollow" />
         </Head>
 
-        <Reveal className="mb-8">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <Eyebrow icon={LifeBuoy} className="border-violet-200 bg-violet-50 text-violet-700">
-                Support Center
-              </Eyebrow>
-              <h1 className="mt-4 text-balance text-3xl font-bold tracking-tight text-slate-900 md:text-4xl">
+        <Reveal className="mb-10">
+          <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+            <div className="max-w-2xl">
+              <h1 className="font-display text-4xl font-semibold tracking-tight text-balance text-stone-900 md:text-5xl">
                 Get help from our support team
               </h1>
+              <p className="mt-3 text-lg text-stone-600 text-pretty">
+                Open a ticket and we will get back to you. Your past conversations are all here.
+              </p>
             </div>
             <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
               <DialogTrigger asChild>
-                <Button className="h-11 rounded-full bg-gradient-to-r from-violet-600 to-fuchsia-600 px-6 font-semibold text-white">
+                <Button className={`h-11 shrink-0 rounded-full bg-amber-600 px-6 font-semibold text-white hover:bg-amber-700 ${btnPress}`}>
                   <Plus className="h-4 w-4 mr-2" />
                   New Ticket
                 </Button>
               </DialogTrigger>
               <DialogContent className="max-w-2xl">
                 <DialogHeader>
-                  <DialogTitle>Create Support Ticket</DialogTitle>
+                  <DialogTitle className="font-display text-2xl font-semibold tracking-tight">Create Support Ticket</DialogTitle>
                   <DialogDescription>
                     Describe your issue or feature request and our team will get back to you soon.
                   </DialogDescription>
@@ -370,9 +379,10 @@ export default function SupportPage() {
                   <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>
                     Cancel
                   </Button>
-                  <Button 
+                  <Button
                     onClick={handleCreateTicket}
                     disabled={!newTicket.subject || !newTicket.description}
+                    className={`bg-amber-600 font-semibold text-white hover:bg-amber-700 ${btnPress}`}
                   >
                     Create Ticket
                   </Button>
@@ -381,8 +391,8 @@ export default function SupportPage() {
             </Dialog>
           </div>
 
-          <div className="relative mt-6">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+          <div className="relative mt-8">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-stone-400" />
             <Input
               placeholder="Search tickets..."
               value={searchQuery}
@@ -395,19 +405,22 @@ export default function SupportPage() {
         {loading ? (
           <div className="flex items-center justify-center py-12">
             <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
-              <p className="text-slate-600">Loading tickets...</p>
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-amber-600 mx-auto mb-4 motion-reduce:animate-none"></div>
+              <p className="text-stone-600">Loading tickets...</p>
             </div>
           </div>
         ) : filteredTickets.length === 0 ? (
           <Reveal>
-            <div className={`${cardBase} flex flex-col items-center justify-center p-12 text-center`}>
-              <div className={`${iconChip} mb-5 h-16 w-16 bg-gradient-to-br from-violet-100 to-fuchsia-100`}>
-                <MessageSquare className="h-8 w-8 text-violet-600" />
+            <div className={`${cardBase} flex flex-col items-center justify-center p-14 text-center`}>
+              <div className="mb-6 inline-flex h-14 w-14 items-center justify-center rounded-full bg-amber-100 text-amber-700">
+                <MessageSquare className="h-7 w-7" />
               </div>
-              <p className="mb-2 text-lg font-semibold text-slate-900">No support tickets yet</p>
-              <p className="mb-5 text-slate-600">Create your first ticket to get help from our team</p>
-              <Button onClick={() => setCreateDialogOpen(true)} className="h-11 rounded-full px-6">
+              <p className="font-display text-xl font-semibold text-balance text-stone-900">No support tickets yet</p>
+              <p className="mt-2 mb-6 text-stone-600">Create your first ticket to get help from our team</p>
+              <Button
+                onClick={() => setCreateDialogOpen(true)}
+                className={`h-11 rounded-full bg-amber-600 px-6 font-semibold text-white hover:bg-amber-700 ${btnPress}`}
+              >
                 <Plus className="h-4 w-4 mr-2" />
                 Create Ticket
               </Button>
@@ -427,13 +440,13 @@ export default function SupportPage() {
                       <div className="text-3xl">{supportTicketService.getCategoryIcon(ticket.category)}</div>
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
-                          <h3 className="font-semibold text-lg text-slate-900">{ticket.subject}</h3>
+                          <h3 className="font-display text-lg font-semibold tracking-tight text-stone-900">{ticket.subject}</h3>
                           <Badge variant="outline" className="text-xs">
                             #{ticket.ticket_number}
                           </Badge>
                         </div>
-                        <p className="text-sm text-slate-600 mb-3 line-clamp-2">{ticket.description}</p>
-                        <div className="flex items-center gap-4 text-xs text-slate-500">
+                        <p className="text-sm text-stone-600 mb-3 line-clamp-2">{ticket.description}</p>
+                        <div className="flex items-center gap-4 text-xs text-stone-500">
                           <span className="flex items-center gap-1">
                             <Clock className="h-3 w-3" />
                             {new Date(ticket.created_at).toLocaleDateString()}

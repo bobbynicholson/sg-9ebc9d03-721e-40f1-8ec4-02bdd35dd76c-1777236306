@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   LayoutDashboard,
@@ -13,14 +12,12 @@ import {
   Copy,
   Check,
   ArrowRight,
-  Eye,
-  LogIn,
-  Target
+  LogIn
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { Reveal, Stagger, StaggerItem } from "@/components/motion/Reveal";
-import { EASE, cardBase, btnPress, iconChip, Eyebrow } from "@/components/motion/marketing";
+import { EASE, cardBase, btnPress } from "@/components/motion/marketing";
 
 interface DemoPortal {
   id: string;
@@ -32,7 +29,6 @@ interface DemoPortal {
   email: string;
   password: string;
   loginUrl: string;
-  bgGradient: string;
 }
 
 const DEMO_PORTALS: DemoPortal[] = [
@@ -52,8 +48,7 @@ const DEMO_PORTALS: DemoPortal[] = [
     ],
     email: "admin@test-company.com",
     password: "testadmin123",
-    loginUrl: "/test-company/auth/login",
-    bgGradient: "from-purple-500 to-pink-500"
+    loginUrl: "/test-company/auth/login"
   },
   {
     id: "driver",
@@ -71,8 +66,7 @@ const DEMO_PORTALS: DemoPortal[] = [
     ],
     email: "driver@test-company.com",
     password: "testdriver123",
-    loginUrl: "/test-company/auth/login",
-    bgGradient: "from-blue-500 to-cyan-500"
+    loginUrl: "/test-company/auth/login"
   },
   {
     id: "kitchen",
@@ -90,8 +84,7 @@ const DEMO_PORTALS: DemoPortal[] = [
     ],
     email: "kitchen@test-company.com",
     password: "testkitchen123",
-    loginUrl: "/test-company/auth/login",
-    bgGradient: "from-orange-500 to-red-500"
+    loginUrl: "/test-company/auth/login"
   },
   {
     id: "shopping",
@@ -109,8 +102,7 @@ const DEMO_PORTALS: DemoPortal[] = [
     ],
     email: "shopping@test-company.com",
     password: "testshopping123",
-    loginUrl: "/test-company/auth/login",
-    bgGradient: "from-green-500 to-emerald-500"
+    loginUrl: "/test-company/auth/login"
   },
   {
     id: "cleaning",
@@ -128,8 +120,7 @@ const DEMO_PORTALS: DemoPortal[] = [
     ],
     email: "cleaning@test-company.com",
     password: "testcleaning123",
-    loginUrl: "/test-company/auth/login",
-    bgGradient: "from-cyan-500 to-blue-500"
+    loginUrl: "/test-company/auth/login"
   },
   {
     id: "client",
@@ -147,8 +138,7 @@ const DEMO_PORTALS: DemoPortal[] = [
     ],
     email: "client@test-company.com",
     password: "testclient123",
-    loginUrl: "/test-company/auth/login",
-    bgGradient: "from-violet-500 to-purple-500"
+    loginUrl: "/test-company/auth/login"
   }
 ];
 
@@ -174,16 +164,16 @@ export default function DemoPage() {
   };
 
   return (
-    <div className="min-h-screen bg-white text-slate-900">
+    <div className="font-body min-h-screen bg-stone-50 text-stone-900">
       {/* Header */}
-      <div className="sticky top-0 z-50 border-b border-slate-100 bg-white/90 backdrop-blur-md">
+      <header className="sticky top-0 z-40 border-b border-stone-200 bg-stone-50">
         <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between">
             <Link href="/" className="flex items-center gap-2">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-violet-600 to-fuchsia-500 shadow-sm">
-                <span className="text-xl font-bold text-white">C</span>
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-600 shadow-sm">
+                <span className="font-display text-xl font-semibold text-white">C</span>
               </div>
-              <span className="text-xl font-bold tracking-tight text-slate-900">CateringMS</span>
+              <span className="font-display text-xl font-semibold tracking-tight text-stone-900">CateringMS</span>
             </Link>
             <div className="flex items-center gap-2 sm:gap-4">
               <Link href="/features">
@@ -193,46 +183,36 @@ export default function DemoPage() {
                 <Button variant="ghost" size="sm">Pricing</Button>
               </Link>
               <Link href="/company-signup">
-                <Button className={`rounded-full bg-gradient-to-b from-violet-600 to-violet-700 font-semibold text-white shadow-lg shadow-violet-600/20 hover:from-violet-600 hover:to-violet-800 hover:shadow-xl hover:shadow-violet-600/30`}>
+                <Button className={`rounded-full bg-amber-600 font-semibold text-white shadow-lg shadow-amber-700/20 hover:bg-amber-700 hover:shadow-xl hover:shadow-amber-700/30 ${btnPress}`}>
                   Start Free Trial
                 </Button>
               </Link>
             </div>
           </div>
         </div>
-      </div>
+      </header>
 
       {/* ===================== HERO ===================== */}
-      <section className="relative overflow-hidden border-b border-slate-100 bg-white">
-        {/* Soft brand glow + faint grid, masked so it fades into the page. */}
-        <div className="pointer-events-none absolute inset-x-0 -top-40 h-[480px] bg-[radial-gradient(60%_60%_at_50%_0%,rgba(124,58,237,0.12),transparent)]" />
-        <div className="pointer-events-none absolute inset-0 [background-image:linear-gradient(to_right,rgba(15,23,42,0.04)_1px,transparent_1px),linear-gradient(to_bottom,rgba(15,23,42,0.04)_1px,transparent_1px)] [background-size:46px_46px] [mask-image:radial-gradient(70%_55%_at_50%_0%,black,transparent)]" />
-
-        <div className="relative mx-auto max-w-7xl px-4 py-16 sm:px-6 md:py-24 lg:px-8">
-          <Stagger className="mx-auto max-w-3xl text-center" gap={0.07}>
-            <StaggerItem className="mb-6 flex justify-center">
-              <Eyebrow icon={Eye} className="border-violet-200 bg-violet-50 text-violet-700">
-                Live Demo
-              </Eyebrow>
-            </StaggerItem>
-
+      <section className="border-b border-stone-200 bg-white">
+        <div className="mx-auto max-w-3xl px-4 pb-14 pt-20 text-center sm:px-6 md:pb-20 md:pt-28 lg:px-8">
+          <Stagger gap={0.07}>
             <StaggerItem>
-              <h1 className="text-balance text-4xl font-bold tracking-tight text-slate-900 sm:text-5xl lg:text-6xl">
+              <h1 className="text-balance font-display text-4xl font-medium leading-[1.05] tracking-tight text-stone-900 sm:text-5xl lg:text-[clamp(3.25rem,5.5vw,4.5rem)]">
                 Explore CateringMS Portals
               </h1>
             </StaggerItem>
 
             <StaggerItem>
-              <p className="mx-auto mt-6 max-w-2xl text-balance text-lg leading-relaxed text-slate-600 sm:text-xl">
+              <p className="mx-auto mt-6 max-w-2xl text-pretty text-lg leading-relaxed text-stone-700 sm:text-xl">
                 Test drive our complete catering management system. Each portal is designed for specific roles in your catering business.
               </p>
             </StaggerItem>
           </Stagger>
 
-          <Reveal className="mx-auto mt-10 max-w-3xl" delay={0.05}>
-            <Alert className="border-blue-200 bg-blue-50">
-              <AlertDescription className="text-blue-800">
-                <strong>🎯 How to Test:</strong> Click "Login as Demo User" on any portal below to access a fully functional demo environment. All demo accounts use the same test company: <strong>Test Company</strong>
+          <Reveal className="mx-auto mt-9 max-w-2xl" delay={0.05}>
+            <Alert className="border-amber-200 bg-amber-50 text-left">
+              <AlertDescription className="text-stone-800">
+                <strong className="font-semibold text-stone-900">How to test:</strong> Click &ldquo;Login as Demo User&rdquo; on any portal below to access a fully functional demo environment. All demo accounts use the same test company: <strong className="font-semibold text-stone-900">Test Company</strong>.
               </AlertDescription>
             </Alert>
           </Reveal>
@@ -240,46 +220,43 @@ export default function DemoPage() {
       </section>
 
       {/* ===================== PORTAL CARDS ===================== */}
-      <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 md:py-24 lg:px-8">
-        <Reveal className="mx-auto mb-14 max-w-3xl text-center">
-          <Eyebrow icon={Target} className="border-violet-200 bg-violet-50 text-violet-700">
-            Six role-based portals
-          </Eyebrow>
-          <h2 className="mt-5 text-balance text-3xl font-bold tracking-tight text-slate-900 md:text-4xl">
+      <section className="mx-auto max-w-7xl px-4 py-20 sm:px-6 md:py-28 lg:px-8">
+        <Reveal className="mx-auto mb-16 max-w-3xl text-center">
+          <h2 className="text-balance font-display text-3xl font-semibold tracking-tight text-stone-900 md:text-4xl">
             One platform, every role connected
           </h2>
-          <p className="mt-4 text-balance text-lg text-slate-600">
+          <p className="mt-4 text-pretty text-lg text-stone-700">
             Pick a portal and sign in instantly with the demo credentials below.
           </p>
         </Reveal>
 
-        <Stagger className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <Stagger className="grid gap-7 md:grid-cols-2 lg:grid-cols-3">
           {DEMO_PORTALS.map((portal) => {
             const Icon = portal.icon;
             const isCopied = copiedId === portal.id;
 
             return (
               <StaggerItem key={portal.id}>
-                <Card className={`${cardBase} flex h-full flex-col`}>
+                <Card className={`${cardBase} flex h-full flex-col border-stone-200 hover:border-amber-200`}>
                   <CardHeader>
-                    <div className={`${iconChip} mb-4 h-16 w-16 bg-gradient-to-br ${portal.bgGradient}`}>
-                      <Icon className="h-8 w-8 text-white" />
+                    <div className="mb-4 flex items-center gap-3">
+                      <Icon className="h-7 w-7 flex-shrink-0 text-amber-600" />
+                      <CardTitle className="font-display text-xl text-stone-900">{portal.name}</CardTitle>
                     </div>
-                    <CardTitle className="text-xl">{portal.name}</CardTitle>
-                    <CardDescription className="text-sm">
+                    <CardDescription className="text-sm leading-relaxed text-stone-600">
                       {portal.description}
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="flex flex-1 flex-col">
                     {/* Features */}
                     <div className="mb-6">
-                      <h4 className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                      <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-stone-500">
                         Key Features
-                      </h4>
+                      </h3>
                       <ul className="space-y-2">
                         {portal.features.slice(0, 4).map((feature, idx) => (
-                          <li key={idx} className="flex items-start gap-2 text-sm text-slate-700">
-                            <Check className="mt-0.5 h-4 w-4 flex-shrink-0 text-emerald-600" />
+                          <li key={idx} className="flex items-start gap-2 text-sm text-stone-700">
+                            <Check className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-600" />
                             <span>{feature}</span>
                           </li>
                         ))}
@@ -287,11 +264,11 @@ export default function DemoPage() {
                     </div>
 
                     {/* Demo Credentials */}
-                    <div className="mb-4 mt-auto rounded-xl border border-slate-200 bg-slate-50 p-4">
+                    <div className="mb-4 mt-auto rounded-xl border border-stone-200 bg-stone-50 p-4">
                       <div className="mb-2 flex items-center justify-between">
-                        <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                        <h3 className="text-xs font-semibold uppercase tracking-wider text-stone-500">
                           Demo Credentials
-                        </h4>
+                        </h3>
                         <Button
                           variant="ghost"
                           size="sm"
@@ -312,15 +289,15 @@ export default function DemoPage() {
                         </Button>
                       </div>
                       <div className="space-y-1">
-                        <p className="text-xs text-slate-600">
-                          <strong>Email:</strong>
-                          <code className="ml-2 rounded bg-white px-2 py-0.5 text-xs">
+                        <p className="text-xs text-stone-700">
+                          <strong className="font-semibold text-stone-900">Email:</strong>
+                          <code className="ml-2 rounded bg-white px-2 py-0.5 text-xs text-stone-800">
                             {portal.email}
                           </code>
                         </p>
-                        <p className="text-xs text-slate-600">
-                          <strong>Password:</strong>
-                          <code className="ml-2 rounded bg-white px-2 py-0.5 text-xs">
+                        <p className="text-xs text-stone-700">
+                          <strong className="font-semibold text-stone-900">Password:</strong>
+                          <code className="ml-2 rounded bg-white px-2 py-0.5 text-xs text-stone-800">
                             {portal.password}
                           </code>
                         </p>
@@ -329,7 +306,7 @@ export default function DemoPage() {
 
                     {/* Login Button */}
                     <Button
-                      className={`w-full bg-gradient-to-r ${portal.bgGradient} hover:opacity-90`}
+                      className={`w-full bg-amber-600 text-white hover:bg-amber-700 ${btnPress}`}
                       onClick={() => handleDirectLogin(portal)}
                     >
                       <LogIn className="mr-2 h-4 w-4" />
@@ -344,21 +321,20 @@ export default function DemoPage() {
       </section>
 
       {/* ===================== FINAL CTA ===================== */}
-      <section className="px-4 pb-20 sm:px-6 lg:px-8">
-        <Reveal className="relative mx-auto max-w-6xl overflow-hidden rounded-3xl bg-gradient-to-br from-violet-600 via-fuchsia-600 to-rose-500 px-6 py-16 text-center shadow-2xl shadow-violet-600/20 sm:px-12 md:py-20">
-          <div className="pointer-events-none absolute inset-0 [background-image:linear-gradient(to_right,rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.08)_1px,transparent_1px)] [background-size:40px_40px] [mask-image:radial-gradient(70%_70%_at_50%_50%,black,transparent)]" />
-          <div className="relative mx-auto max-w-3xl">
-            <h2 className="text-balance text-3xl font-bold tracking-tight text-white sm:text-4xl">
+      <section className="px-4 pb-24 sm:px-6 lg:px-8">
+        <Reveal className="mx-auto max-w-6xl rounded-3xl bg-stone-950 px-6 py-16 text-center shadow-xl sm:px-12 md:py-20">
+          <div className="mx-auto max-w-3xl">
+            <h2 className="text-balance font-display text-3xl font-semibold tracking-tight text-white sm:text-4xl">
               Ready to Transform Your Catering Business?
             </h2>
-            <p className="mx-auto mt-6 max-w-2xl text-balance text-lg text-violet-50">
+            <p className="mx-auto mt-5 max-w-2xl text-pretty text-lg text-stone-300">
               Start your 14-day free trial today. No credit card required.
             </p>
             <div className="mt-8 flex justify-center">
               <Link href="/company-signup">
-                <Button size="lg" className={`h-12 rounded-full bg-white px-9 text-base font-semibold text-violet-700 shadow-xl hover:bg-violet-50`}>
+                <Button size="lg" className={`group h-12 rounded-full bg-amber-500 px-9 text-base font-semibold text-stone-950 shadow-lg hover:bg-amber-400 ${btnPress}`}>
                   Start Free Trial
-                  <ArrowRight className="ml-2 h-5 w-5 transition-transform duration-200 group-hover:translate-x-0.5" />
+                  <ArrowRight className={`ml-2 h-5 w-5 transition-transform duration-200 ${EASE} group-hover:translate-x-0.5`} />
                 </Button>
               </Link>
             </div>

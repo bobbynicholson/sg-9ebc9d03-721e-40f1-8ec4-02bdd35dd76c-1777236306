@@ -45,3 +45,7 @@ logs/
 
 # emilkowalski skill (separate repo, cloned locally)
 skill/
+
+# Design skill repos (cloned locally, not part of the app)
+impeccable/
+taste-skill/

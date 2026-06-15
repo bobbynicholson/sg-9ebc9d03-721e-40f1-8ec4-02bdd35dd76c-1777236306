@@ -5,7 +5,7 @@ import { Users, FileText, Calendar, DollarSign, ChefHat, Package, TrendingUp, Ma
 import { Footer } from "@/components/Footer";
 import { Header } from "@/components/Header";
 import { Reveal, Stagger, StaggerItem } from "@/components/motion/Reveal";
-import { EASE, cardBase, btnPress, iconChip, Eyebrow } from "@/components/motion/marketing";
+import { btnPress } from "@/components/motion/marketing";
 import Head from "next/head";
 
 export default function FeaturesPage() {
@@ -328,41 +328,32 @@ export default function FeaturesPage() {
 
       <Header />
 
-      <div className="min-h-screen bg-white text-slate-900">
+      <div className="font-body min-h-screen bg-stone-50 text-stone-900">
         {/* ===================== HERO ===================== */}
-        <section className="relative overflow-hidden border-b border-slate-100 bg-white">
-          {/* Soft brand glow + faint grid, masked so it fades into the page. */}
-          <div className="pointer-events-none absolute inset-x-0 -top-40 h-[560px] bg-[radial-gradient(60%_60%_at_50%_0%,rgba(124,58,237,0.12),transparent)]" />
-          <div className="pointer-events-none absolute inset-0 [background-image:linear-gradient(to_right,rgba(15,23,42,0.04)_1px,transparent_1px),linear-gradient(to_bottom,rgba(15,23,42,0.04)_1px,transparent_1px)] [background-size:46px_46px] [mask-image:radial-gradient(70%_55%_at_50%_0%,black,transparent)]" />
+        <section className="relative overflow-hidden border-b border-stone-200 bg-stone-50">
+          {/* Single soft brand wash, masked so it fades into the page. */}
+          <div className="pointer-events-none absolute inset-x-0 -top-32 h-[480px] bg-[radial-gradient(55%_55%_at_50%_0%,rgba(180,83,9,0.10),transparent)]" />
 
           <div className="relative mx-auto max-w-7xl px-4 py-20 md:py-28">
             <Stagger className="mx-auto max-w-3xl text-center" gap={0.07}>
-              <StaggerItem className="mb-6 flex justify-center">
-                <Eyebrow icon={Sparkles} className="border-violet-200 bg-violet-50 text-violet-700">
-                  Complete Platform Overview
-                </Eyebrow>
-              </StaggerItem>
-
               <StaggerItem>
-                <h1 className="text-balance text-4xl font-bold tracking-tight text-slate-900 sm:text-5xl lg:text-6xl">
+                <h1 className="text-balance font-display text-4xl font-semibold leading-[1.06] tracking-tight text-stone-900 sm:text-5xl lg:text-[3.75rem]">
                   Every feature you need to run a{" "}
-                  <span className="bg-gradient-to-r from-violet-600 via-fuchsia-600 to-rose-500 bg-clip-text text-transparent">
-                    profitable catering business
-                  </span>
+                  <span className="text-amber-700">profitable catering business</span>
                 </h1>
               </StaggerItem>
 
               <StaggerItem>
-                <p className="mx-auto mt-6 max-w-2xl text-balance text-lg leading-relaxed text-slate-600 sm:text-xl">
+                <p className="mx-auto mt-6 max-w-2xl text-balance text-lg leading-relaxed text-stone-600 sm:text-xl">
                   15 integrated systems working seamlessly together to automate operations, connect your team, and maximize profitability.
                 </p>
               </StaggerItem>
 
-              <StaggerItem className="mx-auto mt-8 flex max-w-md flex-col items-stretch justify-center gap-3 sm:max-w-none sm:flex-row sm:items-center">
+              <StaggerItem className="mx-auto mt-9 flex max-w-md flex-col items-stretch justify-center gap-3 sm:max-w-none sm:flex-row sm:items-center">
                 <Link href="/company-signup" className="w-full sm:w-auto">
                   <Button
                     size="lg"
-                    className={`h-12 w-full rounded-full bg-gradient-to-b from-violet-600 to-violet-700 px-8 text-base font-semibold text-white shadow-lg shadow-violet-600/20 hover:from-violet-600 hover:to-violet-800 hover:shadow-xl hover:shadow-violet-600/30 sm:w-auto ${btnPress}`}
+                    className={`h-12 w-full rounded-full bg-gradient-to-b from-amber-500 to-amber-600 px-8 text-base font-semibold text-white shadow-lg shadow-amber-700/25 hover:from-amber-500 hover:to-amber-700 hover:shadow-xl hover:shadow-amber-700/30 sm:w-auto ${btnPress}`}
                   >
                     Start Free Trial
                     <ArrowRight className="h-5 w-5 transition-transform duration-200 group-hover:translate-x-0.5" />
@@ -372,7 +363,7 @@ export default function FeaturesPage() {
                   <Button
                     size="lg"
                     variant="outline"
-                    className={`h-12 w-full rounded-full border-slate-300 bg-white px-8 text-base font-semibold text-slate-700 hover:border-slate-400 hover:bg-slate-50 sm:w-auto ${btnPress}`}
+                    className={`h-12 w-full rounded-full border-stone-300 bg-white px-8 text-base font-semibold text-stone-700 hover:border-stone-400 hover:bg-stone-100 sm:w-auto ${btnPress}`}
                   >
                     View Pricing
                   </Button>
@@ -384,22 +375,19 @@ export default function FeaturesPage() {
 
         {/* ===================== CORE FEATURES ===================== */}
         <section className="mx-auto max-w-7xl px-4 py-20 md:py-28">
-          <Reveal className="mx-auto mb-16 max-w-3xl text-center">
-            <Eyebrow icon={CheckCircle} className="border-emerald-200 bg-emerald-50 text-emerald-600">
-              All Core Systems Operational
-            </Eyebrow>
-            <h2 className="mt-5 text-balance text-3xl font-bold tracking-tight text-slate-900 md:text-5xl">
+          <Reveal className="mx-auto mb-14 max-w-3xl text-center">
+            <h2 className="text-balance font-display text-3xl font-semibold tracking-tight text-stone-900 md:text-5xl">
               Click each card to discover how it works
             </h2>
-            <p className="mt-4 text-balance text-lg text-slate-600">
+            <p className="mt-4 text-balance text-lg text-stone-600">
               Hover or tap on any feature to see detailed benefits and real-world impact
             </p>
-            <p className="mt-3 text-base text-slate-500">
-              Read more about <Link href="/blog/catering-management-software-benefits" className="font-medium text-violet-600 underline-offset-2 hover:underline">software benefits</Link> and <Link href="/blog/automate-catering-operations" className="font-medium text-violet-600 underline-offset-2 hover:underline">automation strategies</Link> on our blog.
+            <p className="mt-3 text-base text-stone-600">
+              Read more about <Link href="/blog/catering-management-software-benefits" className="font-medium text-amber-700 underline-offset-2 hover:underline">software benefits</Link> and <Link href="/blog/automate-catering-operations" className="font-medium text-amber-700 underline-offset-2 hover:underline">automation strategies</Link> on our blog.
             </p>
           </Reveal>
 
-          <Stagger className="mb-16 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <Stagger className="mb-20 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {coreFeatures.map((feature, index) => (
               <StaggerItem key={index}>
                 <div
@@ -418,52 +406,52 @@ export default function FeaturesPage() {
                   >
                     {/* Front */}
                     <div
-                      className="absolute flex h-full w-full flex-col justify-between rounded-2xl border border-slate-200 bg-white p-8 shadow-sm backface-hidden"
+                      className="absolute flex h-full w-full flex-col justify-between rounded-2xl border border-stone-200 bg-white p-8 shadow-sm backface-hidden"
                       style={{ backfaceVisibility: "hidden" }}
                     >
                       <div>
-                        <div className={`${iconChip} mb-6 h-16 w-16 bg-gradient-to-br ${feature.gradient}`}>
-                          <feature.icon className="h-8 w-8 text-white" />
+                        <div className="mb-6 inline-flex h-14 w-14 items-center justify-center rounded-xl bg-amber-50 ring-1 ring-amber-100">
+                          <feature.icon className="h-7 w-7 text-amber-700" />
                         </div>
-                        <h3 className="mb-3 text-2xl font-semibold tracking-tight text-slate-900">{feature.title}</h3>
-                        <p className="leading-relaxed text-slate-600">{feature.shortDesc}</p>
+                        <h3 className="mb-3 font-display text-2xl font-semibold tracking-tight text-stone-900">{feature.title}</h3>
+                        <p className="leading-relaxed text-stone-600">{feature.shortDesc}</p>
                       </div>
-                      <div className="flex items-center justify-between">
-                        <span className={`inline-flex items-center rounded-full bg-gradient-to-r ${feature.gradient} px-3 py-1.5 text-sm font-medium text-white`}>
+                      <div className="flex items-center justify-between border-t border-stone-100 pt-5">
+                        <span className="text-sm font-semibold text-amber-700">
                           {feature.impact}
                         </span>
-                        <ArrowRight className="h-5 w-5 text-slate-400" />
+                        <ArrowRight className="h-5 w-5 text-stone-400" />
                       </div>
                     </div>
 
                     {/* Back */}
                     <div
-                      className={`absolute flex h-full w-full flex-col justify-between overflow-y-auto rounded-2xl bg-gradient-to-br p-8 text-white backface-hidden ${feature.gradient}`}
+                      className="absolute flex h-full w-full flex-col justify-between overflow-y-auto rounded-2xl bg-stone-900 p-8 text-white backface-hidden"
                       style={{
                         transform: "rotateY(180deg)",
                         backfaceVisibility: "hidden"
                       }}
                     >
                       <div>
-                        <h3 className="mb-4 text-2xl font-semibold tracking-tight">{feature.title}</h3>
-                        <p className="mb-6 leading-relaxed opacity-95">{feature.fullDesc}</p>
+                        <h3 className="mb-4 font-display text-2xl font-semibold tracking-tight text-white">{feature.title}</h3>
+                        <p className="mb-6 leading-relaxed text-stone-300">{feature.fullDesc}</p>
                         <ul className="mb-4 space-y-3">
                           {feature.benefits.map((benefit, i) => (
                             <li key={i} className="flex items-start gap-2">
-                              <CheckCircle className="mt-0.5 h-5 w-5 shrink-0" />
-                              <span className="text-sm leading-relaxed">{benefit}</span>
+                              <CheckCircle className="mt-0.5 h-5 w-5 shrink-0 text-amber-400" />
+                              <span className="text-sm leading-relaxed text-stone-200">{benefit}</span>
                             </li>
                           ))}
                         </ul>
                       </div>
                       <div className="space-y-3">
-                        <span className="flex w-full items-center justify-center rounded-full border border-white/30 bg-white/20 px-3 py-1.5 text-sm font-medium text-white backdrop-blur-sm">
+                        <span className="flex w-full items-center justify-center rounded-full border border-amber-400/40 bg-amber-400/10 px-3 py-1.5 text-sm font-medium text-amber-200">
                           Impact: {feature.impact}
                         </span>
                         {feature.link && (
                           <Link href={feature.link}>
                             <Button
-                              className={`w-full bg-white/90 font-semibold text-slate-900 shadow-lg hover:bg-white hover:shadow-xl ${btnPress}`}
+                              className={`w-full bg-amber-500 font-semibold text-white shadow-lg hover:bg-amber-600 hover:shadow-xl ${btnPress}`}
                               size="lg"
                             >
                               Learn More
@@ -480,22 +468,22 @@ export default function FeaturesPage() {
           </Stagger>
 
           {/* Mid-Page CTA */}
-          <Reveal className="rounded-3xl border border-violet-100 bg-gradient-to-br from-violet-50 to-fuchsia-50 p-8 text-center md:p-12">
-            <h3 className="text-2xl font-bold tracking-tight text-slate-900 md:text-4xl">
+          <Reveal className="rounded-3xl border border-amber-100 bg-amber-50 p-8 text-center md:p-12">
+            <h3 className="font-display text-2xl font-semibold tracking-tight text-stone-900 md:text-4xl">
               Ready to transform your catering business?
             </h3>
-            <p className="mx-auto mt-4 max-w-2xl text-base text-slate-600 sm:text-lg">
+            <p className="mx-auto mt-4 max-w-2xl text-base text-stone-600 sm:text-lg">
               Join forward-thinking catering businesses across South Africa who are automating operations and maximizing profitability.
             </p>
-            <p className="mt-3 text-sm text-slate-500 sm:text-base">
-              Explore our <Link href="/pricing" className="font-medium text-violet-600 underline-offset-2 hover:underline">pricing plans</Link> or read success stories on our <Link href="/blog" className="font-medium text-violet-600 underline-offset-2 hover:underline">blog</Link>.
+            <p className="mt-3 text-sm text-stone-600 sm:text-base">
+              Explore our <Link href="/pricing" className="font-medium text-amber-700 underline-offset-2 hover:underline">pricing plans</Link> or read success stories on our <Link href="/blog" className="font-medium text-amber-700 underline-offset-2 hover:underline">blog</Link>.
             </p>
 
             <div className="mx-auto mt-8 flex max-w-md flex-col gap-3 sm:max-w-none sm:flex-row sm:justify-center">
               <Link href="/company-signup" className="w-full sm:w-auto">
                 <Button
                   size="lg"
-                  className={`h-12 w-full rounded-full bg-gradient-to-b from-violet-600 to-violet-700 px-9 text-base font-semibold text-white shadow-lg shadow-violet-600/20 hover:from-violet-600 hover:to-violet-800 hover:shadow-xl hover:shadow-violet-600/30 sm:w-auto ${btnPress}`}
+                  className={`h-12 w-full rounded-full bg-gradient-to-b from-amber-500 to-amber-600 px-9 text-base font-semibold text-white shadow-lg shadow-amber-700/25 hover:from-amber-500 hover:to-amber-700 hover:shadow-xl hover:shadow-amber-700/30 sm:w-auto ${btnPress}`}
                 >
                   Start Your Free Trial Now
                   <ArrowRight className="h-5 w-5 transition-transform duration-200 group-hover:translate-x-0.5" />
@@ -505,45 +493,38 @@ export default function FeaturesPage() {
                 <Button
                   size="lg"
                   variant="outline"
-                  className={`h-12 w-full rounded-full border-slate-300 bg-white px-9 text-base font-semibold text-slate-700 hover:border-slate-400 hover:bg-slate-50 sm:w-auto ${btnPress}`}
+                  className={`h-12 w-full rounded-full border-stone-300 bg-white px-9 text-base font-semibold text-stone-700 hover:border-stone-400 hover:bg-stone-100 sm:w-auto ${btnPress}`}
                 >
                   See Pricing Plans
                 </Button>
               </Link>
             </div>
-            <p className="mt-6 text-xs text-slate-500 sm:text-sm">
+            <p className="mt-6 text-xs text-stone-500 sm:text-sm">
               No credit card required · Cancel anytime · Setup in under 3 hours
             </p>
           </Reveal>
         </section>
 
         {/* ===================== ADDITIONAL FEATURES ===================== */}
-        <section className="bg-slate-50 py-20 md:py-28">
+        <section className="bg-white py-20 md:py-28">
           <div className="mx-auto max-w-7xl px-4">
-            <Reveal className="mb-16 text-center">
-              <Eyebrow icon={Zap} className="border-blue-200 bg-blue-50 text-blue-600">
-                Even More Powerful Features
-              </Eyebrow>
-              <h2 className="mt-5 text-balance text-3xl font-bold tracking-tight text-slate-900 md:text-5xl">
+            <Reveal className="mb-14 text-center">
+              <h2 className="text-balance font-display text-3xl font-semibold tracking-tight text-stone-900 md:text-5xl">
                 Additional tools included
               </h2>
-              <p className="mt-4 text-lg text-slate-600">
+              <p className="mt-4 text-lg text-stone-600">
                 Everything you need, nothing you don't
               </p>
             </Reveal>
 
-            <Stagger className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            <Stagger className="grid gap-x-8 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
               {additionalFeatures.map((feature, index) => (
                 <StaggerItem key={index}>
-                  <div className={`${cardBase} p-7`}>
-                    <div className="flex items-start gap-4">
-                      <div className={`${iconChip} h-12 w-12 shrink-0 bg-gradient-to-br from-violet-100 to-fuchsia-100`}>
-                        <feature.icon className="h-6 w-6 text-violet-600" />
-                      </div>
-                      <div>
-                        <h3 className="mb-2 text-lg font-semibold text-slate-900">{feature.title}</h3>
-                        <p className="text-sm text-slate-600">{feature.description}</p>
-                      </div>
+                  <div className="flex items-start gap-4">
+                    <feature.icon className="mt-1 h-7 w-7 shrink-0 text-amber-700" />
+                    <div>
+                      <h3 className="mb-2 text-lg font-semibold text-stone-900">{feature.title}</h3>
+                      <p className="text-sm leading-relaxed text-stone-600">{feature.description}</p>
                     </div>
                   </div>
                 </StaggerItem>
@@ -553,26 +534,26 @@ export default function FeaturesPage() {
         </section>
 
         {/* ===================== SEAMLESS / CONNECTED (dark) ===================== */}
-        <section className="relative overflow-hidden bg-slate-950 py-20 md:py-28">
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(50%_50%_at_50%_0%,rgba(124,58,237,0.18),transparent)]" />
+        <section className="relative overflow-hidden bg-stone-950 py-20 md:py-28">
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(50%_50%_at_50%_0%,rgba(180,83,9,0.16),transparent)]" />
           <div className="relative mx-auto max-w-6xl px-4">
             <Reveal className="mx-auto max-w-3xl text-center">
-              <h2 className="text-balance text-2xl font-bold tracking-tight text-white sm:text-3xl md:text-5xl">
+              <h2 className="text-balance font-display text-2xl font-semibold tracking-tight text-white sm:text-3xl md:text-5xl">
                 Everything works together seamlessly
               </h2>
-              <p className="mx-auto mt-4 max-w-3xl text-balance text-base text-slate-300 sm:text-xl">
+              <p className="mx-auto mt-4 max-w-3xl text-balance text-base leading-relaxed text-stone-300 sm:text-xl">
                 No more juggling 10 different tools. One platform. One login. Everything connected.
                 Your entire operation flows from lead to delivery to follow-up automatically.
               </p>
-              <p className="mt-3 text-sm text-violet-200 sm:text-base">
-                Learn about <Link href="/blog/gps-tracking-catering-delivery" className="font-medium text-white underline-offset-2 hover:underline">GPS tracking benefits</Link> and <Link href="/blog/inventory-management-catering" className="font-medium text-white underline-offset-2 hover:underline">inventory best practices</Link>.
+              <p className="mt-3 text-sm text-stone-400 sm:text-base">
+                Learn about <Link href="/blog/gps-tracking-catering-delivery" className="font-medium text-amber-300 underline-offset-2 hover:underline">GPS tracking benefits</Link> and <Link href="/blog/inventory-management-catering" className="font-medium text-amber-300 underline-offset-2 hover:underline">inventory best practices</Link>.
               </p>
 
               <div className="mx-auto mt-8 flex max-w-md flex-col gap-3 sm:max-w-none sm:flex-row sm:justify-center">
                 <Link href="/company-signup" className="w-full sm:w-auto">
                   <Button
                     size="lg"
-                    className={`h-12 w-full rounded-full bg-white px-8 text-base font-semibold text-slate-900 shadow-xl hover:bg-slate-100 sm:w-auto ${btnPress}`}
+                    className={`h-12 w-full rounded-full bg-amber-500 px-8 text-base font-semibold text-white shadow-xl hover:bg-amber-600 sm:w-auto ${btnPress}`}
                   >
                     Get Started Free
                     <ArrowRight className="h-5 w-5 transition-transform duration-200 group-hover:translate-x-0.5" />
@@ -598,8 +579,8 @@ export default function FeaturesPage() {
                 "24/7 support"
               ].map((item) => (
                 <StaggerItem key={item}>
-                  <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-sm text-slate-200 backdrop-blur-sm">
-                    <CheckCircle className="h-4 w-4 shrink-0 text-violet-300" />
+                  <div className="flex items-center gap-2 rounded-full border border-white/15 bg-white/[0.06] px-4 py-2 text-sm text-stone-200">
+                    <CheckCircle className="h-4 w-4 shrink-0 text-amber-400" />
                     <span>{item}</span>
                   </div>
                 </StaggerItem>
@@ -609,46 +590,41 @@ export default function FeaturesPage() {
         </section>
 
         {/* ===================== IMPACT / STATS ===================== */}
-        <section className="bg-slate-50 py-20 md:py-28">
+        <section className="bg-stone-100 py-20 md:py-28">
           <div className="mx-auto max-w-6xl px-4">
             <Reveal className="mx-auto mb-12 max-w-3xl text-center">
-              <Eyebrow icon={TrendingUp} className="border-emerald-200 bg-emerald-50 text-emerald-600">
-                Real Results
-              </Eyebrow>
-              <h2 className="mt-5 text-balance text-3xl font-bold tracking-tight text-slate-900 md:text-5xl">
+              <h2 className="text-balance font-display text-3xl font-semibold tracking-tight text-stone-900 md:text-5xl">
                 The impact on your business
               </h2>
-              <p className="mt-4 text-base text-slate-600">
-                See how our platform helps with <Link href="/blog/improve-catering-profit-margins" className="font-medium text-violet-600 underline-offset-2 hover:underline">improving margins</Link> and <Link href="/blog/scale-catering-business" className="font-medium text-violet-600 underline-offset-2 hover:underline">scaling your business</Link>.
+              <p className="mt-4 text-base text-stone-600">
+                See how our platform helps with <Link href="/blog/improve-catering-profit-margins" className="font-medium text-amber-700 underline-offset-2 hover:underline">improving margins</Link> and <Link href="/blog/scale-catering-business" className="font-medium text-amber-700 underline-offset-2 hover:underline">scaling your business</Link>.
               </p>
             </Reveal>
 
-            <Stagger className="mb-12 grid grid-cols-2 gap-4 md:grid-cols-4" gap={0.06}>
+            <Stagger className="mx-auto mb-12 grid max-w-4xl grid-cols-2 gap-x-8 gap-y-10 md:grid-cols-4" gap={0.06}>
               {[
-                { value: "12+", label: "Hours Saved Weekly", icon: Clock, color: "from-blue-500 to-cyan-500" },
-                { value: "50-55%", label: "Fewer Admin Calls", icon: Bell, color: "from-purple-500 to-pink-500" },
-                { value: "10-16%", label: "Margin Increase", icon: TrendingUp, color: "from-green-500 to-emerald-500" },
-                { value: "1.5-2x", label: "Repeat Bookings", icon: RefreshCw, color: "from-orange-500 to-amber-500" }
+                { value: "12+", label: "Hours Saved Weekly", icon: Clock },
+                { value: "50-55%", label: "Fewer Admin Calls", icon: Bell },
+                { value: "10-16%", label: "Margin Increase", icon: TrendingUp },
+                { value: "1.5-2x", label: "Repeat Bookings", icon: RefreshCw }
               ].map((stat, index) => (
                 <StaggerItem key={index}>
-                  <div className={`${cardBase} flex flex-col items-center p-6 text-center`}>
-                    <div className={`${iconChip} mb-3 h-12 w-12 bg-gradient-to-br ${stat.color}`}>
-                      <stat.icon className="h-6 w-6 text-white" />
-                    </div>
-                    <div className="text-3xl font-bold tracking-tight text-slate-900 md:text-4xl">{stat.value}</div>
-                    <div className="mt-1 text-sm text-slate-600">{stat.label}</div>
+                  <div className="flex flex-col items-center text-center">
+                    <stat.icon className="mb-3 h-6 w-6 text-amber-600" />
+                    <div className="font-display text-4xl font-semibold tracking-tight text-stone-900 md:text-5xl">{stat.value}</div>
+                    <div className="mt-1 text-sm text-stone-600">{stat.label}</div>
                   </div>
                 </StaggerItem>
               ))}
             </Stagger>
 
-            <Reveal className="relative mx-auto overflow-hidden rounded-3xl bg-gradient-to-br from-violet-600 via-fuchsia-600 to-rose-500 px-6 py-12 text-center shadow-2xl shadow-violet-600/20 sm:px-8 md:py-16">
-              <div className="pointer-events-none absolute inset-0 [background-image:linear-gradient(to_right,rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.08)_1px,transparent_1px)] [background-size:40px_40px] [mask-image:radial-gradient(70%_70%_at_50%_50%,black,transparent)]" />
+            <Reveal className="relative mx-auto overflow-hidden rounded-3xl bg-stone-900 px-6 py-12 text-center shadow-2xl shadow-stone-900/20 sm:px-8 md:py-16">
+              <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(60%_70%_at_50%_0%,rgba(180,83,9,0.22),transparent)]" />
               <div className="relative mx-auto max-w-3xl">
-                <h3 className="text-balance text-2xl font-bold tracking-tight text-white sm:text-3xl md:text-4xl">
+                <h3 className="text-balance font-display text-2xl font-semibold tracking-tight text-white sm:text-3xl md:text-4xl">
                   Stop wasting time. Start growing today.
                 </h3>
-                <p className="mx-auto mt-6 max-w-2xl text-balance text-base text-violet-50 sm:text-xl">
+                <p className="mx-auto mt-6 max-w-2xl text-balance text-base leading-relaxed text-stone-300 sm:text-xl">
                   Join the catering revolution. Build a profitable, scalable business that runs smoothly without constant manual intervention.
                 </p>
 
@@ -656,7 +632,7 @@ export default function FeaturesPage() {
                   <Link href="/company-signup" className="inline-block w-full sm:w-auto">
                     <Button
                       size="lg"
-                      className={`h-12 w-full rounded-full bg-white px-9 text-base font-semibold text-violet-700 shadow-xl hover:bg-violet-50 sm:w-auto ${btnPress}`}
+                      className={`h-12 w-full rounded-full bg-amber-500 px-9 text-base font-semibold text-white shadow-xl hover:bg-amber-600 sm:w-auto ${btnPress}`}
                     >
                       Start Your Free Trial
                       <ArrowRight className="h-5 w-5 transition-transform duration-200 group-hover:translate-x-0.5" />

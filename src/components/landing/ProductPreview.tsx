@@ -192,7 +192,7 @@ export function ProductPreview() {
 
       {/* Floating live-status cards */}
       <div className="absolute -left-3 top-24 hidden animate-[floaty_5s_ease-in-out_infinite] sm:block motion-reduce:animate-none">
-        <div className="flex items-center gap-2.5 rounded-xl border border-stone-200/70 bg-white/90 px-3 py-2.5 shadow-xl backdrop-blur">
+        <div className="flex items-center gap-2.5 rounded-xl border border-stone-200 bg-white px-3 py-2.5 shadow-xl">
           <span className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-100">
             <Check className="h-4 w-4 text-emerald-600" />
           </span>
@@ -204,7 +204,7 @@ export function ProductPreview() {
       </div>
 
       <div className="absolute -right-3 bottom-16 hidden animate-[floaty_6s_ease-in-out_infinite_0.8s] sm:block motion-reduce:animate-none">
-        <div className="flex items-center gap-2.5 rounded-xl border border-stone-200/70 bg-white/90 px-3 py-2.5 shadow-xl backdrop-blur">
+        <div className="flex items-center gap-2.5 rounded-xl border border-stone-200 bg-white px-3 py-2.5 shadow-xl">
           <span className="flex h-7 w-7 items-center justify-center rounded-full bg-amber-100">
             <Truck className="h-4 w-4 text-amber-600" />
           </span>
