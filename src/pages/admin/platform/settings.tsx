@@ -14,7 +14,7 @@
 import { useEffect, useState } from "react";
 import Head from "next/head";
 import { PlatformNav } from "@/components/admin/PlatformNav";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { PortalShell, PortalHeader, PortalCard, PortalCardHeader } from "@/components/portal/ui";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -130,47 +130,39 @@ export default function PlatformSettingsPage() {
   const unknownRows = rows.filter((r) => !knownKeySet.has(r.key));
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80 pt-20 lg:pt-0">
+    <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
       <PlatformNav />
       <NoIndexMeta />
       <Head>
         <title>Platform settings - CateringMS</title>
       </Head>
 
-      <div className="px-4 py-6 sm:py-8 max-w-3xl space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-2">
-            <Settings className="w-7 h-7 text-amber-600" />
-            Platform Settings
-          </h1>
-          <p className="text-sm text-slate-600 mt-1">
-            Tunables for the SaaS itself. Changes apply immediately to every tenant.
-          </p>
-        </div>
+      <PortalShell width="narrow" className="min-h-0 bg-transparent dark:bg-transparent">
+        <PortalHeader
+          title="Platform Settings"
+          subtitle="Tunables for the SaaS itself. Changes apply immediately to every tenant."
+          icon={Settings}
+        />
 
         {error && (
-          <Alert className="border-rose-200 bg-rose-50">
+          <Alert className="mb-6 border-rose-200 bg-rose-50">
             <AlertCircle className="h-4 w-4 text-rose-600" />
             <AlertDescription className="text-rose-800">{error}</AlertDescription>
           </Alert>
         )}
 
         {loading && !rows.length ? (
-          <Card>
-            <CardContent className="py-8 text-center text-slate-500">
-              <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2" />
-              Loading settings...
-            </CardContent>
-          </Card>
+          <PortalCard className="py-8 text-center text-slate-500 dark:text-slate-400">
+            <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2" />
+            Loading settings...
+          </PortalCard>
         ) : (
-          <>
+          <div className="space-y-6">
             {KNOWN_KEYS.map((k) => (
-              <Card key={k.key}>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base">{k.label}</CardTitle>
-                  <CardDescription className="text-xs">{k.description}</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-3">
+              <PortalCard key={k.key}>
+                <PortalCardHeader title={k.label} />
+                <p className="-mt-2 mb-3 text-xs text-slate-600 dark:text-slate-400">{k.description}</p>
+                <div className="space-y-3">
                   <div className="flex flex-col sm:flex-row sm:items-end gap-3">
                     <div className="flex-1">
                       <Label htmlFor={k.key} className="text-xs uppercase tracking-wide text-slate-500">
@@ -208,19 +200,17 @@ export default function PlatformSettingsPage() {
                   <p className="text-[11px] font-mono text-slate-400">
                     app_config.{k.key}
                   </p>
-                </CardContent>
-              </Card>
+                </div>
+              </PortalCard>
             ))}
 
             {unknownRows.length > 0 && (
-              <Card className="border-slate-200 bg-slate-50">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base">Other config keys</CardTitle>
-                  <CardDescription className="text-xs">
-                    Rows in app_config that aren't yet documented in this UI. Edit with care. Some are read at boot.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-3">
+              <PortalCard className="bg-slate-50 dark:bg-slate-900/60">
+                <PortalCardHeader title="Other config keys" />
+                <p className="-mt-2 mb-3 text-xs text-slate-600 dark:text-slate-400">
+                  Rows in app_config that aren't yet documented in this UI. Edit with care. Some are read at boot.
+                </p>
+                <div className="space-y-3">
                   {unknownRows.map((r) => (
                     <div key={r.key} className="flex items-end gap-3">
                       <div className="flex-1">
@@ -246,12 +236,12 @@ export default function PlatformSettingsPage() {
                       </Button>
                     </div>
                   ))}
-                </CardContent>
-              </Card>
+                </div>
+              </PortalCard>
             )}
-          </>
+          </div>
         )}
-      </div>
+      </PortalShell>
     </div>
   );
 }

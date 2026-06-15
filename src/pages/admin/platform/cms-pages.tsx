@@ -22,9 +22,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Card, CardContent, CardDescription, CardHeader, CardTitle,
-} from "@/components/ui/card";
+import { PortalShell, PortalHeader, PortalCard, PortalCardHeader } from "@/components/portal/ui";
 import { Switch } from "@/components/ui/switch";
 import {
   Pencil, Trash2, Plus, ArrowLeft, Save, X, AlertTriangle, Sparkles,
@@ -299,10 +297,9 @@ function CMSPageManagement() {
         <title>{editing ? (editingPage ? "Edit page" : "New page") : "Page Management"} - CateringMS</title>
       </Head>
 
-      <PlatformNav />
-
-      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80 pt-20 lg:pt-0">
-        <div className="px-4 py-6 lg:py-8 max-w-full">
+      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <PlatformNav />
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           {/* Always-visible scope banner */}
           <Alert className="mb-5 border-purple-200 bg-purple-50">
             <AlertTriangle className="h-4 w-4 text-purple-600" />
@@ -317,50 +314,44 @@ function CMSPageManagement() {
           {editing ? (
             <>
               {/* Header */}
-              <div className="mb-5 flex items-center justify-between flex-wrap gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="p-2.5 rounded-xl bg-gradient-to-br from-brand-primary to-brand-secondary shadow-lg">
-                    <FileText className="w-5 h-5 text-white" />
-                  </div>
-                  <div>
-                    <h1 className="text-2xl font-bold text-slate-900">
-                      {editingPage ? "Edit page" : "New page"}
-                    </h1>
-                    <p className="text-xs text-slate-500">
-                      {editingPage ? `Editing "${editingPage.title}"` : "Marketing site content"}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button variant="outline" size="sm" onClick={() => setAiOpen((v) => !v)}>
-                    <Wand2 className="w-4 h-4 mr-1.5" /> AI assist
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={() => setPreviewOpen((v) => !v)}>
-                    <Eye className="w-4 h-4 mr-1.5" />
-                    {previewOpen ? "Hide preview" : "Preview"}
-                  </Button>
-                  <Button variant="ghost" size="sm" onClick={handleCancel}>
-                    <X className="mr-1.5 h-4 w-4" /> Cancel
-                  </Button>
-                  <Button size="sm" onClick={handleSave} className="bg-gradient-to-r from-emerald-600 to-green-600">
-                    <Save className="mr-1.5 h-4 w-4" /> Save page
-                  </Button>
-                </div>
-              </div>
+              <PortalHeader
+                title={editingPage ? "Edit page" : "New page"}
+                subtitle={editingPage ? `Editing "${editingPage.title}"` : "Marketing site content"}
+                icon={FileText}
+                actions={
+                  <>
+                    <Button variant="outline" size="sm" onClick={() => setAiOpen((v) => !v)}>
+                      <Wand2 className="w-4 h-4 mr-1.5" /> AI assist
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => setPreviewOpen((v) => !v)}>
+                      <Eye className="w-4 h-4 mr-1.5" />
+                      {previewOpen ? "Hide preview" : "Preview"}
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={handleCancel}>
+                      <X className="mr-1.5 h-4 w-4" /> Cancel
+                    </Button>
+                    <Button size="sm" onClick={handleSave} className="bg-gradient-to-r from-emerald-600 to-green-600">
+                      <Save className="mr-1.5 h-4 w-4" /> Save page
+                    </Button>
+                  </>
+                }
+              />
 
               {/* AI assist panel (collapsible) */}
               {aiOpen && (
-                <Card className="border-purple-200 bg-gradient-to-br from-purple-50 to-pink-50 shadow-sm mb-5">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-base flex items-center gap-2">
-                      <Sparkles className="w-4 h-4 text-purple-600" />
-                      AI Draft Assistant
-                    </CardTitle>
-                    <CardDescription>
-                      Describe the post in plain English. Sonnet writes a full draft (title, slug, content, SEO meta) ready to edit. Output drops straight into the form.
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
+                <PortalCard className="border-purple-200 bg-gradient-to-br from-purple-50 to-pink-50 mb-5">
+                  <PortalCardHeader
+                    title={
+                      <span className="flex items-center gap-2 text-base">
+                        <Sparkles className="w-4 h-4 text-purple-600" />
+                        AI Draft Assistant
+                      </span>
+                    }
+                  />
+                  <p className="-mt-2 mb-3 text-sm text-slate-600 dark:text-slate-400">
+                    Describe the post in plain English. Sonnet writes a full draft (title, slug, content, SEO meta) ready to edit. Output drops straight into the form.
+                  </p>
+                  <div className="space-y-3">
                     <div>
                       <Label className="text-xs">What's the post about?</Label>
                       <Textarea
@@ -426,8 +417,8 @@ function CMSPageManagement() {
                         Anything you've already typed in the form below will be overwritten when the draft lands.
                       </p>
                     </div>
-                  </CardContent>
-                </Card>
+                  </div>
+                </PortalCard>
               )}
 
               {/* Form + preview grid */}
@@ -441,18 +432,20 @@ function CMSPageManagement() {
                     title, then body. Alt text is required at save
                     time, not optional.
                   */}
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm flex items-center gap-2">
-                        <ImageIcon className="w-4 h-4 text-blue-600" />
-                        Header image
-                      </CardTitle>
-                      <CardDescription className="text-xs">
-                        Hero image rendered above the title on the public post.
-                        Alt text is required for accessibility + SEO.
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="p-5 pt-2 space-y-3">
+                  <PortalCard>
+                    <PortalCardHeader
+                      title={
+                        <span className="flex items-center gap-2">
+                          <ImageIcon className="w-4 h-4 text-blue-600" />
+                          Header image
+                        </span>
+                      }
+                    />
+                    <p className="-mt-2 mb-3 text-xs text-slate-600 dark:text-slate-400">
+                      Hero image rendered above the title on the public post.
+                      Alt text is required for accessibility + SEO.
+                    </p>
+                    <div className="space-y-3">
                       {formData.header_image_url ? (
                         <div className="relative rounded-lg overflow-hidden border border-slate-200 bg-slate-50">
                           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -529,11 +522,11 @@ function CMSPageManagement() {
                           </p>
                         </div>
                       )}
-                    </CardContent>
-                  </Card>
+                    </div>
+                  </PortalCard>
 
-                  <Card>
-                    <CardContent className="p-5 space-y-4">
+                  <PortalCard>
+                    <div className="space-y-4">
                       <div>
                         <Label htmlFor="title" className="text-xs">Page title</Label>
                         <Input
@@ -580,17 +573,15 @@ function CMSPageManagement() {
                           ## Heading · **bold** · *italic* · - bullet · [link](url) · HTML allowed
                         </p>
                       </div>
-                    </CardContent>
-                  </Card>
+                    </div>
+                  </PortalCard>
 
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm">SEO</CardTitle>
-                      <CardDescription className="text-xs">
-                        What search engines and social previews will show.
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="p-5 pt-0 space-y-3">
+                  <PortalCard>
+                    <PortalCardHeader title="SEO" />
+                    <p className="-mt-2 mb-3 text-xs text-slate-600 dark:text-slate-400">
+                      What search engines and social previews will show.
+                    </p>
+                    <div className="space-y-3">
                       <div>
                         <Label htmlFor="meta_description" className="text-xs">Meta description</Label>
                         <Textarea
@@ -613,11 +604,11 @@ function CMSPageManagement() {
                           placeholder="catering software, food waste, prep list"
                         />
                       </div>
-                    </CardContent>
-                  </Card>
+                    </div>
+                  </PortalCard>
 
-                  <Card>
-                    <CardContent className="p-5 flex items-center gap-3">
+                  <PortalCard>
+                    <div className="flex items-center gap-3">
                       <Switch
                         id="published"
                         checked={formData.is_published}
@@ -633,25 +624,25 @@ function CMSPageManagement() {
                             : "Saved but hidden from public visitors. Toggle on when ready."}
                         </p>
                       </div>
-                    </CardContent>
-                  </Card>
+                    </div>
+                  </PortalCard>
                 </div>
 
                 {/* Live preview column */}
                 {previewOpen && (
                   <div>
-                    <Card className="lg:sticky lg:top-6">
-                      <CardHeader className="pb-2 flex flex-row items-center justify-between">
-                        <div>
-                          <CardTitle className="text-sm flex items-center gap-2">
+                    <PortalCard className="lg:sticky lg:top-6">
+                      <PortalCardHeader
+                        title={
+                          <span className="flex items-center gap-2">
                             <Eye className="w-4 h-4" /> Live preview
-                          </CardTitle>
-                          <CardDescription className="text-xs">
-                            Roughly how the post renders on the public site.
-                          </CardDescription>
-                        </div>
-                      </CardHeader>
-                      <CardContent className="p-5 pt-0">
+                          </span>
+                        }
+                      />
+                      <p className="-mt-2 mb-3 text-xs text-slate-600 dark:text-slate-400">
+                        Roughly how the post renders on the public site.
+                      </p>
+                      <div>
                         <article className="prose prose-sm max-w-none border border-slate-200 rounded-lg overflow-hidden bg-white min-h-[300px]">
                           {formData.header_image_url && (
                             // eslint-disable-next-line @next/next/no-img-element
@@ -670,8 +661,8 @@ function CMSPageManagement() {
                             <div dangerouslySetInnerHTML={{ __html: previewHtml }} />
                           </div>
                         </article>
-                      </CardContent>
-                    </Card>
+                      </div>
+                    </PortalCard>
                   </div>
                 )}
               </div>
@@ -679,55 +670,45 @@ function CMSPageManagement() {
           ) : (
             /* ── List mode ────────────────────────────────────── */
             <>
-              <div className="mb-6 flex items-center justify-between flex-wrap gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="p-3 rounded-2xl bg-gradient-to-br from-brand-primary to-brand-secondary shadow-lg">
-                    <FileText className="w-7 h-7 text-white" />
-                  </div>
-                  <div>
-                    <h1 className="text-2xl lg:text-3xl font-bold text-slate-900">
-                      Marketing pages
-                    </h1>
-                    <p className="text-sm text-slate-500">
-                      Static pages + blog posts that live on cateringms.com
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Link href="/admin/platform/dashboard">
-                    <Button variant="outline" size="sm">
-                      <ArrowLeft className="mr-1.5 h-4 w-4" />
-                      Platform dashboard
-                    </Button>
-                  </Link>
-                  <Button onClick={startNew} className="bg-gradient-to-r from-brand-primary to-brand-secondary">
-                    <Plus className="mr-1.5 h-4 w-4" />
-                    New page
-                  </Button>
-                </div>
-              </div>
-
-              {loading ? (
-                <Card><CardContent className="py-12 text-center text-slate-500">Loading...</CardContent></Card>
-              ) : pages.length === 0 ? (
-                <Card className="border-2 border-dashed">
-                  <CardContent className="py-12 text-center space-y-3">
-                    <FileText className="w-14 h-14 mx-auto text-slate-300" />
-                    <div>
-                      <h3 className="text-lg font-semibold text-slate-900">No pages yet</h3>
-                      <p className="text-sm text-slate-600 mt-1">Use the AI Draft Assistant to write your first one.</p>
-                    </div>
+              <PortalHeader
+                title="Marketing pages"
+                subtitle="Static pages + blog posts that live on cateringms.com"
+                icon={FileText}
+                actions={
+                  <>
+                    <Link href="/admin/platform/dashboard">
+                      <Button variant="outline" size="sm">
+                        <ArrowLeft className="mr-1.5 h-4 w-4" />
+                        Platform dashboard
+                      </Button>
+                    </Link>
                     <Button onClick={startNew} className="bg-gradient-to-r from-brand-primary to-brand-secondary">
                       <Plus className="mr-1.5 h-4 w-4" />
-                      Create first page
+                      New page
                     </Button>
-                  </CardContent>
-                </Card>
+                  </>
+                }
+              />
+
+              {loading ? (
+                <PortalCard className="py-12 text-center text-slate-500 dark:text-slate-400">Loading...</PortalCard>
+              ) : pages.length === 0 ? (
+                <PortalCard className="border-2 border-dashed py-12 text-center space-y-3">
+                  <FileText className="w-14 h-14 mx-auto text-slate-300" />
+                  <div>
+                    <h3 className="text-lg font-semibold text-slate-900 dark:text-white">No pages yet</h3>
+                    <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">Use the AI Draft Assistant to write your first one.</p>
+                  </div>
+                  <Button onClick={startNew} className="bg-gradient-to-r from-brand-primary to-brand-secondary">
+                    <Plus className="mr-1.5 h-4 w-4" />
+                    Create first page
+                  </Button>
+                </PortalCard>
               ) : (
                 <div className="space-y-3">
                   {pages.map((page) => (
-                    <Card key={page.id} className="hover:shadow-md transition-shadow">
-                      <CardContent className="p-4 flex flex-wrap items-center gap-3">
+                    <PortalCard key={page.id} padded={false} interactive>
+                      <div className="p-4 flex flex-wrap items-center gap-3">
                         <div className="flex-1 min-w-[200px]">
                           <div className="flex items-center gap-2 flex-wrap mb-1">
                             <h3 className="text-base font-semibold text-slate-900">{page.title}</h3>
@@ -768,14 +749,14 @@ function CMSPageManagement() {
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
-                      </CardContent>
-                    </Card>
+                      </div>
+                    </PortalCard>
                   ))}
                 </div>
               )}
             </>
           )}
-        </div>
+        </PortalShell>
       </div>
     </>
   );

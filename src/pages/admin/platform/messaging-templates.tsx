@@ -32,6 +32,7 @@ import Head from "next/head";
 import { useRouter } from "next/router";
 import { PlatformNav } from "@/components/admin/PlatformNav";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
+import { PortalShell, PortalHeader, PortalCard } from "@/components/portal/ui";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -69,30 +70,22 @@ export default function PlatformMessagingTemplatesPage() {
   }, [authLoading, profile, router]);
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80 pt-20 lg:pt-0">
+    <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
       <PlatformNav />
       <NoIndexMeta />
       <Head>
         <title>Platform emails - CateringMS</title>
       </Head>
 
-      <div className="px-4 py-6 sm:py-8 max-w-screen-xl">
-        <div className="mb-6 flex items-center gap-3">
-          <div className="p-3 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-2xl shadow-lg">
-            <Crown className="w-7 h-7 text-white" />
-          </div>
-          <div>
-            <h1 className="text-2xl lg:text-3xl font-bold text-slate-900">
-              Platform emails
-            </h1>
-            <p className="text-sm text-slate-600 mt-0.5">
-              Wording for emails CateringMS sends to tenants (subscription receipts, trial reminders, owner welcome). Edits apply to every tenant immediately.
-            </p>
-          </div>
-        </div>
+      <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+        <PortalHeader
+          title="Platform emails"
+          subtitle="Wording for emails CateringMS sends to tenants (subscription receipts, trial reminders, owner welcome). Edits apply to every tenant immediately."
+          icon={Crown}
+        />
 
         <PlatformTemplatesPanel />
-      </div>
+      </PortalShell>
     </div>
   );
 }
@@ -149,8 +142,8 @@ function PlatformTemplatesPanel() {
 
   return (
     <>
-      <Card className="border-0 shadow-sm mb-4 bg-purple-50">
-        <CardContent className="py-3 px-4 flex items-start gap-3">
+      <PortalCard className="mb-4 bg-purple-50 dark:bg-purple-950/30" padded={false}>
+        <div className="py-3 px-4 flex items-start gap-3">
           <ShieldCheck className="w-4 h-4 text-purple-700 mt-0.5 shrink-0" />
           <div className="text-xs text-purple-950 leading-relaxed flex-1">
             <p className="font-semibold text-purple-900 mb-0.5">Global defaults &middot; affects every tenant</p>
@@ -164,11 +157,11 @@ function PlatformTemplatesPanel() {
               {customisedCount}<span className="text-xs text-purple-500 font-normal"> / {rows.length}</span>
             </p>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </PortalCard>
 
-      <Card className="border-0 shadow-sm mb-4">
-        <CardContent className="py-3 px-4 flex flex-wrap items-center gap-3">
+      <PortalCard className="mb-4" padded={false}>
+        <div className="py-3 px-4 flex flex-wrap items-center gap-3">
           <div className="relative grow min-w-[220px] max-w-[420px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
             <Input
@@ -188,15 +181,15 @@ function PlatformTemplatesPanel() {
               Only customised
             </label>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </PortalCard>
 
       {loading ? (
-        <div className="text-center py-16 text-slate-500">Loading platform templates...</div>
+        <PortalCard className="text-center py-16 text-slate-500 dark:text-slate-400">Loading platform templates...</PortalCard>
       ) : grouped.length === 0 ? (
-        <div className="text-center py-16 text-slate-500">
+        <PortalCard className="text-center py-16 text-slate-500 dark:text-slate-400">
           {rows.length === 0 ? "No platform templates registered." : "No templates match the filter."}
-        </div>
+        </PortalCard>
       ) : (
         <div className="space-y-6">
           {grouped.map(([group, items]) => (
@@ -210,8 +203,8 @@ function PlatformTemplatesPanel() {
               </div>
               <div className="space-y-2">
                 {items.map((row) => (
-                  <Card key={row.key} className="border-0 shadow-sm hover:shadow-md transition-shadow">
-                    <CardContent className="py-3 px-4 flex items-center gap-3">
+                  <PortalCard key={row.key} padded={false}>
+                    <div className="py-3 px-4 flex items-center gap-3">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className="text-sm font-semibold text-slate-900">{row.label}</p>
@@ -245,8 +238,8 @@ function PlatformTemplatesPanel() {
                       <Button size="sm" variant="outline" onClick={() => setEditing(row)} className="gap-1.5 shrink-0">
                         <Pencil className="w-3.5 h-3.5" /> Edit
                       </Button>
-                    </CardContent>
-                  </Card>
+                    </div>
+                  </PortalCard>
                 ))}
               </div>
             </div>

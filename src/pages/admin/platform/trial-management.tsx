@@ -5,14 +5,13 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/router";
 import { subscriptionService } from "@/services/subscriptionService";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Bell, CheckCircle, CalendarPlus, Clock, RefreshCw, Crown } from "lucide-react";
+import { CheckCircle, CalendarPlus, Clock, RefreshCw, Crown, Calendar } from "lucide-react";
 import { PlatformNav } from "@/components/admin/PlatformNav";
+import { PortalShell, PortalHeader, PortalCard, PortalCardHeader, StatTile } from "@/components/portal/ui";
 import { toast } from "@/hooks/use-toast";
-import { InfoTooltip } from "@/components/ui/info-tooltip";
 
 interface CompanyTrialStatus {
   id: string;
@@ -275,148 +274,76 @@ export default function TrialManagementPage() {
     return <Badge className={config.color}>{config.label}</Badge>;
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4" />
-          <p>Loading trial companies...</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen overflow-x-hidden bg-slate-50 lg:pl-72 xl:pl-80 pt-20 lg:pt-0">
+    <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
       <PlatformNav />
-    <div className="p-6 max-w-full">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold mb-2">Trial Management Dashboard</h1>
-        <p className="text-muted-foreground">
-          Monitor and manage trial expirations across all CateringMS companies
-        </p>
-      </div>
+      <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+        <PortalHeader
+          title="Trial Management"
+          subtitle="Monitor and manage trial expirations across all CateringMS companies"
+          icon={Calendar}
+          actions={
+            <>
+              <Button onClick={handleCheckNotifications} disabled={checking} className="gap-2">
+                {checking ? <RefreshCw className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4" />}
+                {checking ? "Checking..." : "Check & Send"}
+              </Button>
+              <Button onClick={loadTrialCompanies} variant="outline" className="gap-2">
+                <RefreshCw className="h-4 w-4" />
+                Refresh
+              </Button>
+            </>
+          }
+        />
 
-      {/* Stats Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium flex items-center gap-1.5">
-              Total Trials
-              <InfoTooltip content="Companies currently inside their free trial period.\n\nThe full pool that the expiry buckets below break down." />
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.totalTrials}</div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium flex items-center gap-1.5">
-              7 Days
-              <InfoTooltip content="Trials due to expire in the next four to seven days.\n\nA good time to send the first nudge before things get urgent." />
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-yellow-600">{stats.expiringIn7Days}</div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium flex items-center gap-1.5">
-              3 Days
-              <InfoTooltip content="Trials due to expire in the next two to three days.\n\nThis is the window where the three-day reminder email should go out." />
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-orange-600">{stats.expiringIn3Days}</div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium flex items-center gap-1.5">
-              1 Day
-              <InfoTooltip content="Trials due to expire within the next 24 hours.\n\nLast chance for a final reminder before they auto-expire." />
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-600">{stats.expiringIn1Day}</div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium flex items-center gap-1.5">
-              Expired
-              <InfoTooltip content="Trials whose end date has already passed but the company is still flagged as a trial.\n\nThese need to be converted to a paid subscription or cancelled." />
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-700">{stats.expired}</div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Actions */}
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Bell className="h-5 w-5" />
-            Notification Management
-            <InfoTooltip content="Runs the trial expiry check manually. It scans every trial company and sends seven, three and one-day reminder emails where they're due.\n\nEvery send is logged so the same reminder doesn't go out twice." />
-          </CardTitle>
-          <CardDescription>
-            Manually trigger trial expiry notification checks
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex gap-3">
-            <Button 
-              onClick={handleCheckNotifications}
-              disabled={checking}
-              className="gap-2"
-            >
-              {checking ? (
-                <RefreshCw className="h-4 w-4 animate-spin" />
-              ) : (
-                <CheckCircle className="h-4 w-4" />
-              )}
-              {checking ? "Checking..." : "Check & Send Notifications"}
-            </Button>
-            <Button 
-              onClick={loadTrialCompanies}
-              variant="outline"
-              className="gap-2"
-            >
-              <RefreshCw className="h-4 w-4" />
-              Refresh Data
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Companies Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            Companies on Trial
-            <InfoTooltip content="Every trial tenant in the order they expire, soonest first.\n\nEach row shows the owner, expiry date and a count of reminders already sent." />
-          </CardTitle>
-          <CardDescription>
-            All companies currently in their trial period, sorted by expiry date
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {companies.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              <Clock className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>No companies currently on trial</p>
+        {loading ? (
+          <PortalCard className="flex items-center justify-center py-16">
+            <div className="text-center text-slate-500 dark:text-slate-400">
+              <RefreshCw className="mx-auto mb-4 h-8 w-8 animate-spin" />
+              <p>Loading trial companies...</p>
             </div>
-          ) : (
-            <Table>
+          </PortalCard>
+        ) : (
+          <>
+            {/* Stats Overview */}
+            <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-5">
+              <StatTile
+                label="Total Trials"
+                value={stats.totalTrials}
+                hint="In their free trial period"
+              />
+              <StatTile
+                label="Within 7 days"
+                value={<span className="text-yellow-600 dark:text-yellow-500">{stats.expiringIn7Days}</span>}
+                hint="First-nudge window"
+              />
+              <StatTile
+                label="Within 3 days"
+                value={<span className="text-orange-600 dark:text-orange-500">{stats.expiringIn3Days}</span>}
+                hint="3-day reminder due"
+              />
+              <StatTile
+                label="Within 1 day"
+                value={<span className="text-red-600 dark:text-red-500">{stats.expiringIn1Day}</span>}
+                hint="Final reminder"
+              />
+              <StatTile
+                label="Expired"
+                value={<span className="text-red-700 dark:text-red-400">{stats.expired}</span>}
+                hint="Convert or cancel"
+              />
+            </div>
+
+            {/* Companies Table */}
+            <PortalCard>
+              <PortalCardHeader title="Companies on Trial" />
+              {companies.length === 0 ? (
+                <div className="py-8 text-center text-slate-500 dark:text-slate-400">
+                  <Clock className="mx-auto mb-4 h-12 w-12 opacity-50" />
+                  <p>No companies currently on trial</p>
+                </div>
+              ) : (
+                <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>
@@ -497,11 +424,12 @@ export default function TrialManagementPage() {
                   </TableRow>
                 ))}
               </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
-    </div>
+                </Table>
+              )}
+            </PortalCard>
+          </>
+        )}
+      </PortalShell>
     </div>
   );
 }

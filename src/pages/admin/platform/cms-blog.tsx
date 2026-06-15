@@ -1,6 +1,6 @@
 ﻿import { useState, useEffect } from "react";
 import { PlatformNav } from "@/components/admin/PlatformNav";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { PortalShell, PortalHeader, PortalCard, PortalCardHeader } from "@/components/portal/ui";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -198,28 +198,21 @@ export default function CMSBlogPage() {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-purple-600" />
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950">
+        <Loader2 className="w-8 h-8 animate-spin text-amber-600" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 p-8 lg:pl-72 xl:pl-80 pt-20 lg:pt-8">
+    <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
       <PlatformNav />
-      <div className="max-w-full">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-brand-primary to-brand-secondary flex items-center justify-center">
-              <Sparkles className="w-6 h-6 text-white" />
-            </div>
-            <div>
-              <h1 className="text-3xl font-bold text-slate-900">AI Blog Writer</h1>
-              <p className="text-slate-600">Create SEO-optimized blog posts at scale with AI</p>
-            </div>
-          </div>
-        </div>
+      <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+        <PortalHeader
+          title="AI Blog Writer"
+          subtitle="Create SEO-optimized blog posts at scale with AI"
+          icon={Sparkles}
+        />
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "create" | "manage")}>
@@ -240,18 +233,20 @@ export default function CMSBlogPage() {
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Brief Input */}
                 <div className="lg:col-span-2 space-y-6">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <Search className="w-5 h-5" />
-                        Content Brief
-                        <InfoTooltip content="Fill in the topic, keywords and tone for the AI generator to work from.\n\nHeads up: generation is currently a mock that returns sample text, not a live AI call. Publishing still saves the post properly." />
-                      </CardTitle>
-                      <CardDescription>
-                        Provide details for the AI to generate your blog post
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
+                  <PortalCard>
+                    <PortalCardHeader
+                      title={
+                        <span className="flex items-center gap-2">
+                          <Search className="w-5 h-5" />
+                          Content Brief
+                          <InfoTooltip content="Fill in the topic, keywords and tone for the AI generator to work from.\n\nHeads up: generation is currently a mock that returns sample text, not a live AI call. Publishing still saves the post properly." />
+                        </span>
+                      }
+                    />
+                    <p className="-mt-2 mb-3 text-sm text-slate-600 dark:text-slate-400">
+                      Provide details for the AI to generate your blog post
+                    </p>
+                    <div className="space-y-4">
                       <div className="space-y-2">
                         <Label htmlFor="topic">Topic / Title *</Label>
                         <Input
@@ -390,20 +385,22 @@ export default function CMSBlogPage() {
                           </>
                         )}
                       </Button>
-                    </CardContent>
-                  </Card>
+                    </div>
+                  </PortalCard>
                 </div>
 
                 {/* SEO Tips */}
                 <div className="space-y-4">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2 text-lg">
-                        <TrendingUp className="w-5 h-5" />
-                        SEO Best Practices
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-3 text-sm text-slate-600">
+                  <PortalCard>
+                    <PortalCardHeader
+                      title={
+                        <span className="flex items-center gap-2 text-base">
+                          <TrendingUp className="w-5 h-5" />
+                          SEO Best Practices
+                        </span>
+                      }
+                    />
+                    <div className="space-y-3 text-sm text-slate-600 dark:text-slate-400">
                       <div className="flex items-start gap-2">
                         <CheckCircle2 className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
                         <p>Use descriptive, keyword-rich titles (50-60 characters)</p>
@@ -428,17 +425,19 @@ export default function CMSBlogPage() {
                         <CheckCircle2 className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
                         <p>Include FAQ schema for rich snippets</p>
                       </div>
-                    </CardContent>
-                  </Card>
+                    </div>
+                  </PortalCard>
 
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2 text-lg">
-                        <MessageSquare className="w-5 h-5" />
-                        AI Writing Tips
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-3 text-sm text-slate-600">
+                  <PortalCard>
+                    <PortalCardHeader
+                      title={
+                        <span className="flex items-center gap-2 text-base">
+                          <MessageSquare className="w-5 h-5" />
+                          AI Writing Tips
+                        </span>
+                      }
+                    />
+                    <div className="space-y-3 text-sm text-slate-600 dark:text-slate-400">
                       <div className="flex items-start gap-2">
                         <CheckCircle2 className="w-4 h-4 text-purple-600 mt-0.5 flex-shrink-0" />
                         <p>Be specific with your topic for better results</p>
@@ -455,8 +454,8 @@ export default function CMSBlogPage() {
                         <CheckCircle2 className="w-4 h-4 text-purple-600 mt-0.5 flex-shrink-0" />
                         <p>Review and edit AI output before publishing</p>
                       </div>
-                    </CardContent>
-                  </Card>
+                    </div>
+                  </PortalCard>
                 </div>
               </div>
             ) : (
@@ -469,12 +468,10 @@ export default function CMSBlogPage() {
                   </AlertDescription>
                 </Alert>
 
-                <Card>
-                  <CardHeader>
-                    <CardTitle>{generated.title}</CardTitle>
-                    <CardDescription>{generated.excerpt}</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-6">
+                <PortalCard>
+                  <PortalCardHeader title={generated.title} />
+                  <p className="-mt-2 mb-3 text-sm text-slate-600 dark:text-slate-400">{generated.excerpt}</p>
+                  <div className="space-y-6">
                     {/* SEO Meta */}
                     <div className="space-y-2">
                       <Label className="text-sm font-semibold">Meta Description</Label>
@@ -588,23 +585,25 @@ export default function CMSBlogPage() {
                         Start Over
                       </Button>
                     </div>
-                  </CardContent>
-                </Card>
+                  </div>
+                </PortalCard>
               </div>
             )}
           </TabsContent>
 
           {/* Manage Posts Tab */}
           <TabsContent value="manage">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  Published Blog Posts
-                  <InfoTooltip content="Every blog post on cateringms.com, drafts and published combined.\n\nSorted by publish date with the most recent first." />
-                </CardTitle>
-                <CardDescription>Manage your existing blog content</CardDescription>
-              </CardHeader>
-              <CardContent>
+            <PortalCard>
+              <PortalCardHeader
+                title={
+                  <span className="flex items-center gap-2">
+                    Published Blog Posts
+                    <InfoTooltip content="Every blog post on cateringms.com, drafts and published combined.\n\nSorted by publish date with the most recent first." />
+                  </span>
+                }
+              />
+              <p className="-mt-2 mb-3 text-sm text-slate-600 dark:text-slate-400">Manage your existing blog content</p>
+              <div>
                 {loadingPosts ? (
                   <div className="flex items-center justify-center py-12">
                     <Loader2 className="w-6 h-6 animate-spin text-purple-600" />
@@ -638,11 +637,11 @@ export default function CMSBlogPage() {
                     ))}
                   </div>
                 )}
-              </CardContent>
-            </Card>
+              </div>
+            </PortalCard>
           </TabsContent>
         </Tabs>
-      </div>
+      </PortalShell>
     </div>
   );
 }

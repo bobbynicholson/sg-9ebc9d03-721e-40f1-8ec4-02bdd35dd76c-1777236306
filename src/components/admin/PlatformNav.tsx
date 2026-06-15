@@ -1,28 +1,29 @@
 /**
  * PlatformNav - SaaS owner sidebar.
  *
- * Architecture:
- *   Command    - the one screen you open every morning (Dashboard)
- *   Tenants    - who's on the platform (Companies, Users, Subscriptions, Trials)
- *   Revenue    - money signals (Financial Dashboard, Pricing, Currency Monitor)
- *   Marketing  - public-facing content (CMS Pages, Blog)
- *   System     - infrastructure (Payment Gateways)
- *   Engineering - internal backlog (Running Todo)
+ * Wave 71 redesign: rebuilt on the shared PortalSidebar primitive (the
+ * same component the kitchen / driver / shopping / cleaning portals use)
+ * so the platform admin matches the rest of the product - item
+ * descriptions, toned badges, footer treatment, collapse, notification
+ * bell + theme switch + clock, mobile drawer - all for free. The
+ * shopping portal is the design reference.
  *
- * Collapsed mode: 64px icon rail. Section headers hide; icons + tooltips only.
- * Mobile: full-width Sheet from left edge.
+ * Platform paths are global super-admin routes (/admin/platform/*),
+ * which tenantUrl's GLOBAL_PREFIXES leaves un-prefixed, so PortalSidebar's
+ * withSlug() is a no-op on them. The one tenant-scoped link ("Switch to
+ * tenant view" -> /admin/dashboard) is correctly slug-prefixed.
+ *
+ * Architecture (unchanged):
+ *   Command    - the screen you open every morning (Dashboard)
+ *   Tenants    - who's on the platform (Companies, Users, Subscriptions, Trials, Health, Audit)
+ *   Revenue    - money signals (Financial, Pricing, Currency, Tech costs)
+ *   Marketing  - public-facing content (CMS Pages, Blog, Emails)
+ *   System     - infrastructure (Settings, Payment Gateways)
+ *   Engineering - internal backlog (Running Todo)
+ *   Footer     - Switch to tenant view
  */
 
-import { useState } from "react";
-import Link from "next/link";
-import { useRouter } from "next/router";
-import { useCloseOnDesktop, useSyncSidebarCollapsed } from "@/lib/useCloseOnDesktop";
-import { useNavScrollRestore } from "@/hooks/useNavScrollRestore";
-import { MobileSearchTrigger, MobileQuickActions } from "@/components/portal/MobileDrawerExtras";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   LayoutDashboard,
   Building2,
@@ -32,10 +33,6 @@ import {
   Tag,
   ArrowLeftRight,
   Newspaper,
-  Menu,
-  ChevronRight,
-  ChevronLeft,
-  LogOut,
   Crown,
   ListChecks,
   Landmark,
@@ -48,656 +45,157 @@ import {
   ScrollText,
   Mail,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { signOutAndRedirect } from "@/lib/signOut";
 import { useAuth } from "@/contexts/AuthContext";
 import { CommandPaletteHint } from "@/components/CommandPaletteHint";
-import { CollapsibleNavSection } from "@/components/navigation/CollapsibleNavSection";
-import { buildIsActive } from "@/lib/navActiveMatcher";
-import { useTenantHref } from "@/lib/tenantUrl";
+import { PortalSidebar, type PortalSidebarConfig } from "@/components/navigation/PortalSidebar";
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-interface NavItem {
-  title: string;
-  href: string;
-  icon: React.ComponentType<{ className?: string }>;
-  /** One-liner shown under the title in expanded mode. */
-  sub?: string;
-  /** Optional pill label - e.g. "Live" or a count. */
-  tag?: string;
-  tagVariant?: "default" | "secondary" | "destructive" | "outline";
-}
-
-interface NavSection {
-  /** Stable id for localStorage persistence - never change once shipped. */
-  id: string;
-  title: string;
-  defaultOpen: boolean;
-  items: NavItem[];
+interface PlatformNavProps {
+  className?: string;
 }
 
 // ---------------------------------------------------------------------------
-// Nav structure
+// Top slot: command-palette hint + identity strip (desktop expanded only).
+// Mirrors ShoppingNav's renderTopSlot pattern - lets the statically
+// declared config mount live, auth-aware content inside the sidebar tree.
 // ---------------------------------------------------------------------------
 
-const NAV: NavSection[] = [
-  {
-    id: "command",
-    title: "Command",
-    defaultOpen: true,
-    items: [
-      {
-        title: "Platform Dashboard",
-        href: "/admin/platform/dashboard",
-        icon: LayoutDashboard,
-        sub: "MRR, signups, churn at a glance",
-      },
-    ],
-  },
-  {
-    id: "tenants",
-    title: "Tenants",
-    defaultOpen: true,
-    items: [
-      {
-        title: "Companies",
-        href: "/admin/platform/company-database",
-        icon: Building2,
-        sub: "Every registered catering business",
-      },
-      {
-        title: "Users",
-        href: "/admin/platform/user-management",
-        icon: Users,
-        sub: "All accounts across all tenants",
-      },
-      {
-        title: "Subscriptions",
-        href: "/admin/platform/subscription-management",
-        icon: CreditCard,
-        sub: "Active plans, upgrades, cancellations",
-        tag: "Live",
-      },
-      {
-        title: "Trials",
-        href: "/admin/platform/trial-management",
-        icon: Calendar,
-        sub: "Extend trials, convert to paid",
-      },
-      {
-        title: "Tenant Health",
-        href: "/admin/platform/tenant-health",
-        icon: Activity,
-        sub: "Stuck onboarding, dormant, payment unset",
-      },
-      {
-        title: "Audit logs",
-        href: "/admin/platform/audit-logs",
-        icon: ScrollText,
-        sub: "Append-only trail across every tenant",
-      },
-    ],
-  },
-  {
-    id: "revenue",
-    title: "Revenue",
-    defaultOpen: true,
-    items: [
-      {
-        title: "Financial Dashboard",
-        // Platform-level (CateringMS revenue across every tenant).
-        // The bare /admin/financial-dashboard route is the per-tenant
-        // view - linking to it from PlatformNav was sending the
-        // super-admin into a tenant's books, which leaked metrics
-        // across companies.
-        href: "/admin/platform/financial-dashboard",
-        icon: BarChart3,
-        sub: "Platform MRR, ARR, cohort analysis",
-      },
-      {
-        title: "Pricing",
-        href: "/admin/platform/pricing-management",
-        icon: Tag,
-        sub: "Plans, price tiers, feature gates",
-      },
-      {
-        title: "Currency Monitor",
-        href: "/admin/platform/currency-monitoring",
-        icon: ArrowLeftRight,
-        sub: "Live FX rates, threshold alerts",
-      },
-      {
-        title: "Tech-stack costs",
-        href: "/admin/platform/tech-costs",
-        icon: Calculator,
-        sub: "COGS calculator, margin per tenant, scale curves",
-      },
-    ],
-  },
-  {
-    id: "marketing",
-    title: "Marketing",
-    defaultOpen: false,
-    items: [
-      {
-        title: "CMS Pages",
-        href: "/admin/platform/cms-pages",
-        icon: Globe,
-        sub: "Landing pages, features, pricing copy",
-      },
-      {
-        title: "Blog",
-        href: "/admin/platform/cms-blog",
-        icon: Newspaper,
-        sub: "Articles, SEO, thought leadership",
-      },
-      {
-        title: "Platform emails",
-        href: "/admin/platform/messaging-templates",
-        icon: Mail,
-        sub: "Subscription receipts, trial reminders, owner welcome",
-      },
-    ],
-  },
-  {
-    id: "system",
-    title: "System",
-    defaultOpen: false,
-    items: [
-      {
-        title: "Platform Settings",
-        href: "/admin/platform/settings",
-        icon: Settings,
-        sub: "Tunables: import row cap, public origin",
-      },
-      {
-        title: "Payment Gateways",
-        href: "/admin/payment-gateways",
-        icon: Landmark,
-        sub: "Stripe, PayFast, gateway config",
-      },
-    ],
-  },
-  {
-    id: "engineering",
-    title: "Engineering",
-    defaultOpen: false,
-    items: [
-      {
-        title: "Running Todo",
-        href: "/admin/platform/running-todo",
-        icon: ListChecks,
-        sub: "Audit-derived backlog, 13 sprint groups",
-      },
-    ],
-  },
-];
-
-// ---------------------------------------------------------------------------
-// Sub-components
-// ---------------------------------------------------------------------------
-
-interface NavLinkProps {
-  item: NavItem;
-  active: boolean;
-  collapsed: boolean;
-  onClick?: () => void;
-}
-
-function NavLink({ item, active, collapsed, onClick }: NavLinkProps) {
-  const Icon = item.icon;
-
-  if (collapsed) {
-    return (
-      <Link
-        href={item.href}
-        onClick={onClick}
-        title={item.sub ? `${item.title}, ${item.sub}` : item.title}
-        className={cn(
-          "flex items-center justify-center w-10 h-10 rounded-lg mx-auto transition-all",
-          active
-            ? "bg-gradient-to-br from-amber-500 to-orange-500 text-white shadow-md"
-            : "text-slate-500 hover:bg-slate-100 hover:text-slate-900",
-        )}
-      >
-        <Icon className="h-4.5 w-4.5 flex-shrink-0" />
-      </Link>
-    );
-  }
-
-  // Single-line, single-column rows. The longer descriptions used to
-  // wrap or get clipped on lg:w-64 sidebars, so we hoist them into the
-  // hover title and keep the row tidy.
-  return (
-    <Link
-      href={item.href}
-      onClick={onClick}
-      title={item.sub ? `${item.title}, ${item.sub}` : item.title}
-      className={cn(
-        "group flex items-center gap-2.5 rounded-lg px-2.5 py-2 transition-colors",
-        active
-          ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-sm"
-          : "text-slate-700 hover:bg-slate-100 hover:text-slate-900",
-      )}
-    >
-      <Icon
-        className={cn(
-          "h-4 w-4 flex-shrink-0",
-          active ? "text-white" : "text-slate-500 group-hover:text-slate-700",
-        )}
-      />
-      <span
-        className={cn(
-          "flex-1 min-w-0 truncate text-sm font-medium leading-none",
-          active ? "text-white" : "text-slate-800",
-        )}
-      >
-        {item.title}
-      </span>
-      {item.tag && !active && (
-        <Badge
-          variant="secondary"
-          className="text-[10px] px-1.5 py-0 h-4 bg-emerald-100 text-emerald-700 border-0 flex-shrink-0"
-        >
-          {item.tag}
-        </Badge>
-      )}
-      {active && <ChevronRight className="h-3.5 w-3.5 text-white/70 flex-shrink-0" />}
-    </Link>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// User identity strip
-// ---------------------------------------------------------------------------
-
-function UserStrip({ collapsed, profile }: { collapsed: boolean; profile: any }) {
+function PlatformTopSlot() {
+  const { profile } = useAuth() as any;
   const initials = profile?.full_name
     ? profile.full_name.split(" ").map((w: string) => w[0]).slice(0, 2).join("").toUpperCase()
     : (profile?.email?.[0] ?? "?").toUpperCase();
 
-  if (collapsed) {
-    return (
-      <div
-        className="flex justify-center py-3"
-        title={profile?.full_name || profile?.email || "Platform admin"}
-      >
-        <div className="w-9 h-9 rounded-full bg-amber-100 border-2 border-amber-300 flex items-center justify-center">
-          <span className="text-xs font-bold text-amber-700">{initials}</span>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="flex items-center gap-2.5 px-3 py-2.5 border-b border-slate-100">
-      <div className="w-8 h-8 rounded-full bg-amber-100 border-2 border-amber-300 flex items-center justify-center flex-shrink-0">
-        <span className="text-[11px] font-bold text-amber-700">{initials}</span>
-      </div>
-      <div className="flex-1 min-w-0 overflow-hidden">
-        <div className="flex items-center gap-1.5">
-          <span className="text-sm font-semibold text-slate-900 truncate">
-            {profile?.full_name || "Platform admin"}
-          </span>
-          <Badge
-            variant="outline"
-            className="text-[9px] px-1 h-4 bg-amber-50 border-amber-200 text-amber-700 flex-shrink-0"
-          >
-            Owner
-          </Badge>
+    <div className="space-y-3">
+      <CommandPaletteHint className="w-full justify-center" />
+      <div className="flex items-center gap-2.5 rounded-xl border border-slate-200/80 bg-white px-3 py-2.5 dark:border-slate-800 dark:bg-slate-900">
+        <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full border-2 border-amber-300 bg-amber-100">
+          <span className="text-[11px] font-bold text-amber-700">{initials}</span>
         </div>
-        <div className="text-[11px] text-slate-400 truncate leading-tight">
-          {profile?.email || ""}
+        <div className="min-w-0 flex-1 overflow-hidden">
+          <div className="flex items-center gap-1.5">
+            <span className="truncate text-sm font-semibold text-slate-900 dark:text-white">
+              {profile?.full_name || "Platform admin"}
+            </span>
+            <Badge
+              variant="outline"
+              className="h-4 flex-shrink-0 border-amber-200 bg-amber-50 px-1 text-[9px] text-amber-700"
+            >
+              Owner
+            </Badge>
+          </div>
+          <div className="truncate text-[11px] leading-tight text-slate-400">
+            {profile?.email || ""}
+          </div>
         </div>
       </div>
     </div>
   );
 }
 
-// ---------------------------------------------------------------------------
-// Main component
-// ---------------------------------------------------------------------------
-
-interface PlatformNavProps {
-  className?: string;
-}
-
-export function PlatformNav({ className }: PlatformNavProps) {
-  const router = useRouter();
-  const { withSlug } = useTenantHref();
-  const { profile } = useAuth() as any;
-  const [open, setOpen] = useState(false);
-  useCloseOnDesktop(open, setOpen);
-  const [isCollapsed, setIsCollapsed] = useState(false);
-  useSyncSidebarCollapsed(isCollapsed);
-  const [signingOut, setSigningOut] = useState(false);
-
-  const handleSignOut = async () => {
-    if (signingOut) return;
-    setSigningOut(true);
-    await signOutAndRedirect(profile);
+export function PlatformNav(_: PlatformNavProps = {}) {
+  const config: PortalSidebarConfig = {
+    role: "platform",
+    title: "Platform Admin",
+    mobileSubtitle: "CateringMS internal",
+    brandIcon: Crown,
+    // Unified warm CateringMS brand accent (matches shopping + auth +
+    // landing). Was the bespoke amber-on-slate treatment.
+    accentGradient: "from-amber-500 to-orange-500",
+    accentGradientDark: "from-amber-600 to-orange-600",
+    hoverClasses: "hover:bg-amber-50 hover:text-amber-700 dark:hover:bg-amber-500/10",
+    activeHoverClasses: "hover:from-amber-600 hover:to-orange-600",
+    mobileSubtitleClasses: "text-amber-100",
+    searchAccent: "bg-amber-50 hover:bg-amber-100 text-amber-700",
+    searchHint: "Search tenants, users, orders...",
+    dashboardHref: "/admin/platform/dashboard",
+    mobileQuickActions: [
+      { href: "/admin/platform/company-database",       label: "Companies",     sub: "All tenants",    icon: Building2,   accent: "from-amber-500 to-orange-500" },
+      { href: "/admin/platform/user-management",        label: "Users",         sub: "Cross-tenant",   icon: Users,       accent: "from-amber-500 to-orange-500" },
+      { href: "/admin/platform/subscription-management", label: "Subscriptions", sub: "Plans + billing", icon: CreditCard,  accent: "from-amber-500 to-orange-500" },
+    ],
+    renderTopSlot: () => <PlatformTopSlot />,
+    sections: [
+      {
+        id: "command",
+        title: "Command",
+        defaultOpen: true,
+        items: [
+          { title: "Platform Dashboard", href: "/admin/platform/dashboard", icon: LayoutDashboard, description: "MRR, signups, churn at a glance" },
+        ],
+      },
+      {
+        id: "tenants",
+        title: "Tenants",
+        defaultOpen: true,
+        items: [
+          { title: "Companies",      href: "/admin/platform/company-database",       icon: Building2,  description: "Every registered catering business" },
+          { title: "Users",          href: "/admin/platform/user-management",        icon: Users,      description: "All accounts across all tenants" },
+          {
+            title: "Subscriptions",
+            href: "/admin/platform/subscription-management",
+            icon: CreditCard,
+            description: "Active plans, upgrades, cancellations",
+            badge: () => ({ text: "Live", tone: "info" }),
+          },
+          { title: "Trials",         href: "/admin/platform/trial-management",       icon: Calendar,   description: "Extend trials, convert to paid" },
+          { title: "Tenant Health",  href: "/admin/platform/tenant-health",          icon: Activity,   description: "Stuck onboarding, dormant, payment unset" },
+          { title: "Audit logs",     href: "/admin/platform/audit-logs",             icon: ScrollText, description: "Append-only trail across every tenant" },
+        ],
+      },
+      {
+        id: "revenue",
+        title: "Revenue",
+        defaultOpen: true,
+        items: [
+          { title: "Financial Dashboard", href: "/admin/platform/financial-dashboard", icon: BarChart3,     description: "Platform MRR, ARR, cohort analysis" },
+          { title: "Pricing",             href: "/admin/platform/pricing-management",  icon: Tag,           description: "Plans, price tiers, feature gates" },
+          { title: "Currency Monitor",    href: "/admin/platform/currency-monitoring", icon: ArrowLeftRight, description: "Live FX rates, threshold alerts" },
+          { title: "Tech-stack costs",    href: "/admin/platform/tech-costs",          icon: Calculator,    description: "COGS, margin per tenant, scale curves" },
+        ],
+      },
+      {
+        id: "marketing",
+        title: "Marketing",
+        defaultOpen: false,
+        items: [
+          { title: "CMS Pages",       href: "/admin/platform/cms-pages",           icon: Globe,    description: "Landing pages, features, pricing copy" },
+          { title: "Blog",           href: "/admin/platform/cms-blog",            icon: Newspaper, description: "Articles, SEO, thought leadership" },
+          { title: "Platform emails", href: "/admin/platform/messaging-templates", icon: Mail,     description: "Receipts, trial reminders, owner welcome" },
+        ],
+      },
+      {
+        id: "system",
+        title: "System",
+        defaultOpen: false,
+        items: [
+          { title: "Platform Settings", href: "/admin/platform/settings",  icon: Settings, description: "Import row cap, public origin" },
+          { title: "Payment Gateways",  href: "/admin/payment-gateways",   icon: Landmark, description: "Stripe, PayFast, gateway config" },
+        ],
+      },
+      {
+        id: "engineering",
+        title: "Engineering",
+        defaultOpen: false,
+        items: [
+          { title: "Running Todo", href: "/admin/platform/running-todo", icon: ListChecks, description: "Audit-derived backlog, 13 sprint groups" },
+        ],
+      },
+      {
+        id: "footer",
+        title: "",
+        defaultOpen: true,
+        footerTreatment: true,
+        items: [
+          // PortalSidebar applies withSlug() to this href, so a super-
+          // admin browsing a tenant lands in that tenant's admin view.
+          { title: "Switch to tenant view", href: "/admin/dashboard", icon: MonitorCheck, description: "Browse as company admin" },
+        ],
+      },
+    ],
   };
 
-  // Path-vs-href matcher with sub-path matching ("/" boundary so
-  // /admin/platform/cms-pages doesn't match /admin/platform/cms-blog),
-  // query-param disambiguation, and longest-match resolution.
-  // PlatformNav links are global super-admin paths - never tenant-
-  // slug-prefixed - so withSlug is identity. The list includes
-  // "/admin/dashboard" because the switch-to-tenant button uses
-  // isActive on that path. See navActiveMatcher.ts.
-  const allHrefs = [
-    ...NAV.flatMap((s) => s.items.map((i) => i.href)),
-    "/admin/dashboard",
-  ];
-  const isActive = buildIsActive(allHrefs, {
-    router,
-    withSlug: (h: string) => h,
-  });
-
-  // -------------------------------------------------------------------------
-  // Sign-out button
-  // -------------------------------------------------------------------------
-
-  const SignOutButton = ({ collapsed = false }: { collapsed?: boolean }) => (
-    <Button
-      variant="ghost"
-      onClick={handleSignOut}
-      disabled={signingOut}
-      title="Sign out"
-      className={cn(
-        "w-full text-slate-500 hover:text-red-600 hover:bg-red-50 transition-colors",
-        collapsed ? "justify-center px-2 py-2.5 h-auto" : "justify-start gap-3 px-3 h-auto py-2.5",
-      )}
-    >
-      <LogOut className="h-4 w-4 flex-shrink-0" />
-      {!collapsed && (
-        <span className="text-sm">{signingOut ? "Signing out..." : "Sign out"}</span>
-      )}
-    </Button>
-  );
-
-  // -------------------------------------------------------------------------
-  // Switch to tenant view
-  // -------------------------------------------------------------------------
-
-  const SwitchToTenantLink = ({ collapsed = false }: { collapsed?: boolean }) => {
-    const active = isActive("/admin/dashboard");
-    if (collapsed) {
-      return (
-        <Link
-          href={withSlug("/admin/dashboard")}
-          title="Switch to tenant view"
-          className={cn(
-            "flex items-center justify-center w-10 h-10 rounded-lg mx-auto transition-all",
-            active
-              ? "bg-gradient-to-br from-amber-500 to-orange-500 text-white shadow-md"
-              : "text-slate-400 hover:bg-slate-100 hover:text-slate-700",
-          )}
-        >
-          <MonitorCheck className="h-4.5 w-4.5" />
-        </Link>
-      );
-    }
-    return (
-      <Link
-        href={withSlug("/admin/dashboard")}
-        title="Switch to Tenant View, Browse as company admin"
-        className={cn(
-          "group flex items-center gap-2.5 rounded-lg px-2.5 py-2 transition-colors",
-          active
-            ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-sm"
-            : "text-slate-500 hover:bg-slate-100 hover:text-slate-700",
-        )}
-      >
-        <MonitorCheck
-          className={cn("h-4 w-4 flex-shrink-0", active ? "text-white" : "text-slate-400")}
-        />
-        <span
-          className={cn(
-            "flex-1 min-w-0 truncate text-sm font-medium leading-none",
-            active ? "text-white" : "text-slate-600",
-          )}
-        >
-          Switch to tenant view
-        </span>
-      </Link>
-    );
-  };
-
-  // -------------------------------------------------------------------------
-  // Core nav content (shared mobile + desktop)
-  // -------------------------------------------------------------------------
-
-  // Desktop-only scroll restore. Sheet drawer (mobile) closes on
-  // every navigation, so persistence there has no value.
-  const desktopScrollRef = useNavScrollRestore<HTMLDivElement>("platform-nav");
-
-  const NavContent = ({
-    collapsed = false,
-    mobile = false,
-  }: {
-    collapsed?: boolean;
-    mobile?: boolean;
-  }) => (
-    <ScrollArea ref={mobile ? undefined : desktopScrollRef} className="flex-1">
-      <div className={cn(collapsed ? "px-3 py-4 space-y-1" : "px-2 py-3")}>
-        {/* User strip (desktop only, mobile has it in header) */}
-        {!mobile && !collapsed && (
-          <div className="-mx-4 mb-3">
-            <UserStrip collapsed={false} profile={profile} />
-          </div>
-        )}
-
-        {mobile && (
-          <div className="space-y-3 mb-4">
-            <MobileSearchTrigger
-              accent="bg-amber-50 hover:bg-amber-100 text-amber-700"
-              hint="Search tenants, users, orders..."
-            />
-            <MobileQuickActions
-              onNavigate={() => setOpen(false)}
-              actions={[
-                {
-                  href: "/admin/platform/company-database",
-                  label: "Companies",
-                  sub: "All tenants",
-                  icon: Building2,
-                  accent: "from-amber-500 to-orange-500",
-                },
-                {
-                  href: "/admin/platform/user-management",
-                  label: "Users",
-                  sub: "Cross-tenant",
-                  icon: Users,
-                  accent: "from-purple-500 to-pink-500",
-                },
-                {
-                  href: "/admin/platform/subscription-management",
-                  label: "Subscriptions",
-                  sub: "Plans + billing",
-                  icon: CreditCard,
-                  accent: "from-emerald-500 to-teal-500",
-                },
-              ]}
-            />
-          </div>
-        )}
-
-        {!collapsed && !mobile && (
-          <div className="mb-4">
-            <CommandPaletteHint className="w-full justify-center" />
-          </div>
-        )}
-
-        {/* Sections */}
-        {NAV.map((section) => {
-          const containsActive = section.items.some((i) => isActive(i.href));
-          return (
-            <CollapsibleNavSection
-              key={section.id}
-              title={section.title}
-              storageKey={`platform:${section.id}`}
-              defaultOpen={section.defaultOpen}
-              containsActiveRoute={containsActive}
-              flatMode={collapsed}
-            >
-              {section.items.map((item) => (
-                <NavLink
-                  key={item.href}
-                  item={item}
-                  active={isActive(item.href)}
-                  collapsed={collapsed}
-                  onClick={() => setOpen(false)}
-                />
-              ))}
-            </CollapsibleNavSection>
-          );
-        })}
-
-        {/* Bottom utilities */}
-        <div
-          className={cn(
-            "pt-4 mt-2 border-t border-slate-100 space-y-1",
-            collapsed && "px-0",
-          )}
-        >
-          <SwitchToTenantLink collapsed={collapsed} />
-          <SignOutButton collapsed={collapsed} />
-        </div>
-      </div>
-    </ScrollArea>
-  );
-
-  // -------------------------------------------------------------------------
-  // Render
-  // -------------------------------------------------------------------------
-
-  return (
-    <>
-      {/* ------------------------------------------------------------------ */}
-      {/* Mobile header bar                                                    */}
-      {/* ------------------------------------------------------------------ */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-white border-b border-slate-200">
-        <div className="flex items-center justify-between px-4 py-3">
-          <div className="flex items-center gap-3">
-            <Sheet open={open} onOpenChange={setOpen}>
-              <SheetTrigger asChild>
-                <Button variant="ghost" size="icon">
-                  <Menu className="h-5 w-5" />
-                </Button>
-              </SheetTrigger>
-              <SheetContent side="left" className="w-[300px] sm:w-[360px] p-0 flex flex-col">
-                {/* Mobile sheet header */}
-                <div className="px-5 py-4 border-b bg-gradient-to-r from-amber-500 to-orange-500 flex-shrink-0">
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 bg-white/20 rounded-xl flex items-center justify-center">
-                      <Crown className="h-5 w-5 text-white" />
-                    </div>
-                    <div>
-                      <h2 className="text-base font-bold text-white">Platform Admin</h2>
-                      <p className="text-xs text-amber-100">CateringMS internal</p>
-                    </div>
-                  </div>
-                </div>
-                <NavContent mobile />
-              </SheetContent>
-            </Sheet>
-
-            <Link href={withSlug("/admin/platform/dashboard")} className="flex items-center gap-2.5">
-              <div className="w-8 h-8 bg-gradient-to-br from-amber-500 to-orange-500 rounded-lg flex items-center justify-center shadow-sm">
-                <Crown className="h-4 w-4 text-white" />
-              </div>
-              <span className="font-bold text-slate-900 text-sm">Platform</span>
-            </Link>
-          </div>
-
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleSignOut}
-            disabled={signingOut}
-            className="text-slate-400 hover:text-red-600 hover:bg-red-50"
-            title="Sign out"
-          >
-            <LogOut className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
-
-      {/* ------------------------------------------------------------------ */}
-      {/* Desktop sidebar                                                      */}
-      {/* ------------------------------------------------------------------ */}
-      <div
-        className={cn(
-          // lg:left-0 is required: without it, position:fixed falls back
-          // to the element's static x-position, which on this page is
-          // pushed right by the parent's lg:pl-72 padding - making the
-          // sidebar overlap the dashboard cards instead of pinning to
-          // the left edge.
-          "hidden lg:flex lg:flex-col lg:fixed lg:inset-y-0 lg:left-0 lg:border-r lg:border-slate-200 lg:bg-white transition-all duration-300 z-40 shadow-sm",
-          isCollapsed ? "lg:w-20" : "lg:w-64 xl:w-72",
-          className,
-        )}
-      >
-        {/* Sidebar header */}
-        <div
-          className={cn(
-            "flex-shrink-0 border-b border-slate-200 bg-gradient-to-r from-amber-500 to-orange-500",
-            isCollapsed ? "px-4 py-4" : "px-5 py-4",
-          )}
-        >
-          {isCollapsed ? (
-            <div className="flex justify-center">
-              <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
-                <Crown className="h-5 w-5 text-white" />
-              </div>
-            </div>
-          ) : (
-            <Link href={withSlug("/admin/platform/dashboard")} className="flex items-center gap-3 group">
-              <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center shadow group-hover:bg-white/30 transition-colors">
-                <Crown className="h-5 w-5 text-white" />
-              </div>
-              <div>
-                <h1 className="font-bold text-white text-sm leading-tight">Platform Admin</h1>
-                <p className="text-xs text-amber-100 leading-tight mt-0.5">CateringMS internal</p>
-              </div>
-            </Link>
-          )}
-        </div>
-
-        {/* Collapsed avatar */}
-        {isCollapsed && (
-          <UserStrip collapsed profile={profile} />
-        )}
-
-        {/* Nav */}
-        <NavContent collapsed={isCollapsed} />
-
-        {/* Collapse toggle */}
-        <div className="flex-shrink-0 p-3 border-t border-slate-100">
-          <Button
-            variant="ghost"
-            className={cn(
-              "w-full h-9 text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors rounded-lg",
-              isCollapsed ? "justify-center px-2" : "justify-start gap-2.5 px-3",
-            )}
-            onClick={() => setIsCollapsed((c) => !c)}
-            title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-          >
-            {isCollapsed ? (
-              <ChevronRight className="w-4 h-4" />
-            ) : (
-              <>
-                <ChevronLeft className="w-4 h-4" />
-                <span className="text-sm">Collapse</span>
-              </>
-            )}
-          </Button>
-        </div>
-      </div>
-    </>
-  );
+  return <PortalSidebar config={config} />;
 }
+
+export default PlatformNav;
