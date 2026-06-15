@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Users, FileText, Calendar, DollarSign, ChefHat, Package, Truck, TrendingUp, Clock, CheckCircle, AlertCircle, ShoppingCart, Sparkles, Mail, Zap, ArrowRight, BarChart3, Globe, Smartphone, Lock, RefreshCw, MapPin, Bell, MousePointer, Star, Quote, Shield, Heart, Target, Lightbulb, Activity, Award } from "lucide-react";
+import { Users, FileText, Calendar, DollarSign, ChefHat, Package, Truck, TrendingUp, Clock, CheckCircle, AlertCircle, ShoppingCart, Sparkles, Mail, Zap, ArrowRight, BarChart3, Globe, Smartphone, Lock, RefreshCw, MapPin, Bell, MousePointer, Star, Quote, Shield, Heart, Target, Lightbulb, Activity, Award, Workflow } from "lucide-react";
 import { Footer } from "@/components/Footer";
 import { Header } from "@/components/Header";
 import { Reveal, Stagger, StaggerItem } from "@/components/motion/Reveal";
@@ -97,6 +97,42 @@ export default function HomePage() {
       benefit: "Estimated 1.5-2x repeat booking rate",
       metric: "12-month nurture campaign"
     }
+  ];
+
+  // The real catering lifecycle, in caterers' own language -- quote, deposit,
+  // BEO, hire-in, guest counts, rebooking. This is the workflow the platform
+  // runs end to end; it doubles as the "how it works" story for buyers.
+  const workflow = [
+    {
+      icon: FileText,
+      step: "Enquiry & Quote",
+      description:
+        "Capture every lead and build itemised, menu-based quotes in minutes. Send a branded quote your client can review and accept online.",
+    },
+    {
+      icon: Calendar,
+      step: "Confirm & Deposit",
+      description:
+        "Clients accept through a secure magic-link portal and pay a deposit via PayFast. The function locks into your calendar automatically.",
+    },
+    {
+      icon: ChefHat,
+      step: "Plan & Prep",
+      description:
+        "Auto-generate the BEO, kitchen prep lists, shopping lists and allergen sheets — with own stock and hire-in equipment reconciled for the date.",
+    },
+    {
+      icon: Truck,
+      step: "Deliver & Serve",
+      description:
+        "Drivers get optimised routes and live GPS tracking. Clients watch their order arrive while equipment is checked out and signed back in.",
+    },
+    {
+      icon: RefreshCw,
+      step: "Invoice & Rebook",
+      description:
+        "Settle the balance with final guest-count adjustments, then trigger automated thank-yous and rebooking nurture for the next season.",
+    },
   ];
 
   const stats = [
@@ -334,9 +370,9 @@ export default function HomePage() {
               <StaggerItem>
                 <p className="mx-auto mt-6 max-w-2xl text-balance text-lg leading-relaxed text-slate-600 sm:text-xl">
                   The complete operating system for profitable, scalable catering
-                  businesses. Connect your team, automate operations, and track
-                  everything in real-time — so the business finally runs without you
-                  there 24/7.
+                  businesses. From the first enquiry to the final invoice — quotes,
+                  deposits, kitchen prep, deliveries and follow-ups — all connected
+                  and automated, so the business finally runs without you there 24/7.
                 </p>
               </StaggerItem>
 
@@ -591,6 +627,53 @@ export default function HomePage() {
               ))}
             </Stagger>
           </Reveal>
+        </section>
+
+        {/* ===================== HOW IT WORKS / LIFECYCLE ===================== */}
+        <section className="border-y border-slate-100 bg-white py-20 md:py-28">
+          <div className="mx-auto max-w-7xl px-4">
+            <Reveal className="mx-auto mb-16 max-w-3xl text-center">
+              <Eyebrow icon={Workflow} className="border-violet-200 bg-violet-50 text-violet-700">
+                How CateringMS works
+              </Eyebrow>
+              <h2 className="mt-5 text-balance text-3xl font-bold tracking-tight text-slate-900 md:text-5xl">
+                From first enquiry to repeat booking — one connected workflow
+              </h2>
+              <p className="mt-4 text-balance text-lg text-slate-600">
+                Every function follows the same path. CateringMS runs each stage for you,
+                so nothing slips between the quote and the invoice.
+              </p>
+            </Reveal>
+
+            <Stagger className="grid gap-6 sm:grid-cols-2 lg:grid-cols-5" gap={0.06}>
+              {workflow.map((stage, index) => (
+                <StaggerItem key={index}>
+                  <div className={`${cardBase} flex h-full flex-col p-6`}>
+                    <div className="mb-5 flex items-center justify-between">
+                      <div className={`${iconChip} h-12 w-12 bg-gradient-to-br from-violet-500 to-fuchsia-500`}>
+                        <stage.icon className="h-6 w-6 text-white" />
+                      </div>
+                      <span className="text-2xl font-bold tabular-nums text-slate-200">
+                        {String(index + 1).padStart(2, "0")}
+                      </span>
+                    </div>
+                    <h3 className="mb-2 text-lg font-semibold text-slate-900">{stage.step}</h3>
+                    <p className="text-sm leading-relaxed text-slate-600">{stage.description}</p>
+                  </div>
+                </StaggerItem>
+              ))}
+            </Stagger>
+
+            <Reveal className="mt-10 text-center">
+              <Link
+                href="/features"
+                className="group inline-flex items-center gap-2 font-medium text-violet-600 transition-colors duration-150 hover:text-violet-700"
+              >
+                See every stage in detail
+                <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
+              </Link>
+            </Reveal>
+          </div>
         </section>
 
         {/* ===================== TESTIMONIALS ===================== */}
