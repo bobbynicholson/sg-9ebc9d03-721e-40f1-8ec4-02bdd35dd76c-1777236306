@@ -41,7 +41,6 @@ import {
   ShoppingCart,
   Plus,
   ArrowRight,
-  Sparkles,
   CheckCircle2,
 } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
@@ -71,10 +70,10 @@ interface OutlookRow {
 }
 
 const STATUS_META: Record<string, { label: string; tone: string; icon: typeof AlertTriangle; sort: number }> = {
-  shortfall:     { label: "Shortfall",  tone: "bg-rose-100 text-rose-800 border-rose-200",       icon: AlertTriangle, sort: 0 },
-  below_minimum: { label: "Below par",  tone: "bg-amber-100 text-amber-800 border-amber-200",    icon: AlertCircle,   sort: 1 },
-  low:           { label: "Low",        tone: "bg-yellow-100 text-yellow-800 border-yellow-200", icon: AlertCircle,   sort: 2 },
-  ok:            { label: "OK",         tone: "bg-emerald-100 text-emerald-800 border-emerald-200", icon: Package,    sort: 3 },
+  shortfall:     { label: "Shortfall",  tone: "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-900",          icon: AlertTriangle, sort: 0 },
+  below_minimum: { label: "Below par",  tone: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900",     icon: AlertCircle,   sort: 1 },
+  low:           { label: "Low",        tone: "bg-yellow-50 text-yellow-800 border-yellow-200 dark:bg-yellow-950/40 dark:text-yellow-300 dark:border-yellow-900", icon: AlertCircle,   sort: 2 },
+  ok:            { label: "OK",         tone: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900", icon: Package,    sort: 3 },
 };
 
 type FilterKey = "all" | "shortfall" | "below_par" | "low";
@@ -289,20 +288,20 @@ export default function ShoppingBuyListPage() {
       <Head><title>Buy list - CateringMS</title></Head>
       <ShoppingNav />
 
-      <main className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+      <main className="min-h-screen bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
         <div className="px-3 sm:px-4 md:px-6 py-6 sm:py-8 max-w-full pb-24">
           {/* Header */}
           <div className="mb-6 flex flex-col sm:flex-row sm:items-center gap-4">
             <div className="flex items-center gap-3 flex-1 min-w-0">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center shadow-lg flex-shrink-0">
-                <ListChecks className="w-6 h-6 text-white" />
+              <div className="w-11 h-11 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 flex items-center justify-center flex-shrink-0">
+                <ListChecks className="w-5 h-5 text-amber-600 dark:text-amber-500" />
               </div>
               <div className="min-w-0">
-                <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold text-slate-900 flex items-center gap-2">
+                <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
                   Buy list
                   <InfoTooltip content="Everything that needs buying, pulled live from confirmed orders + par levels. Tick rows to bulk-add, or use the per-row 'Add' button. Items land on your active shopping list." />
                 </h1>
-                <p className="text-sm text-slate-600 mt-1">
+                <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
                   What needs buying right now, ranked by urgency. Tick to add to your list.
                 </p>
               </div>
@@ -310,16 +309,16 @@ export default function ShoppingBuyListPage() {
           </div>
 
           {/* Active list status banner */}
-          <Card className={`border-0 shadow-sm mb-5 ${activeList.list ? "bg-gradient-to-r from-amber-50 to-orange-50" : "bg-slate-50"}`}>
+          <Card className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-none mb-5">
             <CardContent className="p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center gap-3">
               <div className="flex items-center gap-3 flex-1 min-w-0">
-                <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${activeList.list ? "bg-amber-500 text-white" : "bg-slate-200 text-slate-500"}`}>
+                <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${activeList.list ? "bg-amber-600 text-white" : "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400"}`}>
                   <ShoppingCart className="w-4 h-4" />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-sm font-semibold text-slate-900">{activeLabel}</p>
+                  <p className="text-sm font-semibold text-slate-900 dark:text-white">{activeLabel}</p>
                   {activeList.list && (
-                    <p className="text-xs text-slate-600 truncate">
+                    <p className="text-xs text-slate-600 dark:text-slate-400 truncate">
                       {activeList.items.length} item{activeList.items.length === 1 ? "" : "s"} on the list ·
                       {" "}{activeList.items.filter(i => i.purchased).length} bought
                     </p>
@@ -337,10 +336,10 @@ export default function ShoppingBuyListPage() {
           </Card>
 
           {/* Filter + search */}
-          <Card className="border-0 shadow-sm mb-4">
+          <Card className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-none mb-4">
             <CardContent className="p-3 sm:p-4 flex flex-col sm:flex-row gap-2">
               <div className="relative flex-1 min-w-0">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 dark:text-slate-400" />
                 <Input
                   value={search}
                   onChange={e => setSearch(e.target.value)}
@@ -370,22 +369,36 @@ export default function ShoppingBuyListPage() {
           </Card>
 
           {/* Buy list rows */}
-          <Card className="border-0 shadow-lg">
+          <Card className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-none">
             <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-base">
-                <ListChecks className="w-4 h-4 text-amber-600" />
+              <CardTitle className="flex items-center gap-2 text-base text-slate-900 dark:text-white">
+                <ListChecks className="w-4 h-4 text-amber-600 dark:text-amber-500" />
                 {visible.length} item{visible.length === 1 ? "" : "s"} to consider
               </CardTitle>
             </CardHeader>
             <CardContent className="p-0">
               {loading ? (
-                <div className="py-12 flex items-center justify-center text-slate-500 gap-2">
-                  <Loader2 className="w-5 h-5 animate-spin" /> Loading buy list...
-                </div>
+                <ul className="divide-y divide-slate-100 dark:divide-slate-800" aria-hidden="true">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <li key={i} className="p-3 sm:p-4 flex items-center gap-3">
+                      <div className="w-4 h-4 rounded bg-slate-200 dark:bg-slate-800 animate-pulse flex-shrink-0" />
+                      <div className="flex-1 min-w-0 space-y-2">
+                        <div className="h-3.5 w-40 max-w-[60%] rounded bg-slate-200 dark:bg-slate-800 animate-pulse" />
+                        <div className="h-3 w-56 max-w-[80%] rounded bg-slate-100 dark:bg-slate-800/60 animate-pulse" />
+                      </div>
+                      <div className="h-8 w-10 rounded bg-slate-100 dark:bg-slate-800/60 animate-pulse" />
+                      <div className="h-8 w-16 rounded-lg bg-slate-200 dark:bg-slate-800 animate-pulse flex-shrink-0" />
+                    </li>
+                  ))}
+                </ul>
               ) : visible.length === 0 ? (
-                <div className="py-16 text-center text-slate-500">
-                  <Sparkles className="w-10 h-10 mx-auto text-slate-300 mb-2" />
-                  <p className="font-medium text-slate-700">
+                <div className="py-16 px-6 text-center">
+                  <div className="w-12 h-12 mx-auto mb-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 flex items-center justify-center">
+                    {rows.length === 0
+                      ? <Package className="w-6 h-6 text-slate-400 dark:text-slate-500" />
+                      : <CheckCircle2 className="w-6 h-6 text-emerald-500" />}
+                  </div>
+                  <p className="font-medium text-slate-900 dark:text-white">
                     {rows.length === 0
                       ? "No inventory configured yet."
                       : filter === "all"
@@ -393,13 +406,13 @@ export default function ShoppingBuyListPage() {
                         : "Nothing in this category. Try a different filter."}
                   </p>
                   {rows.length === 0 && (
-                    <p className="text-xs mt-2 max-w-md mx-auto">
-                      Add items in <Link href={withSlug("/team-portal/shopping/inventory")} className="text-amber-700 hover:text-amber-800 underline">Inventory</Link> to get a buy list.
+                    <p className="text-sm text-slate-600 dark:text-slate-400 mt-2 max-w-md mx-auto">
+                      Add items in <Link href={withSlug("/team-portal/shopping/inventory")} className="text-amber-700 dark:text-amber-500 hover:text-amber-800 dark:hover:text-amber-400 underline underline-offset-2">Inventory</Link> to get a buy list.
                     </p>
                   )}
                 </div>
               ) : (
-                <ul className="divide-y divide-slate-100">
+                <ul className="divide-y divide-slate-100 dark:divide-slate-800">
                   {visible.map(r => {
                     const meta = STATUS_META[r.status] || STATUS_META.ok;
                     const Icon = meta.icon;
@@ -409,7 +422,14 @@ export default function ShoppingBuyListPage() {
                     const alreadyOnList = activeList.items.some(i => i.item_id === r.inventory_item_id && !i.purchased);
 
                     return (
-                      <li key={r.inventory_item_id} className={`p-3 sm:p-4 flex items-center gap-3 ${isSelected ? "bg-amber-50/60" : ""}`}>
+                      <li
+                        key={r.inventory_item_id}
+                        className={`p-3 sm:p-4 flex items-center gap-3 transition-colors duration-150 ${
+                          isSelected
+                            ? "bg-amber-50 dark:bg-amber-950/30"
+                            : "hover:bg-slate-50 dark:hover:bg-slate-800/40"
+                        }`}
+                      >
                         <Checkbox
                           checked={isSelected}
                           onCheckedChange={() => toggleSelect(r.inventory_item_id)}
@@ -418,19 +438,19 @@ export default function ShoppingBuyListPage() {
                         />
                         <div className="flex-1 min-w-0">
                           <div className="flex flex-wrap items-center gap-2">
-                            <span className="font-semibold text-slate-900 truncate">{r.item_name}</span>
+                            <span className="font-semibold text-slate-900 dark:text-white truncate">{r.item_name}</span>
                             <Badge variant="outline" className={`${meta.tone} text-[10px] gap-1`}>
                               <Icon className="w-3 h-3" />
                               {meta.label}
                             </Badge>
                             {alreadyOnList && (
-                              <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] gap-1">
+                              <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900 text-[10px] gap-1">
                                 <CheckCircle2 className="w-3 h-3" />
                                 Already on list
                               </Badge>
                             )}
                           </div>
-                          <div className="text-xs text-slate-500 mt-0.5 flex flex-wrap gap-x-3">
+                          <div className="text-xs text-slate-600 dark:text-slate-400 mt-0.5 flex flex-wrap gap-x-3">
                             <span>{r.category || "Uncategorised"}</span>
                             <span>have {Number(r.current_stock).toLocaleString()} {r.unit_of_measure}</span>
                             <span>par {Number(r.minimum_stock).toLocaleString()}</span>
@@ -440,13 +460,13 @@ export default function ShoppingBuyListPage() {
                           </div>
                         </div>
                         <div className="text-right shrink-0">
-                          <div className="text-[10px] uppercase tracking-wider text-slate-500">Buy</div>
-                          <div className="text-lg font-bold tabular-nums text-slate-900">
+                          <div className="text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">Buy</div>
+                          <div className="text-lg font-bold tabular-nums text-slate-900 dark:text-white">
                             {qty.toLocaleString(undefined, { maximumFractionDigits: 2 })}
                           </div>
-                          <div className="text-[10px] text-slate-500">{r.unit_of_measure}</div>
+                          <div className="text-[10px] text-slate-500 dark:text-slate-400">{r.unit_of_measure}</div>
                           {cost > 0 && (
-                            <div className="text-[11px] text-slate-600 mt-0.5 tabular-nums">
+                            <div className="text-[11px] text-slate-600 dark:text-slate-400 mt-0.5 tabular-nums">
                               ~{tenantCurrency.format(cost, 0)}
                             </div>
                           )}
@@ -471,7 +491,7 @@ export default function ShoppingBuyListPage() {
           </Card>
 
           {/* Helper line */}
-          <p className="text-xs text-slate-500 mt-4 text-center">
+          <p className="text-xs text-slate-600 dark:text-slate-400 mt-4 text-center">
             Buy quantity = shortfall over the next 7 days. For OK items, it's the reorder quantity or the gap to par.
           </p>
         </div>
@@ -484,10 +504,10 @@ export default function ShoppingBuyListPage() {
           >
             <div className="max-w-full mx-auto px-4 py-3 flex items-center gap-3">
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-slate-900">
+                <p className="text-sm font-semibold text-slate-900 dark:text-white">
                   {selectedTotals.count} selected
                 </p>
-                <p className="text-xs text-slate-600 tabular-nums">
+                <p className="text-xs text-slate-600 dark:text-slate-400 tabular-nums">
                   ~{tenantCurrency.format(selectedTotals.cost, 0)} estimated
                 </p>
               </div>
@@ -502,7 +522,7 @@ export default function ShoppingBuyListPage() {
               <Button
                 onClick={handleAddSelected}
                 disabled={adding}
-                className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 gap-1"
+                className="bg-amber-600 hover:bg-amber-700 text-white rounded-lg gap-1"
               >
                 {adding ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
                 {activeList.list ? "Add to your list" : "Start list with selected"}

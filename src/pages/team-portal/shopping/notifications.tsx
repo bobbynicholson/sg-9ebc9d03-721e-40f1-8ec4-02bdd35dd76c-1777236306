@@ -1,9 +1,8 @@
 import { useState, useEffect, useMemo } from "react";
 import Head from "next/head";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Bell, Check, Loader2, AlertCircle, AlertTriangle, Info, CheckCircle2, Archive } from "lucide-react";
+import { Bell, Check, AlertCircle, AlertTriangle, Info, CheckCircle2, Archive } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { ShoppingNav } from "@/components/navigation/ShoppingNav";
@@ -31,6 +30,16 @@ const priorityTone = (p?: string | null) => {
   if (p === "medium" || p === "warning") return "text-amber-500";
   if (p === "success") return "text-emerald-500";
   return "text-blue-500";
+};
+
+// Severity semantics carry to the icon's tinted halo so a glance reads
+// critical/warning/info/success before the text does. Keyed to the same
+// effectivePriority output as priorityTone, so the two never drift.
+const priorityHalo = (p?: string | null) => {
+  if (p === "critical" || p === "urgent" || p === "high") return "bg-rose-50 dark:bg-rose-500/10";
+  if (p === "medium" || p === "warning") return "bg-amber-50 dark:bg-amber-500/10";
+  if (p === "success") return "bg-emerald-50 dark:bg-emerald-500/10";
+  return "bg-blue-50 dark:bg-blue-500/10";
 };
 
 export default function ShoppingNotificationsPage() {
@@ -124,90 +133,165 @@ export default function ShoppingNotificationsPage() {
       <Head><title>Shopping notifications - CateringMS</title></Head>
       <NoIndexMeta />
       <ShoppingNav />
-      <main className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
-        <div className="px-3 sm:px-4 md:px-6 py-6 sm:py-8 max-w-full">
-          <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-6">
-            {/* Wave 34: gradient-box icon header. */}
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center shadow-md flex-shrink-0">
-                <Bell className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
+      <main className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <div className="px-3 sm:px-4 md:px-6 py-6 sm:py-8 max-w-3xl">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-11 h-11 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 flex items-center justify-center flex-shrink-0">
+                <Bell className="h-5 w-5 text-amber-600 dark:text-amber-500" />
               </div>
               <div className="min-w-0">
-                <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold bg-gradient-to-r from-amber-600 to-orange-600 bg-clip-text text-transparent flex items-center gap-2">
-                  Shopping Notifications
+                <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-50 flex items-center gap-2">
+                  Shopping notifications
                   <InfoTooltip content="Alerts sent to you directly, plus anything addressed to the shopping team as a whole." />
                 </h1>
-                <p className="text-sm text-slate-600 mt-0.5">Stock alerts, supplier updates, purchase requests</p>
+                <p className="text-sm text-slate-600 dark:text-slate-400 mt-0.5">Stock alerts, supplier updates, purchase requests</p>
               </div>
             </div>
-            <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-2 flex-wrap flex-shrink-0">
               {staleCount > 0 && (
-                <Button variant="outline" size="sm" onClick={onClearStale} title={`Delete notifications older than ${STALE_NOTIFICATION_DAYS} days`}>
+                <Button variant="outline" size="sm" onClick={onClearStale} title={`Delete notifications older than ${STALE_NOTIFICATION_DAYS} days`} className="rounded-lg">
                   <Archive className="h-4 w-4 mr-2" />
                   Clear stale ({staleCount})
                 </Button>
               )}
               {unread > 0 && (
-                <Button variant="outline" size="sm" onClick={markAllRead}>
+                <Button onClick={markAllRead} size="sm" className="rounded-lg bg-amber-600 hover:bg-amber-700 text-white">
                   <Check className="h-4 w-4 mr-2" />Mark all read
                 </Button>
               )}
             </div>
           </div>
 
-          <div className="flex gap-2 mb-4">
-            <Button variant={tab === "all" ? "default" : "outline"} size="sm" onClick={() => setTab("all")} className={tab === "all" ? "bg-amber-600 hover:bg-amber-700" : ""}>All</Button>
-            <Button variant={tab === "unread" ? "default" : "outline"} size="sm" onClick={() => setTab("unread")} className={tab === "unread" ? "bg-amber-600 hover:bg-amber-700" : ""}>
-              Unread {unread > 0 && <span className="ml-1.5 bg-white/20 px-1.5 rounded text-[10px] tabular-nums">{unread}</span>}
-            </Button>
+          {/* Filter pills: amber fill marks the active tab (selection state),
+              everything else stays neutral. The unread count rides the pill. */}
+          <div className="flex gap-2 mb-4" role="tablist" aria-label="Filter notifications">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={tab === "all"}
+              onClick={() => setTab("all")}
+              className={`h-8 px-3.5 rounded-lg text-sm font-medium transition-[color,background-color,border-color] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/40 ${
+                tab === "all"
+                  ? "bg-amber-600 text-white"
+                  : "border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
+              }`}
+            >
+              All
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={tab === "unread"}
+              onClick={() => setTab("unread")}
+              className={`h-8 px-3.5 rounded-lg text-sm font-medium inline-flex items-center transition-[color,background-color,border-color] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/40 ${
+                tab === "unread"
+                  ? "bg-amber-600 text-white"
+                  : "border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
+              }`}
+            >
+              Unread
+              {unread > 0 && (
+                <span
+                  className={`ml-1.5 px-1.5 rounded text-[10px] tabular-nums ${
+                    tab === "unread" ? "bg-white/20 text-white" : "bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-amber-400"
+                  }`}
+                >
+                  {unread}
+                </span>
+              )}
+            </button>
           </div>
 
-          <Card>
-            <CardContent className="p-0">
-              {loading ? (
-                <div className="flex items-center justify-center py-16 text-slate-500"><Loader2 className="h-5 w-5 animate-spin mr-2" />Loading...</div>
-              ) : notifs.length === 0 ? (
-                <div className="text-center py-16 text-slate-500">
-                  <Bell className="h-10 w-10 mx-auto mb-3 text-slate-300" />
-                  <p className="font-medium">{tab === "unread" ? "No unread" : "No notifications yet"}</p>
+          <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 overflow-hidden">
+            {loading ? (
+              // Skeleton rows, not a spinner: the layout holds its shape while
+              // data loads. Opacity-only pulse is reduced-motion safe.
+              <ul className="divide-y divide-slate-100 dark:divide-slate-800" aria-hidden="true">
+                {[0, 1, 2, 3].map((i) => (
+                  <li key={i} className="p-4 flex items-start gap-3">
+                    <div className="h-9 w-9 rounded-lg bg-slate-100 dark:bg-slate-800 animate-pulse flex-shrink-0" />
+                    <div className="flex-1 min-w-0 space-y-2 pt-0.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="h-3.5 w-1/3 rounded bg-slate-100 dark:bg-slate-800 animate-pulse" />
+                        <div className="h-3 w-12 rounded bg-slate-100 dark:bg-slate-800 animate-pulse" />
+                      </div>
+                      <div className="h-3 w-3/4 rounded bg-slate-100 dark:bg-slate-800 animate-pulse" />
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            ) : notifs.length === 0 ? (
+              <div className="text-center px-6 py-16">
+                <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-emerald-50 dark:bg-emerald-500/10 flex items-center justify-center">
+                  <CheckCircle2 className="h-6 w-6 text-emerald-500" />
                 </div>
-              ) : (
-                <ul className="divide-y divide-slate-100">
-                  {notifs.map((n) => {
-                    // Wave 24: degrade displayed priority on stale rows.
-                    const displayedPriority = effectivePriority(n.priority, n.created_at);
-                    const Icon = priorityIcon(displayedPriority);
-                    const tone = priorityTone(displayedPriority);
-                    return (
-                      <li key={n.id} className={`p-4 flex items-start gap-3 ${n.is_read ? "bg-white" : "bg-amber-50/50"}`}>
-                        <Icon className={`h-5 w-5 ${tone} flex-shrink-0 mt-0.5`} />
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="font-medium text-slate-900">{n.title ?? "Notification"}</div>
-                            <span className="text-[11px] text-slate-500 flex-shrink-0">{n.created_at ? formatDistanceToNow(new Date(n.created_at), { addSuffix: true }) : ""}</span>
-                          </div>
-                          {n.message && <p className="text-sm text-slate-600 mt-1">{n.message}</p>}
-                          <div className="flex items-center gap-2 mt-2">
-                            {(n.type || n.notification_type) && (
-                              <Badge variant="outline" className="text-[10px] bg-slate-100 text-slate-700 border-slate-200">{n.type ?? n.notification_type}</Badge>
-                            )}
-                            {!n.is_read && (
-                              <Button size="sm" variant="ghost" className="h-6 text-[11px]" onClick={() => markRead(n.id)}>
-                                <Check className="h-3 w-3 mr-1" />Mark read
-                              </Button>
-                            )}
-                            {(n.link || n.action_url) && (
-                              <a href={n.link ?? n.action_url ?? "#"} className="text-[11px] text-amber-700 hover:underline">Open</a>
-                            )}
-                          </div>
+                <p className="font-semibold text-slate-900 dark:text-slate-100">
+                  {tab === "unread" ? "You're all caught up" : "No notifications yet"}
+                </p>
+                <p className="text-sm text-slate-600 dark:text-slate-400 mt-1 max-w-xs mx-auto">
+                  {tab === "unread"
+                    ? "Every alert has been read. New stock, supplier and purchase alerts will land here."
+                    : "Stock alerts, supplier updates and purchase requests for the shopping team will appear here."}
+                </p>
+              </div>
+            ) : (
+              <ul className="divide-y divide-slate-100 dark:divide-slate-800">
+                {notifs.map((n) => {
+                  // Wave 24: degrade displayed priority on stale rows.
+                  const displayedPriority = effectivePriority(n.priority, n.created_at);
+                  const Icon = priorityIcon(displayedPriority);
+                  const tone = priorityTone(displayedPriority);
+                  const halo = priorityHalo(displayedPriority);
+                  return (
+                    <li
+                      key={n.id}
+                      className={`relative p-4 flex items-start gap-3 transition-colors duration-150 ${
+                        n.is_read
+                          ? "bg-white dark:bg-slate-900"
+                          : "bg-amber-50/60 dark:bg-amber-500/[0.06]"
+                      }`}
+                    >
+                      {/* Unread marker: a single amber dot, not a heavy fill. */}
+                      {!n.is_read && (
+                        <span
+                          className="absolute left-1.5 top-1/2 -translate-y-1/2 h-1.5 w-1.5 rounded-full bg-amber-500"
+                          aria-label="Unread"
+                        />
+                      )}
+                      <div className={`h-9 w-9 rounded-lg flex items-center justify-center flex-shrink-0 ${halo}`}>
+                        <Icon className={`h-5 w-5 ${tone}`} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="font-medium text-slate-900 dark:text-slate-100">{n.title ?? "Notification"}</div>
+                          <span className="text-[11px] text-slate-500 dark:text-slate-400 flex-shrink-0 tabular-nums">{n.created_at ? formatDistanceToNow(new Date(n.created_at), { addSuffix: true }) : ""}</span>
                         </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </CardContent>
-          </Card>
+                        {n.message && <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">{n.message}</p>}
+                        <div className="flex items-center gap-3 mt-2">
+                          {(n.type || n.notification_type) && (
+                            <Badge variant="outline" className="text-[10px] font-medium bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700">{n.type ?? n.notification_type}</Badge>
+                          )}
+                          {!n.is_read && (
+                            <button
+                              type="button"
+                              onClick={() => markRead(n.id)}
+                              className="inline-flex items-center text-[11px] font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 transition-colors duration-150"
+                            >
+                              <Check className="h-3 w-3 mr-1" />Mark read
+                            </button>
+                          )}
+                          {(n.link || n.action_url) && (
+                            <a href={n.link ?? n.action_url ?? "#"} className="text-[11px] font-medium text-amber-700 dark:text-amber-500 hover:text-amber-800 dark:hover:text-amber-400 transition-colors duration-150">Open</a>
+                          )}
+                        </div>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
         </div>
       </main>
     </>

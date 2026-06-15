@@ -125,21 +125,21 @@ export default function ShoppingKitchenDemandPage() {
       <Head><title>Kitchen demand - CateringMS</title></Head>
       <NoIndexMeta />
       <ShoppingNav />
-      <main className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
-        <div className="px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8 max-w-full">
+      <main className="min-h-screen bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <div className="px-3 sm:px-4 md:px-6 py-6 sm:py-8 max-w-full">
 
           {/* Header */}
           <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center shadow-lg flex-shrink-0">
-                <ChefHat className="w-6 h-6 text-white" />
+            <div className="flex items-center gap-3 flex-1 min-w-0">
+              <div className="w-11 h-11 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 flex items-center justify-center flex-shrink-0">
+                <ChefHat className="w-5 h-5 text-amber-600 dark:text-amber-500" />
               </div>
-              <div>
-                <h1 className="text-2xl md:text-3xl font-bold text-slate-900 flex items-center gap-2">
+              <div className="min-w-0">
+                <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
                   Kitchen demand
                   <InfoTooltip content="What the kitchen needs to cook every confirmed order in your selected window, aggregated across all bookings.\n\nRecipes power the math, if a menu item has no recipe attached, its ingredients won't appear here. Owner adds recipes in /admin/menu." />
                 </h1>
-                <p className="text-sm text-slate-600 mt-1">
+                <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
                   Aggregated ingredient need from confirmed orders in the next {horizon} days.
                 </p>
               </div>
@@ -147,9 +147,9 @@ export default function ShoppingKitchenDemandPage() {
             <Button
               onClick={handleCreateList}
               disabled={creating || stats.shortfall === 0}
-              className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600"
+              className="bg-amber-600 hover:bg-amber-700 text-white rounded-lg"
             >
-              {creating ? <><Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />Creating</> : (
+              {creating ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Creating</> : (
                 <><ShoppingCart className="w-4 h-4 mr-2" />Create shopping list</>
               )}
             </Button>
@@ -157,49 +157,67 @@ export default function ShoppingKitchenDemandPage() {
 
           {/* Stat strip */}
           <div className="grid grid-cols-3 gap-3 mb-5">
-            <Card className="border-0 shadow-sm">
+            <Card className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm">
               <CardContent className="p-4">
-                <p className="text-xs uppercase tracking-wider text-slate-500 mb-1">Ingredients in play</p>
-                <p className="text-2xl font-bold text-slate-900 tabular-nums">{stats.ingredients}</p>
+                <p className="text-xs uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1">Ingredients in play</p>
+                <p className="text-2xl font-semibold text-slate-900 dark:text-white tabular-nums">{stats.ingredients}</p>
               </CardContent>
             </Card>
-            <Card className={`border-0 shadow-sm ${stats.shortfall > 0 ? "bg-red-50" : ""}`}>
+            <Card className={`rounded-xl border shadow-sm ${
+              stats.shortfall > 0
+                ? "border-rose-200 bg-rose-50 dark:border-rose-900 dark:bg-rose-950/40"
+                : "border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900"
+            }`}>
               <CardContent className="p-4">
-                <p className="text-xs uppercase tracking-wider text-slate-500 mb-1 inline-flex items-center gap-1">
+                <p className={`text-xs uppercase tracking-wider mb-1 inline-flex items-center gap-1 ${
+                  stats.shortfall > 0 ? "text-rose-700 dark:text-rose-300" : "text-slate-600 dark:text-slate-400"
+                }`}>
                   Short
-                  {stats.shortfall > 0 && <AlertTriangle className="w-3 h-3 text-red-600" />}
+                  {stats.shortfall > 0 && <AlertTriangle className="w-3 h-3" />}
                 </p>
-                <p className={`text-2xl font-bold tabular-nums ${stats.shortfall > 0 ? "text-red-700" : "text-slate-900"}`}>
+                <p className={`text-2xl font-semibold tabular-nums ${stats.shortfall > 0 ? "text-rose-700 dark:text-rose-300" : "text-slate-900 dark:text-white"}`}>
                   {stats.shortfall}
                 </p>
-                <p className="text-[11px] text-slate-500 mt-1">Need to buy</p>
+                <p className={`text-[11px] mt-1 ${stats.shortfall > 0 ? "text-rose-600/80 dark:text-rose-400/80" : "text-slate-500 dark:text-slate-400"}`}>Need to buy</p>
               </CardContent>
             </Card>
-            <Card className="border-0 shadow-sm">
+            <Card className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm">
               <CardContent className="p-4">
-                <p className="text-xs uppercase tracking-wider text-slate-500 mb-1">Orders feeding this</p>
-                <p className="text-2xl font-bold text-slate-900 tabular-nums">{stats.orders}</p>
+                <p className="text-xs uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1">Orders feeding this</p>
+                <p className="text-2xl font-semibold text-slate-900 dark:text-white tabular-nums">{stats.orders}</p>
               </CardContent>
             </Card>
           </div>
 
           {/* Horizon picker + filter bar */}
-          <Card className="border-0 shadow-sm mb-5">
+          <Card className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm mb-5">
             <CardContent className="p-4 flex flex-col gap-3">
-              <div className="flex flex-wrap gap-1.5">
-                {HORIZONS.map(h => (
-                  <Button
-                    key={h.key}
-                    size="sm"
-                    variant={horizon === h.key ? "default" : "outline"}
-                    onClick={() => setHorizon(h.key)}
-                    className={horizon === h.key ? "bg-amber-600 hover:bg-amber-700" : ""}
-                  >{h.label}</Button>
-                ))}
+              {/* Segmented horizon picker: amber marks the active window only */}
+              <div
+                role="group"
+                aria-label="Demand window"
+                className="inline-flex w-full sm:w-auto rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-100/70 dark:bg-slate-800/60 p-1"
+              >
+                {HORIZONS.map(h => {
+                  const active = horizon === h.key;
+                  return (
+                    <button
+                      key={h.key}
+                      type="button"
+                      onClick={() => setHorizon(h.key)}
+                      aria-pressed={active}
+                      className={`flex-1 sm:flex-none px-3 py-1.5 text-xs font-medium rounded-md whitespace-nowrap transition-[color,background-color,box-shadow,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-amber-500 ${
+                        active
+                          ? "bg-amber-600 text-white shadow-sm"
+                          : "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
+                      }`}
+                    >{h.label}</button>
+                  );
+                })}
               </div>
               <div className="flex flex-col sm:flex-row gap-2">
                 <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 dark:text-slate-400 pointer-events-none" />
                   <Input
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
@@ -211,7 +229,8 @@ export default function ShoppingKitchenDemandPage() {
                   size="sm"
                   variant={shortfallOnly ? "default" : "outline"}
                   onClick={() => setShortfallOnly(v => !v)}
-                  className={shortfallOnly ? "bg-red-600 hover:bg-red-700" : ""}
+                  aria-pressed={shortfallOnly}
+                  className={shortfallOnly ? "bg-rose-600 hover:bg-rose-700 text-white rounded-lg" : "rounded-lg"}
                 >
                   <AlertTriangle className="w-4 h-4 mr-2" />Shortfall only
                 </Button>
@@ -221,69 +240,94 @@ export default function ShoppingKitchenDemandPage() {
 
           {/* List */}
           {loading ? (
-            <div className="text-center py-12 text-slate-500 text-sm flex items-center justify-center">
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />Reading the kitchen's pull list...
-            </div>
+            <Card className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm">
+              <CardContent className="p-0">
+                <ul className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <li key={i} className="p-4">
+                      <div className="flex items-start gap-3">
+                        <div className="w-10 h-10 rounded-lg bg-slate-200/70 dark:bg-slate-800 animate-pulse shrink-0" />
+                        <div className="flex-1 min-w-0 space-y-2">
+                          <div className="h-4 w-40 max-w-[60%] rounded bg-slate-200/70 dark:bg-slate-800 animate-pulse" />
+                          <div className="h-3 w-56 max-w-[80%] rounded bg-slate-200/60 dark:bg-slate-800/70 animate-pulse" />
+                        </div>
+                        <div className="w-12 h-9 rounded bg-slate-200/70 dark:bg-slate-800 animate-pulse shrink-0" />
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
           ) : visible.length === 0 ? (
-            <Card className="border-0 shadow-sm">
+            <Card className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm">
               <CardContent className="p-10 text-center">
-                <ChefHat className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-                <p className="text-slate-700 font-medium">
+                <div className="w-12 h-12 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 flex items-center justify-center mx-auto mb-4">
+                  <ChefHat className="w-6 h-6 text-slate-400 dark:text-slate-500" />
+                </div>
+                <p className="text-slate-900 dark:text-white font-medium">
                   {demand.length === 0
                     ? "No kitchen demand in this window"
                     : shortfallOnly
                       ? "No shortfalls, the kitchen is covered for this window"
                       : "No matches"}
                 </p>
-                <p className="text-sm text-slate-500 mt-1">
+                <p className="text-sm text-slate-600 dark:text-slate-400 mt-1.5 max-w-md mx-auto">
                   {demand.length === 0
-                    ? "No confirmed orders yet, or none of the menu items have recipes attached."
+                    ? "This page pulls recipe ingredients from confirmed orders, then subtracts what's on hand. Once a confirmed order's menu items have recipes attached, their ingredients show up here, ready to buy."
                     : shortfallOnly
-                      ? "Toggle 'Shortfall only' off to see everything in play."
-                      : "Try a different search."}
+                      ? "Everything in this window is covered by stock. Toggle 'Shortfall only' off to see the full pull list."
+                      : "Nothing matches that search. Try a different ingredient or unit."}
                 </p>
                 {demand.length === 0 && (
-                  <Link href="/admin/menu" className="inline-flex items-center gap-1 text-sm text-amber-700 hover:text-amber-800 mt-4 font-medium">
-                    Open menu builder <ExternalLink className="w-3 h-3" />
+                  <Link
+                    href="/admin/menu"
+                    className="inline-flex items-center gap-1.5 mt-4 px-3 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium transition-[background-color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97]"
+                  >
+                    Open menu builder <ExternalLink className="w-3.5 h-3.5" />
                   </Link>
                 )}
               </CardContent>
             </Card>
           ) : (
-            <Card className="border-0 shadow-sm">
+            <Card className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm">
               <CardContent className="p-0">
-                <ul className="divide-y divide-slate-100">
+                <ul className="divide-y divide-slate-100 dark:divide-slate-800">
                   {visible.map((d, idx) => {
                     const isShort = d.shortfall > 0;
                     const orderCount = d.used_by?.length || 0;
                     return (
-                      <li key={`${d.name}-${idx}`} className="p-4">
+                      <li
+                        key={`${d.name}-${idx}`}
+                        className="p-4 transition-colors duration-150 hover:bg-slate-50 dark:hover:bg-slate-800/50"
+                      >
                         <div className="flex items-start gap-3">
                           <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${
-                            isShort ? "bg-red-100" : "bg-emerald-100"
+                            isShort
+                              ? "bg-rose-100 dark:bg-rose-950/50"
+                              : "bg-emerald-100 dark:bg-emerald-950/50"
                           }`}>
-                            <Package className={`w-4 h-4 ${isShort ? "text-red-700" : "text-emerald-700"}`} />
+                            <Package className={`w-4 h-4 ${isShort ? "text-rose-700 dark:text-rose-400" : "text-emerald-700 dark:text-emerald-400"}`} />
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <span className="font-semibold text-slate-900 truncate">{d.name}</span>
+                              <span className="font-semibold text-slate-900 dark:text-white truncate">{d.name}</span>
                               {isShort && (
-                                <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 text-[10px]">
+                                <Badge variant="outline" className="bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-900 text-[10px]">
                                   Short {Number(d.shortfall).toLocaleString(undefined, { maximumFractionDigits: 2 })} {d.unit}
                                 </Badge>
                               )}
                               {!isShort && (
-                                <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px]">
+                                <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900 text-[10px]">
                                   Covered
                                 </Badge>
                               )}
                               {!d.inventory_item_id && (
-                                <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 text-[10px]">
+                                <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900 text-[10px]">
                                   Free-text
                                 </Badge>
                               )}
                             </div>
-                            <div className="text-xs text-slate-500 mt-0.5 inline-flex flex-wrap items-center gap-x-3 gap-y-0.5">
+                            <div className="text-xs text-slate-600 dark:text-slate-400 mt-0.5 inline-flex flex-wrap items-center gap-x-3 gap-y-0.5">
                               <span>Need {Number(d.total_quantity).toLocaleString(undefined, { maximumFractionDigits: 2 })} {d.unit}</span>
                               <span>have {Number(d.on_hand).toLocaleString(undefined, { maximumFractionDigits: 2 })} {d.unit}</span>
                               {orderCount > 0 && (
@@ -304,7 +348,7 @@ export default function ShoppingKitchenDemandPage() {
                                   <Link
                                     key={`${u.order_id}-${ui}`}
                                     href={withSlug(staffOrderHref(u.order_id, "shopping_staff"))}
-                                    className="text-[10px] px-2 py-0.5 rounded bg-slate-100 text-slate-700 hover:bg-amber-100 hover:text-amber-900 inline-flex items-center gap-1"
+                                    className="text-[10px] px-2 py-0.5 rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:border-amber-300 hover:bg-amber-50 hover:text-amber-900 dark:hover:border-amber-800 dark:hover:bg-amber-950/40 dark:hover:text-amber-300 inline-flex items-center gap-1 transition-colors duration-150"
                                     title="Open this order's shopping shortfalls"
                                   >
                                     <Calendar className="w-2.5 h-2.5" />
@@ -312,17 +356,17 @@ export default function ShoppingKitchenDemandPage() {
                                   </Link>
                                 ))}
                                 {d.used_by.length > 3 && (
-                                  <span className="text-[10px] text-slate-500">+{d.used_by.length - 3} more</span>
+                                  <span className="text-[10px] text-slate-500 dark:text-slate-400">+{d.used_by.length - 3} more</span>
                                 )}
                               </div>
                             )}
                           </div>
                           <div className="text-right shrink-0">
-                            <div className="text-[10px] uppercase tracking-wider text-slate-500">Buy</div>
-                            <div className={`text-lg font-bold tabular-nums ${isShort ? "text-red-700" : "text-slate-400"}`}>
+                            <div className="text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">Buy</div>
+                            <div className={`text-lg font-semibold tabular-nums ${isShort ? "text-rose-700 dark:text-rose-400" : "text-slate-400 dark:text-slate-500"}`}>
                               {isShort ? Number(d.shortfall).toLocaleString(undefined, { maximumFractionDigits: 2 }) : "0"}
                             </div>
-                            <div className="text-[10px] text-slate-500">{d.unit}</div>
+                            <div className="text-[10px] text-slate-500 dark:text-slate-400">{d.unit}</div>
                           </div>
                         </div>
                       </li>
@@ -334,9 +378,9 @@ export default function ShoppingKitchenDemandPage() {
           )}
 
           {/* Helper line */}
-          <p className="text-xs text-slate-500 mt-4 text-center">
+          <p className="text-xs text-slate-600 dark:text-slate-400 mt-4 text-center">
             Demand math comes from menu item recipes, if something's missing, ask the owner to attach a recipe in
-            <Link href="/admin/menu" className="text-amber-700 hover:text-amber-800 ml-1 underline">/admin/menu</Link>.
+            <Link href="/admin/menu" className="text-amber-700 hover:text-amber-800 dark:text-amber-500 dark:hover:text-amber-400 ml-1 underline">/admin/menu</Link>.
           </p>
         </div>
         <Footer />

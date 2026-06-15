@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import Head from "next/head";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -72,112 +71,140 @@ export default function ShoppingSettingsPage() {
       <Head><title>Shopping settings - CateringMS</title></Head>
       <NoIndexMeta />
       <ShoppingNav />
-      <main className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
-        <div className="px-3 sm:px-4 md:px-6 py-6 sm:py-8 max-w-full">
-          <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-6">
-            {/* Wave 34: gradient-box icon header. */}
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center shadow-md flex-shrink-0">
-                <SettingsIcon className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
+      <main className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <div className="px-3 sm:px-4 md:px-6 py-6 sm:py-8 max-w-3xl">
+          {/* Page header: solid title, neutral icon tile (no decorative accent). */}
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-8">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-11 h-11 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 flex items-center justify-center flex-shrink-0">
+                <SettingsIcon className="h-5 w-5 text-slate-500 dark:text-slate-400" />
               </div>
               <div className="min-w-0">
-                <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold bg-gradient-to-r from-amber-600 to-orange-600 bg-clip-text text-transparent">
-                  Shopping Settings
+                <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white">
+                  Shopping settings
                 </h1>
-                <p className="text-sm text-slate-600 mt-0.5">Procurement defaults for this catering company</p>
+                <p className="text-sm text-slate-600 dark:text-slate-400 mt-0.5">
+                  Procurement defaults for this catering company
+                </p>
               </div>
             </div>
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={() => setSettings(DEFAULTS)}>Reset</Button>
-              <Button size="sm" onClick={save} disabled={saving || !loaded} className="bg-amber-600 hover:bg-amber-700">
-                {saving ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving</> : <><Save className="h-4 w-4 mr-2" />Save</>}
+            <div className="flex gap-2 flex-shrink-0">
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-lg"
+                onClick={() => setSettings(DEFAULTS)}
+              >
+                Reset to defaults
+              </Button>
+              <Button
+                size="sm"
+                onClick={save}
+                disabled={saving || !loaded}
+                className="rounded-lg bg-amber-600 hover:bg-amber-700 text-white"
+              >
+                {saving ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving</> : <><Save className="h-4 w-4 mr-2" />Save changes</>}
               </Button>
             </div>
           </div>
 
-          <div className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base flex items-center gap-2"><ShoppingCart className="h-4 w-4 text-amber-600" />Purchase runs <InfoTooltip content="Defaults used when a new shopping list is created, receipts, auto-generation window, lead time.\n\nSaved on this device only." /></CardTitle>
-                <CardDescription>Defaults for shopping lists and procurement runs</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label htmlFor="rrc">Require receipt to mark a list complete</Label>
-                    <p className="text-xs text-slate-500 mt-0.5">Lists cannot be set to completed without a receipt URL</p>
+          <div className="space-y-5">
+            {/* Group: Purchase runs */}
+            <section className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
+              <div className="px-5 pt-5 pb-4 border-b border-slate-200 dark:border-slate-800">
+                <h2 className="text-base font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+                  <ShoppingCart className="h-4 w-4 text-slate-500 dark:text-slate-400" />
+                  Purchase runs
+                  <InfoTooltip content="Defaults used when a new shopping list is created, receipts, auto-generation window, lead time.\n\nSaved on this device only." />
+                </h2>
+                <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">Defaults for shopping lists and procurement runs</p>
+              </div>
+              <div className="px-5 py-5 space-y-5">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <Label htmlFor="rrc" className="text-slate-700 dark:text-slate-200">Require receipt to mark a list complete</Label>
+                    <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">Lists cannot be set to completed without a receipt URL</p>
                   </div>
                   <Switch id="rrc" checked={settings.receiptRequiredOnComplete} onCheckedChange={(v) => update("receiptRequiredOnComplete", v)} />
                 </div>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label htmlFor="acu">Auto-create lists from upcoming events</Label>
-                    <p className="text-xs text-slate-500 mt-0.5">Generate a draft shopping list from confirmed orders within the horizon</p>
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <Label htmlFor="acu" className="text-slate-700 dark:text-slate-200">Auto-create lists from upcoming events</Label>
+                    <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">Generate a draft shopping list from confirmed orders within the horizon</p>
                   </div>
                   <Switch id="acu" checked={settings.autoCreateListFromUpcoming} onCheckedChange={(v) => update("autoCreateListFromUpcoming", v)} />
                 </div>
-                <div>
-                  <Label htmlFor="uh">Upcoming events horizon (days)</Label>
-                  <p className="text-xs text-slate-500 mt-0.5 mb-2">How many days ahead to scan for procurement work</p>
+                <div className="pt-1 border-t border-slate-100 dark:border-slate-800">
+                  <Label htmlFor="uh" className="text-slate-700 dark:text-slate-200">Upcoming events horizon (days)</Label>
+                  <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 mb-2">How many days ahead to scan for procurement work</p>
                   <Input id="uh" type="number" min="1" max="60" value={settings.upcomingHorizonDays} onChange={(e) => update("upcomingHorizonDays", Number(e.target.value))} className="w-32" />
                 </div>
                 <div>
-                  <Label htmlFor="lt">Default lead time (days)</Label>
-                  <p className="text-xs text-slate-500 mt-0.5 mb-2">When ordering from a supplier, days needed before delivery</p>
+                  <Label htmlFor="lt" className="text-slate-700 dark:text-slate-200">Default lead time (days)</Label>
+                  <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 mb-2">When ordering from a supplier, days needed before delivery</p>
                   <Input id="lt" type="number" min="0" max="30" value={settings.defaultLeadTimeDays} onChange={(e) => update("defaultLeadTimeDays", Number(e.target.value))} className="w-32" />
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </section>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-amber-600" />Variance + budget <InfoTooltip content="Sets when a shopping run gets flagged as over budget and whether the admin gets a notification.\n\nSaved on this device only." /></CardTitle>
-                <CardDescription>Triggers for price-variance alerts</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
+            {/* Group: Variance + budget */}
+            <section className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
+              <div className="px-5 pt-5 pb-4 border-b border-slate-200 dark:border-slate-800">
+                <h2 className="text-base font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 text-slate-500 dark:text-slate-400" />
+                  Variance + budget
+                  <InfoTooltip content="Sets when a shopping run gets flagged as over budget and whether the admin gets a notification.\n\nSaved on this device only." />
+                </h2>
+                <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">Triggers for price-variance alerts</p>
+              </div>
+              <div className="px-5 py-5 space-y-5">
                 <div>
-                  <Label htmlFor="va">Variance alert threshold (%)</Label>
-                  <p className="text-xs text-slate-500 mt-0.5 mb-2">Alert when actual spend exceeds estimate by this percentage</p>
+                  <Label htmlFor="va" className="text-slate-700 dark:text-slate-200">Variance alert threshold (%)</Label>
+                  <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 mb-2">Alert when actual spend exceeds estimate by this percentage</p>
                   <Input id="va" type="number" min="0" max="100" value={settings.varianceAlertPct} onChange={(e) => update("varianceAlertPct", Number(e.target.value))} className="w-32" />
                 </div>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label htmlFor="nav">Notify admin on variance breach</Label>
-                    <p className="text-xs text-slate-500 mt-0.5">Push alert to company admin when a list goes over the threshold</p>
+                <div className="flex items-start justify-between gap-4 pt-1 border-t border-slate-100 dark:border-slate-800">
+                  <div className="min-w-0">
+                    <Label htmlFor="nav" className="text-slate-700 dark:text-slate-200">Notify admin on variance breach</Label>
+                    <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">Push alert to company admin when a list goes over the threshold</p>
                   </div>
                   <Switch id="nav" checked={settings.notifyAdminOnVariance} onCheckedChange={(v) => update("notifyAdminOnVariance", v)} />
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </section>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base flex items-center gap-2"><Bell className="h-4 w-4 text-blue-600" />Suppliers + alerts <InfoTooltip content="How suppliers get ranked, plus the alert that fires when stock runs low.\n\nSaved on this device only." /></CardTitle>
-                <CardDescription>Supplier preferences and notifications</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label htmlFor="prs">Prefer rated suppliers (rating greater-than-equal-to 4)</Label>
-                    <p className="text-xs text-slate-500 mt-0.5">Recommend high-rated suppliers first when generating lists</p>
+            {/* Group: Suppliers + alerts */}
+            <section className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
+              <div className="px-5 pt-5 pb-4 border-b border-slate-200 dark:border-slate-800">
+                <h2 className="text-base font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+                  <Bell className="h-4 w-4 text-slate-500 dark:text-slate-400" />
+                  Suppliers + alerts
+                  <InfoTooltip content="How suppliers get ranked, plus the alert that fires when stock runs low.\n\nSaved on this device only." />
+                </h2>
+                <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">Supplier preferences and notifications</p>
+              </div>
+              <div className="px-5 py-5 space-y-5">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <Label htmlFor="prs" className="text-slate-700 dark:text-slate-200">Prefer rated suppliers (rating greater-than-equal-to 4)</Label>
+                    <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">Recommend high-rated suppliers first when generating lists</p>
                   </div>
                   <Switch id="prs" checked={settings.preferRatedSuppliers} onCheckedChange={(v) => update("preferRatedSuppliers", v)} />
                 </div>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label htmlFor="anls">Auto-notify on low stock</Label>
-                    <p className="text-xs text-slate-500 mt-0.5">When inventory hits par, push a notification to this team</p>
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <Label htmlFor="anls" className="text-slate-700 dark:text-slate-200">Auto-notify on low stock</Label>
+                    <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">When inventory hits par, push a notification to this team</p>
                   </div>
                   <Switch id="anls" checked={settings.autoNotifyOnLowStock} onCheckedChange={(v) => update("autoNotifyOnLowStock", v)} />
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </section>
 
-            <Card className="bg-slate-50 border-slate-200">
-              <CardContent className="p-4 text-xs text-slate-600">
-                Settings stored locally per company until a per-tenant settings table lands. Toggles persist on this device but won't sync across the team yet, on the running todo for Phase 2.
-              </CardContent>
-            </Card>
+            {/* Storage note: calm, neutral, informational. */}
+            <p className="text-xs leading-relaxed text-slate-600 dark:text-slate-400 px-1">
+              Settings are stored locally per company until a per-tenant settings table lands. Toggles persist on this device but won&apos;t sync across the team yet, on the running todo for Phase 2.
+            </p>
           </div>
         </div>
       </main>

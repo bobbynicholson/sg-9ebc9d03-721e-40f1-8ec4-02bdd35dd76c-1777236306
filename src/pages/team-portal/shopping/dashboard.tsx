@@ -20,7 +20,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import Link from "next/link";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -259,16 +258,16 @@ function ShoppingDashboardInner() {
 
       <DynamicNav userRole={UserRole.SHOPPING_STAFF} />
 
-      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
         <div className="px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8 lg:py-12 max-w-full">
           {/* Header */}
-          <div className="flex items-center gap-2 sm:gap-3 mb-6 sm:mb-8">
-            <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center shadow-lg flex-shrink-0">
-              <ShoppingCart className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-white" />
+          <div className="flex items-center gap-3 mb-6 sm:mb-8">
+            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 flex items-center justify-center flex-shrink-0">
+              <ShoppingCart className="w-5 h-5 text-amber-600" />
             </div>
             <div>
-              <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-slate-900">Shopping Dashboard</h1>
-              <p className="text-xs sm:text-sm md:text-base text-slate-600">
+              <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white">Shopping</h1>
+              <p className="text-sm text-slate-600 dark:text-slate-300">
                 {activeList.list
                   ? "Your active list - tick items as you buy them"
                   : "Open the Buy list to start a new shopping run"}
@@ -280,67 +279,79 @@ function ShoppingDashboardInner() {
 
           {/* Loading + empty states */}
           {activeList.loading ? (
-            <Card className="border-0 shadow-lg">
-              <CardContent className="py-16 text-center text-slate-500">
-                <Loader2 className="w-6 h-6 mx-auto mb-2 animate-spin" />
-                Loading your active list...
-              </CardContent>
-            </Card>
+            // Skeleton over a centre spinner: the page loads straight
+            // into the task shape (hero strip + 4 metric tiles + rows)
+            // so the layout doesn't jump when data arrives.
+            <div className="space-y-6 sm:space-y-8" aria-busy="true" aria-label="Loading your active list">
+              <div className="h-40 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 animate-pulse" />
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 md:gap-4">
+                {[0, 1, 2, 3].map(i => (
+                  <div key={i} className="h-24 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 animate-pulse" />
+                ))}
+              </div>
+              <div className="space-y-2">
+                {[0, 1, 2, 3, 4].map(i => (
+                  <div key={i} className="h-16 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 animate-pulse" />
+                ))}
+              </div>
+            </div>
           ) : !activeList.list ? (
-            <Card className="border-0 shadow-lg">
-              <CardContent className="py-16 text-center">
-                <Sparkles className="w-12 h-12 mx-auto text-slate-300 mb-3" />
-                <h2 className="text-lg font-semibold text-slate-900 mb-1">
+            <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
+              <div className="py-16 px-6 text-center">
+                <div className="w-12 h-12 mx-auto mb-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 flex items-center justify-center">
+                  <Sparkles className="w-6 h-6 text-slate-400 dark:text-slate-500" />
+                </div>
+                <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-1.5">
                   No active shopping list
                 </h2>
-                <p className="text-sm text-slate-600 max-w-md mx-auto mb-5">
+                <p className="text-sm text-slate-600 dark:text-slate-300 max-w-md mx-auto mb-5">
                   Open the Buy list to see what's short and start a new shopping run. Ticks save automatically once a list is going.
                 </p>
                 <Link href={withSlug("/team-portal/shopping/buy-list")}>
-                  <Button className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 gap-1.5">
+                  <Button className="bg-amber-600 hover:bg-amber-700 text-white rounded-lg gap-1.5">
                     <ListChecks className="w-4 h-4" />
                     Open Buy list
                     <ArrowRight className="w-3.5 h-3.5 ml-1" />
                   </Button>
                 </Link>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           ) : (
             <>
               {/* Active list hero */}
-              <Card className="border-0 shadow-lg mb-6 sm:mb-8">
-                <CardHeader className="pb-2 sm:pb-3 px-3 sm:px-6">
-                  <CardTitle className="flex flex-wrap items-center gap-2 text-base sm:text-lg">
-                    <Package className="w-4 h-4 sm:w-5 sm:h-5 text-amber-600" />
+              <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 mb-6 sm:mb-8">
+                <div className="px-4 sm:px-6 pt-4 sm:pt-5 pb-3">
+                  <div className="flex flex-wrap items-center gap-2 text-base sm:text-lg font-semibold text-slate-900 dark:text-white">
+                    <Package className="w-5 h-5 text-amber-600" />
                     <span>{activeList.list.title || "Your shopping list"}</span>
                     <Badge variant="outline" className={yourList
-                      ? "bg-amber-50 text-amber-700 border-amber-200 gap-1"
-                      : "bg-slate-50 text-slate-700 border-slate-200 gap-1"
+                      ? "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-900 gap-1"
+                      : "bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 gap-1"
                     }>
                       {yourList ? <User className="w-3 h-3" /> : <UsersIcon className="w-3 h-3" />}
                       {yourList ? "Your list" : "Team list"}
                     </Badge>
-                    <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 capitalize text-[10px]">
+                    <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-900 capitalize text-[10px]">
                       {activeList.list.status.replace("_", " ")}
                     </Badge>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="px-3 sm:px-6">
-                  <div className="p-3 sm:p-4 bg-gradient-to-r from-amber-50 to-orange-50 rounded-lg">
+                  </div>
+                </div>
+                <div className="px-4 sm:px-6 pb-4 sm:pb-5">
+                  <div className="p-3 sm:p-4 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
                     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-3">
                       <div>
-                        <p className="text-xs sm:text-sm text-slate-600">Items left to buy</p>
-                        <p className="text-2xl sm:text-3xl font-bold text-amber-600 tabular-nums">
+                        <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300">Items left to buy</p>
+                        <p className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white tabular-nums">
                           {remaining.length}
-                          <span className="text-base text-slate-500 font-normal">
+                          <span className="text-base text-slate-500 dark:text-slate-400 font-normal">
                             {" "}of {items.length}
                           </span>
                         </p>
                       </div>
                       {estimatedTotal != null && (
                         <div className="text-left sm:text-right">
-                          <p className="text-xs sm:text-sm text-slate-600">Estimated cost</p>
-                          <p className="text-xl sm:text-2xl font-bold text-slate-900 tabular-nums">
+                          <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300">Estimated cost</p>
+                          <p className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white tabular-nums">
                             {tenantCurrency.format(estimatedTotal, 0)}
                           </p>
                         </div>
@@ -356,7 +367,7 @@ function ShoppingDashboardInner() {
                           {lowStockCount > 0 && (
                             <Badge
                               variant="outline"
-                              className="ml-1 bg-amber-100 text-amber-800 border-amber-300 tabular-nums"
+                              className="ml-1 bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-900 tabular-nums"
                               title={`${lowStockCount} inventory items below minimum stock`}
                             >
                               {lowStockCount} low
@@ -373,7 +384,7 @@ function ShoppingDashboardInner() {
                           {pendingReceiptsCount > 0 && (
                             <Badge
                               variant="outline"
-                              className="ml-1 bg-rose-100 text-rose-800 border-rose-300 tabular-nums"
+                              className="ml-1 bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-950 dark:text-rose-300 dark:border-rose-900 tabular-nums"
                               title={`${pendingReceiptsCount} completed list${pendingReceiptsCount === 1 ? "" : "s"} need a receipt`}
                             >
                               {pendingReceiptsCount} to upload
@@ -401,7 +412,7 @@ function ShoppingDashboardInner() {
                       {remaining.length === 0 && items.length > 0 && (
                         <Button
                           onClick={handleCompleteOpen}
-                          className="flex-1 text-sm sm:text-base h-10 sm:h-11 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 gap-1.5"
+                          className="flex-1 text-sm sm:text-base h-10 sm:h-11 bg-amber-600 hover:bg-amber-700 text-white rounded-lg gap-1.5"
                         >
                           <CheckCircle className="w-4 h-4" />
                           Mark list complete
@@ -409,8 +420,8 @@ function ShoppingDashboardInner() {
                       )}
                     </div>
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+              </div>
 
               {/* Metric cards */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 md:gap-4 mb-4 sm:mb-6 md:mb-8">
@@ -423,21 +434,21 @@ function ShoppingDashboardInner() {
                 />
                 <MetricCard
                   icon={Clock}
-                  iconColor="text-orange-600"
+                  iconColor="text-amber-600"
                   label="Remaining"
                   value={remaining.length}
                   tooltip="Items still to buy. Tick each one off as you grab it - progress is saved to the database so it works across devices."
                 />
                 <MetricCard
                   icon={CheckCircle}
-                  iconColor="text-green-600"
+                  iconColor="text-emerald-600"
                   label="Bought"
                   value={bought.length}
                   tooltip="Items already bought. Tick the box to mark as bought, untick to undo."
                 />
                 <MetricCard
                   icon={AlertCircle}
-                  iconColor="text-amber-600"
+                  iconColor="text-slate-500 dark:text-slate-400"
                   label="List date"
                   value={activeList.list.list_date ? new Date(activeList.list.list_date).getDate() : "--"}
                   tooltip={`List for ${activeList.list.list_date || "(no date)"}.`}
@@ -464,7 +475,7 @@ function ShoppingDashboardInner() {
                     <button
                       type="button"
                       onClick={() => setSearchTerm("")}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 hover:text-slate-700"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100 transition-colors duration-150"
                       aria-label="Clear search"
                     >
                       <span className="text-lg leading-none">×</span>
@@ -494,25 +505,25 @@ function ShoppingDashboardInner() {
               </div>
 
               {/* Shopping list - persisted */}
-              <Card className="border-0 shadow-lg">
-                <CardHeader className="px-3 sm:px-4 md:px-6">
-                  <CardTitle className="text-base sm:text-lg md:text-xl">
+              <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
+                <div className="px-4 sm:px-5 md:px-6 pt-4 sm:pt-5 pb-3">
+                  <h2 className="text-base sm:text-lg font-semibold text-slate-900 dark:text-white">
                     {filter === "pending" ? "Still to buy" : filter === "purchased" ? "Already bought" : "All items"}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="px-3 sm:px-4 md:px-6">
+                  </h2>
+                </div>
+                <div className="px-4 sm:px-5 md:px-6 pb-4 sm:pb-5">
                   <div className="space-y-2 sm:space-y-3">
                     {filteredItems.length === 0 ? (
-                      <div className="text-center py-8 px-4">
-                        <p className="text-sm sm:text-base font-medium text-slate-700">
+                      <div className="text-center py-10 px-4">
+                        <p className="text-sm sm:text-base font-medium text-slate-700 dark:text-slate-200">
                           {filter === "pending"
                             ? items.length > 0 ? "All ticked off. Nice work." : "Nothing on the list yet."
                             : filter === "purchased" ? "Nothing bought yet."
                             : "No items on the list."}
                         </p>
                         {items.length === 0 && (
-                          <p className="text-xs text-slate-500 mt-2 max-w-md mx-auto">
-                            Head to the <Link href={withSlug("/team-portal/shopping/buy-list")} className="text-amber-700 underline">Buy list</Link> to add items based on the next 7 days of demand.
+                          <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 mt-2 max-w-md mx-auto">
+                            Head to the <Link href={withSlug("/team-portal/shopping/buy-list")} className="text-amber-700 dark:text-amber-400 underline underline-offset-2">Buy list</Link> to add items based on the next 7 days of demand.
                           </p>
                         )}
                       </div>
@@ -525,11 +536,15 @@ function ShoppingDashboardInner() {
                         const pendingCount = group.items.filter(i => !i.purchased).length;
                         return (
                           <div key={group.id ?? "__other__"} className="mb-3">
-                            <div className="flex items-center justify-between gap-2 px-2 py-2 mb-2 rounded-md bg-slate-100 border border-slate-200">
-                              <p className="text-xs sm:text-sm font-semibold text-slate-700 uppercase tracking-wide">
+                            <div className="flex items-center justify-between gap-2 px-3 py-2 mb-2 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+                              <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">
                                 {group.name}
                               </p>
-                              <Badge variant="outline" className="text-[10px] tabular-nums bg-white">
+                              <Badge variant="outline" className={`text-[10px] tabular-nums ${
+                                pendingCount > 0
+                                  ? "bg-white text-slate-700 border-slate-200 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-700"
+                                  : "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-900"
+                              }`}>
                                 {pendingCount > 0
                                   ? `${pendingCount} of ${group.items.length} to buy`
                                   : `${group.items.length} done`}
@@ -553,10 +568,10 @@ function ShoppingDashboardInner() {
                                       handleToggle(item.id, item.purchased);
                                     }
                                   }}
-                                  className={`flex items-center gap-3 p-3 sm:p-4 rounded-lg border-2 transition-colors cursor-pointer select-none min-h-11 ${
+                                  className={`flex items-center gap-3 p-3 sm:p-4 rounded-lg border transition-colors duration-150 cursor-pointer select-none min-h-11 ${
                                     item.purchased
-                                      ? "bg-green-50 border-green-200"
-                                      : "bg-white border-slate-200 hover:border-amber-300 active:bg-amber-50"
+                                      ? "bg-emerald-50 border-emerald-200 dark:bg-emerald-950/40 dark:border-emerald-900"
+                                      : "bg-white border-slate-200 hover:border-amber-400 active:bg-amber-50 dark:bg-slate-900 dark:border-slate-700 dark:hover:border-amber-600 dark:active:bg-amber-950/40"
                                   }`}
                                   aria-pressed={item.purchased}
                                   aria-label={`Mark ${item.name} as ${item.purchased ? "not bought" : "bought"}`}
@@ -571,7 +586,7 @@ function ShoppingDashboardInner() {
                                   <div className="flex-1 min-w-0">
                                     <div className="flex flex-wrap items-center gap-2 mb-1">
                                       <h4 className={`font-semibold text-sm sm:text-base ${
-                                        item.purchased ? "line-through text-slate-500" : "text-slate-900"
+                                        item.purchased ? "line-through text-slate-500 dark:text-slate-400" : "text-slate-900 dark:text-white"
                                       }`}>
                                         {item.name}
                                       </h4>
@@ -583,7 +598,7 @@ function ShoppingDashboardInner() {
                                         <Badge
                                           key={`oos-${item.id}-${s}`}
                                           variant="outline"
-                                          className="text-[10px] bg-rose-50 text-rose-700 border-rose-300"
+                                          className="text-[10px] bg-rose-50 text-rose-700 border-rose-300 dark:bg-rose-950 dark:text-rose-300 dark:border-rose-900"
                                         >
                                           Not at {s}
                                         </Badge>
@@ -592,7 +607,7 @@ function ShoppingDashboardInner() {
                                     {(() => {
                                       const cleanNotes = stripOosTags(item.notes);
                                       return cleanNotes ? (
-                                        <p className="text-xs sm:text-sm text-slate-600 italic truncate">
+                                        <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 italic truncate">
                                           {cleanNotes}
                                         </p>
                                       ) : null;
@@ -622,7 +637,7 @@ function ShoppingDashboardInner() {
                                             type="button"
                                             onClick={(e) => handleClaim(e, item.id, true)}
                                             onKeyDown={(e) => { if (e.key === " " || e.key === "Enter") handleClaim(e, item.id, true); }}
-                                            className="text-[10px] font-semibold uppercase tracking-wide px-2 py-1 rounded border min-h-9 transition-colors flex-shrink-0 bg-slate-100 text-slate-600 border-slate-300 hover:bg-cyan-50 hover:text-cyan-700 hover:border-cyan-200"
+                                            className="text-[10px] font-semibold uppercase tracking-wide px-2 py-1 rounded border min-h-9 transition-colors duration-150 flex-shrink-0 bg-slate-100 text-slate-600 border-slate-300 hover:bg-cyan-50 hover:text-cyan-700 hover:border-cyan-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-600 dark:hover:bg-cyan-950 dark:hover:text-cyan-300 dark:hover:border-cyan-800"
                                             title="Claim this line - shows your teammates you're on it"
                                           >Claim</button>
                                         );
@@ -633,7 +648,7 @@ function ShoppingDashboardInner() {
                                             type="button"
                                             onClick={(e) => handleClaim(e, item.id, false)}
                                             onKeyDown={(e) => { if (e.key === " " || e.key === "Enter") handleClaim(e, item.id, false); }}
-                                            className="text-[10px] font-semibold uppercase tracking-wide px-2 py-1 rounded border min-h-9 transition-colors flex-shrink-0 bg-cyan-100 text-cyan-800 border-cyan-300 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200"
+                                            className="text-[10px] font-semibold uppercase tracking-wide px-2 py-1 rounded border min-h-9 transition-colors duration-150 flex-shrink-0 bg-cyan-100 text-cyan-800 border-cyan-300 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-300 dark:bg-cyan-950 dark:text-cyan-300 dark:border-cyan-800 dark:hover:bg-rose-950 dark:hover:text-rose-300 dark:hover:border-rose-900"
                                             title="You claimed this. Tap to release."
                                           >You</button>
                                         );
@@ -641,7 +656,7 @@ function ShoppingDashboardInner() {
                                       return (
                                         <Badge
                                           variant="outline"
-                                          className="text-[10px] font-semibold uppercase tracking-wide px-2 py-1 rounded border bg-amber-50 text-amber-800 border-amber-300 flex-shrink-0"
+                                          className="text-[10px] font-semibold uppercase tracking-wide px-2 py-1 rounded border bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-900 flex-shrink-0"
                                           title={`Claimed by ${aName ?? "teammate"}`}
                                         >{aName ?? "Teammate"}</Badge>
                                       );
@@ -654,10 +669,10 @@ function ShoppingDashboardInner() {
                                       onKeyDown={(e) => {
                                         if (e.key === " " || e.key === "Enter") handleFlagOOS(e, item.id, item.supplier_name);
                                       }}
-                                      className={`text-[10px] font-semibold uppercase tracking-wide px-2 py-1 rounded border min-h-9 transition-colors flex-shrink-0 ${
+                                      className={`text-[10px] font-semibold uppercase tracking-wide px-2 py-1 rounded border min-h-9 transition-colors duration-150 flex-shrink-0 ${
                                         readOosSuppliers(item.notes).includes(item.supplier_name ?? "Unknown")
-                                          ? "bg-rose-100 text-rose-800 border-rose-300"
-                                          : "bg-slate-100 text-slate-600 border-slate-300 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200"
+                                          ? "bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-950 dark:text-rose-300 dark:border-rose-900"
+                                          : "bg-slate-100 text-slate-600 border-slate-300 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-600 dark:hover:bg-rose-950 dark:hover:text-rose-300 dark:hover:border-rose-900"
                                       }`}
                                       title="Mark as out of stock at this supplier"
                                     >
@@ -665,9 +680,9 @@ function ShoppingDashboardInner() {
                                     </button>
                                   )}
                                   {item.purchased ? (
-                                    <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
+                                    <CheckCircle className="w-5 h-5 text-emerald-600 dark:text-emerald-500 flex-shrink-0" />
                                   ) : (
-                                    <Clock className="w-5 h-5 text-orange-600 flex-shrink-0" />
+                                    <Clock className="w-5 h-5 text-amber-600 dark:text-amber-500 flex-shrink-0" />
                                   )}
                                 </div>
                               ))}
@@ -688,10 +703,10 @@ function ShoppingDashboardInner() {
                               handleToggle(item.id, item.purchased);
                             }
                           }}
-                          className={`flex items-center gap-3 p-3 sm:p-4 rounded-lg border-2 transition-colors cursor-pointer select-none min-h-11 ${
+                          className={`flex items-center gap-3 p-3 sm:p-4 rounded-lg border transition-colors duration-150 cursor-pointer select-none min-h-11 ${
                             item.purchased
-                              ? "bg-green-50 border-green-200"
-                              : "bg-white border-slate-200 hover:border-amber-300 active:bg-amber-50"
+                              ? "bg-emerald-50 border-emerald-200 dark:bg-emerald-950/40 dark:border-emerald-900"
+                              : "bg-white border-slate-200 hover:border-amber-400 active:bg-amber-50 dark:bg-slate-900 dark:border-slate-700 dark:hover:border-amber-600 dark:active:bg-amber-950/40"
                           }`}
                           aria-pressed={item.purchased}
                           aria-label={`Mark ${item.name} as ${item.purchased ? "not bought" : "bought"}`}
@@ -706,7 +721,7 @@ function ShoppingDashboardInner() {
                           <div className="flex-1 min-w-0">
                             <div className="flex flex-wrap items-center gap-2 mb-1">
                               <h4 className={`font-semibold text-sm sm:text-base ${
-                                item.purchased ? "line-through text-slate-500" : "text-slate-900"
+                                item.purchased ? "line-through text-slate-500 dark:text-slate-400" : "text-slate-900 dark:text-white"
                               }`}>
                                 {item.name}
                               </h4>
@@ -717,7 +732,7 @@ function ShoppingDashboardInner() {
                             {(() => {
                               const cleanNotes = stripOosTags(item.notes);
                               return cleanNotes ? (
-                                <p className="text-xs sm:text-sm text-slate-600 italic truncate">
+                                <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 italic truncate">
                                   {cleanNotes}
                                 </p>
                               ) : null;
@@ -735,7 +750,7 @@ function ShoppingDashboardInner() {
                                     type="button"
                                     onClick={(e) => handleClaim(e, item.id, true)}
                                     onKeyDown={(e) => { if (e.key === " " || e.key === "Enter") handleClaim(e, item.id, true); }}
-                                    className="text-[10px] font-semibold uppercase tracking-wide px-2 py-1 rounded border min-h-9 transition-colors flex-shrink-0 bg-slate-100 text-slate-600 border-slate-300 hover:bg-cyan-50 hover:text-cyan-700 hover:border-cyan-200"
+                                    className="text-[10px] font-semibold uppercase tracking-wide px-2 py-1 rounded border min-h-9 transition-colors duration-150 flex-shrink-0 bg-slate-100 text-slate-600 border-slate-300 hover:bg-cyan-50 hover:text-cyan-700 hover:border-cyan-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-600 dark:hover:bg-cyan-950 dark:hover:text-cyan-300 dark:hover:border-cyan-800"
                                     title="Claim this line - shows your teammates you're on it"
                                   >Claim</button>
                                 );
@@ -746,7 +761,7 @@ function ShoppingDashboardInner() {
                                     type="button"
                                     onClick={(e) => handleClaim(e, item.id, false)}
                                     onKeyDown={(e) => { if (e.key === " " || e.key === "Enter") handleClaim(e, item.id, false); }}
-                                    className="text-[10px] font-semibold uppercase tracking-wide px-2 py-1 rounded border min-h-9 transition-colors flex-shrink-0 bg-cyan-100 text-cyan-800 border-cyan-300 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200"
+                                    className="text-[10px] font-semibold uppercase tracking-wide px-2 py-1 rounded border min-h-9 transition-colors duration-150 flex-shrink-0 bg-cyan-100 text-cyan-800 border-cyan-300 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-300 dark:bg-cyan-950 dark:text-cyan-300 dark:border-cyan-800 dark:hover:bg-rose-950 dark:hover:text-rose-300 dark:hover:border-rose-900"
                                     title="You claimed this. Tap to release."
                                   >You</button>
                                 );
@@ -754,7 +769,7 @@ function ShoppingDashboardInner() {
                               return (
                                 <Badge
                                   variant="outline"
-                                  className="text-[10px] font-semibold uppercase tracking-wide px-2 py-1 rounded border bg-amber-50 text-amber-800 border-amber-300 flex-shrink-0"
+                                  className="text-[10px] font-semibold uppercase tracking-wide px-2 py-1 rounded border bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-900 flex-shrink-0"
                                   title={`Claimed by ${aName ?? "teammate"}`}
                                 >{aName ?? "Teammate"}</Badge>
                               );
@@ -767,10 +782,10 @@ function ShoppingDashboardInner() {
                               onKeyDown={(e) => {
                                 if (e.key === " " || e.key === "Enter") handleFlagOOS(e, item.id, item.supplier_name);
                               }}
-                              className={`text-[10px] font-semibold uppercase tracking-wide px-2 py-1 rounded border min-h-9 transition-colors flex-shrink-0 ${
+                              className={`text-[10px] font-semibold uppercase tracking-wide px-2 py-1 rounded border min-h-9 transition-colors duration-150 flex-shrink-0 ${
                                 readOosSuppliers(item.notes).includes(item.supplier_name ?? "Unknown")
-                                  ? "bg-rose-100 text-rose-800 border-rose-300"
-                                  : "bg-slate-100 text-slate-600 border-slate-300 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200"
+                                  ? "bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-950 dark:text-rose-300 dark:border-rose-900"
+                                  : "bg-slate-100 text-slate-600 border-slate-300 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-600 dark:hover:bg-rose-950 dark:hover:text-rose-300 dark:hover:border-rose-900"
                               }`}
                               title="Mark as out of stock at this supplier"
                             >
@@ -778,19 +793,19 @@ function ShoppingDashboardInner() {
                             </button>
                           )}
                           {item.purchased ? (
-                            <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
+                            <CheckCircle className="w-5 h-5 text-emerald-600 dark:text-emerald-500 flex-shrink-0" />
                           ) : (
-                            <Clock className="w-5 h-5 text-orange-600 flex-shrink-0" />
+                            <Clock className="w-5 h-5 text-amber-600 dark:text-amber-500 flex-shrink-0" />
                           )}
                         </div>
                       ))
                     )}
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+              </div>
 
               {activeList.error && (
-                <p className="text-xs text-rose-600 mt-3 text-center">
+                <p className="text-xs text-rose-600 dark:text-rose-400 mt-3 text-center">
                   {activeList.error}
                 </p>
               )}
@@ -831,7 +846,7 @@ function ShoppingDashboardInner() {
             <Button
               onClick={handleCompleteConfirm}
               disabled={completing}
-              className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600"
+              className="bg-amber-600 hover:bg-amber-700 text-white rounded-lg"
             >
               {completing ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Saving</> : "Mark complete"}
             </Button>

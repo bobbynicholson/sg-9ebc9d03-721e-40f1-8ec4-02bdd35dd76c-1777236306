@@ -44,7 +44,7 @@ export default function ShoppingReceipts() {
 
       <DynamicNav userRole={UserRole.SHOPPING_STAFF} />
 
-      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
         <div className="px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8 lg:py-12 max-w-full">
 
           <div className="mb-4">
@@ -55,16 +55,16 @@ export default function ShoppingReceipts() {
             </Link>
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-3 mb-6 sm:mb-8">
-            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center shadow-lg flex-shrink-0">
-              <Camera className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+          <div className="flex items-center gap-3 mb-6 sm:mb-8">
+            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-amber-600 flex items-center justify-center shadow-sm flex-shrink-0">
+              <Camera className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-slate-900 flex items-center gap-2">
+              <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-50 flex items-center gap-2">
                 Receipt scanner
                 <InfoTooltip content={"Photograph supplier slips as they come in. We pull the supplier, line items and totals so cost prices on inventory stay current without anyone retyping them.\n\nUp to 20 photos in one batch. JPG, PNG and WebP, 8 MB per image."} />
               </h1>
-              <p className="text-xs sm:text-sm md:text-base text-slate-600">
+              <p className="text-sm text-slate-600 dark:text-slate-400">
                 Snap up to {MAX_FILES} supplier slips. The model extracts supplier, date, line items and cost prices.
               </p>
             </div>

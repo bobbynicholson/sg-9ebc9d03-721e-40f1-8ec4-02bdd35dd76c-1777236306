@@ -114,11 +114,21 @@ export function ReceiptScanner({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [companyId, jobId]);
 
-  const accentText = accent === "amber" ? "text-amber-700" : accent === "emerald" ? "text-emerald-600" : "text-purple-600";
-  const accentBorder = accent === "amber" ? "border-amber-300 hover:border-amber-500 hover:bg-amber-50" : accent === "emerald" ? "border-emerald-300 hover:border-emerald-500 hover:bg-emerald-50" : "border-purple-300 hover:border-purple-500 hover:bg-purple-50";
-  const accentIcon = accent === "amber" ? "text-amber-400" : accent === "emerald" ? "text-emerald-400" : "text-purple-400";
+  // Accent maps. Amber is the shopping portal's primary-action colour; it
+  // uses a solid fill (no gradient) so the scan/upload action reads as the
+  // one true CTA on the surface. Other branches keep their prior treatment.
+  const accentText = accent === "amber" ? "text-amber-700 dark:text-amber-400" : accent === "emerald" ? "text-emerald-600" : "text-purple-600";
+  // Dropzone is a standard affordance: a quiet neutral dashed border at rest
+  // that warms to the accent only on hover, so amber stays reserved for the
+  // active CTA rather than decorating the idle drop target.
+  const accentBorder = accent === "amber"
+    ? "border-slate-300 dark:border-slate-700 hover:border-amber-500 hover:bg-amber-50 dark:hover:border-amber-500/60 dark:hover:bg-amber-500/10"
+    : accent === "emerald"
+    ? "border-emerald-300 hover:border-emerald-500 hover:bg-emerald-50"
+    : "border-purple-300 hover:border-purple-500 hover:bg-purple-50";
+  const accentIcon = accent === "amber" ? "text-slate-400 dark:text-slate-500" : accent === "emerald" ? "text-emerald-400" : "text-purple-400";
   const accentBtn = accent === "amber"
-    ? "bg-gradient-to-r from-amber-500 to-orange-500"
+    ? "bg-amber-600 hover:bg-amber-700 text-white rounded-lg"
     : accent === "emerald"
     ? "bg-gradient-to-r from-emerald-600 to-teal-600"
     : "bg-gradient-to-r from-purple-600 to-pink-600";
@@ -233,14 +243,14 @@ export function ReceiptScanner({
   return (
     <>
       {/* Upload card */}
-      <Card className="border-0 shadow-lg mb-6">
+      <Card className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm mb-6">
         <CardHeader className="pb-2">
-          <CardTitle className="text-base flex items-center gap-2">
+          <CardTitle className="text-base flex items-center gap-2 text-slate-900 dark:text-slate-50">
             <Upload className={`w-4 h-4 ${accentText}`} />
             Upload receipts
             <InfoTooltip content={"Pick up to 20 receipt photos at once. The clearer the photo (whole slip in frame, decent light), the cleaner the extraction.\n\nWe also handle phone screenshots of supplier emails and PDF receipts you've saved as JPG."} />
           </CardTitle>
-          <CardDescription>
+          <CardDescription className="text-slate-600 dark:text-slate-400">
             JPG, PNG or WebP. 8 MB per image, {MAX_FILES} max per batch. Crisp lighting and the whole slip in frame work best.
           </CardDescription>
         </CardHeader>
@@ -254,16 +264,20 @@ export function ReceiptScanner({
             onChange={(e) => onPickFiles(e.target.files)}
           />
           <div
+            role="button"
+            tabIndex={0}
+            aria-label="Pick receipt files, or drop them here"
             onClick={() => inputRef.current?.click()}
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); inputRef.current?.click(); } }}
             onDragOver={(e) => { e.preventDefault(); }}
             onDrop={(e) => { e.preventDefault(); onPickFiles(e.dataTransfer.files); }}
-            className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition ${accentBorder}`}
+            className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-[border-color,background-color] duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/60 ${accentBorder}`}
           >
             <FileImage className={`w-10 h-10 mx-auto mb-2 ${accentIcon}`} />
-            <p className="text-sm font-medium text-slate-700">
+            <p className="text-sm font-medium text-slate-700 dark:text-slate-200">
               Click to pick files, or drop them here
             </p>
-            <p className="text-[11px] text-slate-500 mt-1">
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
               {picked.length} of {MAX_FILES} selected
             </p>
           </div>
@@ -304,42 +318,67 @@ export function ReceiptScanner({
                 Clear all
               </Button>
             )}
-            <p className="text-[11px] text-slate-500 ml-2">
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 ml-2">
               {quota
-                ? <>Sequential extraction, ~3 s per slip. <strong className={quota.exceeded ? "text-rose-700" : quota.remaining <= 5 ? "text-amber-700" : "text-slate-700"}>{quota.used} of {quota.limit}</strong> scans used this month.</>
+                ? <>Sequential extraction, ~3 s per slip. <strong className={quota.exceeded ? "text-rose-700 dark:text-rose-400" : quota.remaining <= 5 ? "text-amber-700 dark:text-amber-400" : "text-slate-700 dark:text-slate-300"}>{quota.used} of {quota.limit}</strong> scans used this month.</>
                 : <>Sequential extraction, around 3 s per slip. Capped at 60 scans / month.</>}
             </p>
           </div>
         </CardContent>
       </Card>
 
+      {/* Loading skeletons - while a scan is in flight, mirror the shape of
+          the result cards so the layout doesn't jump and the user can see
+          work is happening (skeletons over a mid-content spinner). */}
+      {busy && rows.length === 0 && (
+        <div className="space-y-3 mb-4" aria-hidden="true">
+          {Array.from({ length: Math.min(picked.length || 1, 3) }).map((_, i) => (
+            <Card key={i} className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm">
+              <CardContent className="p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 space-y-2">
+                    <div className="h-4 w-40 rounded bg-slate-200 dark:bg-slate-700 motion-safe:animate-pulse" />
+                    <div className="h-3 w-56 rounded bg-slate-100 dark:bg-slate-800 motion-safe:animate-pulse" />
+                  </div>
+                  <div className="h-6 w-20 rounded bg-slate-200 dark:bg-slate-700 motion-safe:animate-pulse" />
+                </div>
+                <div className="mt-3 space-y-1.5">
+                  <div className="h-3 w-full rounded bg-slate-100 dark:bg-slate-800 motion-safe:animate-pulse" />
+                  <div className="h-3 w-5/6 rounded bg-slate-100 dark:bg-slate-800 motion-safe:animate-pulse" />
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
       {/* Persistent scan outcome - stays on screen until the next scan
           so the user always knows the result (toasts auto-dismiss). */}
       {scanStatus && (
         <Card
-          className={`border mb-4 ${
+          className={`border rounded-xl mb-4 ${
             scanStatus.kind === "success"
-              ? "border-emerald-200 bg-emerald-50"
+              ? "border-emerald-200 bg-emerald-50 dark:border-emerald-500/30 dark:bg-emerald-500/10"
               : scanStatus.kind === "empty"
-                ? "border-amber-200 bg-amber-50"
-                : "border-rose-200 bg-rose-50"
+                ? "border-amber-200 bg-amber-50 dark:border-amber-500/30 dark:bg-amber-500/10"
+                : "border-rose-200 bg-rose-50 dark:border-rose-500/30 dark:bg-rose-500/10"
           }`}
         >
           <CardContent className="p-4 flex items-start gap-2 text-sm">
             {scanStatus.kind === "success" ? (
-              <CheckCircle2 className="w-4 h-4 text-emerald-600 mt-0.5 flex-shrink-0" />
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 mt-0.5 flex-shrink-0" />
             ) : (
               <AlertTriangle
-                className={`w-4 h-4 mt-0.5 flex-shrink-0 ${scanStatus.kind === "empty" ? "text-amber-600" : "text-rose-600"}`}
+                className={`w-4 h-4 mt-0.5 flex-shrink-0 ${scanStatus.kind === "empty" ? "text-amber-600 dark:text-amber-400" : "text-rose-600 dark:text-rose-400"}`}
               />
             )}
             <span
               className={
                 scanStatus.kind === "success"
-                  ? "text-emerald-800"
+                  ? "text-emerald-800 dark:text-emerald-200"
                   : scanStatus.kind === "empty"
-                    ? "text-amber-800"
-                    : "text-rose-800"
+                    ? "text-amber-800 dark:text-amber-200"
+                    : "text-rose-800 dark:text-rose-200"
               }
             >
               {scanStatus.message}
@@ -348,27 +387,46 @@ export function ReceiptScanner({
         </Card>
       )}
 
+      {/* Teaching empty state - first run, nothing picked, nothing scanned.
+          Explains what the screen does rather than showing a bare surface. */}
+      {!busy && rows.length === 0 && !scanStatus && picked.length === 0 && (
+        <Card className="rounded-xl border border-dashed border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
+          <CardContent className="p-6 sm:p-8 text-center">
+            <div className="w-11 h-11 mx-auto mb-3 rounded-xl bg-amber-50 dark:bg-amber-500/10 flex items-center justify-center">
+              <FileImage className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+            </div>
+            <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+              No receipts scanned yet
+            </h3>
+            <p className="mt-1 text-sm text-slate-600 dark:text-slate-400 max-w-md mx-auto">
+              Pick or drop a supplier slip above and tap Scan. We read the supplier, date,
+              line items and totals, then you reconcile each one to update cost prices on inventory.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Per-receipt extraction results */}
       {stats && (
-        <Card className="border-0 shadow-md mb-4">
+        <Card className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm mb-4">
           <CardContent className="p-4 flex flex-wrap items-center gap-4 text-sm">
-            <span className="inline-flex items-center gap-1 text-emerald-700">
+            <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-400">
               <CheckCircle2 className="w-4 h-4" />
               <strong>{stats.okCount}</strong> read
             </span>
             {stats.errCount > 0 && (
-              <span className="inline-flex items-center gap-1 text-rose-600">
+              <span className="inline-flex items-center gap-1 text-rose-600 dark:text-rose-400">
                 <AlertTriangle className="w-4 h-4" />
                 <strong>{stats.errCount}</strong> failed
               </span>
             )}
-            <span className="text-slate-600">
-              <strong className="text-slate-900">{stats.suppliers}</strong> supplier{stats.suppliers === 1 ? "" : "s"}
+            <span className="text-slate-600 dark:text-slate-400">
+              <strong className="text-slate-900 dark:text-slate-100">{stats.suppliers}</strong> supplier{stats.suppliers === 1 ? "" : "s"}
             </span>
-            <span className="text-slate-600">
-              <strong className="text-slate-900">{stats.lineCount}</strong> line item{stats.lineCount === 1 ? "" : "s"}
+            <span className="text-slate-600 dark:text-slate-400">
+              <strong className="text-slate-900 dark:text-slate-100">{stats.lineCount}</strong> line item{stats.lineCount === 1 ? "" : "s"}
             </span>
-            <span className="ml-auto text-slate-700">
+            <span className="ml-auto text-slate-700 dark:text-slate-300">
               Combined slip total: <strong>{fmtR(stats.total)}</strong>
             </span>
           </CardContent>
@@ -383,24 +441,31 @@ export function ReceiptScanner({
             const warnings = r.preview_warnings || m.warnings || [];
             const lines: any[] = Array.isArray(m.line_items) ? m.line_items : [];
             return (
-              <Card key={r.id} className={hasError ? "border-rose-200" : "border-0 shadow-md"}>
+              <Card
+                key={r.id}
+                className={`rounded-xl shadow-sm bg-white dark:bg-slate-900 ${
+                  hasError
+                    ? "border border-rose-200 dark:border-rose-500/30"
+                    : "border border-slate-200 dark:border-slate-700"
+                }`}
+              >
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between flex-wrap gap-2 mb-2">
                     <div>
                       <div className="flex items-center gap-2 flex-wrap mb-1">
-                        <span className="text-xs text-slate-500 font-mono">#{idx + 1}</span>
-                        <h3 className="text-base font-semibold text-slate-900">
+                        <span className="text-xs text-slate-500 dark:text-slate-400 font-mono">#{idx + 1}</span>
+                        <h3 className="text-base font-semibold text-slate-900 dark:text-slate-50">
                           {hasError ? "Read failed" : (m.supplier_name || "(supplier unclear)")}
                         </h3>
                         {hasError ? (
-                          <Badge className="bg-rose-100 text-rose-700 border-rose-200 border">Error</Badge>
+                          <Badge className="bg-rose-100 text-rose-700 border-rose-200 border dark:bg-rose-500/15 dark:text-rose-300 dark:border-rose-500/30">Error</Badge>
                         ) : (warnings.length > 0 ? (
-                          <Badge className="bg-amber-100 text-amber-800 border-amber-200 border">Review</Badge>
+                          <Badge className="bg-amber-100 text-amber-800 border-amber-200 border dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30">Review</Badge>
                         ) : (
-                          <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 border">Clean</Badge>
+                          <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 border dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30">Clean</Badge>
                         ))}
                       </div>
-                      <p className="text-xs text-slate-500 flex flex-wrap items-center gap-x-3 gap-y-0.5">
+                      <p className="text-xs text-slate-500 dark:text-slate-400 flex flex-wrap items-center gap-x-3 gap-y-0.5">
                         <span className="inline-flex items-center gap-1">
                           <FileImage className="w-3 h-3" />
                           {r.source_data?.filename || "(no name)"}
@@ -418,17 +483,17 @@ export function ReceiptScanner({
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className="text-[10px] uppercase tracking-wide text-slate-500">Total</p>
-                      <p className="text-xl font-bold text-emerald-600">{fmtR(m.total)}</p>
+                      <p className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-slate-400">Total</p>
+                      <p className="text-xl font-bold text-slate-900 dark:text-slate-50">{fmtR(m.total)}</p>
                       {!hasError && (
                         savedRowIds.has(r.id) ? (
-                          <Badge className="mt-1 bg-emerald-100 text-emerald-700 border-emerald-200 border">
+                          <Badge className="mt-1 bg-emerald-100 text-emerald-700 border-emerald-200 border dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30">
                             <CheckCircle2 className="w-3 h-3 mr-1" /> Saved
                           </Badge>
                         ) : (
                           <Button
                             size="sm"
-                            className="mt-1 bg-gradient-to-r from-purple-600 to-pink-600"
+                            className="mt-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg"
                             onClick={() => setReconcileRow(r)}
                           >
                             <ListChecks className="w-3.5 h-3.5 mr-1.5" />
@@ -440,11 +505,11 @@ export function ReceiptScanner({
                   </div>
 
                   {hasError ? (
-                    <p className="text-sm text-rose-600">{r.error_message}</p>
+                    <p className="text-sm text-rose-600 dark:text-rose-400">{r.error_message}</p>
                   ) : (
                     <>
                       {warnings.length > 0 && (
-                        <div className="rounded bg-amber-50 border border-amber-200 px-3 py-2 mb-2 text-xs text-amber-800">
+                        <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 mb-2 text-xs text-amber-800 dark:bg-amber-500/10 dark:border-amber-500/30 dark:text-amber-200">
                           {warnings.map((w: string, i: number) => (
                             <div key={i} className="flex items-start gap-1.5">
                               <AlertTriangle className="w-3 h-3 mt-0.5 flex-shrink-0" />
@@ -454,25 +519,25 @@ export function ReceiptScanner({
                         </div>
                       )}
                       {lines.length > 0 && (
-                        <div className="rounded-lg border border-slate-200 overflow-hidden">
+                        <div className="rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
                           <table className="w-full text-sm">
-                            <thead className="bg-slate-50 text-[10px] uppercase tracking-wide text-slate-500 text-left">
+                            <thead className="bg-slate-50 dark:bg-slate-800 text-[10px] uppercase tracking-wide text-slate-500 dark:text-slate-400 text-left">
                               <tr>
-                                <th className="py-1.5 px-3">Item</th>
-                                <th className="py-1.5 px-3">Qty</th>
-                                <th className="py-1.5 px-3">Unit price</th>
-                                <th className="py-1.5 px-3 text-right">Line total</th>
+                                <th className="py-1.5 px-3 font-medium">Item</th>
+                                <th className="py-1.5 px-3 font-medium">Qty</th>
+                                <th className="py-1.5 px-3 font-medium">Unit price</th>
+                                <th className="py-1.5 px-3 font-medium text-right">Line total</th>
                               </tr>
                             </thead>
                             <tbody>
                               {lines.map((li, i) => (
-                                <tr key={i} className="border-t border-slate-100">
-                                  <td className="py-1.5 px-3 text-slate-900">{li.description}</td>
-                                  <td className="py-1.5 px-3 text-slate-600">
+                                <tr key={i} className="border-t border-slate-100 dark:border-slate-800">
+                                  <td className="py-1.5 px-3 text-slate-900 dark:text-slate-100">{li.description}</td>
+                                  <td className="py-1.5 px-3 text-slate-600 dark:text-slate-400">
                                     {li.quantity ?? "-"}{li.unit ? ` ${li.unit}` : ""}
                                   </td>
-                                  <td className="py-1.5 px-3 text-slate-600">{fmtR(li.unit_price)}</td>
-                                  <td className="py-1.5 px-3 text-right font-medium text-slate-900">
+                                  <td className="py-1.5 px-3 text-slate-600 dark:text-slate-400">{fmtR(li.unit_price)}</td>
+                                  <td className="py-1.5 px-3 text-right font-medium text-slate-900 dark:text-slate-100">
                                     {fmtR(li.line_total)}
                                   </td>
                                 </tr>
@@ -482,7 +547,7 @@ export function ReceiptScanner({
                         </div>
                       )}
                       {(m.subtotal || m.vat) && (
-                        <div className="text-[11px] text-slate-500 mt-1.5 flex flex-wrap gap-3">
+                        <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1.5 flex flex-wrap gap-3">
                           {m.subtotal != null && <span>Subtotal {fmtR(m.subtotal)}</span>}
                           {m.vat != null && <span>VAT {fmtR(m.vat)}</span>}
                         </div>
@@ -495,11 +560,11 @@ export function ReceiptScanner({
           })}
 
           {jobId && historyHref && (
-            <p className="text-[11px] text-slate-500 text-center pt-2">
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 text-center pt-2">
               Job ID <code className="font-mono">{jobId}</code>, visible on{" "}
               <Link
                 href={historyHref}
-                className="underline hover:text-slate-700"
+                className="underline hover:text-slate-700 dark:hover:text-slate-200"
               >
                 imports history
               </Link>{" "}
@@ -539,7 +604,7 @@ function ReceiptThumb({
     return () => URL.revokeObjectURL(u);
   }, [file]);
   return (
-    <div className="relative rounded-lg overflow-hidden border border-slate-200 bg-slate-50 aspect-[3/4]">
+    <div className="relative rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 aspect-[3/4]">
       {url && (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={url} alt={file.name} className="w-full h-full object-cover" />
@@ -548,7 +613,8 @@ function ReceiptThumb({
         type="button"
         onClick={onRemove}
         disabled={disabled}
-        className="absolute top-1 right-1 rounded-md bg-white/95 hover:bg-white shadow text-xs px-1.5 py-0.5 text-slate-700 inline-flex items-center gap-1 disabled:opacity-50"
+        aria-label={`Remove ${file.name}`}
+        className="absolute top-1 right-1 rounded-md bg-white/95 hover:bg-white dark:bg-slate-900/90 dark:hover:bg-slate-900 shadow text-xs px-1.5 py-0.5 text-slate-700 dark:text-slate-200 inline-flex items-center gap-1 transition-[transform,background-color] duration-150 ease-out active:scale-[0.92] motion-reduce:transition-none motion-reduce:active:scale-100 disabled:opacity-50 disabled:active:scale-100"
         title="Remove"
       >
         <X className="w-3 h-3" />

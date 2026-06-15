@@ -49,20 +49,24 @@ interface Order {
   client_name?: string | null;
 }
 
+// Semantic status tones. Keys and base hue families are load-bearing
+// (completed=emerald, cancelled=rose, pending=amber, confirmed=blue,
+// ready=green); dark variants keep the same hue, just tuned for the
+// dark surface. Don't recolour a real status.
 const listStatusTone: Record<string, string> = {
-  draft:        "bg-slate-100 text-slate-700 border-slate-200",
-  pending:      "bg-amber-100 text-amber-800 border-amber-200",
-  in_progress:  "bg-amber-100 text-amber-800 border-amber-200",
-  shopping:     "bg-amber-100 text-amber-800 border-amber-200",
-  completed:    "bg-emerald-100 text-emerald-800 border-emerald-200",
-  cancelled:    "bg-rose-100 text-rose-700 border-rose-200",
+  draft:        "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700",
+  pending:      "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900/60",
+  in_progress:  "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900/60",
+  shopping:     "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900/60",
+  completed:    "bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900/60",
+  cancelled:    "bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-900/60",
 };
 
 const orderStatusTone: Record<string, string> = {
-  pending:    "bg-amber-100 text-amber-800 border-amber-200",
-  confirmed:  "bg-blue-100 text-blue-800 border-blue-200",
-  preparing:  "bg-amber-100 text-amber-800 border-amber-200",
-  ready:      "bg-green-100 text-green-800 border-green-200",
+  pending:    "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900/60",
+  confirmed:  "bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-900/60",
+  preparing:  "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900/60",
+  ready:      "bg-green-100 text-green-800 border-green-200 dark:bg-green-950/40 dark:text-green-300 dark:border-green-900/60",
 };
 
 export default function ShoppingOrdersPage() {
@@ -254,84 +258,156 @@ export default function ShoppingOrdersPage() {
       <Head><title>Shopping orders - CateringMS</title></Head>
       <NoIndexMeta />
       <ShoppingNav />
-      <main className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+      <main className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
         <div className="px-3 sm:px-4 md:px-6 py-6 sm:py-8 max-w-full">
           <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-6">
-            {/* Wave 34: gradient-box icon header. */}
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center shadow-md flex-shrink-0">
-                <ShoppingCart className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
+              <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl border border-amber-200 dark:border-amber-900/60 bg-amber-50 dark:bg-amber-950/40 flex items-center justify-center flex-shrink-0">
+                <ShoppingCart className="h-5 w-5 text-amber-600 dark:text-amber-400" />
               </div>
               <div className="min-w-0">
-                <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold bg-gradient-to-r from-amber-600 to-orange-600 bg-clip-text text-transparent">
-                  Shopping Orders
+                <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-50">
+                  Shopping orders
                 </h1>
-                <p className="text-sm text-slate-600 mt-0.5">Active shopping lists + upcoming events that need procurement</p>
+                <p className="text-sm text-slate-600 dark:text-slate-400 mt-0.5">Active shopping lists and upcoming events that need procurement</p>
               </div>
             </div>
-            <Button onClick={openCreate} className="bg-amber-600 hover:bg-amber-700">
+            <Button onClick={openCreate} className="bg-amber-600 hover:bg-amber-700 text-white rounded-lg">
               <Plus className="h-4 w-4 mr-2" />New shopping list
             </Button>
           </div>
 
           <div className="grid grid-cols-3 gap-3 sm:gap-4 mb-6">
-            <Card><CardContent className="p-4"><p className="text-xs text-slate-600 flex items-center gap-1">Open lists <InfoTooltip content="Shopping lists that haven't been finished off or cancelled yet." /></p><p className="text-2xl font-bold tabular-nums text-amber-600">{stats.open}</p></CardContent></Card>
-            <Card><CardContent className="p-4"><p className="text-xs text-slate-600 flex items-center gap-1">Total lists <InfoTooltip content="Every shopping list, no matter the status.\n\nWe show the most recent 50." /></p><p className="text-2xl font-bold tabular-nums">{stats.totalLists}</p></CardContent></Card>
-            <Card><CardContent className="p-4"><p className="text-xs text-slate-600 flex items-center gap-1">Upcoming events <InfoTooltip content="Confirmed or pending orders happening today or later." /></p><p className="text-2xl font-bold tabular-nums">{stats.upcoming}</p></CardContent></Card>
+            <Card className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-none">
+              <CardContent className="p-4">
+                <p className="text-xs font-medium text-slate-600 dark:text-slate-400 flex items-center gap-1">Open lists <InfoTooltip content="Shopping lists that haven't been finished off or cancelled yet." /></p>
+                <p className="text-2xl font-semibold tabular-nums text-amber-600 dark:text-amber-400 mt-1">{stats.open}</p>
+              </CardContent>
+            </Card>
+            <Card className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-none">
+              <CardContent className="p-4">
+                <p className="text-xs font-medium text-slate-600 dark:text-slate-400 flex items-center gap-1">Total lists <InfoTooltip content="Every shopping list, no matter the status.\n\nWe show the most recent 50." /></p>
+                <p className="text-2xl font-semibold tabular-nums text-slate-900 dark:text-slate-100 mt-1">{stats.totalLists}</p>
+              </CardContent>
+            </Card>
+            <Card className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-none">
+              <CardContent className="p-4">
+                <p className="text-xs font-medium text-slate-600 dark:text-slate-400 flex items-center gap-1">Upcoming events <InfoTooltip content="Confirmed or pending orders happening today or later." /></p>
+                <p className="text-2xl font-semibold tabular-nums text-slate-900 dark:text-slate-100 mt-1">{stats.upcoming}</p>
+              </CardContent>
+            </Card>
           </div>
 
-          <div className="flex gap-2 mb-4">
-            <Button variant={tab === "lists" ? "default" : "outline"} size="sm" onClick={() => setTab("lists")} className={tab === "lists" ? "bg-amber-600 hover:bg-amber-700" : ""}>
-              <ListChecks className="h-4 w-4 mr-2" />Shopping lists
-            </Button>
-            <Button variant={tab === "upcoming" ? "default" : "outline"} size="sm" onClick={() => setTab("upcoming")} className={tab === "upcoming" ? "bg-amber-600 hover:bg-amber-700" : ""}>
-              <Calendar className="h-4 w-4 mr-2" />Upcoming events
-            </Button>
+          <div
+            role="tablist"
+            aria-label="Shopping view"
+            className="inline-flex gap-1 mb-4 p-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900"
+          >
+            <button
+              role="tab"
+              aria-selected={tab === "lists"}
+              onClick={() => setTab("lists")}
+              className={`inline-flex items-center gap-2 px-3 h-8 rounded-md text-sm font-medium transition-[color,background-color] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-amber-500 ${
+                tab === "lists"
+                  ? "bg-amber-600 text-white"
+                  : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+              }`}
+            >
+              <ListChecks className="h-4 w-4" />Shopping lists
+            </button>
+            <button
+              role="tab"
+              aria-selected={tab === "upcoming"}
+              onClick={() => setTab("upcoming")}
+              className={`inline-flex items-center gap-2 px-3 h-8 rounded-md text-sm font-medium transition-[color,background-color] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-amber-500 ${
+                tab === "upcoming"
+                  ? "bg-amber-600 text-white"
+                  : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+              }`}
+            >
+              <Calendar className="h-4 w-4" />Upcoming events
+            </button>
           </div>
 
           {loading ? (
-            <div className="flex items-center justify-center py-16 text-slate-500"><Loader2 className="h-5 w-5 animate-spin mr-2" />Loading...</div>
-          ) : tab === "lists" ? (
-            lists.length === 0 ? (
-              <Card>
-                <CardContent className="text-center py-16 text-slate-500">
-                  <ListChecks className="h-10 w-10 mx-auto mb-3 text-slate-300" />
-                  <p className="font-medium">No shopping lists yet</p>
-                  <p className="text-xs mt-1">Click "New shopping list" to start one</p>
+            tab === "lists" ? (
+              <Card className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-none">
+                <CardContent className="p-0">
+                  <ul className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {[0, 1, 2, 3].map((i) => (
+                      <li key={i} className="p-4 flex items-center gap-3 motion-safe:animate-pulse">
+                        <div className="flex-1 min-w-0 space-y-2">
+                          <div className="flex items-center gap-2">
+                            <div className="h-4 w-28 rounded bg-slate-200 dark:bg-slate-800" />
+                            <div className="h-4 w-16 rounded-full bg-slate-200 dark:bg-slate-800" />
+                          </div>
+                          <div className="h-3 w-40 rounded bg-slate-100 dark:bg-slate-800/70" />
+                        </div>
+                        <div className="h-8 w-24 rounded-lg bg-slate-200 dark:bg-slate-800 flex-shrink-0" />
+                      </li>
+                    ))}
+                  </ul>
                 </CardContent>
               </Card>
             ) : (
-              <Card>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                {[0, 1, 2, 3].map((i) => (
+                  <Card key={i} className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-none">
+                    <CardContent className="p-4 space-y-2 motion-safe:animate-pulse">
+                      <div className="h-4 w-40 rounded bg-slate-200 dark:bg-slate-800" />
+                      <div className="h-3 w-24 rounded bg-slate-100 dark:bg-slate-800/70" />
+                      <div className="h-3 w-52 rounded bg-slate-100 dark:bg-slate-800/70" />
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )
+          ) : tab === "lists" ? (
+            lists.length === 0 ? (
+              <Card className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-none">
+                <CardContent className="text-center py-16">
+                  <div className="w-12 h-12 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 flex items-center justify-center mx-auto mb-4">
+                    <ListChecks className="h-6 w-6 text-slate-400 dark:text-slate-500" />
+                  </div>
+                  <p className="font-medium text-slate-900 dark:text-slate-100">No shopping lists yet</p>
+                  <p className="text-sm text-slate-600 dark:text-slate-400 mt-1 max-w-sm mx-auto">Start a list before a procurement run to track what you buy and attach the till slip when you&apos;re done.</p>
+                  <Button onClick={openCreate} className="bg-amber-600 hover:bg-amber-700 text-white rounded-lg mt-4">
+                    <Plus className="h-4 w-4 mr-2" />New shopping list
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-none">
                 <CardContent className="p-0">
-                  <ul className="divide-y divide-slate-100">
+                  <ul className="divide-y divide-slate-100 dark:divide-slate-800">
                     {lists.map((l) => (
-                      <li key={l.id} className="p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+                      <li key={l.id} className="p-4 flex flex-col sm:flex-row sm:items-center gap-3 transition-colors duration-150 hover:bg-slate-50 dark:hover:bg-slate-800/50">
                         <div className="flex-1 min-w-0">
                           <div className="flex flex-wrap items-center gap-2 mb-1">
-                            <span className="font-medium text-slate-900">{l.list_date ?? "Undated list"}</span>
+                            <span className="font-medium text-slate-900 dark:text-slate-100">{l.list_date ?? "Undated list"}</span>
                             {l.status && (
-                              <Badge variant="outline" className={`${listStatusTone[l.status] ?? "bg-slate-100 text-slate-700 border-slate-200"} text-xs capitalize`}>
+                              <Badge variant="outline" className={`${listStatusTone[l.status] ?? "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700"} text-xs capitalize`}>
                                 {l.status.replace("_", " ")}
                               </Badge>
                             )}
                             {l.receipt_url && (
-                              <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-xs flex items-center gap-1">
+                              <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900/60 text-xs flex items-center gap-1">
                                 <Receipt className="h-3 w-3" />Receipt attached
                               </Badge>
                             )}
                           </div>
-                          {l.notes && <p className="text-xs text-slate-600 mb-1">{l.notes}</p>}
-                          <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-500">
+                          {l.notes && <p className="text-xs text-slate-600 dark:text-slate-400 mb-1">{l.notes}</p>}
+                          <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-600 dark:text-slate-400">
                             {l.estimated_total != null && <span>Est. R {Number(l.estimated_total).toFixed(2)}</span>}
-                            {l.actual_total != null && <span className="text-slate-700">Actual R {Number(l.actual_total).toFixed(2)}</span>}
+                            {l.actual_total != null && <span className="text-slate-700 dark:text-slate-200 font-medium">Actual R {Number(l.actual_total).toFixed(2)}</span>}
                           </div>
                         </div>
                         <div className="flex gap-2 flex-shrink-0">
                           {l.status !== "completed" && !l.shopper_id && (
-                            <Button size="sm" variant="outline" onClick={() => claimList(l.id)}>Claim</Button>
+                            <Button size="sm" variant="outline" onClick={() => claimList(l.id)} className="border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg">Claim</Button>
                           )}
                           {l.status !== "completed" && (
-                            <Button size="sm" onClick={() => openComplete(l.id)} className="bg-amber-600 hover:bg-amber-700">
+                            <Button size="sm" onClick={() => openComplete(l.id)} className="bg-amber-600 hover:bg-amber-700 text-white rounded-lg">
                               <Check className="h-4 w-4 mr-1" />Complete
                             </Button>
                           )}
@@ -344,17 +420,19 @@ export default function ShoppingOrdersPage() {
             )
           ) : (
             upcomingOrders.length === 0 ? (
-              <Card>
-                <CardContent className="text-center py-16 text-slate-500">
-                  <Calendar className="h-10 w-10 mx-auto mb-3 text-slate-300" />
-                  <p className="font-medium">No upcoming events</p>
-                  <p className="text-xs mt-1">When orders are confirmed they'll appear here for shopping</p>
+              <Card className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-none">
+                <CardContent className="text-center py-16">
+                  <div className="w-12 h-12 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 flex items-center justify-center mx-auto mb-4">
+                    <Calendar className="h-6 w-6 text-slate-400 dark:text-slate-500" />
+                  </div>
+                  <p className="font-medium text-slate-900 dark:text-slate-100">No upcoming events</p>
+                  <p className="text-sm text-slate-600 dark:text-slate-400 mt-1 max-w-sm mx-auto">Once orders are confirmed or pending for today or later, they appear here so you can shop for them.</p>
                 </CardContent>
               </Card>
             ) : (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                 {upcomingOrders.map((o) => (
-                  <Card key={o.id} className="hover:border-amber-300 transition-colors">
+                  <Card key={o.id} className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-none transition-colors duration-150 hover:border-amber-300 dark:hover:border-amber-700">
                     <CardContent className="p-4">
                       <div className="flex items-start justify-between gap-2 mb-2">
                         <div className="min-w-0 flex-1">
@@ -364,15 +442,15 @@ export default function ShoppingOrdersPage() {
                               shopping CTA all live there. */}
                           <Link
                             href={withSlug(staffOrderHref(o.id, "shopping_staff"))}
-                            className="font-medium text-slate-900 truncate hover:text-amber-700 hover:underline inline-flex items-center gap-1"
+                            className="font-medium text-slate-900 dark:text-slate-100 truncate hover:text-amber-700 dark:hover:text-amber-400 hover:underline inline-flex items-center gap-1 transition-colors duration-150"
                           >
                             {o.event_name ?? o.order_number ?? "Event"}
                             <ExternalLink className="w-3 h-3 flex-shrink-0" />
                           </Link>
                           {o.client_name && (
-                            <div className="text-xs text-slate-600 truncate">{o.client_name}</div>
+                            <div className="text-xs text-slate-600 dark:text-slate-400 truncate">{o.client_name}</div>
                           )}
-                          <div className="text-xs text-slate-500 mt-0.5 flex flex-wrap gap-x-3">
+                          <div className="text-xs text-slate-600 dark:text-slate-400 mt-0.5 flex flex-wrap gap-x-3">
                             <span className="flex items-center gap-1"><Calendar className="h-3 w-3" />{o.event_date}</span>
                             <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{fmtTime(o.event_time)}</span>
                             {o.guest_count != null && <span className="flex items-center gap-1"><UsersIcon className="h-3 w-3" />{o.guest_count}</span>}
@@ -381,14 +459,14 @@ export default function ShoppingOrdersPage() {
                               event lands - useful when the kitchen is
                               splitting purchases between branches. */}
                           {o.venue_address && (
-                            <p className="text-xs text-slate-500 flex items-center gap-1 mt-1">
+                            <p className="text-xs text-slate-600 dark:text-slate-400 flex items-center gap-1 mt-1">
                               <MapPin className="h-3 w-3 flex-shrink-0" />
                               <span className="truncate">{o.venue_address}</span>
                             </p>
                           )}
                         </div>
                         {o.status && (
-                          <Badge variant="outline" className={`${orderStatusTone[o.status] ?? "bg-slate-100 text-slate-700 border-slate-200"} text-xs capitalize flex-shrink-0`}>
+                          <Badge variant="outline" className={`${orderStatusTone[o.status] ?? "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700"} text-xs capitalize flex-shrink-0`}>
                             {o.status}
                           </Badge>
                         )}
@@ -419,8 +497,8 @@ export default function ShoppingOrdersPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={closeCreate} disabled={saving}>Cancel</Button>
-            <Button onClick={saveCreate} disabled={saving} className="bg-amber-600 hover:bg-amber-700">
+            <Button variant="outline" onClick={closeCreate} disabled={saving} className="border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg">Cancel</Button>
+            <Button onClick={saveCreate} disabled={saving} className="bg-amber-600 hover:bg-amber-700 text-white rounded-lg">
               {saving ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving</> : "Create list"}
             </Button>
           </DialogFooter>
@@ -462,12 +540,12 @@ export default function ShoppingOrdersPage() {
                 className="hidden"
               />
               {receiptPreview ? (
-                <div className="relative mt-1 border border-slate-200 rounded-md overflow-hidden">
-                  <img src={receiptPreview} alt="Receipt preview" className="w-full max-h-64 object-contain bg-slate-50" />
+                <div className="relative mt-1 border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden">
+                  <img src={receiptPreview} alt="Receipt preview" className="w-full max-h-64 object-contain bg-slate-50 dark:bg-slate-800" />
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="absolute top-1 right-1 bg-white/80 hover:bg-white"
+                    className="absolute top-1 right-1 bg-white/80 hover:bg-white dark:bg-slate-900/80 dark:hover:bg-slate-900"
                     onClick={() => {
                       if (receiptPreview) URL.revokeObjectURL(receiptPreview);
                       setReceiptFile(null);
@@ -480,7 +558,7 @@ export default function ShoppingOrdersPage() {
               ) : (
                 <Button
                   variant="outline"
-                  className="mt-1 w-full"
+                  className="mt-1 w-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg"
                   onClick={() => receiptInputRef.current?.click()}
                   type="button"
                 >
@@ -488,19 +566,19 @@ export default function ShoppingOrdersPage() {
                   Take photo or pick file
                 </Button>
               )}
-              <p className="text-[11px] text-slate-500 mt-1">
+              <p className="text-xs text-slate-600 dark:text-slate-400 mt-1.5">
                 Optional but recommended. Goes into the imports bucket and surfaces on the list as a receipt-attached badge.
               </p>
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={closeComplete} disabled={completing}>
+            <Button variant="outline" onClick={closeComplete} disabled={completing} className="border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg">
               Cancel
             </Button>
             <Button
               onClick={completeList}
               disabled={completing}
-              className="bg-amber-600 hover:bg-amber-700"
+              className="bg-amber-600 hover:bg-amber-700 text-white rounded-lg"
             >
               {completing ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving</> : <><Check className="h-4 w-4 mr-2" />Mark complete</>}
             </Button>
