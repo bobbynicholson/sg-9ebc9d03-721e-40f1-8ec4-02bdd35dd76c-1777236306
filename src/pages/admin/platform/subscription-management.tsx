@@ -3,8 +3,8 @@ import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/router";
 import { PlatformNav } from "@/components/admin/PlatformNav";
+import { PortalShell, PortalHeader, PortalCard, PortalCardHeader, StatTile } from "@/components/portal/ui";
 import Head from "next/head";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -284,10 +284,10 @@ function PlatformSubscriptionManagement() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4 text-purple-600" />
-          <p className="text-slate-600">Loading subscription management...</p>
+      <div className="flex items-center justify-center min-h-screen bg-slate-50 dark:bg-slate-950">
+        <div className="text-center text-slate-500 dark:text-slate-400">
+          <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4" />
+          <p>Loading subscription management...</p>
           <p className="text-xs text-slate-400 mt-2">This should only take a few seconds</p>
         </div>
       </div>
@@ -296,43 +296,42 @@ function PlatformSubscriptionManagement() {
 
   if (!user) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Card className="max-w-md">
-          <CardContent className="p-8 text-center">
-            <AlertTriangle className="h-12 w-12 text-slate-300 mx-auto mb-3" />
-            <h3 className="text-xl font-semibold text-slate-900 mb-2">Authentication Required</h3>
-            <p className="text-slate-600 mb-6">Please sign in to access subscription management.</p>
-            <Button onClick={() => router.push("/auth/login")}>Sign In</Button>
-          </CardContent>
-        </Card>
+      <div className="flex items-center justify-center min-h-screen bg-slate-50 dark:bg-slate-950">
+        <PortalCard className="max-w-md p-8 text-center">
+          <AlertTriangle className="h-12 w-12 text-slate-300 mx-auto mb-3" />
+          <h3 className="text-xl font-semibold text-slate-900 dark:text-white mb-2">Authentication Required</h3>
+          <p className="text-slate-600 dark:text-slate-400 mb-6">Please sign in to access subscription management.</p>
+          <Button onClick={() => router.push("/auth/login")}>Sign In</Button>
+        </PortalCard>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80 pt-20 lg:pt-0">
+    <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
       <PlatformNav />
       <Head>
         <title>Subscription management - CateringMS</title>
         <meta name="robots" content="noindex, nofollow" />
       </Head>
 
-      <div className="p-6 max-w-full">
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-slate-900 mb-2">Subscription Management</h1>
-            <p className="text-slate-600">Monitor and manage customer subscriptions</p>
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleRefresh}
-            disabled={refreshing}
-          >
-            <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? "animate-spin" : ""}`} />
-            Refresh
-          </Button>
-        </div>
+      <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+        <PortalHeader
+          title="Subscription Management"
+          subtitle="Monitor and manage customer subscriptions"
+          icon={DollarSign}
+          actions={
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRefresh}
+              disabled={refreshing}
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? "animate-spin" : ""}`} />
+              Refresh
+            </Button>
+          }
+        />
 
         {error && (
           <Alert className="mb-6 border-red-200 bg-red-50">
@@ -351,73 +350,63 @@ function PlatformSubscriptionManagement() {
           </Alert>
         )}
 
-        <div className="grid gap-6 md:grid-cols-4 mb-8">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-1.5">
+        <div className="grid gap-4 md:grid-cols-4 mb-6">
+          <StatTile
+            label={
+              <span className="flex items-center gap-1.5">
                 Total Subscriptions
                 <InfoTooltip content="Every tenant on the platform counted as one subscription each.\n\nIncludes active, trial and cancelled accounts together." />
-              </CardTitle>
-              <Users className="h-4 w-4 text-slate-400" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-slate-900">{stats.total}</div>
-              <p className="text-xs text-slate-500 mt-1">All customers</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-1.5">
+              </span>
+            }
+            value={stats.total}
+            hint="All customers"
+            icon={Users}
+          />
+          <StatTile
+            label={
+              <span className="flex items-center gap-1.5">
                 Active
                 <InfoTooltip content="Companies on a paid plan right now.\n\nThese are the customers actually generating recurring revenue." />
-              </CardTitle>
-              <CheckCircle className="h-4 w-4 text-green-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-600">{stats.active}</div>
-              <p className="text-xs text-slate-500 mt-1">Paying customers</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-1.5">
+              </span>
+            }
+            value={<span className="text-green-600 dark:text-green-500">{stats.active}</span>}
+            hint="Paying customers"
+            icon={CheckCircle}
+          />
+          <StatTile
+            label={
+              <span className="flex items-center gap-1.5">
                 In Trial
                 <InfoTooltip content="Companies still inside their free trial period.\n\nThey don't add to MRR yet, conversion to paid is what matters here." />
-              </CardTitle>
-              <TrendingUp className="h-4 w-4 text-blue-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-blue-600">{stats.trial}</div>
-              <p className="text-xs text-slate-500 mt-1">Free trial period</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-1.5">
+              </span>
+            }
+            value={<span className="text-blue-600 dark:text-blue-500">{stats.trial}</span>}
+            hint="Free trial period"
+            icon={TrendingUp}
+          />
+          <StatTile
+            label={
+              <span className="flex items-center gap-1.5">
                 Monthly MRR
                 <InfoTooltip content="Recurring monthly revenue from every active subscription added together.\n\nPlan rates are still based on a fixed price list (Starter ZAR 499, Growth ZAR 1499, Scale ZAR 3999, Enterprise ZAR 9999) until proper billing is wired up." />
-              </CardTitle>
-              <DollarSign className="h-4 w-4 text-purple-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-purple-600">
-                {formatCurrency(stats.totalMRR)}
-              </div>
-              <p className="text-xs text-slate-500 mt-1">Recurring revenue</p>
-            </CardContent>
-          </Card>
+              </span>
+            }
+            value={<span className="text-purple-600 dark:text-purple-500">{formatCurrency(stats.totalMRR)}</span>}
+            hint="Recurring revenue"
+            icon={DollarSign}
+          />
         </div>
 
-        <Card>
-          <CardHeader>
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-              <CardTitle className="flex items-center gap-2">
+        <PortalCard>
+          <PortalCardHeader
+            className="flex-col items-start gap-4 md:flex-row md:items-center"
+            title={
+              <span className="flex items-center gap-2">
                 Customer Subscriptions
                 <InfoTooltip content="Every tenant shown as a subscription row, with plan, status, amount and next billing date.\n\nFor trials the next billing date is the trial end. For paid customers it's the renewal date." />
-              </CardTitle>
+              </span>
+            }
+            action={
               <div className="flex items-center gap-3">
                 <div className="relative flex-1 md:w-64">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
@@ -441,9 +430,8 @@ function PlatformSubscriptionManagement() {
                   </SelectContent>
                 </Select>
               </div>
-            </div>
-          </CardHeader>
-          <CardContent>
+            }
+          />
             {filteredSubscriptions.length === 0 ? (
               <div className="text-center py-12">
                 <AlertTriangle className="h-12 w-12 text-slate-300 mx-auto mb-3" />
@@ -556,20 +544,20 @@ function PlatformSubscriptionManagement() {
                 </Table>
               </div>
             )}
-          </CardContent>
-        </Card>
+        </PortalCard>
 
         <div className="grid gap-6 md:grid-cols-2 mt-6">
-          <Card className="border-yellow-200 bg-yellow-50">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <AlertTriangle className="h-5 w-5 text-yellow-600" />
-                At Risk ({stats.pastDue})
-                <InfoTooltip content="Companies with a failed or overdue payment that need a personal nudge.\n\nReach out promptly, this is the window where churn usually happens." />
-              </CardTitle>
-              <CardDescription>Subscriptions requiring attention</CardDescription>
-            </CardHeader>
-            <CardContent>
+          <PortalCard className="border-yellow-200 bg-yellow-50 dark:border-yellow-900/40 dark:bg-yellow-950/20">
+            <PortalCardHeader
+              title={
+                <span className="flex items-center gap-2">
+                  <AlertTriangle className="h-5 w-5 text-yellow-600" />
+                  At Risk ({stats.pastDue})
+                  <InfoTooltip content="Companies with a failed or overdue payment that need a personal nudge.\n\nReach out promptly, this is the window where churn usually happens." />
+                </span>
+              }
+            />
+            <p className="-mt-2 mb-3 text-sm text-slate-600 dark:text-slate-400">Subscriptions requiring attention</p>
               {subscriptions.filter(s => s.status === "past_due").length === 0 ? (
                 <p className="text-sm text-slate-600 text-center py-4">No at-risk subscriptions</p>
               ) : (
@@ -587,19 +575,19 @@ function PlatformSubscriptionManagement() {
                   ))}
                 </div>
               )}
-            </CardContent>
-          </Card>
+          </PortalCard>
 
-          <Card className="border-red-200 bg-red-50">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Ban className="h-5 w-5 text-red-600" />
-                Cancelled ({stats.cancelled})
-                <InfoTooltip content="Companies that have ended their subscription, with the most recent cancellations first.\n\nA good list to mine for win-back outreach." />
-              </CardTitle>
-              <CardDescription>Recently cancelled subscriptions</CardDescription>
-            </CardHeader>
-            <CardContent>
+          <PortalCard className="border-red-200 bg-red-50 dark:border-red-900/40 dark:bg-red-950/20">
+            <PortalCardHeader
+              title={
+                <span className="flex items-center gap-2">
+                  <Ban className="h-5 w-5 text-red-600" />
+                  Cancelled ({stats.cancelled})
+                  <InfoTooltip content="Companies that have ended their subscription, with the most recent cancellations first.\n\nA good list to mine for win-back outreach." />
+                </span>
+              }
+            />
+            <p className="-mt-2 mb-3 text-sm text-slate-600 dark:text-slate-400">Recently cancelled subscriptions</p>
               {subscriptions.filter(s => s.status === "cancelled").length === 0 ? (
                 <p className="text-sm text-slate-600 text-center py-4">No cancelled subscriptions</p>
               ) : (
@@ -619,10 +607,9 @@ function PlatformSubscriptionManagement() {
                   ))}
                 </div>
               )}
-            </CardContent>
-          </Card>
+          </PortalCard>
         </div>
-      </div>
+      </PortalShell>
     </div>
   );
 }

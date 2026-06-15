@@ -3,7 +3,7 @@ import { useRouter } from "next/router";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import { useAuth } from "@/contexts/AuthContext";
 import { PlatformNav } from "@/components/admin/PlatformNav";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PortalShell, PortalHeader, PortalCard, PortalCardHeader, StatTile } from "@/components/portal/ui";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -412,128 +412,79 @@ export default function CompanyDatabasePage() {
 
   if (profile?.active_role !== "super_admin") {
     return (
-      <div className="min-h-screen overflow-x-hidden bg-slate-50 lg:pl-72 xl:pl-80 pt-20 lg:pt-0">
+      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
         <PlatformNav />
-        <div className="px-4 py-12">
-          <Card>
-            <CardContent className="p-12 text-center">
-              <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-              <h2 className="text-2xl font-bold mb-2">Access Denied</h2>
-              <p className="text-slate-600">
-                You need super admin permissions to access this page.
-              </p>
-            </CardContent>
-          </Card>
-        </div>
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+          <PortalCard className="p-12 text-center">
+            <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+            <h2 className="text-2xl font-bold mb-2 text-slate-900 dark:text-white">Access Denied</h2>
+            <p className="text-slate-600 dark:text-slate-400">
+              You need super admin permissions to access this page.
+            </p>
+          </PortalCard>
+        </PortalShell>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-slate-50 lg:pl-72 xl:pl-80 pt-20 lg:pt-0">
+    <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
       <PlatformNav />
 
-      <div className="px-4 py-8">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-slate-900">Company Management</h1>
-            <p className="text-slate-600 mt-1">
-              Add and manage catering companies on the platform
-            </p>
-          </div>
+      <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+        <PortalHeader
+          title="Company Management"
+          subtitle="Add and manage catering companies on the platform"
+          icon={Building2}
+          actions={
+            <AddEditCompanyDialog
+              open={isAddModalOpen}
+              onOpenChange={setIsAddModalOpen}
+              editingCompany={editingCompany}
+              formData={formData}
+              setFormData={setFormData}
+              onTriggerNew={() => { resetForm(); setEditingCompany(null); }}
+              onCancel={() => {
+                setIsAddModalOpen(false);
+                setEditingCompany(null);
+                resetForm();
+              }}
+              onSave={editingCompany ? handleUpdateCompany : handleAddCompany}
+            />
+          }
+        />
 
-          <AddEditCompanyDialog
-            open={isAddModalOpen}
-            onOpenChange={setIsAddModalOpen}
-            editingCompany={editingCompany}
-            formData={formData}
-            setFormData={setFormData}
-            onTriggerNew={() => { resetForm(); setEditingCompany(null); }}
-            onCancel={() => {
-              setIsAddModalOpen(false);
-              setEditingCompany(null);
-              resetForm();
-            }}
-            onSave={editingCompany ? handleUpdateCompany : handleAddCompany}
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <StatTile
+            label="Total Companies"
+            value={companies.length}
+            hint="Every tenant; deleted excluded"
+            icon={Building2}
+          />
+          <StatTile
+            label="Active"
+            value={<span className="text-green-600 dark:text-green-500">{companies.filter((c) => c.subscription_status === "active").length}</span>}
+            hint="On a paid subscription now"
+            icon={CheckCircle}
+          />
+          <StatTile
+            label="On Trial"
+            value={<span className="text-orange-600 dark:text-orange-500">{companies.filter((c) => c.subscription_status === "trial").length}</span>}
+            hint="Inside free trial window"
+            icon={Calendar}
+          />
+          <StatTile
+            label="Total Users"
+            value={<span className="text-purple-600 dark:text-purple-500">{companies.reduce((sum, c) => sum + (c.total_users || 0), 0)}</span>}
+            hint="Across every tenant"
+            icon={Users}
           />
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-slate-600 flex items-center gap-1.5">
-                    Total Companies
-                    <InfoTooltip content="Every catering tenant on the platform, regardless of subscription status.\n\nDeleted accounts are excluded." />
-                  </p>
-                  <p className="text-3xl font-bold text-slate-900">
-                    {companies.length}
-                  </p>
-                </div>
-                <Building2 className="w-8 h-8 text-blue-500" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-slate-600 flex items-center gap-1.5">
-                    Active
-                    <InfoTooltip content="Companies on a paid subscription right now.\n\nTrials and cancelled accounts aren't counted here." />
-                  </p>
-                  <p className="text-3xl font-bold text-green-600">
-                    {companies.filter((c) => c.subscription_status === "active").length}
-                  </p>
-                </div>
-                <CheckCircle className="w-8 h-8 text-green-500" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-slate-600 flex items-center gap-1.5">
-                    On Trial
-                    <InfoTooltip content="Companies still inside their free trial window.\n\nFor trial expiry dates and reminder history, head to Trial Management." />
-                  </p>
-                  <p className="text-3xl font-bold text-orange-600">
-                    {companies.filter((c) => c.subscription_status === "trial").length}
-                  </p>
-                </div>
-                <Calendar className="w-8 h-8 text-orange-500" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-slate-600 flex items-center gap-1.5">
-                    Total Users
-                    <InfoTooltip content="Every user account across every tenant added together, admins, kitchen, drivers and clients all included.\n\nA quick way to gauge overall platform usage." />
-                  </p>
-                  <p className="text-3xl font-bold text-purple-600">
-                    {companies.reduce((sum, c) => sum + (c.total_users || 0), 0)}
-                  </p>
-                </div>
-                <Users className="w-8 h-8 text-purple-500" />
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
         {/* Filters */}
-        <Card className="mb-6">
-          <CardContent className="p-6">
-            <div className="flex gap-4">
+        <PortalCard className="mb-6">
+          <div className="flex gap-4">
               <div className="flex-1">
                 <div className="relative">
                   <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
@@ -560,8 +511,7 @@ export default function CompanyDatabasePage() {
                 </SelectContent>
               </Select>
             </div>
-          </CardContent>
-        </Card>
+        </PortalCard>
 
         {/* Deep-link focus pill. Visible whenever ?company=<id> arrives
             from another platform tool (e.g. subscription-management). */}
@@ -583,14 +533,15 @@ export default function CompanyDatabasePage() {
         )}
 
         {/* Companies Table */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              Companies ({filteredCompanies.length})
-              <InfoTooltip content="The filtered list of tenants based on the search and status filters above.\n\nEach row covers the owner, current status, user and order counts, and signup date." />
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
+        <PortalCard>
+          <PortalCardHeader
+            title={
+              <span className="flex items-center gap-2">
+                Companies ({filteredCompanies.length})
+                <InfoTooltip content="The filtered list of tenants based on the search and status filters above.\n\nEach row covers the owner, current status, user and order counts, and signup date." />
+              </span>
+            }
+          />
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
@@ -709,8 +660,7 @@ export default function CompanyDatabasePage() {
                 </TableBody>
               </Table>
             </div>
-          </CardContent>
-        </Card>
+        </PortalCard>
 
         {/* Company Details Modal */}
         <CompanyDetailsModal
@@ -719,7 +669,7 @@ export default function CompanyDatabasePage() {
           selectedCompany={selectedCompany}
           companyUsers={companyUsers}
         />
-      </div>
+      </PortalShell>
     </div>
   );
 }

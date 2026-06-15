@@ -1,7 +1,7 @@
 ﻿import { useState, useEffect, useMemo } from "react";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import { PlatformNav } from "@/components/admin/PlatformNav";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PortalShell, PortalHeader, PortalCard, PortalCardHeader } from "@/components/portal/ui";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -338,14 +338,14 @@ export default function UserManagementPage() {
 
   return (
     <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN]}>
-      <div className="min-h-screen overflow-x-hidden bg-slate-50 lg:pl-72 xl:pl-80 pt-20 lg:pt-0">
+      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
         <PlatformNav />
-        <div className="p-6 max-w-full">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-3xl font-bold text-slate-900">User Management</h1>
-            <p className="text-slate-600 mt-1">Manage system users and permissions</p>
-          </div>
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+        <PortalHeader
+          title="User Management"
+          subtitle="Manage system users and permissions"
+          icon={UserPlus}
+          actions={
           <Dialog open={addUserOpen} onOpenChange={closeAddUserDialog}>
             <DialogTrigger asChild>
               <Button className="bg-brand-primary hover:opacity-90">
@@ -496,15 +496,18 @@ export default function UserManagementPage() {
               )}
             </DialogContent>
           </Dialog>
-        </div>
+          }
+        />
 
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="flex items-center gap-2">
+        <PortalCard>
+          <PortalCardHeader
+            title={
+              <span className="flex items-center gap-2">
                 All Users ({filteredUsers.length})
                 <InfoTooltip content="Every user account across every tenant on the platform, with the company they belong to.\n\nStatus reflects invite acceptance: Active means the user has signed in (accepted their invite / set their password); Pending means they were invited but haven't signed in yet. Use Resend invite to send a pending staff member a fresh set-password link." />
-              </CardTitle>
+              </span>
+            }
+            action={
               <div className="relative w-64">
                 <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
                 <Input
@@ -514,9 +517,8 @@ export default function UserManagementPage() {
                   className="pl-10"
                 />
               </div>
-            </div>
-          </CardHeader>
-          <CardContent>
+            }
+          />
             {loading ? (
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="w-8 h-8 animate-spin text-purple-600" />
@@ -624,8 +626,7 @@ export default function UserManagementPage() {
                 </TableBody>
               </Table>
             )}
-          </CardContent>
-        </Card>
+        </PortalCard>
 
         <AlertDialog open={!!deleteUserId} onOpenChange={() => setDeleteUserId(null)}>
           <AlertDialogContent>
@@ -643,7 +644,7 @@ export default function UserManagementPage() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
-      </div>
+        </PortalShell>
       </div>
     </ProtectedRoute>
   );
