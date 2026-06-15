@@ -6,25 +6,25 @@
  *   logs/run-2-2026-06-09_11-45-00/
  *
  * Files inside each run:
- *   all.log       — every log line from every area
- *   errors.log    — WARN + ERROR only (quick triage)
- *   auth.log      — login, session, magic-link flows
- *   owner.log     — owner/admin portal actions
- *   sales.log     — quotes, leads, order conversion
- *   kitchen.log   — prep tasks, allergens, recipe scaling
- *   shopper.log   — shopping lists, receipts, suppliers
- *   driver.log    — deliveries, GPS, equipment return
- *   cleaning.log  — cleaning handover, damage, stock
- *   client.log    — client portal, magic-link tokens, payments
- *   payment.log   — PayFast, Stripe, webhooks
- *   cron.log      — background jobs
- *   email.log     — outbound email sends
- *   accounting.log— Xero / QuickBooks / Sage syncs
- *   api.log       — general API calls not in above areas
- *   _run-info.json— run metadata (start time, env)
+ *   all.log       - every log line from every area
+ *   errors.log    - WARN + ERROR only (quick triage)
+ *   auth.log      - login, session, magic-link flows
+ *   owner.log     - owner/admin portal actions
+ *   sales.log     - quotes, leads, order conversion
+ *   kitchen.log   - prep tasks, allergens, recipe scaling
+ *   shopper.log   - shopping lists, receipts, suppliers
+ *   driver.log    - deliveries, GPS, equipment return
+ *   cleaning.log  - cleaning handover, damage, stock
+ *   client.log    - client portal, magic-link tokens, payments
+ *   payment.log   - PayFast, Stripe, webhooks
+ *   cron.log      - background jobs
+ *   email.log     - outbound email sends
+ *   accounting.log- Xero / QuickBooks / Sage syncs
+ *   api.log       - general API calls not in above areas
+ *   _run-info.json- run metadata (start time, env)
  *
  * patchConsole() mirrors ALL existing console.log/warn/error calls
- * throughout the codebase to all.log automatically — no per-file changes needed.
+ * throughout the codebase to all.log automatically - no per-file changes needed.
  *
  * For structured per-area logs use logger.info(area, message, ctx).
  */
@@ -78,7 +78,7 @@ export function initLogger(): void {
 
     const banner = [
       "═".repeat(72),
-      `  RUN #${runNumber}  —  ${now.toISOString()}`,
+      `  RUN #${runNumber}  -  ${now.toISOString()}`,
       `  NODE_ENV: ${process.env.NODE_ENV ?? "unknown"}`,
       `  APP_URL:  ${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3001"}`,
       "═".repeat(72),
@@ -106,7 +106,7 @@ export function initLogger(): void {
 
     // Confirm logger is alive in the terminal
     process.stdout.write(
-      `\n[logger] Run #${runNumber} — logs → ${path.relative(process.cwd(), _runDir)}\n\n`
+      `\n[logger] Run #${runNumber} - logs → ${path.relative(process.cwd(), _runDir)}\n\n`
     );
   } catch {
     // Never let logger setup crash the app
@@ -121,7 +121,7 @@ function _write(file: string, line: string): void {
   try {
     fs.appendFileSync(path.join(_runDir, file), line + "\n", "utf8");
   } catch {
-    /* silent — never crash the app */
+    /* silent - never crash the app */
   }
 }
 
@@ -173,7 +173,7 @@ export const logger = {
 
 // ── Console patching ──────────────────────────────────────────────────────────
 // Mirrors ALL existing console.log/warn/error calls in the codebase to
-// all.log automatically — no per-file changes needed.
+// all.log automatically - no per-file changes needed.
 
 let _consolePatchApplied = false;
 

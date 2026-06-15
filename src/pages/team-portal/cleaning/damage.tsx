@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import Head from "next/head";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -15,8 +14,8 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { AlertTriangle, Plus, Loader2, Search, Check, FileWarning } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
-import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { CleaningNav } from "@/components/navigation/CleaningNav";
+import { PortalShell, PortalHeader, PortalCard, StatTile } from "@/components/portal/ui";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -38,11 +37,11 @@ interface Damage {
 interface Equipment { id: string; name: string | null; replacement_cost: number | null; }
 
 const typeTone: Record<string, string> = {
-  damage:     "bg-amber-100 text-amber-800 border-amber-200",
-  missing:    "bg-rose-100 text-rose-700 border-rose-200",
-  broken:     "bg-rose-100 text-rose-700 border-rose-200",
-  worn:       "bg-slate-100 text-slate-700 border-slate-200",
-  cosmetic:   "bg-blue-100 text-blue-800 border-blue-200",
+  damage:     "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-900",
+  missing:    "bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-950 dark:text-rose-300 dark:border-rose-900",
+  broken:     "bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-950 dark:text-rose-300 dark:border-rose-900",
+  worn:       "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700",
+  cosmetic:   "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700",
 };
 
 export default function CleaningDamagePage() {
@@ -207,103 +206,101 @@ export default function CleaningDamagePage() {
       <Head><title>Damage reports - CateringMS</title></Head>
       <NoIndexMeta />
       <CleaningNav />
-      <main className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 via-white to-cyan-50 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
-        <div className="px-3 sm:px-4 md:px-6 py-6 sm:py-8 max-w-full">
-          <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-6">
-            {/* Wave 38: gradient-box icon header for cleaning portal
-                consistency (mirrors Wave 34 shopping fix). */}
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center shadow-md flex-shrink-0">
-                <FileWarning className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
-              </div>
-              <div className="min-w-0">
-                <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold bg-gradient-to-r from-cyan-600 to-blue-600 bg-clip-text text-transparent">
-                  Damage Reports
-                </h1>
-                <p className="text-sm text-slate-600 mt-0.5">Track damaged or lost equipment with replacement cost estimates</p>
-              </div>
-            </div>
-            <Button onClick={openCreate} className="bg-cyan-600 hover:bg-cyan-700">
-              <Plus className="h-4 w-4 mr-2" />Report damage
-            </Button>
-          </div>
+      <main className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+          <PortalHeader
+            title="Damage reports"
+            subtitle="Track damaged or lost equipment with replacement cost estimates"
+            icon={FileWarning}
+            actions={
+              <Button onClick={openCreate} className="bg-amber-600 hover:bg-amber-700">
+                <Plus className="h-4 w-4 mr-2" />Report damage
+              </Button>
+            }
+          />
 
           <div className="grid grid-cols-3 gap-3 sm:gap-4 mb-6">
-            <Card><CardContent className="p-4"><p className="text-xs text-slate-600 flex items-center gap-1">Open reports <InfoTooltip content="How many damage or loss reports are still open and need fixing." /></p><p className="text-2xl font-bold tabular-nums text-amber-600">{stats.open}</p></CardContent></Card>
-            <Card><CardContent className="p-4"><p className="text-xs text-slate-600 flex items-center gap-1">Resolved <InfoTooltip content="Reports that have been closed off because the item was repaired, replaced or written off." /></p><p className="text-2xl font-bold tabular-nums text-emerald-600">{stats.resolved}</p></CardContent></Card>
-            <Card><CardContent className="p-4"><p className="text-xs text-slate-600 flex items-center gap-1">Outstanding cost <InfoTooltip content="Total repair or replacement cost across reports that haven't been closed yet." /></p><p className="text-2xl font-bold tabular-nums">R {stats.cost.toLocaleString("en-ZA", { maximumFractionDigits: 0 })}</p></CardContent></Card>
+            <StatTile label="Open reports" value={stats.open} hint="Still need fixing" />
+            <StatTile label="Resolved" value={stats.resolved} hint="Closed off" />
+            <StatTile
+              label="Outstanding cost"
+              value={`R ${stats.cost.toLocaleString("en-ZA", { maximumFractionDigits: 0 })}`}
+              hint="Across open reports"
+            />
           </div>
 
           <div className="flex flex-wrap items-center gap-2 mb-4">
             {(["open", "resolved", "all"] as const).map((t) => (
-              <Button key={t} variant={tab === t ? "default" : "outline"} size="sm" onClick={() => setTab(t)} className={tab === t ? "bg-cyan-600 hover:bg-cyan-700 capitalize" : "capitalize"}>
+              <Button key={t} variant={tab === t ? "default" : "outline"} size="sm" onClick={() => setTab(t)} className={tab === t ? "bg-amber-600 hover:bg-amber-700 capitalize" : "capitalize"}>
                 {t}
               </Button>
             ))}
             <div className="ml-auto relative max-w-xs flex-1 min-w-[160px]">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-              <Input className="pl-9" placeholder="Search notes..." value={search} onChange={(e) => setSearch(e.target.value)} />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 dark:text-slate-500" />
+              <Input className="pl-9 dark:bg-slate-900 dark:border-slate-700 dark:text-slate-100 dark:placeholder:text-slate-500" placeholder="Search notes..." value={search} onChange={(e) => setSearch(e.target.value)} />
             </div>
           </div>
 
-          <Card>
-            <CardContent className="p-0">
-              {loading ? (
-                <div className="flex items-center justify-center py-16 text-slate-500"><Loader2 className="h-5 w-5 animate-spin mr-2" />Loading...</div>
-              ) : filtered.length === 0 ? (
-                <div className="text-center py-16 text-slate-500">
-                  <AlertTriangle className="h-10 w-10 mx-auto mb-3 text-slate-300" />
-                  <p className="font-medium">No damage reports{tab !== "all" ? ` (${tab})` : ""}</p>
-                </div>
-              ) : (
-                <ul className="divide-y divide-slate-100">
-                  {filtered.map((d) => {
-                    // Cleaning follow-up: now that equipment_id
-                    // persists, surface the equipment name on the
-                    // ledger row so admins can correlate damages with
-                    // specific items at a glance. Fall back to no chip
-                    // for legacy rows (equipment_id NULL).
-                    const eq = d.equipment_id
-                      ? equipment.find((e) => e.id === d.equipment_id)
-                      : null;
-                    return (
-                    <li key={d.id} className="p-4 flex items-start gap-3">
-                      <AlertTriangle className={`h-5 w-5 mt-0.5 flex-shrink-0 ${d.resolved ? "text-emerald-500" : "text-amber-500"}`} />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex flex-wrap items-center gap-2 mb-1">
-                          <Badge variant="outline" className={`${typeTone[d.damage_type ?? ""] ?? "bg-slate-100 text-slate-700 border-slate-200"} text-xs capitalize`}>{d.damage_type ?? "damage"}</Badge>
-                          {eq?.name && (
-                            <Badge variant="outline" className="bg-blue-50 text-blue-800 border-blue-200 text-xs font-medium">
-                              {eq.name}
-                            </Badge>
-                          )}
-                          {d.resolved ? (
-                            <Badge variant="outline" className="bg-emerald-100 text-emerald-700 border-emerald-200 text-xs">Resolved</Badge>
-                          ) : (
-                            <Badge variant="outline" className="bg-rose-100 text-rose-700 border-rose-200 text-xs">Open</Badge>
-                          )}
-                          {d.repair_cost != null && (
-                            <span className="text-xs tabular-nums text-slate-700">R {Number(d.repair_cost).toFixed(2)}</span>
-                          )}
-                          {d.created_at && (
-                            <span className="text-[11px] text-slate-500">{formatDistanceToNow(new Date(d.created_at), { addSuffix: true })}</span>
-                          )}
-                        </div>
-                        {d.notes && <p className="text-sm text-slate-700">{d.notes}</p>}
+          <PortalCard padded={false}>
+            {loading ? (
+              <div className="p-4 space-y-3" aria-busy="true" aria-label="Loading damage reports">
+                {[0, 1, 2, 3, 4].map((i) => (
+                  <div key={i} className="h-16 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 animate-pulse" />
+                ))}
+              </div>
+            ) : filtered.length === 0 ? (
+              <div className="text-center py-16 text-slate-500 dark:text-slate-400">
+                <AlertTriangle className="h-10 w-10 mx-auto mb-3 text-slate-300 dark:text-slate-600" />
+                <p className="font-medium">No damage reports{tab !== "all" ? ` (${tab})` : ""}</p>
+              </div>
+            ) : (
+              <ul className="divide-y divide-slate-100 dark:divide-slate-800">
+                {filtered.map((d) => {
+                  // Cleaning follow-up: now that equipment_id
+                  // persists, surface the equipment name on the
+                  // ledger row so admins can correlate damages with
+                  // specific items at a glance. Fall back to no chip
+                  // for legacy rows (equipment_id NULL).
+                  const eq = d.equipment_id
+                    ? equipment.find((e) => e.id === d.equipment_id)
+                    : null;
+                  return (
+                  <li key={d.id} className="p-4 flex items-start gap-3">
+                    <AlertTriangle className={`h-5 w-5 mt-0.5 flex-shrink-0 ${d.resolved ? "text-emerald-500 dark:text-emerald-400" : "text-amber-500 dark:text-amber-400"}`} />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-wrap items-center gap-2 mb-1">
+                        <Badge variant="outline" className={`${typeTone[d.damage_type ?? ""] ?? "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700"} text-xs capitalize`}>{d.damage_type ?? "damage"}</Badge>
+                        {eq?.name && (
+                          <Badge variant="outline" className="bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 text-xs font-medium">
+                            {eq.name}
+                          </Badge>
+                        )}
+                        {d.resolved ? (
+                          <Badge variant="outline" className="bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-900 text-xs">Resolved</Badge>
+                        ) : (
+                          <Badge variant="outline" className="bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-950 dark:text-rose-300 dark:border-rose-900 text-xs">Open</Badge>
+                        )}
+                        {d.repair_cost != null && (
+                          <span className="text-xs tabular-nums text-slate-700 dark:text-slate-300">R {Number(d.repair_cost).toFixed(2)}</span>
+                        )}
+                        {d.created_at && (
+                          <span className="text-[11px] text-slate-500 dark:text-slate-400">{formatDistanceToNow(new Date(d.created_at), { addSuffix: true })}</span>
+                        )}
                       </div>
-                      {!d.resolved && (
-                        <Button size="sm" variant="ghost" onClick={() => markResolved(d.id)}>
-                          <Check className="h-4 w-4 mr-1" />Resolve
-                        </Button>
-                      )}
-                    </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+                      {d.notes && <p className="text-sm text-slate-700 dark:text-slate-300">{d.notes}</p>}
+                    </div>
+                    {!d.resolved && (
+                      <Button size="sm" variant="ghost" onClick={() => markResolved(d.id)}>
+                        <Check className="h-4 w-4 mr-1" />Resolve
+                      </Button>
+                    )}
+                  </li>
+                  );
+                })}
+              </ul>
+            )}
+          </PortalCard>
+        </PortalShell>
       </main>
 
       <Dialog open={creating} onOpenChange={(o) => !o && closeCreate()}>
@@ -348,7 +345,7 @@ export default function CleaningDamagePage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={closeCreate} disabled={saving}>Cancel</Button>
-            <Button onClick={saveCreate} disabled={saving} className="bg-cyan-600 hover:bg-cyan-700">
+            <Button onClick={saveCreate} disabled={saving} className="bg-amber-600 hover:bg-amber-700">
               {saving ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving</> : "Submit report"}
             </Button>
           </DialogFooter>

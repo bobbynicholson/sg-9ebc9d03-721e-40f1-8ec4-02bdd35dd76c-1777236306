@@ -6,7 +6,7 @@
  * pick up.
  *
  * Two-layer dot legend per day:
- *   - blue dot = at least one order assigned to this driver
+ *   - slate dot = at least one order assigned to this driver
  *   - amber dot = at least one unassigned order in the tenant the
  *                  driver is eligible to claim
  *   - both can co-exist
@@ -18,9 +18,9 @@
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { PortalCard, PortalCardHeader } from "@/components/portal/ui";
 import {
   Calendar as CalendarIcon, ChevronLeft, ChevronRight, MapPin, Clock,
   Users, Loader2, Hand, ExternalLink,
@@ -217,17 +217,17 @@ export default function DriverCalendarPage() {
   return (
     <DriverPageShell
       pageTitle="Calendar - Driver Portal"
-      heading="My Calendar"
-      subheading="Blue dots = jobs already yours. Amber dots = jobs in your company waiting to be claimed."
+      heading="My calendar"
+      subheading="Slate dots = jobs already yours. Amber dots = jobs in your company waiting to be claimed."
       icon={CalendarIcon}
       width="wide"
     >
           {/* Month nav */}
-          <Card className="border-0 shadow-lg mb-4">
-            <CardHeader className="flex flex-row items-center justify-between pb-3">
-              <CardTitle className="text-lg">
+          <PortalCard className="mb-4">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
                 {cursor.toLocaleDateString("en-ZA", { month: "long", year: "numeric" })}
-              </CardTitle>
+              </h2>
               <div className="flex items-center gap-1">
                 <Button
                   variant="outline"
@@ -260,16 +260,16 @@ export default function DriverCalendarPage() {
                   <ChevronRight className="w-4 h-4" />
                 </Button>
               </div>
-            </CardHeader>
-            <CardContent>
+            </div>
+            <div>
               {loading ? (
-                <div className="py-12 flex items-center justify-center text-slate-500 gap-2">
+                <div className="py-12 flex items-center justify-center text-slate-500 dark:text-slate-400 gap-2">
                   <Loader2 className="w-5 h-5 animate-spin" /> Loading calendar...
                 </div>
               ) : (
                 <>
                   {/* Day-of-week header */}
-                  <div className="grid grid-cols-7 gap-1 mb-1 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                  <div className="grid grid-cols-7 gap-1 mb-1 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                     {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => (
                       <div key={d} className="text-center py-1">{d}</div>
                     ))}
@@ -291,27 +291,27 @@ export default function DriverCalendarPage() {
                           onClick={() => setSelectedDay(iso)}
                           className={`relative min-h-16 sm:min-h-20 rounded-md border text-left p-1 sm:p-2 transition ${
                             !inMonth
-                              ? "bg-slate-50/50 text-slate-300 border-transparent"
+                              ? "bg-slate-50/50 dark:bg-slate-950 text-slate-300 dark:text-slate-600 border-transparent"
                               : isSelected
-                              ? "border-blue-500 ring-2 ring-blue-200 bg-white"
+                              ? "border-amber-500 ring-2 ring-amber-200 dark:ring-amber-900 bg-white dark:bg-slate-900 text-slate-900 dark:text-white"
                               : isToday
-                              ? "border-blue-300 bg-blue-50/40"
-                              : "bg-white border-slate-200 hover:border-blue-200"
+                              ? "border-amber-300 bg-amber-50/40 dark:border-amber-800 dark:bg-amber-500/5 text-slate-900 dark:text-white"
+                              : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white hover:border-amber-300"
                           }`}
                           aria-label={`${d.toLocaleDateString("en-ZA", { day: "numeric", month: "long" })}, ${mineCount + claimableCount} events`}
                         >
-                          <div className={`text-xs sm:text-sm font-semibold ${isToday ? "text-blue-700" : ""}`}>
+                          <div className={`text-xs sm:text-sm font-semibold ${isToday ? "text-amber-700 dark:text-amber-400" : ""}`}>
                             {d.getDate()}
                           </div>
                           <div className="flex items-center gap-1 mt-1 flex-wrap">
                             {mineCount > 0 && (
-                              <span className="inline-flex items-center gap-0.5 text-[10px] px-1 py-0.5 rounded bg-blue-100 text-blue-800 tabular-nums">
-                                <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                              <span className="inline-flex items-center gap-0.5 text-[10px] px-1 py-0.5 rounded bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 tabular-nums">
+                                <span className="w-1.5 h-1.5 rounded-full bg-slate-400 dark:bg-slate-500" />
                                 {mineCount}
                               </span>
                             )}
                             {claimableCount > 0 && (
-                              <span className="inline-flex items-center gap-0.5 text-[10px] px-1 py-0.5 rounded bg-amber-100 text-amber-800 tabular-nums">
+                              <span className="inline-flex items-center gap-0.5 text-[10px] px-1 py-0.5 rounded bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300 tabular-nums">
                                 <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
                                 {claimableCount}
                               </span>
@@ -322,9 +322,9 @@ export default function DriverCalendarPage() {
                     })}
                   </div>
                   {/* Legend */}
-                  <div className="mt-4 flex items-center gap-4 text-xs text-slate-500">
+                  <div className="mt-4 flex items-center gap-4 text-xs text-slate-500 dark:text-slate-400">
                     <span className="inline-flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-blue-500" /> Your jobs
+                      <span className="w-2 h-2 rounded-full bg-slate-400 dark:bg-slate-500" /> Your jobs
                     </span>
                     <span className="inline-flex items-center gap-1.5">
                       <span className="w-2 h-2 rounded-full bg-amber-500" /> Open to claim
@@ -332,22 +332,20 @@ export default function DriverCalendarPage() {
                   </div>
                 </>
               )}
-            </CardContent>
-          </Card>
+            </div>
+          </PortalCard>
 
           {/* Selected-day detail */}
           {selectedDay && (
-            <Card className="border-0 shadow-lg">
-              <CardHeader>
-                <CardTitle className="text-base">
-                  {fromIso(selectedDay).toLocaleDateString("en-ZA", {
-                    weekday: "long", day: "numeric", month: "long", year: "numeric",
-                  })}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
+            <PortalCard>
+              <PortalCardHeader
+                title={fromIso(selectedDay).toLocaleDateString("en-ZA", {
+                  weekday: "long", day: "numeric", month: "long", year: "numeric",
+                })}
+              />
+              <div>
                 {selectedOrders.length === 0 ? (
-                  <p className="text-sm text-slate-500 italic">
+                  <p className="text-sm text-slate-500 dark:text-slate-400 italic">
                     Nothing scheduled or available to claim on this day.
                   </p>
                 ) : (
@@ -357,13 +355,13 @@ export default function DriverCalendarPage() {
                         key={o.id}
                         className={`p-3 rounded-md border ${
                           o.is_mine
-                            ? "border-blue-200 bg-blue-50/40"
-                            : "border-amber-200 bg-amber-50/40"
+                            ? "border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-900"
+                            : "border-amber-200 bg-amber-50/40 dark:border-amber-900 dark:bg-amber-500/5"
                         }`}
                       >
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                           <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+                            <div className="flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-white">
                               {o.order_number && (
                                 <span className="tabular-nums">{o.order_number}</span>
                               )}
@@ -372,35 +370,35 @@ export default function DriverCalendarPage() {
                                 variant="outline"
                                 className={`text-[10px] ${
                                   o.is_mine
-                                    ? "bg-blue-100 text-blue-800 border-blue-300"
-                                    : "bg-amber-100 text-amber-800 border-amber-300"
+                                    ? "bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700"
+                                    : "bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-900"
                                 }`}
                               >
                                 {o.is_mine ? "Yours" : "Open"}
                               </Badge>
                             </div>
-                            <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-600">
+                            <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-600 dark:text-slate-400">
                               {o.event_time && (
                                 <span className="inline-flex items-center gap-1">
-                                  <Clock className="w-3 h-3" />
+                                  <Clock className="w-3 h-3 text-slate-400 dark:text-slate-500" />
                                   Event {o.event_time.slice(0, 5)}
                                 </span>
                               )}
                               {o.pickup_time && (
-                                <span className="inline-flex items-center gap-1 text-blue-700 font-medium">
+                                <span className="inline-flex items-center gap-1 text-amber-700 dark:text-amber-400 font-medium">
                                   <Clock className="w-3 h-3" />
                                   Collect {o.pickup_time.slice(0, 5)}
                                 </span>
                               )}
                               {o.guest_count != null && (
                                 <span className="inline-flex items-center gap-1">
-                                  <Users className="w-3 h-3" />
+                                  <Users className="w-3 h-3 text-slate-400 dark:text-slate-500" />
                                   {o.guest_count} guests
                                 </span>
                               )}
                               {o.venue_address && (
                                 <span className="inline-flex items-center gap-1 truncate max-w-[280px]">
-                                  <MapPin className="w-3 h-3 shrink-0" />
+                                  <MapPin className="w-3 h-3 shrink-0 text-slate-400 dark:text-slate-500" />
                                   <span className="truncate">{o.venue_address}</span>
                                 </span>
                               )}
@@ -409,7 +407,7 @@ export default function DriverCalendarPage() {
                           <div className="flex gap-2 flex-wrap">
                             <Link
                               href={withSlug(staffOrderHref(o.id, "driver"))}
-                              className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold min-h-[32px]"
+                              className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-amber-200 bg-amber-50 hover:bg-amber-100 text-amber-700 font-semibold min-h-[32px] transition-colors duration-150 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300 dark:hover:bg-amber-900/60"
                               title="Open the driver brief for this order"
                             >
                               <ExternalLink className="w-3.5 h-3.5" />
@@ -427,7 +425,7 @@ export default function DriverCalendarPage() {
                                 size="sm"
                                 onClick={() => claim(o.id)}
                                 disabled={claimingId === o.id}
-                                className="bg-emerald-600 hover:bg-emerald-700 min-h-11"
+                                className="bg-amber-600 hover:bg-amber-700 text-white min-h-11"
                               >
                                 {claimingId === o.id ? (
                                   <Loader2 className="w-4 h-4 animate-spin" />
@@ -443,8 +441,8 @@ export default function DriverCalendarPage() {
                     ))}
                   </ul>
                 )}
-              </CardContent>
-            </Card>
+              </div>
+            </PortalCard>
           )}
     </DriverPageShell>
   );

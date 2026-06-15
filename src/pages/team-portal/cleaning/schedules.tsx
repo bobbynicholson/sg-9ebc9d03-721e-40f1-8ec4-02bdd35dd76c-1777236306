@@ -1,6 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
 import Head from "next/head";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -14,8 +13,8 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Calendar, Plus, Loader2, Clock } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
-import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { CleaningNav } from "@/components/navigation/CleaningNav";
+import { PortalShell, PortalHeader, PortalCard } from "@/components/portal/ui";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -34,12 +33,14 @@ interface Schedule {
 }
 
 const statusTone: Record<string, string> = {
-  pending:     "bg-slate-100 text-slate-700 border-slate-200",
-  scheduled:   "bg-blue-100 text-blue-800 border-blue-200",
-  in_progress: "bg-purple-100 text-purple-800 border-purple-200",
-  completed:   "bg-emerald-100 text-emerald-800 border-emerald-200",
-  overdue:     "bg-rose-100 text-rose-700 border-rose-200",
+  pending:     "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700",
+  scheduled:   "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700",
+  in_progress: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-900",
+  completed:   "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-900",
+  overdue:     "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950 dark:text-rose-300 dark:border-rose-900",
 };
+
+const STATUS_FALLBACK = "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700";
 
 export default function CleaningSchedulesPage() {
   const { user } = useAuth();
@@ -133,76 +134,86 @@ export default function CleaningSchedulesPage() {
       <Head><title>Cleaning schedules - CateringMS</title></Head>
       <NoIndexMeta />
       <CleaningNav />
-      <main className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 via-white to-cyan-50 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
-        <div className="px-3 sm:px-4 md:px-6 py-6 sm:py-8 max-w-full">
-          <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-6">
-            {/* Wave 38: gradient-box icon header. */}
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center shadow-md flex-shrink-0">
-                <Calendar className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
-              </div>
-              <div className="min-w-0">
-                <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold bg-gradient-to-r from-cyan-600 to-blue-600 bg-clip-text text-transparent flex items-center gap-2">
-                  Cleaning Schedules
-                  <InfoTooltip content="The full recurring cleaning plan, grouped by date and time." />
-                </h1>
-                <p className="text-sm text-slate-600 mt-0.5">Recurring plan - daily / weekly / monthly cadence per area. Spawns the day's <a href="/team-portal/cleaning/tasks" className="text-cyan-600 hover:text-cyan-700 underline">tasks</a> that the team actually ticks off.</p>
-              </div>
-            </div>
-            <Button onClick={openCreate} className="bg-cyan-600 hover:bg-cyan-700">
-              <Plus className="h-4 w-4 mr-2" />New schedule
-            </Button>
-          </div>
+      <main className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+          <PortalHeader
+            title="Cleaning schedules"
+            icon={Calendar}
+            subtitle={
+              <>
+                Recurring plan - daily / weekly / monthly cadence per area. Spawns the day's{" "}
+                <a href="/team-portal/cleaning/tasks" className="text-amber-600 dark:text-amber-400 underline">tasks</a>{" "}
+                that the team actually ticks off.
+              </>
+            }
+            actions={
+              <Button onClick={openCreate} className="bg-amber-600 hover:bg-amber-700">
+                <Plus className="h-4 w-4 mr-2" />New schedule
+              </Button>
+            }
+          />
 
           {loading ? (
-            <div className="flex items-center justify-center py-16 text-slate-500"><Loader2 className="h-5 w-5 animate-spin mr-2" />Loading...</div>
+            <div className="space-y-4" aria-busy="true" aria-label="Loading schedules">
+              {[0, 1, 2].map((g) => (
+                <div key={g} className="space-y-2">
+                  <div className="h-3 w-40 rounded bg-slate-200 dark:bg-slate-800 animate-pulse" />
+                  <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 divide-y divide-slate-100 dark:divide-slate-800">
+                    {[0, 1].map((r) => (
+                      <div key={r} className="p-4 flex items-center justify-between gap-3">
+                        <div className="h-4 w-48 rounded bg-slate-200 dark:bg-slate-800 animate-pulse" />
+                        <div className="h-4 w-12 rounded bg-slate-200 dark:bg-slate-800 animate-pulse" />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
           ) : items.length === 0 ? (
-            <Card>
-              <CardContent className="text-center py-16 text-slate-500">
-                <Calendar className="h-10 w-10 mx-auto mb-3 text-slate-300" />
-                <p className="font-medium">No schedules yet</p>
-                <p className="text-xs mt-1">Click "New schedule" to add one</p>
-              </CardContent>
-            </Card>
+            <PortalCard padded={false}>
+              <div className="text-center py-16 px-6">
+                <Calendar className="h-10 w-10 mx-auto mb-3 text-slate-300 dark:text-slate-600" />
+                <p className="font-medium text-slate-900 dark:text-white">No schedules yet</p>
+                <p className="text-xs mt-1 text-slate-500 dark:text-slate-400">Add your first recurring cleaning plan to get started.</p>
+              </div>
+            </PortalCard>
           ) : (
             <div className="space-y-4">
               {Object.entries(grouped).map(([date, list]) => (
                 <div key={date}>
-                  <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 px-1">{date}, {list.length}</h2>
-                  <Card>
-                    <CardContent className="p-0">
-                      <ul className="divide-y divide-slate-100">
-                        {list.map((s) => (
-                          <li key={s.id} className="p-4 flex items-center gap-3">
-                            <div className="flex-1 min-w-0">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <span className="font-medium text-slate-900">{s.area_name}</span>
-                                {s.status && (
-                                  <Badge variant="outline" className={`${statusTone[s.status] ?? "bg-slate-100 text-slate-700 border-slate-200"} text-xs capitalize`}>
-                                    {s.status.replace("_", " ")}
-                                  </Badge>
-                                )}
-                                {s.frequency && (
-                                  <Badge variant="outline" className="bg-slate-100 text-slate-700 border-slate-200 text-xs capitalize">{s.frequency}</Badge>
-                                )}
-                              </div>
-                              {s.description && <p className="text-xs text-slate-600 mt-0.5">{s.description}</p>}
+                  <h2 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 px-1">{date}, {list.length}</h2>
+                  <PortalCard padded={false}>
+                    <ul className="divide-y divide-slate-100 dark:divide-slate-800">
+                      {list.map((s) => (
+                        <li key={s.id} className="p-4 flex items-center gap-3">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="font-medium text-slate-900 dark:text-white">{s.area_name}</span>
+                              {s.status && (
+                                <Badge variant="outline" className={`${statusTone[s.status] ?? STATUS_FALLBACK} text-xs capitalize`}>
+                                  {s.status.replace("_", " ")}
+                                </Badge>
+                              )}
+                              {s.frequency && (
+                                <Badge variant="outline" className="bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 text-xs capitalize">{s.frequency}</Badge>
+                              )}
                             </div>
-                            {s.scheduled_time && (
-                              <span className="text-sm tabular-nums text-slate-500 flex items-center gap-1 flex-shrink-0">
-                                <Clock className="h-3 w-3" />{s.scheduled_time.slice(0, 5)}
-                              </span>
-                            )}
-                          </li>
-                        ))}
-                      </ul>
-                    </CardContent>
-                  </Card>
+                            {s.description && <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">{s.description}</p>}
+                          </div>
+                          {s.scheduled_time && (
+                            <span className="text-sm tabular-nums text-slate-500 dark:text-slate-400 flex items-center gap-1 flex-shrink-0">
+                              <Clock className="h-3 w-3 text-slate-400 dark:text-slate-500" />{s.scheduled_time.slice(0, 5)}
+                            </span>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </PortalCard>
                 </div>
               ))}
             </div>
           )}
-        </div>
+        </PortalShell>
       </main>
 
       <Dialog open={creating} onOpenChange={(o) => !o && closeCreate()}>
@@ -246,7 +257,7 @@ export default function CleaningSchedulesPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={closeCreate} disabled={saving}>Cancel</Button>
-            <Button onClick={saveCreate} disabled={saving} className="bg-cyan-600 hover:bg-cyan-700">
+            <Button onClick={saveCreate} disabled={saving} className="bg-amber-600 hover:bg-amber-700">
               {saving ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving</> : "Create schedule"}
             </Button>
           </DialogFooter>

@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import Head from "next/head";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -16,11 +15,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Package, Search, Loader2, CheckCircle2, AlertTriangle, ShieldCheck, BookOpen } from "lucide-react";
 import Link from "next/link";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
-import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { CleaningNav } from "@/components/navigation/CleaningNav";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { PortalShell, PortalHeader, PortalCard, StatTile } from "@/components/portal/ui";
 
 interface Equipment {
   id: string;
@@ -34,12 +33,12 @@ interface Equipment {
 }
 
 const conditionTone: Record<string, string> = {
-  new: "bg-emerald-100 text-emerald-800 border-emerald-200",
-  excellent: "bg-emerald-100 text-emerald-800 border-emerald-200",
-  good: "bg-blue-100 text-blue-800 border-blue-200",
-  fair: "bg-amber-100 text-amber-800 border-amber-200",
-  poor: "bg-rose-100 text-rose-700 border-rose-200",
-  damaged: "bg-rose-100 text-rose-700 border-rose-200",
+  new: "bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-900",
+  excellent: "bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-900",
+  good: "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700",
+  fair: "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-900",
+  poor: "bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-950 dark:text-rose-300 dark:border-rose-900",
+  damaged: "bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-950 dark:text-rose-300 dark:border-rose-900",
 };
 
 export default function CleaningEquipmentPage() {
@@ -166,97 +165,104 @@ export default function CleaningEquipmentPage() {
       <Head><title>Equipment verification - CateringMS</title></Head>
       <NoIndexMeta />
       <CleaningNav />
-      <main className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 via-white to-cyan-50 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
-        <div className="px-3 sm:px-4 md:px-6 py-6 sm:py-8 max-w-full">
-          {/* Wave 38: gradient-box icon header. */}
-          <div className="mb-6 flex items-center gap-3">
-            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center shadow-md flex-shrink-0">
-              <ShieldCheck className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
-            </div>
-            <div className="min-w-0">
-              <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold bg-gradient-to-r from-cyan-600 to-blue-600 bg-clip-text text-transparent">
-                Equipment Verification
-              </h1>
-              <p className="text-sm text-slate-600 mt-0.5">Verify gear returned from a function, log missing or damaged items with auto-billing</p>
-            </div>
-          </div>
+      <main className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+          <PortalHeader
+            title="Equipment verification"
+            subtitle="Verify gear returned from a function, log missing or damaged items with auto-billing"
+            icon={ShieldCheck}
+          />
 
           <div className="grid grid-cols-3 gap-3 sm:gap-4 mb-6">
-            <Card><CardContent className="p-4"><p className="text-xs text-slate-600 flex items-center gap-1">Equipment items <InfoTooltip content="Number of different equipment lines on file for your company." /></p><p className="text-2xl font-bold tabular-nums">{stats.total}</p></CardContent></Card>
-            <Card><CardContent className="p-4"><p className="text-xs text-slate-600 flex items-center gap-1">Damaged / poor <InfoTooltip content="Items marked as damaged or in poor condition.\n\nKeep these out of rotation until they're repaired or written off." /></p><p className="text-2xl font-bold tabular-nums text-rose-600">{stats.damaged}</p></CardContent></Card>
-            <Card><CardContent className="p-4"><p className="text-xs text-slate-600 flex items-center gap-1">Replacement value <InfoTooltip content="What it would cost to replace every piece of equipment on the books today." /></p><p className="text-2xl font-bold tabular-nums">R {stats.totalValue.toLocaleString("en-ZA", { maximumFractionDigits: 0 })}</p></CardContent></Card>
+            <StatTile
+              label="Equipment items"
+              value={stats.total}
+              hint="Lines on file for your company"
+            />
+            <StatTile
+              label="Damaged / poor"
+              value={stats.damaged}
+              hint="Keep out of rotation until fixed"
+            />
+            <StatTile
+              label="Replacement value"
+              value={`R ${stats.totalValue.toLocaleString("en-ZA", { maximumFractionDigits: 0 })}`}
+              hint="Cost to replace everything today"
+            />
           </div>
 
-          <Card className="mb-6">
-            <CardContent className="p-4 flex flex-col sm:flex-row gap-3">
+          <PortalCard className="mb-6">
+            <div className="flex flex-col sm:flex-row gap-3">
               <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 dark:text-slate-500" />
                 <Input placeholder="Search by name or category..." className="pl-9" value={search} onChange={(e) => setSearch(e.target.value)} />
               </div>
               <Select value={category} onValueChange={setCategory}>
                 <SelectTrigger className="w-full sm:w-[200px]"><SelectValue placeholder="Category" /></SelectTrigger>
                 <SelectContent>{categories.map((c) => <SelectItem key={c} value={c}>{c === "all" ? "All categories" : c}</SelectItem>)}</SelectContent>
               </Select>
-            </CardContent>
-          </Card>
+            </div>
+          </PortalCard>
 
-          <Card>
-            <CardContent className="p-0">
-              {loading ? (
-                <div className="flex items-center justify-center py-16 text-slate-500"><Loader2 className="h-5 w-5 animate-spin mr-2" />Loading equipment...</div>
-              ) : filtered.length === 0 ? (
-                <div className="text-center py-16 text-slate-500">
-                  <Package className="h-10 w-10 mx-auto mb-3 text-slate-300" />
-                  <p className="font-medium">No equipment matches the filter</p>
-                </div>
-              ) : (
-                <ul className="divide-y divide-slate-100">
-                  {filtered.map((i) => (
-                    <li key={i.id} className="p-4 flex items-center gap-3 hover:bg-slate-50">
-                      <div className="flex-1 min-w-0">
-                        <div className="font-medium text-slate-900 truncate">{i.name}</div>
-                        <div className="text-xs text-slate-500 mt-0.5 flex flex-wrap gap-x-3">
-                          <span>{i.category ?? "--"}</span>
-                          {i.replacement_cost != null && <span>R {Number(i.replacement_cost).toFixed(0)} replacement</span>}
-                          {i.cleaning_time_hours != null && <span>{Number(i.cleaning_time_hours)}h to clean</span>}
-                        </div>
+          <PortalCard padded={false}>
+            {loading ? (
+              <div className="p-4 space-y-3" aria-busy="true" aria-label="Loading equipment">
+                {[0, 1, 2, 3, 4].map((n) => (
+                  <div key={n} className="h-14 rounded-lg bg-slate-100 dark:bg-slate-800 animate-pulse" />
+                ))}
+              </div>
+            ) : filtered.length === 0 ? (
+              <div className="text-center py-16 text-slate-500 dark:text-slate-400">
+                <Package className="h-10 w-10 mx-auto mb-3 text-slate-300 dark:text-slate-600" />
+                <p className="font-medium">No equipment matches the filter</p>
+              </div>
+            ) : (
+              <ul className="divide-y divide-slate-100 dark:divide-slate-800">
+                {filtered.map((i) => (
+                  <li key={i.id} className="p-4 flex items-center gap-3 hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-slate-900 dark:text-white truncate">{i.name}</div>
+                      <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 flex flex-wrap gap-x-3">
+                        <span>{i.category ?? "--"}</span>
+                        {i.replacement_cost != null && <span className="tabular-nums">R {Number(i.replacement_cost).toFixed(0)} replacement</span>}
+                        {i.cleaning_time_hours != null && <span className="tabular-nums">{Number(i.cleaning_time_hours)}h to clean</span>}
                       </div>
-                      <div className="flex items-center gap-3 flex-shrink-0">
-                        {i.condition && (
-                          <Badge variant="outline" className={`${conditionTone[i.condition] ?? "bg-slate-100 text-slate-700 border-slate-200"} text-xs`}>
-                            {i.condition}
-                          </Badge>
-                        )}
-                        <span className="text-right tabular-nums">
-                          <span className="text-base font-semibold">{Number(i.available_quantity ?? 0)}</span>
-                          <span className="text-xs text-slate-500">/{Number(i.quantity ?? 0)}</span>
-                        </span>
-                        {/* Cleaning follow-up (cleaning.md 5.4): inline
-                            SOP link. workflows.tsx has cleaning steps
-                            by category but nothing on this page surfaced
-                            them. Now one tap from a verification row to
-                            "how do I clean this category?". */}
-                        {i.category && (
-                          <Link
-                            href={`/team-portal/cleaning/workflows?category=${encodeURIComponent(i.category)}`}
-                            className="inline-flex items-center text-xs text-blue-700 hover:underline"
-                            title={`How to clean ${i.category}`}
-                          >
-                            <BookOpen className="h-4 w-4" />
-                            <span className="sr-only">How to clean {i.category}</span>
-                          </Link>
-                        )}
-                        <Button size="sm" variant="outline" onClick={() => openVerify(i)}>
-                          <CheckCircle2 className="h-4 w-4 mr-1" />Verify
-                        </Button>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+                    </div>
+                    <div className="flex items-center gap-3 flex-shrink-0">
+                      {i.condition && (
+                        <Badge variant="outline" className={`${conditionTone[i.condition] ?? "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700"} text-xs`}>
+                          {i.condition}
+                        </Badge>
+                      )}
+                      <span className="text-right tabular-nums">
+                        <span className="text-base font-semibold text-slate-900 dark:text-white">{Number(i.available_quantity ?? 0)}</span>
+                        <span className="text-xs text-slate-500 dark:text-slate-400">/{Number(i.quantity ?? 0)}</span>
+                      </span>
+                      {/* Cleaning follow-up (cleaning.md 5.4): inline
+                          SOP link. workflows.tsx has cleaning steps
+                          by category but nothing on this page surfaced
+                          them. Now one tap from a verification row to
+                          "how do I clean this category?". */}
+                      {i.category && (
+                        <Link
+                          href={`/team-portal/cleaning/workflows?category=${encodeURIComponent(i.category)}`}
+                          className="inline-flex items-center text-xs text-amber-700 dark:text-amber-400 hover:underline"
+                          title={`How to clean ${i.category}`}
+                        >
+                          <BookOpen className="h-4 w-4" />
+                          <span className="sr-only">How to clean {i.category}</span>
+                        </Link>
+                      )}
+                      <Button size="sm" variant="outline" onClick={() => openVerify(i)}>
+                        <CheckCircle2 className="h-4 w-4 mr-1" />Verify
+                      </Button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </PortalCard>
+        </PortalShell>
       </main>
 
       <Dialog open={!!verifyItem} onOpenChange={(o) => !o && closeVerify()}>
@@ -296,12 +302,12 @@ export default function CleaningEquipmentPage() {
               <Textarea id="dnotes" rows={3} value={damageNotes} onChange={(e) => setDamageNotes(e.target.value)} placeholder="e.g. 2 chafing dishes dented, 1 ladle missing" />
             </div>
             {Number(missingQty) > 0 && verifyItem?.replacement_cost && (
-              <div className="bg-amber-50 border border-amber-200 rounded p-3 text-sm">
+              <div className="bg-amber-50 border border-amber-200 rounded p-3 text-sm dark:bg-amber-950 dark:border-amber-900 dark:text-amber-100">
                 <div className="flex items-center gap-2">
-                  <AlertTriangle className="h-4 w-4 text-amber-600 flex-shrink-0" />
+                  <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 flex-shrink-0" />
                   <span>Replacement value: <span className="font-semibold tabular-nums">R {(Number(missingQty) * Number(verifyItem.replacement_cost)).toFixed(2)}</span></span>
                 </div>
-                <p className="text-[11px] text-amber-700 mt-1.5 ml-6">
+                <p className="text-[11px] text-amber-700 dark:text-amber-400 mt-1.5 ml-6">
                   Recorded on the damage log. Admin reviews and adds it to the client's invoice manually - it does not auto-bill yet.
                 </p>
               </div>
@@ -309,7 +315,7 @@ export default function CleaningEquipmentPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={closeVerify} disabled={saving}>Cancel</Button>
-            <Button onClick={saveVerification} disabled={saving} className="bg-cyan-600 hover:bg-cyan-700">
+            <Button onClick={saveVerification} disabled={saving} className="bg-amber-600 hover:bg-amber-700">
               {saving ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving</> : "Save verification"}
             </Button>
           </DialogFooter>

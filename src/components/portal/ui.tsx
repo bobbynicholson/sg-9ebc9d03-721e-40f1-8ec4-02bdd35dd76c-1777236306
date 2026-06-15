@@ -2,14 +2,14 @@ import * as React from "react";
 import { ArrowUpRight, ArrowDownRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-// Soft, layered card shadow — a tight contact shadow plus a wide, faint
+// Soft, layered card shadow - a tight contact shadow plus a wide, faint
 // ambient one. Reads as quiet depth, not a hard drop shadow.
 const SOFT_SHADOW =
   "shadow-[0_1px_2px_rgba(15,23,42,0.04),0_10px_30px_-16px_rgba(15,23,42,0.12)]";
 
 /**
  * Shared container primitives for the staff portals. One definition so every
- * page's shell, header, cards and stat tiles are identical — consistent AND
+ * page's shell, header, cards and stat tiles are identical - consistent AND
  * a touch more refined (rounded-2xl, hairline borders, soft shadow, generous
  * padding, neutral icon tile with an amber glyph). Product-register restraint:
  * amber is the accent, slate is the neutral, dark-mode aware throughout.

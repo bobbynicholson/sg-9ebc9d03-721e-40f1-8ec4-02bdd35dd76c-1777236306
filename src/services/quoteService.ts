@@ -577,7 +577,7 @@ export const quoteService = {
           quoteNumber:  quoteNumber,
           totalAmount:  totalFormatted,
           quoteUrl:     quoteUrl,
-          // snake_case — matches the registry template vars and the
+          // snake_case - matches the registry template vars and the
           // email_templates editor placeholder list
           first_name:   firstName,
           client_name:  clientFullName,

@@ -5,9 +5,9 @@ import {
 
 /**
  * A realistic, hand-built CateringMS admin dashboard mock for the landing
- * hero — the "this is serious software" centrepiece. Pure CSS/SVG (no
+ * hero - the "this is serious software" centrepiece. Pure CSS/SVG (no
  * screenshots), so it's crisp at any size and fast. All figures are
- * illustrative. Decorative only — aria-hidden so screen readers skip it.
+ * illustrative. Decorative only - aria-hidden so screen readers skip it.
  */
 
 const NAV = [

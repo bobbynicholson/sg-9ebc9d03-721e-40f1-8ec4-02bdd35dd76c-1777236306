@@ -1,6 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import Head from "next/head";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
@@ -20,6 +19,7 @@ import { canSeeOtherStaffPay } from "@/lib/authGuards";
 import { UserRole } from "@/types/app";
 import { toLocalISO } from "@/lib/localDate";
 import { captureException } from "@/lib/observability";
+import { PortalShell, PortalHeader, PortalCard, StatTile } from "@/components/portal/ui";
 
 interface Shift {
   id: string;
@@ -715,98 +715,80 @@ export default function KitchenDutyRosterPage() {
       <Head><title>Kitchen duty - CateringMS</title></Head>
       <NoIndexMeta />
       <KitchenNav />
-      <main className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
-        <div className="px-3 sm:px-4 md:px-6 py-6 sm:py-8 max-w-full">
-          {/* Wave 35: header restyle. Icon-in-gradient-box pattern
-              (matches the kitchen suite), live "X on duty" pulse pill
-              that animates when anyone is clocked in. */}
-          <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center shadow-md flex-shrink-0">
-                <Users className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
+      <main className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+          {/* Wave 35: header restyle. Neutral icon tile (PortalHeader),
+              live "X on duty" pulse pill that animates when anyone is
+              clocked in, plus an as-of chip + manual refresh. */}
+          <PortalHeader
+            title="Kitchen duty"
+            subtitle="Live floor, hand-off notes, performance"
+            icon={Users}
+            actions={
+              <div className="flex items-center gap-2 flex-wrap">
+                {/* KIT3-F: as-of chip + refresh. Realtime keeps the page
+                    fresh automatically but a manual force-refresh helps
+                    when an admin wants to confirm "yes, this is the
+                    current state right now". */}
+                {lastLoadedAt && (
+                  <span className="text-[11px] text-slate-500 dark:text-slate-400 tabular-nums hidden sm:inline" title={lastLoadedAt.toLocaleString("en-ZA")}>
+                    As of {lastLoadedAt.toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" })}
+                  </span>
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => load()}
+                  disabled={loading}
+                  className="h-8"
+                  title="Refresh"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
+                </Button>
+                <div
+                  className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-sm font-medium ${
+                    active.length > 0
+                      ? "bg-emerald-50 border-emerald-200 text-emerald-800 dark:bg-emerald-500/10 dark:border-emerald-500/30 dark:text-emerald-300"
+                      : "bg-slate-50 border-slate-200 text-slate-500 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-400"
+                  }`}
+                  title={active.length > 0 ? "Live - updates as the team clocks in" : "Nobody on shift"}
+                >
+                  <span className="relative flex h-2.5 w-2.5">
+                    {active.length > 0 && (
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75 motion-reduce:hidden"></span>
+                    )}
+                    <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${active.length > 0 ? "bg-emerald-500" : "bg-slate-400"}`}></span>
+                  </span>
+                  {active.length > 0 ? `${active.length} on duty now` : "Nobody on duty"}
+                </div>
               </div>
-              <div className="min-w-0">
-                <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">
-                  Kitchen Duty Roster
-                </h1>
-                <p className="text-sm text-slate-600 mt-0.5">Live floor, hand-off notes, performance</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 flex-wrap">
-              {/* KIT3-F: as-of chip + refresh. Realtime keeps the page
-                  fresh automatically but a manual force-refresh helps
-                  when an admin wants to confirm "yes, this is the
-                  current state right now". */}
-              {lastLoadedAt && (
-                <span className="text-[11px] text-slate-500 tabular-nums hidden sm:inline" title={lastLoadedAt.toLocaleString("en-ZA")}>
-                  As of {lastLoadedAt.toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" })}
-                </span>
-              )}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => load()}
-                disabled={loading}
-                className="h-8"
-                title="Refresh"
-              >
-                <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
-              </Button>
-              <div
-                className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-sm font-medium ${
-                  active.length > 0
-                    ? "bg-emerald-50 border-emerald-200 text-emerald-800"
-                    : "bg-slate-50 border-slate-200 text-slate-500"
-                }`}
-                title={active.length > 0 ? "Live - updates as the team clocks in" : "Nobody on shift"}
-              >
-                <span className="relative flex h-2.5 w-2.5">
-                  {active.length > 0 && (
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  )}
-                  <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${active.length > 0 ? "bg-emerald-500" : "bg-slate-400"}`}></span>
-                </span>
-                {active.length > 0 ? `${active.length} on duty now` : "Nobody on duty"}
-              </div>
-            </div>
-          </div>
+            }
+          />
 
           {/* Wave 35: team-stat strip. Four headline numbers derived
               from existing data - no new queries. Hours-today ticks
               live because the useMemo deps include `now`. */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-            <Card className="border-0 shadow-sm">
-              <CardContent className="p-4">
-                <div className="text-[10px] uppercase tracking-wider text-slate-500 flex items-center gap-1">
-                  <Activity className="w-3 h-3" /> On duty now
-                </div>
-                <div className="text-2xl sm:text-3xl font-bold text-emerald-600 tabular-nums mt-1">{teamStats.onDutyNow}</div>
-              </CardContent>
-            </Card>
-            <Card className="border-0 shadow-sm">
-              <CardContent className="p-4">
-                <div className="text-[10px] uppercase tracking-wider text-slate-500 flex items-center gap-1">
-                  <Clock className="w-3 h-3" /> Hours today
-                </div>
-                <div className="text-2xl sm:text-3xl font-bold text-slate-900 tabular-nums mt-1">{teamStats.hoursToday}<span className="text-sm font-normal text-slate-500 ml-0.5">h</span></div>
-              </CardContent>
-            </Card>
-            <Card className="border-0 shadow-sm">
-              <CardContent className="p-4">
-                <div className="text-[10px] uppercase tracking-wider text-slate-500 flex items-center gap-1">
-                  <CalendarIcon className="w-3 h-3" /> This week
-                </div>
-                <div className="text-2xl sm:text-3xl font-bold text-slate-900 tabular-nums mt-1">{teamStats.hoursThisWeek}<span className="text-sm font-normal text-slate-500 ml-0.5">h</span></div>
-              </CardContent>
-            </Card>
-            <Card className="border-0 shadow-sm">
-              <CardContent className="p-4">
-                <div className="text-[10px] uppercase tracking-wider text-slate-500 flex items-center gap-1">
-                  <TrendingUp className="w-3 h-3" /> Avg shift
-                </div>
-                <div className="text-2xl sm:text-3xl font-bold text-slate-900 tabular-nums mt-1">{teamStats.avgShiftHours || "-"}<span className="text-sm font-normal text-slate-500 ml-0.5">h</span></div>
-              </CardContent>
-            </Card>
+            <StatTile
+              label="On duty now"
+              icon={Activity}
+              value={<span className="text-emerald-600 dark:text-emerald-400">{teamStats.onDutyNow}</span>}
+            />
+            <StatTile
+              label="Hours today"
+              icon={Clock}
+              value={<>{teamStats.hoursToday}<span className="text-sm font-normal text-slate-500 ml-0.5">h</span></>}
+            />
+            <StatTile
+              label="This week"
+              icon={CalendarIcon}
+              value={<>{teamStats.hoursThisWeek}<span className="text-sm font-normal text-slate-500 ml-0.5">h</span></>}
+            />
+            <StatTile
+              label="Avg shift"
+              icon={TrendingUp}
+              value={<>{teamStats.avgShiftHours || "-"}<span className="text-sm font-normal text-slate-500 ml-0.5">h</span></>}
+            />
           </div>
 
           {/* Phase 4: live earnings + overtime + break panel. Numbers tick
@@ -827,30 +809,30 @@ export default function KitchenDutyRosterPage() {
               : null;
             const onBreak = !!myActiveShift?.break_started_at;
             return (
-              <Card className={`mb-6 border-2 ${
-                earnings?.overtime ? "border-red-300 bg-red-50/40" :
-                earnings?.overdueBreak ? "border-amber-300 bg-amber-50/40" :
-                "border-orange-200 bg-gradient-to-r from-orange-50 to-red-50"
+              <PortalCard padded={false} className={`mb-6 ${
+                earnings?.overtime ? "border-rose-300 bg-rose-50/40 dark:border-rose-500/40 dark:bg-rose-500/10" :
+                earnings?.overdueBreak ? "border-amber-300 bg-amber-50/40 dark:border-amber-500/40 dark:bg-amber-500/10" :
+                ""
               }`}>
-                <CardContent className="p-4 sm:p-6 flex flex-col gap-4">
+                <div className="p-4 sm:p-6 flex flex-col gap-4">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-full bg-orange-500 flex items-center justify-center flex-shrink-0">
+                      <div className="w-12 h-12 rounded-full bg-amber-600 flex items-center justify-center flex-shrink-0">
                         <ChefHat className="h-6 w-6 text-white" />
                       </div>
                       <div>
-                        <p className="text-xs text-slate-600 flex items-center gap-1">
+                        <p className="text-xs text-slate-600 dark:text-slate-400 flex items-center gap-1">
                           Your status
                           <InfoTooltip content="Live shift summary. Earnings show only if your hourly rate is set on your profile. Break time is excluded from worked hours.\n\nPrivate: your hourly rate and earnings are only visible to you and the catering office. No teammates see your pay on this page." />
                           <span
-                            className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 text-[10px] font-medium ml-1"
+                            className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 text-[10px] font-medium ml-1"
                             title="Pay numbers on this card are only visible to you"
                           >
                             <Lock className="w-2.5 h-2.5" />
                             Private
                           </span>
                         </p>
-                        <p className="text-base font-semibold text-slate-900">
+                        <p className="text-base font-semibold text-slate-900 dark:text-white">
                           {myActiveShift
                             ? onBreak
                               ? `On break, ${fmtDuration(myActiveShift.break_started_at)}`
@@ -870,17 +852,17 @@ export default function KitchenDutyRosterPage() {
                             ? Math.floor((Date.now() - startedToday.getTime()) / 60000)
                             : 0;
                           return (
-                            <p className="text-xs text-slate-600 mt-1 flex items-center gap-1.5 flex-wrap">
+                            <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 flex items-center gap-1.5 flex-wrap">
                               <CalendarIcon className="w-3 h-3 text-slate-500" />
-                              Rostered <strong className="text-slate-900">{myRoster.planned_start.slice(0,5)}-{myRoster.planned_end.slice(0,5)}</strong>
+                              Rostered <strong className="text-slate-900 dark:text-white">{myRoster.planned_start.slice(0,5)}-{myRoster.planned_end.slice(0,5)}</strong>
                               {lateMin > 0 && lateMin < 240 && (
-                                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-red-100 text-red-700 text-[10px] font-semibold">
+                                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300 text-[10px] font-semibold">
                                   <AlertTriangle className="w-2.5 h-2.5" />
                                   {lateMin}m late
                                 </span>
                               )}
                               {myRoster.actual_start && !myRoster.actual_end && (
-                                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 text-[10px] font-semibold">
+                                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300 text-[10px] font-semibold">
                                   Clocked in
                                 </span>
                               )}
@@ -895,7 +877,7 @@ export default function KitchenDutyRosterPage() {
                           onClick={() => handleToggleBreak(myActiveShift)}
                           disabled={saving}
                           variant="outline"
-                          className={onBreak ? "border-emerald-400 text-emerald-700 hover:bg-emerald-50" : ""}
+                          className={onBreak ? "border-emerald-400 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-500/40 dark:text-emerald-300 dark:hover:bg-emerald-500/10" : ""}
                         >
                           <Coffee className="h-4 w-4 mr-2" />
                           {onBreak ? "End break" : "Start break"}
@@ -926,7 +908,7 @@ export default function KitchenDutyRosterPage() {
                     <button
                       type="button"
                       onClick={() => setPayslipsOpen(true)}
-                      className="self-start inline-flex items-center gap-1.5 text-xs text-orange-800 hover:text-orange-900 font-medium hover:underline"
+                      className="self-start inline-flex items-center gap-1.5 text-xs text-amber-700 hover:text-amber-800 dark:text-amber-500 dark:hover:text-amber-400 font-medium hover:underline"
                     >
                       <Wallet className="w-3 h-3" />
                       View payslips ({myPayslips.length})
@@ -935,20 +917,20 @@ export default function KitchenDutyRosterPage() {
                   )}
 
                   {myActiveShift && earnings && (
-                    <div className="grid grid-cols-3 gap-2 sm:gap-3 pt-2 border-t border-orange-200">
-                      <div className="rounded-md bg-white border border-orange-100 shadow-sm p-2 sm:p-3">
+                    <div className="grid grid-cols-3 gap-2 sm:gap-3 pt-2 border-t border-slate-200 dark:border-slate-700">
+                      <div className="rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 p-2 sm:p-3">
                         <div className="text-[10px] uppercase tracking-wider text-slate-500">Worked</div>
-                        <div className="text-sm sm:text-base font-bold text-slate-900 tabular-nums">{fmtMinutes(earnings.workedMin)}</div>
+                        <div className="text-sm sm:text-base font-bold text-slate-900 dark:text-white tabular-nums">{fmtMinutes(earnings.workedMin)}</div>
                       </div>
-                      <div className="rounded-md bg-white border border-orange-100 shadow-sm p-2 sm:p-3">
+                      <div className="rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 p-2 sm:p-3">
                         <div className="text-[10px] uppercase tracking-wider text-slate-500">Break</div>
-                        <div className="text-sm sm:text-base font-bold text-slate-900 tabular-nums">{fmtMinutes(earnings.breakMin)}</div>
+                        <div className="text-sm sm:text-base font-bold text-slate-900 dark:text-white tabular-nums">{fmtMinutes(earnings.breakMin)}</div>
                       </div>
-                      <div className="rounded-md bg-white border border-orange-100 shadow-sm p-2 sm:p-3">
+                      <div className="rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 p-2 sm:p-3">
                         <div className="text-[10px] uppercase tracking-wider text-slate-500 flex items-center gap-1">
                           <DollarSign className="h-2.5 w-2.5" />Earnings
                         </div>
-                        <div className="text-sm sm:text-base font-bold text-slate-900 tabular-nums">
+                        <div className="text-sm sm:text-base font-bold text-slate-900 dark:text-white tabular-nums">
                           {earnings.earnings != null ? `R ${earnings.earnings.toFixed(2)}` : "Set rate"}
                         </div>
                       </div>
@@ -957,7 +939,7 @@ export default function KitchenDutyRosterPage() {
 
                   {/* Warnings, overtime first, break second */}
                   {earnings?.overtime && (
-                    <div className="flex items-start gap-2 text-xs text-red-800 bg-red-100/70 rounded-md p-2.5 border border-red-200">
+                    <div className="flex items-start gap-2 text-xs text-rose-800 dark:text-rose-300 bg-rose-100/70 dark:bg-rose-500/10 rounded-md p-2.5 border border-rose-200 dark:border-rose-500/30">
                       <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
                       <div>
                         <span className="font-semibold">Overtime, </span>
@@ -966,7 +948,7 @@ export default function KitchenDutyRosterPage() {
                     </div>
                   )}
                   {earnings?.overdueBreak && !earnings.overtime && (
-                    <div className="flex items-start gap-2 text-xs text-amber-800 bg-amber-100/70 rounded-md p-2.5 border border-amber-200">
+                    <div className="flex items-start gap-2 text-xs text-amber-800 dark:text-amber-300 bg-amber-100/70 dark:bg-amber-500/10 rounded-md p-2.5 border border-amber-200 dark:border-amber-500/30">
                       <Coffee className="h-4 w-4 shrink-0 mt-0.5" />
                       <div>
                         <span className="font-semibold">Time for a break, </span>
@@ -974,8 +956,8 @@ export default function KitchenDutyRosterPage() {
                       </div>
                     </div>
                   )}
-                </CardContent>
-              </Card>
+                </div>
+              </PortalCard>
             );
           })()}
 
@@ -989,20 +971,20 @@ export default function KitchenDutyRosterPage() {
               still stays in /admin/wages / /admin/kitchen-settlement.
               Only renders for canSeeOtherStaffPay roles. */}
           {payrollBurn && (
-            <Card className="mb-4 border-amber-200 bg-amber-50/40">
-              <CardContent className="p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <PortalCard padded={false} className="mb-4 border-amber-200 bg-amber-50 dark:border-amber-500/30 dark:bg-amber-500/10">
+              <div className="p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-9 h-9 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
-                    <DollarSign className="w-4 h-4 text-amber-700" />
+                  <div className="w-9 h-9 rounded-full bg-amber-100 dark:bg-amber-500/20 flex items-center justify-center flex-shrink-0">
+                    <DollarSign className="w-4 h-4 text-amber-700 dark:text-amber-400" />
                   </div>
                   <div className="min-w-0">
-                    <div className="text-[10px] uppercase tracking-wider text-amber-800 flex items-center gap-1">
+                    <div className="text-[10px] uppercase tracking-wider text-amber-800 dark:text-amber-400 flex items-center gap-1">
                       Live payroll burn
                       <InfoTooltip content="Combined rate of every staffer currently on shift, multiplied by their hourly rate. Aggregate only - per-person pay lives on /admin/wages and /admin/kitchen-settlement." />
                     </div>
-                    <div className="text-sm font-semibold text-slate-900">
+                    <div className="text-sm font-semibold text-slate-900 dark:text-white">
                       R {payrollBurn.perHour.toFixed(2)}/hr
-                      <span className="text-slate-500 font-normal ml-2 text-xs">
+                      <span className="text-slate-500 dark:text-slate-400 font-normal ml-2 text-xs">
                         · R {payrollBurn.earnedToday.toFixed(2)} earned so far
                       </span>
                     </div>
@@ -1011,23 +993,23 @@ export default function KitchenDutyRosterPage() {
                 {payrollBurn.missingRates > 0 && (
                   <a
                     href={user?.company_slug ? `/${user.company_slug}/admin/wages` : "/admin/wages"}
-                    className="inline-flex items-center gap-1 text-xs text-amber-800 hover:text-amber-900 font-medium hover:underline"
+                    className="inline-flex items-center gap-1 text-xs text-amber-800 hover:text-amber-900 dark:text-amber-400 dark:hover:text-amber-300 font-medium hover:underline"
                   >
                     <AlertTriangle className="w-3 h-3" />
                     {payrollBurn.missingRates} staff missing rate
                     <ChevronRight className="w-3 h-3" />
                   </a>
                 )}
-              </CardContent>
-            </Card>
+              </div>
+            </PortalCard>
           )}
 
           <div className="flex items-center justify-between mb-3 px-0.5">
-            <h2 className="text-base sm:text-lg font-semibold text-slate-900 flex items-center gap-2">
-              <Activity className="w-4 h-4 text-emerald-600" />
+            <h2 className="text-base sm:text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+              <Activity className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
               Live floor
               <span className="text-sm font-normal text-slate-500">·</span>
-              <span className="text-sm font-medium text-slate-600 tabular-nums">{active.length}</span>
+              <span className="text-sm font-medium text-slate-600 dark:text-slate-400 tabular-nums">{active.length}</span>
               <InfoTooltip content="Everyone currently clocked in for a kitchen shift. Updates the second someone clocks in or out." />
             </h2>
             {/* KIT3-F: roster coverage chip. "3 of 4 rostered chefs
@@ -1038,10 +1020,10 @@ export default function KitchenDutyRosterPage() {
               <span
                 className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full border ${
                   rosterCoverage.clockedIn >= rosterCoverage.rostered
-                    ? "bg-emerald-50 border-emerald-200 text-emerald-800"
+                    ? "bg-emerald-50 border-emerald-200 text-emerald-800 dark:bg-emerald-500/10 dark:border-emerald-500/30 dark:text-emerald-300"
                     : rosterCoverage.clockedIn === 0
-                      ? "bg-rose-50 border-rose-200 text-rose-800"
-                      : "bg-amber-50 border-amber-200 text-amber-800"
+                      ? "bg-rose-50 border-rose-200 text-rose-800 dark:bg-rose-500/10 dark:border-rose-500/30 dark:text-rose-300"
+                      : "bg-amber-50 border-amber-200 text-amber-800 dark:bg-amber-500/10 dark:border-amber-500/30 dark:text-amber-300"
                 }`}
                 title={`Today's roster: ${rosterCoverage.clockedIn} of ${rosterCoverage.rostered} rostered chefs clocked in`}
               >
@@ -1050,16 +1032,16 @@ export default function KitchenDutyRosterPage() {
               </span>
             )}
           </div>
-          <Card className="mb-8 border-0 shadow-sm">
-            <CardContent className="p-0">
+          <PortalCard padded={false} className="mb-8">
+            <div>
               {loading ? (
-                <div className="flex items-center justify-center py-10 text-slate-500"><Loader2 className="h-5 w-5 animate-spin mr-2" />Loading...</div>
+                <div className="flex items-center justify-center py-10 text-slate-500"><Loader2 className="h-5 w-5 animate-spin mr-2 motion-reduce:animate-none" />Loading...</div>
               ) : active.length === 0 ? (
                 <div className="text-center py-12 px-4">
-                  <div className="w-14 h-14 mx-auto rounded-full bg-slate-100 flex items-center justify-center mb-3">
-                    <ChefHat className="h-7 w-7 text-slate-300" />
+                  <div className="w-14 h-14 mx-auto rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-3">
+                    <ChefHat className="h-7 w-7 text-slate-400 dark:text-slate-500" />
                   </div>
-                  <p className="text-sm font-medium text-slate-700">Quiet kitchen</p>
+                  <p className="text-sm font-semibold text-slate-900 dark:text-white">Quiet kitchen</p>
                   {/* KIT3-F: smarter empty state. Three shapes:
                       - nobody rostered today -> point to the schedule
                       - rostered but nobody clocked in -> nudge to clock in
@@ -1067,11 +1049,11 @@ export default function KitchenDutyRosterPage() {
                         this branch since active.length > 0 in that case) */}
                   {rosterCoverage && rosterCoverage.rostered === 0 ? (
                     <>
-                      <p className="text-xs text-slate-500 mt-1">No one is rostered for today.</p>
+                      <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">No one is rostered for today.</p>
                       {canSeeOthers && (
                         <a
                           href={user?.company_slug ? `/${user.company_slug}/admin/kitchen-schedule` : "/admin/kitchen-schedule"}
-                          className="inline-flex items-center gap-1 text-xs text-orange-700 hover:text-orange-800 font-medium mt-2 hover:underline"
+                          className="inline-flex items-center gap-1 text-xs text-amber-700 hover:text-amber-800 dark:text-amber-500 dark:hover:text-amber-400 font-medium mt-2 hover:underline"
                         >
                           <CalendarIcon className="w-3 h-3" />
                           Open kitchen schedule
@@ -1080,15 +1062,15 @@ export default function KitchenDutyRosterPage() {
                       )}
                     </>
                   ) : rosterCoverage && rosterCoverage.rostered > 0 ? (
-                    <p className="text-xs text-slate-500 mt-1">
+                    <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
                       {rosterCoverage.rostered} chef{rosterCoverage.rostered === 1 ? "" : "s"} rostered today but nobody's clocked in yet.
                     </p>
                   ) : (
-                    <p className="text-xs text-slate-500 mt-1">When the team clocks in, they'll show up here in real time.</p>
+                    <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">When the team clocks in, they'll show up here in real time.</p>
                   )}
                 </div>
               ) : (
-                <ul className="divide-y divide-slate-100">
+                <ul className="divide-y divide-slate-100 dark:divide-slate-800">
                   {active.map((s) => {
                     const p = s.staff_id ? staff[s.staff_id] : null;
                     const initials = (p?.full_name || p?.email || "?")
@@ -1098,31 +1080,31 @@ export default function KitchenDutyRosterPage() {
                       <li
                         key={s.id}
                         className={`p-4 flex items-center gap-3 transition-colors ${
-                          isMe ? "bg-orange-50/60 hover:bg-orange-50/80" : "hover:bg-slate-50/50"
+                          isMe ? "bg-amber-50/60 hover:bg-amber-50/80 dark:bg-amber-950/30 dark:hover:bg-amber-950/40" : "hover:bg-slate-50/50 dark:hover:bg-slate-800/50"
                         }`}
                       >
                         <div className="relative flex-shrink-0">
-                          <div className="w-11 h-11 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-white font-semibold shadow-sm">
+                          <div className="w-11 h-11 rounded-full bg-emerald-500 flex items-center justify-center text-white font-semibold shadow-sm">
                             {initials}
                           </div>
-                          <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-white shadow-sm" title="Live - on shift" />
+                          <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900 shadow-sm" title="Live - on shift" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="font-medium text-slate-900 truncate flex items-center gap-1.5">
+                          <div className="font-medium text-slate-900 dark:text-white truncate flex items-center gap-1.5">
                             {p?.full_name ?? p?.email ?? "Unknown staff"}
                             {/* KIT3-F: self chip. Helps the chef find
                                 themselves in a busy kitchen list at
                                 a glance. Pay still never appears here. */}
                             {isMe && (
-                              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-orange-200 text-orange-900 text-[10px] font-semibold">
+                              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300 text-[10px] font-semibold">
                                 <UserCheck className="w-2.5 h-2.5" />
                                 You
                               </span>
                             )}
                           </div>
-                          <div className="text-xs text-slate-500 capitalize">{s.shift_type ?? "kitchen"} · started {s.shift_start ? formatDistanceToNow(new Date(s.shift_start), { addSuffix: true }) : "--"}</div>
+                          <div className="text-xs text-slate-500 dark:text-slate-400 capitalize">{s.shift_type ?? "kitchen"} · started {s.shift_start ? formatDistanceToNow(new Date(s.shift_start), { addSuffix: true }) : "--"}</div>
                         </div>
-                        <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 tabular-nums">
+                        <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/30 tabular-nums">
                           <Clock className="h-3 w-3 mr-1" />{fmtDuration(s.shift_start)}
                         </Badge>
                       </li>
@@ -1130,8 +1112,8 @@ export default function KitchenDutyRosterPage() {
                   })}
                 </ul>
               )}
-            </CardContent>
-          </Card>
+            </div>
+          </PortalCard>
 
           {/* Wave 35: NEW SECTION (data already collected, just
               never displayed). kitchen_handoffs is written on every
@@ -1143,31 +1125,31 @@ export default function KitchenDutyRosterPage() {
               "Acknowledge" button on unread ones, dimmed visual
               treatment on already-acked notes. */}
           <div className="flex items-center justify-between mb-3 px-0.5">
-            <h2 className="text-base sm:text-lg font-semibold text-slate-900 flex items-center gap-2">
-              <MessageSquareText className="w-4 h-4 text-amber-600" />
+            <h2 className="text-base sm:text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+              <MessageSquareText className="w-4 h-4 text-amber-600 dark:text-amber-500" />
               Hand-off notes
               {handoffs.filter((h) => !h.acknowledged_at).length > 0 && (
-                <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100 text-[10px] uppercase tracking-wider">
+                <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100 dark:bg-amber-500/15 dark:text-amber-300 text-[10px] uppercase tracking-wider">
                   {handoffs.filter((h) => !h.acknowledged_at).length} new
                 </Badge>
               )}
               <InfoTooltip content="What the previous shift left for you. Tap Acknowledge so the author knows you saw it." />
             </h2>
           </div>
-          <Card className="mb-8 border-0 shadow-sm">
-            <CardContent className="p-0">
+          <PortalCard padded={false} className="mb-8">
+            <div>
               {loading ? (
-                <div className="flex items-center justify-center py-10 text-slate-500"><Loader2 className="h-5 w-5 animate-spin mr-2" />Loading...</div>
+                <div className="flex items-center justify-center py-10 text-slate-500"><Loader2 className="h-5 w-5 animate-spin mr-2 motion-reduce:animate-none" />Loading...</div>
               ) : handoffs.length === 0 ? (
                 <div className="text-center py-12 px-4">
-                  <div className="w-14 h-14 mx-auto rounded-full bg-slate-100 flex items-center justify-center mb-3">
-                    <MessageSquareText className="h-7 w-7 text-slate-300" />
+                  <div className="w-14 h-14 mx-auto rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-3">
+                    <MessageSquareText className="h-7 w-7 text-slate-400 dark:text-slate-500" />
                   </div>
-                  <p className="text-sm font-medium text-slate-700">No notes yet</p>
-                  <p className="text-xs text-slate-500 mt-1">When someone clocks out and leaves a note, it lands here for the next shift.</p>
+                  <p className="text-sm font-semibold text-slate-900 dark:text-white">No notes yet</p>
+                  <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">When someone clocks out and leaves a note, it lands here for the next shift.</p>
                 </div>
               ) : (
-                <ul className="divide-y divide-slate-100">
+                <ul className="divide-y divide-slate-100 dark:divide-slate-800">
                   {handoffs.map((h) => {
                     const author = h.author_id ? staff[h.author_id] : null;
                     const acked = !!h.acknowledged_at;
@@ -1176,25 +1158,25 @@ export default function KitchenDutyRosterPage() {
                     return (
                       <li key={h.id} className={`p-4 flex items-start gap-3 ${acked ? "opacity-60" : ""}`}>
                         <div className={`w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-semibold flex-shrink-0 ${
-                          acked ? "bg-slate-400" : "bg-gradient-to-br from-amber-400 to-orange-500 shadow-sm"
+                          acked ? "bg-slate-400 dark:bg-slate-600" : "bg-amber-500 shadow-sm"
                         }`}>
                           {initials}
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between gap-2 flex-wrap">
-                            <div className="text-sm font-medium text-slate-900 truncate">
+                            <div className="text-sm font-medium text-slate-900 dark:text-white truncate">
                               {author?.full_name ?? author?.email ?? "Unknown chef"}
                             </div>
-                            <div className="text-[11px] text-slate-500 tabular-nums">
+                            <div className="text-[11px] text-slate-500 dark:text-slate-400 tabular-nums">
                               {h.created_at ? formatDistanceToNow(new Date(h.created_at), { addSuffix: true }) : "--"}
                             </div>
                           </div>
                           {h.body && (
-                            <p className="text-sm text-slate-700 mt-1 whitespace-pre-wrap break-words">{h.body}</p>
+                            <p className="text-sm text-slate-700 dark:text-slate-300 mt-1 whitespace-pre-wrap break-words">{h.body}</p>
                           )}
                           <div className="flex items-center justify-between gap-2 mt-2">
                             {acked ? (
-                              <span className="inline-flex items-center gap-1 text-[11px] text-emerald-700 font-medium">
+                              <span className="inline-flex items-center gap-1 text-[11px] text-emerald-700 dark:text-emerald-400 font-medium">
                                 <Check className="w-3 h-3" />
                                 Acknowledged
                                 {h.acknowledged_by && staff[h.acknowledged_by] ? ` by ${staff[h.acknowledged_by].full_name || staff[h.acknowledged_by].email}` : ""}
@@ -1203,11 +1185,11 @@ export default function KitchenDutyRosterPage() {
                               <Button
                                 size="sm"
                                 variant="outline"
-                                className="h-7 text-xs border-amber-300 text-amber-800 hover:bg-amber-50"
+                                className="h-7 text-xs border-amber-300 text-amber-800 hover:bg-amber-50 dark:border-amber-500/40 dark:text-amber-300 dark:hover:bg-amber-500/10"
                                 onClick={() => handleAcknowledgeHandoff(h.id)}
                                 disabled={acking === h.id}
                               >
-                                {acking === h.id ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Check className="w-3 h-3 mr-1" />}
+                                {acking === h.id ? <Loader2 className="w-3 h-3 mr-1 animate-spin motion-reduce:animate-none" /> : <Check className="w-3 h-3 mr-1" />}
                                 Acknowledge
                               </Button>
                             )}
@@ -1218,31 +1200,31 @@ export default function KitchenDutyRosterPage() {
                   })}
                 </ul>
               )}
-            </CardContent>
-          </Card>
+            </div>
+          </PortalCard>
 
           {/* Phase 3 + Wave 35: chef performance, restyled. Visual
               ranking with on-time bar; bigger numbers; ChefHat
               avatar with rank pill. */}
           <div className="flex items-center justify-between mb-3 px-0.5">
-            <h2 className="text-base sm:text-lg font-semibold text-slate-900 flex items-center gap-2">
-              <Target className="w-4 h-4 text-orange-600" />
+            <h2 className="text-base sm:text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+              <Target className="w-4 h-4 text-amber-600 dark:text-amber-500" />
               This week's chefs
               <InfoTooltip content="Rolling 7-day rollup of completed prep tasks by chef.\n\nOn-time = task completed within 5 minutes of its planned end (start_at + duration).\n\nYield variance = average % difference between planned and actual yield, only shows if your team logs actuals." />
             </h2>
           </div>
-          <Card className="mb-8 border-0 shadow-sm">
-            <CardContent className="p-0">
+          <PortalCard padded={false} className="mb-8">
+            <div>
               {chefPerf.length === 0 ? (
                 <div className="text-center py-12 px-4">
-                  <div className="w-14 h-14 mx-auto rounded-full bg-slate-100 flex items-center justify-center mb-3">
-                    <Target className="h-7 w-7 text-slate-300" />
+                  <div className="w-14 h-14 mx-auto rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-3">
+                    <Target className="h-7 w-7 text-slate-400 dark:text-slate-500" />
                   </div>
-                  <p className="text-sm font-medium text-slate-700">Performance ranking is empty</p>
-                  <p className="text-xs text-slate-500 mt-1">Complete a few prep tasks across this week and the leaderboard will populate.</p>
+                  <p className="text-sm font-semibold text-slate-900 dark:text-white">Performance ranking is empty</p>
+                  <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">Complete a few prep tasks across this week and the leaderboard will populate.</p>
                 </div>
               ) : (
-                <ul className="divide-y divide-slate-100">
+                <ul className="divide-y divide-slate-100 dark:divide-slate-800">
                   {chefPerf.map((p, idx) => {
                     const initials = (p.chef_name || "?")
                       .split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase();
@@ -1251,13 +1233,13 @@ export default function KitchenDutyRosterPage() {
                       p.on_time_rate >= 70 ? "from-amber-400 to-orange-500" :
                                               "from-rose-400 to-red-600";
                     return (
-                      <li key={p.chef_id} className="p-4 flex items-center gap-4 hover:bg-slate-50/50 transition-colors">
+                      <li key={p.chef_id} className="p-4 flex items-center gap-4 hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors">
                         <div className="relative flex-shrink-0">
-                          <div className="w-11 h-11 rounded-full bg-gradient-to-br from-orange-400 to-red-500 flex items-center justify-center text-white font-semibold shadow-sm">
+                          <div className="w-11 h-11 rounded-full bg-slate-600 dark:bg-slate-700 flex items-center justify-center text-white font-semibold shadow-sm">
                             {initials}
                           </div>
                           {idx < 3 && (
-                            <span className={`absolute -top-1 -right-1 w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center border-2 border-white shadow-sm ${
+                            <span className={`absolute -top-1 -right-1 w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center border-2 border-white dark:border-slate-900 shadow-sm ${
                               idx === 0 ? "bg-yellow-400 text-yellow-900" :
                               idx === 1 ? "bg-slate-300 text-slate-800" :
                                           "bg-amber-700 text-amber-100"
@@ -1267,8 +1249,8 @@ export default function KitchenDutyRosterPage() {
                           )}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="font-medium text-slate-900 truncate">{p.chef_name}</div>
-                          <div className="text-xs text-slate-500 mt-0.5">
+                          <div className="font-medium text-slate-900 dark:text-white truncate">{p.chef_name}</div>
+                          <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                             {p.tasks_completed} task{p.tasks_completed === 1 ? "" : "s"} completed
                             {p.avg_yield_variance_pct !== null && (
                               <span className="ml-2">
@@ -1277,53 +1259,53 @@ export default function KitchenDutyRosterPage() {
                             )}
                           </div>
                           {/* On-time bar - visual ranking instead of a chip */}
-                          <div className="mt-2 h-1.5 w-full rounded-full bg-slate-100 overflow-hidden">
+                          <div className="mt-2 h-1.5 w-full rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
                             <div
-                              className={`h-full bg-gradient-to-r ${onTimeTone} transition-all`}
+                              className={`h-full bg-gradient-to-r ${onTimeTone} transition-all motion-reduce:transition-none`}
                               style={{ width: `${Math.max(2, Math.min(100, p.on_time_rate))}%` }}
                             />
                           </div>
                         </div>
                         <div className="text-right flex-shrink-0">
                           <div className={`text-lg sm:text-xl font-bold tabular-nums ${
-                            p.on_time_rate >= 90 ? "text-emerald-700" :
-                            p.on_time_rate >= 70 ? "text-amber-700"   :
-                                                   "text-rose-700"
+                            p.on_time_rate >= 90 ? "text-emerald-700 dark:text-emerald-400" :
+                            p.on_time_rate >= 70 ? "text-amber-700 dark:text-amber-400"   :
+                                                   "text-rose-700 dark:text-rose-400"
                           }`}>
                             {p.on_time_rate}%
                           </div>
-                          <div className="text-[10px] uppercase tracking-wider text-slate-500">on-time</div>
+                          <div className="text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">on-time</div>
                         </div>
                       </li>
                     );
                   })}
                 </ul>
               )}
-            </CardContent>
-          </Card>
+            </div>
+          </PortalCard>
 
           {/* Wave 35: recent shifts grouped by day so the operator
               can see "Friday: 3 shifts" at a glance instead of a
               flat 20-row stream. Each shift compact one-liner. */}
           <div className="flex items-center justify-between mb-3 px-0.5">
-            <h2 className="text-base sm:text-lg font-semibold text-slate-900 flex items-center gap-2">
-              <CalendarIcon className="w-4 h-4 text-slate-600" />
+            <h2 className="text-base sm:text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+              <CalendarIcon className="w-4 h-4 text-slate-600 dark:text-slate-400" />
               Recent shifts
               <InfoTooltip content="The last 20 shifts that have ended, newest first, grouped by day." />
             </h2>
           </div>
-          <Card className="border-0 shadow-sm">
-            <CardContent className="p-0">
+          <PortalCard padded={false}>
+            <div>
               {recent.length === 0 ? (
                 <div className="text-center py-12 px-4">
-                  <div className="w-14 h-14 mx-auto rounded-full bg-slate-100 flex items-center justify-center mb-3">
-                    <Clock className="h-7 w-7 text-slate-300" />
+                  <div className="w-14 h-14 mx-auto rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-3">
+                    <Clock className="h-7 w-7 text-slate-400 dark:text-slate-500" />
                   </div>
-                  <p className="text-sm font-medium text-slate-700">No completed shifts yet</p>
-                  <p className="text-xs text-slate-500 mt-1">As chefs clock out, their finished shifts will land here.</p>
+                  <p className="text-sm font-semibold text-slate-900 dark:text-white">No completed shifts yet</p>
+                  <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">As chefs clock out, their finished shifts will land here.</p>
                 </div>
               ) : (
-                <div className="divide-y divide-slate-100">
+                <div className="divide-y divide-slate-100 dark:divide-slate-800">
                   {recentByDay.map(([day, shifts]) => {
                     const dayMins = shifts.reduce((sum, s) => {
                       if (!s.shift_start || !s.shift_end) return sum;
@@ -1334,9 +1316,9 @@ export default function KitchenDutyRosterPage() {
                     }, 0);
                     return (
                       <div key={day}>
-                        <div className="px-4 py-2 bg-slate-50/70 flex items-center justify-between text-xs">
-                          <span className="font-semibold text-slate-700">{day}</span>
-                          <span className="text-slate-500 tabular-nums">{shifts.length} shift{shifts.length === 1 ? "" : "s"} · {fmtMinutes(dayMins)}</span>
+                        <div className="px-4 py-2 bg-slate-50/70 dark:bg-slate-800/50 flex items-center justify-between text-xs">
+                          <span className="font-semibold text-slate-700 dark:text-slate-300">{day}</span>
+                          <span className="text-slate-500 dark:text-slate-400 tabular-nums">{shifts.length} shift{shifts.length === 1 ? "" : "s"} · {fmtMinutes(dayMins)}</span>
                         </div>
                         <ul>
                           {shifts.map((s) => {
@@ -1344,17 +1326,17 @@ export default function KitchenDutyRosterPage() {
                             const initials = (p?.full_name || p?.email || "?")
                               .split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase();
                             return (
-                              <li key={s.id} className="px-4 py-3 flex items-center gap-3 hover:bg-slate-50/50 transition-colors">
-                                <div className="w-9 h-9 rounded-full bg-slate-200 flex items-center justify-center text-slate-600 text-xs font-semibold flex-shrink-0">
+                              <li key={s.id} className="px-4 py-3 flex items-center gap-3 hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors">
+                                <div className="w-9 h-9 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-slate-600 dark:text-slate-300 text-xs font-semibold flex-shrink-0">
                                   {initials}
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                  <div className="text-sm font-medium text-slate-900 truncate">{p?.full_name ?? p?.email ?? "Unknown staff"}</div>
-                                  <div className="text-xs text-slate-500">
+                                  <div className="text-sm font-medium text-slate-900 dark:text-white truncate">{p?.full_name ?? p?.email ?? "Unknown staff"}</div>
+                                  <div className="text-xs text-slate-500 dark:text-slate-400">
                                     {s.shift_end ? `Ended ${formatDistanceToNow(new Date(s.shift_end), { addSuffix: true })}` : "--"}
                                   </div>
                                 </div>
-                                <Badge variant="outline" className="bg-white text-slate-700 border-slate-200 tabular-nums text-xs">
+                                <Badge variant="outline" className="bg-white text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 tabular-nums text-xs">
                                   {fmtDuration(s.shift_start, s.shift_end)}
                                 </Badge>
                               </li>
@@ -1366,9 +1348,9 @@ export default function KitchenDutyRosterPage() {
                   })}
                 </div>
               )}
-            </CardContent>
-          </Card>
-        </div>
+            </div>
+          </PortalCard>
+        </PortalShell>
       </main>
 
       {/* Wave 36.3: payslip history dialog. Read-only - the chef

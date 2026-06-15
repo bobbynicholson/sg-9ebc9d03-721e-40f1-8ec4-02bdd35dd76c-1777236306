@@ -216,9 +216,9 @@ export default function CompanySignupPage() {
     if (!formData.phone) problems.push("Enter a phone number.");
     if (!formData.currency) problems.push("Pick a currency.");
     if (!formData.customSlug) {
-      problems.push("Choose your company URL — this is your permanent web address.");
+      problems.push("Choose your company URL - this is your permanent web address.");
     } else if (slugAvailability.state === "checking") {
-      problems.push("Hang on — we're still checking if your company URL is available.");
+      problems.push("Hang on - we're still checking if your company URL is available.");
     } else if (slugAvailability.state !== "available") {
       problems.push("That company URL isn't available. Pick one that shows the green tick.");
     }
@@ -449,7 +449,7 @@ export default function CompanySignupPage() {
     return (
       <AuthShell
         headline="Welcome aboard."
-        subcopy="Your catering business is set up — let's get your first event in the door."
+        subcopy="Your catering business is set up - let's get your first event in the door."
       >
         <Reveal className="w-full max-w-xl">
         <Card className="w-full border border-slate-200/80 shadow-xl rounded-2xl">
@@ -592,7 +592,7 @@ export default function CompanySignupPage() {
   return (
     <AuthShell
       headline="Grow your catering business."
-      subcopy="Set up your company in minutes — quotes, kitchen, delivery and payments, all in one place."
+      subcopy="Set up your company in minutes - quotes, kitchen, delivery and payments, all in one place."
     >
       <Card className="group w-full max-w-xl rounded-2xl border border-slate-200/80 shadow-xl">
         <CardHeader className="space-y-3">

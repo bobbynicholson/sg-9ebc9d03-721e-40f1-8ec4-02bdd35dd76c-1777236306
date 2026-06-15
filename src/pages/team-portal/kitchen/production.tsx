@@ -7,7 +7,6 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import Head from "next/head";
 import Link from "next/link";
-import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
   Calendar, Clock, Users as UsersIcon, Loader2, ChevronLeft, ChevronRight,
@@ -27,6 +26,7 @@ import { useTenantHref } from "@/lib/tenantUrl";
 import { staffOrderHref } from "@/lib/orderUrls";
 import { captureException } from "@/lib/observability";
 import { onOrderUpdated } from "@/lib/events/orderEvents";
+import { PortalShell, PortalHeader, PortalCard, StatTile } from "@/components/portal/ui";
 
 interface Order {
   id: string;
@@ -81,20 +81,20 @@ interface PrepTask {
 }
 
 const STATUS_TONES: Record<string, string> = {
-  pending:    "bg-amber-100 text-amber-800 border-amber-200",
-  confirmed:  "bg-blue-100 text-blue-800 border-blue-200",
-  preparing:  "bg-purple-100 text-purple-800 border-purple-200",
-  ready:      "bg-green-100 text-green-800 border-green-200",
-  in_transit: "bg-indigo-100 text-indigo-800 border-indigo-200",
-  delivered:  "bg-emerald-100 text-emerald-800 border-emerald-200",
-  cancelled:  "bg-rose-100 text-rose-700 border-rose-200",
+  pending:    "bg-amber-50 text-amber-700 border-amber-200",
+  confirmed:  "bg-slate-100 text-slate-700 border-slate-200",
+  preparing:  "bg-amber-50 text-amber-700 border-amber-200",
+  ready:      "bg-emerald-50 text-emerald-700 border-emerald-200",
+  in_transit: "bg-slate-100 text-slate-700 border-slate-200",
+  delivered:  "bg-emerald-50 text-emerald-700 border-emerald-200",
+  cancelled:  "bg-rose-50 text-rose-700 border-rose-200",
 };
 
 // Task block colours - one tone per status. Soft enough to layer on a
 // striped grid without screaming.
 const TASK_TONES: Record<string, string> = {
   pending:     "bg-slate-200 border-slate-300 text-slate-800 hover:bg-slate-300",
-  in_progress: "bg-blue-200  border-blue-400  text-blue-900  hover:bg-blue-300",
+  in_progress: "bg-amber-200 border-amber-400 text-amber-900 hover:bg-amber-300",
   done:        "bg-emerald-200 border-emerald-400 text-emerald-900 hover:bg-emerald-300",
   skipped:     "bg-slate-100 border-slate-200 text-slate-500 hover:bg-slate-200 line-through",
 };
@@ -574,142 +574,150 @@ export default function KitchenProductionPage() {
       <Head><title>Production timeline - CateringMS</title></Head>
       <NoIndexMeta />
       <KitchenNav />
-      <main className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
-        <div className="px-3 sm:px-4 md:px-6 py-6 sm:py-8 max-w-full">
-          {/* Header */}
-          <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-5">
-            <div>
-              <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent flex items-center gap-2">
-                <Calendar className="h-6 w-6 text-orange-600" />
+      <main className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+          <PortalHeader
+            title={
+              <span className="flex items-center gap-2">
                 Production timeline
                 <InfoTooltip content="Day view shows every prep task placed on a station-by-hour grid, you can see at a glance what the kitchen is on at any moment. Week view groups orders by day." />
-              </h1>
-              <p className="text-sm text-slate-600 mt-1">
-                {view === "day"
-                  ? fmtFullDay(anchor)
-                  : `Week of ${fmtFullDay(anchor)}, ${fmtDay(addDays(anchor, 6))}`}
-              </p>
-            </div>
-            <div className="flex items-center gap-2 flex-wrap">
-              {/* View toggle */}
-              <div className="inline-flex rounded-md border border-slate-200 bg-white shadow-sm">
-                <button
-                  type="button"
-                  onClick={() => setView("day")}
-                  className={`px-3 py-1.5 text-xs font-medium inline-flex items-center gap-1.5 rounded-l-md ${
-                    view === "day"
-                      ? "bg-slate-900 text-white"
-                      : "text-slate-700 hover:bg-slate-50"
-                  }`}
+              </span>
+            }
+            subtitle={
+              view === "day"
+                ? fmtFullDay(anchor)
+                : `Week of ${fmtFullDay(anchor)}, ${fmtDay(addDays(anchor, 6))}`
+            }
+            icon={Calendar}
+            actions={
+              <div className="flex items-center gap-2 flex-wrap">
+                {/* View toggle */}
+                <div className="inline-flex rounded-md border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
+                  <button
+                    type="button"
+                    onClick={() => setView("day")}
+                    className={`px-3 py-1.5 text-xs font-medium inline-flex items-center gap-1.5 rounded-l-md ${
+                      view === "day"
+                        ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900"
+                        : "text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800"
+                    }`}
+                  >
+                    <LayoutGrid className="w-3.5 h-3.5" />
+                    Day
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setView("week")}
+                    className={`px-3 py-1.5 text-xs font-medium inline-flex items-center gap-1.5 rounded-r-md border-l border-slate-200 dark:border-slate-700 ${
+                      view === "week"
+                        ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900"
+                        : "text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800"
+                    }`}
+                  >
+                    <CalendarDays className="w-3.5 h-3.5" />
+                    Week
+                  </button>
+                </div>
+                <Button variant="outline" size="sm" onClick={stepBack}>
+                  <ChevronLeft className="h-4 w-4 mr-1" />
+                  {view === "day" ? "Yesterday" : "Previous"}
+                </Button>
+                <Button variant="outline" size="sm" onClick={goToday}>Today</Button>
+                <Button variant="outline" size="sm" onClick={stepFwd}>
+                  {view === "day" ? "Tomorrow" : "Next"}
+                  <ChevronRight className="h-4 w-4 ml-1" />
+                </Button>
+                {/* KIT3-C: print button. Matches the Kitchen Dashboard
+                    print run-sheet pattern - chef wants paper backup
+                    on prep mornings. Uses the browser's native print
+                    flow against the on-screen layout. */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    if (loading) {
+                      toast({ title: "Still loading", description: "Give it a second, the timeline is being prepared." });
+                      return;
+                    }
+                    if (orders.length === 0 && tasks.length === 0) {
+                      toast({ title: "Nothing to print", description: "No prep or events in this window." });
+                      return;
+                    }
+                    setTimeout(() => window.print(), 100);
+                  }}
+                  disabled={loading}
                 >
-                  <LayoutGrid className="w-3.5 h-3.5" />
-                  Day
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setView("week")}
-                  className={`px-3 py-1.5 text-xs font-medium inline-flex items-center gap-1.5 rounded-r-md border-l border-slate-200 ${
-                    view === "week"
-                      ? "bg-slate-900 text-white"
-                      : "text-slate-700 hover:bg-slate-50"
-                  }`}
-                >
-                  <CalendarDays className="w-3.5 h-3.5" />
-                  Week
-                </button>
+                  Print
+                </Button>
               </div>
-              <Button variant="outline" size="sm" onClick={stepBack}>
-                <ChevronLeft className="h-4 w-4 mr-1" />
-                {view === "day" ? "Yesterday" : "Previous"}
-              </Button>
-              <Button variant="outline" size="sm" onClick={goToday}>Today</Button>
-              <Button variant="outline" size="sm" onClick={stepFwd}>
-                {view === "day" ? "Tomorrow" : "Next"}
-                <ChevronRight className="h-4 w-4 ml-1" />
-              </Button>
-              {/* KIT3-C: print button. Matches the Kitchen Dashboard
-                  print run-sheet pattern - chef wants paper backup
-                  on prep mornings. Uses the browser's native print
-                  flow against the on-screen layout. */}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  if (loading) {
-                    toast({ title: "Still loading", description: "Give it a second, the timeline is being prepared." });
-                    return;
-                  }
-                  if (orders.length === 0 && tasks.length === 0) {
-                    toast({ title: "Nothing to print", description: "No prep or events in this window." });
-                    return;
-                  }
-                  setTimeout(() => window.print(), 100);
-                }}
-                disabled={loading}
-              >
-                Print
-              </Button>
-            </div>
-          </div>
+            }
+          />
 
           {/* Stat cards - KIT3-D adds the Utilisation tile (cook-
               hours scheduled / available staff-hours) so the chef
               sees whether the prep load fits the day's roster. */}
           <div className="grid grid-cols-2 md:grid-cols-5 gap-2 sm:gap-3 mb-5">
-            <Card><CardContent className="p-3 sm:p-4">
-              <p className="text-xs text-slate-600 flex items-center gap-1">Events
-                <InfoTooltip content="Orders booked in the window shown above." />
-              </p>
-              <p className="text-2xl font-bold tabular-nums">{totals.events}</p>
-            </CardContent></Card>
-            <Card><CardContent className="p-3 sm:p-4">
-              <p className="text-xs text-slate-600 flex items-center gap-1">Guests
-                <InfoTooltip content="Total guests across every event in the window." />
-              </p>
-              <p className="text-2xl font-bold tabular-nums">{totals.guests}</p>
-            </CardContent></Card>
-            <Card><CardContent className="p-3 sm:p-4">
-              <p className="text-xs text-slate-600 flex items-center gap-1">Portions
-                <InfoTooltip content="Total dishes to plate across every event in the window." />
-              </p>
-              <p className="text-2xl font-bold tabular-nums">{totals.dishes}</p>
-            </CardContent></Card>
-            <Card><CardContent className="p-3 sm:p-4">
-              <p className="text-xs text-slate-600 flex items-center gap-1">Cook-hours
-                <InfoTooltip content={"Total cooking time scheduled across every prep task in the window.\nThe number that tells you whether the kitchen has the hours to do the work."} />
-              </p>
-              <p className="text-2xl font-bold tabular-nums">{totals.cookHours}h</p>
-            </CardContent></Card>
-            <Card><CardContent className="p-3 sm:p-4">
-              <p className="text-xs text-slate-600 flex items-center gap-1">Utilisation
-                <InfoTooltip content={"Scheduled cook-hours divided by available staff-hours in this window.\nAvailable comes from kitchen_duty_shifts (active + open-ended capped at 8h).\nUnder 70% (emerald) is calm, 70-95% (amber) is busy, 95%+ (rose) means you're likely under-resourced - add staff or shift prep."} />
-              </p>
-              {utilisation ? (
-                <>
-                  <p
-                    className={`text-2xl font-bold tabular-nums ${
+            <StatTile
+              label={
+                <span className="flex items-center gap-1">Events
+                  <InfoTooltip content="Orders booked in the window shown above." />
+                </span>
+              }
+              value={totals.events}
+            />
+            <StatTile
+              label={
+                <span className="flex items-center gap-1">Guests
+                  <InfoTooltip content="Total guests across every event in the window." />
+                </span>
+              }
+              value={totals.guests}
+            />
+            <StatTile
+              label={
+                <span className="flex items-center gap-1">Portions
+                  <InfoTooltip content="Total dishes to plate across every event in the window." />
+                </span>
+              }
+              value={totals.dishes}
+            />
+            <StatTile
+              label={
+                <span className="flex items-center gap-1">Cook-hours
+                  <InfoTooltip content={"Total cooking time scheduled across every prep task in the window.\nThe number that tells you whether the kitchen has the hours to do the work."} />
+                </span>
+              }
+              value={`${totals.cookHours}h`}
+            />
+            <StatTile
+              label={
+                <span className="flex items-center gap-1">Utilisation
+                  <InfoTooltip content={"Scheduled cook-hours divided by available staff-hours in this window.\nAvailable comes from kitchen_duty_shifts (active + open-ended capped at 8h).\nUnder 70% (emerald) is calm, 70-95% (amber) is busy, 95%+ (rose) means you're likely under-resourced - add staff or shift prep."} />
+                </span>
+              }
+              value={
+                utilisation ? (
+                  <span
+                    className={
                       utilisation.tone === "rose"
-                        ? "text-rose-700"
+                        ? "text-rose-700 dark:text-rose-400"
                         : utilisation.tone === "amber"
-                          ? "text-amber-700"
-                          : "text-emerald-700"
-                    }`}
+                          ? "text-amber-700 dark:text-amber-400"
+                          : "text-emerald-700 dark:text-emerald-400"
+                    }
                   >
                     {utilisation.pct}%
-                  </p>
-                  <p className="text-[10px] text-slate-500 mt-0.5 tabular-nums">
-                    {totals.cookHours}h of {availableHours}h available
-                  </p>
-                </>
-              ) : (
-                <>
-                  <p className="text-2xl font-bold tabular-nums text-slate-400">-</p>
-                  <p className="text-[10px] text-slate-500 mt-0.5">
-                    Clock the team in to compare
-                  </p>
-                </>
-              )}
-            </CardContent></Card>
+                  </span>
+                ) : (
+                  <span className="text-slate-400 dark:text-slate-500">-</span>
+                )
+              }
+              hint={
+                utilisation
+                  ? `${totals.cookHours}h of ${availableHours}h available`
+                  : "Clock the team in to compare"
+              }
+            />
           </div>
 
           {/* KIT3-C: worst-recipe surface. The recipe accuracy panel
@@ -723,8 +731,8 @@ export default function KitchenProductionPage() {
             if (!worst) return null;
             const ArrowIcon = worst.avg_variance_pct >= 0 ? TrendingUp : TrendingDown;
             return (
-              <div className="mb-3 inline-flex items-center gap-2 text-xs bg-rose-50 border border-rose-200 rounded-full px-3 py-1.5 text-rose-900">
-                <ArrowIcon className="w-3.5 h-3.5 text-rose-700" />
+              <div className="mb-3 inline-flex items-center gap-2 text-xs bg-rose-50 border border-rose-200 rounded-full px-3 py-1.5 text-rose-900 dark:bg-rose-950/30 dark:border-rose-900/50 dark:text-rose-300">
+                <ArrowIcon className="w-3.5 h-3.5 text-rose-700 dark:text-rose-400" />
                 <span>
                   Watch out: <strong>{worst.recipe_name}</strong> averaging{" "}
                   <span className="tabular-nums font-semibold">{worst.avg_variance_pct > 0 ? "+" : ""}{worst.avg_variance_pct}%</span>{" "}
@@ -760,14 +768,13 @@ export default function KitchenProductionPage() {
             const orderById = new Map<string, Order>(orders.map((o) => [o.id, o]));
             const stationById = new Map<string, KitchenStation>(stations.map((s) => [s.id, s]));
             return (
-              <Card className="mb-4 border-orange-200 bg-gradient-to-br from-orange-50 to-amber-50/50">
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Clock className="w-4 h-4 text-orange-700" />
-                    <p className="text-xs font-bold uppercase tracking-wider text-orange-700">
+              <PortalCard className="mb-4">
+                <div className="flex items-center gap-2 mb-2">
+                    <Clock className="w-4 h-4 text-amber-600 dark:text-amber-500" />
+                    <p className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-200">
                       Start cooking next
                     </p>
-                    <p className="text-[11px] text-orange-700/70">
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
                       top {queued.length} by deadline - earliest first
                     </p>
                   </div>
@@ -794,8 +801,8 @@ export default function KitchenProductionPage() {
                             {lateLabel}
                           </span>
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-semibold text-slate-900 truncate">
-                              <span className="text-orange-700 mr-1.5">{taskTypeLabel}</span>
+                            <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">
+                              <span className="text-amber-700 dark:text-amber-400 mr-1.5">{taskTypeLabel}</span>
                               {task.menu_item_name || "Item"}
                             </p>
                             <p className="text-[11px] text-slate-600 truncate">
@@ -813,22 +820,24 @@ export default function KitchenProductionPage() {
                       );
                     })}
                   </ul>
-                </CardContent>
-              </Card>
+              </PortalCard>
             );
           })()}
 
           {loading ? (
-            <div className="flex items-center justify-center py-16 text-slate-500">
-              <Loader2 className="h-5 w-5 animate-spin mr-2" /> Loading production...
+            <div className="space-y-4">
+              <div className="h-40 animate-pulse rounded-2xl border border-slate-200/80 bg-white motion-reduce:animate-none dark:border-slate-800 dark:bg-slate-900" />
+              <div className="h-64 animate-pulse rounded-2xl border border-slate-200/80 bg-white motion-reduce:animate-none dark:border-slate-800 dark:bg-slate-900" />
             </div>
           ) : view === "day" ? (
             // ── DAY VIEW: time-grid with stations as rows ──
             tasksOnAnchor.length === 0 && (ordersByDate[isoDate(anchor)] || []).length === 0 ? (
-              <Card><CardContent className="p-10 text-center">
-                <ChefHat className="h-10 w-10 mx-auto text-slate-300 mb-2" />
-                <p className="text-sm font-medium text-slate-700">Quiet day</p>
-                <p className="text-xs text-slate-500 mt-1">
+              <PortalCard className="p-10 text-center">
+                <span className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl border border-slate-200 bg-white text-amber-600 dark:border-slate-700 dark:bg-slate-900 dark:text-amber-500">
+                  <ChefHat className="h-6 w-6" />
+                </span>
+                <p className="text-sm font-semibold text-slate-900 dark:text-white">Quiet day</p>
+                <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
                   No prep scheduled. Use the breather to deep-clean or restock.
                 </p>
                 {/* KIT3-C: next-event lookahead so the empty state
@@ -843,8 +852,8 @@ export default function KitchenProductionPage() {
                     dayDiff < 7 ? nextDate.toLocaleDateString("en-ZA", { weekday: "long" }) :
                                   fmtDay(nextDate);
                   return (
-                    <div className="mt-4 inline-flex items-center gap-2 text-xs text-slate-700 bg-orange-50 border border-orange-200 rounded-full px-3 py-1.5">
-                      <Calendar className="w-3.5 h-3.5 text-orange-600" />
+                    <div className="mt-4 inline-flex items-center gap-2 text-xs text-slate-700 bg-amber-50 border border-amber-200 rounded-full px-3 py-1.5 dark:bg-amber-950/30 dark:border-amber-900/50 dark:text-slate-300">
+                      <Calendar className="w-3.5 h-3.5 text-amber-600 dark:text-amber-500" />
                       <span>
                         Next event: <strong>{whenLabel}</strong>
                         {nextUpcoming.eventTime ? ` at ${fmtTime(nextUpcoming.eventTime)}` : ""}
@@ -853,14 +862,14 @@ export default function KitchenProductionPage() {
                       <button
                         type="button"
                         onClick={() => setAnchor(startOfDay(nextDate))}
-                        className="ml-1 underline text-orange-700 hover:text-orange-900"
+                        className="ml-1 underline text-amber-700 hover:text-amber-900 dark:text-amber-400 dark:hover:text-amber-300"
                       >
                         Jump to it
                       </button>
                     </div>
                   );
                 })()}
-              </CardContent></Card>
+              </PortalCard>
             ) : (
               <>
                 {/* KIT3-D: "Generate prep plan" CTA. Renders when the
@@ -869,15 +878,15 @@ export default function KitchenProductionPage() {
                     order so the chef doesn't have to deep-link into
                     each ticket manually. */}
                 {ordersWithoutPrep.length > 0 && (
-                  <Card className="mb-3 border-0 shadow-sm bg-orange-50 border-l-4 border-l-orange-500">
-                    <CardContent className="p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+                  <PortalCard padded={false} className="mb-3 bg-amber-50 border-l-4 border-l-amber-500 dark:bg-amber-950/30">
+                    <div className="p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center gap-3">
                       <div className="flex items-start gap-3 flex-1">
-                        <ChefHat className="w-5 h-5 text-orange-700 mt-0.5 shrink-0" />
+                        <ChefHat className="w-5 h-5 text-amber-700 dark:text-amber-500 mt-0.5 shrink-0" />
                         <div>
-                          <p className="text-sm font-semibold text-orange-900">
+                          <p className="text-sm font-semibold text-amber-900 dark:text-amber-200">
                             {ordersWithoutPrep.length} order{ordersWithoutPrep.length === 1 ? "" : "s"} on today have no prep tasks scheduled
                           </p>
-                          <p className="text-xs text-orange-800 mt-0.5">
+                          <p className="text-xs text-amber-800 dark:text-amber-300/80 mt-0.5">
                             Generate a prep plan from the menu items in one tap. Each task gets a station, a duration and a start time backed off from the event clock.
                           </p>
                         </div>
@@ -885,16 +894,15 @@ export default function KitchenProductionPage() {
                       <Button
                         onClick={() => generatePrepPlan(ordersWithoutPrep.map((o) => o.id))}
                         disabled={generatingPlan}
-                        className="bg-orange-600 hover:bg-orange-700 shrink-0 gap-1.5"
+                        className="bg-amber-600 hover:bg-amber-700 shrink-0 gap-1.5"
                       >
                         {generatingPlan ? <Loader2 className="w-4 h-4 animate-spin" /> : <ChefHat className="w-4 h-4" />}
                         Generate prep plan
                       </Button>
-                    </CardContent>
-                  </Card>
+                    </div>
+                  </PortalCard>
                 )}
-              <Card>
-                <CardContent className="p-0 overflow-x-auto">
+              <PortalCard padded={false} className="overflow-x-auto">
                   <div className="min-w-[900px] relative">
                     {/* KIT3-C: "now" line. Vertical red marker at the
                         current clock position when looking at today.
@@ -918,16 +926,16 @@ export default function KitchenProductionPage() {
                           style={{ left: `calc(8rem + (100% - 8rem) * ${leftPct / 100})` }}
                           aria-hidden="true"
                         >
-                          <div className="w-px h-full bg-red-500/70" />
-                          <div className="absolute top-1 -translate-x-1/2 text-[9px] font-semibold text-white bg-red-500 rounded px-1 py-0.5 tabular-nums whitespace-nowrap shadow-sm">
+                          <div className="w-px h-full bg-rose-500/70" />
+                          <div className="absolute top-1 -translate-x-1/2 text-[9px] font-semibold text-white bg-rose-500 rounded px-1 py-0.5 tabular-nums whitespace-nowrap shadow-sm">
                             Now {clock}
                           </div>
                         </div>
                       );
                     })()}
                     {/* Hour ruler */}
-                    <div className="flex border-b border-slate-200 bg-slate-50 sticky top-0 z-10">
-                      <div className="w-32 shrink-0 px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500 border-r border-slate-200">
+                    <div className="flex border-b border-slate-200 bg-slate-50 sticky top-0 z-10 dark:border-slate-800 dark:bg-slate-900">
+                      <div className="w-32 shrink-0 px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500 border-r border-slate-200 dark:border-slate-800 dark:text-slate-400">
                         Station
                       </div>
                       <div className="flex-1 relative h-8">
@@ -955,10 +963,10 @@ export default function KitchenProductionPage() {
                     ) : stationsForGrid.map(station => {
                       const stationTasks = tasksByStation[station.id ?? "__unassigned__"] || [];
                       return (
-                        <div key={station.id ?? "__unassigned__"} className="flex border-b border-slate-100 hover:bg-slate-50/40">
-                          <div className="w-32 shrink-0 px-3 py-3 text-sm border-r border-slate-200">
-                            <p className="font-semibold text-slate-900">{station.name}</p>
-                            <p className="text-[10px] text-slate-500 capitalize">
+                        <div key={station.id ?? "__unassigned__"} className="flex border-b border-slate-100 hover:bg-slate-50/40 dark:border-slate-800 dark:hover:bg-slate-800/30">
+                          <div className="w-32 shrink-0 px-3 py-3 text-sm border-r border-slate-200 dark:border-slate-800">
+                            <p className="font-semibold text-slate-900 dark:text-white">{station.name}</p>
+                            <p className="text-[10px] text-slate-500 dark:text-slate-400 capitalize">
                               {stationTasks.length} task{stationTasks.length === 1 ? "" : "s"}
                             </p>
                           </div>
@@ -990,7 +998,7 @@ export default function KitchenProductionPage() {
                                 <Link
                                   key={t.id}
                                   href={withSlug(staffOrderHref(t.order_id, "kitchen_staff")) + "#section-kitchen"}
-                                  className={`absolute top-2 h-12 rounded-md border-l-4 px-1.5 py-1 text-[11px] cursor-pointer transition-colors block hover:shadow-md hover:ring-2 hover:ring-orange-300 ${tone}`}
+                                  className={`absolute top-2 h-12 rounded-md border-l-4 px-1.5 py-1 text-[11px] cursor-pointer transition-colors block hover:shadow-md hover:ring-2 hover:ring-amber-300 ${tone}`}
                                   style={{
                                     left: `${pos.leftPct}%`,
                                     width: `${pos.widthPct}%`,
@@ -1018,8 +1026,7 @@ export default function KitchenProductionPage() {
                       );
                     })}
                   </div>
-                </CardContent>
-              </Card>
+              </PortalCard>
               </>
             )
           ) : (
@@ -1045,11 +1052,11 @@ export default function KitchenProductionPage() {
                 return (
                   <div key={key}>
                     <div className="flex items-center gap-2 mb-2 px-1 flex-wrap">
-                      <h2 className={`text-sm font-semibold ${isToday ? "text-orange-600" : "text-slate-700"}`}>
+                      <h2 className={`text-sm font-semibold ${isToday ? "text-amber-600 dark:text-amber-500" : "text-slate-700 dark:text-slate-300"}`}>
                         {fmtDay(d)}
-                        {isToday && <span className="ml-2 text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded">Today</span>}
+                        {isToday && <span className="ml-2 text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded dark:bg-amber-950/40 dark:text-amber-400">Today</span>}
                       </h2>
-                      <span className="text-xs text-slate-500">{list.length} event{list.length === 1 ? "" : "s"}</span>
+                      <span className="text-xs text-slate-500 dark:text-slate-400">{list.length} event{list.length === 1 ? "" : "s"}</span>
                       {dayHours > 0 && (
                         <span
                           className="ml-auto inline-flex items-center gap-2 text-[11px] text-slate-600"
@@ -1059,7 +1066,7 @@ export default function KitchenProductionPage() {
                         >
                           <span className="tabular-nums">{dayHours}h prep</span>
                           {dailyCapacity > 0 && (
-                            <span className="h-1.5 w-20 rounded-full bg-slate-100 overflow-hidden">
+                            <span className="h-1.5 w-20 rounded-full bg-slate-100 overflow-hidden dark:bg-slate-800">
                               <span
                                 className={`block h-full ${loadTone}`}
                                 style={{ width: `${loadPct}%` }}
@@ -1070,7 +1077,7 @@ export default function KitchenProductionPage() {
                       )}
                     </div>
                     {list.length === 0 ? (
-                      <Card><CardContent className="p-3 text-center text-xs text-slate-400">Quiet day</CardContent></Card>
+                      <PortalCard padded={false} className="p-3 text-center text-xs text-slate-400 dark:text-slate-500">Quiet day</PortalCard>
                     ) : (
                       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                         {list.map((o) => {
@@ -1089,15 +1096,15 @@ export default function KitchenProductionPage() {
                               className="block group"
                               title="Open the full order document"
                             >
-                            <Card className={`${isToday ? "border-orange-200" : ""} group-hover:border-orange-400 group-hover:shadow-md transition-all cursor-pointer`}>
-                              <CardContent className="p-4">
+                            <PortalCard padded={false} className={`${isToday ? "border-amber-200 dark:border-amber-900/50" : ""} group-hover:border-amber-400 group-hover:shadow-md transition-all cursor-pointer dark:group-hover:border-amber-600`}>
+                              <div className="p-4">
                                 <div className="flex items-start justify-between gap-2 mb-2">
                                   <div className="min-w-0 flex-1">
-                                    <div className="font-medium text-slate-900 truncate group-hover:text-orange-700 transition-colors">{o.event_name ?? o.order_number ?? "Event"}</div>
-                                    <div className="text-xs text-slate-500 mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1">
+                                    <div className="font-medium text-slate-900 dark:text-white truncate group-hover:text-amber-700 dark:group-hover:text-amber-400 transition-colors">{o.event_name ?? o.order_number ?? "Event"}</div>
+                                    <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1">
                                       <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{fmtTime(o.event_time)}</span>
                                       {o.guest_count != null && <span className="flex items-center gap-1"><UsersIcon className="h-3 w-3" />{o.guest_count} guests</span>}
-                                      {o.order_number && <span className="font-mono text-[10px] text-slate-400">{o.order_number}</span>}
+                                      {o.order_number && <span className="font-mono text-[10px] text-slate-400 dark:text-slate-500">{o.order_number}</span>}
                                     </div>
                                   </div>
                                   {o.status && (
@@ -1107,27 +1114,27 @@ export default function KitchenProductionPage() {
                                   )}
                                 </div>
                                 {lineItems.length > 0 && (
-                                  <ul className="mt-2 space-y-1 text-sm border-t border-slate-100 pt-2">
+                                  <ul className="mt-2 space-y-1 text-sm border-t border-slate-100 dark:border-slate-800 pt-2">
                                     {lineItems.map((it) => (
                                       <li key={it.id} className="flex items-center justify-between gap-2">
-                                        <span className="truncate text-slate-700">{it.item_name ?? "--"}</span>
-                                        <span className="tabular-nums text-slate-500 flex-shrink-0">x{it.quantity ?? 0}</span>
+                                        <span className="truncate text-slate-700 dark:text-slate-300">{it.item_name ?? "--"}</span>
+                                        <span className="tabular-nums text-slate-500 dark:text-slate-400 flex-shrink-0">x{it.quantity ?? 0}</span>
                                       </li>
                                     ))}
                                   </ul>
                                 )}
                                 {orderTasks.length > 0 && (
-                                  <div className="mt-2 pt-2 border-t border-slate-100">
-                                    <div className="flex items-center justify-between text-[11px] text-slate-500 mb-1">
+                                  <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                                    <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 mb-1">
                                       <span className="font-semibold uppercase tracking-wide">Prep tasks</span>
                                       <span className="tabular-nums">{tasksDone} of {orderTasks.length} done</span>
                                     </div>
-                                    <div className="h-1.5 w-full rounded-full bg-slate-100 overflow-hidden">
+                                    <div className="h-1.5 w-full rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
                                       <div
                                         className={`h-full ${
                                           tasksDone === orderTasks.length ? "bg-emerald-500" :
-                                          tasksDone > 0 ? "bg-blue-500" :
-                                                          "bg-slate-300"
+                                          tasksDone > 0 ? "bg-amber-500" :
+                                                          "bg-slate-300 dark:bg-slate-600"
                                         }`}
                                         style={{ width: `${(tasksDone / orderTasks.length) * 100}%` }}
                                       />
@@ -1135,15 +1142,15 @@ export default function KitchenProductionPage() {
                                   </div>
                                 )}
                                 {o.special_instructions && (
-                                  <p className="mt-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">
+                                  <p className="mt-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1 dark:text-amber-300 dark:bg-amber-950/30 dark:border-amber-900/50">
                                     {o.special_instructions}
                                   </p>
                                 )}
-                                <div className="mt-2 pt-2 border-t border-slate-100 text-[10px] text-orange-600 font-medium opacity-0 group-hover:opacity-100 transition-opacity">
+                                <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-800 text-[10px] text-amber-600 dark:text-amber-500 font-medium opacity-0 group-hover:opacity-100 transition-opacity">
                                   Open kitchen ticket →
                                 </div>
-                              </CardContent>
-                            </Card>
+                              </div>
+                            </PortalCard>
                             </Link>
                           );
                         })}
@@ -1157,10 +1164,10 @@ export default function KitchenProductionPage() {
 
           {/* Tone legend (only in day view + only when there are tasks) */}
           {view === "day" && tasksOnAnchor.length > 0 && (
-            <div className="mt-3 flex items-center gap-3 text-[11px] text-slate-500 flex-wrap">
+            <div className="mt-3 flex items-center gap-3 text-[11px] text-slate-500 dark:text-slate-400 flex-wrap">
               <span className="font-semibold">Status:</span>
               <span className="inline-flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-slate-200 border border-slate-300" /> Pending</span>
-              <span className="inline-flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-blue-200 border border-blue-400" /> In progress</span>
+              <span className="inline-flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-amber-200 border border-amber-400" /> In progress</span>
               <span className="inline-flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-emerald-200 border border-emerald-400" /> Done</span>
             </div>
           )}
@@ -1170,20 +1177,20 @@ export default function KitchenProductionPage() {
               recipes by absolute variance so the worst offenders surface
               first. Sample size on each row keeps confidence honest. */}
           {recipeAccuracy.length > 0 && (
-            <Card id="recipe-accuracy" className="mt-6 border-0 shadow-md scroll-mt-24">
-              <CardContent className="p-4 sm:p-6">
+            <PortalCard id="recipe-accuracy" padded={false} className="mt-6 scroll-mt-24">
+              <div className="p-4 sm:p-6">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
-                    <TrendingUp className="h-4 w-4 text-orange-500" />
-                    <h2 className="text-sm sm:text-base font-semibold text-slate-900">Recipe accuracy, last 30 days</h2>
+                    <TrendingUp className="h-4 w-4 text-slate-500 dark:text-slate-400" />
+                    <h2 className="text-sm sm:text-base font-semibold text-slate-900 dark:text-white">Recipe accuracy, last 30 days</h2>
                     <InfoTooltip content="Average difference between planned and actual yield, per recipe.\n\nNegative means you're under-producing relative to the plan; positive means over.\n\nSample size shows how many cooks the average is built on, treat single-digit samples as early signal, not gospel." />
                   </div>
-                  <span className="text-xs text-slate-500">{recipeAccuracy.length} recipe{recipeAccuracy.length === 1 ? "" : "s"}</span>
+                  <span className="text-xs text-slate-500 dark:text-slate-400">{recipeAccuracy.length} recipe{recipeAccuracy.length === 1 ? "" : "s"}</span>
                 </div>
                 <div className="overflow-x-auto -mx-1">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="text-left text-[11px] uppercase tracking-wider text-slate-500 border-b border-slate-200">
+                      <tr className="text-left text-[11px] uppercase tracking-wider text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800">
                         <th className="px-2 py-2 font-medium">Recipe</th>
                         <th className="px-2 py-2 font-medium text-right">Samples</th>
                         <th className="px-2 py-2 font-medium text-right">Planned (avg)</th>
@@ -1194,16 +1201,16 @@ export default function KitchenProductionPage() {
                     <tbody>
                       {recipeAccuracy.map((r) => {
                         const tone =
-                          Math.abs(r.avg_variance_pct) < 5  ? "text-emerald-700" :
-                          Math.abs(r.avg_variance_pct) < 15 ? "text-amber-700"   :
-                                                              "text-red-700";
+                          Math.abs(r.avg_variance_pct) < 5  ? "text-emerald-700 dark:text-emerald-400" :
+                          Math.abs(r.avg_variance_pct) < 15 ? "text-amber-700 dark:text-amber-400"   :
+                                                              "text-rose-700 dark:text-rose-400";
                         const Arrow = r.avg_variance_pct >= 0 ? TrendingUp : TrendingDown;
                         return (
-                          <tr key={r.recipe_name} className="border-b border-slate-100 hover:bg-slate-50/50">
-                            <td className="px-2 py-2 font-medium text-slate-800">{r.recipe_name}</td>
-                            <td className="px-2 py-2 text-right text-slate-600 tabular-nums">{r.samples}</td>
-                            <td className="px-2 py-2 text-right text-slate-600 tabular-nums">{r.avg_planned} {r.yield_unit || ""}</td>
-                            <td className="px-2 py-2 text-right text-slate-900 tabular-nums">{r.avg_actual} {r.yield_unit || ""}</td>
+                          <tr key={r.recipe_name} className="border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50/50 dark:hover:bg-slate-800/40">
+                            <td className="px-2 py-2 font-medium text-slate-800 dark:text-slate-200">{r.recipe_name}</td>
+                            <td className="px-2 py-2 text-right text-slate-600 dark:text-slate-400 tabular-nums">{r.samples}</td>
+                            <td className="px-2 py-2 text-right text-slate-600 dark:text-slate-400 tabular-nums">{r.avg_planned} {r.yield_unit || ""}</td>
+                            <td className="px-2 py-2 text-right text-slate-900 dark:text-white tabular-nums">{r.avg_actual} {r.yield_unit || ""}</td>
                             <td className={`px-2 py-2 text-right font-semibold tabular-nums ${tone}`}>
                               <span className="inline-flex items-center gap-1">
                                 <Arrow className="h-3.5 w-3.5" />
@@ -1216,10 +1223,10 @@ export default function KitchenProductionPage() {
                     </tbody>
                   </table>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </PortalCard>
           )}
-        </div>
+        </PortalShell>
       </main>
 
       {/* Wave 70.7c - bottom-left FAB during service hours */}

@@ -194,7 +194,7 @@ export default function ContactPage() {
               </StaggerItem>
             </Stagger>
 
-            {/* Contact methods — a quiet divided row, not three matching cards.
+            {/* Contact methods - a quiet divided row, not three matching cards.
                 The icon sits inline with the label so the three options read as
                 one list of channels rather than a uniform card grid. */}
             <Stagger className="mx-auto grid max-w-4xl gap-px overflow-hidden rounded-2xl border border-stone-200 bg-stone-200 sm:grid-cols-3">
@@ -409,7 +409,7 @@ export default function ContactPage() {
                 </Stagger>
               </Reveal>
 
-              {/* Business hours: a quiet utility panel — no icon chip, just a
+              {/* Business hours: a quiet utility panel - no icon chip, just a
                   small leading glyph beside the label. */}
               <Reveal delay={0.05}>
                 <div className="rounded-2xl border border-stone-200 bg-white p-7">

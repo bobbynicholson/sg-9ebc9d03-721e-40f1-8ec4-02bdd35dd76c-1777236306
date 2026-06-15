@@ -1,5 +1,4 @@
 ﻿import { useState, useEffect, useMemo } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,8 +18,8 @@ import { staffOrderHref } from "@/lib/orderUrls";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
-import { MetricCard } from "@/components/dashboard/MetricCard";
 import { DynamicNav } from "@/components/DynamicNav";
+import { PortalShell, PortalHeader, PortalCard, PortalCardHeader, StatTile } from "@/components/portal/ui";
 import { TeamWelcomeBanner } from "@/components/portal/TeamWelcomeBanner";
 import { MyShiftTodayCard } from "@/components/portal/MyShiftTodayCard";
 import { WidgetErrorBoundary } from "@/components/dashboard/WidgetErrorBoundary";
@@ -925,11 +924,11 @@ export default function KitchenDashboard() {
 
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
-      confirmed: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300",
-      preparing: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300",
-      prep: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300",
-      ready: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300",
-      completed: "bg-slate-100 text-slate-800 dark:bg-slate-900 dark:text-slate-300",
+      confirmed: "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-900",
+      preparing: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-900",
+      prep: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-900",
+      ready: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-900",
+      completed: "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700",
     };
     return colors[status] || colors.confirmed;
   };
@@ -943,9 +942,9 @@ export default function KitchenDashboard() {
     }
     const hoursUntil = (eventDateTime.getTime() - now.getTime()) / (1000 * 60 * 60);
     
-    if (hoursUntil < 4) return { level: "high", color: "border-red-500 bg-red-50 dark:bg-red-950" };
-    if (hoursUntil < 8) return { level: "medium", color: "border-orange-500 bg-orange-50 dark:bg-orange-950" };
-    return { level: "low", color: "border-green-500 bg-green-50 dark:bg-green-950" };
+    if (hoursUntil < 4) return { level: "high", color: "border-l-rose-500 bg-rose-50 dark:bg-rose-950/40" };
+    if (hoursUntil < 8) return { level: "medium", color: "border-l-amber-500 bg-amber-50 dark:bg-amber-950/40" };
+    return { level: "low", color: "border-l-emerald-500 bg-emerald-50 dark:bg-emerald-950/40" };
   };
 
   return (
@@ -957,85 +956,86 @@ export default function KitchenDashboard() {
 
       <DynamicNav userRole={UserRole.KITCHEN_STAFF} />
 
-      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
-        <div className="px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8 lg:py-12 max-w-full">
-          {/* Header */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 mb-6 sm:mb-8">
-            <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-xl bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center shadow-lg flex-shrink-0">
-              <ChefHat className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-white" />
-            </div>
-            <div className="flex-1">
-              <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-slate-900 dark:text-white">Kitchen Dashboard</h1>
-              <p className="text-xs sm:text-sm md:text-base text-slate-600 dark:text-slate-400">Manage prep, duty shifts, and inventory</p>
-            </div>
-            {/* KIT2-A + KIT2-O (kitchen audit, KIT2-3 / 35 / 36 / 84)
-                + Bobby's "don't swap portals" follow-up: shows
-                tomorrow's cleaning progress at-a-glance and opens
-                a read-only dialog with the cleaning team, active
-                wash jobs and per-event checklist - all without
-                changing the active portal / role lens. */}
-            <button
-              type="button"
-              onClick={() => setCleaningDialogOpen(true)}
-              className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border text-sm font-medium transition ${
-                cleaningReadiness && cleaningReadiness.complete === cleaningReadiness.total
-                  ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-                  : cleaningReadiness && cleaningReadiness.complete > 0
-                  ? "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100"
-                  : "border-cyan-200 bg-cyan-50 text-cyan-700 hover:bg-cyan-100"
-              }`}
-              title={
-                cleaningReadiness
-                  ? `Tomorrow's cleaning: ${cleaningReadiness.complete} of ${cleaningReadiness.total} done`
-                  : "View the cleaning schedule"
-              }
-            >
-              <Sparkles className="w-4 h-4" />
-              <span>Cleaning schedule</span>
-              {cleaningReadiness && (
-                <Badge
-                  variant="outline"
-                  className={`ml-1 tabular-nums ${
-                    cleaningReadiness.complete === cleaningReadiness.total
-                      ? "bg-emerald-100 text-emerald-800 border-emerald-300"
-                      : cleaningReadiness.complete > 0
-                      ? "bg-amber-100 text-amber-800 border-amber-300"
-                      : "bg-cyan-100 text-cyan-800 border-cyan-300"
+      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+          <PortalHeader
+            title="Kitchen"
+            subtitle="Manage prep, duty shifts and inventory"
+            icon={ChefHat}
+            actions={
+              <>
+                {/* KIT2-A + KIT2-O (kitchen audit, KIT2-3 / 35 / 36 / 84)
+                    + Bobby's "don't swap portals" follow-up: shows
+                    tomorrow's cleaning progress at-a-glance and opens
+                    a read-only dialog with the cleaning team, active
+                    wash jobs and per-event checklist - all without
+                    changing the active portal / role lens. */}
+                <button
+                  type="button"
+                  onClick={() => setCleaningDialogOpen(true)}
+                  className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border text-sm font-medium transition-colors duration-150 ${
+                    cleaningReadiness && cleaningReadiness.complete === cleaningReadiness.total
+                      ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300 dark:hover:bg-emerald-900/60"
+                      : cleaningReadiness && cleaningReadiness.complete > 0
+                      ? "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300 dark:hover:bg-amber-900/60"
+                      : "border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
                   }`}
+                  title={
+                    cleaningReadiness
+                      ? `Tomorrow's cleaning: ${cleaningReadiness.complete} of ${cleaningReadiness.total} done`
+                      : "View the cleaning schedule"
+                  }
                 >
-                  {cleaningReadiness.complete}/{cleaningReadiness.total}
-                </Badge>
-              )}
-            </button>
-            {/* KIT2-N (kitchen deep audit, KIT2-53 / KIT2-83): paper
-                backup of today's prep + tomorrow's preview. Bobby's
-                explicit P1 ask. Chef prep-day morning wants one
-                printable run-sheet not 12 per-order tickets. */}
-            <Button
-              variant="outline"
-              onClick={() => {
-                // KIT3-A (task #244): guard against the first-mount
-                // race where the toast fired "Nothing to print" before
-                // loadDashboardData had a chance to populate state.
-                if (loading) {
-                  toast({ title: "Still loading", description: "Give it a second, the print sheet is being prepared." });
-                  return;
-                }
-                if (orders.length === 0 && upcoming.length === 0) {
-                  toast({ title: "Nothing to print", description: "No orders today or in the next 2 days." });
-                  return;
-                }
-                setTimeout(() => window.print(), 100);
-              }}
-              disabled={loading}
-              className="inline-flex items-center gap-1.5 h-10 sm:h-11 px-3 text-sm"
-            >
-              <Printer className="w-4 h-4" />
-              Print run sheet
-            </Button>
-          </div>
+                  <Sparkles className="w-4 h-4" />
+                  <span>Cleaning schedule</span>
+                  {cleaningReadiness && (
+                    <Badge
+                      variant="outline"
+                      className={`ml-1 tabular-nums ${
+                        cleaningReadiness.complete === cleaningReadiness.total
+                          ? "bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-900 dark:text-emerald-300 dark:border-emerald-800"
+                          : cleaningReadiness.complete > 0
+                          ? "bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-900 dark:text-amber-300 dark:border-amber-800"
+                          : "bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-700 dark:text-slate-200 dark:border-slate-600"
+                      }`}
+                    >
+                      {cleaningReadiness.complete}/{cleaningReadiness.total}
+                    </Badge>
+                  )}
+                </button>
+                {/* KIT2-N (kitchen deep audit, KIT2-53 / KIT2-83): paper
+                    backup of today's prep + tomorrow's preview. Bobby's
+                    explicit P1 ask. Chef prep-day morning wants one
+                    printable run-sheet not 12 per-order tickets. */}
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    // KIT3-A (task #244): guard against the first-mount
+                    // race where the toast fired "Nothing to print" before
+                    // loadDashboardData had a chance to populate state.
+                    if (loading) {
+                      toast({ title: "Still loading", description: "Give it a second, the print sheet is being prepared." });
+                      return;
+                    }
+                    if (orders.length === 0 && upcoming.length === 0) {
+                      toast({ title: "Nothing to print", description: "No orders today or in the next 2 days." });
+                      return;
+                    }
+                    setTimeout(() => window.print(), 100);
+                  }}
+                  disabled={loading}
+                  className="inline-flex items-center gap-1.5 h-10 sm:h-11 px-3 text-sm"
+                >
+                  <Printer className="w-4 h-4" />
+                  Print run sheet
+                </Button>
+              </>
+            }
+          />
 
-          <TeamWelcomeBanner role="kitchen" userId={user?.id} />
+          <div className="mb-6">
+            <TeamWelcomeBanner role="kitchen" userId={user?.id} />
+          </div>
 
           {/* Wave 42 Tier 3: personal shift card. Lists today's
               kitchen + kitchen_and_cleaning shifts with task chips
@@ -1060,17 +1060,19 @@ export default function KitchenDashboard() {
               nothing is imminent so the dashboard de-clutters once
               the rush passes. */}
           {imminentOrders.length > 0 && (
-            <Card className="border-0 shadow-lg bg-gradient-to-r from-orange-50 to-red-50 dark:from-slate-800 dark:to-slate-900 mb-6 sm:mb-8">
-              <CardHeader className="pb-2 sm:pb-3 px-3 sm:px-6">
-                <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-                  <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-orange-600" />
-                  Imminent (next 4 hours)
-                  <Badge variant="outline" className="ml-1 bg-white text-orange-700 border-orange-300 tabular-nums">
-                    {imminentOrders.length}
-                  </Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="px-3 sm:px-6">
+            <PortalCard className="mb-6 sm:mb-8">
+              <PortalCardHeader
+                title={
+                  <span className="flex items-center gap-2 text-base sm:text-lg">
+                    <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-amber-600 dark:text-amber-500" />
+                    Imminent (next 4 hours)
+                    <Badge variant="outline" className="ml-1 bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-900 tabular-nums">
+                      {imminentOrders.length}
+                    </Badge>
+                  </span>
+                }
+              />
+              <div>
                 <div className="space-y-2 sm:space-y-3">
                   {imminentOrders.slice(0, 5).map((order, index) => {
                     const urgency = getUrgencyLevel(order.event_date, order.event_time);
@@ -1088,7 +1090,7 @@ export default function KitchenDashboard() {
                             eat. */}
                         <div className="flex items-start justify-between gap-2 sm:gap-3">
                           <div className="flex items-start gap-2 sm:gap-3 flex-1 min-w-0">
-                            <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-orange-500 text-white flex items-center justify-center font-bold flex-shrink-0 text-xs sm:text-base mt-0.5">
+                            <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-amber-600 text-white flex items-center justify-center font-bold flex-shrink-0 text-xs sm:text-base mt-0.5">
                               {index + 1}
                             </div>
                             <div className="min-w-0 flex-1">
@@ -1131,7 +1133,7 @@ export default function KitchenDashboard() {
                                 reachable via the small printer icon. */}
                             <Link
                               href={withSlug(staffOrderHref(order.id, "kitchen_staff"))}
-                              className="inline-flex items-center justify-center gap-1.5 min-h-11 px-3 rounded-md text-sm font-semibold bg-orange-500 text-white hover:bg-orange-600 transition shadow-sm"
+                              className="inline-flex items-center justify-center gap-1.5 min-h-11 px-3 rounded-md text-sm font-semibold bg-amber-600 text-white hover:bg-amber-700 transition-colors duration-150 shadow-sm"
                               title="Open the full order document"
                             >
                               <ChefHat className="w-4 h-4" />
@@ -1140,20 +1142,20 @@ export default function KitchenDashboard() {
                             </Link>
                             <Link
                               href={withSlug(`/team-portal/kitchen/orders/${order.id}/ticket`)}
-                              className="inline-flex items-center justify-center min-h-11 w-11 rounded-md text-sm bg-white border border-orange-200 text-orange-700 hover:bg-orange-50 transition"
+                              className="inline-flex items-center justify-center min-h-11 w-11 rounded-md text-sm bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900 dark:bg-slate-900 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 transition-colors duration-150"
                               title="Print kitchen ticket"
                             >
                               <Printer className="w-4 h-4" />
                             </Link>
-                            <Badge className={`${getStatusColor(order.status)} text-xs flex-shrink-0`}>{order.status}</Badge>
+                            <Badge variant="outline" className={`${getStatusColor(order.status)} text-xs flex-shrink-0 capitalize`}>{order.status}</Badge>
                           </div>
                         </div>
                       </div>
                     );
                   })}
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </PortalCard>
           )}
 
           {/* Stats Grid - KIT3-A (task #244): rolling readiness +
@@ -1162,37 +1164,33 @@ export default function KitchenDashboard() {
           <div className="grid grid-cols-2 md:grid-cols-5 gap-2 sm:gap-3 md:gap-4 mb-4 sm:mb-6 md:mb-8">
             {loading ? (
               [0, 1, 2, 3, 4].map((i) => (
-                <div key={i} className="h-24 rounded-xl bg-white/60 border border-slate-200 animate-pulse" />
+                <div key={i} className="h-24 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm animate-pulse" />
               ))
             ) : (
               <>
-                <MetricCard
+                <StatTile
                   icon={Calendar}
-                  iconColor="text-orange-600"
                   label="Today's orders"
                   value={todayOrders.length}
-                  tooltip={"Orders happening today that the kitchen is actively working on.\nIncludes anything confirmed, in prep, or ready to go."}
+                  hint="Confirmed, in prep or ready today"
                 />
-                <MetricCard
+                <StatTile
                   icon={Users}
-                  iconColor="text-blue-600"
                   label="Total guests"
                   value={todayOrders.reduce((sum, o) => sum + (o.guest_count || 0), 0)}
-                  tooltip={"How many people you're cooking for today across all events.\nUse this to size your portions and prep list."}
+                  hint="Across all of today's events"
                 />
-                <MetricCard
+                <StatTile
                   icon={Clock}
-                  iconColor="text-orange-600"
                   label="In prep"
                   value={orders.filter(o => o.status === "preparing").length}
-                  tooltip={"Orders the kitchen is busy prepping right now.\nUpdates the moment someone ticks a task off."}
+                  hint="Being cooked right now"
                 />
-                <MetricCard
+                <StatTile
                   icon={CheckCircle}
-                  iconColor="text-green-600"
                   label="Ready"
                   value={orders.filter(o => o.status === "ready").length}
-                  tooltip={"Orders packed and waiting for the driver to collect.\nDrivers see these the moment you mark them ready."}
+                  hint="Packed, waiting for the driver"
                 />
                 {/* KIT3-A new tile: rolling prep readiness across
                     every active order. Sum of completed prep tasks
@@ -1209,16 +1207,11 @@ export default function KitchenDashboard() {
                   }
                   const pct = total > 0 ? Math.round((done / total) * 100) : null;
                   return (
-                    <MetricCard
+                    <StatTile
                       icon={Sparkles}
-                      iconColor={pct == null ? "text-slate-400" : pct >= 75 ? "text-emerald-600" : pct >= 40 ? "text-amber-600" : "text-rose-600"}
                       label="Prep readiness"
                       value={pct == null ? "-" : `${pct}%`}
-                      tooltip={
-                        pct == null
-                          ? "No prep tasks recorded yet for the active orders. Once the kitchen ticks anything off this rolls up automatically."
-                          : `${done} of ${total} prep tasks done across every active order.\nUnder 40% in amber, under 75% still warming up, 75%+ on track.`
-                      }
+                      hint={pct == null ? "No prep tasks recorded yet" : `${done} of ${total} prep tasks done`}
                     />
                   );
                 })()}
@@ -1231,35 +1224,39 @@ export default function KitchenDashboard() {
               before Low Stock recomputes and quietly drops the row.
               Teal accent to distinguish from the amber Low Stock card. */}
           {Object.keys(restockDeltas).length > 0 && (
-            <Card className="border-0 shadow-lg mb-6 sm:mb-8 border-l-4 border-l-teal-500">
-              <CardHeader className="px-3 sm:px-4 md:px-6 pb-3 flex flex-row items-center justify-between gap-3">
-                <CardTitle className="flex items-center gap-2 text-base sm:text-lg text-teal-700 dark:text-teal-400">
-                  <Package className="w-5 h-5" />
-                  Just restocked
-                </CardTitle>
-                <button
-                  type="button"
-                  onClick={() => setRestockDeltas({})}
-                  className="text-xs font-medium text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white min-h-11 px-3"
-                  aria-label="Clear restock list"
-                >
-                  Got it
-                </button>
-              </CardHeader>
-              <CardContent className="px-3 sm:px-4 md:px-6">
+            <PortalCard className="mb-6 sm:mb-8 border-l-4 border-l-emerald-500">
+              <PortalCardHeader
+                title={
+                  <span className="flex items-center gap-2 text-base sm:text-lg text-emerald-700 dark:text-emerald-400">
+                    <Package className="w-5 h-5" />
+                    Just restocked
+                  </span>
+                }
+                action={
+                  <button
+                    type="button"
+                    onClick={() => setRestockDeltas({})}
+                    className="text-xs font-medium text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white min-h-11 px-3"
+                    aria-label="Clear restock list"
+                  >
+                    Got it
+                  </button>
+                }
+              />
+              <div>
                 <div className="flex flex-wrap gap-2">
                   {Object.entries(restockDeltas).map(([id, info]) => (
                     <span
                       key={id}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-teal-50 dark:bg-teal-950 text-teal-800 dark:text-teal-300 text-sm font-medium"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 text-sm font-medium"
                     >
-                      <span className="text-teal-600 dark:text-teal-400">+{info.delta}{info.unit ? ` ${info.unit}` : ""}</span>
+                      <span className="text-emerald-600 dark:text-emerald-400">+{info.delta}{info.unit ? ` ${info.unit}` : ""}</span>
                       <span>{info.name}</span>
                     </span>
                   ))}
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </PortalCard>
           )}
 
           {/* KIT3-B (task #245): per-shift staffing flag. Surfaces
@@ -1274,21 +1271,21 @@ export default function KitchenDashboard() {
             const noStaff = onDutyCount === 0 && todayOrders.length > 0;
             if (!understaffed && !noStaff) return null;
             return (
-              <Card className="border-0 shadow-sm mb-4 border-l-4 border-l-rose-500 bg-rose-50/60">
-                <CardContent className="px-4 py-3 flex items-start gap-3">
-                  <Users className="w-5 h-5 text-rose-600 mt-0.5 shrink-0" />
+              <PortalCard padded={false} className="mb-4 border-l-4 border-l-rose-500 bg-rose-50/60 dark:bg-rose-950/30">
+                <div className="px-4 py-3 flex items-start gap-3">
+                  <Users className="w-5 h-5 text-rose-600 dark:text-rose-400 mt-0.5 shrink-0" />
                   <div className="flex-1 text-sm">
-                    <p className="font-semibold text-rose-900">
+                    <p className="font-semibold text-rose-900 dark:text-rose-200">
                       {noStaff
                         ? "No-one is clocked in for the kitchen yet"
                         : `Looks light: ${onDutyCount} on duty for ${totalGuests} guests today`}
                     </p>
-                    <p className="text-xs text-rose-800 mt-0.5">
+                    <p className="text-xs text-rose-800 dark:text-rose-300 mt-0.5">
                       Rough guide is one cook per 30 guests. Today's recommended is {recommended} based on {todayOrders.length} order{todayOrders.length === 1 ? "" : "s"}. Check the staff tiles above and clock the team in.
                     </p>
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+              </PortalCard>
             );
           })()}
 
@@ -1298,14 +1295,14 @@ export default function KitchenDashboard() {
               holding us up". One task at a time so it stays a
               decision-prompt not a backlog dump. */}
           {bottleneckTask && (
-            <Card className="border-0 shadow-sm mb-4 border-l-4 border-l-orange-500 bg-orange-50/60">
-              <CardContent className="px-4 py-3 flex items-start gap-3">
-                <Clock className="w-5 h-5 text-orange-600 mt-0.5 shrink-0" />
+            <PortalCard padded={false} className="mb-4 border-l-4 border-l-amber-500 bg-amber-50/60 dark:bg-amber-950/30">
+              <div className="px-4 py-3 flex items-start gap-3">
+                <Clock className="w-5 h-5 text-amber-600 dark:text-amber-500 mt-0.5 shrink-0" />
                 <div className="flex-1 text-sm">
-                  <p className="font-semibold text-orange-900">
+                  <p className="font-semibold text-amber-900 dark:text-amber-200">
                     Bottleneck: {bottleneckTask.menuItemName}
                   </p>
-                  <p className="text-xs text-orange-800 mt-0.5">
+                  <p className="text-xs text-amber-800 dark:text-amber-300 mt-0.5">
                     Started {Math.floor(bottleneckTask.minsRunning / 60) > 0
                       ? `${Math.floor(bottleneckTask.minsRunning / 60)}h ${bottleneckTask.minsRunning % 60}m`
                       : `${bottleneckTask.minsRunning}m`} ago on {bottleneckTask.orderLabel} and still in progress. Check if the prep needs a second pair of hands or got skipped.
@@ -1313,32 +1310,34 @@ export default function KitchenDashboard() {
                 </div>
                 <Link
                   href={withSlug(staffOrderHref(bottleneckTask.orderId, "kitchen_staff"))}
-                  className="inline-flex items-center gap-1 text-xs text-orange-700 underline hover:text-orange-900 shrink-0"
+                  className="inline-flex items-center gap-1 text-xs text-amber-700 dark:text-amber-400 underline hover:text-amber-900 dark:hover:text-amber-200 shrink-0"
                 >
                   Open order
                 </Link>
-              </CardContent>
-            </Card>
+              </div>
+            </PortalCard>
           )}
 
           {/* Low Stock Alerts */}
           {lowStockItems.length > 0 && (
-            <Card className="border-0 shadow-lg mb-6 sm:mb-8 border-l-4 border-l-amber-500">
-              <CardHeader className="px-3 sm:px-4 md:px-6 pb-3">
-                <CardTitle className="flex items-center gap-2 text-base sm:text-lg text-amber-700 dark:text-amber-400">
-                  <AlertTriangle className="w-5 h-5" />
-                  Low stock alerts
-                  {/* KIT3-B: aggregate "blocks N orders" badge so the
-                      chef sees the cascade impact at the header level
-                      not just per-row. */}
-                  {blockedOrdersByItem.length > 0 && (
-                    <Badge variant="outline" className="bg-rose-100 text-rose-800 border-rose-300 text-[10px] ml-1">
-                      Blocks {new Set(blockedOrdersByItem.flatMap((b) => b.orderLabels)).size} active order{new Set(blockedOrdersByItem.flatMap((b) => b.orderLabels)).size === 1 ? "" : "s"}
-                    </Badge>
-                  )}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="px-3 sm:px-4 md:px-6">
+            <PortalCard className="mb-6 sm:mb-8 border-l-4 border-l-amber-500">
+              <PortalCardHeader
+                title={
+                  <span className="flex items-center gap-2 text-base sm:text-lg text-amber-700 dark:text-amber-400">
+                    <AlertTriangle className="w-5 h-5" />
+                    Low stock alerts
+                    {/* KIT3-B: aggregate "blocks N orders" badge so the
+                        chef sees the cascade impact at the header level
+                        not just per-row. */}
+                    {blockedOrdersByItem.length > 0 && (
+                      <Badge variant="outline" className="bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-950 dark:text-rose-300 dark:border-rose-900 text-[10px] ml-1">
+                        Blocks {new Set(blockedOrdersByItem.flatMap((b) => b.orderLabels)).size} active order{new Set(blockedOrdersByItem.flatMap((b) => b.orderLabels)).size === 1 ? "" : "s"}
+                      </Badge>
+                    )}
+                  </span>
+                }
+              />
+              <div>
                 <div className="space-y-2">
                   {lowStockItems.map((item) => {
                     // KIT3-B: per-row cascade chip. Pulled from the
@@ -1356,7 +1355,7 @@ export default function KitchenDashboard() {
                               Current: {item.current_stock} {item.unit_of_measure} &middot; Minimum: {item.minimum_stock}
                             </p>
                             {blocked && (
-                              <p className="text-[11px] text-rose-700 mt-0.5" title={blocked.orderLabels.join(", ")}>
+                              <p className="text-[11px] text-rose-700 dark:text-rose-400 mt-0.5" title={blocked.orderLabels.join(", ")}>
                                 Blocks {blocked.orderCount} active order{blocked.orderCount === 1 ? "" : "s"}: {blocked.orderLabels.slice(0, 2).join(", ")}{blocked.orderLabels.length > 2 ? ` + ${blocked.orderLabels.length - 2}` : ""}
                               </p>
                             )}
@@ -1366,7 +1365,7 @@ export default function KitchenDashboard() {
                           variant="outline"
                           className={`shrink-0 ${
                             blocked
-                              ? "bg-rose-100 text-rose-800 border-rose-300"
+                              ? "bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-950 dark:text-rose-300 dark:border-rose-900"
                               : "bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-700"
                           }`}
                         >
@@ -1376,8 +1375,8 @@ export default function KitchenDashboard() {
                     );
                   })}
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </PortalCard>
           )}
 
           {/* KIT3-A: calm "All quiet" card when there's no next
@@ -1386,20 +1385,20 @@ export default function KitchenDashboard() {
               space where the headline used to be - "did it crash?".
               Now they see a clear "no live pickups" reassurance. */}
           {!loading && !nextPickup && orders.length === 0 && needsClosureOrders.length === 0 && (
-            <Card className="border-0 shadow-sm mb-4 sm:mb-6 border-l-4 border-l-slate-300 bg-slate-50/60">
-              <CardContent className="p-4 sm:p-5 flex items-center justify-between gap-4">
+            <PortalCard padded={false} className="mb-4 sm:mb-6 border-l-4 border-l-slate-300 dark:border-l-slate-600 bg-slate-50/60 dark:bg-slate-800/40">
+              <div className="p-4 sm:p-5 flex items-center justify-between gap-4">
                 <div className="flex-1">
-                  <p className="text-xs uppercase tracking-wide text-slate-500 font-semibold">Next pickup</p>
-                  <p className="text-xl sm:text-2xl font-bold text-slate-700 leading-tight mt-1">
+                  <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400 font-semibold">Next pickup</p>
+                  <p className="text-xl sm:text-2xl font-semibold text-slate-700 dark:text-slate-200 leading-tight mt-1">
                     All quiet
                   </p>
-                  <p className="text-xs text-slate-500 mt-1">
+                  <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
                     No live orders right now. Use the breather to prep ahead, deep-clean, or restock.
                   </p>
                 </div>
-                <CheckCircle className="w-10 h-10 sm:w-12 sm:h-12 shrink-0 text-slate-400" />
-              </CardContent>
-            </Card>
+                <CheckCircle className="w-10 h-10 sm:w-12 sm:h-12 shrink-0 text-slate-400 dark:text-slate-500" />
+              </div>
+            </PortalCard>
           )}
 
           {/* KIT3-A: realtime stale indicator. The 5 channel
@@ -1407,7 +1406,7 @@ export default function KitchenDashboard() {
               chip surfaces when no realtime event has landed in 2+
               min so the chef knows to thumb-refresh. */}
           {realtimeStale && (
-            <div className="mb-3 inline-flex items-center gap-2 text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded px-2.5 py-1.5">
+            <div className="mb-3 inline-flex items-center gap-2 text-xs text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-900 rounded px-2.5 py-1.5">
               <Loader2 className="w-3.5 h-3.5 animate-spin" />
               Reconnecting to live updates. Tap refresh if numbers look stuck.
             </div>
@@ -1427,39 +1426,39 @@ export default function KitchenDashboard() {
               isSoon ? "Starts soon" :
                        "Plenty of time";
             const tone =
-              isLate ? "bg-red-50 border-l-red-500" :
-              isSoon ? "bg-amber-50 border-l-amber-500" :
-                       "bg-emerald-50 border-l-emerald-500";
+              isLate ? "bg-rose-50 dark:bg-rose-950/30 border-l-rose-500" :
+              isSoon ? "bg-amber-50 dark:bg-amber-950/30 border-l-amber-500" :
+                       "bg-emerald-50 dark:bg-emerald-950/30 border-l-emerald-500";
             const statusTone =
-              isLate ? "bg-red-600 text-white" :
-              isSoon ? "bg-amber-500 text-white" :
+              isLate ? "bg-rose-600 text-white" :
+              isSoon ? "bg-amber-600 text-white" :
                        "bg-emerald-600 text-white";
             const iconTone =
-              isLate ? "text-red-500" :
-              isSoon ? "text-amber-500" :
-                       "text-emerald-500";
+              isLate ? "text-rose-500 dark:text-rose-400" :
+              isSoon ? "text-amber-500 dark:text-amber-400" :
+                       "text-emerald-500 dark:text-emerald-400";
             return (
-              <Card className={`border-0 shadow-lg mb-4 sm:mb-6 border-l-4 ${tone}`}>
-                <CardContent className="p-4 sm:p-5 flex items-center justify-between gap-4">
+              <PortalCard padded={false} className={`mb-4 sm:mb-6 border-l-4 ${tone}`}>
+                <div className="p-4 sm:p-5 flex items-center justify-between gap-4">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 mb-1.5">
-                      <p className="text-xs uppercase tracking-wide text-slate-600 font-semibold">Next pickup</p>
+                      <p className="text-xs uppercase tracking-wide text-slate-600 dark:text-slate-400 font-semibold">Next pickup</p>
                       <span className={`text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-full ${statusTone}`}>
                         {statusWord}
                       </span>
                     </div>
-                    <p className="text-2xl sm:text-3xl font-bold text-slate-900 leading-tight">
+                    <p className="text-2xl sm:text-3xl font-semibold text-slate-900 dark:text-white leading-tight">
                       {when.dayLabel} <span className="tabular-nums">{when.timeLabel}</span>
                     </p>
-                    <p className="text-sm text-slate-600 mt-1 truncate">
-                      <span className="font-medium text-slate-700">{nextPickup.eventName}</span>
-                      {nextPickup.client && <span className="text-slate-500">, {nextPickup.client}</span>}
+                    <p className="text-sm text-slate-600 dark:text-slate-300 mt-1 truncate">
+                      <span className="font-medium text-slate-700 dark:text-slate-200">{nextPickup.eventName}</span>
+                      {nextPickup.client && <span className="text-slate-500 dark:text-slate-400">, {nextPickup.client}</span>}
                     </p>
-                    <p className="text-xs text-slate-500 mt-0.5">{away}</p>
+                    <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">{away}</p>
                   </div>
                   <Clock className={`w-10 h-10 sm:w-12 sm:h-12 shrink-0 ${iconTone}`} />
-                </CardContent>
-              </Card>
+                </div>
+              </PortalCard>
             );
           })()}
 
@@ -1470,30 +1469,32 @@ export default function KitchenDashboard() {
               row has a single Close out button that cascades through
               prep + ready + collect + delivery + audit in one call. */}
           {canSeeAdminOrderDetail && needsClosureOrders.length > 0 && (
-            <Card className="border-0 shadow-md mb-4 sm:mb-6 border-l-4 border-l-amber-500 bg-amber-50/40">
-              <CardHeader className="px-3 sm:px-4 md:px-6 pb-2">
-                <CardTitle className="text-sm sm:text-base flex items-center gap-2 text-amber-900">
-                  <AlertTriangle className="w-4 h-4 text-amber-600" />
-                  Needs closure
-                  <Badge variant="outline" className="bg-amber-100 text-amber-800 border-amber-300 text-[10px]">
-                    {needsClosureOrders.length}
-                  </Badge>
-                  <InfoTooltip content="Orders whose event was hours ago but the team didn't tick them through. Force-close cascades all the prep tasks + ready + collected + delivered stamps in one click. Audit-logged. Owner / admin only." />
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="px-3 sm:px-4 md:px-6 pb-3">
+            <PortalCard className="mb-4 sm:mb-6 border-l-4 border-l-amber-500 bg-amber-50/40 dark:bg-amber-950/20">
+              <PortalCardHeader
+                title={
+                  <span className="text-sm sm:text-base flex items-center gap-2 text-amber-900 dark:text-amber-200">
+                    <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-500" />
+                    Needs closure
+                    <Badge variant="outline" className="bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-900 dark:text-amber-300 dark:border-amber-800 text-[10px]">
+                      {needsClosureOrders.length}
+                    </Badge>
+                    <InfoTooltip content="Orders whose event was hours ago but the team didn't tick them through. Force-close cascades all the prep tasks + ready + collected + delivered stamps in one click. Audit-logged. Owner / admin only." />
+                  </span>
+                }
+              />
+              <div>
                 <ul className="space-y-2">
                   {needsClosureOrders.map((o: any) => {
                     const dt = new Date(`${o.event_date}T${o.event_time || "12:00"}`);
                     const ago = Math.floor((now.getTime() - dt.getTime()) / 3_600_000);
                     const label = `${o.event_name || o.client_name || "Event"}${o.order_number ? ` (${o.order_number})` : ""}`;
                     return (
-                      <li key={o.id} className="flex items-center justify-between gap-2 bg-white border border-amber-200 rounded-md px-3 py-2">
+                      <li key={o.id} className="flex items-center justify-between gap-2 bg-white dark:bg-slate-900 border border-amber-200 dark:border-amber-900 rounded-md px-3 py-2">
                         <div className="min-w-0 flex-1">
-                          <p className="text-sm font-semibold text-slate-900 truncate">
+                          <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">
                             {o.event_name || o.client_name || "Event"}
                           </p>
-                          <p className="text-[11px] text-slate-500 truncate">
+                          <p className="text-[11px] text-slate-600 dark:text-slate-400 truncate">
                             {o.order_number && <span className="tabular-nums mr-1">{o.order_number}</span>}
                             {o.event_date} {o.event_time?.slice(0, 5) || ""} &middot; {ago > 24 ? `${Math.floor(ago / 24)}d` : `${ago}h`} ago &middot; still {o.status}
                           </p>
@@ -1515,36 +1516,38 @@ export default function KitchenDashboard() {
                     );
                   })}
                 </ul>
-                <p className="text-[11px] text-amber-700 mt-2">
+                <p className="text-[11px] text-amber-700 dark:text-amber-400 mt-2">
                   Force-close marks all prep tasks done, stamps the delivery/collect times, and flips the order to delivered. Audit-logged. Use for paperwork tidy-up after a real-world event the team forgot to tick.
                 </p>
-              </CardContent>
-            </Card>
+              </div>
+            </PortalCard>
           )}
 
           {/* Phase 4: tomorrow + day-after preview. Quiet glance card so the
               kitchen sees what's brewing before it lands as "Active orders".
               Hidden when nothing's coming up to keep the page calm. */}
           {upcoming.length > 0 && (
-            <Card className="border-0 shadow-md mb-4">
-              <CardHeader className="px-3 sm:px-4 md:px-6 pb-2">
-                <CardTitle className="text-sm sm:text-base flex items-center gap-2 text-slate-700">
-                  <Calendar className="w-4 h-4 text-orange-500" />
-                  What's coming up
-                  <InfoTooltip content="Confirmed orders for the next two days. Not yet in the active board, this is your prep-ahead heads-up." />
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="px-3 sm:px-4 md:px-6 pb-4">
+            <PortalCard className="mb-4">
+              <PortalCardHeader
+                title={
+                  <span className="text-sm sm:text-base flex items-center gap-2 text-slate-700 dark:text-slate-200">
+                    <Calendar className="w-4 h-4 text-slate-400 dark:text-slate-500" />
+                    What's coming up
+                    <InfoTooltip content="Confirmed orders for the next two days. Not yet in the active board, this is your prep-ahead heads-up." />
+                  </span>
+                }
+              />
+              <div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {upcoming.map((day) => {
                     const d = new Date(day.date);
                     const isTomorrow = d.toDateString() === new Date(Date.now() + 86400000).toDateString();
                     const label = isTomorrow ? "Tomorrow" : d.toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "short" });
                     return (
-                      <div key={day.date} className="rounded-lg border border-slate-200 bg-slate-50/50 p-3">
+                      <div key={day.date} className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/40 p-3">
                         <div className="flex items-center justify-between mb-2">
-                          <div className="text-sm font-semibold text-slate-900">{label}</div>
-                          <div className="flex items-center gap-3 text-xs text-slate-600">
+                          <div className="text-sm font-semibold text-slate-900 dark:text-white">{label}</div>
+                          <div className="flex items-center gap-3 text-xs text-slate-600 dark:text-slate-400">
                             <span className="inline-flex items-center gap-1"><Package className="w-3 h-3" />{day.orders}</span>
                             <span className="inline-flex items-center gap-1"><Users className="w-3 h-3" />{day.guests}</span>
                             {day.earliest_event_time && (
@@ -1554,41 +1557,55 @@ export default function KitchenDashboard() {
                         </div>
                         <ul className="space-y-1">
                           {day.items.slice(0, 4).map((it) => (
-                            <li key={it.id} className="text-xs text-slate-600 flex items-center gap-2">
-                              <span className="tabular-nums text-slate-400 w-10 shrink-0">{it.event_time?.slice(0, 5) || "--"}</span>
-                              <span className="font-medium text-slate-700 truncate flex-1 min-w-0">{it.event_name || it.client_name}</span>
-                              <span className="text-slate-500 tabular-nums shrink-0">{it.guest_count} pax</span>
+                            <li key={it.id} className="text-xs text-slate-600 dark:text-slate-400 flex items-center gap-2">
+                              <span className="tabular-nums text-slate-400 dark:text-slate-500 w-10 shrink-0">{it.event_time?.slice(0, 5) || "--"}</span>
+                              <span className="font-medium text-slate-700 dark:text-slate-200 truncate flex-1 min-w-0">{it.event_name || it.client_name}</span>
+                              <span className="text-slate-500 dark:text-slate-400 tabular-nums shrink-0">{it.guest_count} pax</span>
                             </li>
                           ))}
                           {day.items.length > 4 && (
-                            <li className="text-[11px] text-slate-400 italic">+ {day.items.length - 4} more</li>
+                            <li className="text-[11px] text-slate-400 dark:text-slate-500 italic">+ {day.items.length - 4} more</li>
                           )}
                         </ul>
                       </div>
                     );
                   })}
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </PortalCard>
           )}
 
           {/* Active orders, kanban (Confirmed / In prep / Ready) */}
-          <Card className="border-0 shadow-lg">
-            <CardHeader className="px-3 sm:px-4 md:px-6">
-              <CardTitle className="text-base sm:text-lg md:text-xl flex items-center gap-2">
-                Active orders
-                <InfoTooltip content="Three columns: Confirmed (waiting to start) → In prep (cooking now) → Ready (waiting for driver). Move cards by completing tasks. Tap Mark ready to notify the driver." />
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="px-3 sm:px-4 md:px-6">
+          <PortalCard>
+            <PortalCardHeader
+              title={
+                <span className="text-base sm:text-lg md:text-xl flex items-center gap-2">
+                  Active orders
+                  <InfoTooltip content="Three columns: Confirmed (waiting to start) → In prep (cooking now) → Ready (waiting for driver). Move cards by completing tasks. Tap Mark ready to notify the driver." />
+                </span>
+              }
+            />
+            <div>
               {loading ? (
-                <div className="text-center py-8 text-sm text-slate-600">Loading orders...</div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3" aria-busy="true" aria-label="Loading active orders">
+                  {[0, 1, 2].map((i) => (
+                    <div key={i} className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden">
+                      <div className="h-9 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 animate-pulse" />
+                      <div className="p-2 space-y-2">
+                        <div className="h-20 rounded-md bg-slate-100 dark:bg-slate-800 animate-pulse" />
+                        <div className="h-20 rounded-md bg-slate-100 dark:bg-slate-800 animate-pulse" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
               ) : orders.length === 0 ? (
-                <div className="text-center py-8">
-                  <CheckCircle className="w-12 h-12 mx-auto text-green-500 mb-3" />
-                  <p className="text-sm font-medium text-slate-700">All caught up - no live orders right now.</p>
-                  <p className="text-xs text-slate-500 mt-2 max-w-md mx-auto">
-                    Orders show up here automatically once the admin confirms a quote. Use the breather to deep-clean or restock.
+                <div className="text-center py-12 px-4">
+                  <div className="w-12 h-12 mx-auto mb-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 flex items-center justify-center">
+                    <CheckCircle className="w-6 h-6 text-slate-400 dark:text-slate-500" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-1.5">All caught up</h3>
+                  <p className="text-sm text-slate-600 dark:text-slate-400 max-w-md mx-auto">
+                    No live orders right now. Orders show up here automatically once the admin confirms a quote. Use the breather to deep-clean or restock.
                   </p>
                 </div>
               ) : (() => {
@@ -1623,22 +1640,22 @@ export default function KitchenDashboard() {
                       // container so the visual separation survives
                       // the mobile collapse.
                       const headerTone =
-                        col.key === "confirmed" ? "bg-blue-50 border-blue-200 text-blue-800" :
-                        col.key === "preparing" ? "bg-amber-50 border-amber-200 text-amber-800" :
-                                                  "bg-emerald-50 border-emerald-200 text-emerald-800";
+                        col.key === "confirmed" ? "bg-blue-50 border-blue-200 text-blue-800 dark:bg-blue-950 dark:border-blue-900 dark:text-blue-300" :
+                        col.key === "preparing" ? "bg-amber-50 border-amber-200 text-amber-800 dark:bg-amber-950 dark:border-amber-900 dark:text-amber-300" :
+                                                  "bg-emerald-50 border-emerald-200 text-emerald-800 dark:bg-emerald-950 dark:border-emerald-900 dark:text-emerald-300";
                       return (
-                      <div key={col.key} className="flex flex-col rounded-lg border border-slate-200 bg-slate-50/50 overflow-hidden">
+                      <div key={col.key} className="flex flex-col rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/40 overflow-hidden">
                         <div className={`flex items-center justify-between px-3 py-2 border-b ${headerTone}`}>
                           <p className="text-xs font-semibold uppercase tracking-wide">
                             {col.label}
                           </p>
-                          <Badge variant="outline" className="text-[10px] tabular-nums bg-white">
+                          <Badge variant="outline" className="text-[10px] tabular-nums bg-white dark:bg-slate-900 dark:text-slate-300 dark:border-slate-700">
                             {byStatus[col.key].length}
                           </Badge>
                         </div>
                         <div className="space-y-2 min-h-[100px] p-2">
                           {byStatus[col.key].length === 0 ? (
-                            <div className="text-xs text-slate-400 italic px-2 py-3 border border-dashed border-slate-200 rounded-md text-center">
+                            <div className="text-xs text-slate-400 dark:text-slate-500 italic px-2 py-3 border border-dashed border-slate-200 dark:border-slate-700 rounded-md text-center">
                               {col.empty}
                             </div>
                           ) : byStatus[col.key].map((order: any) => {
@@ -1649,8 +1666,8 @@ export default function KitchenDashboard() {
                               ? null
                               : (eventDt.getTime() - now.getTime()) / 60_000;
                             const tone =
-                              minsToEvent != null && minsToEvent < 0     ? "border-l-red-500 bg-red-50/50" :
-                              minsToEvent != null && minsToEvent < 120   ? "border-l-amber-500 bg-amber-50/50" :
+                              minsToEvent != null && minsToEvent < 0     ? "border-l-rose-500 bg-rose-50/50 dark:bg-rose-950/30" :
+                              minsToEvent != null && minsToEvent < 120   ? "border-l-amber-500 bg-amber-50/50 dark:bg-amber-950/30" :
                                                                             col.tone;
 
                             const prog = progressByOrder[order.id] || { total: 0, done: 0 };
@@ -1659,7 +1676,7 @@ export default function KitchenDashboard() {
                             return (
                               <div
                                 key={order.id}
-                                className={`p-3 rounded-md border-l-4 border border-slate-200 bg-white hover:shadow transition-all ${tone}`}
+                                className={`p-3 rounded-md border-l-4 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:shadow transition-shadow duration-150 ${tone}`}
                               >
                                 {/* Wave 70.18 - card title block + order
                                     number. No longer a tiny link --
@@ -1667,16 +1684,16 @@ export default function KitchenDashboard() {
                                     (View ticket + View order). */}
                                 <div className="flex items-start justify-between gap-2 mb-1">
                                   <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-semibold text-slate-900 truncate">
+                                    <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">
                                       {order.event_name || order.client_name || "Order"}
                                     </p>
                                     {order.event_name && order.client_name && (
-                                      <p className="text-[11px] text-slate-500 truncate">
+                                      <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
                                         for {order.client_name}
                                       </p>
                                     )}
                                   </div>
-                                  <span className="text-[10px] text-slate-500 tabular-nums shrink-0">
+                                  <span className="text-[10px] text-slate-500 dark:text-slate-400 tabular-nums shrink-0">
                                     {order.order_number}
                                   </span>
                                 </div>
@@ -1688,27 +1705,27 @@ export default function KitchenDashboard() {
                                     the title so it's the second thing
                                     the eye lands on. */}
                                 {(order as any).dietary_requirements && String((order as any).dietary_requirements).trim() && (
-                                  <div className="mb-1 flex items-center gap-1.5 rounded border border-red-300 bg-red-50 px-2 py-1">
-                                    <AlertTriangle className="w-3.5 h-3.5 text-red-600 shrink-0" />
-                                    <p className="text-[11px] font-semibold text-red-800 truncate" title={String((order as any).dietary_requirements)}>
+                                  <div className="mb-1 flex items-center gap-1.5 rounded border border-rose-300 bg-rose-50 dark:border-rose-900 dark:bg-rose-950/40 px-2 py-1">
+                                    <AlertTriangle className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400 shrink-0" />
+                                    <p className="text-[11px] font-semibold text-rose-800 dark:text-rose-300 truncate" title={String((order as any).dietary_requirements)}>
                                       {String((order as any).dietary_requirements)}
                                     </p>
                                   </div>
                                 )}
                                 {(order as any).venue_address && (
-                                  <p className="text-[11px] text-slate-500 truncate mb-1">
+                                  <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate mb-1">
                                     📍 {(order as any).venue_address}
                                   </p>
                                 )}
-                                <div className="text-xs text-slate-600 flex items-center gap-2 flex-wrap">
+                                <div className="text-xs text-slate-600 dark:text-slate-300 flex items-center gap-2 flex-wrap">
                                   <span className="inline-flex items-center gap-1">
                                     <Users className="w-3 h-3" />{order.guest_count} pax
                                   </span>
                                   {minsToEvent != null && (
                                     <span className={`inline-flex items-center gap-1 tabular-nums font-medium ${
-                                      minsToEvent < 0    ? "text-red-700"   :
-                                      minsToEvent < 120  ? "text-amber-700" :
-                                                            "text-slate-600"
+                                      minsToEvent < 0    ? "text-rose-700 dark:text-rose-400"   :
+                                      minsToEvent < 120  ? "text-amber-700 dark:text-amber-400" :
+                                                            "text-slate-600 dark:text-slate-300"
                                     }`}>
                                       <Clock className="w-3 h-3" />
                                       {minsToEvent < 0
@@ -1721,15 +1738,15 @@ export default function KitchenDashboard() {
                                 {/* Task progress bar */}
                                 {prog.total > 0 && (
                                   <div className="mt-2">
-                                    <div className="flex items-center justify-between text-[10px] text-slate-500 mb-0.5">
+                                    <div className="flex items-center justify-between text-[10px] text-slate-500 dark:text-slate-400 mb-0.5">
                                       <span>Prep tasks</span>
                                       <span className="tabular-nums">{prog.done} of {prog.total}</span>
                                     </div>
-                                    <div className="h-1.5 w-full rounded-full bg-slate-100 overflow-hidden">
+                                    <div className="h-1.5 w-full rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
                                       <div
                                         className={`h-full ${
                                           pct >= 100 ? "bg-emerald-500" :
-                                          pct >= 50  ? "bg-blue-500"    :
+                                          pct >= 50  ? "bg-amber-500"   :
                                                        "bg-slate-400"
                                         }`}
                                         style={{ width: `${pct}%` }}
@@ -1740,7 +1757,7 @@ export default function KitchenDashboard() {
 
                                 {/* Kitchen instructions inline (compact) */}
                                 {order.kitchen_instructions && (
-                                  <p className="mt-2 text-[11px] text-blue-800 bg-blue-50 border border-blue-200 rounded px-2 py-1 line-clamp-2">
+                                  <p className="mt-2 text-[11px] text-blue-800 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900 rounded px-2 py-1 line-clamp-2">
                                     {order.kitchen_instructions}
                                   </p>
                                 )}
@@ -1766,7 +1783,7 @@ export default function KitchenDashboard() {
                                 <div className="mt-2 grid grid-cols-[1fr_auto] gap-1.5">
                                   <Link
                                     href={withSlug(staffOrderHref(order.id, "kitchen_staff"))}
-                                    className="inline-flex items-center justify-center gap-1.5 min-h-11 px-3 rounded-md text-sm font-semibold bg-orange-500 text-white hover:bg-orange-600 transition shadow-sm"
+                                    className="inline-flex items-center justify-center gap-1.5 min-h-11 px-3 rounded-md text-sm font-semibold bg-amber-600 text-white hover:bg-amber-700 transition-colors duration-150 shadow-sm"
                                     title="Open the full order document"
                                   >
                                     <ChefHat className="w-4 h-4" />
@@ -1774,7 +1791,7 @@ export default function KitchenDashboard() {
                                   </Link>
                                   <Link
                                     href={withSlug(`/team-portal/kitchen/orders/${order.id}/ticket`)}
-                                    className="inline-flex items-center justify-center min-h-11 w-11 rounded-md text-sm bg-white border border-orange-200 text-orange-700 hover:bg-orange-50 transition"
+                                    className="inline-flex items-center justify-center min-h-11 w-11 rounded-md text-sm bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900 dark:bg-slate-900 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 transition-colors duration-150"
                                     title="Print kitchen ticket"
                                   >
                                     <Printer className="w-4 h-4" />
@@ -1812,14 +1829,14 @@ export default function KitchenDashboard() {
                                   );
                                   if (!hold) {
                                     return (
-                                      <p className="mt-2 text-[11px] text-emerald-700 font-medium inline-flex items-center gap-1">
+                                      <p className="mt-2 text-[11px] text-emerald-700 dark:text-emerald-400 font-medium inline-flex items-center gap-1">
                                         <Truck className="w-3 h-3" />Waiting for pickup
                                       </p>
                                     );
                                   }
                                   if (hold.overdue) {
                                     return (
-                                      <div className="mt-2 text-[11px] font-semibold text-red-800 bg-red-100 border border-red-300 rounded px-2 py-1 inline-flex items-center gap-1">
+                                      <div className="mt-2 text-[11px] font-semibold text-rose-800 dark:text-rose-300 bg-rose-100 dark:bg-rose-950/50 border border-rose-300 dark:border-rose-900 rounded px-2 py-1 inline-flex items-center gap-1">
                                         <AlertTriangle className="w-3 h-3" />
                                         Hot {hold.holdMin}m, past {maxHotHoldMin}m hold
                                       </div>
@@ -1827,7 +1844,7 @@ export default function KitchenDashboard() {
                                   }
                                   return (
                                     <p className={`mt-2 text-[11px] font-medium inline-flex items-center gap-1 ${
-                                      hold.holdMin > maxHotHoldMin * 0.7 ? "text-amber-700" : "text-emerald-700"
+                                      hold.holdMin > maxHotHoldMin * 0.7 ? "text-amber-700 dark:text-amber-400" : "text-emerald-700 dark:text-emerald-400"
                                     }`}>
                                       <Truck className="w-3 h-3" />Waiting {hold.holdMin}m, pickup soon
                                     </p>
@@ -1850,7 +1867,7 @@ export default function KitchenDashboard() {
                                     gates). Both surfaces stay - they're
                                     different responsibilities. */}
                                 {col.key === "preparing" && (
-                                  <div className="mt-2 pt-2 border-t border-slate-200 space-y-2">
+                                  <div className="mt-2 pt-2 border-t border-slate-200 dark:border-slate-700 space-y-2">
                                     <PrepTaskTimer orderId={order.id} />
                                     <TaskCompletionButtons
                                       orderId={order.id}
@@ -1868,7 +1885,7 @@ export default function KitchenDashboard() {
                                     where there's nothing to hand over
                                     yet. */}
                                 {(col.key === "ready" || col.key === "preparing") && (
-                                  <div className="mt-2 pt-2 border-t border-slate-200">
+                                  <div className="mt-2 pt-2 border-t border-slate-200 dark:border-slate-700">
                                     <HandoverToDriverPanel
                                       orderId={order.id}
                                       orderNumber={order.order_number || order.id}
@@ -1885,9 +1902,9 @@ export default function KitchenDashboard() {
                   </div>
                 );
               })()}
-            </CardContent>
-          </Card>
-        </div>
+            </div>
+          </PortalCard>
+        </PortalShell>
 
         <Footer />
       </div>

@@ -1,6 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
 import Head from "next/head";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
@@ -9,8 +8,8 @@ import {
 } from "@/components/ui/dialog";
 import { ClipboardCheck, Loader2, Check, Play, Clock, MapPin } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
-import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { CleaningNav } from "@/components/navigation/CleaningNav";
+import { PortalShell, PortalHeader, PortalCard, StatTile } from "@/components/portal/ui";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -31,12 +30,12 @@ interface Schedule {
 }
 
 const statusTone: Record<string, string> = {
-  pending:     "bg-slate-100 text-slate-700 border-slate-200",
-  scheduled:   "bg-blue-100 text-blue-800 border-blue-200",
-  in_progress: "bg-purple-100 text-purple-800 border-purple-200",
-  completed:   "bg-emerald-100 text-emerald-800 border-emerald-200",
-  overdue:     "bg-rose-100 text-rose-700 border-rose-200",
-  skipped:     "bg-amber-100 text-amber-800 border-amber-200",
+  pending:     "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700",
+  scheduled:   "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700",
+  in_progress: "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-900",
+  completed:   "bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-900",
+  overdue:     "bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-950 dark:text-rose-300 dark:border-rose-900",
+  skipped:     "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-900",
 };
 
 export default function CleaningTasksPage() {
@@ -132,90 +131,96 @@ export default function CleaningTasksPage() {
       <Head><title>Cleaning tasks - CateringMS</title></Head>
       <NoIndexMeta />
       <CleaningNav />
-      <main className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 via-white to-cyan-50 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
-        <div className="px-3 sm:px-4 md:px-6 py-6 sm:py-8 max-w-full">
-          {/* Wave 38: gradient-box icon header. */}
-          <div className="mb-6 flex items-center gap-3">
-            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center shadow-md flex-shrink-0">
-              <ClipboardCheck className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
-            </div>
-            <div className="min-w-0">
-              <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold bg-gradient-to-r from-cyan-600 to-blue-600 bg-clip-text text-transparent">
-                Cleaning Tasks
-              </h1>
-              <p className="text-sm text-slate-600 mt-0.5">Today's open cleaning tasks - start, complete, log notes. <a href="/team-portal/cleaning/schedules" className="text-cyan-600 hover:text-cyan-700 underline">Manage the recurring schedule</a> if you need to add a new repeating area.</p>
-            </div>
-          </div>
+      <main className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+          <PortalHeader
+            title="Cleaning tasks"
+            subtitle={
+              <>
+                Today's open cleaning tasks - start, complete, log notes.{" "}
+                <a href="/team-portal/cleaning/schedules" className="text-amber-600 dark:text-amber-400 underline">Manage the recurring schedule</a> if you need to add a new repeating area.
+              </>
+            }
+            icon={ClipboardCheck}
+          />
 
           <div className="grid grid-cols-3 gap-3 sm:gap-4 mb-6">
-            <Card><CardContent className="p-4"><p className="text-xs text-slate-600 flex items-center gap-1">Open tasks <InfoTooltip content="Cleaning tasks that haven't been finished yet in the current view." /></p><p className="text-2xl font-bold tabular-nums">{stats.total}</p></CardContent></Card>
-            <Card><CardContent className="p-4"><p className="text-xs text-slate-600 flex items-center gap-1">Pending <InfoTooltip content="Tasks that are scheduled but nobody has started them yet." /></p><p className="text-2xl font-bold tabular-nums text-blue-600">{stats.pending}</p></CardContent></Card>
-            <Card><CardContent className="p-4"><p className="text-xs text-slate-600 flex items-center gap-1">In progress <InfoTooltip content="Tasks someone has started but hasn't finished yet." /></p><p className="text-2xl font-bold tabular-nums text-purple-600">{stats.inProgress}</p></CardContent></Card>
+            <StatTile label="Open tasks" value={stats.total} hint="Not finished yet in this view" />
+            <StatTile label="Pending" value={stats.pending} hint="Scheduled, not started" />
+            <StatTile label="In progress" value={stats.inProgress} hint="Started, not finished" />
           </div>
 
           <div className="flex gap-2 mb-4">
             {(["today", "mine", "all"] as const).map((f) => (
-              <Button key={f} variant={filter === f ? "default" : "outline"} size="sm" onClick={() => setFilter(f)} className={filter === f ? "bg-cyan-600 hover:bg-cyan-700 capitalize" : "capitalize"}>
+              <Button key={f} variant={filter === f ? "default" : "outline"} size="sm" onClick={() => setFilter(f)} className={filter === f ? "bg-amber-600 hover:bg-amber-700 capitalize" : "capitalize"}>
                 {f === "today" ? "Today" : f === "mine" ? "My tasks" : "All open"}
               </Button>
             ))}
           </div>
 
-          <Card>
-            <CardContent className="p-0">
-              {loading ? (
-                <div className="flex items-center justify-center py-16 text-slate-500"><Loader2 className="h-5 w-5 animate-spin mr-2" />Loading...</div>
-              ) : tasks.length === 0 ? (
-                <div className="text-center py-16 text-slate-500">
-                  <Check className="h-10 w-10 mx-auto mb-3 text-emerald-300" />
-                  <p className="font-medium">No open cleaning tasks</p>
-                  <p className="text-xs mt-1">Everything is done</p>
-                </div>
-              ) : (
-                <ul className="divide-y divide-slate-100">
-                  {tasks.map((t) => (
-                    <li key={t.id} className="p-4 flex flex-col sm:flex-row sm:items-center gap-3">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex flex-wrap items-center gap-2 mb-1">
-                          <span className="font-medium text-slate-900">{t.area_name ?? "Cleaning task"}</span>
-                          {t.status && (
-                            <Badge variant="outline" className={`${statusTone[t.status] ?? "bg-slate-100 text-slate-700 border-slate-200"} text-xs capitalize`}>
-                              {t.status.replace("_", " ")}
-                            </Badge>
-                          )}
-                          {t.frequency && (
-                            <Badge variant="outline" className="bg-slate-100 text-slate-700 border-slate-200 text-xs capitalize">{t.frequency}</Badge>
-                          )}
-                        </div>
-                        {t.description && <p className="text-xs text-slate-600 mb-1">{t.description}</p>}
-                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
-                          {t.scheduled_date && <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{t.scheduled_date}</span>}
-                          {t.scheduled_time && <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{t.scheduled_time.slice(0, 5)}</span>}
-                        </div>
-                      </div>
-                      <div className="flex gap-2 flex-shrink-0">
-                        {t.status === "in_progress" ? (
-                          <Button size="sm" onClick={() => openComplete(t)} className="bg-emerald-600 hover:bg-emerald-700">
-                            <Check className="h-4 w-4 mr-1" />Done
-                          </Button>
-                        ) : (
-                          <>
-                            <Button size="sm" variant="outline" onClick={() => start(t)}>
-                              <Play className="h-4 w-4 mr-1" />Start
-                            </Button>
-                            <Button size="sm" variant="ghost" onClick={() => openComplete(t)}>
-                              <Check className="h-4 w-4 mr-1" />Mark done
-                            </Button>
-                          </>
+          <PortalCard padded={false}>
+            {loading ? (
+              <div className="p-4 space-y-3" aria-busy="true" aria-label="Loading tasks">
+                {[0, 1, 2, 3].map((i) => (
+                  <div key={i} className="flex items-center justify-between gap-3">
+                    <div className="flex-1 space-y-2">
+                      <div className="h-4 w-1/3 rounded bg-slate-100 dark:bg-slate-800 animate-pulse" />
+                      <div className="h-3 w-1/2 rounded bg-slate-100 dark:bg-slate-800 animate-pulse" />
+                    </div>
+                    <div className="h-8 w-20 rounded bg-slate-100 dark:bg-slate-800 animate-pulse" />
+                  </div>
+                ))}
+              </div>
+            ) : tasks.length === 0 ? (
+              <div className="text-center py-16 text-slate-500 dark:text-slate-400">
+                <Check className="h-10 w-10 mx-auto mb-3 text-emerald-500 dark:text-emerald-400" />
+                <p className="font-medium text-slate-900 dark:text-white">No open cleaning tasks</p>
+                <p className="text-xs mt-1">Everything is done</p>
+              </div>
+            ) : (
+              <ul className="divide-y divide-slate-100 dark:divide-slate-800">
+                {tasks.map((t) => (
+                  <li key={t.id} className="p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-wrap items-center gap-2 mb-1">
+                        <span className="font-medium text-slate-900 dark:text-white">{t.area_name ?? "Cleaning task"}</span>
+                        {t.status && (
+                          <Badge variant="outline" className={`${statusTone[t.status] ?? "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700"} text-xs capitalize`}>
+                            {t.status.replace("_", " ")}
+                          </Badge>
+                        )}
+                        {t.frequency && (
+                          <Badge variant="outline" className="bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 text-xs capitalize">{t.frequency}</Badge>
                         )}
                       </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+                      {t.description && <p className="text-xs text-slate-600 dark:text-slate-400 mb-1">{t.description}</p>}
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500 dark:text-slate-400">
+                        {t.scheduled_date && <span className="flex items-center gap-1"><MapPin className="h-3 w-3 text-slate-400 dark:text-slate-500" />{t.scheduled_date}</span>}
+                        {t.scheduled_time && <span className="flex items-center gap-1"><Clock className="h-3 w-3 text-slate-400 dark:text-slate-500" />{t.scheduled_time.slice(0, 5)}</span>}
+                      </div>
+                    </div>
+                    <div className="flex gap-2 flex-shrink-0">
+                      {t.status === "in_progress" ? (
+                        <Button size="sm" onClick={() => openComplete(t)} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+                          <Check className="h-4 w-4 mr-1" />Done
+                        </Button>
+                      ) : (
+                        <>
+                          <Button size="sm" variant="outline" onClick={() => start(t)}>
+                            <Play className="h-4 w-4 mr-1" />Start
+                          </Button>
+                          <Button size="sm" variant="ghost" onClick={() => openComplete(t)}>
+                            <Check className="h-4 w-4 mr-1" />Mark done
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </PortalCard>
+        </PortalShell>
       </main>
 
       <Dialog open={!!completing} onOpenChange={(o) => !o && closeComplete()}>
@@ -232,7 +237,7 @@ export default function CleaningTasksPage() {
           />
           <DialogFooter>
             <Button variant="outline" onClick={closeComplete} disabled={saving}>Cancel</Button>
-            <Button onClick={confirmComplete} disabled={saving} className="bg-emerald-600 hover:bg-emerald-700">
+            <Button onClick={confirmComplete} disabled={saving} className="bg-emerald-600 hover:bg-emerald-700 text-white">
               {saving ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving</> : "Mark complete"}
             </Button>
           </DialogFooter>

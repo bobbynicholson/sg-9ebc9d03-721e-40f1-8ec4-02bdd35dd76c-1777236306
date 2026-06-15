@@ -151,7 +151,7 @@ const shouldRedirectToRoleLanding = (pathname: string) => {
   );
 };
 
-// ── Middleware-level structured logging (Edge-compatible — no fs) ──────────────
+// ── Middleware-level structured logging (Edge-compatible - no fs) ──────────────
 // This runs on the Edge runtime so we cannot use the file logger.
 // These console.log calls are picked up by the Node.js instrumentation
 // console patch when the page handler runs server-side.
@@ -290,7 +290,7 @@ export async function middleware(request: NextRequest) {
 
   // Handle unauthenticated users
   if (!user && !isPublic) {
-    mwLog("AUTH", `unauthenticated — redirect to login`, { path: pathname });
+    mwLog("AUTH", `unauthenticated - redirect to login`, { path: pathname });
     const url = request.nextUrl.clone();
 
     if (companySlug && companySlug !== "auth" && companySlug !== "admin" && companySlug !== "api") {

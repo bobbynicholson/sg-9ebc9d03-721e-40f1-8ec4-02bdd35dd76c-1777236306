@@ -1,5 +1,4 @@
 ﻿import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -42,6 +41,7 @@ import { NoIndexMeta } from "@/components/NoIndexMeta";
 import Head from "next/head";
 import { useAuth } from "@/contexts/AuthContext";
 import { useOrderRefreshSignal } from "@/hooks/useOrderRefreshSignal";
+import { PortalShell, PortalCard, PortalCardHeader, StatTile } from "@/components/portal/ui";
 import { CateringDashGame } from "@/components/games/CateringDashGame";
 import { ChatBot } from "@/components/ChatBot";
 import Link from "next/link";
@@ -53,8 +53,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { notificationService, Notification } from "@/services/notificationService";
 import { emitOrderUpdated } from "@/lib/events/orderEvents";
 import { useToast } from "@/hooks/use-toast";
-import { InfoTooltip } from "@/components/ui/info-tooltip";
-import { MetricCard } from "@/components/dashboard/MetricCard";
 import type { Tables } from "@/integrations/supabase/types";
 import { useDriverPayRates } from "@/hooks/useDriverPayRates";
 import { driverPayService } from "@/services/driverPayService";
@@ -514,40 +512,42 @@ function DriverDashboardInner() {
     );
   };
 
+  // Semantic status tints only: emerald = delivered/ready (success),
+  // amber = en-route/in-flight (warning), slate = assigned/neutral.
   const getStatusColor = (status: string) => {
     switch (status) {
       case "ready":
-        return "bg-green-100 text-green-800 border-green-300";
+        return "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-900";
       case "assigned":
       case "accepted":
-        return "bg-blue-100 text-blue-800 border-blue-300";
+        return "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700";
       case "en_route":
       case "picked_up":
-        return "bg-yellow-100 text-yellow-800 border-yellow-300";
+        return "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-900";
       case "delivered":
       case "completed":
-        return "bg-green-100 text-green-800 border-green-300";
+        return "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-900";
       default:
-        return "bg-gray-100 text-gray-800 border-gray-300";
+        return "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700";
     }
   };
 
   const getStatusLabel = (status: string) => {
     switch (status) {
       case "ready":
-        return "🔥 Ready for Pickup";
+        return "Ready for pickup";
       case "assigned":
-        return "📋 Assigned";
+        return "Assigned";
       case "accepted":
-        return "✅ Accepted";
+        return "Accepted";
       case "en_route":
-        return "🚗 En Route";
+        return "En route";
       case "picked_up":
-        return "📦 Picked Up";
+        return "Picked up";
       case "delivered":
-        return "✅ Delivered";
+        return "Delivered";
       case "completed":
-        return "✅ Completed";
+        return "Completed";
       default:
         return status;
     }
@@ -562,21 +562,21 @@ function DriverDashboardInner() {
 
       <DriverNav />
 
-      {/* Dashboard intentionally keeps its bespoke "Welcome back, {name}"
-          header (different from the icon+title pattern used by every
-          other driver page) but the wrapper - background gradient,
-          sidebar offset and container width - matches DriverPageShell
-          so the visual rhythm carries across the whole portal. */}
-      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-blue-50 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
-        <div className="px-4 sm:px-6 md:px-8 py-6 sm:py-8 lg:py-12 max-w-full">
+      {/* Neutral slate ground inside the DriverNav sidebar gutter -
+          same offset pattern the shopping portal uses. The dashboard
+          keeps a bespoke "Welcome back, {name}" greeting (warmer than
+          the icon+title PortalHeader the other driver pages use) but
+          rides on the shared neutral ground + container. */}
+      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           {/* Header */}
           <div className="mb-4 sm:mb-6 md:mb-8">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 mb-4 sm:mb-6">
               <div>
-                <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-slate-900 mb-1">
-                  Welcome back, {driverName.split(" ")[0]}! 👋
+                <h1 className="text-xl sm:text-2xl md:text-3xl font-semibold tracking-tight text-slate-900 dark:text-white mb-1">
+                  Welcome back, {driverName.split(" ")[0]}
                 </h1>
-                <p className="text-xs sm:text-sm md:text-base text-slate-600">
+                <p className="text-xs sm:text-sm md:text-base text-slate-600 dark:text-slate-400">
                   {loading ? "Loading your deliveries..." : `${jobs.length} active ${jobs.length === 1 ? "delivery" : "deliveries"}`}
                 </p>
                 {/* Bobby's brief: after a claim, the driver should
@@ -586,11 +586,11 @@ function DriverDashboardInner() {
                 {!loading && jobs.length > 0 && (
                   <Link
                     href="/team-portal/driver/routes"
-                    className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-blue-200 bg-blue-50 text-sm font-medium text-blue-700 hover:bg-blue-100 transition"
+                    className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-amber-200 bg-amber-50 text-sm font-medium text-amber-700 hover:bg-amber-100 transition-colors duration-150 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300 dark:hover:bg-amber-900/60"
                   >
                     <RouteIcon className="w-3.5 h-3.5" />
                     View today's route
-                    <Badge variant="outline" className="ml-1 tabular-nums bg-white">
+                    <Badge variant="outline" className="ml-1 tabular-nums bg-white dark:bg-slate-900 dark:border-slate-700">
                       {jobs.length}
                     </Badge>
                   </Link>
@@ -598,9 +598,9 @@ function DriverDashboardInner() {
               </div>
               <div className="flex gap-2">
                 {unreadCount > 0 && (
-                  <div className="flex items-center gap-2 px-4 py-2 bg-red-50 border-2 border-red-200 rounded-lg">
-                    <Bell className="w-4 h-4 text-red-600 animate-pulse" />
-                    <span className="text-sm font-semibold text-red-600">
+                  <div className="flex items-center gap-2 px-4 py-2 bg-rose-50 border border-rose-200 rounded-xl dark:bg-rose-950/40 dark:border-rose-900">
+                    <Bell className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+                    <span className="text-sm font-semibold text-rose-700 dark:text-rose-300 tabular-nums">
                       {unreadCount} new {unreadCount === 1 ? "alert" : "alerts"}
                     </span>
                   </div>
@@ -625,10 +625,11 @@ function DriverDashboardInner() {
                   Print run sheet
                 </Button>
                 <Button
+                  variant="outline"
                   onClick={() => setShowGame(true)}
-                  className="bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600 text-white h-10 sm:h-12 px-4 sm:px-6 text-sm sm:text-base"
+                  className="h-10 sm:h-12 px-4 sm:px-6 text-sm sm:text-base gap-1.5"
                 >
-                  <Sparkles className="w-4 h-4 mr-2" />
+                  <Sparkles className="w-4 h-4" />
                   Play Game
                 </Button>
               </div>
@@ -653,31 +654,31 @@ function DriverDashboardInner() {
               if (!nextPickup) return null;
               const pickupLabel = nextPickup.pickup_time || nextPickup.event_time;
               return (
-                <div className="mb-4 sm:mb-6 rounded-xl border-2 border-orange-400 bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-lg p-4 sm:p-5">
-                  <p className="text-xs sm:text-sm uppercase tracking-wide opacity-90 mb-1">Next pickup</p>
+                <PortalCard className="mb-4 sm:mb-6 border-l-4 border-l-amber-500">
+                  <p className="text-xs sm:text-sm uppercase tracking-wide font-semibold text-amber-700 dark:text-amber-400 mb-1.5">Next pickup</p>
                   <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
                     <div className="flex-1 min-w-0">
-                      <p className="text-3xl sm:text-4xl md:text-5xl font-bold tabular-nums leading-tight">
+                      <p className="text-3xl sm:text-4xl md:text-5xl font-semibold tabular-nums leading-tight text-slate-900 dark:text-white">
                         {pickupLabel || "Time TBD"}
                       </p>
-                      <p className="text-base sm:text-lg font-semibold mt-1 truncate">
+                      <p className="text-base sm:text-lg font-semibold mt-1 truncate text-slate-900 dark:text-white">
                         {nextPickup.client_name}
                       </p>
-                      <p className="text-sm sm:text-base opacity-90 truncate">
+                      <p className="text-sm sm:text-base text-slate-600 dark:text-slate-400 truncate">
                         {nextPickup.venue_address}
                       </p>
                     </div>
                     {nextPickup.client_phone && (
                       <a
                         href={`tel:${nextPickup.client_phone}`}
-                        className="inline-flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-white text-orange-700 font-semibold min-h-11 hover:bg-orange-50 transition"
+                        className="inline-flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-amber-600 text-white font-semibold min-h-11 hover:bg-amber-700 transition-colors duration-150"
                       >
                         <Bell className="w-4 h-4" />
                         Call client
                       </a>
                     )}
                   </div>
-                </div>
+                </PortalCard>
               );
             })()}
 
@@ -690,80 +691,74 @@ function DriverDashboardInner() {
                 page where the first scroll lives. */}
 
             {/* Today's Earnings Summary */}
-            <Card className="border-0 shadow-lg bg-gradient-to-r from-green-50 to-emerald-50 mb-4 sm:mb-6">
-              <CardContent className="p-4 sm:p-6">
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                  <div className="flex-1">
-                    <p className="text-xs sm:text-sm text-slate-600 mb-1">Today's Potential Earnings</p>
-                    <div className="text-2xl sm:text-3xl md:text-4xl font-bold text-green-600">
-                      {tenantCurrency.format(todaysPotentialEarnings, 0)}
-                    </div>
-                    <p className="text-xs sm:text-sm text-slate-600 mt-2">
-                      {todaysJobs.length} {todaysJobs.length === 1 ? "delivery" : "deliveries"} scheduled •{" "}
-                      {completedToday} completed
-                    </p>
-                    {(todaysHourlyEarnings > 0 || todaysDeliveryEarnings > 0) && payRates && (
-                      <div className="mt-2 pt-2 border-t border-green-200/60 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-slate-600">
-                        {todaysHourlyEarnings > 0 && (
-                          <span className="inline-flex items-center gap-1" title={`${hoursWorkedToday.toFixed(2)}h x ${tenantCurrency.format(payRates.hourly_rate, 0)}/h`}>
-                            <Clock className="w-3 h-3" />
-                            <span className="tabular-nums">{hoursWorkedToday.toFixed(2)}h</span> &middot;
-                            <span className="font-semibold tabular-nums">{tenantCurrency.format(todaysHourlyEarnings, 0)}</span>
-                          </span>
-                        )}
-                        {todaysDeliveryEarnings > 0 && (
-                          <span className="inline-flex items-center gap-1" title="Callout + round-trip km">
-                            <Truck className="w-3 h-3" />
-                            <span>{todaysJobs.length} drop{todaysJobs.length === 1 ? "" : "s"}</span> &middot;
-                            <span className="font-semibold tabular-nums">{tenantCurrency.format(todaysDeliveryEarnings, 0)}</span>
-                          </span>
-                        )}
-                      </div>
-                    )}
+            <PortalCard className="mb-4 sm:mb-6">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div className="flex-1">
+                  <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mb-1">Today's potential earnings</p>
+                  <div className="text-2xl sm:text-3xl md:text-4xl font-semibold tracking-tight tabular-nums text-slate-900 dark:text-white">
+                    {tenantCurrency.format(todaysPotentialEarnings, 0)}
                   </div>
-                  <div className="text-left sm:text-right w-full sm:w-auto">
-                    <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-green-500 flex items-center justify-center mb-2 mx-auto sm:mx-0">
-                      <TrendingUp className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
+                  <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-2">
+                    {todaysJobs.length} {todaysJobs.length === 1 ? "delivery" : "deliveries"} scheduled -{" "}
+                    {completedToday} completed
+                  </p>
+                  {(todaysHourlyEarnings > 0 || todaysDeliveryEarnings > 0) && payRates && (
+                    <div className="mt-2 pt-2 border-t border-slate-200 dark:border-slate-800 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-slate-500 dark:text-slate-400">
+                      {todaysHourlyEarnings > 0 && (
+                        <span className="inline-flex items-center gap-1" title={`${hoursWorkedToday.toFixed(2)}h x ${tenantCurrency.format(payRates.hourly_rate, 0)}/h`}>
+                          <Clock className="w-3 h-3 text-slate-400 dark:text-slate-500" />
+                          <span className="tabular-nums">{hoursWorkedToday.toFixed(2)}h</span> -
+                          <span className="font-semibold tabular-nums text-slate-700 dark:text-slate-200">{tenantCurrency.format(todaysHourlyEarnings, 0)}</span>
+                        </span>
+                      )}
+                      {todaysDeliveryEarnings > 0 && (
+                        <span className="inline-flex items-center gap-1" title="Callout + round-trip km">
+                          <Truck className="w-3 h-3 text-slate-400 dark:text-slate-500" />
+                          <span>{todaysJobs.length} drop{todaysJobs.length === 1 ? "" : "s"}</span> -
+                          <span className="font-semibold tabular-nums text-slate-700 dark:text-slate-200">{tenantCurrency.format(todaysDeliveryEarnings, 0)}</span>
+                        </span>
+                      )}
                     </div>
-                    <p className="text-xs text-slate-600 text-center sm:text-right">This month</p>
-                    <p className="text-base sm:text-lg font-bold text-slate-900 text-center sm:text-right">
-                      {tenantCurrency.format(totalEarnings, 0)}
-                    </p>
-                  </div>
+                  )}
                 </div>
-              </CardContent>
-            </Card>
+                <div className="text-left sm:text-right w-full sm:w-auto">
+                  <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl border border-slate-200 bg-slate-50 flex items-center justify-center mb-2 mx-auto sm:mx-0 dark:border-slate-700 dark:bg-slate-800">
+                    <TrendingUp className="w-7 h-7 sm:w-8 sm:h-8 text-amber-600 dark:text-amber-500" />
+                  </div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 text-center sm:text-right">This month</p>
+                  <p className="text-base sm:text-lg font-semibold tabular-nums text-slate-900 dark:text-white text-center sm:text-right">
+                    {tenantCurrency.format(totalEarnings, 0)}
+                  </p>
+                </div>
+              </div>
+            </PortalCard>
 
             {/* Stats Grid - 4 KPI tiles. Moved up with the earnings
                 + deliveries block (ODOC H.9). */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 md:gap-4 mb-4 sm:mb-6">
-              <MetricCard
+              <StatTile
                 icon={Truck}
-                iconColor="text-blue-600"
-                label="Today's Jobs"
+                label="Today's jobs"
                 value={todaysJobs.length}
-                tooltip="Deliveries assigned to you for today."
+                hint="Deliveries assigned to you today"
               />
-              <MetricCard
+              <StatTile
                 icon={CheckCircle}
-                iconColor="text-green-600"
                 label="Completed"
                 value={completedToday}
-                tooltip="Today's deliveries you've already finished and signed off."
+                hint="Finished and signed off today"
               />
-              <MetricCard
+              <StatTile
                 icon={Clock}
-                iconColor="text-orange-600"
                 label="Pending"
                 value={todaysJobs.length - completedToday}
-                tooltip="Deliveries still left to do today."
+                hint="Still left to do today"
               />
-              <MetricCard
+              <StatTile
                 icon={DollarSign}
-                iconColor="text-green-600"
                 label="This month"
                 value={tenantCurrency.format(totalEarnings)}
-                tooltip="Earnings this month - hourly + distance + callout. Matches the /earnings page for the same window."
+                hint="Hourly + distance + callout"
               />
             </div>
 
@@ -771,20 +766,22 @@ function DriverDashboardInner() {
                 block (ODOC H.9). Every active job carries an "Open
                 brief" pill to the unified /order/[id]?role=driver
                 doc. */}
-            <Card className="border-0 shadow-lg mb-4 sm:mb-6">
-              <CardHeader className="px-3 sm:px-4 md:px-6">
-                <CardTitle className="text-base sm:text-lg md:text-xl">My Deliveries</CardTitle>
-              </CardHeader>
-              <CardContent className="px-3 sm:px-4 md:px-6">
-                <div className="space-y-2 sm:space-y-3">
+            <PortalCard className="mb-4 sm:mb-6">
+              <PortalCardHeader title="My deliveries" />
+              <div className="space-y-2 sm:space-y-3">
                   {loading ? (
-                    <div className="text-center py-8 text-sm sm:text-base text-slate-600">
-                      Loading deliveries...
+                    <div className="space-y-2" aria-busy="true" aria-label="Loading deliveries">
+                      {[0, 1, 2].map(i => (
+                        <div key={i} className="h-20 rounded-xl border border-slate-200 bg-white animate-pulse dark:border-slate-800 dark:bg-slate-900" />
+                      ))}
                     </div>
                   ) : jobs.length === 0 ? (
-                    <div className="text-center py-8 px-4">
-                      <p className="text-sm sm:text-base font-medium text-slate-700">No deliveries scheduled.</p>
-                      <p className="text-xs text-slate-500 mt-2 max-w-md mx-auto">
+                    <div className="text-center py-10 px-4">
+                      <div className="w-12 h-12 mx-auto mb-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 flex items-center justify-center">
+                        <Truck className="w-6 h-6 text-slate-400 dark:text-slate-500" />
+                      </div>
+                      <p className="text-sm sm:text-base font-semibold text-slate-900 dark:text-white">No deliveries scheduled</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 max-w-md mx-auto">
                         Once dispatch assigns you to an event, it'll show up here with the route, ETA and pickup details.
                       </p>
                     </div>
@@ -792,36 +789,36 @@ function DriverDashboardInner() {
                     jobs.map((job) => (
                       <div
                         key={job.id}
-                        className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-lg border-2 border-slate-200 hover:border-blue-300 transition-colors"
+                        className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-xl border border-slate-200 hover:border-amber-400 transition-colors duration-150 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-amber-600"
                       >
                         <div className="flex-1 min-w-0">
                           <div className="flex flex-wrap items-center gap-2 mb-2">
-                            <h4 className="font-semibold text-xs sm:text-sm md:text-base text-slate-900">
+                            <h4 className="font-semibold text-xs sm:text-sm md:text-base text-slate-900 dark:text-white">
                               {job.client_name}
                             </h4>
-                            <Badge className={`${getStatusColor(job.status)} text-xs border-2`}>
+                            <Badge className={`${getStatusColor(job.status)} text-xs`}>
                               {getStatusLabel(job.status)}
                             </Badge>
                             <Link
                               href={withSlug(staffOrderHref(job.id, "driver"))}
-                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100"
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 hover:bg-amber-100 transition-colors duration-150 dark:text-amber-300 dark:bg-amber-950 dark:border-amber-900 dark:hover:bg-amber-900/60"
                               title="Open the driver brief for this order"
                             >
                               <ExternalLink className="w-3 h-3" />
                               Open brief
                             </Link>
                           </div>
-                          <div className="space-y-1 text-xs sm:text-sm text-slate-600">
+                          <div className="space-y-1 text-xs sm:text-sm text-slate-600 dark:text-slate-400">
                             <div className="flex items-center gap-2">
-                              <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
+                              <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0 text-slate-400 dark:text-slate-500" />
                               <span className="truncate">{job.venue_address}</span>
                             </div>
                             <div className="flex items-center gap-2 flex-wrap">
-                              <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
+                              <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0 text-slate-400 dark:text-slate-500" />
                               <span>Event: {job.event_time}</span>
-                              <span>•</span>
-                              <span>{job.guest_count} guests</span>
-                              <span>•</span>
+                              <span>-</span>
+                              <span className="tabular-nums">{job.guest_count} guests</span>
+                              <span>-</span>
                               <span>Order: {job.order_number}</span>
                             </div>
                           </div>
@@ -855,7 +852,7 @@ function DriverDashboardInner() {
                           </Button>
                           {["ready", "in_transit", "delivered"].includes(job.status) && (
                             <Button
-                              className="flex-1 sm:flex-none min-h-11 px-3 text-sm bg-emerald-600 hover:bg-emerald-700 gap-1"
+                              className="flex-1 sm:flex-none min-h-11 px-3 text-sm bg-amber-600 hover:bg-amber-700 text-white gap-1"
                               onClick={() => setPodJob(job)}
                             >
                               <Camera className="w-4 h-4" />
@@ -865,7 +862,7 @@ function DriverDashboardInner() {
                           {(job.status === "assigned" || job.status === "accepted") && assignmentByOrder[job.id] && (
                             <Button
                               variant="outline"
-                              className="flex-1 sm:flex-none min-h-11 px-3 text-sm text-red-700 border-red-200 hover:bg-red-50"
+                              className="flex-1 sm:flex-none min-h-11 px-3 text-sm text-rose-700 border-rose-200 hover:bg-rose-50 dark:text-rose-300 dark:border-rose-900 dark:hover:bg-rose-950/40"
                               onClick={() => setDeclineCtx({
                                 assignmentId: assignmentByOrder[job.id],
                                 orderId: job.id,
@@ -878,7 +875,7 @@ function DriverDashboardInner() {
                           )}
                         </div>
                         {["ready", "in_transit", "picked_up", "at_venue"].includes(job.status) && (
-                          <div className="mt-2 pt-2 border-t border-slate-200">
+                          <div className="mt-2 pt-2 border-t border-slate-200 dark:border-slate-800">
                             <RunningLateChips
                               orderId={job.id}
                               onBroadcast={() => {
@@ -890,9 +887,8 @@ function DriverDashboardInner() {
                       </div>
                     ))
                   )}
-                </div>
-              </CardContent>
-            </Card>
+              </div>
+            </PortalCard>
 
             <TeamWelcomeBanner role="driver" userId={user?.id} />
 
@@ -975,26 +971,26 @@ function DriverDashboardInner() {
             {activeOrderIds.length > 0 && (
               <div className="mb-4 sm:mb-6 flex flex-wrap items-center gap-2 text-xs sm:text-sm">
                 {gpsActive && !gpsError ? (
-                  <Badge className="bg-green-100 text-green-700 border-green-200">
+                  <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-900">
                     <MapPin className="w-3 h-3 mr-1 animate-pulse" />
                     GPS sharing on
                     {lastPingAt
-                      ? ` • last ping ${formatLocalTime(lastPingAt)}`
+                      ? ` - last ping ${formatLocalTime(lastPingAt)}`
                       : ""}
                   </Badge>
                 ) : (
-                  <Badge className="bg-amber-100 text-amber-700 border-amber-200">
+                  <Badge className="bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-900">
                     <MapPin className="w-3 h-3 mr-1" />
                     GPS off, dispatch can't see your live position
                   </Badge>
                 )}
                 {wakeLockHeld && (
-                  <Badge className="bg-blue-100 text-blue-700 border-blue-200">
+                  <Badge className="bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700">
                     Screen lock disabled while on route
                   </Badge>
                 )}
                 {gpsError && (
-                  <span className="text-slate-500 text-xs hidden sm:inline">
+                  <span className="text-slate-500 dark:text-slate-400 text-xs hidden sm:inline">
                     ({gpsError})
                   </span>
                 )}
@@ -1002,7 +998,7 @@ function DriverDashboardInner() {
             )}
 
           </div>
-        </div>
+        </PortalShell>
 
         <Footer />
       </div>
@@ -1055,8 +1051,8 @@ function DriverDashboardInner() {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <MessageCircle className="w-5 h-5 text-blue-600" />
-              Chat · {chatJob?.client_name}
+              <MessageCircle className="w-5 h-5 text-amber-600 dark:text-amber-500" />
+              Chat - {chatJob?.client_name}
             </DialogTitle>
           </DialogHeader>
           {chatJob && user?.id && user?.company_id && (
@@ -1080,8 +1076,8 @@ function DriverDashboardInner() {
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <CheckCircle className="w-5 h-5 text-emerald-600" />
-              Status · {confirmJob?.client_name}
+              <CheckCircle className="w-5 h-5 text-emerald-600 dark:text-emerald-500" />
+              Status - {confirmJob?.client_name}
             </DialogTitle>
           </DialogHeader>
           {confirmJob && (

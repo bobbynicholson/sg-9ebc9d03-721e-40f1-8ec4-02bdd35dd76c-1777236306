@@ -9,7 +9,7 @@ const CRON_NAME = "batch-expiry-alert";
 
 // How far ahead to warn. The admin InventoryExpiryWidget surfaces a 14-day
 // horizon read-only; this proactive ping fires only for the urgent band so
-// it isn't noise — stock that needs using/binning within 3 days (or is
+// it isn't noise - stock that needs using/binning within 3 days (or is
 // already overdue).
 const WINDOW_DAYS = 3;
 
@@ -17,12 +17,12 @@ const WINDOW_DAYS = 3;
  * Notification-audit gap #13: proactive batch-expiry alert.
  *
  * inventory_batches carries a per-batch expiry_date, and the admin
- * InventoryExpiryWidget shows what's expiring — but it's read-only, so an
+ * InventoryExpiryWidget shows what's expiring - but it's read-only, so an
  * admin only ever sees it if they happen to open the inventory page. Stock
  * could spoil unseen. This daily cron sweeps every tenant for batches with
  * stock remaining (quantity > 0) whose expiry_date is within the next
  * WINDOW_DAYS (or already past) and pings owners/admins with a summary so
- * they can use or write off the stock before it's a loss — directly
+ * they can use or write off the stock before it's a loss - directly
  * relevant to the food-cost % / margin KPIs.
  *
  * One summary notification per tenant (not per batch) to avoid a flood when
@@ -117,7 +117,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
             companyId,
             type: "batch_expiring",
             title: `⚠️ ${total} stock batch${total === 1 ? "" : "es"} need attention`,
-            message: `${detail || `${total} batches`}. Use or write off this stock before it's a loss — open Inventory to review.`,
+            message: `${detail || `${total} batches`}. Use or write off this stock before it's a loss - open Inventory to review.`,
             targetRoles: ["owner", "company_admin", "admin"] as any,
             priority: agg.overdue > 0 ? "high" : "normal",
             link: "/admin/inventory",

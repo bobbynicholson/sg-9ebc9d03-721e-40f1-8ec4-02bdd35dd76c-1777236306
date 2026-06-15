@@ -1,10 +1,9 @@
 ﻿import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Sparkles, ClipboardCheck, Droplets, AlertTriangle, Users, Activity, CheckCircle, Truck, Clock, Package, Printer, Loader2, Camera } from "lucide-react";
+import { Sparkles, ClipboardCheck, AlertTriangle, Users, CheckCircle, Truck, Clock, Package, Printer, Loader2, Camera } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
@@ -13,7 +12,7 @@ import { captureException } from "@/lib/observability";
 import { useToast } from "@/hooks/use-toast";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
-import { InfoTooltip } from "@/components/ui/info-tooltip";
+import { PortalShell, PortalHeader, PortalCard, PortalCardHeader, StatTile } from "@/components/portal/ui";
 import { CleaningDutyWidget } from "@/components/cleaning/CleaningDutyWidget";
 import { MyShiftTodayCard } from "@/components/portal/MyShiftTodayCard";
 import { WidgetErrorBoundary } from "@/components/dashboard/WidgetErrorBoundary";
@@ -284,40 +283,40 @@ function CleaningDashboardInner() {
           to be made in two places. */}
       <CleaningNav />
 
-      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-cyan-50 py-8 lg:pl-72 xl:pl-80 pt-20 lg:pt-8">
-        <div className="max-w-full px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-3 mb-8">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center shadow-lg">
-              <Sparkles className="w-6 h-6 text-white" />
-            </div>
-            <div className="flex-1">
-              <h1 className="text-3xl font-bold text-slate-900">Cleaning Dashboard</h1>
-              <p className="text-slate-600">Equipment maintenance and tracking</p>
-            </div>
-            {/* CLN2-J (cleaning deep audit, CLN2-19): paper roster. The
-                cleaning lead handing off to a fresh shift wants a
-                printed checklist - equipment categories + today's
-                cleaning jobs grouped by status. Same recipe as DRV-J /
-                KIT2-N / SHP2-A. */}
-            <Button
-              variant="outline"
-              onClick={() => {
-                if (equipment.length === 0) {
-                  // No data to print - cheap feedback rather than
-                  // a blank A4 surprise.
-                  alert("No equipment loaded yet. Wait a moment then try again.");
-                  return;
-                }
-                setTimeout(() => window.print(), 100);
-              }}
-              className="inline-flex items-center gap-1.5 h-10 sm:h-11 px-3 text-sm"
-            >
-              <Printer className="w-4 h-4" />
-              Print roster
-            </Button>
-          </div>
+      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+          <PortalHeader
+            title="Cleaning"
+            subtitle="Equipment maintenance and tracking"
+            icon={Sparkles}
+            actions={
+              /* CLN2-J (cleaning deep audit, CLN2-19): paper roster. The
+                 cleaning lead handing off to a fresh shift wants a
+                 printed checklist - equipment categories + today's
+                 cleaning jobs grouped by status. Same recipe as DRV-J /
+                 KIT2-N / SHP2-A. */
+              <Button
+                variant="outline"
+                onClick={() => {
+                  if (equipment.length === 0) {
+                    // No data to print - cheap feedback rather than
+                    // a blank A4 surprise.
+                    alert("No equipment loaded yet. Wait a moment then try again.");
+                    return;
+                  }
+                  setTimeout(() => window.print(), 100);
+                }}
+                className="inline-flex items-center gap-1.5 h-10 sm:h-11 px-3 text-sm"
+              >
+                <Printer className="w-4 h-4" />
+                Print roster
+              </Button>
+            }
+          />
 
-          <TeamWelcomeBanner role="cleaning" userId={user?.id} />
+          <div className="mb-6">
+            <TeamWelcomeBanner role="cleaning" userId={user?.id} />
+          </div>
 
           {/* Wave 42 Tier 3: personal shift card. Lists today's
               cleaning + kitchen_and_cleaning shifts with task chips
@@ -365,113 +364,74 @@ function CleaningDashboardInner() {
             <CleaningJobsQueue />
           </div>
 
-          <Card className="border-0 shadow-lg mb-8 bg-gradient-to-r from-cyan-50 to-blue-50">
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2">
-                <Activity className="w-5 h-5 text-cyan-600" />
-                Equipment Status Overview
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="text-center p-4 bg-white rounded-lg">
-                  <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-2">
-                    <CheckCircle className="w-6 h-6 text-green-600" />
-                  </div>
-                  <p className="text-2xl font-bold text-green-600">
-                    {equipment.filter(e => e.status === 'available').length}
-                  </p>
-                  <p className="text-xs text-slate-600 mt-1 flex items-center gap-1">
-                    Available
-                    <InfoTooltip content="Equipment that's clean, in good condition, and ready to send out on the next event." />
-                  </p>
-                </div>
-                
-                <div className="text-center p-4 bg-white rounded-lg">
-                  <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center mx-auto mb-2">
-                    <Truck className="w-6 h-6 text-blue-600" />
-                  </div>
-                  <p className="text-2xl font-bold text-blue-600">
-                    {equipment.filter(e => e.status === 'in_use').length}
-                  </p>
-                  <p className="text-xs text-slate-600 mt-1 flex items-center gap-1">
-                    In Use
-                    <InfoTooltip content="Equipment that's currently out on a job.\n\nIt comes back here once dispatch logs the collection." />
-                  </p>
-                </div>
-                
-                <div className="text-center p-4 bg-white rounded-lg">
-                  <div className="w-12 h-12 rounded-full bg-orange-100 flex items-center justify-center mx-auto mb-2">
-                    <Clock className="w-6 h-6 text-orange-600" />
-                  </div>
-                  <p className="text-2xl font-bold text-orange-600">
-                    {equipment.filter(e => e.status === 'cleaning').length}
-                  </p>
-                  <p className="text-xs text-slate-600 mt-1 flex items-center gap-1">
-                    Cleaning
-                    <InfoTooltip content="Items that came back from a job and are sitting in the cleaning queue.\n\nTick each one off as you finish it." />
-                  </p>
-                </div>
-                
-                <div className="text-center p-4 bg-white rounded-lg">
-                  <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-2">
-                    <AlertTriangle className="w-6 h-6 text-red-600" />
-                  </div>
-                  <p className="text-2xl font-bold text-red-600">
-                    {equipment.filter(e => e.status === 'damaged').length}
-                  </p>
-                  <p className="text-xs text-slate-600 mt-1 flex items-center gap-1">
-                    Damaged
-                    <InfoTooltip content="Equipment flagged as damaged or broken.\n\nIt's out of rotation until someone repairs or replaces it." />
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8">
+            <StatTile
+              icon={CheckCircle}
+              label="Available"
+              value={equipment.filter(e => e.status === 'available').length}
+              hint="Clean and ready to send out"
+            />
+            <StatTile
+              icon={Truck}
+              label="In Use"
+              value={equipment.filter(e => e.status === 'in_use').length}
+              hint="Currently out on a job"
+            />
+            <StatTile
+              icon={Clock}
+              label="Cleaning"
+              value={equipment.filter(e => e.status === 'cleaning').length}
+              hint="Waiting in the cleaning queue"
+            />
+            <StatTile
+              icon={AlertTriangle}
+              label="Damaged"
+              value={equipment.filter(e => e.status === 'damaged').length}
+              hint="Out of rotation until repaired"
+            />
+          </div>
 
-          <Card className="border-0 shadow-lg mb-8">
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2">
-                <ClipboardCheck className="w-5 h-5 text-cyan-600" />
-                Today's Priority Inspections
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {loadingEquipment ? (
-                  <div className="text-center py-8 text-slate-500">Loading equipment...</div>
-                ) : (
-                  <>
-                    {equipment
-                      .filter(e => e.status === 'cleaning' || e.status === 'damaged')
-                      .slice(0, 5)
-                      .map(item => (
-                        <div key={item.id} className="flex items-center justify-between p-3 bg-cyan-50 rounded-lg border-l-4 border-cyan-500">
-                          <div className="flex items-center gap-3">
-                            <Package className="w-5 h-5 text-cyan-600" />
-                            <div>
-                              <p className="font-semibold text-slate-900">{item.name}</p>
-                              <p className="text-xs text-slate-600">
-                                {item.available_quantity} of {item.quantity} available
-                              </p>
-                            </div>
+          <PortalCard className="mb-6 sm:mb-8">
+            <PortalCardHeader title="Today's priority inspections" />
+            <div className="space-y-3">
+              {loadingEquipment ? (
+                // Skeleton rows so the layout doesn't jump when data lands.
+                <div className="space-y-2" aria-busy="true" aria-label="Loading equipment">
+                  {[0, 1, 2].map(i => (
+                    <div key={i} className="h-16 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 animate-pulse" />
+                  ))}
+                </div>
+              ) : (
+                <>
+                  {equipment
+                    .filter(e => e.status === 'cleaning' || e.status === 'damaged')
+                    .slice(0, 5)
+                    .map(item => (
+                      <div key={item.id} className="flex items-center justify-between gap-3 p-3 rounded-xl border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800/50">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <Package className="w-5 h-5 text-slate-400 dark:text-slate-500 flex-shrink-0" />
+                          <div className="min-w-0">
+                            <p className="font-semibold text-slate-900 dark:text-white truncate">{item.name}</p>
+                            <p className="text-xs text-slate-600 dark:text-slate-400 tabular-nums">
+                              {item.available_quantity} of {item.quantity} available
+                            </p>
                           </div>
-                          <Button size="sm" variant="outline" onClick={() => openInspect(item)}>
-                            Inspect
-                          </Button>
                         </div>
-                      ))}
-                    {equipment.filter(e => e.status === 'cleaning' || e.status === 'damaged').length === 0 && (
-                      <div className="text-center py-8 text-slate-500">
-                        <CheckCircle className="w-12 h-12 mx-auto mb-2 text-green-500" />
-                        <p>All equipment inspections complete for today!</p>
+                        <Button size="sm" variant="outline" onClick={() => openInspect(item)} className="flex-shrink-0">
+                          Inspect
+                        </Button>
                       </div>
-                    )}
-                  </>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+                    ))}
+                  {equipment.filter(e => e.status === 'cleaning' || e.status === 'damaged').length === 0 && (
+                    <div className="text-center py-8 text-slate-500 dark:text-slate-400">
+                      <CheckCircle className="w-12 h-12 mx-auto mb-2 text-emerald-500 dark:text-emerald-400" />
+                      <p>All equipment inspections complete for today!</p>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </PortalCard>
 
           {/* Wave 42 Tier 2: dropped the "Cleaning Workflow" tab.
               The CleaningJobsQueue mounted at the top of the page is
@@ -483,10 +443,10 @@ function CleaningDashboardInner() {
               saw them pending elsewhere. Component file kept in case
               another surface needs it later. */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-            <TabsList className="grid w-full grid-cols-3 gap-2 bg-white/50 p-1 rounded-lg">
+            <TabsList className="grid w-full grid-cols-3 gap-2 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
               <TabsTrigger
                 value="verification"
-                className="gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm"
+                className="gap-2 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-900 data-[state=active]:shadow-sm"
               >
                 <ClipboardCheck className="h-4 w-4" />
                 <span className="hidden sm:inline">Equipment Verification</span>
@@ -494,7 +454,7 @@ function CleaningDashboardInner() {
               </TabsTrigger>
               <TabsTrigger
                 value="damages"
-                className="gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm"
+                className="gap-2 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-900 data-[state=active]:shadow-sm"
               >
                 <AlertTriangle className="h-4 w-4" />
                 <span className="hidden sm:inline">Damages & Losses</span>
@@ -502,7 +462,7 @@ function CleaningDashboardInner() {
               </TabsTrigger>
               <TabsTrigger
                 value="team"
-                className="gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm"
+                className="gap-2 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-900 data-[state=active]:shadow-sm"
               >
                 <Users className="h-4 w-4" />
                 <span className="hidden sm:inline">Team Status</span>
@@ -511,40 +471,34 @@ function CleaningDashboardInner() {
             </TabsList>
 
             <TabsContent value="verification" className="space-y-6">
-              <Card className="border-0 shadow-lg">
-                <CardHeader className="bg-gradient-to-r from-blue-50 to-purple-50">
-                  <CardTitle className="flex items-center gap-2">
-                    <ClipboardCheck className="h-5 w-5 text-blue-600" />
-                    Equipment Verification
-                  </CardTitle>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Verify returned equipment from functions and report any damages or losses
-                  </p>
-                </CardHeader>
-                <CardContent className="pt-6">
-                  <EquipmentVerificationPanel />
-                </CardContent>
-              </Card>
+              <PortalCard>
+                <div className="mb-4 flex items-center gap-2">
+                  <ClipboardCheck className="h-5 w-5 text-slate-400 dark:text-slate-500" />
+                  <h2 className="text-sm font-semibold text-slate-900 dark:text-white">Equipment verification</h2>
+                </div>
+                <p className="text-sm text-slate-600 dark:text-slate-400 -mt-2 mb-4">
+                  Verify returned equipment from functions and report any damages or losses
+                </p>
+                <EquipmentVerificationPanel />
+              </PortalCard>
             </TabsContent>
 
             <TabsContent value="damages" className="space-y-6">
-              <Card className="border-0 shadow-lg">
-                <CardHeader className="bg-gradient-to-r from-red-50 to-orange-50">
-                  <CardTitle className="flex items-center gap-2">
-                    <AlertTriangle className="h-5 w-5 text-red-600" />
-                    Flag damaged equipment
-                  </CardTitle>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Mark broken, lost, or damaged items. Cost breakdown lives on /admin/equipment.
-                  </p>
-                </CardHeader>
+              <PortalCard>
+                <div className="mb-4 flex items-center gap-2">
+                  <AlertTriangle className="h-5 w-5 text-rose-500 dark:text-rose-400" />
+                  <h2 className="text-sm font-semibold text-slate-900 dark:text-white">Flag damaged equipment</h2>
+                </div>
+                <p className="text-sm text-slate-600 dark:text-slate-400 -mt-2 mb-4">
+                  Mark broken, lost, or damaged items. Cost breakdown lives on /admin/equipment.
+                </p>
                 {/* CLN2-I: cleaner gets a tight flag-form + recent
                     strip only. Cost analytics moved to admin. */}
-                <CardContent className="pt-6 space-y-4">
+                <div className="space-y-4">
                   <DamageFlagForm />
                   <RecentDamagesStrip />
-                </CardContent>
-              </Card>
+                </div>
+              </PortalCard>
             </TabsContent>
 
             <TabsContent value="team" className="space-y-6">
@@ -558,36 +512,34 @@ function CleaningDashboardInner() {
             </TabsContent>
           </Tabs>
 
-          <Card className="mt-6 border-0 shadow-lg bg-gradient-to-r from-pink-50 via-purple-50 to-blue-50">
-            <CardContent className="py-4">
-              <div className="flex flex-wrap items-center justify-center gap-6 text-sm">
-                <div className="flex items-center gap-2">
-                  <Badge variant="outline" className="bg-white">
-                    <ClipboardCheck className="h-3 w-3 mr-1" />
-                    Verification
-                  </Badge>
-                  <span className="text-muted-foreground">Check returned equipment</span>
-                </div>
-                <div className="hidden sm:block h-4 w-px bg-slate-300" />
-                <div className="flex items-center gap-2">
-                  <Badge variant="outline" className="bg-white">
-                    <Droplets className="h-3 w-3 mr-1" />
-                    Cleaning queue
-                  </Badge>
-                  <span className="text-muted-foreground">Live wash + dishwasher status</span>
-                </div>
-                <div className="hidden sm:block h-4 w-px bg-slate-300" />
-                <div className="flex items-center gap-2">
-                  <Badge variant="outline" className="bg-white">
-                    <AlertTriangle className="h-3 w-3 mr-1" />
-                    Damages
-                  </Badge>
-                  <span className="text-muted-foreground">Monitor costs</span>
-                </div>
+          <PortalCard className="mt-6">
+            <div className="flex flex-wrap items-center justify-center gap-6 text-sm">
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700">
+                  <ClipboardCheck className="h-3 w-3 mr-1 text-slate-400 dark:text-slate-500" />
+                  Verification
+                </Badge>
+                <span className="text-slate-500 dark:text-slate-400">Check returned equipment</span>
               </div>
-            </CardContent>
-          </Card>
-        </div>
+              <div className="hidden sm:block h-4 w-px bg-slate-200 dark:bg-slate-700" />
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700">
+                  <Clock className="h-3 w-3 mr-1 text-slate-400 dark:text-slate-500" />
+                  Cleaning queue
+                </Badge>
+                <span className="text-slate-500 dark:text-slate-400">Live wash + dishwasher status</span>
+              </div>
+              <div className="hidden sm:block h-4 w-px bg-slate-200 dark:bg-slate-700" />
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700">
+                  <AlertTriangle className="h-3 w-3 mr-1 text-slate-400 dark:text-slate-500" />
+                  Damages
+                </Badge>
+                <span className="text-slate-500 dark:text-slate-400">Monitor costs</span>
+              </div>
+            </div>
+          </PortalCard>
+        </PortalShell>
 
         <Footer />
       </div>
@@ -707,7 +659,7 @@ function CleaningDashboardInner() {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <ClipboardCheck className="w-5 h-5 text-cyan-700" />
+              <ClipboardCheck className="w-5 h-5 text-amber-600 dark:text-amber-500" />
               Inspect {inspectItem?.name}
             </DialogTitle>
             <DialogDescription>

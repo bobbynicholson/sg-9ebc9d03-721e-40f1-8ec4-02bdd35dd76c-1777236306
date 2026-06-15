@@ -45,7 +45,7 @@ describe("accountingIntegrationService encryption (TIGHTEN I.105)", () => {
     });
 
     it("round-trips UTF-8 / non-ASCII payloads", () => {
-      const plain = "héllo wörld — caterer's token";
+      const plain = "héllo wörld - caterer's token";
       expect(decryptOne(encryptOne(plain))).toBe(plain);
     });
   });

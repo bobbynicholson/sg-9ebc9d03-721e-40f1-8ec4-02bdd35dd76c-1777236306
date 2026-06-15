@@ -389,7 +389,7 @@ async function handler(
         // Send notification. recipient must be an auth uid (RLS filters
         // reads on it); companies.owner_id is a FK to profiles(id) so it's
         // valid, but the old `|| companyId` fallback wrote a companies.id
-        // when owner_id was null — a row no auth user could ever read.
+        // when owner_id was null - a row no auth user could ever read.
         // Gate on a real owner uid instead of writing a junk recipient.
         if (companyData.owner_id) {
           await supabase.from("notifications").insert([{

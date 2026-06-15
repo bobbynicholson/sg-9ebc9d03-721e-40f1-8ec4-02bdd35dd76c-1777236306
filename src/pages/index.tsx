@@ -22,20 +22,20 @@ import { ProductPreview } from "@/components/landing/ProductPreview";
 import { Reveal, Stagger, StaggerItem } from "@/components/motion/Reveal";
 import { EASE, btnPress } from "@/components/motion/marketing";
 
-// Phone number (mirrors the JSON-LD contactPoint) — wired for click-to-call.
+// Phone number (mirrors the JSON-LD contactPoint) - wired for click-to-call.
 const PHONE_DISPLAY = "+27 83 652 5755";
 const PHONE_TEL = "+27836525755";
 
 // Warm-luxury surface language for this page. Kept local (not in the shared
 // marketing tokens) because the rest of the site stays on the cooler
-// violet/slate palette — only the landing page wears the warm catering skin.
+// violet/slate palette - only the landing page wears the warm catering skin.
 const warmCard = `group relative h-full overflow-hidden rounded-2xl border border-stone-200/80 bg-white shadow-sm transition-[transform,box-shadow,border-color] duration-300 ${EASE} hover:-translate-y-1 hover:border-amber-200/80 hover:shadow-[0_24px_60px_-24px_rgba(120,53,15,0.30)]`;
 const amberBtn = `h-12 rounded-full bg-gradient-to-b from-amber-500 to-amber-600 px-8 text-base font-semibold text-white shadow-lg shadow-amber-700/25 hover:from-amber-500 hover:to-amber-700 hover:shadow-xl hover:shadow-amber-700/30 ${btnPress}`;
 const chip = `inline-flex items-center justify-center rounded-xl shadow-sm transition-transform duration-300 ${EASE} group-hover:scale-105`;
 
 // Authentic, hand-picked Unsplash catering photography (validated to resolve).
 // `u()` builds an optimised, CDN-resized URL. Swap any id for your own shoot
-// later — or drop a local file and point src at /images/... instead.
+// later - or drop a local file and point src at /images/... instead.
 const u = (id: string, w: number, extra = "") =>
   `https://images.unsplash.com/photo-${id}?auto=format&fit=crop&q=70&w=${w}${extra}`;
 
@@ -72,7 +72,7 @@ const IMG = {
 
 /**
  * Graceful image slot. Renders a warm gradient immediately and layers the
- * real photo on top via CSS background — so a missing file simply shows the
+ * real photo on top via CSS background - so a missing file simply shows the
  * gradient (no broken-image icons, no runtime 404s). Drop real photos into
  * /public/images/... and they appear with zero code changes.
  */
@@ -109,7 +109,7 @@ function Photo({
 /**
  * Count-up number for the social-proof stats. Animates only when scrolled into
  * view, exactly once, and snaps straight to the value under reduced-motion.
- * `prefix`/`suffix` keep the honest range + unit (e.g. "10–" … "%").
+ * `prefix`/`suffix` keep the honest range + unit (e.g. "10-" … "%").
  */
 function CountUp({
   to,
@@ -162,14 +162,14 @@ export default function HomePage() {
       title: "Weddings",
       img: IMG.services.weddings,
       gradient: "from-rose-200 to-amber-200",
-      body: "From the proposal to the last dance — itemised quotes, dietary tracking, minute-perfect kitchen timing and on-the-day coordination.",
+      body: "From the proposal to the last dance - itemised quotes, dietary tracking, minute-perfect kitchen timing and on-the-day coordination.",
     },
     {
       icon: Building2,
       title: "Corporate Events",
       img: IMG.services.corporate,
       gradient: "from-amber-200 to-stone-300",
-      body: "Recurring orders, PO-friendly invoicing, multi-site delivery and last-minute headcount changes — handled without the email chaos.",
+      body: "Recurring orders, PO-friendly invoicing, multi-site delivery and last-minute headcount changes - handled without the email chaos.",
     },
     {
       icon: PartyPopper,
@@ -200,7 +200,7 @@ export default function HomePage() {
     {
       icon: Zap,
       title: "Quote in minutes, not days",
-      body: "Itemised, branded quotes your clients can accept online — so you win the booking while you're still top of mind.",
+      body: "Itemised, branded quotes your clients can accept online - so you win the booking while you're still top of mind.",
     },
     {
       icon: Users,
@@ -210,21 +210,21 @@ export default function HomePage() {
     {
       icon: Clock,
       title: "On-time, every single event",
-      body: "Live GPS, prep schedules and delivery sheets keep every function running to the minute — and clients in the loop.",
+      body: "Live GPS, prep schedules and delivery sheets keep every function running to the minute - and clients in the loop.",
     },
     {
       icon: Sparkles,
       title: "Custom menus & branded portals",
-      body: "Tailor menus per client and hand them a portal that carries your brand, your colours, your logo — not ours.",
+      body: "Tailor menus per client and hand them a portal that carries your brand, your colours, your logo - not ours.",
     },
   ];
 
   // prefix/suffix preserve the honest range; CountUp animates the headline figure.
   const stats = [
     { prefix: "", to: 12, suffix: "+", label: "Hours saved every week" },
-    { prefix: "50–", to: 55, suffix: "%", label: "Fewer admin calls" },
-    { prefix: "10–", to: 16, suffix: "%", label: "Higher profit margins" },
-    { prefix: "1.5–", to: 2, suffix: "×", label: "More repeat bookings" },
+    { prefix: "50-", to: 55, suffix: "%", label: "Fewer admin calls" },
+    { prefix: "10-", to: 16, suffix: "%", label: "Higher profit margins" },
+    { prefix: "1.5-", to: 2, suffix: "×", label: "More repeat bookings" },
   ];
 
   const integrations = ["PayFast", "Stripe", "Xero", "QuickBooks", "Sage", "Paystack"];
@@ -232,7 +232,7 @@ export default function HomePage() {
   const workflow = [
     { icon: FileText, step: "Enquiry & Quote", description: "Capture every lead and build itemised, menu-based quotes in minutes. Send a branded quote your client can accept online." },
     { icon: Calendar, step: "Confirm & Deposit", description: "Clients accept via a secure magic-link portal and pay a deposit through PayFast. The function locks into your calendar automatically." },
-    { icon: ChefHat, step: "Plan & Prep", description: "Auto-generate the BEO, kitchen prep lists, shopping lists and allergen sheets — with own stock and hire-in equipment reconciled." },
+    { icon: ChefHat, step: "Plan & Prep", description: "Auto-generate the BEO, kitchen prep lists, shopping lists and allergen sheets - with own stock and hire-in equipment reconciled." },
     { icon: Truck, step: "Deliver & Serve", description: "Drivers get optimised routes and live GPS tracking. Clients watch their order arrive while equipment is checked out and back in." },
     { icon: RefreshCw, step: "Invoice & Rebook", description: "Settle the balance with final guest-count adjustments, then trigger automated thank-yous and rebooking nurture for next season." },
   ];
@@ -390,7 +390,7 @@ export default function HomePage() {
               <StaggerItem>
                 <p className="mx-auto mt-6 max-w-2xl text-balance text-lg leading-relaxed text-stone-200 sm:text-xl">
                   The complete operating system for weddings, corporate functions and
-                  private events. Quote, plan, deliver and get paid — beautifully —
+                  private events. Quote, plan, deliver and get paid - beautifully -
                   from one platform built for South African caterers.
                 </p>
               </StaggerItem>
@@ -433,7 +433,7 @@ export default function HomePage() {
               </StaggerItem>
             </Stagger>
 
-            {/* Product showcase — the "this is serious software" centrepiece */}
+            {/* Product showcase - the "this is serious software" centrepiece */}
             <Reveal className="mt-14 md:mt-20" y={28}>
               <ProductPreview />
             </Reveal>
@@ -444,7 +444,7 @@ export default function HomePage() {
         {/* ===================== SOCIAL PROOF ===================== */}
         <section className="border-b border-stone-200 bg-white">
           <div className="mx-auto max-w-7xl px-4 py-16 md:py-20">
-            {/* Editorial figures row — hairline-divided, no icon chips. The
+            {/* Editorial figures row - hairline-divided, no icon chips. The
                 numbers carry the weight; the labels sit quiet beside them. */}
             <Stagger
               className="grid grid-cols-2 divide-stone-200 sm:grid-cols-4 sm:divide-x"
@@ -528,7 +528,7 @@ export default function HomePage() {
                 Menus worth showing off
               </h2>
               <p className="mt-4 text-balance text-lg text-stone-600">
-                Build, cost and send beautiful menus in minutes. Your clients see this —
+                Build, cost and send beautiful menus in minutes. Your clients see this -
                 you keep the margins.
               </p>
             </Reveal>
@@ -570,7 +570,7 @@ export default function HomePage() {
               The difference is in the details
             </h2>
             <p className="mt-4 text-balance text-lg text-stone-600">
-              The unseen work that makes your service look effortless — finally handled.
+              The unseen work that makes your service look effortless - finally handled.
             </p>
           </Reveal>
 
@@ -654,7 +654,7 @@ export default function HomePage() {
               Beautiful events, flawlessly run
             </h2>
             <p className="mt-4 text-balance text-lg text-stone-600">
-              The setups, the plating, the moments — powered behind the scenes by CateringMS.
+              The setups, the plating, the moments - powered behind the scenes by CateringMS.
             </p>
           </Reveal>
 
@@ -753,7 +753,7 @@ export default function HomePage() {
               </h2>
               <p className="mx-auto mt-6 max-w-2xl text-balance text-lg text-stone-200 sm:text-xl">
                 Join forward-thinking catering businesses across South Africa running
-                profitable, scalable operations — without being trapped in the day-to-day.
+                profitable, scalable operations - without being trapped in the day-to-day.
               </p>
 
               <div className="mx-auto mt-9 flex max-w-md flex-col gap-3 sm:max-w-none sm:flex-row sm:justify-center">

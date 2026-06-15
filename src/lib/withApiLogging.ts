@@ -1,5 +1,5 @@
 /**
- * withApiLogging — higher-order function wrapper for Next.js API routes.
+ * withApiLogging - higher-order function wrapper for Next.js API routes.
  *
  * Usage (wrap the default export):
  *

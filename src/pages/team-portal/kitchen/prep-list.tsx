@@ -4,13 +4,13 @@
 // and the `equipment_items` JSONB column shape.
 import { useEffect, useMemo, useState, useCallback } from "react";
 import Head from "next/head";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  ClipboardList, ChefHat, Loader2, Calendar, Users, MapPin, Clock,
+  ClipboardList, ChefHat, Calendar, Users, MapPin, Clock,
   AlertTriangle, CheckCircle2, ShoppingCart, Layers, Package, Info, ExternalLink,
 } from "lucide-react";
+import { PortalShell, PortalHeader, PortalCard, PortalCardHeader } from "@/components/portal/ui";
 import { KitchenNav } from "@/components/navigation/KitchenNav";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
@@ -491,60 +491,55 @@ export default function KitchenPrepListPage() {
       <Head><title>Pull list - CateringMS</title></Head>
       <KitchenNav />
 
-      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
-        <div className="px-4 sm:px-6 py-6 sm:py-8 max-w-full">
-          {/* Header */}
-          <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center shadow-lg flex-shrink-0">
-                <ClipboardList className="w-6 h-6 text-white" />
+      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+          <PortalHeader
+            icon={ClipboardList}
+            title={
+              <span className="flex items-center gap-2">
+                Pull list
+                <InfoTooltip content={`Everything you need to pull from stores. Two views: by order (one card per booking) or by ingredient (totals across the next ${horizonDays} days).`} />
+              </span>
+            }
+            subtitle={`What to pull from stores. Across ${orders.length} order${orders.length === 1 ? "" : "s"} in the next ${horizonDays} days.`}
+            actions={
+              <div className="flex items-center gap-2 flex-wrap">
+                {/* KIT3-E: horizon picker + refresh + last-loaded chip. */}
+                <div className="inline-flex p-1 bg-slate-100 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
+                  {([7, 14, 30] as const).map((d) => (
+                    <button
+                      key={d}
+                      type="button"
+                      onClick={() => setHorizonDays(d)}
+                      className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+                        horizonDays === d
+                          ? "bg-white text-slate-900 shadow-sm dark:bg-slate-900 dark:text-white"
+                          : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
+                      }`}
+                    >
+                      {d}d
+                    </button>
+                  ))}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => load()}
+                  disabled={loading}
+                  className="gap-1.5"
+                  title={lastLoadedAt ? `Last loaded ${lastLoadedAt.toLocaleTimeString("en-ZA")}` : "Refresh"}
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
+                  Refresh
+                </Button>
+                {lastLoadedAt && (
+                  <span className="text-[11px] text-slate-500 dark:text-slate-400 tabular-nums">
+                    As of {lastLoadedAt.toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" })}
+                  </span>
+                )}
               </div>
-              <div className="min-w-0">
-                <h1 className="text-2xl md:text-3xl font-bold text-slate-900 flex items-center gap-2">
-                  Pull list
-                  <InfoTooltip content={`Everything you need to pull from stores. Two views: by order (one card per booking) or by ingredient (totals across the next ${horizonDays} days).`} />
-                </h1>
-                <p className="text-sm text-slate-600 mt-1">
-                  What to pull from stores. Across {orders.length} order{orders.length === 1 ? "" : "s"} in the next {horizonDays} days.
-                </p>
-              </div>
-            </div>
-            {/* KIT3-E: horizon picker + refresh + last-loaded chip. */}
-            <div className="flex items-center gap-2 flex-wrap">
-              <div className="inline-flex p-1 bg-slate-100 rounded-lg border border-slate-200">
-                {([7, 14, 30] as const).map((d) => (
-                  <button
-                    key={d}
-                    type="button"
-                    onClick={() => setHorizonDays(d)}
-                    className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
-                      horizonDays === d
-                        ? "bg-white text-slate-900 shadow-sm"
-                        : "text-slate-600 hover:text-slate-900"
-                    }`}
-                  >
-                    {d}d
-                  </button>
-                ))}
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => load()}
-                disabled={loading}
-                className="gap-1.5"
-                title={lastLoadedAt ? `Last loaded ${lastLoadedAt.toLocaleTimeString("en-ZA")}` : "Refresh"}
-              >
-                <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
-                Refresh
-              </Button>
-              {lastLoadedAt && (
-                <span className="text-[11px] text-slate-500 tabular-nums">
-                  As of {lastLoadedAt.toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" })}
-                </span>
-              )}
-            </div>
-          </div>
+            }
+          />
 
           {/* KIT3-E: recipe-gap banner. When the by-order view has
               ingredients (sourced from the order_ingredient_demand
@@ -557,27 +552,27 @@ export default function KitchenPrepListPage() {
               fires in genuinely weird shapes; useful as a safety
               net. */}
           {!loading && !aggregatedLoading && rows.length > 0 && aggregated.length === 0 && (
-            <Card className="border-amber-200 bg-amber-50/40 shadow-sm mb-5">
-              <CardContent className="p-3 px-4 flex items-start gap-3 text-xs">
-                <AlertTriangle className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
-                <p className="text-amber-900">
+            <PortalCard padded={false} className="border-amber-200 bg-amber-50/40 dark:border-amber-900 dark:bg-amber-950/20 mb-5">
+              <div className="p-3 px-4 flex items-start gap-3 text-xs">
+                <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-500 mt-0.5 shrink-0" />
+                <p className="text-amber-900 dark:text-amber-200">
                   Per-order ingredients show below but the cross-order shortfall calc is empty. This usually means recipes haven&apos;t been attached for one or more menu items. Ask admin to add recipes in <span className="font-mono">Menu &rarr; edit item &rarr; Recipe</span>.
                 </p>
-              </CardContent>
-            </Card>
+              </div>
+            </PortalCard>
           )}
 
           {/* Aggregated shortfall banner, Phase 3 wires the one-click
               "create shopping list" path so the chef never has to retype it. */}
           {!aggregatedLoading && shortfallCount > 0 && (
-            <Card className="border-red-300 bg-red-50/40 shadow-sm mb-5">
-              <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center gap-3">
-                <ShoppingCart className="w-5 h-5 text-red-600 mt-0.5 shrink-0" />
+            <PortalCard padded={false} className="border-rose-300 bg-rose-50/40 dark:border-rose-900 dark:bg-rose-950/20 mb-5">
+              <div className="p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+                <ShoppingCart className="w-5 h-5 text-rose-600 dark:text-rose-500 mt-0.5 shrink-0" />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-red-800">
+                  <p className="text-sm font-semibold text-rose-800 dark:text-rose-200">
                     {shortfallCount} ingredient{shortfallCount === 1 ? "" : "s"} short for upcoming orders
                   </p>
-                  <p className="text-xs text-red-700 mt-0.5">
+                  <p className="text-xs text-rose-700 dark:text-rose-300 mt-0.5">
                     Aggregated across every confirmed booking in the next 30 days.
                   </p>
                 </div>
@@ -586,7 +581,7 @@ export default function KitchenPrepListPage() {
                     size="sm"
                     variant="outline"
                     onClick={() => setView("by_ingredient")}
-                    className="border-red-300 text-red-700 hover:bg-red-100"
+                    className="border-slate-300 text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
                   >
                     View shortfall list
                   </Button>
@@ -594,32 +589,32 @@ export default function KitchenPrepListPage() {
                     size="sm"
                     onClick={handleCreateShoppingList}
                     disabled={creatingList}
-                    className="bg-red-600 hover:bg-red-700 text-white"
+                    className="bg-amber-600 hover:bg-amber-700 text-white"
                   >
                     {creatingList ? "Creating..." : "Create shopping list"}
                   </Button>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </PortalCard>
           )}
 
           {/* Wave 33.1: segmented control. Was two disconnected pills
               with text-xs that felt like an afterthought; now a single
               tinted container with two equally-weighted segments and
               tap-target-friendly padding for kitchen tablets. */}
-          <div className="mb-5 inline-flex p-1 bg-slate-100 rounded-lg border border-slate-200">
+          <div className="mb-5 inline-flex p-1 bg-slate-100 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
             <button
               type="button"
               onClick={() => setView("by_order")}
               className={`px-4 py-2 text-sm font-medium rounded-md transition-all inline-flex items-center gap-2 ${
                 view === "by_order"
-                  ? "bg-white text-slate-900 shadow-sm"
-                  : "text-slate-600 hover:text-slate-900"
+                  ? "bg-white text-slate-900 shadow-sm dark:bg-slate-900 dark:text-white"
+                  : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
               }`}
             >
               <Layers className="w-3.5 h-3.5" />
               By order
-              <span className={`text-xs tabular-nums ${view === "by_order" ? "text-slate-500" : "text-slate-400"}`}>
+              <span className={`text-xs tabular-nums ${view === "by_order" ? "text-slate-500 dark:text-slate-400" : "text-slate-400 dark:text-slate-500"}`}>
                 {orders.length}
               </span>
             </button>
@@ -628,24 +623,27 @@ export default function KitchenPrepListPage() {
               onClick={() => setView("by_ingredient")}
               className={`px-4 py-2 text-sm font-medium rounded-md transition-all inline-flex items-center gap-2 ${
                 view === "by_ingredient"
-                  ? "bg-white text-slate-900 shadow-sm"
-                  : "text-slate-600 hover:text-slate-900"
+                  ? "bg-white text-slate-900 shadow-sm dark:bg-slate-900 dark:text-white"
+                  : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
               }`}
             >
               <Package className="w-3.5 h-3.5" />
               By ingredient
-              <span className={`text-xs tabular-nums ${view === "by_ingredient" ? "text-slate-500" : "text-slate-400"}`}>
+              <span className={`text-xs tabular-nums ${view === "by_ingredient" ? "text-slate-500 dark:text-slate-400" : "text-slate-400 dark:text-slate-500"}`}>
                 {aggregated.length}
               </span>
             </button>
           </div>
 
           {loading ? (
-            <Card className="border-0 shadow">
-              <CardContent className="py-16 flex items-center justify-center text-slate-500 gap-2">
-                <Loader2 className="w-5 h-5 animate-spin" /> Loading pull list...
-              </CardContent>
-            </Card>
+            <div className="space-y-4" aria-busy="true" aria-label="Loading pull list">
+              <div className="h-20 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm animate-pulse motion-reduce:animate-none" />
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                {[0, 1, 2].map((i) => (
+                  <div key={i} className="h-48 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm animate-pulse motion-reduce:animate-none" />
+                ))}
+              </div>
+            </div>
           ) : view === "by_ingredient" ? (
             // ── BY INGREDIENT view (aggregated demand across all orders) ──
             aggregated.length === 0 ? (
@@ -655,13 +653,15 @@ export default function KitchenPrepListPage() {
               // attached. Tell the chef what's missing instead of
               // "no orders".
               confirmedOrdersInWindow > 0 ? (
-                <Card className="border-0 shadow border-amber-200 bg-amber-50/30">
-                  <CardContent className="py-12 text-center">
-                    <AlertTriangle className="w-10 h-10 mx-auto text-amber-500 mb-3" />
-                    <p className="font-semibold text-slate-800 mb-1">
+                <PortalCard padded={false} className="border-amber-200 bg-amber-50/30 dark:border-amber-900 dark:bg-amber-950/20">
+                  <div className="py-12 px-6 text-center">
+                    <div className="w-12 h-12 mx-auto mb-3 rounded-xl border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/40 flex items-center justify-center">
+                      <AlertTriangle className="w-6 h-6 text-amber-600 dark:text-amber-500" />
+                    </div>
+                    <p className="font-semibold text-slate-900 dark:text-white mb-1">
                       {confirmedOrdersInWindow} order{confirmedOrdersInWindow === 1 ? "" : "s"} booked, but no ingredient demand yet
                     </p>
-                    <p className="text-sm text-slate-600 max-w-md mx-auto">
+                    <p className="text-sm text-slate-600 dark:text-slate-400 max-w-md mx-auto">
                       The menu items on these orders don&apos;t have recipes attached. Recipes drive the prep + ingredient lists. Ask admin to add recipes in <span className="font-mono text-xs">Menu &rarr; edit item &rarr; Recipe section</span>.
                     </p>
                     {/* Wave 70.44b - role-gated. Kitchen role
@@ -670,34 +670,34 @@ export default function KitchenPrepListPage() {
                         view-switched into the kitchen portal still
                         see it so they can fix recipes inline. */}
                     {canEditMenu && (
-                      <Link href="/admin/menu" className="inline-flex items-center gap-1 text-xs text-orange-700 hover:underline mt-3 font-semibold">
+                      <Link href="/admin/menu" className="inline-flex items-center gap-1 text-xs text-amber-700 dark:text-amber-400 hover:underline mt-3 font-semibold">
                         Open menu editor <ExternalLink className="w-3 h-3" />
                       </Link>
                     )}
-                  </CardContent>
-                </Card>
+                  </div>
+                </PortalCard>
               ) : (
-                <Card className="border-0 shadow">
-                  <CardContent className="py-16 text-center">
-                    <Package className="w-10 h-10 mx-auto text-slate-300 mb-3" />
-                    <p className="font-semibold text-slate-700 mb-1">Nothing to pull</p>
-                    <p className="text-sm text-slate-500">No confirmed orders need ingredients right now.</p>
-                  </CardContent>
-                </Card>
+                <PortalCard padded={false}>
+                  <div className="py-16 px-6 text-center">
+                    <div className="w-12 h-12 mx-auto mb-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 flex items-center justify-center">
+                      <Package className="w-6 h-6 text-slate-400 dark:text-slate-500" />
+                    </div>
+                    <p className="font-semibold text-slate-900 dark:text-white mb-1">Nothing to pull</p>
+                    <p className="text-sm text-slate-600 dark:text-slate-400">No confirmed orders need ingredients right now.</p>
+                  </div>
+                </PortalCard>
               )
             ) : (
-              <Card className="border-0 shadow-lg">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base">Total demand · next 30 days</CardTitle>
-                  <CardDescription className="text-xs">
-                    Sums every confirmed order's ingredient need against your current stock.
-                    Shortfalls float to the top.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
+              <PortalCard>
+                <PortalCardHeader title="Total demand · next 30 days" />
+                <p className="text-xs text-slate-600 dark:text-slate-400 -mt-2 mb-3">
+                  Sums every confirmed order's ingredient need against your current stock.
+                  Shortfalls float to the top.
+                </p>
+                <div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
-                      <thead className="text-[11px] uppercase tracking-wide text-slate-500 border-b border-slate-200">
+                      <thead className="text-[11px] uppercase tracking-wide text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800">
                         <tr>
                           <th className="text-left py-2 pr-3 font-semibold">Ingredient</th>
                           <th className="text-right py-2 px-3 font-semibold">Need</th>
@@ -711,22 +711,22 @@ export default function KitchenPrepListPage() {
                         {aggregated.map(d => {
                           const isShort = d.shortfall > 0;
                           return (
-                            <tr key={`${d.name}-${d.unit}`} className={`border-b border-slate-100 ${isShort ? "bg-red-50/30" : ""}`}>
-                              <td className="py-2 pr-3 font-medium text-slate-900">{d.name}</td>
-                              <td className="py-2 px-3 text-right tabular-nums text-slate-700">
+                            <tr key={`${d.name}-${d.unit}`} className={`border-b border-slate-100 dark:border-slate-800 ${isShort ? "bg-rose-50/40 dark:bg-rose-950/20" : ""}`}>
+                              <td className="py-2 pr-3 font-medium text-slate-900 dark:text-white">{d.name}</td>
+                              <td className="py-2 px-3 text-right tabular-nums text-slate-700 dark:text-slate-300">
                                 {d.total_quantity.toLocaleString(undefined, { maximumFractionDigits: 2 })}
-                                <span className="text-slate-400 text-xs ml-1">{d.unit}</span>
+                                <span className="text-slate-400 dark:text-slate-500 text-xs ml-1">{d.unit}</span>
                               </td>
-                              <td className="py-2 px-3 text-right tabular-nums text-slate-700">
+                              <td className="py-2 px-3 text-right tabular-nums text-slate-700 dark:text-slate-300">
                                 {d.on_hand.toLocaleString(undefined, { maximumFractionDigits: 2 })}
                               </td>
-                              <td className={`py-2 px-3 text-right tabular-nums font-semibold ${isShort ? "text-red-700" : "text-emerald-700"}`}>
+                              <td className={`py-2 px-3 text-right tabular-nums font-semibold ${isShort ? "text-rose-700 dark:text-rose-400" : "text-emerald-700 dark:text-emerald-400"}`}>
                                 {isShort ? d.shortfall.toLocaleString(undefined, { maximumFractionDigits: 2 }) : "0"}
                               </td>
-                              <td className="py-2 pl-3 text-xs text-slate-600">
+                              <td className="py-2 pl-3 text-xs text-slate-600 dark:text-slate-400">
                                 {d.used_by.length} order{d.used_by.length === 1 ? "" : "s"}
                                 {d.used_by.length > 0 && (
-                                  <span className="text-slate-400">
+                                  <span className="text-slate-400 dark:text-slate-500">
                                     {" · "}
                                     {Array.from(new Set(d.used_by.map(u => u.event_date))).slice(0, 2).join(", ")}
                                     {d.used_by.length > 2 && "..."}
@@ -738,7 +738,7 @@ export default function KitchenPrepListPage() {
                                   <Button
                                     size="sm"
                                     variant="outline"
-                                    className="h-7 text-[11px] gap-1 border-red-300 text-red-700 hover:bg-red-100"
+                                    className="h-7 text-[11px] gap-1 border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-900 dark:text-amber-400 dark:hover:bg-amber-950/40"
                                     onClick={() => handleAddToShoppingList(d)}
                                   >
                                     <ShoppingCart className="w-3 h-3" />
@@ -754,53 +754,57 @@ export default function KitchenPrepListPage() {
                       </tbody>
                     </table>
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+              </PortalCard>
             )
           ) : grouped.length === 0 ? (
             // Wave 70.10 - same smart empty state as the by-
             // ingredient view: tell the chef what's actually wrong
             // when orders exist but the demand view is empty.
             confirmedOrdersInWindow > 0 ? (
-              <Card className="border-0 shadow border-amber-200 bg-amber-50/30">
-                <CardContent className="py-12 text-center">
-                  <AlertTriangle className="w-10 h-10 mx-auto text-amber-500 mb-3" />
-                  <p className="font-semibold text-slate-800 mb-1">
+              <PortalCard padded={false} className="border-amber-200 bg-amber-50/30 dark:border-amber-900 dark:bg-amber-950/20">
+                <div className="py-12 px-6 text-center">
+                  <div className="w-12 h-12 mx-auto mb-3 rounded-xl border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/40 flex items-center justify-center">
+                    <AlertTriangle className="w-6 h-6 text-amber-600 dark:text-amber-500" />
+                  </div>
+                  <p className="font-semibold text-slate-900 dark:text-white mb-1">
                     {confirmedOrdersInWindow} order{confirmedOrdersInWindow === 1 ? "" : "s"} booked, but nothing to prep
                   </p>
-                  <p className="text-sm text-slate-600 max-w-md mx-auto">
+                  <p className="text-sm text-slate-600 dark:text-slate-400 max-w-md mx-auto">
                     The menu items on these orders don&apos;t have recipes attached, so the prep list can&apos;t show ingredients. Open the Production grid to see prep tasks (which use simpler timing fields), or ask admin to add recipes in <span className="font-mono text-xs">Menu &rarr; edit item &rarr; Recipe</span>.
                   </p>
                   <div className="inline-flex items-center gap-3 mt-3">
-                    <Link href="/team-portal/kitchen/production" className="inline-flex items-center gap-1 text-xs text-orange-700 hover:underline font-semibold">
+                    <Link href="/team-portal/kitchen/production" className="inline-flex items-center gap-1 text-xs text-amber-700 dark:text-amber-400 hover:underline font-semibold">
                       Open production <ExternalLink className="w-3 h-3" />
                     </Link>
                     {/* Wave 70.44b - role-gated; see comment above. */}
                     {canEditMenu && (
-                      <Link href="/admin/menu" className="inline-flex items-center gap-1 text-xs text-slate-600 hover:underline font-semibold">
+                      <Link href="/admin/menu" className="inline-flex items-center gap-1 text-xs text-slate-600 dark:text-slate-400 hover:underline font-semibold">
                         Add recipes <ExternalLink className="w-3 h-3" />
                       </Link>
                     )}
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+              </PortalCard>
             ) : (
-              <Card className="border-0 shadow">
-                <CardContent className="py-16 text-center">
-                  <ChefHat className="w-10 h-10 mx-auto text-slate-300 mb-3" />
-                  <p className="font-semibold text-slate-700 mb-1">Nothing booked yet</p>
-                  <p className="text-sm text-slate-500">Confirmed orders land here once sales locks them in.</p>
-                </CardContent>
-              </Card>
+              <PortalCard padded={false}>
+                <div className="py-16 px-6 text-center">
+                  <div className="w-12 h-12 mx-auto mb-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 flex items-center justify-center">
+                    <ChefHat className="w-6 h-6 text-slate-400 dark:text-slate-500" />
+                  </div>
+                  <p className="font-semibold text-slate-900 dark:text-white mb-1">Nothing booked yet</p>
+                  <p className="text-sm text-slate-600 dark:text-slate-400">Confirmed orders land here once sales locks them in.</p>
+                </div>
+              </PortalCard>
             )
           ) : (
             // ── BY ORDER view (existing) ──
             <div className="space-y-8">
               {grouped.map((g) => (
                 <div key={g.name}>
-                  <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-500 mb-3">
+                  <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-3">
                     {g.name}
-                    <span className="ml-2 text-slate-400 font-normal">
+                    <span className="ml-2 text-slate-400 dark:text-slate-500 font-normal">
                       {g.items.length} order{g.items.length === 1 ? "" : "s"}
                     </span>
                   </h2>
@@ -828,27 +832,27 @@ export default function KitchenPrepListPage() {
                       const urgency = urgencyOf(o, meta);
                       const urgencyBadge =
                         urgency.tier === "critical"
-                          ? { label: "CRITICAL", className: "bg-red-200 text-red-900" }
+                          ? { label: "CRITICAL", className: "bg-rose-200 text-rose-900 dark:bg-rose-900/60 dark:text-rose-100" }
                           : urgency.tier === "high"
-                            ? { label: "HIGH", className: "bg-red-100 text-red-800" }
+                            ? { label: "HIGH", className: "bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-200" }
                             : urgency.tier === "watch"
-                              ? { label: "WATCH", className: "bg-amber-100 text-amber-800" }
+                              ? { label: "WATCH", className: "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-200" }
                               : null;
                       const cardBorder =
                         urgency.tier === "critical"
-                          ? "border-l-4 border-l-red-600"
+                          ? "border-l-4 border-l-rose-600 dark:border-l-rose-500"
                           : urgency.tier === "high"
-                            ? "border-l-4 border-l-red-400"
+                            ? "border-l-4 border-l-rose-400 dark:border-l-rose-600"
                             : urgency.tier === "watch"
-                              ? "border-l-4 border-l-amber-400"
-                              : "border-0";
+                              ? "border-l-4 border-l-amber-400 dark:border-l-amber-600"
+                              : "";
 
                       return (
-                        <Card key={o.order_id} className={`${cardBorder} shadow-lg`}>
-                          <CardHeader className="pb-3">
+                        <PortalCard key={o.order_id} padded={false} className={cardBorder}>
+                          <div className="p-5 pb-3">
                             <div className="flex items-start justify-between gap-2">
                               <div className="min-w-0">
-                                <CardTitle className="text-base flex items-center gap-2 flex-wrap">
+                                <h3 className="text-base font-semibold text-slate-900 dark:text-white flex items-center gap-2 flex-wrap">
                                   <span className="truncate">{o.event_name}</span>
                                   <Badge variant="outline" className="text-[10px]">{o.order_number}</Badge>
                                   {urgencyBadge && (
@@ -859,8 +863,8 @@ export default function KitchenPrepListPage() {
                                       {urgencyBadge.label}
                                     </Badge>
                                   )}
-                                </CardTitle>
-                                <CardDescription className="mt-1 flex flex-wrap items-center gap-3 text-xs">
+                                </h3>
+                                <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-slate-600 dark:text-slate-400">
                                   <span className="flex items-center gap-1">
                                     <Calendar className="w-3 h-3" />
                                     {new Date(o.event_date).toLocaleDateString("en-ZA", { weekday: "short", day: "numeric", month: "short" })}
@@ -873,17 +877,17 @@ export default function KitchenPrepListPage() {
                                   <span className="flex items-center gap-1">
                                     <Users className="w-3 h-3" /> {o.guest_count} pax
                                   </span>
-                                </CardDescription>
+                                </div>
                                 {meta?.venue_address && (
-                                  <p className="text-xs text-slate-500 flex items-center gap-1 mt-1">
+                                  <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1 mt-1">
                                     <MapPin className="w-3 h-3" />
                                     <span className="truncate">{meta.venue_address}</span>
                                   </p>
                                 )}
                               </div>
                             </div>
-                          </CardHeader>
-                          <CardContent className="space-y-3">
+                          </div>
+                          <div className="p-5 pt-0 space-y-3">
                             {/* Dietary + kitchen + special notes pulled from
                                 orders.* and shown inline so the chef sees
                                 allergens / no-pork / vegan etc. without
@@ -894,27 +898,27 @@ export default function KitchenPrepListPage() {
                             {(meta?.dietary_requirements || meta?.kitchen_instructions || meta?.special_instructions) && (
                               <div className="space-y-1.5">
                                 {meta?.dietary_requirements && (
-                                  <p className="text-[11px] text-red-800 bg-red-50 border border-red-200 rounded px-2 py-1.5 flex items-start gap-1.5">
-                                    <AlertTriangle className="w-3 h-3 mt-0.5 flex-shrink-0 text-red-600" />
+                                  <p className="text-[11px] text-rose-800 dark:text-rose-200 bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900 rounded px-2 py-1.5 flex items-start gap-1.5">
+                                    <AlertTriangle className="w-3 h-3 mt-0.5 flex-shrink-0 text-rose-600 dark:text-rose-500" />
                                     <span><span className="font-semibold">Allergens / dietary:</span> {meta.dietary_requirements}</span>
                                   </p>
                                 )}
                                 {meta?.kitchen_instructions && (
-                                  <p className="text-[11px] text-blue-800 bg-blue-50 border border-blue-200 rounded px-2 py-1.5 flex items-start gap-1.5">
-                                    <ChefHat className="w-3 h-3 mt-0.5 flex-shrink-0 text-blue-600" />
+                                  <p className="text-[11px] text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded px-2 py-1.5 flex items-start gap-1.5">
+                                    <ChefHat className="w-3 h-3 mt-0.5 flex-shrink-0 text-slate-500 dark:text-slate-400" />
                                     <span><span className="font-semibold">Kitchen note:</span> {meta.kitchen_instructions}</span>
                                   </p>
                                 )}
                                 {meta?.special_instructions && (
-                                  <p className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded px-2 py-1.5 flex items-start gap-1.5">
-                                    <Info className="w-3 h-3 mt-0.5 flex-shrink-0 text-amber-600" />
+                                  <p className="text-[11px] text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 rounded px-2 py-1.5 flex items-start gap-1.5">
+                                    <Info className="w-3 h-3 mt-0.5 flex-shrink-0 text-amber-600 dark:text-amber-500" />
                                     <span><span className="font-semibold">Note:</span> {meta.special_instructions}</span>
                                   </p>
                                 )}
                               </div>
                             )}
                             <div>
-                              <p className="text-[11px] uppercase tracking-wide text-slate-500 mb-1.5">
+                              <p className="text-[11px] uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-1.5">
                                 Menu ({menuItems.length})
                               </p>
                               <div className="flex flex-wrap gap-1">
@@ -935,33 +939,33 @@ export default function KitchenPrepListPage() {
                             */}
                             {Array.isArray(meta?.equipment_items) && meta.equipment_items.length > 0 && (
                               <div>
-                                <p className="text-[11px] uppercase tracking-wide text-slate-500 mb-1.5 flex items-center gap-1">
+                                <p className="text-[11px] uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-1.5 flex items-center gap-1">
                                   Equipment to pack ({meta.equipment_items.length})
                                 </p>
-                                <ul className="text-sm divide-y divide-slate-100">
+                                <ul className="text-sm divide-y divide-slate-100 dark:divide-slate-800">
                                   {meta.equipment_items.map((eq: any, i: number) => {
                                     const fromStock = Number(eq.from_stock_qty);
                                     const fromHire = Number(eq.from_hire_qty);
                                     const hasSplit = Number.isFinite(fromStock) && Number.isFinite(fromHire) && (fromStock > 0 || fromHire > 0);
                                     return (
                                       <li key={`${eq.equipment_id ?? "x"}_${i}`} className="py-1.5 flex flex-wrap items-center justify-between gap-2">
-                                        <span className="text-slate-700 min-w-0 flex-1 flex items-center gap-1.5 flex-wrap">
+                                        <span className="text-slate-700 dark:text-slate-300 min-w-0 flex-1 flex items-center gap-1.5 flex-wrap">
                                           <span className="truncate">{eq.name || "(unnamed)"}</span>
                                           {eq.category && (
-                                            <span className="text-[11px] text-slate-400">{eq.category}</span>
+                                            <span className="text-[11px] text-slate-400 dark:text-slate-500">{eq.category}</span>
                                           )}
                                           {hasSplit && fromStock > 0 && (
-                                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900">
                                               {fromStock} from stock
                                             </span>
                                           )}
                                           {hasSplit && fromHire > 0 && (
-                                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-300">
+                                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-300 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900">
                                               {fromHire} hire-in
                                             </span>
                                           )}
                                         </span>
-                                        <span className="text-xs font-semibold text-slate-900 flex-shrink-0">
+                                        <span className="text-xs font-semibold text-slate-900 dark:text-white flex-shrink-0">
                                           × {Number(eq.quantity) || 0}
                                         </span>
                                       </li>
@@ -971,7 +975,7 @@ export default function KitchenPrepListPage() {
                               </div>
                             )}
                             <div>
-                              <p className="text-[11px] uppercase tracking-wide text-slate-500 mb-1.5 flex items-center gap-1">
+                              <p className="text-[11px] uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-1.5 flex items-center gap-1">
                                 Ingredients to pull
                                 <InfoTooltip content="Quantity for this order, scaled to the guest count.\n\nA red warning is a real shortfall once you account for every other order using the same ingredient, not just this one." />
                               </p>
@@ -984,12 +988,12 @@ export default function KitchenPrepListPage() {
                                   1 #10). Without this header the
                                   chef has no anchor for why each
                                   number is what it is. */}
-                              <p className="text-[10px] text-slate-500 -mt-1 mb-2">
+                              <p className="text-[10px] text-slate-500 dark:text-slate-400 -mt-1 mb-2">
                                 Recipes scaled for{" "}
-                                <span className="font-semibold text-slate-700">{o.guest_count} guests</span>
+                                <span className="font-semibold text-slate-700 dark:text-slate-300">{o.guest_count} guests</span>
                                 {" - "}per-portion x guest_count.
                               </p>
-                              <ul className="text-sm divide-y divide-slate-100">
+                              <ul className="text-sm divide-y divide-slate-100 dark:divide-slate-800">
                                 {ingredients.map((ing) => {
                                   // Look up aggregated shortfall for this ingredient
                                   const aggKey = `${ing.ingredient_name.toLowerCase()}|${(ing.unit || "").toLowerCase()}`;
@@ -997,14 +1001,14 @@ export default function KitchenPrepListPage() {
                                   const isShortOverall = agg && agg.shortfall > 0;
                                   return (
                                     <li key={ing.ingredient_name} className="py-1.5 flex items-center justify-between gap-2">
-                                      <span className="text-slate-700 truncate">{ing.ingredient_name}</span>
+                                      <span className="text-slate-700 dark:text-slate-300 truncate">{ing.ingredient_name}</span>
                                       <span className="flex items-center gap-2 flex-shrink-0">
-                                        <span className="tabular-nums text-slate-900 font-medium">
+                                        <span className="tabular-nums text-slate-900 dark:text-white font-medium">
                                           {Number(ing.quantity).toFixed(ing.quantity % 1 === 0 ? 0 : 2)} {ing.unit}
                                         </span>
                                         {isShortOverall ? (
                                           <span title={`Short ${agg!.shortfall} ${agg!.unit} across ${agg!.used_by.length} orders`}>
-                                            <AlertTriangle className="w-3.5 h-3.5 text-red-500" />
+                                            <AlertTriangle className="w-3.5 h-3.5 text-rose-500" />
                                           </span>
                                         ) : agg ? (
                                           <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
@@ -1015,8 +1019,8 @@ export default function KitchenPrepListPage() {
                                 })}
                               </ul>
                             </div>
-                          </CardContent>
-                        </Card>
+                          </div>
+                        </PortalCard>
                       );
                     })}
                   </div>
@@ -1024,7 +1028,7 @@ export default function KitchenPrepListPage() {
               ))}
             </div>
           )}
-        </div>
+        </PortalShell>
         <Footer />
       </div>
     </>

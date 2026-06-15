@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { MapPin, Clock, Package, User, Phone, Navigation, RefreshCw, Star } from "lucide-react";
@@ -15,7 +14,7 @@ import { formatLocalTime } from "@/lib/localFormat";
 import { useToast } from "@/hooks/use-toast";
 import dynamic from "next/dynamic";
 import { ClientNav } from "@/components/navigation/ClientNav";
-import { ClientPageHeader } from "@/components/client-portal/ClientPageHeader";
+import { PortalShell, PortalHeader, PortalCard } from "@/components/portal/ui";
 import { BookingHeader } from "@/components/booking/BookingHeader";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -253,13 +252,17 @@ export default function ClientTracking() {
     setFeedbackModalOpen(true);
   };
 
+  // Restrained semantic tints: subtle bg + readable text + hairline
+  // border (plus dark variants) instead of solid colour + white text.
+  // in_transit stays emerald (live / on-the-way is a valid green);
+  // preparing + ready warm to amber; delivered settles to neutral slate.
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "in_transit": return "bg-emerald-500";
-      case "ready": return "bg-blue-500";
-      case "preparing": return "bg-amber-500";
-      case "delivered": return "bg-slate-500";
-      default: return "bg-slate-400";
+      case "in_transit": return "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900";
+      case "ready": return "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900";
+      case "preparing": return "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900";
+      case "delivered": return "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700";
+      default: return "bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700";
     }
   };
 
@@ -322,7 +325,6 @@ export default function ClientTracking() {
   // sidebar offset and responsive padding consistent so cards always
   // sit flush against the menu, and adds the mobile-header gap.
   const layoutShell = "min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 pb-20 lg:pl-72 xl:pl-80 pt-16 lg:pt-0";
-  const innerPadding = "px-4 sm:px-6 md:px-8 lg:px-10";
 
   if (loading) {
     return (
@@ -331,13 +333,26 @@ export default function ClientTracking() {
         <NoIndexMeta />
         <ClientNav />
         <div className={layoutShell}>
-          <ClientPageHeader title="Live tracking" subtitle="Watch your driver as they roll out." />
-          <div className={`${innerPadding} py-12 flex items-center justify-center`}>
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto mb-4"></div>
-              <p className="text-slate-600">Loading your deliveries...</p>
+          <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+            <PortalHeader
+              title="Live tracking"
+              subtitle="Watch your driver as they roll out."
+              icon={MapPin}
+            />
+            {/* Skeleton matches the loaded shape (booking strip + map +
+                sidebar list) so the layout doesn't jump on arrival. */}
+            <div className="space-y-6" aria-busy="true" aria-label="Loading your deliveries">
+              <div className="h-24 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm animate-pulse" />
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2 h-[500px] rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm animate-pulse" />
+                <div className="space-y-3">
+                  {[0, 1, 2].map((i) => (
+                    <div key={i} className="h-28 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm animate-pulse" />
+                  ))}
+                </div>
+              </div>
             </div>
-          </div>
+          </PortalShell>
         </div>
       </>
     );
@@ -354,19 +369,23 @@ export default function ClientTracking() {
         <NoIndexMeta />
         <ClientNav />
         <div className={layoutShell}>
-          <ClientPageHeader title="Live tracking" subtitle="Watch your driver as they roll out." />
-          <div className={`${innerPadding} py-8`}>
-            <Card className="border border-rose-200 shadow-sm">
-              <CardContent className="py-10 text-center">
-                <RefreshCw className="w-12 h-12 text-rose-400 mx-auto mb-3" />
-                <h3 className="text-lg font-semibold text-rose-900 mb-2">Couldn't load your deliveries</h3>
-                <p className="text-sm text-slate-600 max-w-md mx-auto mb-4">{loadError}</p>
-                <Button onClick={() => loadOrders()} className="bg-emerald-600 hover:bg-emerald-700">
+          <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+            <PortalHeader
+              title="Live tracking"
+              subtitle="Watch your driver as they roll out."
+              icon={MapPin}
+            />
+            <PortalCard className="border-rose-200 dark:border-rose-900/60">
+              <div className="py-10 text-center">
+                <RefreshCw className="w-12 h-12 text-rose-400 dark:text-rose-500 mx-auto mb-3" />
+                <h3 className="text-lg font-semibold text-rose-900 dark:text-rose-200 mb-2">Couldn't load your deliveries</h3>
+                <p className="text-sm text-slate-600 dark:text-slate-400 max-w-md mx-auto mb-4">{loadError}</p>
+                <Button onClick={() => loadOrders()} className="bg-amber-600 hover:bg-amber-700 text-white">
                   <RefreshCw className="w-4 h-4 mr-2" /> Try again
                 </Button>
-              </CardContent>
-            </Card>
-          </div>
+              </div>
+            </PortalCard>
+          </PortalShell>
         </div>
         <ChatBot userRole="client" />
       </>
@@ -384,30 +403,33 @@ export default function ClientTracking() {
         <ClientNav />
 
         <div className={layoutShell}>
-          <ClientPageHeader
-            title="Live tracking"
-            subtitle="Watch your driver as they roll out - map, ETA, and the option to call them direct."
-          />
-          <div className={`${innerPadding} py-8`}>
-            <Card className="border-0 shadow-sm">
-              <CardContent className="py-12 text-center">
-                <Package className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-                <h3 className="text-xl font-semibold mb-2">No live deliveries right now</h3>
-                <p className="text-slate-600 max-w-md mx-auto mb-4">
+          <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+            <PortalHeader
+              title="Live tracking"
+              subtitle="Watch your driver as they roll out - map, ETA, and the option to call them direct."
+              icon={MapPin}
+            />
+            <PortalCard padded={false}>
+              <div className="py-16 px-6 text-center">
+                <div className="w-16 h-16 mx-auto mb-4 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 flex items-center justify-center">
+                  <Package className="w-8 h-8 text-slate-400 dark:text-slate-500" />
+                </div>
+                <h3 className="text-xl font-semibold text-slate-900 dark:text-white mb-2">No live deliveries right now</h3>
+                <p className="text-slate-600 dark:text-slate-400 max-w-md mx-auto mb-5">
                   Live tracking opens up once your next event is being prepared.
                   Until then you can see all your bookings under &ldquo;My Orders&rdquo;.
                 </p>
                 <div className="inline-flex gap-2">
-                  <Button asChild className="bg-emerald-600 hover:bg-emerald-700">
+                  <Button asChild className="bg-amber-600 hover:bg-amber-700 text-white">
                     <Link href="/client-portal/my-orders">View my orders</Link>
                   </Button>
                   <Button asChild variant="outline">
                     <Link href="/client-portal/dashboard">Back to dashboard</Link>
                   </Button>
                 </div>
-              </CardContent>
-            </Card>
-          </div>
+              </div>
+            </PortalCard>
+          </PortalShell>
         </div>
         <ChatBot userRole="client" />
       </>
@@ -424,23 +446,24 @@ export default function ClientTracking() {
       <ClientNav />
 
       <div className={layoutShell}>
-        <ClientPageHeader
-          title="Live tracking"
-          subtitle="Real-time delivery tracking with driver pin and ETA."
-          rightSlot={
-            <Button
-              onClick={handleRefresh}
-              disabled={refreshing}
-              variant="outline"
-              className="bg-white/15 border-white/30 text-white hover:bg-white/25 hover:text-white"
-            >
-              <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? "animate-spin" : ""}`} />
-              Refresh
-            </Button>
-          }
-        />
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+          <PortalHeader
+            title="Live tracking"
+            subtitle="Real-time delivery tracking with driver pin and ETA."
+            icon={MapPin}
+            actions={
+              <Button
+                onClick={handleRefresh}
+                disabled={refreshing}
+                className="bg-amber-600 hover:bg-amber-700 text-white"
+              >
+                <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? "animate-spin" : ""}`} />
+                Refresh
+              </Button>
+            }
+          />
 
-        <div className={`${innerPadding} py-8 space-y-6`}>
+          <div className="space-y-6">
           {/* Wave 70.45c - canonical BookingHeader (client variant).
               Same component the client sees on every event document
               (quote, order tracking, order detail). Replaces the
@@ -468,154 +491,146 @@ export default function ClientTracking() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Live Map */}
             <div className="lg:col-span-2">
-              <Card>
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="flex items-center gap-2">
-                      <MapPin className="w-5 h-5 text-emerald-600" />
-                      Live Tracking
-                    </CardTitle>
-                    {selectedOrder && (
-                      <Badge className={`${getStatusColor(selectedOrder.status)} text-white`}>
-                        {getStatusLabel(selectedOrder.status)}
-                      </Badge>
+              <PortalCard>
+                <div className="mb-4 flex items-center justify-between gap-3">
+                  <h2 className="flex items-center gap-2 text-base font-semibold text-slate-900 dark:text-white">
+                    <MapPin className="w-5 h-5 text-amber-600 dark:text-amber-500" />
+                    Live Tracking
+                  </h2>
+                  {selectedOrder && (
+                    <Badge variant="outline" className={getStatusColor(selectedOrder.status)}>
+                      {getStatusLabel(selectedOrder.status)}
+                    </Badge>
+                  )}
+                </div>
+                {selectedOrder && selectedOrder.venue_lat && selectedOrder.venue_lng ? (
+                  <div className="h-[500px] relative">
+                    <ClientTrackingMap
+                      orderId={selectedOrder.id}
+                      driverLocation={driverLocation || undefined}
+                      venueLocation={{
+                        lat: selectedOrder.venue_lat,
+                        lng: selectedOrder.venue_lng,
+                        address: selectedOrder.venue_address,
+                      }}
+                      orderStatus={selectedOrder.status}
+                      estimatedArrival={selectedOrder.estimated_arrival}
+                      onLocationUpdate={handleLocationUpdate}
+                    />
+
+                    {/* Live indicator - emerald pulse signals "live". */}
+                    {selectedOrder.status === "in_transit" && driverLocation && (
+                      <div className="absolute top-4 right-4 bg-white dark:bg-slate-900 rounded-lg shadow-lg px-4 py-2 border-2 border-emerald-500 dark:border-emerald-600">
+                        <div className="flex items-center gap-2">
+                          <div className="w-3 h-3 bg-emerald-500 rounded-full animate-pulse"></div>
+                          <span className="text-sm font-medium text-slate-900 dark:text-white">Live Tracking</span>
+                        </div>
+                      </div>
                     )}
                   </div>
-                </CardHeader>
-                <CardContent>
-                  {selectedOrder && selectedOrder.venue_lat && selectedOrder.venue_lng ? (
-                    <div className="h-[500px] relative">
-                      <ClientTrackingMap
-                        orderId={selectedOrder.id}
-                        driverLocation={driverLocation || undefined}
-                        venueLocation={{
-                          lat: selectedOrder.venue_lat,
-                          lng: selectedOrder.venue_lng,
-                          address: selectedOrder.venue_address,
-                        }}
-                        orderStatus={selectedOrder.status}
-                        estimatedArrival={selectedOrder.estimated_arrival}
-                        onLocationUpdate={handleLocationUpdate}
-                      />
-                      
-                      {/* Live indicator */}
-                      {selectedOrder.status === "in_transit" && driverLocation && (
-                        <div className="absolute top-4 right-4 bg-white rounded-lg shadow-lg px-4 py-2 border-2 border-emerald-500">
-                          <div className="flex items-center gap-2">
-                            <div className="w-3 h-3 bg-emerald-500 rounded-full animate-pulse"></div>
-                            <span className="text-sm font-medium text-slate-900">Live Tracking</span>
-                          </div>
-                        </div>
-                      )}
+                ) : (
+                  <div className="h-[500px] flex items-center justify-center bg-slate-100 dark:bg-slate-800 rounded-lg">
+                    <div className="text-center">
+                      <MapPin className="w-12 h-12 text-slate-400 dark:text-slate-500 mx-auto mb-2" />
+                      <p className="text-slate-600 dark:text-slate-400">Location data not available</p>
                     </div>
-                  ) : (
-                    <div className="h-[500px] flex items-center justify-center bg-slate-100 rounded-lg">
-                      <div className="text-center">
-                        <MapPin className="w-12 h-12 text-slate-400 mx-auto mb-2" />
-                        <p className="text-slate-600">Location data not available</p>
-                      </div>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+                  </div>
+                )}
+              </PortalCard>
 
               {/* Driver Info Card */}
               {selectedOrder?.driver_name && (
-                <Card className="mt-6">
-                  <CardContent className="py-6">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                      <div className="flex items-center gap-3">
-                        <div className="bg-emerald-100 p-3 rounded-full">
-                          <User className="w-6 h-6 text-emerald-600" />
-                        </div>
-                        <div>
-                          <p className="text-sm text-slate-600">Your Driver</p>
-                          <p className="font-semibold">{selectedOrder.driver_name}</p>
-                        </div>
+                <PortalCard className="mt-6">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800">
+                        <User className="w-6 h-6 text-slate-500 dark:text-slate-400" />
                       </div>
-                      
-                      {selectedOrder.driver_phone && (
-                        <div className="flex items-center gap-3">
-                          <div className="bg-blue-100 p-3 rounded-full">
-                            <Phone className="w-6 h-6 text-blue-600" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm text-slate-600">Contact</p>
-                            <p className="font-semibold truncate">{selectedOrder.driver_phone}</p>
+                      <div>
+                        <p className="text-sm text-slate-600 dark:text-slate-400">Your Driver</p>
+                        <p className="font-semibold text-slate-900 dark:text-white">{selectedOrder.driver_name}</p>
+                      </div>
+                    </div>
+
+                    {selectedOrder.driver_phone && (
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800">
+                          <Phone className="w-6 h-6 text-slate-500 dark:text-slate-400" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm text-slate-600 dark:text-slate-400">Contact</p>
+                          <p className="font-semibold truncate text-slate-900 dark:text-white tabular-nums">{selectedOrder.driver_phone}</p>
                             {/* Tap-to-call + WhatsApp - closes the audit gap
                                 "client sees driver phone but cannot message".
                                 Mirrors the driver-side bridge on /team-portal/driver/deliveries. */}
-                            <div className="flex items-center gap-2 mt-1.5">
-                              <a
-                                href={`tel:${String(selectedOrder.driver_phone).replace(/[^+\d]/g, "")}`}
-                                className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-slate-200 hover:bg-slate-50 text-slate-700"
-                              >
-                                📞 Call
-                              </a>
-                              <a
-                                href={`https://wa.me/${String(selectedOrder.driver_phone).replace(/[^\d]/g, "")}?text=${encodeURIComponent(
-                                  `Hi, I'm the client for ${selectedOrder.order_number || "this delivery"}. Quick question --`,
-                                )}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-700"
-                              >
-                                💬 WhatsApp
-                              </a>
-                            </div>
+                          <div className="flex items-center gap-2 mt-1.5">
+                            <a
+                              href={`tel:${String(selectedOrder.driver_phone).replace(/[^+\d]/g, "")}`}
+                              className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-slate-200 hover:bg-slate-50 text-slate-700 transition-colors dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                            >
+                              📞 Call
+                            </a>
+                            <a
+                              href={`https://wa.me/${String(selectedOrder.driver_phone).replace(/[^\d]/g, "")}?text=${encodeURIComponent(
+                                `Hi, I'm the client for ${selectedOrder.order_number || "this delivery"}. Quick question --`,
+                              )}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 transition-colors dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-950/60"
+                            >
+                              💬 WhatsApp
+                            </a>
                           </div>
                         </div>
-                      )}
-                      
-                      <div className="flex items-center gap-3">
-                        <div className="bg-amber-100 p-3 rounded-full">
-                          <Clock className="w-6 h-6 text-amber-600" />
-                        </div>
-                        <div>
-                          <p className="text-sm text-slate-600">Estimated Arrival</p>
-                          <p className="font-semibold">{calculateETA(selectedOrder)}</p>
-                        </div>
+                      </div>
+                    )}
+
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800">
+                        <Clock className="w-6 h-6 text-slate-500 dark:text-slate-400" />
+                      </div>
+                      <div>
+                        <p className="text-sm text-slate-600 dark:text-slate-400">Estimated Arrival</p>
+                        <p className="font-semibold text-slate-900 dark:text-white tabular-nums">{calculateETA(selectedOrder)}</p>
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
+                  </div>
+                </PortalCard>
               )}
             </div>
 
             {/* Order List Sidebar */}
             <div>
-              <Card>
-                <CardHeader>
-                  <CardTitle>Your Orders</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
+              <PortalCard>
+                <h2 className="mb-4 text-base font-semibold text-slate-900 dark:text-white">Your Orders</h2>
+                <div className="space-y-3">
                   {orders.map((order) => (
                     <div
                       key={order.id}
                       onClick={() => handleOrderSelect(order)}
-                      className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                      className={`p-4 rounded-xl border-2 cursor-pointer transition-colors ${
                         selectedOrder?.id === order.id
-                          ? "border-emerald-500 bg-emerald-50"
-                          : "border-slate-200 hover:border-slate-300"
+                          ? "border-amber-500 bg-amber-50 dark:bg-amber-950/40 dark:border-amber-600"
+                          : "border-slate-200 hover:border-slate-300 dark:border-slate-700 dark:hover:border-slate-600"
                       }`}
                     >
-                      <div className="flex items-start justify-between mb-2">
-                        <div>
-                          <p className="font-semibold">{order.client_name}</p>
-                          <p className="text-sm text-slate-600">{order.venue_address}</p>
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <div className="min-w-0">
+                          <p className="font-semibold text-slate-900 dark:text-white truncate">{order.client_name}</p>
+                          <p className="text-sm text-slate-600 dark:text-slate-400">{order.venue_address}</p>
                         </div>
-                        <Badge className={`${getStatusColor(order.status)} text-white text-xs`}>
+                        <Badge variant="outline" className={`${getStatusColor(order.status)} text-xs shrink-0`}>
                           {getStatusLabel(order.status)}
                         </Badge>
                       </div>
-                      
-                      <div className="flex items-center gap-4 text-sm text-slate-600 mt-3">
+
+                      <div className="flex items-center gap-4 text-sm text-slate-600 dark:text-slate-400 mt-3">
                         <div className="flex items-center gap-1">
                           <Clock className="w-4 h-4" />
-                          <span>{formatLocalTime(order.delivery_time)}</span>
+                          <span className="tabular-nums">{formatLocalTime(order.delivery_time)}</span>
                         </div>
                         {order.status === "in_transit" && (
-                          <div className="flex items-center gap-1 text-emerald-600 font-medium">
+                          <div className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-medium">
                             <Navigation className="w-4 h-4" />
                             <span>En route</span>
                           </div>
@@ -639,15 +654,16 @@ export default function ClientTracking() {
                       )}
                     </div>
                   ))}
-                  
-                  <div className="pt-3 border-t text-center text-xs text-slate-500">
-                    Last updated: {formatLocalTime(lastRefresh)}
+
+                  <div className="pt-3 border-t border-slate-200 dark:border-slate-800 text-center text-xs text-slate-500 dark:text-slate-400">
+                    Last updated: <span className="tabular-nums">{formatLocalTime(lastRefresh)}</span>
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+              </PortalCard>
             </div>
           </div>
-        </div>
+          </div>
+        </PortalShell>
       </div>
 
       {/* Feedback Modal */}

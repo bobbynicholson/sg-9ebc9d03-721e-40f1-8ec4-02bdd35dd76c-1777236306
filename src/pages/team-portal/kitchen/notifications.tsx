@@ -1,6 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
 import Head from "next/head";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Bell, Check, Loader2, AlertCircle, AlertTriangle, Info, CheckCircle2, Archive } from "lucide-react";
@@ -12,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { formatDistanceToNow } from "date-fns";
 import { effectivePriority, isStaleNotification, STALE_NOTIFICATION_DAYS } from "@/lib/notificationDisplay";
+import { PortalShell, PortalHeader, PortalCard } from "@/components/portal/ui";
 
 interface Notification {
   id: string;
@@ -147,72 +147,85 @@ export default function KitchenNotificationsPage() {
       <Head><title>Kitchen notifications - CateringMS</title></Head>
       <NoIndexMeta />
       <KitchenNav />
-      <main className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
-        <div className="px-3 sm:px-4 md:px-6 py-6 sm:py-8 max-w-full">
-          <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-6">
-            <div>
-              <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent flex items-center gap-3">
-                <Bell className="h-7 w-7 text-orange-600" />
-                Kitchen Notifications
+      <main className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+          <PortalHeader
+            title={
+              <span className="flex items-center gap-2">
+                Notifications
                 <InfoTooltip content="Your last 100 alerts.\n\nIncludes anything sent to you personally or to the kitchen team." />
-              </h1>
-              <p className="text-sm text-slate-600 mt-1">Dispatch alerts, prep updates and orders coming in</p>
-            </div>
-            <div className="flex items-center gap-2 flex-wrap">
-              {staleCount > 0 && (
-                <Button variant="outline" size="sm" onClick={onClearStale} title={`Delete notifications older than ${STALE_NOTIFICATION_DAYS} days`}>
-                  <Archive className="h-4 w-4 mr-2" />
-                  Clear stale ({staleCount})
-                </Button>
-              )}
-              {unreadCount > 0 && (
-                <Button variant="outline" size="sm" onClick={markAllRead}>
-                  <Check className="h-4 w-4 mr-2" />Mark all read
-                </Button>
-              )}
-            </div>
-          </div>
+              </span>
+            }
+            subtitle="Dispatch alerts, prep updates and orders coming in"
+            icon={Bell}
+            actions={
+              <>
+                {staleCount > 0 && (
+                  <Button variant="outline" size="sm" onClick={onClearStale} title={`Delete notifications older than ${STALE_NOTIFICATION_DAYS} days`}>
+                    <Archive className="h-4 w-4 mr-2" />
+                    Clear stale ({staleCount})
+                  </Button>
+                )}
+                {unreadCount > 0 && (
+                  <Button variant="outline" size="sm" onClick={markAllRead}>
+                    <Check className="h-4 w-4 mr-2" />Mark all read
+                  </Button>
+                )}
+              </>
+            }
+          />
 
           <div className="flex gap-2 mb-4">
-            <Button variant={tab === "all" ? "default" : "outline"} size="sm" onClick={() => setTab("all")} className={tab === "all" ? "bg-orange-600 hover:bg-orange-700" : ""}>
+            <Button variant={tab === "all" ? "default" : "outline"} size="sm" onClick={() => setTab("all")} className={tab === "all" ? "bg-amber-600 hover:bg-amber-700 text-white" : ""}>
               All
             </Button>
-            <Button variant={tab === "unread" ? "default" : "outline"} size="sm" onClick={() => setTab("unread")} className={tab === "unread" ? "bg-orange-600 hover:bg-orange-700" : ""}>
+            <Button variant={tab === "unread" ? "default" : "outline"} size="sm" onClick={() => setTab("unread")} className={tab === "unread" ? "bg-amber-600 hover:bg-amber-700 text-white" : ""}>
               Unread {unreadCount > 0 && <span className="ml-1.5 bg-white/20 px-1.5 rounded text-[10px] tabular-nums">{unreadCount}</span>}
             </Button>
           </div>
 
-          <Card>
-            <CardContent className="p-0">
+          <PortalCard padded={false}>
               {loading ? (
-                <div className="flex items-center justify-center py-16 text-slate-500"><Loader2 className="h-5 w-5 animate-spin mr-2" /> Loading...</div>
+                <ul className="divide-y divide-slate-100 dark:divide-slate-800" aria-busy="true" aria-label="Loading notifications">
+                  {[0, 1, 2, 3, 4].map((i) => (
+                    <li key={i} className="flex items-start gap-3 p-4">
+                      <div className="h-5 w-5 shrink-0 rounded animate-pulse motion-reduce:animate-none bg-slate-200 dark:bg-slate-800" />
+                      <div className="min-w-0 flex-1 space-y-2">
+                        <div className="h-3.5 w-40 max-w-[50%] rounded animate-pulse motion-reduce:animate-none bg-slate-200 dark:bg-slate-800" />
+                        <div className="h-3 w-64 max-w-[80%] rounded animate-pulse motion-reduce:animate-none bg-slate-100 dark:bg-slate-800/60" />
+                      </div>
+                    </li>
+                  ))}
+                </ul>
               ) : notifs.length === 0 ? (
-                <div className="text-center py-16 text-slate-500">
-                  <Bell className="h-10 w-10 mx-auto mb-3 text-slate-300" />
-                  <p className="font-medium">{tab === "unread" ? "No unread notifications" : "No notifications yet"}</p>
-                  <p className="text-xs mt-1">You're all caught up</p>
+                <div className="text-center py-16 px-6">
+                  <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800">
+                    <Bell className="h-6 w-6 text-slate-400 dark:text-slate-500" />
+                  </div>
+                  <p className="font-semibold text-slate-900 dark:text-white">{tab === "unread" ? "No unread notifications" : "No notifications yet"}</p>
+                  <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">You're all caught up. New alerts for you or the kitchen team will land here.</p>
                 </div>
               ) : (
-                <ul className="divide-y divide-slate-100">
+                <ul className="divide-y divide-slate-100 dark:divide-slate-800">
                   {notifs.map((n) => {
                     // Wave 24: degrade displayed priority on stale rows.
                     const displayedPriority = effectivePriority(n.priority, n.created_at);
                     const Icon = priorityIcon(displayedPriority);
                     const tone = priorityTone(displayedPriority);
                     return (
-                      <li key={n.id} className={`p-4 flex items-start gap-3 ${n.is_read ? "bg-white" : "bg-orange-50/50"}`}>
+                      <li key={n.id} className={`p-4 flex items-start gap-3 ${n.is_read ? "bg-white dark:bg-slate-900" : "bg-amber-50/50 dark:bg-amber-950/20"}`}>
                         <Icon className={`h-5 w-5 ${tone} flex-shrink-0 mt-0.5`} />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-start justify-between gap-2">
-                            <div className="font-medium text-slate-900">{n.title ?? "Notification"}</div>
-                            <span className="text-[11px] text-slate-500 flex-shrink-0">
+                            <div className="font-medium text-slate-900 dark:text-white">{n.title ?? "Notification"}</div>
+                            <span className="text-[11px] text-slate-500 dark:text-slate-400 flex-shrink-0 tabular-nums">
                               {n.created_at ? formatDistanceToNow(new Date(n.created_at), { addSuffix: true }) : ""}
                             </span>
                           </div>
-                          {n.message && <p className="text-sm text-slate-600 mt-1">{n.message}</p>}
+                          {n.message && <p className="text-sm text-slate-600 dark:text-slate-300 mt-1">{n.message}</p>}
                           <div className="flex items-center gap-2 mt-2">
                             {(n.type || n.notification_type) && (
-                              <Badge variant="outline" className="text-[10px] bg-slate-100 text-slate-700 border-slate-200">
+                              <Badge variant="outline" className="text-[10px] bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700">
                                 {n.type ?? n.notification_type}
                               </Badge>
                             )}
@@ -222,7 +235,7 @@ export default function KitchenNotificationsPage() {
                               </Button>
                             )}
                             {(n.link || n.action_url) && (
-                              <a href={n.link ?? n.action_url ?? "#"} className="text-[11px] text-orange-600 hover:underline">
+                              <a href={n.link ?? n.action_url ?? "#"} className="text-[11px] text-amber-700 dark:text-amber-400 hover:underline underline-offset-2">
                                 Open
                               </a>
                             )}
@@ -233,9 +246,8 @@ export default function KitchenNotificationsPage() {
                   })}
                 </ul>
               )}
-            </CardContent>
-          </Card>
-        </div>
+          </PortalCard>
+        </PortalShell>
       </main>
     </>
   );

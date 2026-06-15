@@ -1226,7 +1226,7 @@ function NewQuotePage() {
               payload.lead_id = (existingLead as any).id;
             }
           }
-          // Still no lead_id — create a new one with whatever we have.
+          // Still no lead_id - create a new one with whatever we have.
           if (!payload.lead_id && clientName) {
             const { data: newLead, error: newLeadErr } = await supabase
               .from("leads")
@@ -1342,7 +1342,7 @@ function NewQuotePage() {
           payload.status = "accepted";
           (dbOverride as any).status = "accepted";
         }
-        // Never null out lead_id / client_id on UPDATE — these FKs are
+        // Never null out lead_id / client_id on UPDATE - these FKs are
         // set on INSERT and must satisfy quote_has_lead_or_client for the
         // lifetime of the quote. leadId comes from the URL query param
         // (only present on create-from-lead), so it's null on every edit.

@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import Head from "next/head";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,6 +8,7 @@ import { Settings as SettingsIcon, Save, Loader2, Camera, AlertTriangle, ListChe
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { CleaningNav } from "@/components/navigation/CleaningNav";
+import { PortalShell, PortalHeader, PortalCard } from "@/components/portal/ui";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 
@@ -82,116 +82,118 @@ export default function CleaningSettingsPage() {
       <Head><title>Cleaning settings - CateringMS</title></Head>
       <NoIndexMeta />
       <CleaningNav />
-      <main className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 via-white to-cyan-50 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
-        <div className="px-3 sm:px-4 md:px-6 py-6 sm:py-8 max-w-3xl">
-          <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-6">
-            {/* Wave 38: gradient-box icon header. */}
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center shadow-md flex-shrink-0">
-                <SettingsIcon className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
+      <main className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <PortalShell width="narrow" className="min-h-0 bg-transparent dark:bg-transparent">
+          <PortalHeader
+            title="Cleaning settings"
+            subtitle="Configure cleaning workflow defaults for this catering company"
+            icon={SettingsIcon}
+            actions={
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={resetDefaults}>Reset</Button>
+                <Button size="sm" onClick={save} disabled={saving || !loaded} className="bg-amber-600 hover:bg-amber-700">
+                  {saving ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving</> : <><Save className="h-4 w-4 mr-2" />Save</>}
+                </Button>
               </div>
-              <div className="min-w-0">
-                <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold bg-gradient-to-r from-cyan-600 to-blue-600 bg-clip-text text-transparent">
-                  Cleaning Settings
-                </h1>
-                <p className="text-sm text-slate-600 mt-0.5">Configure cleaning workflow defaults for this catering company</p>
-              </div>
-            </div>
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={resetDefaults}>Reset</Button>
-              <Button size="sm" onClick={save} disabled={saving || !loaded} className="bg-cyan-600 hover:bg-cyan-700">
-                {saving ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving</> : <><Save className="h-4 w-4 mr-2" />Save</>}
-              </Button>
-            </div>
-          </div>
+            }
+          />
 
           <div className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base flex items-center gap-2"><Camera className="h-4 w-4 text-cyan-600" />Photo evidence <InfoTooltip content="Forces staff to attach a photo before they can finish an equipment check or a damage report.\n\nSaved on this device only." /></CardTitle>
-                <CardDescription>Force staff to attach a photo when verifying or reporting damage</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
+            <PortalCard>
+              <div className="mb-4">
+                <h2 className="text-base font-semibold flex items-center gap-2 text-slate-900 dark:text-white">
+                  <Camera className="h-4 w-4 text-slate-400 dark:text-slate-500" />Photo evidence
+                  <InfoTooltip content="Forces staff to attach a photo before they can finish an equipment check or a damage report.\n\nSaved on this device only." />
+                </h2>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Force staff to attach a photo when verifying or reporting damage</p>
+              </div>
+              <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="min-w-0">
-                    <Label htmlFor="prv">Require photo on equipment verification</Label>
-                    <p className="text-xs text-slate-500 mt-0.5">Verification cannot save without a photo of returned items</p>
+                    <Label htmlFor="prv" className="text-slate-900 dark:text-white">Require photo on equipment verification</Label>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Verification cannot save without a photo of returned items</p>
                   </div>
                   <Switch id="prv" checked={settings.photoRequiredForVerify} onCheckedChange={(v) => update("photoRequiredForVerify", v)} />
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="min-w-0">
-                    <Label htmlFor="prd">Require photo on damage report</Label>
-                    <p className="text-xs text-slate-500 mt-0.5">Damage reports cannot save without photographic evidence</p>
+                    <Label htmlFor="prd" className="text-slate-900 dark:text-white">Require photo on damage report</Label>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Damage reports cannot save without photographic evidence</p>
                   </div>
                   <Switch id="prd" checked={settings.photoRequiredForDamage} onCheckedChange={(v) => update("photoRequiredForDamage", v)} />
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </PortalCard>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-amber-600" />Damage and billing <InfoTooltip content="Controls how missing or damaged items get costed, and which damage reports get pushed straight to the company admin.\n\nSaved on this device only." /></CardTitle>
-                <CardDescription>How missing or damaged items get costed and reported</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
+            <PortalCard>
+              <div className="mb-4">
+                <h2 className="text-base font-semibold flex items-center gap-2 text-slate-900 dark:text-white">
+                  <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-500" />Damage and billing
+                  <InfoTooltip content="Controls how missing or damaged items get costed, and which damage reports get pushed straight to the company admin.\n\nSaved on this device only." />
+                </h2>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">How missing or damaged items get costed and reported</p>
+              </div>
+              <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="min-w-0">
-                    <Label htmlFor="abm">Auto-bill client for missing items</Label>
-                    <p className="text-xs text-slate-500 mt-0.5">Missing items charged at replacement cost on the order's invoice</p>
+                    <Label htmlFor="abm" className="text-slate-900 dark:text-white">Auto-bill client for missing items</Label>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Missing items charged at replacement cost on the order's invoice</p>
                   </div>
                   <Switch id="abm" checked={settings.autoBillMissing} onCheckedChange={(v) => update("autoBillMissing", v)} />
                 </div>
                 <div>
-                  <Label htmlFor="cost-mult">Replacement cost multiplier</Label>
-                  <p className="text-xs text-slate-500 mt-0.5 mb-2">Multiplier applied to base replacement_cost when billing, e.g. 1.0 for cost, 1.5 to recover handling</p>
+                  <Label htmlFor="cost-mult" className="text-slate-900 dark:text-white">Replacement cost multiplier</Label>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 mb-2">Multiplier applied to base replacement_cost when billing, e.g. 1.0 for cost, 1.5 to recover handling</p>
                   <Input id="cost-mult" type="number" step="0.01" min="0" value={settings.defaultReplacementCostMultiplier}
                     onChange={(e) => update("defaultReplacementCostMultiplier", Number(e.target.value))} className="w-32" />
                 </div>
                 <div>
-                  <Label htmlFor="dmg-thr">Auto-escalate damage threshold (R)</Label>
-                  <p className="text-xs text-slate-500 mt-0.5 mb-2">Damage reports above this value notify the company admin immediately</p>
+                  <Label htmlFor="dmg-thr" className="text-slate-900 dark:text-white">Auto-escalate damage threshold (R)</Label>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 mb-2">Damage reports above this value notify the company admin immediately</p>
                   <Input id="dmg-thr" type="number" min="0" step="100" value={settings.damageThresholdR}
                     onChange={(e) => update("damageThresholdR", Number(e.target.value))} className="w-32" />
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="min-w-0">
-                    <Label htmlFor="adn">Notify admin on damage report</Label>
-                    <p className="text-xs text-slate-500 mt-0.5">Push a notification to the company admin's portal whenever damage is logged</p>
+                    <Label htmlFor="adn" className="text-slate-900 dark:text-white">Notify admin on damage report</Label>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Push a notification to the company admin's portal whenever damage is logged</p>
                   </div>
                   <Switch id="adn" checked={settings.notifyAdminOnDamage} onCheckedChange={(v) => update("notifyAdminOnDamage", v)} />
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </PortalCard>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base flex items-center gap-2"><ListChecks className="h-4 w-4 text-emerald-600" />Schedules + supplies <InfoTooltip content="Defaults used when you create a new cleaning schedule, plus the alert that goes to shopping when supplies run low.\n\nSaved on this device only." /></CardTitle>
-                <CardDescription>Defaults for new schedules and the low-stock signal</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
+            <PortalCard>
+              <div className="mb-4">
+                <h2 className="text-base font-semibold flex items-center gap-2 text-slate-900 dark:text-white">
+                  <ListChecks className="h-4 w-4 text-slate-400 dark:text-slate-500" />Schedules + supplies
+                  <InfoTooltip content="Defaults used when you create a new cleaning schedule, plus the alert that goes to shopping when supplies run low.\n\nSaved on this device only." />
+                </h2>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Defaults for new schedules and the low-stock signal</p>
+              </div>
+              <div className="space-y-4">
                 <div>
-                  <Label htmlFor="ddt">Default daily start time</Label>
-                  <p className="text-xs text-slate-500 mt-0.5 mb-2">Pre-fills the time field when creating a new daily schedule</p>
+                  <Label htmlFor="ddt" className="text-slate-900 dark:text-white">Default daily start time</Label>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 mb-2">Pre-fills the time field when creating a new daily schedule</p>
                   <Input id="ddt" type="time" value={settings.defaultDailyTime} onChange={(e) => update("defaultDailyTime", e.target.value)} className="w-32" />
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="min-w-0">
-                    <Label htmlFor="nso">Notify shopping team on low cleaning supplies</Label>
-                    <p className="text-xs text-slate-500 mt-0.5">When a cleaning consumable hits par, push to the shopping portal</p>
+                    <Label htmlFor="nso" className="text-slate-900 dark:text-white">Notify shopping team on low cleaning supplies</Label>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">When a cleaning consumable hits par, push to the shopping portal</p>
                   </div>
                   <Switch id="nso" checked={settings.notifyShoppingOnLowStock} onCheckedChange={(v) => update("notifyShoppingOnLowStock", v)} />
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </PortalCard>
 
-            <Card className="bg-slate-50 border-slate-200">
-              <CardContent className="p-4 text-xs text-slate-600">
+            <PortalCard className="bg-slate-50 dark:bg-slate-800/50">
+              <p className="text-xs text-slate-600 dark:text-slate-400">
                 Settings stored locally per company until a `companies.cleaning_settings` JSON column is added. Your toggles will persist on this device but won't sync to other staff devices yet, this is on the running todo for Phase 2.
-              </CardContent>
-            </Card>
+              </p>
+            </PortalCard>
           </div>
-        </div>
+        </PortalShell>
       </main>
     </>
   );

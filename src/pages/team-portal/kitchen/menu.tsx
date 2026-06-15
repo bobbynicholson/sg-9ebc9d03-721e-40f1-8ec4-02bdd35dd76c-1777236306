@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import Head from "next/head";
-import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
@@ -17,6 +16,7 @@ import { KitchenNav } from "@/components/navigation/KitchenNav";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { PortalShell, PortalHeader, PortalCard } from "@/components/portal/ui";
 
 interface MenuItem {
   id: string;
@@ -45,14 +45,18 @@ interface Ingredient {
   notes: string | null;
 }
 
+// Dietary tags are informational labels, not status, so they read as
+// quiet neutral chips. The default fallback below catches anything not
+// listed here with the same neutral slate treatment.
+const NEUTRAL_TAG = "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700";
 const dietaryTone: Record<string, string> = {
-  vegan:        "bg-green-100 text-green-800 border-green-200",
-  vegetarian:   "bg-green-100 text-green-800 border-green-200",
-  halal:        "bg-emerald-100 text-emerald-800 border-emerald-200",
-  kosher:       "bg-blue-100 text-blue-800 border-blue-200",
-  "gluten-free":"bg-amber-100 text-amber-800 border-amber-200",
-  "dairy-free": "bg-amber-100 text-amber-800 border-amber-200",
-  "nut-free":   "bg-rose-100 text-rose-800 border-rose-200",
+  vegan:        NEUTRAL_TAG,
+  vegetarian:   NEUTRAL_TAG,
+  halal:        NEUTRAL_TAG,
+  kosher:       NEUTRAL_TAG,
+  "gluten-free":NEUTRAL_TAG,
+  "dairy-free": NEUTRAL_TAG,
+  "nut-free":   NEUTRAL_TAG,
 };
 
 export default function KitchenMenuItemsPage() {
@@ -159,57 +163,60 @@ export default function KitchenMenuItemsPage() {
       <Head><title>Menu items - CateringMS</title></Head>
       <NoIndexMeta />
       <KitchenNav />
-      <main className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
-        <div className="px-3 sm:px-4 md:px-6 py-6 sm:py-8 max-w-full">
-          <div className="mb-6">
-            <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent flex items-center gap-3">
-              <BookOpen className="h-7 w-7 text-orange-600" />
-              Menu Items
-            </h1>
-            <p className="text-sm text-slate-600 mt-1">Recipes the kitchen owns, click any dish for ingredients and prep notes</p>
-          </div>
+      <main className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+          <PortalHeader
+            title="Menu items"
+            subtitle="Recipes the kitchen owns, click any dish for ingredients and prep notes"
+            icon={BookOpen}
+          />
 
-          <Card className="mb-6">
-            <CardContent className="p-4 flex flex-col sm:flex-row gap-3">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                <Input placeholder="Search by name, category, dietary tag..." className="pl-9" value={search} onChange={(e) => setSearch(e.target.value)} />
-              </div>
-              <Select value={category} onValueChange={setCategory}>
-                <SelectTrigger className="w-full sm:w-[200px]"><SelectValue placeholder="Category" /></SelectTrigger>
-                <SelectContent>{categories.map((c) => <SelectItem key={c} value={c}>{c === "all" ? "All categories" : c}</SelectItem>)}</SelectContent>
-              </Select>
-            </CardContent>
-          </Card>
+          <PortalCard className="mb-6 flex flex-col gap-3 sm:flex-row" padded>
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 dark:text-slate-500" />
+              <Input placeholder="Search by name, category, dietary tag..." className="pl-9" value={search} onChange={(e) => setSearch(e.target.value)} />
+            </div>
+            <Select value={category} onValueChange={setCategory}>
+              <SelectTrigger className="w-full sm:w-[200px]"><SelectValue placeholder="Category" /></SelectTrigger>
+              <SelectContent>{categories.map((c) => <SelectItem key={c} value={c}>{c === "all" ? "All categories" : c}</SelectItem>)}</SelectContent>
+            </Select>
+          </PortalCard>
 
           {loading ? (
-            <div className="flex items-center justify-center py-16 text-slate-500"><Loader2 className="h-5 w-5 animate-spin mr-2" /> Loading menu...</div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3" aria-busy="true" aria-label="Loading menu">
+              {[0, 1, 2, 3, 4, 5].map((i) => (
+                <div key={i} className="h-56 rounded-2xl border border-slate-200/80 bg-white shadow-sm animate-pulse motion-reduce:animate-none dark:border-slate-800 dark:bg-slate-900" />
+              ))}
+            </div>
           ) : filtered.length === 0 ? (
-            <Card>
-              <CardContent className="text-center py-16 text-slate-500">
-                <BookOpen className="h-10 w-10 mx-auto mb-3 text-slate-300" />
-                <p className="font-medium">No menu items match the current filter</p>
-              </CardContent>
-            </Card>
+            <PortalCard padded={false}>
+              <div className="py-16 px-6 text-center">
+                <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800">
+                  <BookOpen className="h-6 w-6 text-slate-400 dark:text-slate-500" />
+                </div>
+                <p className="font-semibold text-slate-900 dark:text-white">No menu items match the current filter</p>
+                <p className="mt-1.5 text-sm text-slate-600 dark:text-slate-400 max-w-md mx-auto">Try a different category or clear the search to see the full recipe library.</p>
+              </div>
+            </PortalCard>
           ) : (
             <div className="space-y-6">
               {Object.entries(grouped).map(([cat, list]) => (
                 <div key={cat}>
-                  <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 px-1">{cat}, {list.length}</h2>
+                  <h2 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 px-1">{cat}, {list.length}</h2>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     {list.map((i) => (
-                      <button key={i.id} onClick={() => loadIngredients(i)} className="text-left bg-white rounded-lg border border-slate-200 hover:border-orange-300 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-150 overflow-hidden">
-                        <div className="aspect-[16/9] bg-slate-100 flex items-center justify-center overflow-hidden">
+                      <button key={i.id} onClick={() => loadIngredients(i)} className="text-left bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_10px_30px_-16px_rgba(15,23,42,0.12)] hover:border-amber-300 dark:hover:border-amber-600 hover:-translate-y-0.5 transition-[box-shadow,border-color,transform] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:transform-none motion-reduce:transition-none overflow-hidden">
+                        <div className="aspect-[16/9] bg-slate-100 dark:bg-slate-800 flex items-center justify-center overflow-hidden">
                           {i.image_url ? (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img src={i.image_url} alt={i.item_name ?? ""} className="w-full h-full object-cover" />
                           ) : (
-                            <ImageOff className="h-8 w-8 text-slate-300" />
+                            <ImageOff className="h-8 w-8 text-slate-300 dark:text-slate-600" />
                           )}
                         </div>
                         <div className="p-3">
                           <div className="flex items-start justify-between gap-2 mb-1">
-                            <div className="font-medium text-slate-900 truncate flex-1">{i.item_name}</div>
+                            <div className="font-medium text-slate-900 dark:text-white truncate flex-1">{i.item_name}</div>
                             {/* Price chip removed for kitchen staff.
                                 Audit (May 2026) classified per-dish
                                 client price + margin chip as finance
@@ -218,16 +225,16 @@ export default function KitchenMenuItemsPage() {
                                 full margin breakdown still lives on
                                 /admin/menu for owners. */}
                           </div>
-                          {i.description && <p className="text-xs text-slate-600 line-clamp-2 mb-2">{i.description}</p>}
+                          {i.description && <p className="text-xs text-slate-600 dark:text-slate-400 line-clamp-2 mb-2">{i.description}</p>}
                           <div className="flex flex-wrap items-center gap-1.5">
                             {(i.dietary_tags || []).slice(0, 3).map((t) => (
-                              <Badge key={t} variant="outline" className={`text-[10px] ${dietaryTone[t] ?? "bg-slate-100 text-slate-700 border-slate-200"}`}>{t}</Badge>
+                              <Badge key={t} variant="outline" className={`text-[10px] ${dietaryTone[t] ?? NEUTRAL_TAG}`}>{t}</Badge>
                             ))}
                             {i.base_servings && (
-                              <span className="text-[10px] text-slate-500 flex items-center gap-1"><UsersIcon className="h-3 w-3" />{i.base_servings}</span>
+                              <span className="text-[10px] text-slate-500 dark:text-slate-400 flex items-center gap-1"><UsersIcon className="h-3 w-3" />{i.base_servings}</span>
                             )}
                             {(i.prep_time_minutes || i.cook_time_minutes) && (
-                              <span className="text-[10px] text-slate-500 flex items-center gap-1">
+                              <span className="text-[10px] text-slate-500 dark:text-slate-400 flex items-center gap-1">
                                 <Clock className="h-3 w-3" />{Number(i.prep_time_minutes || 0) + Number(i.cook_time_minutes || 0)}m
                               </span>
                             )}
@@ -240,7 +247,7 @@ export default function KitchenMenuItemsPage() {
               ))}
             </div>
           )}
-        </div>
+        </PortalShell>
       </main>
 
       <Dialog open={!!selected} onOpenChange={(o) => !o && setSelected(null)}>
@@ -255,52 +262,52 @@ export default function KitchenMenuItemsPage() {
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={selected.image_url} alt={selected.item_name ?? ""} className="w-full max-h-60 object-cover rounded-lg" />
               )}
-              {selected.description && <p className="text-sm text-slate-700">{selected.description}</p>}
+              {selected.description && <p className="text-sm text-slate-700 dark:text-slate-300">{selected.description}</p>}
               <div className="grid grid-cols-3 gap-3">
-                <div className="bg-slate-50 rounded p-3 text-center">
-                  <div className="text-xs text-slate-500">Servings</div>
-                  <div className="text-lg font-bold tabular-nums">{selected.base_servings ?? "--"}</div>
+                <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-3 text-center">
+                  <div className="text-xs text-slate-500 dark:text-slate-400">Servings</div>
+                  <div className="text-lg font-semibold tabular-nums text-slate-900 dark:text-white">{selected.base_servings ?? "--"}</div>
                 </div>
-                <div className="bg-slate-50 rounded p-3 text-center">
-                  <div className="text-xs text-slate-500">Prep</div>
-                  <div className="text-lg font-bold tabular-nums">{selected.prep_time_minutes ?? "--"}<span className="text-xs font-normal">m</span></div>
+                <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-3 text-center">
+                  <div className="text-xs text-slate-500 dark:text-slate-400">Prep</div>
+                  <div className="text-lg font-semibold tabular-nums text-slate-900 dark:text-white">{selected.prep_time_minutes ?? "--"}<span className="text-xs font-normal">m</span></div>
                 </div>
-                <div className="bg-slate-50 rounded p-3 text-center">
-                  <div className="text-xs text-slate-500">Cook</div>
-                  <div className="text-lg font-bold tabular-nums">{selected.cook_time_minutes ?? "--"}<span className="text-xs font-normal">m</span></div>
+                <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-3 text-center">
+                  <div className="text-xs text-slate-500 dark:text-slate-400">Cook</div>
+                  <div className="text-lg font-semibold tabular-nums text-slate-900 dark:text-white">{selected.cook_time_minutes ?? "--"}<span className="text-xs font-normal">m</span></div>
                 </div>
               </div>
               {(selected.dietary_tags || []).length > 0 && (
                 <div className="flex flex-wrap gap-1.5">
                   {(selected.dietary_tags || []).map((t) => (
-                    <Badge key={t} variant="outline" className={`${dietaryTone[t] ?? "bg-slate-100 text-slate-700 border-slate-200"}`}>{t}</Badge>
+                    <Badge key={t} variant="outline" className={`${dietaryTone[t] ?? NEUTRAL_TAG}`}>{t}</Badge>
                   ))}
                 </div>
               )}
               {selected.allergen_info && (
-                <div className="bg-amber-50 border border-amber-200 rounded p-3 text-sm">
-                  <div className="font-semibold text-amber-900 mb-1">Allergens</div>
-                  <div className="text-amber-800">{selected.allergen_info}</div>
+                <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 rounded-lg p-3 text-sm">
+                  <div className="font-semibold text-amber-900 dark:text-amber-200 mb-1">Allergens</div>
+                  <div className="text-amber-800 dark:text-amber-300">{selected.allergen_info}</div>
                 </div>
               )}
               <div>
-                <h3 className="font-semibold text-sm mb-2 flex items-center gap-1.5">
+                <h3 className="font-semibold text-sm mb-2 flex items-center gap-1.5 text-slate-900 dark:text-white">
                 Ingredients
                 <InfoTooltip content="The ingredients listed in the recipe for this dish." />
               </h3>
                 {ingredientsLoading ? (
-                  <div className="text-sm text-slate-500 flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" />Loading ingredients...</div>
+                  <div className="text-sm text-slate-500 dark:text-slate-400 flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" />Loading ingredients...</div>
                 ) : ingredients.length === 0 ? (
-                  <p className="text-sm text-slate-500">No ingredients defined for this menu item yet.</p>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">No ingredients defined for this menu item yet.</p>
                 ) : (
-                  <ul className="divide-y divide-slate-100 border border-slate-200 rounded">
+                  <ul className="divide-y divide-slate-100 dark:divide-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg">
                     {ingredients.map((ing) => (
                       <li key={ing.id} className="px-3 py-2 flex items-center justify-between gap-2 text-sm">
                         <div className="flex-1 min-w-0">
-                          <div className="font-medium text-slate-900 truncate">{ing.ingredient_name}</div>
-                          {ing.notes && <div className="text-xs text-slate-500">{ing.notes}</div>}
+                          <div className="font-medium text-slate-900 dark:text-white truncate">{ing.ingredient_name}</div>
+                          {ing.notes && <div className="text-xs text-slate-500 dark:text-slate-400">{ing.notes}</div>}
                         </div>
-                        <div className="tabular-nums text-slate-700 flex-shrink-0">{ing.quantity ?? "--"} {ing.unit ?? ""}</div>
+                        <div className="tabular-nums text-slate-700 dark:text-slate-300 flex-shrink-0">{ing.quantity ?? "--"} {ing.unit ?? ""}</div>
                       </li>
                     ))}
                   </ul>
@@ -308,8 +315,8 @@ export default function KitchenMenuItemsPage() {
               </div>
               {selected.instructions && (
                 <div>
-                  <h3 className="font-semibold text-sm mb-2">Instructions</h3>
-                  <p className="text-sm text-slate-700 whitespace-pre-line">{selected.instructions}</p>
+                  <h3 className="font-semibold text-sm mb-2 text-slate-900 dark:text-white">Instructions</h3>
+                  <p className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-line">{selected.instructions}</p>
                 </div>
               )}
             </div>

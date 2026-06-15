@@ -20,7 +20,7 @@ export interface BrandingRow {
   accentColor: string | null;
 }
 
-// Default theme for users/tenants WITHOUT custom branding — the warm
+// Default theme for users/tenants WITHOUT custom branding - the warm
 // CateringMS amber set on the landing + auth pages, so the whole product
 // reads as one brand by default. White-label tenants still override this.
 export const DEFAULT_PALETTE: { primary: string; secondary: string; accent: string } = {

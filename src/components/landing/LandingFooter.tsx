@@ -53,7 +53,7 @@ export function LandingFooter() {
               </span>
             </Link>
             <p className="mt-4 max-w-sm text-sm leading-relaxed text-stone-400">
-              The complete operating system for South African catering businesses —
+              The complete operating system for South African catering businesses -
               quote, plan, deliver and get paid, beautifully, from one platform.
             </p>
             <div className="mt-6 space-y-2 text-sm">
@@ -109,7 +109,7 @@ export function LandingFooter() {
         <div className="mt-14 flex flex-col items-start justify-between gap-4 rounded-2xl border border-white/10 bg-white/[0.04] p-6 sm:flex-row sm:items-center">
           <div>
             <p className="font-display text-xl font-semibold text-white">Ready to win your next booking?</p>
-            <p className="mt-1 text-sm text-stone-400">Start free — no credit card, set up in under 3 hours.</p>
+            <p className="mt-1 text-sm text-stone-400">Start free - no credit card, set up in under 3 hours.</p>
           </div>
           <Link
             href="/company-signup"

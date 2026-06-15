@@ -41,7 +41,7 @@ interface CompanyBrand {
   secondary: string;
 }
 
-// Default brand when a tenant hasn't set custom colours — the CateringMS
+// Default brand when a tenant hasn't set custom colours - the CateringMS
 // warm amber, so un-branded tenant portals match the rest of the product.
 const DEFAULT_PRIMARY = "#f59e0b";
 const DEFAULT_SECONDARY = "#ea580c";
@@ -351,14 +351,14 @@ export default function CompanyStaffLoginPage({
         accent={companyBrand?.primary || DEFAULT_PRIMARY}
         accentTo={companyBrand?.secondary || DEFAULT_SECONDARY}
         headline="Welcome back."
-        subcopy="Sign in to manage quotes, kitchen prep, dispatch and deliveries — your whole operation in one place."
+        subcopy="Sign in to manage quotes, kitchen prep, dispatch and deliveries - your whole operation in one place."
         footerNote="Powered by CateringMS"
       >
           <Card className="w-full max-w-md border border-slate-200/70 shadow-2xl shadow-slate-200/60 rounded-2xl">
           <CardContent className="p-6 sm:p-8">
             <div className="mb-7">
               <h1 className="font-display text-3xl font-semibold tracking-tight text-stone-900">Staff sign-in</h1>
-              <p className="text-sm text-stone-500 mt-1.5">Welcome back — sign in to your portal.</p>
+              <p className="text-sm text-stone-500 mt-1.5">Welcome back - sign in to your portal.</p>
             </div>
             <form onSubmit={handleStaffLogin} className="space-y-5">
               {error && (

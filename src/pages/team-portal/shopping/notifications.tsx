@@ -21,7 +21,7 @@ interface Notification {
 
 // Restrained palette: the row icon is always a neutral slate bell. Severity
 // is carried by one small dot, and only where it's genuinely meaningful
-// (critical / warning / success). Anything informational stays neutral —
+// (critical / warning / success). Anything informational stays neutral -
 // no decorative blue, no rainbow of tinted halos. priorityTone is kept (the
 // brief asks to preserve it) and now drives just that small dot.
 const priorityTone = (p?: string | null) => {
@@ -244,7 +244,7 @@ export default function ShoppingNotificationsPage() {
                           aria-label="Unread"
                         />
                       )}
-                      {/* Neutral icon tile — no per-severity tinted halo. */}
+                      {/* Neutral icon tile - no per-severity tinted halo. */}
                       <div className="relative h-9 w-9 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 flex items-center justify-center flex-shrink-0">
                         <Bell className="h-4 w-4 text-slate-400 dark:text-slate-500" />
                         {/* Severity dot only where it's genuinely meaningful. */}

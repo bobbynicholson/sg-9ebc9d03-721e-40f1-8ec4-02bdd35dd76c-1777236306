@@ -1,7 +1,6 @@
 ﻿import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { MapPin, Users, DollarSign, Package, Truck, Pencil, CalendarX, Receipt, AlertCircle, RotateCcw } from "lucide-react";
@@ -13,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { ClientNav } from "@/components/navigation/ClientNav";
-import { ClientPageHeader } from "@/components/client-portal/ClientPageHeader";
+import { PortalShell, PortalHeader, PortalCard, PortalCardHeader } from "@/components/portal/ui";
 import { computeOrderTimeline, toClientTimeline } from "@/services/order/orderTimeline";
 import { TimelineTrack } from "@/components/admin/orders/TimelineTrack";
 // Wave 28.4: same wizard the magic-link surfaces use. Auth client
@@ -220,12 +219,12 @@ export default function MyOrders() {
 
   const getStatusColor = (status: string) => {
     const colors = {
-      pending: "bg-yellow-100 text-yellow-800",
-      confirmed: "bg-blue-100 text-blue-800",
-      preparing: "bg-purple-100 text-purple-800",
-      ready: "bg-green-100 text-green-800",
-      completed: "bg-slate-100 text-slate-800",
-      cancelled: "bg-red-100 text-red-800",
+      pending: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-900",
+      confirmed: "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700",
+      preparing: "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700",
+      ready: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-900",
+      completed: "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700",
+      cancelled: "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950 dark:text-rose-300 dark:border-rose-900",
     };
     return colors[status as keyof typeof colors] || colors.pending;
   };
@@ -240,44 +239,80 @@ export default function MyOrders() {
       <ClientNav />
 
       <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
-        <ClientPageHeader
-          title="My orders"
-          subtitle="Every booking, active or done. Tap one to track, request a change, or grab the invoice."
-        />
-        <div className="px-4 sm:px-6 md:px-8 lg:px-10 py-6 md:py-8 lg:py-10">
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+          <PortalHeader
+            title="My orders"
+            subtitle="Every booking, active or done. Tap one to track, request a change, or grab the invoice."
+            icon={Package}
+          />
+
+          {/* Filter chips - amber active-chip pattern (shopping dashboard).
+              onClick / variant logic unchanged; presentation only. */}
           <div className="flex gap-2 mb-6">
             <Button
+              size="sm"
               variant={filter === "all" ? "default" : "outline"}
               onClick={() => setFilter("all")}
+              className={filter === "all" ? "bg-amber-600 hover:bg-amber-700" : ""}
             >
               All Orders
             </Button>
             <Button
+              size="sm"
               variant={filter === "active" ? "default" : "outline"}
               onClick={() => setFilter("active")}
+              className={filter === "active" ? "bg-amber-600 hover:bg-amber-700" : ""}
             >
               Active
             </Button>
             <Button
+              size="sm"
               variant={filter === "completed" ? "default" : "outline"}
               onClick={() => setFilter("completed")}
+              className={filter === "completed" ? "bg-amber-600 hover:bg-amber-700" : ""}
             >
               Completed
             </Button>
           </div>
 
-          <Card className="border-0 shadow-lg">
-            <CardHeader>
-              <CardTitle>Orders ({filteredOrders.length})</CardTitle>
-            </CardHeader>
-            <CardContent>
+          <PortalCard>
+            <PortalCardHeader title={`Orders (${filteredOrders.length})`} />
+            <div>
               {loading ? (
-                <div className="text-center py-8 text-slate-600">Loading orders...</div>
+                // Skeleton placeholder rows so the layout doesn't jump
+                // when the orders arrive. Reduced-motion users get a
+                // static block (animate-pulse respects prefers-reduced-motion).
+                <div className="space-y-4" aria-busy="true" aria-label="Loading your orders">
+                  {[0, 1, 2].map((i) => (
+                    <div
+                      key={i}
+                      className="h-32 rounded-2xl border border-slate-200/80 bg-slate-50 dark:border-slate-800 dark:bg-slate-800/50 animate-pulse"
+                    />
+                  ))}
+                </div>
               ) : filteredOrders.length === 0 ? (
-                <div className="text-center py-12">
-                  <Package className="w-16 h-16 mx-auto mb-4 text-slate-300" />
-                  <p className="text-slate-600 font-medium mb-2">No orders found</p>
-                  <p className="text-sm text-slate-500">Try changing the filter or request a new quote</p>
+                <div className="py-14 px-6 text-center">
+                  <div className="w-12 h-12 mx-auto mb-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 flex items-center justify-center">
+                    <Package className="w-6 h-6 text-slate-400 dark:text-slate-500" />
+                  </div>
+                  <h3 className="text-base font-semibold text-slate-900 dark:text-white mb-1.5">
+                    {filter === "all" ? "No orders yet" : "Nothing in this view"}
+                  </h3>
+                  <p className="text-sm text-slate-600 dark:text-slate-400 max-w-md mx-auto">
+                    {filter === "all"
+                      ? "Your bookings show up here once your caterer confirms a quote. Want something on the calendar? Ask them for a quote and accept it - it lands here automatically."
+                      : "No orders match this filter. Switch back to All Orders to see everything, active or done."}
+                  </p>
+                  {filter !== "all" && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setFilter("all")}
+                      className="mt-5"
+                    >
+                      Show all orders
+                    </Button>
+                  )}
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -295,47 +330,48 @@ export default function MyOrders() {
                     return (
                     <div
                       key={order.id}
-                      className={`p-4 md:p-6 border-2 rounded-lg hover:border-blue-300 transition-colors ${
+                      className={`p-4 md:p-6 border rounded-2xl transition-colors duration-200 ${
                         clientTl?.blocked
-                          ? "border-l-4 border-l-red-500 border-y-slate-200 border-r-slate-200 bg-red-50/30"
-                          : "border-slate-200"
+                          ? "border-l-4 border-l-rose-500 border-y-rose-100 border-r-rose-100 bg-rose-50/40 dark:border-l-rose-500 dark:border-y-rose-900/40 dark:border-r-rose-900/40 dark:bg-rose-950/20"
+                          : "border-slate-200/80 bg-white hover:border-amber-300 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-amber-700"
                       }`}
                     >
                       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                         <div className="flex-1">
                           <div className="flex flex-wrap items-center gap-2 mb-2">
-                            <h3 className="font-semibold text-lg text-slate-900">
+                            <h3 className="font-semibold text-lg text-slate-900 dark:text-white">
                               {new Date(order.event_date).toLocaleDateString("en-US", {
                                 month: "long",
                                 day: "numeric",
                                 year: "numeric",
                               })}
                             </h3>
-                            <Badge className={getStatusColor(order.status)}>{order.status}</Badge>
+                            <Badge variant="outline" className={`capitalize ${getStatusColor(order.status)}`}>{order.status}</Badge>
                             {order.payment_status && (
                               <Badge
+                                variant="outline"
                                 className={
                                   order.payment_status === "paid"
-                                    ? "bg-green-100 text-green-800"
-                                    : "bg-amber-100 text-amber-800"
+                                    ? "capitalize bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-900"
+                                    : "capitalize bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-900"
                                 }
                               >
                                 {order.payment_status}
                               </Badge>
                             )}
                           </div>
-                          <div className="space-y-1 text-sm text-slate-600">
+                          <div className="space-y-1 text-sm text-slate-600 dark:text-slate-400">
                             <div className="flex items-center gap-2">
-                              <MapPin className="w-4 h-4" />
+                              <MapPin className="w-4 h-4 text-slate-400 dark:text-slate-500" />
                               <span>{order.venue_address}</span>
                             </div>
                             <div className="flex items-center gap-2">
-                              <Users className="w-4 h-4" />
+                              <Users className="w-4 h-4 text-slate-400 dark:text-slate-500" />
                               <span>{order.guest_count} guests</span>
                             </div>
                             <div className="flex items-center gap-2">
-                              <DollarSign className="w-4 h-4" />
-                              <span>R{Number(order.total_amount || 0).toLocaleString()}</span>
+                              <DollarSign className="w-4 h-4 text-slate-400 dark:text-slate-500" />
+                              <span className="tabular-nums">R{Number(order.total_amount || 0).toLocaleString()}</span>
                             </div>
                           </div>
                         </div>
@@ -448,7 +484,7 @@ export default function MyOrders() {
                           {order.status === "completed" && (
                             <Button
                               size="sm"
-                              className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700"
+                              className="w-full sm:w-auto bg-amber-600 hover:bg-amber-700"
                               onClick={() => setRebookOrder(order)}
                             >
                               <RotateCcw className="w-4 h-4 mr-2" />
@@ -464,7 +500,7 @@ export default function MyOrders() {
                           "Show all" chevron. Skipped on cancelled
                           orders (the badge already says it). */}
                       {clientTl && (
-                        <div className="mt-4 pt-4 border-t border-slate-100">
+                        <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800">
                           <TimelineTrack timeline={clientTl} compact />
                         </div>
                       )}
@@ -473,9 +509,9 @@ export default function MyOrders() {
                   })}
                 </div>
               )}
-            </CardContent>
-          </Card>
-        </div>
+            </div>
+          </PortalCard>
+        </PortalShell>
       </div>
 
       <RebookDialog
@@ -618,7 +654,7 @@ export default function MyOrders() {
                       setAmendSubmitting(false);
                     }
                   }}
-                  className="bg-blue-600 hover:bg-blue-700"
+                  className="bg-amber-600 hover:bg-amber-700"
                 >
                   {amendSubmitting ? "Submitting..." : "Submit request"}
                 </Button>

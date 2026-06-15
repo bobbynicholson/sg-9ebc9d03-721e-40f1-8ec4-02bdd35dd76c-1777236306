@@ -27,7 +27,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Head from "next/head";
 import { useRouter } from "next/router";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -37,7 +36,7 @@ import {
 } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { ClientNav } from "@/components/navigation/ClientNav";
-import { ClientPageHeader } from "@/components/client-portal/ClientPageHeader";
+import { PortalShell, PortalHeader, PortalCard } from "@/components/portal/ui";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -344,44 +343,62 @@ export default function ClientProfilePage() {
       <ClientNav />
 
       <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
-        <ClientPageHeader
-          title="Your profile"
-          subtitle="Update how the catering team gets in touch with you. Email is locked to the address you signed in with."
-        />
+        <PortalShell width="narrow" className="min-h-0 bg-transparent dark:bg-transparent">
+          <PortalHeader
+            title="Your profile"
+            subtitle="Update how the catering team gets in touch with you. Email is locked to the address you signed in with."
+            icon={UserIcon}
+          />
 
-        <main className="px-4 sm:px-6 md:px-8 lg:px-10 py-6 sm:py-8 space-y-6">
           {loading ? (
-            <Card className="border-0 shadow-sm">
-              <CardContent className="py-12 text-center">
-                <Loader2 className="w-6 h-6 mx-auto text-slate-400 animate-spin" />
-                <p className="text-sm text-slate-500 mt-3">Loading your details...</p>
-              </CardContent>
-            </Card>
+            // Skeleton in the shape of the form: an identity card block
+            // plus a couple of field rows, so the layout doesn't jump
+            // when the real data lands.
+            <div className="space-y-6" aria-busy="true" aria-label="Loading your details">
+              <div className="rounded-2xl border border-slate-200/80 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+                <div className="flex items-center gap-4">
+                  <div className="h-20 w-20 rounded-2xl bg-slate-100 dark:bg-slate-800 animate-pulse" />
+                  <div className="flex-1 space-y-2">
+                    <div className="h-4 w-40 rounded bg-slate-100 dark:bg-slate-800 animate-pulse" />
+                    <div className="h-3 w-56 rounded bg-slate-100 dark:bg-slate-800 animate-pulse" />
+                    <div className="h-8 w-32 rounded-lg bg-slate-100 dark:bg-slate-800 animate-pulse" />
+                  </div>
+                </div>
+                <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {[0, 1, 2, 3].map((i) => (
+                    <div key={i} className="space-y-1.5">
+                      <div className="h-3 w-24 rounded bg-slate-100 dark:bg-slate-800 animate-pulse" />
+                      <div className="h-10 w-full rounded-md bg-slate-100 dark:bg-slate-800 animate-pulse" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
           ) : (
-            <>
+            <div className="space-y-6">
               {/* Mobile-missing banner - the smart nudge for clients
                   who only gave a landline at quote time. */}
               {!form.mobile_number.trim() && (
-                <Card className="border-0 shadow-sm bg-emerald-50 dark:bg-emerald-950/30 border-l-4 border-emerald-500">
-                  <CardContent className="p-4 flex items-start gap-3">
-                    <MessageCircle className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
+                <PortalCard padded={false} className="bg-amber-50 dark:bg-amber-950/30 border-l-4 border-amber-500">
+                  <div className="p-4 flex items-start gap-3">
+                    <MessageCircle className="w-5 h-5 text-amber-600 dark:text-amber-500 flex-shrink-0 mt-0.5" />
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-emerald-900 dark:text-emerald-100">
+                      <p className="text-sm font-semibold text-amber-900 dark:text-amber-100">
                         Add your mobile for WhatsApp updates
                       </p>
-                      <p className="text-xs text-emerald-800 dark:text-emerald-200 mt-1">
+                      <p className="text-xs text-amber-800 dark:text-amber-200 mt-1">
                         {companyName} uses WhatsApp for driver ETAs, last-minute changes and quick
                         confirmations on the day. Pop your mobile in below and you&apos;ll be sorted.
                         It&apos;s entirely optional - they&apos;ll keep using email + phone if you skip it.
                       </p>
                     </div>
-                  </CardContent>
-                </Card>
+                  </div>
+                </PortalCard>
               )}
 
               {/* Identity card - avatar preview + global name */}
-              <Card className="border-0 shadow-sm">
-                <CardContent className="p-5 sm:p-6 space-y-5">
+              <PortalCard padded={false}>
+                <div className="p-5 sm:p-6 space-y-5">
                   <div className="flex items-center gap-4">
                     {/* Avatar with upload affordance. Click the photo
                         (or the Change button) to pick a new image; it
@@ -531,7 +548,7 @@ export default function ClientProfilePage() {
                         />
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-slate-900 dark:text-white inline-flex items-center gap-1.5">
-                            <MessageCircle className="w-4 h-4 text-emerald-600" />
+                            <MessageCircle className="w-4 h-4 text-amber-600 dark:text-amber-500" />
                             Send me WhatsApp updates from {companyName}
                           </p>
                           <p className="text-xs text-slate-500 mt-1">
@@ -554,14 +571,14 @@ export default function ClientProfilePage() {
                       </p>
                     </div>
                   )}
-                </CardContent>
-              </Card>
+                </div>
+              </PortalCard>
 
               {tenantClientId && (
-                <Card className="border-0 shadow-sm">
-                  <CardContent className="p-5 sm:p-6 space-y-4">
+                <PortalCard padded={false}>
+                  <div className="p-5 sm:p-6 space-y-4">
                     <div className="flex items-center gap-2">
-                      <Building2 className="w-5 h-5 text-emerald-600" />
+                      <Building2 className="w-5 h-5 text-amber-600 dark:text-amber-500" />
                       <h3 className="text-base font-semibold text-slate-900 dark:text-white">
                         How {companyName} addresses you
                       </h3>
@@ -579,8 +596,8 @@ export default function ClientProfilePage() {
                         placeholder="What the team should call you"
                       />
                     </Field>
-                  </CardContent>
-                </Card>
+                  </div>
+                </PortalCard>
               )}
 
               <div className="flex justify-end gap-2">
@@ -591,14 +608,14 @@ export default function ClientProfilePage() {
                 >
                   Cancel
                 </Button>
-                <Button onClick={save} disabled={saving} className="gap-2">
+                <Button onClick={save} disabled={saving} className="gap-2 bg-amber-600 hover:bg-amber-700 text-white">
                   {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                   Save changes
                 </Button>
               </div>
-            </>
+            </div>
           )}
-        </main>
+        </PortalShell>
       </div>
     </>
   );

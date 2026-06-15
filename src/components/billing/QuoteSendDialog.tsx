@@ -319,7 +319,7 @@ export function QuoteSendDialog({
             setSecondQuote(picked);
           }}
         >
-          <option value="">— none —</option>
+          <option value="">- none -</option>
           {availableQuotes.map((q) => {
             const lbl =
               cleanEventName(q.event_name) ??
@@ -328,7 +328,7 @@ export function QuoteSendDialog({
               q.id;
             return (
               <option key={q.id} value={q.id}>
-                {q.quote_number ? `${q.quote_number} — ` : ""}
+                {q.quote_number ? `${q.quote_number} - ` : ""}
                 {lbl}
               </option>
             );
@@ -463,8 +463,8 @@ function buildOptionBlock(opt: {
   if (opt.eventDateLabel) details.push(opt.eventDateLabel);
 
   const heading = opt.eventName
-    ? `${opt.label} — ${opt.quoteNumber} (${opt.eventName})`
-    : `${opt.label} — ${opt.quoteNumber}`;
+    ? `${opt.label} - ${opt.quoteNumber} (${opt.eventName})`
+    : `${opt.label} - ${opt.quoteNumber}`;
 
   const block: string[] = [heading, `  ${details.join(" - ")}`];
   if (opt.quoteUrl) {

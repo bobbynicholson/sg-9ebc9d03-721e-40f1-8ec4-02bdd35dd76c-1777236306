@@ -2,22 +2,14 @@
  * DriverPageShell - the canonical outer layout for every driver-portal
  * page (except the welcome dashboard which has its own treatment).
  *
- * Bobby's brief: the driver pages were drifting visually:
- *   - Routes / Tracking used `from-blue-50 via-cyan-50 to-teal-50`
- *   - Calendar / Notifications used `from-slate-50 to-blue-50`
- *   - Dashboard used `from-blue-50 via-indigo-50 to-purple-50`
- *   - Profile rendered on plain white
- *   - Header icon gradient was either blue->cyan OR blue->indigo
- *   - Container max-width was 3xl, 4xl, 6xl, screen-2xl, or full
- *     depending on the page
- *
- * This shell collapses those variants down to one consistent
- * background, header chip style and container ladder. Pages pass
+ * Minimal + premium portal standard: this shell now renders the shared
+ * PortalShell + PortalHeader primitives (slate ground, amber accent,
+ * soft shadow + hairline, full dark mode) inside the DriverNav
+ * sidebar-offset gutter (lg:pl-72 xl:pl-80) - the same pattern the
+ * shopping portal uses. One restrained background and header chip
+ * style across every driver page; pages pass
  * `width="narrow" | "wide" | "full"` to opt into the right inner
- * max-width without re-deriving the wrapper class jungle.
- *
- * Sidebar offset (lg:pl-72 xl:pl-80) lives here so the DriverNav
- * + content alignment never falls out of sync again.
+ * max-width.
  */
 import { ReactNode } from "react";
 import { DriverNav } from "@/components/navigation/DriverNav";
@@ -25,6 +17,7 @@ import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import Head from "next/head";
 import { LucideIcon } from "lucide-react";
+import { PortalHeader } from "@/components/portal/ui";
 
 type ShellWidth = "narrow" | "wide" | "full";
 
@@ -79,32 +72,20 @@ export function DriverPageShell({
 
       <DriverNav />
 
-      {/* Single canonical background gradient for every driver page.
-          Slate->blue is the calmest of the four variants that were
-          drifting; doesn't fight the in-page card colours and reads
-          fine in both light + dark. */}
-      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-blue-50 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
-        <div className={`px-4 sm:px-6 md:px-8 py-6 sm:py-8 lg:py-12 ${WIDTH_CLASSES[width]}`}>
-          {/* Standard page header: icon chip + H1 + optional caption,
-              optional right-aligned action. The icon chip uses the
-              blue->indigo gradient so the driver portal feels visually
-              uniform alongside the sidebar's blue accent. */}
-          <div className="mb-6 sm:mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shrink-0">
-                <Icon className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900">
-                  {heading}
-                </h1>
-                {subheading && (
-                  <p className="text-sm sm:text-base text-slate-600 mt-1">{subheading}</p>
-                )}
-              </div>
-            </div>
-            {headerAction && <div className="shrink-0">{headerAction}</div>}
-          </div>
+      {/* Neutral slate ground inside the DriverNav sidebar gutter -
+          same offset pattern the shopping portal uses. PortalShell
+          rides on bg-transparent so this wrapper owns the ground and
+          the inner container keeps the per-page width ladder. */}
+      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <div className={`mx-auto w-full px-4 py-6 sm:px-6 sm:py-8 ${WIDTH_CLASSES[width]}`}>
+          {/* Shared portal header: amber-glyph neutral icon tile,
+              semibold slate title, dark-mode aware. */}
+          <PortalHeader
+            title={heading}
+            subtitle={subheading}
+            icon={Icon}
+            actions={headerAction}
+          />
 
           {children}
 

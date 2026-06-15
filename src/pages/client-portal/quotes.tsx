@@ -18,13 +18,12 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Head from "next/head";
-import { Card, CardContent } from "@/components/ui/card";
 import { toLocalISO } from "@/lib/localDate";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Loader2, FileText, ExternalLink, Calendar, Clock, X } from "lucide-react";
+import { FileText, ExternalLink, Calendar, Clock, X } from "lucide-react";
 import { ClientNav } from "@/components/navigation/ClientNav";
-import { ClientPageHeader } from "@/components/client-portal/ClientPageHeader";
+import { PortalShell, PortalHeader, PortalCard } from "@/components/portal/ui";
 import { RequestEditsDialog } from "@/components/client-portal/RequestEditsDialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -74,14 +73,17 @@ const fmtDate = (iso: string | null | undefined) =>
     ? new Date(iso).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })
     : null;
 
+// Restrained, semantic tints only: slate + amber, with emerald for
+// accepted and rose for declined. No blue/indigo/violet on the
+// customer-facing portal.
 const STATUS_TONE: Record<string, string> = {
-  sent: "bg-blue-100 text-blue-800 border-blue-200",
-  viewed: "bg-indigo-100 text-indigo-800 border-indigo-200",
-  accepted: "bg-emerald-100 text-emerald-800 border-emerald-200",
-  rejected: "bg-rose-100 text-rose-800 border-rose-200",
-  expired: "bg-slate-200 text-slate-700 border-slate-300",
-  revised: "bg-violet-100 text-violet-800 border-violet-200",
-  draft: "bg-amber-100 text-amber-800 border-amber-200",
+  sent: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/20",
+  viewed: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/20",
+  accepted: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/20",
+  rejected: "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-500/10 dark:text-rose-300 dark:border-rose-500/20",
+  expired: "bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700",
+  revised: "bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700",
+  draft: "bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700",
 };
 
 const STATUS_LABEL: Record<string, string> = {
@@ -184,37 +186,45 @@ export default function ClientQuotesPage() {
       <Head><title>Quotes | {companyName}</title></Head>
       <ClientNav />
       <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
-        <ClientPageHeader
-          title="Your quotes"
-          subtitle={`Every quote ${companyName} has sent through. Tap one to open the full quote, accept it, or request changes.`}
-        />
-        <main className="px-4 sm:px-6 md:px-8 lg:px-10 py-6 sm:py-8 space-y-6">
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+          <PortalHeader
+            title="Your quotes"
+            subtitle={`Every quote ${companyName} has sent through. Tap one to open the full quote, accept it, or request changes.`}
+            icon={FileText}
+          />
 
           {loading ? (
-            <Card className="border-0 shadow-sm">
-              <CardContent className="py-12 text-center">
-                <Loader2 className="w-6 h-6 mx-auto text-slate-400 animate-spin" />
-                <p className="text-sm text-slate-500 mt-3">Loading your quotes...</p>
-              </CardContent>
-            </Card>
+            // Skeleton placeholders - the page settles into rows without
+            // a layout jump or a spinner flash.
+            <div className="space-y-3">
+              <div className="h-5 w-48 rounded-lg bg-slate-200 dark:bg-slate-800 animate-pulse" />
+              {[0, 1, 2].map((i) => (
+                <div
+                  key={i}
+                  className="h-28 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm animate-pulse"
+                />
+              ))}
+            </div>
           ) : quotes.length === 0 ? (
-            <Card className="border-0 shadow-sm">
-              <CardContent className="py-12 text-center">
-                <FileText className="w-10 h-10 mx-auto text-slate-300" />
-                <h2 className="mt-3 text-base font-semibold text-slate-900 dark:text-white">No quotes yet</h2>
-                <p className="text-sm text-slate-500 mt-1">
-                  When {companyName} sends you a quote it'll appear here.
+            <PortalCard padded={false}>
+              <div className="py-16 px-6 text-center">
+                <div className="w-12 h-12 mx-auto mb-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 flex items-center justify-center">
+                  <FileText className="w-6 h-6 text-slate-400 dark:text-slate-500" />
+                </div>
+                <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-1.5">No quotes yet</h2>
+                <p className="text-sm text-slate-600 dark:text-slate-400 max-w-md mx-auto">
+                  When {companyName} sends you a quote it'll appear here. You can open it,
+                  accept it, or request changes - all from this page.
                 </p>
-              </CardContent>
-            </Card>
+              </div>
+            </PortalCard>
           ) : (
-            <>
+            <div className="space-y-6">
               {grouped.pending.length > 0 && (
                 <QuoteGroup
                   title="Awaiting your response"
                   description="Open to accept, or push back with the changes you'd like before signing off."
                   items={grouped.pending}
-                  brandPrimary={brandPrimary}
                   onRequestEdits={(q) => setEditsQuote({ id: q.id, quote_number: q.quote_number })}
                   onDecline={(q) => setDeclineQuote(q)}
                   fmtMoney={fmtMoney}
@@ -225,7 +235,6 @@ export default function ClientQuotesPage() {
                   title="Accepted"
                   description="You've signed off on these. The deposit invoice (if any) lives under Billing."
                   items={grouped.accepted}
-                  brandPrimary={brandPrimary}
                   fmtMoney={fmtMoney}
                 />
               )}
@@ -234,13 +243,12 @@ export default function ClientQuotesPage() {
                   title="History"
                   description="Drafts, declined, expired, and quotes the team is revising."
                   items={grouped.historical}
-                  brandPrimary={brandPrimary}
                   fmtMoney={fmtMoney}
                 />
               )}
-            </>
+            </div>
           )}
-        </main>
+        </PortalShell>
       </div>
 
       <RequestEditsDialog
@@ -319,7 +327,6 @@ function QuoteGroup({
   title,
   description,
   items,
-  brandPrimary,
   onRequestEdits,
   onDecline,
   fmtMoney,
@@ -327,7 +334,6 @@ function QuoteGroup({
   title: string;
   description: string;
   items: PortalQuote[];
-  brandPrimary: string;
   onRequestEdits?: (q: PortalQuote) => void;
   onDecline?: (q: PortalQuote) => void;
   fmtMoney: Intl.NumberFormat;
@@ -336,9 +342,9 @@ function QuoteGroup({
     <section className="w-full">
       <div className="mb-3">
         <h2 className="text-base sm:text-lg font-semibold text-slate-900 dark:text-white">{title}</h2>
-        <p className="text-xs text-slate-500 mt-0.5">{description}</p>
+        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{description}</p>
       </div>
-      <ul className="w-full space-y-2 list-none p-0">
+      <ul className="w-full space-y-3 list-none p-0">
         {items.map((q) => {
           const total = Number(q.total ?? q.total_amount ?? 0);
           const statusKey = q.status || "draft";
@@ -350,75 +356,73 @@ function QuoteGroup({
           const open = q.public_token ? `/q/${q.public_token}` : null;
           return (
             <li key={q.id} className="w-full">
-              <Card className="w-full border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-shadow">
-                <CardContent className="p-4 flex items-start justify-between gap-3 flex-wrap">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 mb-1 flex-wrap">
-                      <h3 className="text-sm sm:text-base font-semibold text-slate-900 dark:text-white truncate">
-                        {q.quote_name || `Quote ${q.quote_number}`}
-                      </h3>
-                      <Badge className={statusClass}>{statusLabel}</Badge>
-                    </div>
-                    <p className="text-xs text-slate-500 font-mono">{q.quote_number}</p>
-                    <div className="flex items-center gap-3 text-xs text-slate-500 mt-1.5 flex-wrap">
-                      {eventLabel && (
-                        <span className="inline-flex items-center gap-1">
-                          <Calendar className="w-3 h-3" /> Event {eventLabel}
-                        </span>
-                      )}
-                      {sentLabel && (
-                        <span className="inline-flex items-center gap-1">
-                          <Clock className="w-3 h-3" /> Sent {sentLabel}
-                        </span>
-                      )}
-                      {validLabel && statusKey === "sent" && (
-                        <span className="inline-flex items-center gap-1">
-                          Valid until {validLabel}
-                        </span>
-                      )}
-                    </div>
+              <PortalCard interactive className="flex items-start justify-between gap-3 flex-wrap">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
+                    <h3 className="text-sm sm:text-base font-semibold text-slate-900 dark:text-white truncate">
+                      {q.quote_name || `Quote ${q.quote_number}`}
+                    </h3>
+                    <Badge className={statusClass}>{statusLabel}</Badge>
                   </div>
-                  <div className="text-right flex-shrink-0 flex flex-col items-end gap-2">
-                    <p className="text-base sm:text-lg font-bold tabular-nums" style={{ color: brandPrimary }}>
-                      {total > 0 ? fmtMoney.format(total) : "TBD"}
-                    </p>
-                    <div className="flex gap-2 flex-wrap justify-end">
-                      {open && (
-                        <Button
-                          asChild
-                          size="sm"
-                          variant="outline"
-                          className="gap-1.5"
-                        >
-                          <a href={open} target="_blank" rel="noopener noreferrer">
-                            Open <ExternalLink className="w-3.5 h-3.5" />
-                          </a>
-                        </Button>
-                      )}
-                      {onRequestEdits && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => onRequestEdits(q)}
-                        >
-                          Request changes
-                        </Button>
-                      )}
-                      {onDecline && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => onDecline(q)}
-                          className="text-rose-700 border-rose-200 hover:bg-rose-50"
-                        >
-                          <X className="w-3.5 h-3.5 mr-1" />
-                          Decline
-                        </Button>
-                      )}
-                    </div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 font-mono">{q.quote_number}</p>
+                  <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400 mt-1.5 flex-wrap">
+                    {eventLabel && (
+                      <span className="inline-flex items-center gap-1">
+                        <Calendar className="w-3 h-3" /> Event {eventLabel}
+                      </span>
+                    )}
+                    {sentLabel && (
+                      <span className="inline-flex items-center gap-1">
+                        <Clock className="w-3 h-3" /> Sent {sentLabel}
+                      </span>
+                    )}
+                    {validLabel && statusKey === "sent" && (
+                      <span className="inline-flex items-center gap-1">
+                        Valid until {validLabel}
+                      </span>
+                    )}
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+                <div className="text-right flex-shrink-0 flex flex-col items-end gap-2">
+                  <p className="text-base sm:text-lg font-semibold tabular-nums text-slate-900 dark:text-white">
+                    {total > 0 ? fmtMoney.format(total) : "TBD"}
+                  </p>
+                  <div className="flex gap-2 flex-wrap justify-end">
+                    {open && (
+                      <Button
+                        asChild
+                        size="sm"
+                        variant="outline"
+                        className="gap-1.5"
+                      >
+                        <a href={open} target="_blank" rel="noopener noreferrer">
+                          Open <ExternalLink className="w-3.5 h-3.5" />
+                        </a>
+                      </Button>
+                    )}
+                    {onRequestEdits && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => onRequestEdits(q)}
+                      >
+                        Request changes
+                      </Button>
+                    )}
+                    {onDecline && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => onDecline(q)}
+                        className="text-rose-700 border-rose-200 hover:bg-rose-50 dark:text-rose-300 dark:border-rose-500/30 dark:hover:bg-rose-500/10"
+                      >
+                        <X className="w-3.5 h-3.5 mr-1" />
+                        Decline
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </PortalCard>
             </li>
           );
         })}

@@ -2,7 +2,6 @@ import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useRouter } from "next/router";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import Head from "next/head";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -16,6 +15,7 @@ import {
 import { Package, Search, AlertTriangle, Loader2, ChefHat, RefreshCw, MapPin, ArrowUpDown, Plus, Minus, Trash2, ShoppingCart, CheckCircle2 } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
+import { PortalShell, PortalHeader, PortalCard, StatTile } from "@/components/portal/ui";
 import { KitchenNav } from "@/components/navigation/KitchenNav";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -419,9 +419,9 @@ export default function KitchenStockPage() {
   const tone = (i: Inventory) => {
     const s = Number(i.current_stock || 0);
     const m = Number(i.minimum_stock || 0);
-    if (s <= 0) return "bg-rose-100 text-rose-700 border-rose-200";
-    if (s <= m) return "bg-amber-100 text-amber-800 border-amber-200";
-    return "bg-emerald-100 text-emerald-700 border-emerald-200";
+    if (s <= 0) return "bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-900";
+    if (s <= m) return "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900";
+    return "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900";
   };
   const label = (i: Inventory) => {
     const s = Number(i.current_stock || 0);
@@ -436,83 +436,82 @@ export default function KitchenStockPage() {
       <Head><title>Kitchen stock - CateringMS</title></Head>
       <NoIndexMeta />
       <KitchenNav />
-      <main className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
-        <div className="px-3 sm:px-4 md:px-6 py-6 sm:py-8 max-w-full">
-          {/* Wave 33.3: header now uses the icon-in-gradient-box
-              pattern the rest of the kitchen suite uses (dashboard,
-              menu, prep-list). Was a bare icon floating beside the
-              text - felt like an afterthought next to the polished
-              sibling pages. */}
-          <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center shadow-md flex-shrink-0">
-                <Package className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
-              </div>
-              <div className="min-w-0">
-                <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">
-                  Kitchen Stock
-                </h1>
-                <p className="text-sm text-slate-600 mt-0.5">What you have on hand right now, tap any item to log usage, a receipt or waste</p>
-              </div>
-            </div>
-            {/* KS-A: as-of chip + manual refresh. Realtime sub keeps the
-                page fresh on inventory_items writes, but the chef
-                doing a stocktake wants the explicit confirmation. */}
-            <div className="flex items-center gap-2">
-              {lastLoadedAt && (
-                <span
-                  className="text-[11px] text-slate-500 tabular-nums hidden sm:inline"
-                  title={lastLoadedAt.toLocaleString("en-ZA")}
-                >
-                  As of {lastLoadedAt.toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" })}
-                </span>
-              )}
-              <Button variant="outline" size="sm" onClick={() => load()} disabled={loading} className="h-8" title="Refresh">
-                <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
-              </Button>
-            </div>
-          </div>
+      <main className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+          <PortalHeader
+            title="Kitchen stock"
+            subtitle="What you have on hand right now, tap any item to log usage, a receipt or waste"
+            icon={Package}
+            actions={
+              <>
+                {/* KS-A: as-of chip + manual refresh. Realtime sub keeps the
+                    page fresh on inventory_items writes, but the chef
+                    doing a stocktake wants the explicit confirmation. */}
+                {lastLoadedAt && (
+                  <span
+                    className="text-[11px] text-slate-500 dark:text-slate-400 tabular-nums hidden sm:inline"
+                    title={lastLoadedAt.toLocaleString("en-ZA")}
+                  >
+                    As of {lastLoadedAt.toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" })}
+                  </span>
+                )}
+                <Button variant="outline" size="sm" onClick={() => load()} disabled={loading} className="h-8" title="Refresh">
+                  <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin motion-reduce:animate-none" : ""}`} />
+                </Button>
+              </>
+            }
+          />
 
           {/* KS-B: push-to-shopping banner. Renders only when there's
               something to push. Surfaces the gap + offers the
               one-tap action to convert it into a shopping list. */}
           {belowParItems.length > 0 && (
-            <Card className="mb-6 border-amber-300 bg-amber-50/70">
-              <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-10 h-10 rounded-xl bg-amber-200 flex items-center justify-center flex-shrink-0">
-                    <ShoppingCart className="h-5 w-5 text-amber-800" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-amber-900">
-                      {belowParItems.length} item{belowParItems.length === 1 ? "" : "s"} below par
-                    </p>
-                    <p className="text-xs text-amber-800 mt-0.5">
-                      Push the lot to shopping in one tap. Quantities default to your re-order amounts.
-                    </p>
-                  </div>
+            <PortalCard className="mb-6 border-amber-300 bg-amber-50/70 dark:border-amber-900 dark:bg-amber-950/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-amber-200 dark:bg-amber-900/60 flex items-center justify-center flex-shrink-0">
+                  <ShoppingCart className="h-5 w-5 text-amber-800 dark:text-amber-300" />
                 </div>
-                <Button
-                  onClick={() => { setPushResult(null); setPushOpen(true); }}
-                  className="bg-amber-600 hover:bg-amber-700"
-                  disabled={pushing}
-                >
-                  <ShoppingCart className="w-4 h-4 mr-2" />
-                  Push to shopping
-                </Button>
-              </CardContent>
-            </Card>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-amber-900 dark:text-amber-200">
+                    {belowParItems.length} item{belowParItems.length === 1 ? "" : "s"} below par
+                  </p>
+                  <p className="text-xs text-amber-800 dark:text-amber-300/90 mt-0.5">
+                    Push the lot to shopping in one tap. Quantities default to your re-order amounts.
+                  </p>
+                </div>
+              </div>
+              <Button
+                onClick={() => { setPushResult(null); setPushOpen(true); }}
+                className="bg-amber-600 hover:bg-amber-700 text-white"
+                disabled={pushing}
+              >
+                <ShoppingCart className="w-4 h-4 mr-2" />
+                Push to shopping
+              </Button>
+            </PortalCard>
           )}
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-6">
-            <Card><CardContent className="p-4"><p className="text-xs text-slate-600 flex items-center gap-1">Total items<InfoTooltip content="Every active line item in your kitchen stock list." /></p><p className="text-2xl font-bold tabular-nums">{stats.total}</p></CardContent></Card>
-            <Card><CardContent className="p-4"><p className="text-xs text-slate-600 flex items-center gap-1">In your recipes<InfoTooltip content="Inventory items that at least one of your menu item recipes uses.\n\nUse the 'In recipes' filter below to focus on these." /></p><p className="text-2xl font-bold tabular-nums text-orange-600">{stats.inRecipes}</p></CardContent></Card>
-            <Card><CardContent className="p-4"><p className="text-xs text-slate-600 flex items-center gap-1">Below par<InfoTooltip content="Items running low and due for a re-order.\n\nStock is at or below the minimum you've set." /></p><p className="text-2xl font-bold tabular-nums text-amber-600">{stats.below}</p></CardContent></Card>
-            <Card><CardContent className="p-4"><p className="text-xs text-slate-600 flex items-center gap-1">Out of stock<InfoTooltip content="Items you've run out of completely.\n\nAny order needing these can't be fulfilled until you restock." /></p><p className="text-2xl font-bold tabular-nums text-rose-600">{stats.out}</p></CardContent></Card>
+            <StatTile
+              label={<span className="flex items-center gap-1">Total items<InfoTooltip content="Every active line item in your kitchen stock list." /></span>}
+              value={stats.total}
+            />
+            <StatTile
+              label={<span className="flex items-center gap-1">In your recipes<InfoTooltip content="Inventory items that at least one of your menu item recipes uses.\n\nUse the 'In recipes' filter below to focus on these." /></span>}
+              value={stats.inRecipes}
+            />
+            <StatTile
+              label={<span className="flex items-center gap-1">Below par<InfoTooltip content="Items running low and due for a re-order.\n\nStock is at or below the minimum you've set." /></span>}
+              value={<span className="text-amber-600 dark:text-amber-500">{stats.below}</span>}
+            />
+            <StatTile
+              label={<span className="flex items-center gap-1">Out of stock<InfoTooltip content="Items you've run out of completely.\n\nAny order needing these can't be fulfilled until you restock." /></span>}
+              value={<span className="text-rose-600 dark:text-rose-500">{stats.out}</span>}
+            />
           </div>
 
-          <Card className="mb-6">
-            <CardContent className="p-4 flex flex-col gap-3">
+          <PortalCard padded className="mb-6">
+            <div className="flex flex-col gap-3">
               <div className="flex flex-col sm:flex-row gap-3">
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
@@ -535,10 +534,10 @@ export default function KitchenStockPage() {
                 </Select>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <Button size="sm" variant={recipeLinkedOnly ? "default" : "outline"} onClick={() => setRecipeLinkedOnly((v) => !v)} className={recipeLinkedOnly ? "bg-orange-500 hover:bg-orange-600" : ""}>
+                <Button size="sm" variant={recipeLinkedOnly ? "default" : "outline"} onClick={() => setRecipeLinkedOnly((v) => !v)} className={recipeLinkedOnly ? "bg-amber-600 hover:bg-amber-700 text-white" : ""}>
                   <ChefHat className="h-4 w-4 mr-2" />In recipes
                 </Button>
-                <Button size="sm" variant={belowParOnly ? "default" : "outline"} onClick={() => setBelowParOnly((v) => !v)} className={belowParOnly ? "bg-amber-500 hover:bg-amber-600" : ""}>
+                <Button size="sm" variant={belowParOnly ? "default" : "outline"} onClick={() => setBelowParOnly((v) => !v)} className={belowParOnly ? "bg-amber-600 hover:bg-amber-700 text-white" : ""}>
                   <AlertTriangle className="h-4 w-4 mr-2" />Below par
                 </Button>
                 {/* KS-A: sort selector. Default is alphabetical
@@ -560,9 +559,9 @@ export default function KitchenStockPage() {
               {/* KS-A: active-filter recap line. Shown only when at
                   least one filter is on. One-tap clear-all. */}
               {(search || category !== "all" || storage !== "all" || belowParOnly || recipeLinkedOnly || sortKey !== "name") && (
-                <div className="flex items-center justify-between gap-2 text-xs text-slate-600 border-t pt-3">
+                <div className="flex items-center justify-between gap-2 text-xs text-slate-600 dark:text-slate-400 border-t border-slate-200 dark:border-slate-800 pt-3">
                   <span>
-                    Showing <strong className="text-slate-900 tabular-nums">{filtered.length}</strong> of {items.length} items
+                    Showing <strong className="text-slate-900 dark:text-white tabular-nums">{filtered.length}</strong> of {items.length} items
                   </span>
                   <Button
                     size="sm"
@@ -571,26 +570,39 @@ export default function KitchenStockPage() {
                       setSearch(""); setCategory("all"); setStorage("all");
                       setBelowParOnly(false); setRecipeLinkedOnly(false); setSortKey("name");
                     }}
-                    className="h-7 text-xs text-slate-600 hover:text-slate-900"
+                    className="h-7 text-xs text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
                   >
                     Clear all
                   </Button>
                 </div>
               )}
-            </CardContent>
-          </Card>
+            </div>
+          </PortalCard>
 
-          <Card>
-            <CardContent className="p-0">
+          <PortalCard padded={false}>
               {loading ? (
-                <div className="flex items-center justify-center py-16 text-slate-500"><Loader2 className="h-5 w-5 animate-spin mr-2" /> Loading stock...</div>
+                <ul className="divide-y divide-slate-100 dark:divide-slate-800" aria-hidden="true">
+                  {Array.from({ length: 6 }).map((_, idx) => (
+                    <li key={idx} className="flex items-center gap-3 p-4">
+                      <div className="flex-1 min-w-0 space-y-2">
+                        <div className="h-3.5 w-40 max-w-[55%] animate-pulse motion-reduce:animate-none rounded bg-slate-200 dark:bg-slate-800" />
+                        <div className="h-3 w-56 max-w-[75%] animate-pulse motion-reduce:animate-none rounded bg-slate-100 dark:bg-slate-800/60" />
+                      </div>
+                      <div className="h-5 w-16 animate-pulse motion-reduce:animate-none rounded bg-slate-100 dark:bg-slate-800/60" />
+                      <div className="h-8 w-12 shrink-0 animate-pulse motion-reduce:animate-none rounded bg-slate-200 dark:bg-slate-800" />
+                    </li>
+                  ))}
+                </ul>
               ) : filtered.length === 0 ? (
-                <div className="text-center py-16 text-slate-500">
-                  <Package className="h-10 w-10 mx-auto mb-3 text-slate-300" />
-                  <p className="font-medium">No items match the current filter</p>
+                <div className="px-6 py-16 text-center">
+                  <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800">
+                    <Package className="h-6 w-6 text-slate-400 dark:text-slate-500" />
+                  </div>
+                  <p className="font-semibold text-slate-900 dark:text-white">No items match the current filter</p>
+                  <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">Try clearing a filter or searching a different term.</p>
                 </div>
               ) : (
-                <div className="divide-y divide-slate-100">
+                <div className="divide-y divide-slate-100 dark:divide-slate-800">
                   {filtered.map((i) => {
                     const stock = Number(i.current_stock ?? 0);
                     const min = Number(i.minimum_stock ?? 0);
@@ -607,21 +619,21 @@ export default function KitchenStockPage() {
                       else suggestion = Math.max(min, min * 2 - stock);
                     }
                     return (
-                      <button key={i.id} onClick={() => openUse(i)} className="w-full text-left p-4 hover:bg-slate-50 flex items-center gap-3">
+                      <button key={i.id} onClick={() => openUse(i)} className="w-full text-left p-4 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors duration-150 flex items-center gap-3">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-medium text-slate-900 truncate">{i.item_name}</span>
+                            <span className="font-medium text-slate-900 dark:text-white truncate">{i.item_name}</span>
                             {recipeLinkedIds.has(i.id) && (
-                              <Badge variant="outline" className="text-[10px] bg-orange-50 text-orange-700 border-orange-200 inline-flex items-center gap-1">
+                              <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900 inline-flex items-center gap-1">
                                 <ChefHat className="w-2.5 h-2.5" />in recipes
                               </Badge>
                             )}
                           </div>
-                          <div className="text-xs text-slate-500 mt-0.5">
+                          <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                             {i.category ?? "--"}
                             {i.storage_location ? (
                               <span className="inline-flex items-center gap-0.5 ml-1">
-                                <MapPin className="w-3 h-3 text-slate-400" />
+                                <MapPin className="w-3 h-3 text-slate-400 dark:text-slate-500" />
                                 {i.storage_location}
                               </span>
                             ) : ""}
@@ -631,7 +643,7 @@ export default function KitchenStockPage() {
                               items. Helps the chef call shopping with
                               an exact ask instead of "we need more". */}
                           {suggestion > 0 && (
-                            <div className="text-[11px] text-amber-700 mt-1 inline-flex items-center gap-1">
+                            <div className="text-[11px] text-amber-700 dark:text-amber-400 mt-1 inline-flex items-center gap-1">
                               <AlertTriangle className="w-2.5 h-2.5" />
                               Suggest ordering <strong>{suggestion} {i.unit_of_measure}</strong>
                               {reorderQty > 0 ? " (preferred re-order qty)" : max > 0 ? " (to hit max)" : " (to clear par)"}
@@ -641,9 +653,9 @@ export default function KitchenStockPage() {
                         <div className="flex items-center gap-3 flex-shrink-0">
                           <Badge variant="outline" className={tone(i)}>{label(i)}</Badge>
                           <span className="text-right tabular-nums">
-                            <span className="font-semibold text-base">{stock}</span>
-                            <span className="text-xs text-slate-500"> {i.unit_of_measure}</span>
-                            <div className="text-[11px] text-slate-400">par {min}</div>
+                            <span className="font-semibold text-base text-slate-900 dark:text-white">{stock}</span>
+                            <span className="text-xs text-slate-500 dark:text-slate-400"> {i.unit_of_measure}</span>
+                            <div className="text-[11px] text-slate-400 dark:text-slate-500">par {min}</div>
                           </span>
                         </div>
                       </button>
@@ -651,9 +663,8 @@ export default function KitchenStockPage() {
                   })}
                 </div>
               )}
-            </CardContent>
-          </Card>
-        </div>
+          </PortalCard>
+        </PortalShell>
       </main>
 
       <Dialog open={!!usingItem} onOpenChange={(o) => !o && closeUse()}>
@@ -674,11 +685,11 @@ export default function KitchenStockPage() {
               flow that forced a chef to go to /admin/inventory to log
               a delivery or waste. Four verbs, each picks math + audit
               trail tag underneath. */}
-          <div className="grid grid-cols-4 gap-1.5 p-1 bg-slate-100 rounded-lg">
+          <div className="grid grid-cols-4 gap-1.5 p-1 bg-slate-100 dark:bg-slate-800 rounded-lg">
             <button
               type="button"
               onClick={() => setAction("used")}
-              className={`flex flex-col items-center gap-1 px-2 py-2 rounded-md text-xs font-medium transition-colors ${action === "used" ? "bg-white shadow-sm text-rose-700" : "text-slate-600 hover:bg-white/50"}`}
+              className={`flex flex-col items-center gap-1 px-2 py-2 rounded-md text-xs font-medium transition-colors ${action === "used" ? "bg-white dark:bg-slate-900 shadow-sm text-rose-700 dark:text-rose-300" : "text-slate-600 dark:text-slate-300 hover:bg-white/50 dark:hover:bg-slate-900/50"}`}
             >
               <Minus className="w-4 h-4" />
               Used
@@ -686,7 +697,7 @@ export default function KitchenStockPage() {
             <button
               type="button"
               onClick={() => setAction("received")}
-              className={`flex flex-col items-center gap-1 px-2 py-2 rounded-md text-xs font-medium transition-colors ${action === "received" ? "bg-white shadow-sm text-emerald-700" : "text-slate-600 hover:bg-white/50"}`}
+              className={`flex flex-col items-center gap-1 px-2 py-2 rounded-md text-xs font-medium transition-colors ${action === "received" ? "bg-white dark:bg-slate-900 shadow-sm text-emerald-700 dark:text-emerald-300" : "text-slate-600 dark:text-slate-300 hover:bg-white/50 dark:hover:bg-slate-900/50"}`}
             >
               <Plus className="w-4 h-4" />
               Received
@@ -694,7 +705,7 @@ export default function KitchenStockPage() {
             <button
               type="button"
               onClick={() => setAction("wasted")}
-              className={`flex flex-col items-center gap-1 px-2 py-2 rounded-md text-xs font-medium transition-colors ${action === "wasted" ? "bg-white shadow-sm text-amber-700" : "text-slate-600 hover:bg-white/50"}`}
+              className={`flex flex-col items-center gap-1 px-2 py-2 rounded-md text-xs font-medium transition-colors ${action === "wasted" ? "bg-white dark:bg-slate-900 shadow-sm text-amber-700 dark:text-amber-300" : "text-slate-600 dark:text-slate-300 hover:bg-white/50 dark:hover:bg-slate-900/50"}`}
             >
               <Trash2 className="w-4 h-4" />
               Wasted
@@ -702,7 +713,7 @@ export default function KitchenStockPage() {
             <button
               type="button"
               onClick={() => setAction("count")}
-              className={`flex flex-col items-center gap-1 px-2 py-2 rounded-md text-xs font-medium transition-colors ${action === "count" ? "bg-white shadow-sm text-slate-900" : "text-slate-600 hover:bg-white/50"}`}
+              className={`flex flex-col items-center gap-1 px-2 py-2 rounded-md text-xs font-medium transition-colors ${action === "count" ? "bg-white dark:bg-slate-900 shadow-sm text-slate-900 dark:text-white" : "text-slate-600 dark:text-slate-300 hover:bg-white/50 dark:hover:bg-slate-900/50"}`}
             >
               <Package className="w-4 h-4" />
               Count
@@ -732,10 +743,10 @@ export default function KitchenStockPage() {
               {usingItem && usedQty && !Number.isNaN(Number(usedQty)) && Number(usedQty) >= 0 && (() => {
                 const preview = resolveAction(usingItem, action, Number(usedQty));
                 return (
-                  <p className="text-[11px] text-slate-500 mt-1 tabular-nums">
-                    New on-hand: <strong className="text-slate-900">{preview.newStock} {usingItem.unit_of_measure}</strong>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 tabular-nums">
+                    New on-hand: <strong className="text-slate-900 dark:text-white">{preview.newStock} {usingItem.unit_of_measure}</strong>
                     {preview.delta !== 0 && (
-                      <span className={preview.delta > 0 ? "text-emerald-700" : "text-rose-700"}>
+                      <span className={preview.delta > 0 ? "text-emerald-700 dark:text-emerald-400" : "text-rose-700 dark:text-rose-400"}>
                         {" "}({preview.delta > 0 ? "+" : ""}{preview.delta})
                       </span>
                     )}
@@ -758,7 +769,7 @@ export default function KitchenStockPage() {
               />
             </div>
             {action === "wasted" && (
-              <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded p-2">
+              <p className="text-[11px] text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 rounded p-2">
                 Waste shows up on the admin wastage tab so the office can spot trends - what's going off, what's over-prepped.
               </p>
             )}
@@ -769,13 +780,13 @@ export default function KitchenStockPage() {
               onClick={saveUsage}
               disabled={saving || !usedQty}
               className={
-                action === "received" ? "bg-emerald-600 hover:bg-emerald-700" :
-                action === "wasted" ? "bg-amber-600 hover:bg-amber-700" :
-                action === "count" ? "bg-slate-700 hover:bg-slate-800" :
-                                     "bg-orange-600 hover:bg-orange-700"
+                action === "received" ? "bg-emerald-600 hover:bg-emerald-700 text-white" :
+                action === "wasted" ? "bg-amber-600 hover:bg-amber-700 text-white" :
+                action === "count" ? "bg-slate-700 hover:bg-slate-800 text-white" :
+                                     "bg-amber-600 hover:bg-amber-700 text-white"
               }
             >
-              {saving ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Saving</> :
+              {saving ? <><Loader2 className="h-4 w-4 mr-2 animate-spin motion-reduce:animate-none" /> Saving</> :
                 action === "received" ? "Log receipt" :
                 action === "wasted" ? "Log waste" :
                 action === "count" ? "Save count" :
@@ -792,7 +803,7 @@ export default function KitchenStockPage() {
         <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <ShoppingCart className="w-5 h-5 text-amber-700" />
+              <ShoppingCart className="w-5 h-5 text-amber-700 dark:text-amber-400" />
               {pushResult ? "Shopping list created" : "Push below-par items to shopping"}
             </DialogTitle>
             <DialogDescription>
@@ -804,11 +815,11 @@ export default function KitchenStockPage() {
 
           {pushResult ? (
             <div className="flex flex-col items-center gap-3 py-6">
-              <div className="w-14 h-14 rounded-full bg-emerald-100 flex items-center justify-center">
-                <CheckCircle2 className="w-7 h-7 text-emerald-700" />
+              <div className="w-14 h-14 rounded-full bg-emerald-100 dark:bg-emerald-950/40 flex items-center justify-center">
+                <CheckCircle2 className="w-7 h-7 text-emerald-700 dark:text-emerald-400" />
               </div>
-              <p className="text-sm text-slate-700 text-center">
-                <strong className="text-slate-900">{pushResult.itemCount}</strong> item{pushResult.itemCount === 1 ? "" : "s"} pushed.
+              <p className="text-sm text-slate-700 dark:text-slate-300 text-center">
+                <strong className="text-slate-900 dark:text-white">{pushResult.itemCount}</strong> item{pushResult.itemCount === 1 ? "" : "s"} pushed.
               </p>
               <div className="flex gap-2">
                 <Button
@@ -828,7 +839,7 @@ export default function KitchenStockPage() {
             </div>
           ) : (
             <>
-              <div className="max-h-[40vh] overflow-y-auto border rounded-md divide-y divide-slate-100">
+              <div className="max-h-[40vh] overflow-y-auto border border-slate-200 dark:border-slate-800 rounded-md divide-y divide-slate-100 dark:divide-slate-800">
                 {belowParItems.map((i) => {
                   const stock = Number(i.current_stock || 0);
                   const min = Number(i.minimum_stock || 0);
@@ -839,11 +850,11 @@ export default function KitchenStockPage() {
                   return (
                     <div key={i.id} className="p-2.5 flex items-center justify-between gap-2 text-sm">
                       <div className="min-w-0">
-                        <div className="font-medium text-slate-900 truncate">{i.item_name}</div>
-                        <div className="text-xs text-slate-500">have {stock} {i.unit_of_measure}, par {min}</div>
+                        <div className="font-medium text-slate-900 dark:text-white truncate">{i.item_name}</div>
+                        <div className="text-xs text-slate-500 dark:text-slate-400">have {stock} {i.unit_of_measure}, par {min}</div>
                       </div>
                       <div className="text-right tabular-nums flex-shrink-0">
-                        <div className="font-semibold text-amber-700">+{need} {i.unit_of_measure}</div>
+                        <div className="font-semibold text-amber-700 dark:text-amber-400">+{need} {i.unit_of_measure}</div>
                       </div>
                     </div>
                   );
@@ -854,9 +865,9 @@ export default function KitchenStockPage() {
                 <Button
                   onClick={handlePushToShopping}
                   disabled={pushing || belowParItems.length === 0}
-                  className="bg-amber-600 hover:bg-amber-700"
+                  className="bg-amber-600 hover:bg-amber-700 text-white"
                 >
-                  {pushing ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Pushing</> : <><ShoppingCart className="w-4 h-4 mr-2" />Push {belowParItems.length} item{belowParItems.length === 1 ? "" : "s"}</>}
+                  {pushing ? <><Loader2 className="w-4 h-4 mr-2 animate-spin motion-reduce:animate-none" />Pushing</> : <><ShoppingCart className="w-4 h-4 mr-2" />Push {belowParItems.length} item{belowParItems.length === 1 ? "" : "s"}</>}
                 </Button>
               </DialogFooter>
             </>

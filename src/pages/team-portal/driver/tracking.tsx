@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PortalCard } from "@/components/portal/ui";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -82,10 +82,10 @@ function fmtEventDate(iso: string | null | undefined): string {
 }
 
 const STATUS_LABELS: Record<string, { label: string; tone: string }> = {
-  assigned: { label: "Assigned", tone: "bg-blue-100 text-blue-800" },
-  accepted: { label: "Accepted", tone: "bg-blue-100 text-blue-800" },
-  en_route: { label: "En Route", tone: "bg-amber-100 text-amber-800" },
-  picked_up: { label: "Picked Up", tone: "bg-purple-100 text-purple-800" },
+  assigned: { label: "Assigned", tone: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300" },
+  accepted: { label: "Accepted", tone: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300" },
+  en_route: { label: "En Route", tone: "bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-900" },
+  picked_up: { label: "Picked Up", tone: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300" },
 };
 
 function DriverTrackingInner() {
@@ -244,7 +244,7 @@ function DriverTrackingInner() {
     );
   };
 
-  const statusMeta = delivery ? STATUS_LABELS[delivery.status] || { label: delivery.status, tone: "bg-slate-100 text-slate-800" } : null;
+  const statusMeta = delivery ? STATUS_LABELS[delivery.status] || { label: delivery.status, tone: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300" } : null;
 
   return (
     <DriverPageShell
@@ -256,16 +256,22 @@ function DriverTrackingInner() {
       hideFooter
     >
           {loading ? (
-            <Card className="border-0 shadow-lg">
-              <CardContent className="py-12 text-center text-slate-600">Loading...</CardContent>
-            </Card>
+            <div className="space-y-6" aria-busy="true" aria-label="Loading your active delivery">
+              <div className="h-40 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 animate-pulse" />
+              <div className="h-32 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 animate-pulse" />
+            </div>
           ) : !delivery ? (
-            <Card className="border-0 shadow-lg">
-              <CardContent className="py-12 text-center">
-                <Package className="w-16 h-16 mx-auto mb-4 text-slate-300" />
-                <p className="text-slate-600">No active delivery</p>
-              </CardContent>
-            </Card>
+            <PortalCard padded={false}>
+              <div className="py-16 px-6 text-center">
+                <div className="w-12 h-12 mx-auto mb-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 flex items-center justify-center">
+                  <Package className="w-6 h-6 text-slate-400 dark:text-slate-500" />
+                </div>
+                <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-1.5">No active delivery</h3>
+                <p className="text-sm text-slate-600 dark:text-slate-400 max-w-md mx-auto">
+                  When dispatch assigns you a delivery, it&apos;ll appear here with the collect time, manifest and venue.
+                </p>
+              </div>
+            </PortalCard>
           ) : (
             <div className="space-y-6">
               {/* Single delivery card. Sections (collect / deliver /
@@ -274,17 +280,17 @@ function DriverTrackingInner() {
                   cards on a phone. Accordion collapses items by
                   default; everything time-critical is above the
                   fold. */}
-              <Card className="border-0 shadow-lg overflow-hidden">
-                <CardHeader className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white">
+              <PortalCard padded={false} className="overflow-hidden">
+                <div className="p-5 border-b border-slate-200 dark:border-slate-800">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="text-xs uppercase tracking-wider opacity-80">
+                      <p className="text-xs font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-400">
                         {delivery.orderNumber}
                       </p>
-                      <CardTitle className="text-xl text-white truncate">
+                      <h2 className="text-xl font-semibold text-slate-900 dark:text-white truncate">
                         {delivery.eventName || delivery.clientName}
-                      </CardTitle>
-                      <p className="text-sm opacity-90 truncate">
+                      </h2>
+                      <p className="text-sm text-slate-600 dark:text-slate-400 truncate">
                         For {delivery.clientName}
                       </p>
                     </div>
@@ -292,32 +298,32 @@ function DriverTrackingInner() {
                       {statusMeta!.label}
                     </Badge>
                   </div>
-                </CardHeader>
+                </div>
 
-                <CardContent className="p-0 divide-y divide-slate-100">
+                <div className="divide-y divide-slate-100 dark:divide-slate-800">
                   {/* COLLECT FROM KITCHEN. First-action info. Big
                       pickup_time, kitchen origin if we have it. */}
                   <div className="p-5">
                     <div className="flex items-start gap-3">
-                      <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
-                        <ChefHat className="w-5 h-5 text-blue-600" />
+                      <div className="w-10 h-10 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-400 dark:text-slate-500 flex items-center justify-center shrink-0">
+                        <ChefHat className="w-5 h-5" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs font-semibold uppercase tracking-wider text-blue-700">
+                        <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                           Collect from kitchen
                         </p>
                         {delivery.pickupTime ? (
-                          <p className="text-2xl font-bold text-slate-900 tabular-nums mt-1">
+                          <p className="text-2xl font-semibold text-slate-900 dark:text-white tabular-nums mt-1">
                             {fmtClockTime(delivery.pickupTime)}
                           </p>
                         ) : (
-                          <p className="text-sm italic text-slate-500 mt-1">
+                          <p className="text-sm italic text-slate-500 dark:text-slate-400 mt-1">
                             Pickup time not set - check with dispatch.
                           </p>
                         )}
                         {kitchenOrigin?.address && (
-                          <p className="text-sm text-slate-600 mt-1 flex items-center gap-1">
-                            <MapPin className="w-3.5 h-3.5 text-slate-400" />
+                          <p className="text-sm text-slate-600 dark:text-slate-400 mt-1 flex items-center gap-1">
+                            <MapPin className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
                             {kitchenOrigin.address}
                           </p>
                         )}
@@ -330,34 +336,34 @@ function DriverTrackingInner() {
                       in one glance. */}
                   <div className="p-5">
                     <div className="flex items-start gap-3">
-                      <div className="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center shrink-0">
-                        <MapPin className="w-5 h-5 text-emerald-600" />
+                      <div className="w-10 h-10 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-400 dark:text-slate-500 flex items-center justify-center shrink-0">
+                        <MapPin className="w-5 h-5" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs font-semibold uppercase tracking-wider text-emerald-700">
+                        <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                           Deliver to venue
                         </p>
-                        <p className="font-semibold text-slate-900 mt-1">
+                        <p className="font-semibold text-slate-900 dark:text-white mt-1">
                           {delivery.venueAddress}
                         </p>
-                        <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-600">
-                          <span className="inline-flex items-center gap-1.5">
+                        <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-600 dark:text-slate-400">
+                          <span className="inline-flex items-center gap-1.5 tabular-nums">
                             <Calendar className="w-3.5 h-3.5" />
                             {fmtEventDate(delivery.eventDate)}
                           </span>
                           {delivery.setupTime && (
-                            <span className="inline-flex items-center gap-1.5">
+                            <span className="inline-flex items-center gap-1.5 tabular-nums">
                               <Clock className="w-3.5 h-3.5" />
                               Setup {fmtClockTime(delivery.setupTime)}
                             </span>
                           )}
                           {delivery.eventTime && (
-                            <span className="inline-flex items-center gap-1.5 font-medium text-orange-700">
+                            <span className="inline-flex items-center gap-1.5 font-medium tabular-nums text-amber-700 dark:text-amber-400">
                               <Clock className="w-3.5 h-3.5" />
                               Event {fmtClockTime(delivery.eventTime)}
                             </span>
                           )}
-                          <span className="inline-flex items-center gap-1.5">
+                          <span className="inline-flex items-center gap-1.5 tabular-nums">
                             <Users className="w-3.5 h-3.5" />
                             {delivery.guestCount} guests
                           </span>
@@ -370,20 +376,20 @@ function DriverTrackingInner() {
                       driver needs to see allergens / special asks
                       before they hit the venue. */}
                   {(delivery.dietaryRequirements || delivery.specialInstructions) && (
-                    <div className="p-5 bg-rose-50">
+                    <div className="p-5 bg-rose-50 dark:bg-rose-950/40">
                       <div className="flex items-start gap-3">
-                        <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+                        <AlertTriangle className="w-5 h-5 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
                         <div className="space-y-1 text-sm">
                           {delivery.dietaryRequirements && (
                             <p>
-                              <span className="font-semibold text-rose-800">Dietary: </span>
-                              <span className="text-rose-900">{delivery.dietaryRequirements}</span>
+                              <span className="font-semibold text-rose-800 dark:text-rose-200">Dietary: </span>
+                              <span className="text-rose-900 dark:text-rose-100">{delivery.dietaryRequirements}</span>
                             </p>
                           )}
                           {delivery.specialInstructions && (
                             <p>
-                              <span className="font-semibold text-rose-800">Notes: </span>
-                              <span className="text-rose-900">{delivery.specialInstructions}</span>
+                              <span className="font-semibold text-rose-800 dark:text-rose-200">Notes: </span>
+                              <span className="text-rose-900 dark:text-rose-100">{delivery.specialInstructions}</span>
                             </p>
                           )}
                         </div>
@@ -403,14 +409,14 @@ function DriverTrackingInner() {
                           <AccordionItem value="food" className="border-0">
                             <AccordionTrigger className="hover:no-underline py-4 px-3">
                               <div className="flex items-center gap-3 flex-1">
-                                <div className="w-10 h-10 rounded-lg bg-amber-50 flex items-center justify-center shrink-0">
-                                  <UtensilsCrossed className="w-5 h-5 text-amber-600" />
+                                <div className="w-10 h-10 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-400 dark:text-slate-500 flex items-center justify-center shrink-0">
+                                  <UtensilsCrossed className="w-5 h-5" />
                                 </div>
                                 <div className="text-left">
-                                  <p className="text-xs font-semibold uppercase tracking-wider text-amber-700">
+                                  <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                                     Food to load
                                   </p>
-                                  <p className="text-sm text-slate-700">
+                                  <p className="text-sm text-slate-700 dark:text-slate-300 tabular-nums">
                                     {delivery.menuItems.length} {delivery.menuItems.length === 1 ? "item" : "items"}
                                     {" · "}
                                     {delivery.menuItems.reduce((s, i) => s + i.quantity, 0)} portions
@@ -423,15 +429,15 @@ function DriverTrackingInner() {
                                 {delivery.menuItems.map((m) => (
                                   <li
                                     key={m.id}
-                                    className="flex items-start justify-between gap-3 p-3 rounded-md border border-slate-200 bg-white"
+                                    className="flex items-start justify-between gap-3 p-3 rounded-md border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900"
                                   >
                                     <div className="min-w-0 flex-1">
-                                      <p className="font-medium text-slate-900">{m.name}</p>
+                                      <p className="font-medium text-slate-900 dark:text-white">{m.name}</p>
                                       {m.description && (
-                                        <p className="text-xs text-slate-500 mt-0.5">{m.description}</p>
+                                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{m.description}</p>
                                       )}
                                       {m.special_instructions && (
-                                        <p className="text-xs text-rose-700 italic mt-1">
+                                        <p className="text-xs text-rose-700 dark:text-rose-300 italic mt-1">
                                           Note: {m.special_instructions}
                                         </p>
                                       )}
@@ -450,14 +456,14 @@ function DriverTrackingInner() {
                           <AccordionItem value="equipment" className="border-0">
                             <AccordionTrigger className="hover:no-underline py-4 px-3">
                               <div className="flex items-center gap-3 flex-1">
-                                <div className="w-10 h-10 rounded-lg bg-purple-50 flex items-center justify-center shrink-0">
-                                  <Package className="w-5 h-5 text-purple-600" />
+                                <div className="w-10 h-10 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-400 dark:text-slate-500 flex items-center justify-center shrink-0">
+                                  <Package className="w-5 h-5" />
                                 </div>
                                 <div className="text-left">
-                                  <p className="text-xs font-semibold uppercase tracking-wider text-purple-700">
+                                  <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                                     Equipment to load
                                   </p>
-                                  <p className="text-sm text-slate-700">
+                                  <p className="text-sm text-slate-700 dark:text-slate-300 tabular-nums">
                                     {delivery.equipment.length} {delivery.equipment.length === 1 ? "type" : "types"}
                                     {" · "}
                                     {delivery.equipment.reduce((s, e) => s + e.quantity, 0)} units
@@ -470,9 +476,9 @@ function DriverTrackingInner() {
                                 {delivery.equipment.map((e) => (
                                   <li
                                     key={e.id}
-                                    className="flex items-center justify-between gap-3 p-3 rounded-md border border-slate-200 bg-white"
+                                    className="flex items-center justify-between gap-3 p-3 rounded-md border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900"
                                   >
-                                    <p className="font-medium text-slate-900">{e.name}</p>
+                                    <p className="font-medium text-slate-900 dark:text-white">{e.name}</p>
                                     <Badge variant="outline" className="tabular-nums shrink-0">
                                       x{e.quantity}
                                     </Badge>
@@ -492,20 +498,20 @@ function DriverTrackingInner() {
                   {delivery.clientPhone && (
                     <a
                       href={`tel:${delivery.clientPhone}`}
-                      className="flex items-center gap-3 p-5 hover:bg-slate-50 transition-colors"
+                      className="flex items-center gap-3 p-5 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
                     >
-                      <div className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center shrink-0">
-                        <Phone className="w-5 h-5 text-slate-700" />
+                      <div className="w-10 h-10 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-400 dark:text-slate-500 flex items-center justify-center shrink-0">
+                        <Phone className="w-5 h-5" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                        <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                           Client contact
                         </p>
-                        <p className="font-medium text-slate-900 tabular-nums">
+                        <p className="font-medium text-slate-900 dark:text-white tabular-nums">
                           {delivery.clientPhone}
                         </p>
                       </div>
-                      <span className="text-xs text-blue-600 font-medium shrink-0">Tap to call</span>
+                      <span className="text-xs text-amber-600 dark:text-amber-400 font-medium shrink-0">Tap to call</span>
                     </a>
                   )}
 
@@ -515,14 +521,14 @@ function DriverTrackingInner() {
                   <div className="p-5 space-y-2">
                     <Link
                       href={withSlug(staffOrderHref(delivery.orderId, "driver"))}
-                      className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold min-h-[32px]"
+                      className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-amber-200 bg-amber-50 hover:bg-amber-100 text-amber-700 font-semibold min-h-[32px] transition-colors duration-150 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300 dark:hover:bg-amber-900/60"
                       title="Open the driver brief for this order"
                     >
                       <ExternalLink className="w-3.5 h-3.5" />
                       Open brief
                     </Link>
                     <Button
-                      className="w-full"
+                      className="w-full bg-amber-600 hover:bg-amber-700 text-white"
                       size="lg"
                       onClick={() => openNavigation()}
                     >
@@ -542,8 +548,8 @@ function DriverTrackingInner() {
                       </Button>
                     )}
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+              </PortalCard>
             </div>
           )}
 

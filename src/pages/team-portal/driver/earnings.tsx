@@ -16,13 +16,13 @@
 import { useEffect, useMemo, useState } from "react";
 import Head from "next/head";
 import Link from "next/link";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  Clock, TrendingUp, Calendar, Wallet, Truck, Loader2, Route, MapPin, ExternalLink,
+  Clock, TrendingUp, Wallet, Truck, Loader2, Route, MapPin, ExternalLink,
 } from "lucide-react";
+import { PortalShell, PortalHeader, PortalCard, PortalCardHeader, StatTile } from "@/components/portal/ui";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { staffOrderHref } from "@/lib/orderUrls";
 import { DriverNav } from "@/components/navigation/DriverNav";
@@ -145,31 +145,23 @@ export default function DriverEarningsPage() {
       <Head><title>My earnings - CateringMS</title></Head>
       <DriverNav />
 
-      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-blue-50 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
-        <div className="px-4 py-8 max-w-full">
-          <div className="mb-6">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg">
-                <Wallet className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <h1 className="text-3xl lg:text-4xl font-bold text-slate-900">My Earnings</h1>
-                <p className="text-slate-600 mt-1">
-                  Hours, distance and callout pay for the period below.
-                </p>
-              </div>
-            </div>
-          </div>
+      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+          <PortalHeader
+            title="My earnings"
+            subtitle="Hours, distance and callout pay for the period below."
+            icon={Wallet}
+          />
 
           {/* Period picker */}
-          <Card className="border-0 shadow mb-6">
-            <CardContent className="p-4 flex flex-wrap items-end gap-3">
+          <PortalCard className="mb-6">
+            <div className="flex flex-wrap items-end gap-3">
               <div>
-                <Label className="text-xs text-slate-500">Period</Label>
+                <Label className="text-xs text-slate-500 dark:text-slate-400">Period</Label>
                 <select
                   value={preset}
                   onChange={(e) => setPreset(e.target.value as Preset)}
-                  className="mt-1 border border-slate-200 rounded-md px-3 py-2 text-sm bg-white"
+                  className="mt-1 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                 >
                   <option value="last_7">Last 7 days</option>
                   <option value="last_30">Last 30 days</option>
@@ -179,136 +171,104 @@ export default function DriverEarningsPage() {
                 </select>
               </div>
               <div>
-                <Label className="text-xs text-slate-500">From</Label>
+                <Label className="text-xs text-slate-500 dark:text-slate-400">From</Label>
                 <Input
                   type="date"
                   value={from}
                   onChange={(e) => { setFrom(e.target.value); setPreset("custom"); }}
-                  className="mt-1 w-44"
+                  className="mt-1 w-44 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                 />
               </div>
               <div>
-                <Label className="text-xs text-slate-500">To</Label>
+                <Label className="text-xs text-slate-500 dark:text-slate-400">To</Label>
                 <Input
                   type="date"
                   value={to}
                   onChange={(e) => { setTo(e.target.value); setPreset("custom"); }}
-                  className="mt-1 w-44"
+                  className="mt-1 w-44 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                 />
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </PortalCard>
 
           {loading || !stats ? (
-            <Card className="border-0 shadow">
-              <CardContent className="py-16 flex items-center justify-center text-slate-500 gap-2">
-                <Loader2 className="w-5 h-5 animate-spin" />
+            <PortalCard>
+              <div className="flex items-center justify-center gap-2 py-16 text-slate-500 dark:text-slate-400">
+                <Loader2 className="h-5 w-5 animate-spin" />
                 Loading earnings...
-              </CardContent>
-            </Card>
+              </div>
+            </PortalCard>
           ) : (
             <>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-                <StatCard
+              <div className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+                <StatTile
                   label="Total earned"
                   value={formatR(stats.grandTotal)}
                   icon={TrendingUp}
-                  accent="from-emerald-500 to-green-600"
-                  sublabel={`${stats.hoursTotal.toFixed(1)}h + ${stats.distanceKm.toFixed(1)}km + ${stats.deliveryCount} callouts`}
+                  hint={`${stats.hoursTotal.toFixed(1)}h + ${stats.distanceKm.toFixed(1)}km + ${stats.deliveryCount} callouts`}
                 />
-                <StatCard
+                <StatTile
                   label="Hourly pay"
                   value={formatR(stats.hourlyPay)}
                   icon={Clock}
-                  accent="from-blue-500 to-indigo-600"
-                  sublabel={`${stats.shiftCount} shift${stats.shiftCount === 1 ? "" : "s"} @ ${formatR(stats.rates.hourly_rate)}/hr`}
+                  hint={`${stats.shiftCount} shift${stats.shiftCount === 1 ? "" : "s"} @ ${formatR(stats.rates.hourly_rate)}/hr`}
                 />
-                <StatCard
+                <StatTile
                   label="Distance pay"
                   value={formatR(stats.distancePay)}
                   icon={Route}
-                  accent="from-amber-500 to-orange-600"
-                  sublabel={`${stats.distanceKm.toFixed(1)} km (round-trip) @ ${formatR(stats.rates.distance_rate_per_km)}/km`}
+                  hint={`${stats.distanceKm.toFixed(1)} km (round-trip) @ ${formatR(stats.rates.distance_rate_per_km)}/km`}
                 />
-                <StatCard
+                <StatTile
                   label="Callout pay"
                   value={formatR(stats.calloutPay)}
                   icon={MapPin}
-                  accent="from-purple-500 to-pink-600"
-                  sublabel={`${stats.deliveryCount} dispatch${stats.deliveryCount === 1 ? "" : "es"} @ ${formatR(stats.rates.base_callout_fee)} flat`}
+                  hint={`${stats.deliveryCount} dispatch${stats.deliveryCount === 1 ? "" : "es"} @ ${formatR(stats.rates.base_callout_fee)} flat`}
                 />
               </div>
 
-              <Card className="border-0 shadow-lg">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Calendar className="w-5 h-5 text-blue-600" />
-                    Pay breakdown
-                  </CardTitle>
-                  <CardDescription>Every shift and delivery in this period</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Tabs defaultValue="shifts">
-                    <TabsList className="mb-4">
-                      <TabsTrigger value="shifts">Shifts ({stats.shiftCount})</TabsTrigger>
-                      <TabsTrigger value="deliveries">Deliveries ({stats.deliveryCount})</TabsTrigger>
-                    </TabsList>
-                    <TabsContent value="shifts">
-                      <ShiftTable summary={summary} formatR={formatR} />
-                    </TabsContent>
-                    <TabsContent value="deliveries">
-                      <DeliveryTable summary={summary} formatR={formatR} withSlug={withSlug} />
-                    </TabsContent>
-                  </Tabs>
-                </CardContent>
-              </Card>
+              <PortalCard>
+                <PortalCardHeader title="Pay breakdown" />
+                <p className="-mt-2 mb-4 text-xs text-slate-500 dark:text-slate-400">
+                  Every shift and delivery in this period
+                </p>
+                <Tabs defaultValue="shifts">
+                  <TabsList className="mb-4">
+                    <TabsTrigger value="shifts">Shifts ({stats.shiftCount})</TabsTrigger>
+                    <TabsTrigger value="deliveries">Deliveries ({stats.deliveryCount})</TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="shifts">
+                    <ShiftTable summary={summary} formatR={formatR} />
+                  </TabsContent>
+                  <TabsContent value="deliveries">
+                    <DeliveryTable summary={summary} formatR={formatR} withSlug={withSlug} />
+                  </TabsContent>
+                </Tabs>
+              </PortalCard>
             </>
           )}
-        </div>
+        </PortalShell>
         <Footer />
       </div>
     </>
   );
 }
 
-function StatCard({
-  label, value, sublabel, icon: Icon, accent,
-}: {
-  label: string;
-  value: string;
-  sublabel?: string;
-  icon: React.ComponentType<{ className?: string }>;
-  accent: string;
-}) {
-  return (
-    <Card className="border-0 shadow-lg hover:shadow-xl transition-shadow">
-      <CardContent className="p-5">
-        <div className="flex items-start justify-between mb-2">
-          <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</p>
-          <div className={`w-9 h-9 rounded-lg bg-gradient-to-br ${accent} flex items-center justify-center`}>
-            <Icon className="w-4 h-4 text-white" />
-          </div>
-        </div>
-        <p className="text-2xl font-bold text-slate-900">{value}</p>
-        {sublabel && <p className="text-xs text-slate-500 mt-1">{sublabel}</p>}
-      </CardContent>
-    </Card>
-  );
-}
-
 function ShiftTable({ summary, formatR }: { summary: DriverPaySummary | null; formatR: (n: number) => string }) {
   if (!summary || summary.shifts.length === 0) {
     return (
-      <div className="py-12 text-center text-slate-500">
-        <Clock className="w-10 h-10 mx-auto text-slate-300 mb-3" />
-        No shifts in this period.
+      <div className="py-12 text-center">
+        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800">
+          <Clock className="h-6 w-6 text-slate-400 dark:text-slate-500" />
+        </div>
+        <p className="text-sm text-slate-600 dark:text-slate-400">No shifts in this period.</p>
       </div>
     );
   }
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
-        <thead className="bg-slate-50 text-slate-500">
+        <thead className="bg-slate-50 text-slate-500 dark:bg-slate-900 dark:text-slate-400">
           <tr>
             <th className="text-left px-4 py-2 font-medium">Hours</th>
             <th className="text-left px-4 py-2 font-medium">Multiplier</th>
@@ -318,11 +278,11 @@ function ShiftTable({ summary, formatR }: { summary: DriverPaySummary | null; fo
         </thead>
         <tbody>
           {summary.shifts.map((s) => (
-            <tr key={s.shift_id} className="border-t border-slate-100">
-              <td className="px-4 py-2 text-slate-700">{s.hours.toFixed(2)}h</td>
-              <td className="px-4 py-2 text-slate-600">{s.multiplier === 1 ? "Standard" : `${s.multiplier}x`}</td>
-              <td className="px-4 py-2 text-right tabular-nums text-slate-700">{formatR(s.hourly_rate)}/hr</td>
-              <td className="px-4 py-2 text-right font-semibold text-slate-900 tabular-nums">{formatR(s.pay)}</td>
+            <tr key={s.shift_id} className="border-t border-slate-100 dark:border-slate-800">
+              <td className="px-4 py-2 text-slate-700 dark:text-slate-300">{s.hours.toFixed(2)}h</td>
+              <td className="px-4 py-2 text-slate-600 dark:text-slate-400">{s.multiplier === 1 ? "Standard" : `${s.multiplier}x`}</td>
+              <td className="px-4 py-2 text-right tabular-nums text-slate-700 dark:text-slate-300">{formatR(s.hourly_rate)}/hr</td>
+              <td className="px-4 py-2 text-right font-semibold text-slate-900 tabular-nums dark:text-white">{formatR(s.pay)}</td>
             </tr>
           ))}
         </tbody>
@@ -334,16 +294,18 @@ function ShiftTable({ summary, formatR }: { summary: DriverPaySummary | null; fo
 function DeliveryTable({ summary, formatR, withSlug }: { summary: DriverPaySummary | null; formatR: (n: number) => string; withSlug: (href: string) => string }) {
   if (!summary || summary.deliveries.length === 0) {
     return (
-      <div className="py-12 text-center text-slate-500">
-        <Truck className="w-10 h-10 mx-auto text-slate-300 mb-3" />
-        No completed deliveries in this period.
+      <div className="py-12 text-center">
+        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800">
+          <Truck className="h-6 w-6 text-slate-400 dark:text-slate-500" />
+        </div>
+        <p className="text-sm text-slate-600 dark:text-slate-400">No completed deliveries in this period.</p>
       </div>
     );
   }
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
-        <thead className="bg-slate-50 text-slate-500">
+        <thead className="bg-slate-50 text-slate-500 dark:bg-slate-900 dark:text-slate-400">
           <tr>
             <th className="text-left px-4 py-2 font-medium">Order</th>
             <th className="text-right px-4 py-2 font-medium">Distance</th>
@@ -355,16 +317,16 @@ function DeliveryTable({ summary, formatR, withSlug }: { summary: DriverPaySumma
         </thead>
         <tbody>
           {summary.deliveries.map((d) => (
-            <tr key={d.order_id} className="border-t border-slate-100">
-              <td className="px-4 py-2 font-mono text-xs text-slate-600 truncate max-w-[140px]">{d.order_id.slice(0, 8)}...</td>
-              <td className="px-4 py-2 text-right tabular-nums text-slate-700">{d.distance_km.toFixed(1)} km</td>
-              <td className="px-4 py-2 text-right tabular-nums text-slate-700">{formatR(d.distance_pay)}</td>
-              <td className="px-4 py-2 text-right tabular-nums text-slate-700">{formatR(d.callout_fee)}</td>
-              <td className="px-4 py-2 text-right font-semibold text-slate-900 tabular-nums">{formatR(d.total)}</td>
+            <tr key={d.order_id} className="border-t border-slate-100 dark:border-slate-800">
+              <td className="px-4 py-2 font-mono text-xs text-slate-600 truncate max-w-[140px] dark:text-slate-400">{d.order_id.slice(0, 8)}...</td>
+              <td className="px-4 py-2 text-right tabular-nums text-slate-700 dark:text-slate-300">{d.distance_km.toFixed(1)} km</td>
+              <td className="px-4 py-2 text-right tabular-nums text-slate-700 dark:text-slate-300">{formatR(d.distance_pay)}</td>
+              <td className="px-4 py-2 text-right tabular-nums text-slate-700 dark:text-slate-300">{formatR(d.callout_fee)}</td>
+              <td className="px-4 py-2 text-right font-semibold text-slate-900 tabular-nums dark:text-white">{formatR(d.total)}</td>
               <td className="px-4 py-2 text-right">
                 <Link
                   href={withSlug(staffOrderHref(d.order_id, "driver"))}
-                  className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold min-h-[32px]"
+                  className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-amber-200 bg-amber-50 hover:bg-amber-100 text-amber-700 font-semibold min-h-[32px] dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300 dark:hover:bg-amber-500/20"
                   title="Open the driver brief for this order"
                 >
                   <ExternalLink className="w-3.5 h-3.5" />

@@ -98,7 +98,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     // 2. Notify the client (if there is a linked client account).
     //    NOTE: orders.client_id is a FK to clients.id, NOT an auth user id.
     //    notifications.recipient_id must be an auth user id (RLS filters on
-    //    it), so resolve the real auth uid first — otherwise the row inserts
+    //    it), so resolve the real auth uid first - otherwise the row inserts
     //    against a clients.id that no auth user matches and the client never
     //    sees it. Mirrors orderWorkflow.sendStatusNotifications.
     let notifiedClient = false;

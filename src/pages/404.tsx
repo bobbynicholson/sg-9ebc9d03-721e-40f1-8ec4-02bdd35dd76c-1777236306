@@ -7,7 +7,7 @@ import { iconChip } from "@/components/motion/marketing";
 export default function Custom404() {
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-gradient-to-b from-slate-50 via-white to-violet-50 p-6 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
-      {/* Soft ambient glow — restrained, no loud gradients */}
+      {/* Soft ambient glow - restrained, no loud gradients */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="absolute -top-40 left-1/2 h-96 w-96 -translate-x-1/2 rounded-full bg-violet-200/40 blur-3xl dark:bg-violet-500/10" />
         <div className="absolute bottom-0 right-1/4 h-72 w-72 rounded-full bg-fuchsia-200/30 blur-3xl dark:bg-fuchsia-500/10" />
@@ -36,7 +36,7 @@ export default function Custom404() {
 
         <div className="mb-8 rounded-2xl border border-slate-200 bg-white/80 p-8 shadow-sm backdrop-blur-sm dark:border-slate-800 dark:bg-slate-900/70">
           <p className="mb-5 text-base leading-relaxed text-slate-600 dark:text-slate-300">
-            Looks like someone sent this page to the wrong kitchen. We searched everywhere – checked the walk-in freezer, looked under the prep tables, even asked the dishwasher. No luck.
+            Looks like someone sent this page to the wrong kitchen. We searched everywhere - checked the walk-in freezer, looked under the prep tables, even asked the dishwasher. No luck.
           </p>
 
           <div className="mb-6 rounded-xl border border-violet-100 bg-violet-50/60 p-6 text-left dark:border-violet-900/40 dark:bg-violet-950/30">

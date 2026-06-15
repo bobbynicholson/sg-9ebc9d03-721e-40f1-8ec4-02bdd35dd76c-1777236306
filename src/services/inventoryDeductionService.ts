@@ -492,7 +492,7 @@ export async function deductInventoryForOrder(
       return { success: false, deducted, warnings, errors };
     }
     
-    // 3b. Atomic claim — the real race guard. The top-of-function check
+    // 3b. Atomic claim - the real race guard. The top-of-function check
     // reads inventory_deducted_at from a plain SELECT, so two concurrent
     // "delivered" flips both see null and both deduct (double inventory
     // loss → wrong COGS/margin). A conditional UPDATE ... WHERE

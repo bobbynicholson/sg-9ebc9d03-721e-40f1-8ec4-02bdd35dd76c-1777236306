@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { notificationService } from "./notificationService";
 
 // orders.client_id is a FK to clients.id, but notifications.recipient_id
-// must be an auth user id. Resolve the linked auth uid best-effort — this
+// must be an auth user id. Resolve the linked auth uid best-effort - this
 // runs on the driver's browser client, so RLS may block the clients/profiles
 // lookup; on any failure we return null and the caller falls back to a known
 // auth user (the order creator) rather than dropping the notification.

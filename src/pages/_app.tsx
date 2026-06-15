@@ -15,7 +15,7 @@ import { GlobalInternalFooter } from "@/components/GlobalInternalFooter";
 import "@/styles/globals.css";
 
 // Warm modern display serif for marketing headings (opt-in via Tailwind's
-// `font-display`). Self-hosted by next/font — no external request, no layout
+// `font-display`). Self-hosted by next/font - no external request, no layout
 // shift. Exposed as the --font-display CSS variable on the wrapper below.
 const fraunces = Fraunces({
   subsets: ["latin"],
@@ -27,7 +27,7 @@ const fraunces = Fraunces({
 
 // Clean, neutral body sans for marketing surfaces (opt-in via `font-body`).
 // Self-hosted by next/font. Pairs with Fraunces for a modern, warm, editorial
-// voice — without changing the default app/dashboard font.
+// voice - without changing the default app/dashboard font.
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-body",

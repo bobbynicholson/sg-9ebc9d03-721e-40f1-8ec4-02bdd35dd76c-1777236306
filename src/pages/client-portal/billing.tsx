@@ -2,15 +2,14 @@
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import Head from "next/head";
 import Link from "next/link";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { FileText, Download, Clock, CheckCircle, AlertCircle, Search, Filter, CreditCard, Receipt, Calendar, ArrowUpDown, Loader2 } from "lucide-react";
+import { FileText, Download, Clock, CheckCircle, AlertCircle, Search, Filter, CreditCard, Receipt, Calendar, ArrowUpDown, Wallet } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { ClientNav } from "@/components/navigation/ClientNav";
-import { ClientPageHeader } from "@/components/client-portal/ClientPageHeader";
+import { PortalShell, PortalHeader, PortalCard, PortalCardHeader, StatTile } from "@/components/portal/ui";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenantClientIds } from "@/hooks/useTenantClientIds";
@@ -300,10 +299,10 @@ export default function ClientBillingPage() {
 
   const getStatusBadge = (status: Invoice["status"]) => {
     const variants = {
-      pending: "bg-yellow-100 text-yellow-800 border-yellow-200",
-      paid: "bg-green-100 text-green-800 border-green-200",
-      overdue: "bg-red-100 text-red-800 border-red-200",
-      failed: "bg-slate-100 text-slate-800 border-slate-200",
+      pending: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/20",
+      paid: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/20",
+      overdue: "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-500/10 dark:text-rose-300 dark:border-rose-500/20",
+      failed: "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700",
     };
     const icons = {
       pending: Clock,
@@ -350,11 +349,13 @@ export default function ClientBillingPage() {
       <ClientNav />
 
       <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
-        <ClientPageHeader
-          title="Billing & invoices"
-          subtitle="Pay outstanding invoices, view payment history, and download receipts."
-        />
-        <div className="px-4 sm:px-6 md:px-8 lg:px-10 py-6 md:py-8 lg:py-10">
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+          <PortalHeader
+            title="Billing & invoices"
+            subtitle="Pay outstanding invoices, view payment history, and download receipts."
+            icon={Receipt}
+          />
+
           {/* Tenant identity strip --
               SARS rule: VAT-registered businesses must show their VAT
               registration number on every invoice the client sees. We
@@ -362,220 +363,199 @@ export default function ClientBillingPage() {
               a header, not a letterhead. Hidden entirely when the
               tenant isn't VAT-registered or the number isn't on file. */}
           {company?.company_name && (
-            <div className="mb-4 md:mb-6 px-4 py-3 rounded-lg bg-white border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
-              <p className="text-sm font-semibold text-slate-900">
-                {company.company_name}
-              </p>
-              {company?.vat_registered && company?.vat_number && (
-                <p className="text-xs text-slate-600">
-                  VAT Reg No:{" "}
-                  <span className="font-mono">{company.vat_number}</span>
+            <PortalCard padded={false} className="mb-4 md:mb-6">
+              <div className="px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+                <p className="text-sm font-semibold text-slate-900 dark:text-white">
+                  {company.company_name}
                 </p>
-              )}
-            </div>
-          )}
-          {/* Stats */}
-          <div className="mb-6 md:mb-8">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Card className="border-0 shadow-lg bg-gradient-to-br from-green-50 to-emerald-50">
-                <CardContent className="pt-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-slate-600">Total Paid</p>
-                      <p className="text-2xl font-bold text-green-600">
-                        {currencySymbolFor((company as any)?.currency || "ZAR")}{totalPaid.toLocaleString()}
-                      </p>
-                    </div>
-                    <div className="w-12 h-12 rounded-lg bg-green-100 flex items-center justify-center">
-                      <CheckCircle className="w-6 h-6 text-green-600" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="border-0 shadow-lg bg-gradient-to-br from-yellow-50 to-amber-50">
-                <CardContent className="pt-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-slate-600">Outstanding</p>
-                      <p className="text-2xl font-bold text-amber-600">
-                        {currencySymbolFor((company as any)?.currency || "ZAR")}{totalOutstanding.toLocaleString()}
-                      </p>
-                    </div>
-                    <div className="w-12 h-12 rounded-lg bg-amber-100 flex items-center justify-center">
-                      <Clock className="w-6 h-6 text-amber-600" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="border-0 shadow-lg bg-gradient-to-br from-red-50 to-rose-50">
-                <CardContent className="pt-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-slate-600">Overdue</p>
-                      <p className="text-2xl font-bold text-red-600">
-                        {overdueCount} {overdueCount === 1 ? "invoice" : "invoices"}
-                      </p>
-                    </div>
-                    <div className="w-12 h-12 rounded-lg bg-red-100 flex items-center justify-center">
-                      <AlertCircle className="w-6 h-6 text-red-600" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-
-          {/* Filters and Search */}
-          <Card className="border-0 shadow-lg mb-6">
-            <CardHeader>
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <CardTitle>All Invoices</CardTitle>
-                <div className="flex flex-col sm:flex-row gap-2">
-                  <div className="relative flex-1 sm:flex-none">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
-                    <Input
-                      placeholder="Search invoices..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="pl-9 w-full sm:w-64"
-                    />
-                  </div>
-                  <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className="w-full sm:w-40">
-                      <Filter className="w-4 h-4 mr-2" />
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Status</SelectItem>
-                      <SelectItem value="pending">Pending</SelectItem>
-                      <SelectItem value="paid">Paid</SelectItem>
-                      <SelectItem value="overdue">Overdue</SelectItem>
-                      <SelectItem value="failed">Failed</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Select value={sortBy} onValueChange={(val) => setSortBy(val as any)}>
-                    <SelectTrigger className="w-full sm:w-40">
-                      <ArrowUpDown className="w-4 h-4 mr-2" />
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="date">Sort by Date</SelectItem>
-                      <SelectItem value="amount">Sort by Amount</SelectItem>
-                      <SelectItem value="status">Sort by Status</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {loading ? (
-                /* Wave 40.3: spinner + sentence-case copy. Was a
-                    bare "Loading invoices..." text line which felt
-                    flat next to every other page in the portal that
-                    uses Loader2. */
-                <div className="flex items-center justify-center py-12 text-slate-600">
-                  <Loader2 className="w-5 h-5 animate-spin mr-2" />
-                  Loading invoices...
-                </div>
-              ) : filteredInvoices.length === 0 ? (
-                <div className="text-center py-12">
-                  <FileText className="w-16 h-16 mx-auto mb-4 text-slate-300" />
-                  <p className="text-slate-600 font-medium mb-2">No invoices found</p>
-                  <p className="text-sm text-slate-500">
-                    {searchQuery || statusFilter !== "all"
-                      ? "Try adjusting your filters."
-                      : "Invoices will appear here when you place an order."}
+                {company?.vat_registered && company?.vat_number && (
+                  <p className="text-xs text-slate-600 dark:text-slate-400">
+                    VAT Reg No:{" "}
+                    <span className="font-mono">{company.vat_number}</span>
                   </p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {filteredInvoices.map((invoice) => (
-                    <div
-                      key={invoice.id}
-                      className="p-4 border-2 border-slate-200 rounded-lg hover:border-blue-300 transition-colors"
-                    >
-                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <h3 className="font-semibold text-lg text-slate-900">
-                              {invoice.invoice_number}
-                            </h3>
-                            {getStatusBadge(invoice.status)}
+                )}
+              </div>
+            </PortalCard>
+          )}
+
+          {loading ? (
+            // Skeleton over the page shape: a stat-tile row + a few
+            // invoice rows so the layout doesn't jump when data lands.
+            <div className="space-y-6 md:space-y-8" aria-busy="true" aria-label="Loading invoices">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {[0, 1, 2].map((i) => (
+                  <div key={i} className="h-24 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm animate-pulse" />
+                ))}
+              </div>
+              <div className="space-y-3">
+                {[0, 1, 2, 3].map((i) => (
+                  <div key={i} className="h-28 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm animate-pulse" />
+                ))}
+              </div>
+            </div>
+          ) : (
+            <>
+              {/* Stats */}
+              <div className="mb-6 md:mb-8 grid grid-cols-1 md:grid-cols-3 gap-4">
+                <StatTile
+                  label="Total paid"
+                  value={`${currencySymbolFor((company as any)?.currency || "ZAR")}${totalPaid.toLocaleString()}`}
+                  icon={CheckCircle}
+                />
+                <StatTile
+                  label="Outstanding"
+                  value={`${currencySymbolFor((company as any)?.currency || "ZAR")}${totalOutstanding.toLocaleString()}`}
+                  icon={Wallet}
+                />
+                <StatTile
+                  label="Overdue"
+                  value={`${overdueCount} ${overdueCount === 1 ? "invoice" : "invoices"}`}
+                  icon={AlertCircle}
+                />
+              </div>
+
+              {/* Filters and Search */}
+              <PortalCard className="mb-6">
+                <PortalCardHeader
+                  title="All invoices"
+                  action={
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <div className="relative flex-1 sm:flex-none">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-500" />
+                        <Input
+                          placeholder="Search invoices..."
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          className="pl-9 w-full sm:w-64"
+                        />
+                      </div>
+                      <Select value={statusFilter} onValueChange={setStatusFilter}>
+                        <SelectTrigger className="w-full sm:w-40">
+                          <Filter className="w-4 h-4 mr-2" />
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Status</SelectItem>
+                          <SelectItem value="pending">Pending</SelectItem>
+                          <SelectItem value="paid">Paid</SelectItem>
+                          <SelectItem value="overdue">Overdue</SelectItem>
+                          <SelectItem value="failed">Failed</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Select value={sortBy} onValueChange={(val) => setSortBy(val as any)}>
+                        <SelectTrigger className="w-full sm:w-40">
+                          <ArrowUpDown className="w-4 h-4 mr-2" />
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="date">Sort by Date</SelectItem>
+                          <SelectItem value="amount">Sort by Amount</SelectItem>
+                          <SelectItem value="status">Sort by Status</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  }
+                />
+                {filteredInvoices.length === 0 ? (
+                  <div className="text-center py-12">
+                    <div className="w-12 h-12 mx-auto mb-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 flex items-center justify-center">
+                      <FileText className="w-6 h-6 text-slate-400 dark:text-slate-500" />
+                    </div>
+                    <p className="text-slate-900 dark:text-white font-semibold mb-1.5">No invoices found</p>
+                    <p className="text-sm text-slate-600 dark:text-slate-400 max-w-md mx-auto">
+                      {searchQuery || statusFilter !== "all"
+                        ? "Try adjusting your filters."
+                        : "Invoices will appear here when you place an order."}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {filteredInvoices.map((invoice) => (
+                      <div
+                        key={invoice.id}
+                        className="p-4 border border-slate-200 dark:border-slate-800 rounded-xl bg-white dark:bg-slate-900 hover:border-amber-300 dark:hover:border-amber-700 transition-colors"
+                      >
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2">
+                              <h3 className="font-semibold text-lg text-slate-900 dark:text-white">
+                                {invoice.invoice_number}
+                              </h3>
+                              {getStatusBadge(invoice.status)}
+                            </div>
+                            <div className="space-y-1 text-sm text-slate-600 dark:text-slate-400">
+                              <div className="flex items-center gap-2">
+                                <Receipt className="w-4 h-4" />
+                                <span>Order: {invoice.order_number}</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Calendar className="w-4 h-4" />
+                                {/* Wave 40.3: consistent en-ZA "15 May 2026"
+                                    formatting matching the rest of the
+                                    portal. Was bare toLocaleDateString()
+                                    which renders differently per browser
+                                    locale. */}
+                                <span>Event: {new Date(invoice.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Clock className="w-4 h-4" />
+                                <span>
+                                  Due: {new Date(invoice.due_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}
+                                </span>
+                              </div>
+                            </div>
                           </div>
-                          <div className="space-y-1 text-sm text-slate-600">
-                            <div className="flex items-center gap-2">
-                              <Receipt className="w-4 h-4" />
-                              <span>Order: {invoice.order_number}</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <Calendar className="w-4 h-4" />
-                              {/* Wave 40.3: consistent en-ZA "15 May 2026"
-                                  formatting matching the rest of the
-                                  portal. Was bare toLocaleDateString()
-                                  which renders differently per browser
-                                  locale. */}
-                              <span>Event: {new Date(invoice.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <Clock className="w-4 h-4" />
-                              <span>
-                                Due: {new Date(invoice.due_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex flex-col items-end gap-2">
-                          <div className="text-right">
-                            <p className="text-2xl font-bold text-slate-900">
-                              {invoice.currency}{invoice.amount.toLocaleString()}
-                            </p>
-                            {invoice.paid_at && (
-                              <p className="text-xs text-green-600">
-                                Paid: {new Date(invoice.paid_at).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}
+                          <div className="flex flex-col items-end gap-2">
+                            <div className="text-right">
+                              <p className="text-2xl font-semibold tabular-nums text-slate-900 dark:text-white">
+                                {invoice.currency}{invoice.amount.toLocaleString()}
                               </p>
-                            )}
-                          </div>
-                          <div className="flex flex-wrap gap-2 justify-end">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleViewInvoice(invoice)}
-                            >
-                              <FileText className="w-4 h-4 mr-2" />
-                              View
-                            </Button>
-                            {invoice.has_completed_payment && (
+                              {invoice.paid_at && (
+                                <p className="text-xs text-emerald-600 dark:text-emerald-400">
+                                  Paid: {new Date(invoice.paid_at).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}
+                                </p>
+                              )}
+                            </div>
+                            <div className="flex flex-wrap gap-2 justify-end">
                               <Button
                                 size="sm"
                                 variant="outline"
-                                onClick={() => setReceiptInvoiceId(invoice.id)}
+                                onClick={() => handleViewInvoice(invoice)}
                               >
-                                <Download className="w-4 h-4 mr-2" />
-                                Receipt
+                                <FileText className="w-4 h-4 mr-2" />
+                                View
                               </Button>
-                            )}
-                            {(invoice.status === "pending" || invoice.status === "overdue") && (
-                              <Button
-                                size="sm"
-                                onClick={() => handlePayInvoice(invoice)}
-                                className="bg-gradient-to-r from-green-500 to-emerald-600"
-                              >
-                                <CreditCard className="w-4 h-4 mr-2" />
-                                Pay Now
-                              </Button>
-                            )}
+                              {invoice.has_completed_payment && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => setReceiptInvoiceId(invoice.id)}
+                                >
+                                  <Download className="w-4 h-4 mr-2" />
+                                  Receipt
+                                </Button>
+                              )}
+                              {(invoice.status === "pending" || invoice.status === "overdue") && (
+                                <Button
+                                  size="sm"
+                                  onClick={() => handlePayInvoice(invoice)}
+                                  className="bg-amber-600 hover:bg-amber-700 text-white"
+                                >
+                                  <CreditCard className="w-4 h-4 mr-2" />
+                                  Pay Now
+                                </Button>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+                    ))}
+                  </div>
+                )}
+              </PortalCard>
+            </>
+          )}
+        </PortalShell>
       </div>
 
       {selectedInvoice && (

@@ -1,13 +1,12 @@
 import { useState, useEffect, useMemo } from "react";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import Head from "next/head";
-import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Sparkles, Search, ChevronDown, ChevronRight as ChevronRightIcon, Clock, ShieldCheck } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
-import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { CleaningNav } from "@/components/navigation/CleaningNav";
+import { PortalShell, PortalHeader, PortalCard } from "@/components/portal/ui";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -148,81 +147,93 @@ export default function CleaningWorkflowsPage() {
       <Head><title>Cleaning workflows - CateringMS</title></Head>
       <NoIndexMeta />
       <CleaningNav />
-      <main className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 via-white to-cyan-50 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
-        <div className="px-3 sm:px-4 md:px-6 py-6 sm:py-8 max-w-full">
-          {/* Wave 38: gradient-box icon header. */}
-          <div className="mb-6 flex items-center gap-3">
-            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center shadow-md flex-shrink-0">
-              <Sparkles className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
-            </div>
-            <div className="min-w-0">
-              <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold bg-gradient-to-r from-cyan-600 to-blue-600 bg-clip-text text-transparent flex items-center gap-2">
-                Cleaning Workflows
-                <InfoTooltip content="Cleaning steps grouped by the type of equipment you have on file.\n\nEach card lists what to do before the item goes back into stock." />
-              </h1>
-              <p className="text-sm text-slate-600 mt-0.5">Step-by-step SOPs per equipment category, food-safety compliant</p>
-            </div>
-          </div>
+      <main className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+          <PortalHeader
+            title="Cleaning workflows"
+            subtitle="Step-by-step SOPs per equipment category, food-safety compliant"
+            icon={Sparkles}
+          />
 
-          <Card className="mb-6">
-            <CardContent className="p-4">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                <Input className="pl-9" placeholder="Search equipment..." value={search} onChange={(e) => setSearch(e.target.value)} />
-              </div>
-            </CardContent>
-          </Card>
+          <PortalCard className="mb-6">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 dark:text-slate-500" />
+              <Input
+                className="pl-9 dark:bg-slate-950 dark:border-slate-700 dark:text-slate-100 dark:placeholder:text-slate-500"
+                placeholder="Search equipment..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+          </PortalCard>
 
           {loading ? (
-            <div className="flex items-center justify-center py-16 text-slate-500">Loading workflows...</div>
+            <div className="space-y-3" aria-busy="true" aria-label="Loading workflows">
+              {[0, 1, 2].map((i) => (
+                <div
+                  key={i}
+                  className="rounded-2xl border border-slate-200/80 bg-white dark:border-slate-800 dark:bg-slate-900 p-4"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="h-5 w-5 rounded bg-slate-100 dark:bg-slate-800 animate-pulse" />
+                    <div className="flex-1 space-y-2">
+                      <div className="h-4 w-32 rounded bg-slate-100 dark:bg-slate-800 animate-pulse" />
+                      <div className="h-3 w-24 rounded bg-slate-100 dark:bg-slate-800 animate-pulse" />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           ) : Object.keys(grouped).length === 0 ? (
-            <Card>
-              <CardContent className="text-center py-16 text-slate-500">
-                <Sparkles className="h-10 w-10 mx-auto mb-3 text-slate-300" />
-                <p className="font-medium">No equipment to show workflows for</p>
-                <p className="text-xs mt-1">Add equipment in Admin then return to see SOPs per category</p>
-              </CardContent>
-            </Card>
+            <PortalCard padded={false}>
+              <div className="py-16 px-6 text-center">
+                <div className="w-12 h-12 mx-auto mb-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 flex items-center justify-center">
+                  <Sparkles className="h-6 w-6 text-slate-300 dark:text-slate-600" />
+                </div>
+                <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-1.5">No equipment to show workflows for</h2>
+                <p className="text-sm text-slate-600 dark:text-slate-400 max-w-md mx-auto">Add equipment in Admin then return to see SOPs per category</p>
+              </div>
+            </PortalCard>
           ) : (
             <div className="space-y-3">
               {Object.entries(grouped).map(([cat, list]) => {
                 const isOpen = open[cat] ?? true;
                 const sops = pickSops(cat);
                 return (
-                  <div key={cat} className="rounded-lg border border-slate-200 bg-white overflow-hidden">
+                  <div key={cat} className="rounded-2xl border border-slate-200/80 bg-white dark:border-slate-800 dark:bg-slate-900 overflow-hidden shadow-[0_1px_2px_rgba(15,23,42,0.04),0_10px_30px_-16px_rgba(15,23,42,0.12)]">
                     <button
                       type="button"
                       onClick={() => setOpen((o) => ({ ...o, [cat]: !isOpen }))}
-                      className="w-full flex items-center justify-between gap-3 px-4 py-3 hover:bg-slate-50"
+                      className="w-full flex items-center justify-between gap-3 px-4 py-3 transition-colors duration-150 hover:bg-slate-50 dark:hover:bg-slate-800"
                     >
                       <div className="flex items-center gap-3 min-w-0 flex-1">
-                        <ShieldCheck className="h-5 w-5 text-cyan-600 flex-shrink-0" />
+                        <ShieldCheck className="h-5 w-5 text-slate-400 dark:text-slate-500 flex-shrink-0" />
                         <div className="min-w-0 text-left">
-                          <div className="font-semibold text-slate-900 capitalize">{cat}</div>
-                          <div className="text-xs text-slate-500">{list.length} items, {sops.length} SOP step{sops.length === 1 ? "" : "s"}</div>
+                          <div className="font-semibold text-slate-900 dark:text-white capitalize">{cat}</div>
+                          <div className="text-xs text-slate-500 dark:text-slate-400 tabular-nums">{list.length} items, {sops.length} SOP step{sops.length === 1 ? "" : "s"}</div>
                         </div>
                       </div>
-                      {isOpen ? <ChevronDown className="h-4 w-4 text-slate-400" /> : <ChevronRightIcon className="h-4 w-4 text-slate-400" />}
+                      {isOpen ? <ChevronDown className="h-4 w-4 text-slate-400 dark:text-slate-500" /> : <ChevronRightIcon className="h-4 w-4 text-slate-400 dark:text-slate-500" />}
                     </button>
                     {isOpen && (
-                      <div className="border-t border-slate-100">
-                        <ol className="divide-y divide-slate-100">
+                      <div className="border-t border-slate-100 dark:border-slate-800">
+                        <ol className="divide-y divide-slate-100 dark:divide-slate-800">
                           {sops.map((step, idx) => (
                             <li key={idx} className="p-3 flex items-start gap-3 text-sm">
-                              <span className="flex-shrink-0 w-6 h-6 rounded-full bg-cyan-100 text-cyan-700 font-semibold flex items-center justify-center text-xs">{idx + 1}</span>
-                              <span className="text-slate-700">{step}</span>
+                              <span className="flex-shrink-0 w-6 h-6 rounded-full bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300 font-semibold flex items-center justify-center text-xs tabular-nums">{idx + 1}</span>
+                              <span className="text-slate-700 dark:text-slate-300">{step}</span>
                             </li>
                           ))}
                         </ol>
                         {list.length > 0 && (
-                          <div className="p-3 border-t border-slate-100 bg-slate-50">
-                            <div className="text-xs font-semibold text-slate-500 uppercase mb-2">Items in this category</div>
+                          <div className="p-3 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
+                            <div className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase mb-2">Items in this category</div>
                             <div className="flex flex-wrap gap-1.5">
                               {list.map((i) => (
-                                <Badge key={i.id} variant="outline" className="bg-white text-slate-700 border-slate-200 text-xs">
+                                <Badge key={i.id} variant="outline" className="bg-white text-slate-700 border-slate-200 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-700 text-xs">
                                   {i.name}
                                   {i.cleaning_time_hours != null && (
-                                    <span className="ml-1.5 text-slate-400 flex items-center gap-0.5">
+                                    <span className="ml-1.5 text-slate-400 dark:text-slate-500 flex items-center gap-0.5 tabular-nums">
                                       <Clock className="h-3 w-3" />{Number(i.cleaning_time_hours)}h
                                     </span>
                                   )}
@@ -238,7 +249,7 @@ export default function CleaningWorkflowsPage() {
               })}
             </div>
           )}
-        </div>
+        </PortalShell>
       </main>
     </>
   );

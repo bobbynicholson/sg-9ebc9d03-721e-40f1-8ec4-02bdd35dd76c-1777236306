@@ -13,9 +13,8 @@
 import { useEffect, useMemo, useState } from "react";
 import Head from "next/head";
 import { useRouter } from "next/router";
-import { Card, CardContent } from "@/components/ui/card";
+import { PortalCard } from "@/components/portal/ui";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Bell, CheckCircle2, AlertCircle, Trash2, Loader2, ExternalLink, Archive } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { effectivePriority, isStaleNotification, STALE_NOTIFICATION_DAYS } from "@/lib/notificationDisplay";
@@ -25,10 +24,10 @@ import { useToast } from "@/hooks/use-toast";
 import { DriverPageShell } from "@/components/driver/DriverPageShell";
 
 const PRIORITY_TONE: Record<string, string> = {
-  urgent: "bg-rose-100 text-rose-800 border-rose-200",
-  high: "bg-amber-100 text-amber-800 border-amber-200",
-  normal: "bg-slate-100 text-slate-700 border-slate-200",
-  low: "bg-slate-50 text-slate-600 border-slate-100",
+  urgent: "bg-rose-100 text-rose-800 border-rose-200 dark:bg-rose-500/10 dark:text-rose-300 dark:border-rose-500/20",
+  high: "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/20",
+  normal: "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700",
+  low: "bg-slate-50 text-slate-600 border-slate-100 dark:bg-slate-800/60 dark:text-slate-400 dark:border-slate-800",
 };
 
 export default function DriverNotificationsPage() {
@@ -190,12 +189,14 @@ export default function DriverNotificationsPage() {
       headerAction={headerActions}
     >
       <div className="space-y-4">
-          <div className="inline-flex rounded-lg border border-slate-200 bg-white p-1">
+          <div className="inline-flex rounded-lg border border-slate-200 bg-white p-1 dark:border-slate-800 dark:bg-slate-900">
             <button
               type="button"
               onClick={() => setTab("all")}
               className={`px-4 py-1.5 text-sm font-medium rounded-md transition ${
-                tab === "all" ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-50"
+                tab === "all"
+                  ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900"
+                  : "text-slate-600 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800"
               }`}
             >
               All
@@ -204,39 +205,41 @@ export default function DriverNotificationsPage() {
               type="button"
               onClick={() => setTab("unread")}
               className={`px-4 py-1.5 text-sm font-medium rounded-md transition inline-flex items-center gap-2 ${
-                tab === "unread" ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-50"
+                tab === "unread"
+                  ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900"
+                  : "text-slate-600 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800"
               }`}
             >
               Unread
               {unreadCount > 0 && (
-                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
-                  tab === "unread" ? "bg-white/20 text-white" : "bg-rose-100 text-rose-700"
+                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded tabular-nums ${
+                  tab === "unread"
+                    ? "bg-white/20 text-white dark:bg-slate-900/10 dark:text-slate-900"
+                    : "bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300"
                 }`}>{unreadCount}</span>
               )}
             </button>
           </div>
 
           {loading ? (
-            <Card className="border-0 shadow-sm">
-              <CardContent className="py-12 text-center">
-                <Loader2 className="w-6 h-6 mx-auto text-slate-400 animate-spin" />
-                <p className="text-sm text-slate-500 mt-3">Loading...</p>
-              </CardContent>
-            </Card>
+            <PortalCard className="py-12 text-center">
+              <Loader2 className="w-6 h-6 mx-auto text-slate-400 dark:text-slate-500 animate-spin" />
+              <p className="text-sm text-slate-500 dark:text-slate-400 mt-3">Loading...</p>
+            </PortalCard>
           ) : notifications.length === 0 ? (
-            <Card className="border-0 shadow-sm">
-              <CardContent className="py-12 text-center space-y-2">
-                <Bell className="w-10 h-10 mx-auto text-slate-300" />
-                <h2 className="text-base font-semibold text-slate-900">
-                  {tab === "unread" ? "Nothing unread" : "No notifications yet"}
-                </h2>
-                <p className="text-sm text-slate-500 max-w-md mx-auto">
-                  {tab === "unread"
-                    ? "You're all caught up."
-                    : "When dispatch assigns a route or a customer messages, it'll land here."}
-                </p>
-              </CardContent>
-            </Card>
+            <PortalCard className="py-12 text-center">
+              <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-500">
+                <Bell className="w-6 h-6" />
+              </span>
+              <h2 className="mt-3 text-base font-semibold text-slate-900 dark:text-white">
+                {tab === "unread" ? "Nothing unread" : "No notifications yet"}
+              </h2>
+              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto">
+                {tab === "unread"
+                  ? "You're all caught up."
+                  : "When dispatch assigns a route or a customer messages, it'll land here."}
+              </p>
+            </PortalCard>
           ) : (
             <ul className="space-y-2">
               {notifications.map((n) => {
@@ -249,13 +252,17 @@ export default function DriverNotificationsPage() {
                 const isUrgent = displayedPriority === "urgent" || displayedPriority === "high";
                 return (
                   <li key={n.id}>
-                    <Card className={`w-full border ${
-                      n.is_read ? "border-slate-200" : "border-slate-300 shadow-sm"
-                    }`}>
-                      <CardContent className="p-4">
+                    <PortalCard
+                      padded={false}
+                      className={`w-full p-4 ${
+                        n.is_read
+                          ? ""
+                          : "border-amber-300/70 dark:border-amber-500/30"
+                      }`}
+                    >
                         <div className="flex items-start gap-3">
                           {!n.is_read && (
-                            <div className="w-2 h-2 mt-2 rounded-full bg-blue-500 flex-shrink-0" />
+                            <div className="w-2 h-2 mt-2 rounded-full bg-amber-500 flex-shrink-0" />
                           )}
                           <div
                             className={`flex-1 min-w-0 ${n.link ? "cursor-pointer" : ""}`}
@@ -263,18 +270,18 @@ export default function DriverNotificationsPage() {
                           >
                             <div className="flex items-center gap-2 flex-wrap">
                               {isUrgent && <AlertCircle className="w-4 h-4 text-rose-500 flex-shrink-0" />}
-                              <h3 className={`text-sm sm:text-base text-slate-900 ${
+                              <h3 className={`text-sm sm:text-base text-slate-900 dark:text-white ${
                                 n.is_read ? "font-medium" : "font-semibold"
                               }`}>{n.title}</h3>
-                              <Badge variant="outline" className={`text-[10px] capitalize ${tone}`}>
+                              <span className={`inline-flex items-center rounded-md border px-1.5 py-0.5 text-[10px] font-medium capitalize ${tone}`}>
                                 {displayedPriority}
-                              </Badge>
+                              </span>
                             </div>
-                            <p className="text-sm text-slate-600 mt-1">{n.message}</p>
+                            <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">{n.message}</p>
                             <div className="flex items-center justify-between gap-2 mt-2">
-                              <p className="text-xs text-slate-400">{ago}</p>
+                              <p className="text-xs text-slate-400 dark:text-slate-500">{ago}</p>
                               {n.link && (
-                                <span className="text-xs text-blue-600 inline-flex items-center gap-1 font-medium">
+                                <span className="text-xs text-amber-600 dark:text-amber-400 inline-flex items-center gap-1 font-medium">
                                   <ExternalLink className="w-3 h-3" />
                                   Tap to open
                                 </span>
@@ -289,7 +296,7 @@ export default function DriverNotificationsPage() {
                                 onClick={(e) => { e.stopPropagation(); onMarkRead(n.id); }}
                                 disabled={actingId === n.id}
                                 title="Mark as read"
-                                className="h-7 w-7"
+                                className="h-7 w-7 text-slate-500 dark:text-slate-400"
                               >
                                 <CheckCircle2 className="w-4 h-4" />
                               </Button>
@@ -306,8 +313,7 @@ export default function DriverNotificationsPage() {
                             </Button>
                           </div>
                         </div>
-                      </CardContent>
-                    </Card>
+                    </PortalCard>
                   </li>
                 );
               })}

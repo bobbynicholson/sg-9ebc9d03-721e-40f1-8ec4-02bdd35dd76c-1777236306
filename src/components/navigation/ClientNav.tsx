@@ -148,10 +148,10 @@ export function ClientNav() {
               <Menu className="h-6 w-6" />
             </Button>
             <Link href={withSlug("/client-portal/dashboard")} className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-gradient-to-br from-green-600 to-emerald-600 rounded-lg flex items-center justify-center">
+              <div className="w-8 h-8 bg-amber-600 rounded-lg flex items-center justify-center">
                 <User className="w-4 h-4 text-white" />
               </div>
-              <span className="font-bold text-slate-900 dark:text-white">Client Portal</span>
+              <span className="font-semibold text-slate-900 dark:text-white">Client Portal</span>
             </Link>
           </div>
           <div className="flex items-center gap-2">
@@ -173,13 +173,13 @@ export function ClientNav() {
             style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
           >
             <nav className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3">
-              <MobileSearchTrigger accent="bg-emerald-50 hover:bg-emerald-100 text-emerald-700" hint="Search orders, invoices..." />
+              <MobileSearchTrigger accent="bg-amber-50 hover:bg-amber-100 text-amber-700" hint="Search orders, invoices..." />
               <MobileQuickActions
                 onNavigate={() => setOpen(false)}
                 actions={[
-                  { href: withSlug("/client-portal/my-orders"), label: "My orders",  sub: "Active + history", icon: ShoppingCart, accent: "from-blue-500 to-indigo-500" },
-                  { href: withSlug("/client-portal/tracking"), label: "Track order", sub: "Live ETA",         icon: MapPin,       accent: "from-emerald-500 to-teal-500" },
-                  { href: withSlug("/client-portal/billing"),  label: "Billing",     sub: "Pay + invoices",   icon: Receipt,      accent: "from-amber-500 to-orange-500" },
+                  { href: withSlug("/client-portal/my-orders"), label: "My orders",  sub: "Active + history", icon: ShoppingCart, accent: "from-amber-500 to-amber-600" },
+                  { href: withSlug("/client-portal/tracking"), label: "Track order", sub: "Live ETA",         icon: MapPin,       accent: "from-amber-500 to-amber-600" },
+                  { href: withSlug("/client-portal/billing"),  label: "Billing",     sub: "Pay + invoices",   icon: Receipt,      accent: "from-amber-500 to-amber-600" },
                 ]}
               />
               <div className="pt-2 mt-2 border-t border-slate-100 space-y-4">
@@ -201,8 +201,8 @@ export function ClientNav() {
                           href={withSlug(item.href)}
                           className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
                             isActive(item.href)
-                              ? "bg-blue-50 text-blue-600 font-medium"
-                              : "text-slate-700 hover:bg-slate-100"
+                              ? "bg-amber-50 text-amber-700 font-medium dark:bg-amber-950/40 dark:text-amber-300"
+                              : "text-slate-700 hover:bg-amber-50 hover:text-amber-700 dark:text-slate-300 dark:hover:bg-amber-950/30 dark:hover:text-amber-300"
                           }`}
                           onClick={() => setOpen(false)}
                         >
@@ -244,11 +244,11 @@ export function ClientNav() {
             {!isCollapsed ? (
               <>
                 <Link href={withSlug("/client-portal/dashboard")} className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-gradient-to-br from-green-600 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg">
+                  <div className="w-10 h-10 bg-amber-600 rounded-xl flex items-center justify-center shadow-sm">
                     <User className="w-5 h-5 text-white" />
                   </div>
                   <div>
-                    <h1 className="font-bold text-slate-900 dark:text-white">Client Portal</h1>
+                    <h1 className="font-semibold text-slate-900 dark:text-white">Client Portal</h1>
                     <p className="text-xs text-slate-600 dark:text-slate-400">CateringMS</p>
                   </div>
                 </Link>
@@ -259,7 +259,7 @@ export function ClientNav() {
               </>
             ) : (
               <div className="flex flex-col items-center gap-3 w-full">
-                <div className="w-10 h-10 bg-gradient-to-br from-green-600 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg">
+                <div className="w-10 h-10 bg-amber-600 rounded-xl flex items-center justify-center shadow-sm">
                   <User className="w-5 h-5 text-white" />
                 </div>
                 <NotificationBell />
@@ -279,8 +279,8 @@ export function ClientNav() {
                     href={withSlug(item.href)}
                     className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
                       isActive(item.href)
-                        ? "bg-blue-50 text-blue-600 font-medium shadow-sm"
-                        : "text-slate-700 hover:bg-slate-100"
+                        ? "bg-amber-50 text-amber-700 font-medium dark:bg-amber-950/40 dark:text-amber-300"
+                        : "text-slate-700 hover:bg-amber-50 hover:text-amber-700 dark:text-slate-300 dark:hover:bg-amber-950/30 dark:hover:text-amber-300"
                     } ${isCollapsed ? "justify-center" : ""}`}
                     title={isCollapsed ? item.name : ""}
                   >

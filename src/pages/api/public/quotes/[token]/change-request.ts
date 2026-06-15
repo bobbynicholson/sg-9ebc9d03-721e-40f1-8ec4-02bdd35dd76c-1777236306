@@ -281,7 +281,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
             await emailService.sendEmail({
               companyId: quote.company_id,
               to: target,
-              subject: `Client change request — ${quoteRef} (${clientLabel})`,
+              subject: `Client change request - ${quoteRef} (${clientLabel})`,
               body: bodyHtml,
               quoteId: quote.id,
               skipUnsubscribeFooter: true,

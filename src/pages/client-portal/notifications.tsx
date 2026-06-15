@@ -15,25 +15,27 @@
 import { useEffect, useMemo, useState } from "react";
 import Head from "next/head";
 import { useRouter } from "next/router";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
-  Bell, CheckCircle2, AlertCircle, Trash2, Loader2,
+  Bell, CheckCircle2, AlertCircle, Trash2,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { ClientNav } from "@/components/navigation/ClientNav";
-import { ClientPageHeader } from "@/components/client-portal/ClientPageHeader";
+import { PortalShell, PortalHeader, PortalCard } from "@/components/portal/ui";
 import { useAuth } from "@/contexts/AuthContext";
 import { notificationService, Notification } from "@/services/notificationService";
 import { useToast } from "@/hooks/use-toast";
 
+// Restrained palette: neutral slate ground with amber as the only accent.
+// urgent reads as rose (needs attention), high as amber (the accent),
+// normal/low stay slate so nothing competes for the eye.
 const PRIORITY_TONE: Record<string, string> = {
-  urgent: "bg-rose-100 text-rose-800 border-rose-200",
-  high: "bg-amber-100 text-amber-800 border-amber-200",
-  normal: "bg-slate-100 text-slate-700 border-slate-200",
-  low: "bg-slate-50 text-slate-600 border-slate-100",
+  urgent: "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950 dark:text-rose-300 dark:border-rose-900",
+  high: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-900",
+  normal: "bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700",
+  low: "bg-slate-50 text-slate-500 border-slate-200 dark:bg-slate-800/60 dark:text-slate-400 dark:border-slate-700",
 };
 
 export default function ClientNotificationsPage() {
@@ -157,97 +159,104 @@ export default function ClientNotificationsPage() {
       <ClientNav />
 
       <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
-        <ClientPageHeader
-          title="Notifications"
-          subtitle="Quote updates, driver alerts, payment confirmations - everything the team has sent you."
-          rightSlot={
-            unreadCount > 0 ? (
-              <Button
-                variant="outline"
-                onClick={onMarkAllRead}
-                className="bg-white/15 border-white/30 text-white hover:bg-white/25 hover:text-white"
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+          <PortalHeader
+            title="Notifications"
+            subtitle="Quote updates, driver alerts, payment confirmations - everything the team has sent you."
+            icon={Bell}
+            actions={
+              unreadCount > 0 ? (
+                <Button
+                  onClick={onMarkAllRead}
+                  className="bg-amber-600 hover:bg-amber-700 text-white rounded-lg gap-1.5"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  Mark all read
+                </Button>
+              ) : null
+            }
+          />
+
+          <div className="space-y-4">
+            <div className="inline-flex rounded-lg border border-slate-200 bg-white dark:bg-slate-900 dark:border-slate-700 p-1">
+              <button
+                type="button"
+                onClick={() => setTab("all")}
+                className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors duration-150 ${
+                  tab === "all"
+                    ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900"
+                    : "text-slate-600 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800"
+                }`}
               >
-                <CheckCircle2 className="w-4 h-4 mr-2" />
-                Mark all read
-              </Button>
-            ) : null
-          }
-        />
+                All
+              </button>
+              <button
+                type="button"
+                onClick={() => setTab("unread")}
+                className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors duration-150 inline-flex items-center gap-2 ${
+                  tab === "unread"
+                    ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900"
+                    : "text-slate-600 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800"
+                }`}
+              >
+                Unread
+                {unreadCount > 0 && (
+                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded tabular-nums ${
+                    tab === "unread"
+                      ? "bg-white/20 text-white dark:bg-slate-900/20 dark:text-slate-900"
+                      : "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300"
+                  }`}>
+                    {unreadCount}
+                  </span>
+                )}
+              </button>
+            </div>
 
-        <main className="px-4 sm:px-6 md:px-8 lg:px-10 py-6 sm:py-8 space-y-4">
-          <div className="inline-flex rounded-lg border border-slate-200 bg-white dark:bg-slate-900 dark:border-slate-700 p-1">
-            <button
-              type="button"
-              onClick={() => setTab("all")}
-              className={`px-4 py-1.5 text-sm font-medium rounded-md transition ${
-                tab === "all"
-                  ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900"
-                  : "text-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800"
-              }`}
-            >
-              All
-            </button>
-            <button
-              type="button"
-              onClick={() => setTab("unread")}
-              className={`px-4 py-1.5 text-sm font-medium rounded-md transition inline-flex items-center gap-2 ${
-                tab === "unread"
-                  ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900"
-                  : "text-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800"
-              }`}
-            >
-              Unread
-              {unreadCount > 0 && (
-                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
-                  tab === "unread" ? "bg-white/20 text-white" : "bg-rose-100 text-rose-700"
-                }`}>
-                  {unreadCount}
-                </span>
-              )}
-            </button>
-          </div>
+            {loading ? (
+              // Skeleton over a centre spinner: the page loads straight into
+              // the list shape so the layout doesn't jump when data arrives.
+              <div className="space-y-2" aria-busy="true" aria-label="Loading your notifications">
+                {[0, 1, 2, 3, 4].map((i) => (
+                  <div
+                    key={i}
+                    className="h-24 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm animate-pulse"
+                  />
+                ))}
+              </div>
+            ) : notifications.length === 0 ? (
+              <PortalCard padded={false}>
+                <div className="py-16 px-6 text-center">
+                  <div className="w-12 h-12 mx-auto mb-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 flex items-center justify-center">
+                    <Bell className="w-6 h-6 text-slate-400 dark:text-slate-500" />
+                  </div>
+                  <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-1.5">
+                    {tab === "unread" ? "Nothing unread" : "No notifications yet"}
+                  </h2>
+                  <p className="text-sm text-slate-600 dark:text-slate-400 max-w-md mx-auto">
+                    {tab === "unread"
+                      ? "You're all caught up. Check back later."
+                      : "When the catering team sends you a quote, marks an event, or confirms a payment, it'll land here."}
+                  </p>
+                </div>
+              </PortalCard>
+            ) : (
+              <ul className="space-y-2">
+                {notifications.map((n) => {
+                  const created = n.created_at ? new Date(n.created_at) : null;
+                  const ago = created ? formatDistanceToNow(created, { addSuffix: true }) : "";
+                  const tone = PRIORITY_TONE[(n.priority as string) || "normal"] || PRIORITY_TONE.normal;
+                  const target = resolveLink(n.link);
+                  const isUrgent = n.priority === "urgent" || n.priority === "high";
 
-          {loading ? (
-            <Card className="border-0 shadow-sm">
-              <CardContent className="py-12 text-center">
-                <Loader2 className="w-6 h-6 mx-auto text-slate-400 animate-spin" />
-                <p className="text-sm text-slate-500 mt-3">Loading your notifications...</p>
-              </CardContent>
-            </Card>
-          ) : notifications.length === 0 ? (
-            <Card className="border-0 shadow-sm">
-              <CardContent className="py-12 text-center space-y-2">
-                <Bell className="w-10 h-10 mx-auto text-slate-300" />
-                <h2 className="text-base font-semibold text-slate-900 dark:text-white">
-                  {tab === "unread" ? "Nothing unread" : "No notifications yet"}
-                </h2>
-                <p className="text-sm text-slate-500 max-w-md mx-auto">
-                  {tab === "unread"
-                    ? "You're all caught up. Check back later."
-                    : "When the catering team sends you a quote, marks an event, or confirms a payment, it'll land here."}
-                </p>
-              </CardContent>
-            </Card>
-          ) : (
-            <ul className="space-y-2">
-              {notifications.map((n) => {
-                const created = n.created_at ? new Date(n.created_at) : null;
-                const ago = created ? formatDistanceToNow(created, { addSuffix: true }) : "";
-                const tone = PRIORITY_TONE[(n.priority as string) || "normal"] || PRIORITY_TONE.normal;
-                const target = resolveLink(n.link);
-                const isUrgent = n.priority === "urgent" || n.priority === "high";
-
-                return (
-                  <li key={n.id}>
-                    <Card className={`w-full border ${
-                      n.is_read
-                        ? "border-slate-200 dark:border-slate-700"
-                        : "border-slate-300 dark:border-slate-600 shadow-sm"
-                    }`}>
-                      <CardContent className="p-4">
-                        <div className="flex items-start gap-3">
+                  return (
+                    <li key={n.id}>
+                      <PortalCard
+                        padded={false}
+                        className={n.is_read ? "" : "border-amber-200 dark:border-amber-900/60"}
+                      >
+                        <div className="flex items-start gap-3 p-4">
                           {!n.is_read && (
-                            <div className="w-2 h-2 mt-2 rounded-full bg-blue-500 flex-shrink-0" aria-label="Unread" />
+                            <div className="w-2 h-2 mt-2 rounded-full bg-amber-500 flex-shrink-0" aria-label="Unread" />
                           )}
                           <div
                             className={`flex-1 min-w-0 ${target ? "cursor-pointer" : ""}`}
@@ -255,7 +264,7 @@ export default function ClientNotificationsPage() {
                           >
                             <div className="flex items-center gap-2 flex-wrap">
                               {isUrgent && (
-                                <AlertCircle className="w-4 h-4 text-rose-500 flex-shrink-0" />
+                                <AlertCircle className="w-4 h-4 text-rose-500 dark:text-rose-400 flex-shrink-0" />
                               )}
                               <h3 className={`text-sm sm:text-base text-slate-900 dark:text-white ${
                                 n.is_read ? "font-medium" : "font-semibold"
@@ -269,7 +278,7 @@ export default function ClientNotificationsPage() {
                             <p className="text-sm text-slate-600 dark:text-slate-300 mt-1 leading-relaxed">
                               {n.message}
                             </p>
-                            <p className="text-xs text-slate-400 mt-2">{ago}</p>
+                            <p className="text-xs text-slate-400 dark:text-slate-500 mt-2">{ago}</p>
                           </div>
                           <div className="flex flex-col gap-1 flex-shrink-0">
                             {!n.is_read && (
@@ -279,7 +288,7 @@ export default function ClientNotificationsPage() {
                                 onClick={(e) => { e.stopPropagation(); onMarkRead(n.id); }}
                                 disabled={actingId === n.id}
                                 title="Mark as read"
-                                className="h-7 w-7"
+                                className="h-7 w-7 text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
                               >
                                 <CheckCircle2 className="w-4 h-4" />
                               </Button>
@@ -290,20 +299,20 @@ export default function ClientNotificationsPage() {
                               onClick={(e) => { e.stopPropagation(); onDelete(n.id); }}
                               disabled={actingId === n.id}
                               title="Delete"
-                              className="h-7 w-7 text-rose-600 hover:text-rose-700"
+                              className="h-7 w-7 text-slate-400 hover:text-rose-600 dark:text-slate-500 dark:hover:text-rose-400"
                             >
                               <Trash2 className="w-4 h-4" />
                             </Button>
                           </div>
                         </div>
-                      </CardContent>
-                    </Card>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </main>
+                      </PortalCard>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        </PortalShell>
       </div>
     </>
   );

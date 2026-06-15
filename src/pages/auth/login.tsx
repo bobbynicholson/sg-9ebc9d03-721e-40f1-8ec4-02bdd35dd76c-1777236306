@@ -145,7 +145,7 @@ export default function LoginPage() {
       // the URL, just their email + password.
       toast({
         title: "We couldn't find that company link",
-        description: "No problem — just sign in with your email and we'll take you to the right place.",
+        description: "No problem - just sign in with your email and we'll take you to the right place.",
         duration: 6000,
       });
     }

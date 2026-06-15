@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import Head from "next/head";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -11,8 +10,8 @@ import {
 } from "@/components/ui/dialog";
 import { Wrench, Search, AlertTriangle, Loader2, Minus } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
-import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { CleaningNav } from "@/components/navigation/CleaningNav";
+import { PortalShell, PortalHeader, PortalCard, StatTile } from "@/components/portal/ui";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { inventoryService, type Inventory } from "@/services/inventoryService";
@@ -121,9 +120,9 @@ export default function CleaningSuppliesPage() {
   const tone = (i: Inventory) => {
     const s = Number(i.current_stock || 0);
     const m = Number(i.minimum_stock || 0);
-    if (s <= 0) return "bg-rose-100 text-rose-700 border-rose-200";
-    if (s <= m) return "bg-amber-100 text-amber-800 border-amber-200";
-    return "bg-emerald-100 text-emerald-700 border-emerald-200";
+    if (s <= 0) return "bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-950 dark:text-rose-300 dark:border-rose-900";
+    if (s <= m) return "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-900";
+    return "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-900";
   };
   const label = (i: Inventory) => {
     const s = Number(i.current_stock || 0);
@@ -138,76 +137,71 @@ export default function CleaningSuppliesPage() {
       <Head><title>Cleaning supplies - CateringMS</title></Head>
       <NoIndexMeta />
       <CleaningNav />
-      <main className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 via-white to-cyan-50 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
-        <div className="px-3 sm:px-4 md:px-6 py-6 sm:py-8 max-w-full">
-          {/* Wave 38: gradient-box icon header. */}
-          <div className="mb-6 flex items-center gap-3">
-            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center shadow-md flex-shrink-0">
-              <Wrench className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
-            </div>
-            <div className="min-w-0">
-              <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold bg-gradient-to-r from-cyan-600 to-blue-600 bg-clip-text text-transparent">
-                Cleaning Supplies
-              </h1>
-              <p className="text-sm text-slate-600 mt-0.5">Detergents, cloths, gloves, low-stock items feed straight to the shopping team</p>
-            </div>
-          </div>
+      <main className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+          <PortalHeader
+            title="Cleaning supplies"
+            subtitle="Detergents, cloths, gloves, low-stock items feed straight to the shopping team"
+            icon={Wrench}
+          />
 
           <div className="grid grid-cols-3 gap-3 sm:gap-4 mb-6">
-            <Card><CardContent className="p-4"><p className="text-xs text-slate-600 flex items-center gap-1">Total supplies <InfoTooltip content="Cleaning consumables on file, detergents, cloths, gloves and similar." /></p><p className="text-2xl font-bold tabular-nums">{stats.total}</p></CardContent></Card>
-            <Card><CardContent className="p-4"><p className="text-xs text-slate-600 flex items-center gap-1">Low stock <InfoTooltip content="Supplies that have hit or dropped below their minimum level.\n\nFlag these to the shopping team so they get topped up." /></p><p className="text-2xl font-bold tabular-nums text-amber-600">{stats.below}</p></CardContent></Card>
-            <Card><CardContent className="p-4"><p className="text-xs text-slate-600 flex items-center gap-1">Out of stock <InfoTooltip content="Supplies that have run out completely.\n\nYou cannot use these until shopping replaces them." /></p><p className="text-2xl font-bold tabular-nums text-rose-600">{stats.out}</p></CardContent></Card>
+            <StatTile label="Total supplies" value={stats.total} hint="On file" />
+            <StatTile label="Low stock" value={stats.below} hint="At or below par" />
+            <StatTile label="Out of stock" value={stats.out} hint="Run out" />
           </div>
 
-          <Card className="mb-6">
-            <CardContent className="p-4 flex flex-col sm:flex-row gap-3">
+          <PortalCard className="mb-6">
+            <div className="flex flex-col sm:flex-row gap-3">
               <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 dark:text-slate-500" />
                 <Input placeholder="Search by name, category, location..." className="pl-9" value={search} onChange={(e) => setSearch(e.target.value)} />
               </div>
-              <Button variant={belowParOnly ? "default" : "outline"} onClick={() => setBelowParOnly((v) => !v)} className={belowParOnly ? "bg-amber-500 hover:bg-amber-600" : ""}>
+              <Button variant={belowParOnly ? "default" : "outline"} onClick={() => setBelowParOnly((v) => !v)} className={belowParOnly ? "bg-amber-600 hover:bg-amber-700" : ""}>
                 <AlertTriangle className="h-4 w-4 mr-2" />Low only
               </Button>
-            </CardContent>
-          </Card>
+            </div>
+          </PortalCard>
 
-          <Card>
-            <CardContent className="p-0">
-              {loading ? (
-                <div className="flex items-center justify-center py-16 text-slate-500"><Loader2 className="h-5 w-5 animate-spin mr-2" />Loading...</div>
-              ) : filtered.length === 0 ? (
-                <div className="text-center py-16 text-slate-500">
-                  <Wrench className="h-10 w-10 mx-auto mb-3 text-slate-300" />
-                  <p className="font-medium">No cleaning supplies found</p>
-                  <p className="text-xs mt-1">Add inventory items with category 'Cleaning' or 'Consumable' to populate this view</p>
-                </div>
-              ) : (
-                <div className="divide-y divide-slate-100">
-                  {filtered.map((i) => (
-                    <button key={i.id} onClick={() => openUse(i)} className="w-full text-left p-4 hover:bg-slate-50 flex items-center gap-3">
-                      <div className="flex-1 min-w-0">
-                        <div className="font-medium text-slate-900 truncate">{i.item_name}</div>
-                        <div className="text-xs text-slate-500 mt-0.5">
-                          {i.category ?? "--"}
-                          {i.storage_location ? `, ${i.storage_location}` : ""}
-                        </div>
+          <PortalCard padded={false}>
+            {loading ? (
+              <div className="p-4 space-y-3" aria-busy="true" aria-label="Loading supplies">
+                {[0, 1, 2, 3, 4].map((n) => (
+                  <div key={n} className="h-14 rounded-lg bg-slate-100 dark:bg-slate-800 animate-pulse" />
+                ))}
+              </div>
+            ) : filtered.length === 0 ? (
+              <div className="text-center py-16 text-slate-500 dark:text-slate-400">
+                <Wrench className="h-10 w-10 mx-auto mb-3 text-slate-300 dark:text-slate-600" />
+                <p className="font-medium text-slate-700 dark:text-slate-200">No cleaning supplies found</p>
+                <p className="text-xs mt-1">Add inventory items with category 'Cleaning' or 'Consumable' to populate this view</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                {filtered.map((i) => (
+                  <button key={i.id} onClick={() => openUse(i)} className="w-full text-left p-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 flex items-center gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-slate-900 dark:text-white truncate">{i.item_name}</div>
+                      <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                        {i.category ?? "--"}
+                        {i.storage_location ? `, ${i.storage_location}` : ""}
                       </div>
-                      <div className="flex items-center gap-3 flex-shrink-0">
-                        <Badge variant="outline" className={tone(i)}>{label(i)}</Badge>
-                        <span className="text-right tabular-nums">
-                          <span className="text-base font-semibold">{Number(i.current_stock ?? 0)}</span>
-                          <span className="text-xs text-slate-500"> {i.unit_of_measure}</span>
-                          <div className="text-[11px] text-slate-400">par {Number(i.minimum_stock ?? 0)}</div>
-                        </span>
-                        <Minus className="h-4 w-4 text-slate-400" />
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+                    </div>
+                    <div className="flex items-center gap-3 flex-shrink-0">
+                      <Badge variant="outline" className={tone(i)}>{label(i)}</Badge>
+                      <span className="text-right tabular-nums">
+                        <span className="text-base font-semibold text-slate-900 dark:text-white">{Number(i.current_stock ?? 0)}</span>
+                        <span className="text-xs text-slate-500 dark:text-slate-400"> {i.unit_of_measure}</span>
+                        <div className="text-[11px] text-slate-400 dark:text-slate-500">par {Number(i.minimum_stock ?? 0)}</div>
+                      </span>
+                      <Minus className="h-4 w-4 text-slate-400 dark:text-slate-500" />
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </PortalCard>
+        </PortalShell>
       </main>
 
       <Dialog open={!!usingItem} onOpenChange={(o) => !o && closeUse()}>
@@ -228,7 +222,7 @@ export default function CleaningSuppliesPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={closeUse} disabled={saving}>Cancel</Button>
-            <Button onClick={saveUsage} disabled={saving} className="bg-cyan-600 hover:bg-cyan-700">
+            <Button onClick={saveUsage} disabled={saving} className="bg-amber-600 hover:bg-amber-700">
               {saving ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving</> : "Log usage"}
             </Button>
           </DialogFooter>

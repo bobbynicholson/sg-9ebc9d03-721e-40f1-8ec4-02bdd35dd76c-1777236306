@@ -6,8 +6,8 @@
  *   - `accent` / `accentTo` drive the logo chip, glow, eyebrow + pill icons,
  *     and rating stars. Defaults to the CateringMS warm amber.
  *   - `brandName` / `brandLogoUrl` swap the wordmark + logo.
- * Everything else — the food-photo panel, glass testimonial, trust pills,
- * floating "live" card, the form column + mobile badge — is identical.
+ * Everything else - the food-photo panel, glass testimonial, trust pills,
+ * floating "live" card, the form column + mobile badge - is identical.
  *
  * The generic /auth/* pages call it with no branding (amber + CateringMS).
  * The /[company_slug]/* logins pass the tenant's colour, logo and name, so a
@@ -48,7 +48,7 @@ interface AuthShellProps {
 export function AuthShell({
   children,
   headline = "Run your whole catering business in one place.",
-  subcopy = "From first enquiry to final plate — quotes, kitchen, delivery and payments, beautifully connected.",
+  subcopy = "From first enquiry to final plate - quotes, kitchen, delivery and payments, beautifully connected.",
   brandName = "CateringMS",
   brandLogoUrl = null,
   accent = DEFAULT_ACCENT,
@@ -147,7 +147,7 @@ export function AuthShell({
             </div>
             <blockquote className="text-sm italic leading-relaxed text-stone-100">
               &ldquo;Everything from the first quote to the final invoice lives in one
-              place now — our team stopped chasing spreadsheets.&rdquo;
+              place now - our team stopped chasing spreadsheets.&rdquo;
             </blockquote>
             <figcaption className="mt-3 text-xs font-semibold text-stone-400">
               Sarah Johnson · Cape Town Catering Co.
@@ -156,7 +156,7 @@ export function AuthShell({
         </div>
 
         <p className="relative text-sm text-stone-500">
-          {footerNote ?? "© CateringMS — catering management, simplified."}
+          {footerNote ?? "© CateringMS - catering management, simplified."}
         </p>
       </div>
 

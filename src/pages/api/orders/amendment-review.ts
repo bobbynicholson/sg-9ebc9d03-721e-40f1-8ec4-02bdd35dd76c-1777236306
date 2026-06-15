@@ -626,8 +626,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       await notificationService.broadcastNotification({
         companyId: (request as any).company_id,
         type: "amendment_approved",
-        title: "Order amended — re-check your tasks",
-        message: `Order ${orderLabel} was amended (${appliedHuman}). Prep, delivery and equipment for it may have changed — please re-check your assigned work.`,
+        title: "Order amended - re-check your tasks",
+        message: `Order ${orderLabel} was amended (${appliedHuman}). Prep, delivery and equipment for it may have changed - please re-check your assigned work.`,
         targetRoles: ["kitchen_staff", "driver", "cleaning_staff", "company_admin", "admin", "owner", "super_admin"] as any,
         priority: "high",
         link: `/admin/orders?orderId=${(request as any).order_id}`,

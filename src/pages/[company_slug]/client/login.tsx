@@ -62,7 +62,7 @@ interface CompanyBrand {
   secondary: string;
 }
 
-// Default brand when a tenant hasn't set custom colours — the CateringMS
+// Default brand when a tenant hasn't set custom colours - the CateringMS
 // warm amber, so un-branded tenant portals match the rest of the product.
 const DEFAULT_PRIMARY = "#f59e0b";
 const DEFAULT_SECONDARY = "#ea580c";
@@ -329,7 +329,7 @@ export default function CompanyClientLoginPage({
         accent={companyBrand?.primary || DEFAULT_PRIMARY}
         accentTo={companyBrand?.secondary || DEFAULT_SECONDARY}
         headline="Your events, in one place."
-        subcopy="View your quotes and orders, track your event, and pay securely — sign in with just your email, no password to remember."
+        subcopy="View your quotes and orders, track your event, and pay securely - sign in with just your email, no password to remember."
         pills={["Track your event", "View quotes & orders", "Pay securely online"]}
         footerNote="Powered by CateringMS"
       >

@@ -1279,7 +1279,7 @@ function AdminUsersPage() {
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">
                   <MailWarning className="w-5 h-5 text-amber-500" />
-                  {createResult.emailed ? "User added — sign-in details" : "Share these sign-in details"}
+                  {createResult.emailed ? "User added - sign-in details" : "Share these sign-in details"}
                 </DialogTitle>
                 <DialogDescription>
                   {createResult.emailed

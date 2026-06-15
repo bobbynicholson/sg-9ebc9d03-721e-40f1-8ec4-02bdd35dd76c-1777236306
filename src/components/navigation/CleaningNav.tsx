@@ -85,19 +85,19 @@ export function CleaningNav(_: CleaningNavProps = {}) {
     title: "Cleaning Portal",
     mobileSubtitle: "Returns, washes, damages",
     brandIcon: Sparkles,
-    accentGradient: "from-cyan-500 to-blue-500",
-    accentGradientDark: "from-cyan-600 to-blue-600",
-    hoverClasses: "hover:bg-cyan-50 hover:text-cyan-700",
-    activeHoverClasses: "hover:from-cyan-600 hover:to-blue-600",
-    mobileSubtitleClasses: "text-cyan-100",
-    searchAccent: "bg-cyan-50 hover:bg-cyan-100 text-cyan-700",
+    accentGradient: "from-amber-500 to-orange-500",
+    accentGradientDark: "from-amber-600 to-orange-600",
+    hoverClasses: "hover:bg-amber-50 hover:text-amber-700",
+    activeHoverClasses: "hover:from-amber-600 hover:to-orange-600",
+    mobileSubtitleClasses: "text-amber-100",
+    searchAccent: "bg-amber-50 hover:bg-amber-100 text-amber-700",
     searchHint: "Search handovers, equipment, supplies...",
     dashboardHref: "/team-portal/cleaning/dashboard",
     // Static fallback mobile quick actions - only used if the smart
     // renderer below somehow doesn't fire. Kept for safety.
     mobileQuickActions: [
-      { href: "/team-portal/cleaning/dashboard#returns", label: "Returns",     sub: "Equipment coming back", icon: PackageOpen, accent: "from-cyan-500 to-blue-500" },
-      { href: "/team-portal/cleaning/dashboard#washing", label: "Washing",     sub: "Active jobs",           icon: Droplets,    accent: "from-blue-500 to-indigo-500" },
+      { href: "/team-portal/cleaning/dashboard#returns", label: "Returns",     sub: "Equipment coming back", icon: PackageOpen, accent: "from-amber-500 to-orange-500" },
+      { href: "/team-portal/cleaning/dashboard#washing", label: "Washing",     sub: "Active jobs",           icon: Droplets,    accent: "from-amber-500 to-orange-500" },
       { href: "/team-portal/cleaning/equipment",         label: "Equipment",   sub: "Verify + catalogue",    icon: Package,     accent: "from-amber-500 to-orange-500" },
     ],
     renderTopSlot: () => (

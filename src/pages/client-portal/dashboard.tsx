@@ -31,10 +31,10 @@ import Head from "next/head";
 import {
   Calendar, Clock, MapPin, Users, ChefHat, Truck, CheckCircle2,
   Sparkles, ArrowRight, Receipt, Phone, MessageSquare,
-  Loader2, PartyPopper, RotateCcw, Star,
+  PartyPopper, RotateCcw, Star,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { Card, CardContent } from "@/components/ui/card";
+import { PortalShell, PortalHeader, PortalCard } from "@/components/portal/ui";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
@@ -134,14 +134,14 @@ const STATUS_TIMELINE = [
  * mapping at every call site.
  */
 const STATUS_TONES: Record<string, string> = {
-  pending:    "bg-amber-100 text-amber-800 border-amber-200",
-  confirmed:  "bg-blue-100 text-blue-800 border-blue-200",
-  preparing:  "bg-purple-100 text-purple-800 border-purple-200",
-  ready:      "bg-green-100 text-green-800 border-green-200",
-  in_transit: "bg-indigo-100 text-indigo-800 border-indigo-200",
-  delivered:  "bg-emerald-100 text-emerald-800 border-emerald-200",
-  completed:  "bg-slate-100 text-slate-800 border-slate-200",
-  cancelled:  "bg-rose-100 text-rose-700 border-rose-200",
+  pending:    "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900",
+  confirmed:  "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700",
+  preparing:  "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700",
+  ready:      "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900",
+  in_transit: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900",
+  delivered:  "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900",
+  completed:  "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700",
+  cancelled:  "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-900",
 };
 
 /** Time-of-day greeting - adapts every six hours. */
@@ -403,8 +403,6 @@ function ClientPortalDashboardInner() {
   };
   const brandText = contrastText(brandPrimary);
   const brandSecondary = company?.secondary_color || "#10b981";
-  const brandGradient = `linear-gradient(135deg, ${brandPrimary} 0%, ${brandSecondary} 100%)`;
-  const brandSoftBg = `linear-gradient(135deg, ${brandPrimary}10 0%, ${brandSecondary}10 100%)`;
   const companyName = company?.company_name || profile?.company_name || "Your portal";
   const companyLogo = company?.logo_url || null;
   // Wave 18 audit: dashboard used to render every order total with a
@@ -983,57 +981,59 @@ function ClientPortalDashboardInner() {
                                 on small screens.
       */}
       <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
-        {/*
-          Branded greeting strip. Uses inline styles for the gradient so
-          each tenant's brand colours apply without a Tailwind safelist
-          gymnastic. Content stretches the full width of the available
-          area, no inner max-w cap.
-        */}
-        <header
-          className="px-4 sm:px-6 md:px-8 lg:px-10 py-6 sm:py-8 text-white shadow-md"
-          style={{ background: brandGradient }}
-        >
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center shadow-lg flex-shrink-0">
-                {companyLogo ? (
-                  <img src={companyLogo} alt={companyName} className="w-10 h-10 sm:w-12 sm:h-12 object-contain rounded-lg" />
-                ) : (
-                  <ChefHat className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+          {/*
+            Restrained portal header. A small company logo (when set)
+            keeps a touch of tenant identity; the rest defaults to
+            slate + amber. Actions carry the "events on file" badge +
+            the "Rate a recent event" jump.
+          */}
+          <PortalHeader
+            title={`${greeting}, ${firstName}`}
+            subtitle={companyName}
+            icon={companyLogo ? undefined : ChefHat}
+            actions={
+              <>
+                {orders.length > 0 && (
+                  <Badge
+                    variant="outline"
+                    className="bg-slate-50 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 text-xs"
+                  >
+                    {orders.length} event{orders.length === 1 ? "" : "s"} on file
+                  </Badge>
                 )}
-              </div>
-              <div className="min-w-0">
-                <p className="text-xs sm:text-sm text-white/80 font-medium">{companyName}</p>
-                <h1 className="text-xl sm:text-2xl md:text-3xl font-bold truncate">
-                  {greeting}, {firstName}
-                </h1>
-              </div>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {orders.length > 0 && (
-                <Badge variant="outline" className="bg-white/15 border-white/30 text-white text-xs">
-                  {orders.length} event{orders.length === 1 ? "" : "s"} on file
-                </Badge>
-              )}
-              {pastOrders.filter((o) => o.rating == null).length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    const el = typeof document !== "undefined"
-                      ? document.getElementById("past-events")
-                      : null;
-                    el?.scrollIntoView({ behavior: "smooth", block: "start" });
-                  }}
-                  className="inline-flex items-center rounded-full border border-white/30 bg-white/15 hover:bg-white/25 transition px-3 py-1 text-xs font-medium text-white"
-                >
-                  Rate a recent event
-                </button>
-              )}
-            </div>
-          </div>
-        </header>
+                {pastOrders.filter((o) => o.rating == null).length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const el = typeof document !== "undefined"
+                        ? document.getElementById("past-events")
+                        : null;
+                      el?.scrollIntoView({ behavior: "smooth", block: "start" });
+                    }}
+                    className="inline-flex items-center rounded-lg px-3 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950/30 transition-colors duration-150"
+                  >
+                    Rate a recent event
+                  </button>
+                )}
+              </>
+            }
+          />
 
-        <main className="px-4 sm:px-6 md:px-8 lg:px-10 py-6 sm:py-8 space-y-6">
+          {/*
+            When the tenant has a logo, render it as a small element in
+            its own row so PortalHeader's icon slot stays restrained.
+          */}
+          {companyLogo && (
+            <div className="-mt-3 mb-5 flex items-center gap-2">
+              <span className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
+                <img src={companyLogo} alt={companyName} className="h-7 w-7 object-contain" />
+              </span>
+              <span className="text-xs font-medium text-slate-500 dark:text-slate-400">{companyName}</span>
+            </div>
+          )}
+
+          <div className="space-y-6">
 
           {/* ── Pending quotes hero band ─────────────────────────────
               Renders above the next-event card whenever there are
@@ -1047,24 +1047,22 @@ function ClientPortalDashboardInner() {
             if (pending.length === 0) return null;
             // Use the same tenant-aware formatter as the rest of the page.
             const fmt = fmtMoney;
-            // Brand-coloured accent strip on the left + plain white card.
-            // The previous 10%-opacity gradient washed out to pinkish on
-            // most brand colours; this reads as the brand instead.
+            // Solid amber accent strip on the left + neutral card.
+            // Restrained: amber is the single accent, slate the ground.
             return (
-              <Card className="border-0 shadow-lg overflow-hidden">
+              <PortalCard padded={false} className="overflow-hidden">
                 <div className="flex">
                   <div
-                    className="w-1.5 flex-shrink-0"
-                    style={{ background: brandGradient }}
+                    className="w-1.5 flex-shrink-0 bg-amber-500"
                     aria-hidden
                   />
-                  <CardContent className="flex-1 py-5 px-5 sm:px-6 space-y-4 bg-white dark:bg-slate-900">
+                  <div className="flex-1 py-5 px-5 sm:px-6 space-y-4">
                     <div className="flex items-center justify-between gap-3 flex-wrap">
                       <div>
-                        <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: brandPrimary }}>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-400">
                           {pending.length === 1 ? "Quote ready for you" : `${pending.length} quotes ready for you`}
                         </p>
-                        <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white mt-0.5">
+                        <h2 className="text-lg sm:text-xl font-semibold text-slate-900 dark:text-white mt-0.5">
                           {pending.length === 1
                             ? "Have a look, accept, or push back for changes"
                             : "Pick the option that suits, accept, or request changes"}
@@ -1073,8 +1071,7 @@ function ClientPortalDashboardInner() {
                       {quotes.length > pending.length && (
                         <Link
                           href={withSlug("/client-portal/quotes")}
-                          className="text-sm font-medium hover:underline"
-                          style={{ color: brandPrimary }}
+                          className="text-sm font-semibold text-amber-700 dark:text-amber-400 hover:underline"
                         >
                           See all quotes ({quotes.length})
                         </Link>
@@ -1095,19 +1092,19 @@ function ClientPortalDashboardInner() {
                         return (
                           <li
                             key={q.id}
-                            className="rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-slate-300 transition-colors p-4"
+                            className="rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 transition-colors duration-150 p-4"
                           >
                             <div className="flex items-start justify-between gap-3 flex-wrap">
                               <div className="min-w-0 flex-1">
                                 <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">
                                   {q.quote_name || `Quote ${q.quote_number}`}
                                 </p>
-                                <p className="text-xs text-slate-500 mt-0.5">
+                                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                                   {q.quote_number}
                                   {eventLabel && <span> · event {eventLabel}</span>}
                                 </p>
                               </div>
-                              <p className="text-base font-bold tabular-nums text-slate-900 dark:text-white">
+                              <p className="text-base font-semibold tabular-nums text-slate-900 dark:text-white">
                                 {total > 0 ? fmt.format(total) : "TBD"}
                               </p>
                             </div>
@@ -1115,8 +1112,7 @@ function ClientPortalDashboardInner() {
                               <Button
                                 asChild
                                 size="sm"
-                                className="text-white hover:opacity-90"
-                                style={{ background: brandPrimary }}
+                                className="bg-amber-600 hover:bg-amber-700 text-white"
                               >
                                 <a
                                   href={acceptHref}
@@ -1144,15 +1140,14 @@ function ClientPortalDashboardInner() {
                     {pending.length > 3 && (
                       <Link
                         href={withSlug("/client-portal/quotes")}
-                        className="block text-center text-sm font-medium pt-1"
-                        style={{ color: brandPrimary }}
+                        className="block text-center text-sm font-semibold text-amber-700 dark:text-amber-400 pt-1"
                       >
                         View {pending.length - 3} more
                       </Link>
                     )}
-                  </CardContent>
+                  </div>
                 </div>
-              </Card>
+              </PortalCard>
             );
           })()}
 
@@ -1165,23 +1160,21 @@ function ClientPortalDashboardInner() {
             const lastCompleted = orders.find((o) => o.status === "completed");
             if (!lastCompleted) return null;
             return (
-              <Card
-                className="border-0 shadow-lg overflow-hidden cursor-pointer hover:shadow-xl transition"
+              <PortalCard
+                interactive
+                className="overflow-hidden bg-amber-50 dark:bg-amber-950/20 border-amber-200/70 dark:border-amber-900/50"
                 onClick={() => setRebookOrder(lastCompleted)}
               >
-                <CardContent className="p-5 sm:p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4" style={{ background: brandSoftBg }}>
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                   <div className="flex items-start gap-3 min-w-0">
-                    <div
-                      className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
-                      style={{ background: brandPrimary, color: brandText }}
-                    >
+                    <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 bg-amber-600 text-white">
                       <RotateCcw className="w-5 h-5" />
                     </div>
                     <div className="min-w-0">
-                      <p className="text-xs uppercase tracking-wide font-semibold" style={{ color: brandPrimary }}>
+                      <p className="text-xs uppercase tracking-wide font-semibold text-amber-700 dark:text-amber-400">
                         Liked your last event?
                       </p>
-                      <h3 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white mt-0.5">
+                      <h3 className="text-lg sm:text-xl font-semibold text-slate-900 dark:text-white mt-0.5">
                         Book your next one with {companyName}
                       </h3>
                       <p className="text-xs text-slate-600 dark:text-slate-300 mt-1">
@@ -1195,8 +1188,7 @@ function ClientPortalDashboardInner() {
                     </div>
                   </div>
                   <Button
-                    className="text-white hover:opacity-90 flex-shrink-0"
-                    style={{ background: brandPrimary }}
+                    className="bg-amber-600 hover:bg-amber-700 text-white flex-shrink-0"
                     onClick={(e) => {
                       e.stopPropagation();
                       setRebookOrder(lastCompleted);
@@ -1205,39 +1197,42 @@ function ClientPortalDashboardInner() {
                     Book again
                     <ArrowRight className="w-4 h-4 ml-1.5" />
                   </Button>
-                </CardContent>
-              </Card>
+                </div>
+              </PortalCard>
             );
           })()}
 
           {/* ── Hero: next event ─────────────────────────────────────── */}
           {loading ? (
-            <Card className="border-0 shadow-lg">
-              <CardContent className="py-12 text-center">
-                <Loader2 className="w-7 h-7 mx-auto text-slate-400 animate-spin" />
-                <p className="text-sm text-slate-500 mt-3">Loading your events...</p>
-              </CardContent>
-            </Card>
+            // Skeleton matching the page shape: a hero card placeholder
+            // then a 4-up action grid placeholder. Loads straight into
+            // the layout so nothing jumps when data arrives.
+            <div className="space-y-6" aria-busy="true" aria-label="Loading your events">
+              <div className="h-56 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm animate-pulse" />
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {[0, 1, 2, 3].map((i) => (
+                  <div key={i} className="h-28 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm animate-pulse" />
+                ))}
+              </div>
+            </div>
           ) : !headline ? (
-            <Card className="border-0 shadow-lg" style={{ background: brandSoftBg }}>
-              <CardContent className="py-10 text-center space-y-3">
-                <PartyPopper className="w-10 h-10 mx-auto" style={{ color: brandPrimary }} />
-                <div>
-                  <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
-                    No events on the books yet
-                  </h2>
-                  <p className="text-sm text-slate-600 dark:text-slate-300 mt-1">
-                    When {companyName} confirms your next booking, it'll show up here with live tracking and updates.
-                  </p>
+            <PortalCard padded={false}>
+              <div className="py-12 px-6 text-center">
+                <div className="w-12 h-12 mx-auto mb-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 flex items-center justify-center">
+                  <PartyPopper className="w-6 h-6 text-amber-500" />
                 </div>
-              </CardContent>
-            </Card>
+                <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-1.5">
+                  No events on the books yet
+                </h2>
+                <p className="text-sm text-slate-600 dark:text-slate-400 max-w-md mx-auto">
+                  When {companyName} confirms your next booking, it'll show up here with live tracking and updates.
+                </p>
+              </div>
+            </PortalCard>
           ) : (
             <HeroCard
               order={headline}
               brandPrimary={brandPrimary}
-              brandSecondary={brandSecondary}
-              brandGradient={brandGradient}
               brandText={brandText}
               companyName={companyName}
               driverPin={driverPin}
@@ -1258,47 +1253,38 @@ function ClientPortalDashboardInner() {
               when justDelivered is non-null (closes itself after the
               rating is left, or after 7 days regardless). */}
           {!headline && justDelivered && (
-            <Card
-              className="border-2 shadow-md"
-              style={{ borderColor: brandPrimary, background: brandSoftBg }}
-            >
-              <CardContent className="p-4 sm:p-5 flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3 min-w-0">
-                  <PartyPopper
-                    className="w-8 h-8 shrink-0"
-                    style={{ color: brandPrimary }}
-                  />
-                  <div className="min-w-0">
-                    <p className="text-xs uppercase tracking-wide font-semibold" style={{ color: brandPrimary }}>
-                      How was it?
-                    </p>
-                    <p className="text-sm sm:text-base font-bold text-slate-900 dark:text-white mt-0.5">
-                      Your {justDelivered.event_name || "event"} on
-                      {" "}
-                      {new Date(justDelivered.event_date).toLocaleDateString("en-ZA", { weekday: "short", day: "numeric", month: "short" })}
-                      {" "}was delivered.
-                    </p>
-                    <p className="text-xs text-slate-600 dark:text-slate-300 mt-0.5">
-                      Tap a star below to let {companyName} know how it went.
-                    </p>
-                  </div>
+            <div className="rounded-2xl border border-amber-300 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/20 p-4 sm:p-5 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <PartyPopper className="w-8 h-8 shrink-0 text-amber-600" />
+                <div className="min-w-0">
+                  <p className="text-xs uppercase tracking-wide font-semibold text-amber-700 dark:text-amber-400">
+                    How was it?
+                  </p>
+                  <p className="text-sm sm:text-base font-semibold text-slate-900 dark:text-white mt-0.5">
+                    Your {justDelivered.event_name || "event"} on
+                    {" "}
+                    {new Date(justDelivered.event_date).toLocaleDateString("en-ZA", { weekday: "short", day: "numeric", month: "short" })}
+                    {" "}was delivered.
+                  </p>
+                  <p className="text-xs text-slate-600 dark:text-slate-300 mt-0.5">
+                    Tap a star below to let {companyName} know how it went.
+                  </p>
                 </div>
-                <a
-                  href="#past-events"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    document.getElementById("past-events")?.scrollIntoView({
-                      behavior: "smooth", block: "start",
-                    });
-                  }}
-                  className="inline-flex items-center gap-1.5 px-4 py-3 rounded-lg font-semibold shadow-sm min-h-11 shrink-0"
-                  style={{ background: brandPrimary, color: brandText }}
-                >
-                  <Star className="w-4 h-4" />
-                  Rate
-                </a>
-              </CardContent>
-            </Card>
+              </div>
+              <a
+                href="#past-events"
+                onClick={(e) => {
+                  e.preventDefault();
+                  document.getElementById("past-events")?.scrollIntoView({
+                    behavior: "smooth", block: "start",
+                  });
+                }}
+                className="inline-flex items-center gap-1.5 px-4 py-3 rounded-lg font-semibold shadow-sm min-h-11 shrink-0 bg-amber-600 hover:bg-amber-700 text-white transition-colors duration-150"
+              >
+                <Star className="w-4 h-4" />
+                Rate
+              </a>
+            </div>
           )}
 
           {/* CLI-F (client deep audit, CLI-32 / CLI-61): outstanding-
@@ -1312,26 +1298,26 @@ function ClientPortalDashboardInner() {
               payment from the same place they go to pay. */}
           {outstanding.total > 0 && (
             <div
-              className={`rounded-xl border-2 px-4 py-4 flex flex-col gap-3 ${
+              className={`rounded-2xl border px-4 py-4 flex flex-col gap-3 ${
                 outstanding.overdueCount > 0
-                  ? "border-rose-300 bg-rose-50"
-                  : "border-amber-300 bg-amber-50"
+                  ? "border-rose-300 bg-rose-50 dark:border-rose-900 dark:bg-rose-950/20"
+                  : "border-amber-300 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/20"
               }`}
             >
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3 min-w-0">
-                  <Receipt className={`w-6 h-6 shrink-0 ${outstanding.overdueCount > 0 ? "text-rose-700" : "text-amber-700"}`} />
+                  <Receipt className={`w-6 h-6 shrink-0 ${outstanding.overdueCount > 0 ? "text-rose-700 dark:text-rose-400" : "text-amber-700 dark:text-amber-400"}`} />
                   <div className="min-w-0">
-                    <p className={`text-xs uppercase tracking-wide ${outstanding.overdueCount > 0 ? "text-rose-700" : "text-amber-700"}`}>
+                    <p className={`text-xs uppercase tracking-wide ${outstanding.overdueCount > 0 ? "text-rose-700 dark:text-rose-400" : "text-amber-700 dark:text-amber-400"}`}>
                       Outstanding balance
                     </p>
-                    <p className="text-2xl sm:text-3xl font-bold text-slate-900 tabular-nums">
+                    <p className="text-2xl sm:text-3xl font-semibold text-slate-900 dark:text-white tabular-nums">
                       {fmtMoney.format(outstanding.total)}
                     </p>
-                    <p className="text-xs text-slate-600">
+                    <p className="text-xs text-slate-600 dark:text-slate-300">
                       {outstanding.invoiceCount} {outstanding.invoiceCount === 1 ? "invoice" : "invoices"}
                       {outstanding.overdueCount > 0 && (
-                        <span className="text-rose-700 font-semibold">
+                        <span className="text-rose-700 dark:text-rose-400 font-semibold">
                           {" - "}{outstanding.overdueCount} overdue
                         </span>
                       )}
@@ -1358,7 +1344,7 @@ function ClientPortalDashboardInner() {
               {lastPaidInvoice && (
                 <a
                   href={`/api/invoices/${lastPaidInvoice.invoiceId}/receipt-pdf`}
-                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-700 hover:text-slate-900 hover:underline self-start"
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:underline self-start"
                 >
                   <Receipt className="w-3.5 h-3.5" />
                   Download last receipt{lastPaidInvoice.invoiceNumber ? ` (${lastPaidInvoice.invoiceNumber})` : ""}
@@ -1374,25 +1360,21 @@ function ClientPortalDashboardInner() {
                 label="Live tracking"
                 icon={MapPin}
                 href={withSlug("/client-portal/tracking")}
-                tone={brandPrimary}
               />
               <ActionTile
                 label="Invoice"
                 icon={Receipt}
                 href={withSlug("/client-portal/billing")}
-                tone={brandPrimary}
               />
               <ActionTile
                 label="Note for chef"
                 icon={MessageSquare}
                 href={withSlug(`/client-portal/my-orders?focus=${headline.id}`)}
-                tone={brandPrimary}
               />
               <ActionTile
                 label="Contact us"
                 icon={Phone}
                 href={company?.phone ? `tel:${company.phone}` : `mailto:${company?.email || ""}`}
-                tone={brandPrimary}
                 external
               />
             </div>
@@ -1405,7 +1387,7 @@ function ClientPortalDashboardInner() {
                 <h2 className="text-base sm:text-lg font-semibold text-slate-900 dark:text-white">
                   Past events
                 </h2>
-                <Link href={withSlug("/client-portal/my-orders")} className="text-sm font-medium" style={{ color: brandPrimary }}>
+                <Link href={withSlug("/client-portal/my-orders")} className="text-sm font-semibold text-amber-700 dark:text-amber-400">
                   See all
                 </Link>
               </div>
@@ -1414,7 +1396,6 @@ function ClientPortalDashboardInner() {
                   <PastEventTile
                     key={o.id}
                     order={o}
-                    brandPrimary={brandPrimary}
                     slugPrefix={resolvedSlug ? `/${resolvedSlug}` : ""}
                     fmtMoney={fmtMoney}
                     unreadCount={unreadByOrder[o.id] || 0}
@@ -1476,7 +1457,8 @@ function ClientPortalDashboardInner() {
               </div>
             </section>
           )}
-        </main>
+          </div>
+        </PortalShell>
       </div>
 
       {/*
@@ -1589,8 +1571,6 @@ export default function ClientPortalDashboard() {
 function HeroCard({
   order,
   brandPrimary,
-  brandSecondary,
-  brandGradient,
   brandText,
   companyName,
   driverPin,
@@ -1600,8 +1580,6 @@ function HeroCard({
 }: {
   order: Order;
   brandPrimary: string;
-  brandSecondary: string;
-  brandGradient: string;
   // CLI-I (CLI-29): the calendar event SUMMARY embeds the caterer's
   // name + the brand-coloured button is rendered with the same
   // contrast helper the rest of the dashboard uses, so the props
@@ -1648,19 +1626,25 @@ function HeroCard({
   // Live tracking variant: map takes the spotlight, summary below.
   if (isLive && order.venue_lat && order.venue_lng) {
     return (
-      <Card className="border-0 shadow-xl overflow-hidden">
-        <div className="px-5 sm:px-6 py-4 text-white" style={{ background: brandGradient }}>
+      <PortalCard padded={false} className="overflow-hidden">
+        <div className="px-5 sm:px-6 py-4 border-b border-slate-100 dark:border-slate-800">
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <div className="min-w-0">
-              <p className="text-xs font-medium text-white/80 uppercase tracking-wide">Right now</p>
-              <h2 className="text-xl sm:text-2xl font-bold mt-0.5">{copy.headline}</h2>
-              <p className="text-sm text-white/90 mt-1">{copy.sub}</p>
+              <p className="text-xs font-medium text-amber-700 dark:text-amber-400 uppercase tracking-wide flex items-center gap-1.5">
+                <span className="relative flex h-2 w-2">
+                  <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75 motion-safe:animate-ping" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+                </span>
+                Right now
+              </p>
+              <h2 className="text-xl sm:text-2xl font-semibold mt-0.5 text-slate-900 dark:text-white">{copy.headline}</h2>
+              <p className="text-sm text-slate-600 dark:text-slate-300 mt-1">{copy.sub}</p>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
               {driverPin?.driver_phone && (
                 <a
                   href={`tel:${driverPin.driver_phone}`}
-                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/20 backdrop-blur text-sm font-semibold hover:bg-white/30 transition min-h-11"
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold transition-colors duration-150 min-h-11"
                 >
                   <Phone className="w-4 h-4" />
                   Call {driverPin.driver_name?.split(" ")[0] || "driver"}
@@ -1669,7 +1653,7 @@ function HeroCard({
               <button
                 type="button"
                 onClick={onMessage}
-                className="relative inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-white/20 backdrop-blur text-sm font-semibold hover:bg-white/30 transition min-h-11"
+                className="relative inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 text-sm font-semibold hover:border-slate-300 dark:hover:border-slate-600 transition-colors duration-150 min-h-11"
               >
                 <MessageSquare className="w-4 h-4" />
                 Message
@@ -1694,7 +1678,7 @@ function HeroCard({
             orderStatus={order.status}
           />
         </div>
-        <div className="px-5 sm:px-6 py-4 grid grid-cols-3 gap-3 border-t border-slate-100">
+        <div className="px-5 sm:px-6 py-4 grid grid-cols-3 gap-3 border-t border-slate-100 dark:border-slate-800">
           <Stat label="Event" value={order.event_name || "Your event"} />
           <Stat label="Guests" value={`${order.guest_count || 0}`} />
           <Stat label="Total" value={fmtMoney.format(Number(order.total_amount || 0))} />
@@ -1713,23 +1697,23 @@ function HeroCard({
             />
           </div>
         )}
-      </Card>
+      </PortalCard>
     );
   }
 
   // Default variant: countdown + status timeline.
   return (
-    <Card className="border-0 shadow-xl overflow-hidden">
-      <div className="px-5 sm:px-6 py-5 text-white" style={{ background: brandGradient }}>
+    <PortalCard padded={false} className="overflow-hidden">
+      <div className="px-5 sm:px-6 py-5 border-b border-slate-100 dark:border-slate-800">
         <div className="flex items-start justify-between gap-3 flex-wrap">
           <div className="min-w-0">
-            <p className="text-xs font-medium text-white/80 uppercase tracking-wide">
+            <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">
               Your next event
             </p>
-            <h2 className="text-xl sm:text-2xl font-bold mt-0.5 truncate">
+            <h2 className="text-xl sm:text-2xl font-semibold mt-0.5 truncate text-slate-900 dark:text-white">
               {order.event_name || "Your event"}
             </h2>
-            <p className="text-sm text-white/90 mt-1">
+            <p className="text-sm text-slate-600 dark:text-slate-300 mt-1">
               {new Date(order.event_date).toLocaleDateString("en-ZA", {
                 weekday: "long",
                 day: "numeric",
@@ -1746,7 +1730,7 @@ function HeroCard({
             <button
               type="button"
               onClick={onMessage}
-              className="relative inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white/20 backdrop-blur text-xs font-semibold hover:bg-white/30 transition min-h-11"
+              className="relative inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 text-xs font-semibold hover:border-slate-300 dark:hover:border-slate-600 transition-colors duration-150 min-h-11"
             >
               <MessageSquare className="w-4 h-4" />
               Message
@@ -1760,7 +1744,7 @@ function HeroCard({
         </div>
       </div>
 
-      <CardContent className="p-5 sm:p-6 space-y-5">
+      <div className="p-5 sm:p-6 space-y-5">
         {/* CLI-B (XSC Wave B): driver-assignment gap fallback. When
             the kitchen has flipped status to 'ready' on event day
             but dispatch hasn't yet assigned a driver, the customer
@@ -1798,15 +1782,7 @@ function HeroCard({
         {/* Smart copy + countdown */}
         <div className="flex flex-col sm:flex-row sm:items-end gap-4 sm:justify-between">
           <div className="min-w-0 flex-1">
-            <p
-              className="text-2xl sm:text-3xl font-bold"
-              style={{
-                background: `linear-gradient(135deg, ${brandPrimary} 0%, ${brandSecondary} 100%)`,
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent",
-                backgroundClip: "text",
-              }}
-            >
+            <p className="text-2xl sm:text-3xl font-semibold text-slate-900 dark:text-white">
               {copy.headline}
             </p>
             <p className="text-sm text-slate-600 dark:text-slate-300 mt-1">{copy.sub}</p>
@@ -1831,20 +1807,17 @@ function HeroCard({
               return (
                 <div key={step.id} className="flex-1 flex flex-col items-center gap-1.5">
                   <div
-                    className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center transition ${
-                      reached ? "shadow-md" : "bg-slate-100"
+                    className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center transition-colors duration-200 ${
+                      reached
+                        ? "bg-amber-600"
+                        : "bg-slate-100 dark:bg-slate-800"
                     }`}
-                    style={{
-                      background: reached
-                        ? `linear-gradient(135deg, ${brandPrimary} 0%, ${brandSecondary} 100%)`
-                        : undefined,
-                    }}
                   >
-                    <Icon className={`w-4 h-4 ${reached ? "text-white" : "text-slate-400"}`} />
+                    <Icon className={`w-4 h-4 ${reached ? "text-white" : "text-slate-400 dark:text-slate-500"}`} />
                   </div>
                   <span
                     className={`text-[10px] sm:text-xs text-center leading-tight ${
-                      isCurrent ? "font-semibold text-slate-900 dark:text-white" : "text-slate-500"
+                      isCurrent ? "font-semibold text-slate-900 dark:text-white" : "text-slate-500 dark:text-slate-400"
                     }`}
                   >
                     {step.label}
@@ -1881,8 +1854,8 @@ function HeroCard({
             />
           </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </PortalCard>
   );
 }
 
@@ -1894,7 +1867,7 @@ function CountdownChip({ value, label }: { value: number; label: string }) {
       <div className="text-xl sm:text-2xl font-bold tabular-nums text-slate-900 dark:text-white">
         {value}
       </div>
-      <div className="text-[10px] uppercase tracking-wide text-slate-500">{label}</div>
+      <div className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-slate-400">{label}</div>
     </div>
   );
 }
@@ -1910,7 +1883,7 @@ function Stat({
 }) {
   return (
     <div className="min-w-0">
-      <div className="flex items-center gap-1.5 text-xs text-slate-500 mb-0.5">
+      <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 mb-0.5">
         {Icon ? <Icon className="w-3.5 h-3.5" /> : null}
         <span>{label}</span>
       </div>
@@ -1923,27 +1896,22 @@ function ActionTile({
   label,
   icon: Icon,
   href,
-  tone,
   external,
 }: {
   label: string;
   icon: React.ComponentType<{ className?: string }>;
   href: string;
-  tone: string;
   external?: boolean;
 }) {
   const content = (
     <div
-      className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 p-4 flex flex-col items-start gap-2 hover:shadow-md transition group"
+      className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 flex flex-col items-start gap-2 transition-[box-shadow,border-color] duration-200 hover:border-slate-300 dark:hover:border-slate-700 hover:shadow-[0_2px_4px_rgba(15,23,42,0.05),0_16px_40px_-18px_rgba(15,23,42,0.22)] group"
     >
-      <div
-        className="w-9 h-9 rounded-xl flex items-center justify-center"
-        style={{ background: `${tone}1a`, color: tone }}
-      >
+      <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">
         <Icon className="w-4 h-4" />
       </div>
       <span className="text-sm font-semibold text-slate-900 dark:text-white">{label}</span>
-      <ArrowRight className="w-4 h-4 text-slate-400 group-hover:translate-x-0.5 transition" />
+      <ArrowRight className="w-4 h-4 text-slate-400 group-hover:translate-x-0.5 transition-transform duration-150" />
     </div>
   );
   return external ? (
@@ -1957,7 +1925,6 @@ function ActionTile({
 
 function PastEventTile({
   order,
-  brandPrimary,
   onRebook,
   onRate,
   onMessage,
@@ -1967,7 +1934,6 @@ function PastEventTile({
   paidInvoice,
 }: {
   order: Order;
-  brandPrimary: string;
   onRebook: (o: Order) => void;
   onRate: (o: Order, rating: number) => Promise<void> | void;
   // CLI-J: open the chat thread for this order.
@@ -1985,7 +1951,7 @@ function PastEventTile({
   const date = new Date(order.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" });
   const myOrdersHref = `${slugPrefix}/client-portal/my-orders?focus=${order.id}`;
   return (
-    <div className="snap-start flex-shrink-0 w-[260px] bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 p-4 hover:shadow-md transition">
+    <div className="snap-start flex-shrink-0 w-[260px] bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 transition-[box-shadow,border-color] duration-200 hover:border-slate-300 dark:hover:border-slate-700 hover:shadow-[0_2px_4px_rgba(15,23,42,0.05),0_16px_40px_-18px_rgba(15,23,42,0.22)]">
       {/*
         The whole card is browseable, the inner Link wraps just the
         summary so a click on the Rebook button at the bottom doesn't
@@ -1995,7 +1961,7 @@ function PastEventTile({
       <Link href={myOrdersHref} className="block">
         <div className="flex items-start justify-between gap-2 mb-2">
           <div className="min-w-0">
-            <p className="text-xs text-slate-500">{date}</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">{date}</p>
             <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">
               {order.event_name || "Event"}
             </p>
@@ -2004,9 +1970,9 @@ function PastEventTile({
             {order.status.replace(/_/g, " ")}
           </Badge>
         </div>
-        <div className="flex items-center justify-between text-xs text-slate-500">
+        <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
           <span>{order.guest_count || 0} guests</span>
-          <span className="font-semibold text-slate-700 dark:text-slate-200">
+          <span className="font-semibold tabular-nums text-slate-700 dark:text-slate-200">
             {fmtMoney.format(Number(order.total_amount || 0))}
           </span>
         </div>
@@ -2057,7 +2023,7 @@ function PastEventTile({
                   aria-label={`Rate ${n} out of 5`}
                 >
                   <Star
-                    className={`w-6 h-6 ${filled ? "fill-amber-400 text-amber-400" : "text-slate-300 hover:text-amber-300"}`}
+                    className={`w-6 h-6 ${filled ? "fill-amber-400 text-amber-400" : "text-slate-300 dark:text-slate-600 hover:text-amber-300"}`}
                   />
                 </button>
               );
@@ -2072,8 +2038,7 @@ function PastEventTile({
               e.stopPropagation();
               onMessage(order);
             }}
-            className="relative text-xs font-semibold flex items-center gap-1 hover:underline min-h-11 px-2"
-            style={{ color: brandPrimary }}
+            className="relative text-xs font-semibold flex items-center gap-1 text-amber-700 dark:text-amber-400 hover:underline min-h-11 px-2"
             aria-label="Message the team about this event"
           >
             <MessageSquare className="w-3.5 h-3.5" />
@@ -2093,7 +2058,7 @@ function PastEventTile({
             <a
               href={`/api/invoices/${paidInvoice.invoiceId}/receipt-pdf`}
               onClick={(e) => e.stopPropagation()}
-              className="text-xs font-semibold flex items-center gap-1 text-slate-600 hover:text-slate-900 hover:underline min-h-11 px-2"
+              className="text-xs font-semibold flex items-center gap-1 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:underline min-h-11 px-2"
               aria-label={
                 paidInvoice.invoiceNumber
                   ? `Download receipt ${paidInvoice.invoiceNumber}`
@@ -2111,8 +2076,7 @@ function PastEventTile({
               e.stopPropagation();
               onRebook(order);
             }}
-            className="text-xs font-semibold flex items-center gap-1 hover:underline min-h-11 px-2"
-            style={{ color: brandPrimary }}
+            className="text-xs font-semibold flex items-center gap-1 text-amber-700 dark:text-amber-400 hover:underline min-h-11 px-2"
           >
             <RotateCcw className="w-3 h-3" />
             Rebook

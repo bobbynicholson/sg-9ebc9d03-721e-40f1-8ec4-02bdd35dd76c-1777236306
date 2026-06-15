@@ -360,7 +360,7 @@ export function AdminTrackingMap({ orders, driverLocations, onDriverLocationUpda
       {!hasMappable && (
         <div className="absolute top-3 left-1/2 -translate-x-1/2 z-[1000] pointer-events-none">
           <span className="inline-flex items-center gap-2 rounded-full bg-white/95 px-3 py-1.5 text-xs font-medium text-slate-600 shadow-md border border-slate-200">
-            No live driver or geocoded venue yet — pins appear here once a driver shares GPS or an order's venue is geocoded.
+            No live driver or geocoded venue yet - pins appear here once a driver shares GPS or an order's venue is geocoded.
           </span>
         </div>
       )}

@@ -2,7 +2,6 @@
 // @ts-nocheck
 import { useEffect, useMemo, useState } from "react";
 import Head from "next/head";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -14,8 +13,8 @@ import { DriverNav } from "@/components/navigation/DriverNav";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { staffOrderHref } from "@/lib/orderUrls";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
-import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { Footer } from "@/components/Footer";
+import { PortalShell, PortalHeader, PortalCard, PortalCardHeader, StatTile } from "@/components/portal/ui";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
@@ -72,11 +71,11 @@ const statusBadge = (status: string) => {
   const map: Record<string, string> = {
     delivered: "bg-emerald-100 text-emerald-700 border-emerald-200",
     completed: "bg-emerald-100 text-emerald-700 border-emerald-200",
-    in_transit: "bg-blue-100 text-blue-700 border-blue-200",
-    ready: "bg-purple-100 text-purple-700 border-purple-200",
+    in_transit: "bg-amber-100 text-amber-700 border-amber-200",
+    ready: "bg-slate-100 text-slate-700 border-slate-200",
     confirmed: "bg-amber-100 text-amber-700 border-amber-200",
-    preparing: "bg-orange-100 text-orange-700 border-orange-200",
-    cancelled: "bg-red-100 text-red-700 border-red-200",
+    preparing: "bg-slate-100 text-slate-700 border-slate-200",
+    cancelled: "bg-rose-100 text-rose-700 border-rose-200",
   };
   return map[status] || "bg-slate-100 text-slate-700 border-slate-200";
 };
@@ -134,90 +133,62 @@ export default function DriverDeliveriesPage() {
       <Head><title>All deliveries - CateringMS</title></Head>
       <DriverNav />
 
-      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-blue-50 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
-        <div className="px-4 py-8 max-w-full">
-          <div className="mb-8 flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg">
-              <Truck className="w-6 h-6 text-white" />
-            </div>
-            <div>
-              <h1 className="text-3xl lg:text-4xl font-bold text-slate-900">My Deliveries</h1>
-              <p className="text-slate-600 mt-1">Every order assigned to you, past and upcoming</p>
-            </div>
+      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+          <PortalHeader
+            title="My deliveries"
+            subtitle="Every order assigned to you, past and upcoming"
+            icon={Truck}
+          />
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8">
+            <StatTile label="All deliveries" value={stats.total} icon={Truck} hint="Past and upcoming" />
+            <StatTile label="Upcoming" value={stats.upcoming} icon={Clock} hint="Still to do" />
+            <StatTile label="Completed" value={stats.completed} icon={CheckCircle2} hint="Finished and signed off" />
+            <StatTile label="Total guests served" value={stats.totalGuests} icon={Package} hint="Across every delivery" />
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-            <MiniStat label="All deliveries" value={stats.total} icon={Truck} accent="text-slate-900" tooltip="Every delivery ever assigned to you, past and upcoming." />
-            <MiniStat label="Upcoming" value={stats.upcoming} icon={Clock} accent="text-amber-600" tooltip="Deliveries from today onwards that you still need to do." />
-            <MiniStat label="Completed" value={stats.completed} icon={CheckCircle2} accent="text-emerald-600" tooltip="Deliveries you've finished and signed off." />
-            <MiniStat label="Total guests served" value={stats.totalGuests} icon={Package} accent="text-blue-600" tooltip="The total guest count across every delivery you've ever done.\n\nPast and upcoming combined." />
-          </div>
-
-          <Card className="border-0 shadow-lg">
-            <CardHeader>
-              <CardTitle>Delivery History</CardTitle>
-              <CardDescription>Newest first</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {loading ? (
-                <div className="py-12 flex items-center justify-center text-slate-500 gap-2">
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  Loading deliveries...
+          <PortalCard>
+            <PortalCardHeader title="Delivery history" />
+            {loading ? (
+              <div className="py-12 flex items-center justify-center text-slate-500 dark:text-slate-400 gap-2">
+                <Loader2 className="w-5 h-5 animate-spin" />
+                Loading deliveries...
+              </div>
+            ) : (
+              <>
+                <div className="relative max-w-md mb-4">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-500" />
+                  <Input
+                    placeholder="Search by client or venue..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="pl-9"
+                  />
                 </div>
-              ) : (
-                <>
-                  <div className="relative max-w-md mb-4">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                    <Input
-                      placeholder="Search by client or venue..."
-                      value={search}
-                      onChange={(e) => setSearch(e.target.value)}
-                      className="pl-9"
-                    />
-                  </div>
-                  <Tabs defaultValue="all">
-                    <TabsList className="mb-4">
-                      <TabsTrigger value="all">All ({filteredOrders.length})</TabsTrigger>
-                      <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
-                      <TabsTrigger value="completed">Completed</TabsTrigger>
-                    </TabsList>
-                    <TabsContent value="all">
-                      <DeliveryList orders={filteredOrders} />
-                    </TabsContent>
-                    <TabsContent value="upcoming">
-                      <DeliveryList orders={filteredOrders.filter((o) => new Date(o.event_date) >= new Date(new Date().toDateString()) && !["completed","delivered","cancelled"].includes(o.status))} />
-                    </TabsContent>
-                    <TabsContent value="completed">
-                      <DeliveryList orders={filteredOrders.filter((o) => ["completed","delivered"].includes(o.status))} />
-                    </TabsContent>
-                  </Tabs>
-                </>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+                <Tabs defaultValue="all">
+                  <TabsList className="mb-4">
+                    <TabsTrigger value="all">All ({filteredOrders.length})</TabsTrigger>
+                    <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
+                    <TabsTrigger value="completed">Completed</TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="all">
+                    <DeliveryList orders={filteredOrders} />
+                  </TabsContent>
+                  <TabsContent value="upcoming">
+                    <DeliveryList orders={filteredOrders.filter((o) => new Date(o.event_date) >= new Date(new Date().toDateString()) && !["completed","delivered","cancelled"].includes(o.status))} />
+                  </TabsContent>
+                  <TabsContent value="completed">
+                    <DeliveryList orders={filteredOrders.filter((o) => ["completed","delivered"].includes(o.status))} />
+                  </TabsContent>
+                </Tabs>
+              </>
+            )}
+          </PortalCard>
+        </PortalShell>
         <Footer />
       </div>
     </>
-  );
-}
-
-function MiniStat({
-  label, value, icon: Icon, accent, tooltip,
-}: { label: string; value: number; icon: React.ComponentType<{ className?: string }>; accent: string; tooltip?: string }) {
-  return (
-    <Card className="border-0 shadow">
-      <CardContent className="p-4">
-        <div className="flex items-center justify-between mb-1">
-          <p className="text-xs font-medium uppercase tracking-wide text-slate-500 flex items-center gap-1">
-            {label}
-            {tooltip && <InfoTooltip content={tooltip} />}
-          </p>
-          <Icon className="w-4 h-4 text-slate-400" />
-        </div>
-        <p className={`text-2xl font-bold ${accent}`}>{value}</p>
-      </CardContent>
-    </Card>
   );
 }
 
@@ -229,9 +200,16 @@ function DeliveryList({ orders }: { orders: DriverOrder[] }) {
   const { withSlug } = useTenantHref();
   if (orders.length === 0) {
     return (
-      <div className="py-12 text-center text-slate-500">
-        <Truck className="w-10 h-10 mx-auto text-slate-300 mb-3" />
-        No deliveries here yet.
+      <div className="py-14 px-6 text-center">
+        <div className="w-12 h-12 mx-auto mb-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 flex items-center justify-center">
+          <Truck className="w-6 h-6 text-slate-400 dark:text-slate-500" />
+        </div>
+        <h3 className="text-base font-semibold text-slate-900 dark:text-white mb-1.5">
+          No deliveries here yet
+        </h3>
+        <p className="text-sm text-slate-600 dark:text-slate-400 max-w-md mx-auto">
+          When dispatch assigns you a job it shows up here. Upcoming runs sit at the top, finished ones drop into your history below.
+        </p>
       </div>
     );
   }
@@ -241,7 +219,7 @@ function DeliveryList({ orders }: { orders: DriverOrder[] }) {
         const equipment = Array.isArray(o.equipment_items) ? o.equipment_items : [];
         const menu = Array.isArray(o.menu_items) ? o.menu_items : [];
         return (
-          <div key={o.id} className="flex flex-col gap-3 p-4 rounded-lg border bg-white hover:shadow-md transition-shadow">
+          <div key={o.id} className="flex flex-col gap-3 p-4 rounded-2xl border border-slate-200/80 bg-white dark:border-slate-800 dark:bg-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_10px_30px_-16px_rgba(15,23,42,0.12)]">
             {/* Wave 70.45c - canonical BookingHeader (driver variant,
                 compact). Carries the tenant brand bar + status + date +
                 time + venue + guest count, replacing the bespoke top
@@ -277,7 +255,7 @@ function DeliveryList({ orders }: { orders: DriverOrder[] }) {
                       POD path in one place. */}
                   <Link
                     href={withSlug(staffOrderHref(o.id, "driver"))}
-                    className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold min-h-[32px]"
+                    className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-amber-200 bg-amber-50 hover:bg-amber-100 text-amber-700 font-semibold min-h-[32px] dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300 dark:hover:bg-amber-900/60"
                     title="Open the driver brief for this order"
                   >
                     <ExternalLink className="w-3.5 h-3.5" />
@@ -289,7 +267,7 @@ function DeliveryList({ orders }: { orders: DriverOrder[] }) {
                       target="_blank"
                       rel="noopener noreferrer"
                       aria-label={`Open ${o.venue_address} in Google Maps`}
-                      className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-700 min-h-[32px]"
+                      className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 min-h-[32px] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
                     >
                       <Navigation className="w-3.5 h-3.5" />
                       Open in Maps
@@ -307,7 +285,7 @@ function DeliveryList({ orders }: { orders: DriverOrder[] }) {
                       <>
                         <a
                           href={`tel:${String(o.client_phone).replace(/[^+\d]/g, "")}`}
-                          className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-slate-200 hover:bg-slate-50 text-slate-700"
+                          className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-slate-200 hover:bg-slate-50 text-slate-700 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
                           title={`Call ${o.client_phone}`}
                           onClick={() => void logPiiAccess({
                             entityType: "order",
@@ -325,7 +303,7 @@ function DeliveryList({ orders }: { orders: DriverOrder[] }) {
                           )}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-700"
+                          className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300 dark:hover:bg-emerald-900/60"
                           title="Open WhatsApp"
                           onClick={() => void logPiiAccess({
                             entityType: "order",
@@ -342,7 +320,7 @@ function DeliveryList({ orders }: { orders: DriverOrder[] }) {
                     {o.client_email && (
                       <a
                         href={`mailto:${o.client_email}`}
-                        className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-slate-200 hover:bg-slate-50 text-slate-700"
+                        className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-slate-200 hover:bg-slate-50 text-slate-700 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
                         title={`Email ${o.client_email}`}
                         onClick={() => void logPiiAccess({
                           entityType: "order",
@@ -371,10 +349,10 @@ function DeliveryList({ orders }: { orders: DriverOrder[] }) {
                 quote -> order conversion, the kitchen sees it on prep-list,
                 the driver sees it here. */}
             {(equipment.length > 0 || menu.length > 0) && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-3 border-t border-slate-100">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
                 {menu.length > 0 && (
                   <div>
-                    <p className="text-[11px] uppercase tracking-wide text-slate-500 mb-1.5">
+                    <p className="text-[11px] uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-1.5">
                       Food on board ({menu.length})
                     </p>
                     <div className="flex flex-wrap gap-1">
@@ -385,7 +363,7 @@ function DeliveryList({ orders }: { orders: DriverOrder[] }) {
                         </Badge>
                       ))}
                       {menu.length > 8 && (
-                        <span className="text-[11px] text-slate-500 self-center">
+                        <span className="text-[11px] text-slate-500 dark:text-slate-400 self-center">
                           +{menu.length - 8} more
                         </span>
                       )}
@@ -394,7 +372,7 @@ function DeliveryList({ orders }: { orders: DriverOrder[] }) {
                 )}
                 {equipment.length > 0 && (
                   <div>
-                    <p className="text-[11px] uppercase tracking-wide text-slate-500 mb-1.5 flex items-center gap-1">
+                    <p className="text-[11px] uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-1.5 flex items-center gap-1">
                       Equipment to load ({equipment.length})
                     </p>
                     <ul className="space-y-1">
@@ -408,25 +386,25 @@ function DeliveryList({ orders }: { orders: DriverOrder[] }) {
                         return (
                           <li
                             key={`eq_${i}`}
-                            className="flex flex-wrap items-center justify-between gap-2 text-sm bg-blue-50 border border-blue-100 rounded px-2 py-1.5"
+                            className="flex flex-wrap items-center justify-between gap-2 text-sm bg-slate-50 border border-slate-200 rounded px-2 py-1.5 dark:bg-slate-800/50 dark:border-slate-700"
                           >
-                            <span className="text-slate-800 min-w-0 flex-1 flex items-center gap-1.5 flex-wrap">
+                            <span className="text-slate-800 dark:text-slate-200 min-w-0 flex-1 flex items-center gap-1.5 flex-wrap">
                               <span className="truncate">{eq.name || "(unnamed)"}</span>
                               {eq.category && (
-                                <span className="text-[11px] text-slate-500">{eq.category}</span>
+                                <span className="text-[11px] text-slate-500 dark:text-slate-400">{eq.category}</span>
                               )}
                               {hasSplit && fromStock > 0 && (
-                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-900">
                                   {fromStock} OWNED
                                 </span>
                               )}
                               {hasSplit && fromHire > 0 && (
-                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-300">
+                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-300 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-900">
                                   {fromHire} HIRE-IN
                                 </span>
                               )}
                             </span>
-                            <span className="text-xs font-bold text-blue-700 flex-shrink-0">
+                            <span className="text-xs font-bold text-slate-700 dark:text-slate-300 flex-shrink-0 tabular-nums">
                               × {Number(eq.quantity) || 0}
                             </span>
                           </li>
@@ -446,7 +424,7 @@ function DeliveryList({ orders }: { orders: DriverOrder[] }) {
                 the order is in an active range; cancelled and
                 completed jobs hide it to keep the history clean. */}
             {ACTIVE_STATUSES_FOR_CONFIRMATION_PANEL.has(o.status) && (
-              <div className="pt-3 border-t border-slate-100">
+              <div className="pt-3 border-t border-slate-100 dark:border-slate-800">
                 <DriverConfirmationPanel
                   orderId={o.id}
                   orderNumber={o.order_number || o.id}

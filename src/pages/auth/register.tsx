@@ -117,7 +117,7 @@ export default function RegisterPage() {
     return (
       <AuthShell
         headline="Welcome to CateringMS."
-        subcopy="Your account is ready — sign in and let's get your events rolling."
+        subcopy="Your account is ready - sign in and let's get your events rolling."
       >
         <Card className="w-full max-w-md border border-slate-200/80 shadow-xl rounded-2xl">
           <CardContent className="p-8 sm:p-12 text-center">

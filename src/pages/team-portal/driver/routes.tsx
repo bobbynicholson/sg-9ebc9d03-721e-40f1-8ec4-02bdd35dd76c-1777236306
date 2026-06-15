@@ -1,6 +1,5 @@
 ﻿import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -29,7 +28,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { DriverPageShell } from "@/components/driver/DriverPageShell";
-import { InfoTooltip } from "@/components/ui/info-tooltip";
+import { PortalCard, PortalCardHeader, StatTile } from "@/components/portal/ui";
 import { useAuth } from "@/contexts/AuthContext";
 import { ChatBot } from "@/components/ChatBot";
 import { routeOptimizationService, OptimizedRoute } from "@/services/routeOptimizationService";
@@ -330,12 +329,15 @@ export default function DriverRoutes() {
         icon={RouteIcon}
         width="full"
       >
-        <Card className="border-0 shadow-lg">
-          <CardContent className="py-12 text-center">
-            <RouteIcon className="w-16 h-16 mx-auto mb-4 text-slate-300 animate-pulse" />
-            <p className="text-slate-600">Loading your optimized route...</p>
-          </CardContent>
-        </Card>
+        <div className="space-y-6" aria-busy="true" aria-label="Loading your optimised route">
+          <div className="h-32 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm animate-pulse" />
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
+            {[0, 1, 2, 3].map(i => (
+              <div key={i} className="h-24 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm animate-pulse" />
+            ))}
+          </div>
+          <div className="h-72 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm animate-pulse" />
+        </div>
       </DriverPageShell>
     );
   }
@@ -350,15 +352,17 @@ export default function DriverRoutes() {
         width="full"
         hideFooter
       >
-        <Card className="border-0 shadow-lg">
-          <CardContent className="py-12 text-center">
-            <RouteIcon className="w-16 h-16 mx-auto mb-4 text-slate-300" />
-            <h3 className="text-xl font-semibold text-slate-900 mb-2">No Route Assigned</h3>
-            <p className="text-slate-600 mb-6">
-              You don&apos;t have any optimized routes at the moment. Check back later or contact dispatch.
+        <PortalCard padded={false}>
+          <div className="py-16 px-6 text-center">
+            <div className="w-12 h-12 mx-auto mb-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 flex items-center justify-center">
+              <RouteIcon className="w-6 h-6 text-slate-400 dark:text-slate-500" />
+            </div>
+            <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-1.5">No route assigned</h3>
+            <p className="text-sm text-slate-600 dark:text-slate-400 max-w-md mx-auto">
+              You don&apos;t have any optimised routes right now. Check back later or contact dispatch.
             </p>
-          </CardContent>
-        </Card>
+          </div>
+        </PortalCard>
         <ChatBot userRole="driver" companyId={user?.company_id} />
       </DriverPageShell>
     );
@@ -386,7 +390,7 @@ export default function DriverRoutes() {
         <Button
           size="lg"
           onClick={startShift}
-          className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 min-h-11"
+          className="bg-amber-600 hover:bg-amber-700 text-white min-h-11"
           title="Start your driving shift. Each stop has its own Start delivery button that notifies the client."
         >
           <Play className="w-5 h-5 mr-2" />
@@ -398,8 +402,8 @@ export default function DriverRoutes() {
           <div
             className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-base font-semibold tabular-nums shadow-sm ${
               trip.isPaused
-                ? "bg-amber-100 text-amber-900 border border-amber-300"
-                : "bg-blue-500 text-white"
+                ? "bg-amber-50 text-amber-800 border border-amber-300 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-900"
+                : "bg-amber-600 text-white"
             }`}
             aria-live="polite"
           >
@@ -432,7 +436,7 @@ export default function DriverRoutes() {
             size="sm"
             variant="outline"
             onClick={() => setShowCancelDialog(true)}
-            className="min-h-11 text-red-700 border-red-300 hover:bg-red-50"
+            className="min-h-11 text-rose-700 border-rose-300 hover:bg-rose-50 dark:text-rose-300 dark:border-rose-900 dark:hover:bg-rose-950/40"
             aria-label="Cancel trip"
           >
             <X className="w-4 h-4 mr-1.5" />
@@ -441,9 +445,9 @@ export default function DriverRoutes() {
         </>
       )}
       {tripCompleted && (
-        <Badge className="bg-green-500 text-white text-base px-4 py-2">
+        <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-base px-4 py-2 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-900">
           <CheckCircle className="w-4 h-4 mr-2" />
-          Trip Completed{trip.elapsedMs > 0 ? ` - ${trip.elapsedLabel}` : ""}
+          Trip completed{trip.elapsedMs > 0 ? ` - ${trip.elapsedLabel}` : ""}
         </Badge>
       )}
     </div>
@@ -461,167 +465,124 @@ export default function DriverRoutes() {
     >
           <div className="mb-6 lg:mb-8">
             {/* Progress Banner */}
-            <Card className="border-0 shadow-lg bg-gradient-to-r from-blue-50 to-cyan-50">
-              <CardContent className="p-4 lg:p-6">
+            <PortalCard>
                 <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
-                      <div className="text-3xl lg:text-4xl font-bold text-blue-600">
+                      <div className="text-3xl lg:text-4xl font-semibold tabular-nums text-slate-900 dark:text-white">
                         {completedStops}/{route.stops.length}
                       </div>
-                      <div className="text-sm lg:text-base text-slate-600">
-                        <div className="font-semibold">Stops Completed</div>
-                        <div className="text-xs text-slate-500">
-                          {Math.round((completedStops / route.stops.length) * 100)}% Complete
+                      <div className="text-sm lg:text-base text-slate-600 dark:text-slate-400">
+                        <div className="font-semibold text-slate-900 dark:text-white">Stops completed</div>
+                        <div className="text-xs text-slate-500 dark:text-slate-400 tabular-nums">
+                          {Math.round((completedStops / route.stops.length) * 100)}% complete
                         </div>
                       </div>
                     </div>
-                    <div className="w-full bg-slate-200 rounded-full h-2">
-                      <div 
-                        className="bg-gradient-to-r from-blue-500 to-cyan-500 h-2 rounded-full transition-all duration-500"
+                    <div className="w-full bg-slate-200 dark:bg-slate-800 rounded-full h-2">
+                      <div
+                        className="bg-amber-500 h-2 rounded-full transition-all duration-500"
                         style={{ width: `${(completedStops / route.stops.length) * 100}%` }}
                       />
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="text-2xl lg:text-3xl font-bold text-green-600">
-                      R{estimatedEarnings}
+                    <div className="text-2xl lg:text-3xl font-semibold tabular-nums text-slate-900 dark:text-white">
+                      {tenantCurrency.format(estimatedEarnings, 0)}
                     </div>
-                    <div className="text-xs lg:text-sm text-slate-600">Potential Earnings</div>
+                    <div className="text-xs lg:text-sm text-slate-500 dark:text-slate-400">Potential earnings</div>
                   </div>
                 </div>
-                
+
                 {/* Complete Trip Button */}
                 {tripStarted && completedStops === route.stops.length && !tripCompleted && (
-                  <div className="mt-4 pt-4 border-t border-slate-200">
+                  <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-800">
                     <Button
                       size="lg"
                       onClick={completeTrip}
-                      className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700"
+                      className="w-full bg-amber-600 hover:bg-amber-700 text-white"
                     >
                       <Flag className="w-5 h-5 mr-2" />
-                      Complete Trip & Record Earnings
+                      Complete trip & record earnings
                     </Button>
                   </div>
                 )}
-              </CardContent>
-            </Card>
+            </PortalCard>
           </div>
 
           {/* Stats Grid */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4 mb-6 lg:mb-8">
-            <Card className="border-0 shadow-lg">
-              <CardContent className="pt-4 lg:pt-6 px-3 lg:px-6 pb-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs lg:text-sm text-slate-600 flex items-center gap-1">
-                      Total Distance
-                      <InfoTooltip content="Total kilometres you'll cover across every stop on today's route." />
-                    </p>
-                    <p className="text-lg lg:text-2xl font-bold text-slate-900">
-                      {route.total_distance.toFixed(1)} km
-                    </p>
-                  </div>
-                  <TrendingUp className="w-8 h-8 lg:w-10 lg:h-10 text-blue-500" />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="border-0 shadow-lg">
-              <CardContent className="pt-4 lg:pt-6 px-3 lg:px-6 pb-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs lg:text-sm text-slate-600 flex items-center gap-1">
-                      Est. Time
-                      <InfoTooltip content="Roughly how long the full route should take, including driving between stops." />
-                    </p>
-                    <p className="text-lg lg:text-2xl font-bold text-slate-900">
-                      {route.total_duration} min
-                    </p>
-                  </div>
-                  <Clock className="w-8 h-8 lg:w-10 lg:h-10 text-orange-500" />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="border-0 shadow-lg">
-              <CardContent className="pt-4 lg:pt-6 px-3 lg:px-6 pb-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs lg:text-sm text-slate-600 flex items-center gap-1">
-                      Fuel Cost
-                      <InfoTooltip content="Rough fuel cost for the whole route in rands.\n\nBased on the distance and an average cost per kilometre." />
-                    </p>
-                    <p className="text-lg lg:text-2xl font-bold text-slate-900">
-                      R{stats.estimatedFuelCost}
-                    </p>
-                  </div>
-                  <Fuel className="w-8 h-8 lg:w-10 lg:h-10 text-purple-500" />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="border-0 shadow-lg">
-              <CardContent className="pt-4 lg:pt-6 px-3 lg:px-6 pb-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs lg:text-sm text-slate-600 flex items-center gap-1">
-                      CO₂ Impact
-                      <InfoTooltip content="Estimated kilograms of CO₂ this route will produce." />
-                    </p>
-                    <p className="text-lg lg:text-2xl font-bold text-slate-900">
-                      {stats.carbonFootprint.toFixed(1)} kg
-                    </p>
-                  </div>
-                  <Leaf className="w-8 h-8 lg:w-10 lg:h-10 text-green-500" />
-                </div>
-              </CardContent>
-            </Card>
+            <StatTile
+              icon={TrendingUp}
+              label="Total distance"
+              value={`${route.total_distance.toFixed(1)} km`}
+              hint="Across every stop on today's route"
+            />
+            <StatTile
+              icon={Clock}
+              label="Est. time"
+              value={`${route.total_duration} min`}
+              hint="Including driving between stops"
+            />
+            <StatTile
+              icon={Fuel}
+              label="Fuel cost"
+              value={tenantCurrency.format(stats.estimatedFuelCost, 0)}
+              hint="Rough cost at an average rate per km"
+            />
+            <StatTile
+              icon={Leaf}
+              label="CO2 impact"
+              value={`${stats.carbonFootprint.toFixed(1)} kg`}
+              hint="Estimated emissions for this route"
+            />
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Current Stop Highlight */}
             <div className="lg:col-span-1 space-y-4">
-              <Card className="border-0 shadow-lg bg-gradient-to-br from-blue-500 to-cyan-600 text-white">
-                <CardHeader className="pb-3">
-                  <CardTitle className="flex items-center gap-2">
-                    <Navigation className="h-5 w-5" />
-                    {tripCompleted ? "Trip Complete" : tripStarted ? "Current Stop" : "Next Stop"}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
+              <PortalCard>
+                <PortalCardHeader
+                  title={
+                    <span className="flex items-center gap-2">
+                      <Navigation className="h-4 w-4 text-amber-600 dark:text-amber-500" />
+                      {tripCompleted ? "Trip complete" : tripStarted ? "Current stop" : "Next stop"}
+                    </span>
+                  }
+                />
+                <div className="space-y-4">
                   {!tripCompleted && currentStop ? (
                     <>
                       <div>
                         <div className="flex items-center gap-2 mb-2">
-                          <div className="w-8 h-8 rounded-full bg-white text-blue-600 flex items-center justify-center font-bold">
+                          <div className="w-8 h-8 rounded-full bg-amber-600 text-white flex items-center justify-center font-semibold tabular-nums">
                             {currentStopIndex + 1}
                           </div>
-                          <h3 className="font-bold text-lg">{currentStop.client_name}</h3>
+                          <h3 className="font-semibold text-lg text-slate-900 dark:text-white">{currentStop.client_name}</h3>
                         </div>
-                        <p className="text-sm opacity-90 flex items-start gap-2">
-                          <MapPin className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                        <p className="text-sm text-slate-600 dark:text-slate-400 flex items-start gap-2">
+                          <MapPin className="w-4 h-4 mt-0.5 flex-shrink-0 text-slate-400 dark:text-slate-500" />
                           {currentStop.venue_address}
                         </p>
                       </div>
 
-                      <div className="space-y-2 text-sm">
+                      <div className="space-y-2 text-sm text-slate-600 dark:text-slate-400">
                         {/* Collection time is the driver's FIRST
                             question - "when do I leave the kitchen?".
                             Render it above delivery because that's
                             the action the driver takes first. */}
                         {currentStop.pickup_time && (
-                          <div className="flex items-center gap-2 font-semibold">
-                            <Clock className="w-4 h-4" />
+                          <div className="flex items-center gap-2 font-semibold text-slate-900 dark:text-white">
+                            <Clock className="w-4 h-4 text-slate-400 dark:text-slate-500" />
                             <span>Collect: {currentStop.pickup_time.slice(0, 5)}</span>
                           </div>
                         )}
                         <div className="flex items-center gap-2">
-                          <Clock className="w-4 h-4" />
+                          <Clock className="w-4 h-4 text-slate-400 dark:text-slate-500" />
                           <span>Delivery: {new Date(currentStop.delivery_time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
                         </div>
                         <div className="flex items-center gap-2">
-                          <DollarSign className="w-4 h-4" />
+                          <DollarSign className="w-4 h-4 text-slate-400 dark:text-slate-500" />
                           <span>Callout: {tenantCurrency.format(calloutFee, 0)} + {tenantCurrency.format(distanceRate)}/km</span>
                         </div>
                       </div>
@@ -639,7 +600,7 @@ export default function DriverRoutes() {
                         return (
                           <>
                             {!stopIsRolling && (
-                              <div className="bg-white/10 rounded-lg p-3 text-sm">
+                              <div className="rounded-lg p-3 text-sm bg-amber-50 text-amber-800 border border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-900">
                                 <p className="flex items-start gap-2">
                                   <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
                                   Tap <strong>Start delivery</strong> to let the client know you're on the way.
@@ -651,7 +612,7 @@ export default function DriverRoutes() {
                               {!stopIsRolling && (
                                 <Button
                                   onClick={() => startStopDelivery(currentStopIndex)}
-                                  className="w-full bg-white text-blue-600 hover:bg-blue-50"
+                                  className="w-full bg-amber-600 hover:bg-amber-700 text-white"
                                   size="lg"
                                 >
                                   <Play className="w-4 h-4 mr-2" />
@@ -661,33 +622,32 @@ export default function DriverRoutes() {
                               <Button
                                 onClick={() => openNavigation(currentStop)}
                                 disabled={!stopIsRolling}
-                                className="w-full bg-white text-blue-600 hover:bg-blue-50 disabled:opacity-50"
+                                variant="outline"
+                                className="w-full disabled:opacity-50"
                                 size="lg"
                               >
                                 <Navigation className="w-4 h-4 mr-2" />
-                                Navigate Now
+                                Navigate now
                               </Button>
                               <Button
                                 onClick={() => markStopComplete(currentStopIndex)}
                                 disabled={!stopIsRolling}
                                 variant="outline"
-                                className="w-full border-white text-white hover:bg-white/10 disabled:opacity-50"
+                                className="w-full disabled:opacity-50"
                               >
                                 <CheckCircle className="w-4 h-4 mr-2" />
-                                {stopIsRolling ? "Mark Complete" : "Start delivery first"}
+                                {stopIsRolling ? "Mark complete" : "Start delivery first"}
                               </Button>
                               {/* ODOC H.10: easy-reference link to the
                                   full order brief from inside the Next
                                   Stop hero card. Bobby's brief - the
                                   driver wants to glance at the venue
                                   contact / equipment / special notes
-                                  without leaving the routes page. White
-                                  styling so it reads on the blue
-                                  gradient background. */}
+                                  without leaving the routes page. */}
                               {(currentStop as any).id && (
                                 <Link
                                   href={withSlug(staffOrderHref((currentStop as any).id, "driver"))}
-                                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-md border border-white/40 bg-white/10 text-white text-sm font-semibold hover:bg-white/20 transition"
+                                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-md border border-slate-200 bg-white text-slate-700 text-sm font-semibold hover:bg-slate-50 transition-colors duration-150 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
                                   title="Open the full driver brief for this order"
                                 >
                                   <ExternalLink className="w-4 h-4" />
@@ -701,65 +661,68 @@ export default function DriverRoutes() {
                     </>
                   ) : tripCompleted ? (
                     <div className="text-center py-8">
-                      <CheckCircle className="w-16 h-16 mx-auto mb-4" />
-                      <h3 className="text-xl font-bold mb-2">All Stops Completed! 🎉</h3>
-                      <p className="opacity-90 mb-4">Great job on completing your route!</p>
-                      <div className="bg-white/10 rounded-lg p-4">
-                        <p className="text-2xl font-bold mb-1">R{estimatedEarnings}</p>
-                        <p className="text-sm opacity-90">Total Earnings</p>
+                      <div className="w-12 h-12 mx-auto mb-4 rounded-xl border border-emerald-200 bg-emerald-50 flex items-center justify-center dark:border-emerald-900 dark:bg-emerald-500/10">
+                        <CheckCircle className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
+                      </div>
+                      <h3 className="text-lg font-semibold mb-1.5 text-slate-900 dark:text-white">All stops completed</h3>
+                      <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">Great work on finishing your route.</p>
+                      <div className="rounded-lg p-4 bg-slate-50 border border-slate-200 dark:bg-slate-800 dark:border-slate-700">
+                        <p className="text-2xl font-semibold tabular-nums mb-1 text-slate-900 dark:text-white">{tenantCurrency.format(estimatedEarnings, 0)}</p>
+                        <p className="text-sm text-slate-500 dark:text-slate-400">Total earnings</p>
                       </div>
                     </div>
                   ) : (
                     <div className="text-center py-8">
-                      <CheckCircle className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                      <p className="opacity-90">All stops completed!</p>
+                      <CheckCircle className="w-10 h-10 mx-auto mb-2 text-slate-300 dark:text-slate-600" />
+                      <p className="text-sm text-slate-600 dark:text-slate-400">All stops completed.</p>
                     </div>
                   )}
-                </CardContent>
-              </Card>
+                </div>
+              </PortalCard>
 
-              {/* Environmental Impact */}
+              {/* Route efficiency note */}
               {!tripCompleted && (
-                <Card className="border-0 shadow-lg">
-                  <CardContent className="p-4 bg-green-50 rounded-lg">
-                    <h4 className="font-semibold text-green-900 mb-2 flex items-center gap-2">
-                      <Leaf className="h-4 w-4" />
-                      Route Efficiency
-                    </h4>
-                    <p className="text-sm text-green-800">
-                      This optimized route reduces your drive distance by approximately <span className="font-semibold">30%</span>, 
-                      saving time and fuel while reducing carbon emissions.
-                    </p>
-                  </CardContent>
-                </Card>
+                <PortalCard className="bg-slate-50 dark:bg-slate-900">
+                  <h4 className="font-semibold text-slate-900 dark:text-white mb-2 flex items-center gap-2">
+                    <Leaf className="h-4 w-4 text-emerald-600 dark:text-emerald-500" />
+                    Route efficiency
+                  </h4>
+                  <p className="text-sm text-slate-600 dark:text-slate-400">
+                    This optimised route cuts your drive distance by roughly <span className="font-semibold text-slate-900 dark:text-white">30%</span>,
+                    saving time and fuel while reducing carbon emissions.
+                  </p>
+                </PortalCard>
               )}
             </div>
 
             {/* Route Map */}
             <div className="lg:col-span-2">
-              <Card className="border-0 shadow-lg h-[500px] lg:h-[700px]">
-                <CardHeader className="pb-3">
-                  <CardTitle className="flex items-center gap-2">
-                    <Map className="h-5 w-5" />
-                    Route Map
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="h-[calc(100%-70px)]">
+              <PortalCard className="h-[500px] lg:h-[700px] flex flex-col">
+                <PortalCardHeader
+                  title={
+                    <span className="flex items-center gap-2">
+                      <Map className="h-4 w-4 text-slate-400 dark:text-slate-500" />
+                      Route map
+                    </span>
+                  }
+                />
+                <div className="flex-1 min-h-0">
                   <RouteMap route={route} />
-                </CardContent>
-              </Card>
+                </div>
+              </PortalCard>
             </div>
           </div>
 
           {/* All Stops List */}
-          <Card className="border-0 shadow-lg mt-6">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <RouteIcon className="h-5 w-5" />
-                Complete Route ({route.stops.length} stops)
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
+          <PortalCard className="mt-6">
+            <PortalCardHeader
+              title={
+                <span className="flex items-center gap-2">
+                  <RouteIcon className="h-4 w-4 text-slate-400 dark:text-slate-500" />
+                  Complete route ({route.stops.length} stops)
+                </span>
+              }
+            />
               <div className="space-y-3">
                 {route.stops.map((stop, index) => {
                   const isCompleted = stop.status === "completed" || stop.status === "delivered";
@@ -769,25 +732,25 @@ export default function DriverRoutes() {
                   return (
                     <div
                       key={stop.id}
-                      className={`p-4 rounded-lg border-2 transition-all ${
+                      className={`p-4 rounded-xl border transition-colors duration-150 ${
                         isCurrent
-                          ? "border-blue-500 bg-blue-50 shadow-md"
+                          ? "border-amber-400 bg-amber-50 dark:border-amber-600 dark:bg-amber-500/10"
                           : isCompleted
-                          ? "border-green-200 bg-green-50"
+                          ? "border-emerald-200 bg-emerald-50 dark:border-emerald-900 dark:bg-emerald-500/10"
                           : isPending
-                          ? "border-slate-200 bg-slate-50 opacity-60"
-                          : "border-slate-200 bg-white"
+                          ? "border-slate-200 bg-slate-50 opacity-70 dark:border-slate-800 dark:bg-slate-900"
+                          : "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900"
                       }`}
                     >
                       <div className="flex items-start gap-4">
                         <div className="flex-shrink-0">
                           <div
-                            className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg ${
+                            className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold text-lg tabular-nums ${
                               isCompleted
-                                ? "bg-green-500 text-white"
+                                ? "bg-emerald-600 text-white"
                                 : isCurrent
-                                ? "bg-blue-600 text-white ring-4 ring-blue-200"
-                                : "bg-slate-200 text-slate-600"
+                                ? "bg-amber-600 text-white ring-4 ring-amber-200 dark:ring-amber-900"
+                                : "bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300"
                             }`}
                           >
                             {isCompleted ? <CheckCircle className="w-5 h-5" /> : index + 1}
@@ -798,64 +761,64 @@ export default function DriverRoutes() {
                           <div className="flex items-start justify-between mb-2">
                             <div className="flex-1">
                               <div className="flex items-center gap-2 mb-1 flex-wrap">
-                                <h4 className="font-semibold text-slate-900">{stop.client_name}</h4>
+                                <h4 className="font-semibold text-slate-900 dark:text-white">{stop.client_name}</h4>
                                 {isCurrent && (
-                                  <Badge className="bg-blue-600 text-white">
+                                  <Badge className="bg-amber-600 text-white">
                                     <Navigation className="w-3 h-3 mr-1 animate-pulse" />
-                                    Current Stop
+                                    Current stop
                                   </Badge>
                                 )}
                                 {isCompleted && (
-                                  <Badge className="bg-green-100 text-green-800">
+                                  <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-900">
                                     <CheckCircle className="w-3 h-3 mr-1" />
                                     Completed
                                   </Badge>
                                 )}
                                 {isPending && !tripStarted && (
-                                  <Badge className="bg-slate-100 text-slate-600">
+                                  <Badge className="bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300">
                                     Pending
                                   </Badge>
                                 )}
                                 <Badge
                                   className={
                                     stop.priority === 1
-                                      ? "bg-red-100 text-red-800"
+                                      ? "bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-500/10 dark:text-rose-300 dark:border-rose-900"
                                       : stop.priority === 3
-                                      ? "bg-gray-100 text-gray-800"
-                                      : "bg-yellow-100 text-yellow-800"
+                                      ? "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"
+                                      : "bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-900"
                                   }
                                 >
                                   {stop.priority === 1 ? "High" : stop.priority === 3 ? "Low" : "Normal"}
                                 </Badge>
                                 <Link
                                   href={withSlug(staffOrderHref(stop.order_id, "driver"))}
-                                  className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold min-h-[32px]"
+                                  className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-amber-200 bg-amber-50 hover:bg-amber-100 text-amber-700 font-semibold min-h-[32px] transition-colors duration-150 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300 dark:hover:bg-amber-900/60"
                                   title="Open the driver brief for this order"
                                 >
                                   <ExternalLink className="w-3.5 h-3.5" />
                                   Open brief
                                 </Link>
                               </div>
-                              <p className="text-sm text-slate-600 mb-2 flex items-start gap-1">
-                                <MapPin className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                              <p className="text-sm text-slate-600 dark:text-slate-400 mb-2 flex items-start gap-1">
+                                <MapPin className="w-4 h-4 mt-0.5 flex-shrink-0 text-slate-400 dark:text-slate-500" />
                                 {stop.venue_address}
                               </p>
-                              <div className="flex items-center gap-4 text-xs text-slate-500 flex-wrap">
+                              <div className="flex items-center gap-4 text-xs text-slate-500 dark:text-slate-400 flex-wrap">
                                 {/* Collect time leads the row because
                                     that's the actionable next step for
                                     the driver. Delivery follows. */}
                                 {stop.pickup_time && (
-                                  <span className="flex items-center gap-1 text-blue-700 font-medium">
+                                  <span className="flex items-center gap-1 text-amber-700 dark:text-amber-400 font-medium">
                                     <Clock className="w-3 h-3" />
                                     Collect {stop.pickup_time.slice(0, 5)}
                                   </span>
                                 )}
                                 <span className="flex items-center gap-1">
-                                  <Clock className="w-3 h-3" />
+                                  <Clock className="w-3 h-3 text-slate-400 dark:text-slate-500" />
                                   Deliver {new Date(stop.delivery_time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                                 </span>
-                                <span className="flex items-center gap-1">
-                                  <DollarSign className="w-3 h-3" />
+                                <span className="flex items-center gap-1 tabular-nums">
+                                  <DollarSign className="w-3 h-3 text-slate-400 dark:text-slate-500" />
                                   {tenantCurrency.format(calloutFee, 0)} callout
                                 </span>
                               </div>
@@ -871,7 +834,7 @@ export default function DriverRoutes() {
                                   <Button
                                     size="sm"
                                     onClick={() => startStopDelivery(index)}
-                                    className="flex-1 sm:flex-none bg-blue-600 hover:bg-blue-700"
+                                    className="flex-1 sm:flex-none bg-amber-600 hover:bg-amber-700 text-white"
                                   >
                                     <Play className="w-4 h-4 sm:mr-2" />
                                     <span className="hidden sm:inline">Start delivery</span>
@@ -905,8 +868,8 @@ export default function DriverRoutes() {
                       </div>
 
                       {index < route.stops.length - 1 && (
-                        <div className="ml-5 mt-3 pl-5 border-l-2 border-dashed border-slate-300 py-2">
-                          <div className="flex items-center gap-2 text-xs text-slate-500">
+                        <div className="ml-5 mt-3 pl-5 border-l-2 border-dashed border-slate-300 dark:border-slate-700 py-2">
+                          <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 tabular-nums">
                             <ChevronRight className="w-4 h-4" />
                             <span>
                               ~{routeOptimizationService.calculateDistance(
@@ -923,8 +886,7 @@ export default function DriverRoutes() {
                   );
                 })}
               </div>
-            </CardContent>
-          </Card>
+          </PortalCard>
 
       {/* Delivery Status Modal */}
       {selectedDelivery && (
@@ -950,7 +912,7 @@ export default function DriverRoutes() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
-              <X className="w-5 h-5 text-red-600" />
+              <X className="w-5 h-5 text-rose-600" />
               Cancel this trip?
             </AlertDialogTitle>
             <AlertDialogDescription asChild>
@@ -975,7 +937,7 @@ export default function DriverRoutes() {
                 void handleCancelTrip();
               }}
               disabled={cancelling}
-              className="bg-red-600 hover:bg-red-700"
+              className="bg-rose-600 hover:bg-rose-700"
             >
               {cancelling ? "Cancelling..." : "Yes, cancel"}
             </AlertDialogAction>
