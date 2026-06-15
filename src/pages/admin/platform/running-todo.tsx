@@ -1,9 +1,9 @@
 import { useState } from "react";
 import Head from "next/head";
-import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PlatformNav } from "@/components/admin/PlatformNav";
+import { PortalShell, PortalHeader, PortalCard, StatTile } from "@/components/portal/ui";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
@@ -1679,67 +1679,47 @@ function AdminRunningTodoPage() {
         <title>Running todo - CateringMS</title>
       </Head>
       <NoIndexMeta />
-      <PlatformNav />
-      <main className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80 pt-20 lg:pt-0">
-        <div className="px-3 sm:px-4 md:px-6 pt-20 lg:pt-6 pb-8 max-w-full">
-          <div className="mb-6">
-            <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold text-slate-900 flex items-center gap-3">
-              <ListChecks className="h-7 w-7 text-purple-600" />
-              Running Todo
-            </h1>
-            <p className="text-sm text-slate-600 mt-1">
-              Single source of truth, everything built, everything outstanding. Combines the original 8-week launch roadmap with findings from the 215-IQ multi-specialist audit.
-            </p>
-          </div>
+      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <PlatformNav />
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+          <PortalHeader
+            title="Running Todo"
+            subtitle="Single source of truth, everything built, everything outstanding. Combines the original 8-week launch roadmap with findings from the 215-IQ multi-specialist audit."
+            icon={ListChecks}
+          />
 
           <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-6">
-            <Card>
-              <CardContent className="p-4">
-                <p className="text-xs text-slate-600">Total items</p>
-                <p className="text-2xl font-bold tabular-nums">{stats.total}</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4">
-                <p className="text-xs text-slate-600">Shipped</p>
-                <p className="text-2xl font-bold tabular-nums text-emerald-600">{stats.shipped}</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4">
-                <p className="text-xs text-slate-600">Todo</p>
-                <p className="text-2xl font-bold tabular-nums text-slate-900">{stats.todo}</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4">
-                <p className="text-xs text-slate-600">Blocked</p>
-                <p className="text-2xl font-bold tabular-nums text-rose-600">{stats.blocked}</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4">
-                <p className="text-xs text-slate-600">Overall</p>
-                <p className="text-2xl font-bold tabular-nums">{overallPct}%</p>
-              </CardContent>
-            </Card>
+            <StatTile label="Total items" value={stats.total} />
+            <StatTile
+              label="Shipped"
+              value={<span className="text-emerald-600">{stats.shipped}</span>}
+            />
+            <StatTile
+              label="Todo"
+              value={<span className="text-slate-900 dark:text-white">{stats.todo}</span>}
+            />
+            <StatTile
+              label="Blocked"
+              value={<span className="text-rose-600">{stats.blocked}</span>}
+            />
+            <StatTile label="Overall" value={`${overallPct}%`} />
           </div>
 
-          <Card className="mb-6 border-purple-200 bg-purple-50">
-            <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-sm">
+          <PortalCard className="mb-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-sm">
               <div className="flex items-start gap-3">
                 <FileText className="h-5 w-5 text-purple-600 flex-shrink-0 mt-0.5" />
                 <div>
-                  <span className="font-semibold text-slate-900">Audit fixes: {auditStats.shipped}/{auditStats.total} shipped ({auditPct}%).</span>{" "}
-                  <span className="text-slate-700">Phase 1 done, demo-safe. Phase 2A-F executes post-meeting in order of minimum-blast-radius.</span>
+                  <span className="font-semibold text-slate-900 dark:text-white">Audit fixes: {auditStats.shipped}/{auditStats.total} shipped ({auditPct}%).</span>{" "}
+                  <span className="text-slate-700 dark:text-slate-300">Phase 1 done, demo-safe. Phase 2A-F executes post-meeting in order of minimum-blast-radius.</span>
                 </div>
               </div>
               <div className="flex gap-2 flex-shrink-0">
                 <Button size="sm" variant="outline" onClick={() => setExpandAll((n) => n + 1)}>Expand all</Button>
                 <Button size="sm" variant="outline" onClick={() => setCollapseAll((n) => n + 1)}>Collapse all</Button>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </PortalCard>
 
           <nav className="mb-8 flex flex-wrap gap-2">
             {groups.map((g) => (
@@ -1755,13 +1735,13 @@ function AdminRunningTodoPage() {
             ))}
           </div>
 
-          <Card className="mt-10 border-slate-200">
-            <CardContent className="p-4 text-xs text-slate-500">
+          <PortalCard className="mt-10">
+            <div className="text-xs text-slate-500 dark:text-slate-400">
               Source-of-truth merging the 25 April 2026 product roadmap (v1.0) with the 28 April 2026 multi-specialist audit. Updated as items ship.
-            </CardContent>
-          </Card>
-        </div>
-      </main>
+            </div>
+          </PortalCard>
+        </PortalShell>
+      </div>
     </>
   );
 }

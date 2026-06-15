@@ -18,7 +18,7 @@ import { useRouter } from "next/router";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { PlatformNav } from "@/components/admin/PlatformNav";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { PortalShell, PortalHeader, PortalCard, PortalCardHeader } from "@/components/portal/ui";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -279,36 +279,28 @@ function AuditLogsViewer() {
         <title>Platform audit logs - CateringMS</title>
       </Head>
       <NoIndexMeta />
-      <PlatformNav />
 
-      <div className="min-h-screen overflow-x-hidden bg-slate-50 lg:pl-72 xl:pl-80 pt-20 lg:pt-0">
-        <div className="px-4 sm:px-6 py-6 sm:py-8 max-w-7xl">
-          <div className="mb-6 flex items-center justify-between gap-3 flex-wrap">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="w-12 h-12 rounded-xl bg-slate-900 text-white flex items-center justify-center shadow-lg">
-                <ScrollText className="w-6 h-6" />
-              </div>
-              <div>
-                <h1 className="text-2xl md:text-3xl font-bold text-slate-900">Audit logs</h1>
-                <p className="text-sm text-slate-600 mt-1">
-                  Append-only trail across every tenant. Read-only view; the action belongs on the entity page each row links to.
-                </p>
-              </div>
-            </div>
-            <Button variant="outline" size="sm" onClick={() => { setPage(0); void load(); }} className="gap-1">
-              <RefreshCw className="w-4 h-4" />
-              Refresh
-            </Button>
-          </div>
+      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <PlatformNav />
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+          <PortalHeader
+            title="Audit logs"
+            subtitle="Append-only trail across every tenant. Read-only view; the action belongs on the entity page each row links to."
+            icon={ScrollText}
+            actions={
+              <Button variant="outline" size="sm" onClick={() => { setPage(0); void load(); }} className="gap-1">
+                <RefreshCw className="w-4 h-4" />
+                Refresh
+              </Button>
+            }
+          />
 
-          <Card className="mb-5 border-0 shadow">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">Filters</CardTitle>
-              <CardDescription className="text-xs">
-                Combine any of these. Defaults to the last 7 days across every tenant.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
+          <PortalCard className="mb-5">
+            <PortalCardHeader title="Filters" />
+            <p className="-mt-2 mb-3 text-xs text-slate-500 dark:text-slate-400">
+              Combine any of these. Defaults to the last 7 days across every tenant.
+            </p>
+            <div>
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
                 <div>
                   <Label className="text-xs">Tenant</Label>
@@ -384,8 +376,8 @@ function AuditLogsViewer() {
                   </Select>
                 </div>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </PortalCard>
 
           {loading ? (
             <ListSkeleton rows={8} />
@@ -496,7 +488,7 @@ function AuditLogsViewer() {
               </div>
             </div>
           )}
-        </div>
+        </PortalShell>
       </div>
     </>
   );

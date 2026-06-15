@@ -1,6 +1,6 @@
 ﻿import { useState, useEffect } from "react";
 import { PlatformNav } from "@/components/admin/PlatformNav";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { PortalShell, PortalHeader, PortalCard, PortalCardHeader } from "@/components/portal/ui";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -182,30 +182,19 @@ function PricingManagementPage() {
   };
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80 pt-20 lg:pt-0">
+    <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
       <PlatformNav />
       <Header />
-      
-      <div className="px-4 py-6 sm:py-8 max-w-full">
-        {/* Mobile-Optimized Page Header */}
-        <div className="mb-6 sm:mb-8">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-2">
-            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-              <div className="p-3 bg-gradient-to-br from-brand-primary to-brand-secondary rounded-xl w-fit">
-                <DollarSign className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
-              </div>
-              <div>
-                <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">
-                  CateringMS Package Prices (ADMIN)
-                </h1>
-                <p className="text-sm sm:text-base text-slate-600 mt-1">
-                  Manage pricing for South Africa, United States, and United Kingdom markets
-                </p>
-              </div>
-            </div>
-            {/* Cross-link to the COGS calculator - seeing the input cost
-                next to the output price avoids quietly setting a tier
-                that loses money at scale. */}
+
+      <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+        <PortalHeader
+          title="CateringMS Package Prices (ADMIN)"
+          subtitle="Manage pricing for South Africa, United States, and United Kingdom markets"
+          icon={DollarSign}
+          actions={
+            /* Cross-link to the COGS calculator - seeing the input cost
+               next to the output price avoids quietly setting a tier
+               that loses money at scale. */
             <a
               href="/admin/platform/tech-costs"
               className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-800 text-sm font-medium hover:bg-emerald-100 transition w-fit"
@@ -213,8 +202,8 @@ function PricingManagementPage() {
               See your COGS at this price
               <span aria-hidden>→</span>
             </a>
-          </div>
-        </div>
+          }
+        />
 
         {/* Mobile-Optimized Info Alert */}
         <Alert className="mb-6 sm:mb-8 border-purple-200 bg-purple-50">
@@ -239,20 +228,20 @@ function PricingManagementPage() {
         </Alert>
 
         {/* Mobile-Optimized Formula Card */}
-        <Card className="mb-6 sm:mb-8 border-2 border-purple-200 bg-gradient-to-br from-purple-50 to-pink-50">
-          <CardHeader className="pb-3 sm:pb-6">
-            <div className="flex items-center gap-2">
-              <Calculator className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600 flex-shrink-0" />
-              <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+        <PortalCard className="mb-6 sm:mb-8">
+          <PortalCardHeader
+            title={
+              <span className="flex items-center gap-2">
+                <Calculator className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600 flex-shrink-0" />
                 Pricing Conversion Formula
                 <InfoTooltip content="The formula that converts ZAR pricing into the other supported currencies, using a fixed exchange rate per market.\n\nPrices are stored in the platform_pricing_plans table, saves here update /pricing for every visitor immediately." />
-              </CardTitle>
-            </div>
-            <CardDescription className="text-xs sm:text-sm">
-              This formula ensures consistent international pricing based on ZAR
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
+              </span>
+            }
+          />
+          <p className="-mt-2 mb-3 text-xs sm:text-sm text-slate-500 dark:text-slate-400">
+            This formula ensures consistent international pricing based on ZAR
+          </p>
+          <div>
             <div className="bg-white rounded-lg p-3 sm:p-4 border border-purple-200">
               <p className="text-sm sm:text-xl font-mono font-bold text-purple-900 mb-3 sm:mb-4 break-words">
                 {PRICING_FORMULA}
@@ -278,8 +267,8 @@ function PricingManagementPage() {
                 </div>
               </div>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </PortalCard>
 
         {/* Mobile-Optimized Success Alert */}
         {saveSuccess && (
@@ -312,30 +301,30 @@ function PricingManagementPage() {
         {/* Mobile-Optimized Pricing Cards */}
         <div className="grid gap-4 sm:gap-6 mb-6 sm:mb-8">
           {editedPricing.map((tier, index) => (
-            <Card key={tier.name} className="border-2 hover:border-purple-200 transition-colors">
-              <CardHeader className="bg-gradient-to-r from-slate-50 to-slate-100 pb-4">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div>
-                    <CardTitle className="text-xl sm:text-2xl flex items-center gap-2">
-                      {tier.name} Plan
-                      <InfoTooltip content="The monthly subscription price for this tier across every market.\n\nZAR is the primary price. USD, GBP and EUR auto-calculate from the formula but you can override them. Saves are persisted to platform_pricing_plans and reflected on the public /pricing page." />
-                    </CardTitle>
-                    <CardDescription className="text-xs sm:text-sm">
-                      Monthly subscription pricing across all markets
-                    </CardDescription>
-                  </div>
+            <PortalCard key={tier.name}>
+              <PortalCardHeader
+                title={
+                  <span className="text-xl sm:text-2xl flex items-center gap-2">
+                    {tier.name} Plan
+                    <InfoTooltip content="The monthly subscription price for this tier across every market.\n\nZAR is the primary price. USD, GBP and EUR auto-calculate from the formula but you can override them. Saves are persisted to platform_pricing_plans and reflected on the public /pricing page." />
+                  </span>
+                }
+                action={
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => handleAutoCalculate(index)}
-                    className="gap-2 w-full sm:w-auto h-10 text-sm"
+                    className="gap-2 h-10 text-sm"
                   >
                     <RefreshCw className="w-4 h-4" />
                     Auto-Calculate
                   </Button>
-                </div>
-              </CardHeader>
-              <CardContent className="pt-4 sm:pt-6">
+                }
+              />
+              <p className="-mt-2 mb-4 text-xs sm:text-sm text-slate-500 dark:text-slate-400">
+                Monthly subscription pricing across all markets
+              </p>
+              <div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
                   {/* South Africa ZAR - Mobile Optimized */}
                   <div className="space-y-2">
@@ -445,8 +434,8 @@ function PricingManagementPage() {
                     </p>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </PortalCard>
           ))}
         </div>
 
@@ -488,8 +477,8 @@ function PricingManagementPage() {
         </div>
 
         {/* Mobile-Optimized Info Box */}
-        <Card className="mt-6 sm:mt-8 border-blue-200 bg-blue-50">
-          <CardContent className="pt-4 sm:pt-6">
+        <PortalCard className="mt-6 sm:mt-8">
+          <div>
             <div className="flex flex-col sm:flex-row gap-4">
               <Globe className="w-10 h-10 sm:w-12 sm:h-12 text-blue-600 flex-shrink-0" />
               <div className="space-y-2">
@@ -515,9 +504,9 @@ function PricingManagementPage() {
                 </ul>
               </div>
             </div>
-          </CardContent>
-        </Card>
-      </div>
+          </div>
+        </PortalCard>
+      </PortalShell>
 
       <Footer />
     </div>

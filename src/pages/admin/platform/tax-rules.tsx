@@ -11,7 +11,7 @@
  */
 import { useEffect, useMemo, useState } from "react";
 import Head from "next/head";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PortalShell, PortalHeader, PortalCard } from "@/components/portal/ui";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -28,7 +28,7 @@ import {
   Tag, ShieldCheck, ShieldAlert, ShieldX,
 } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
-import { AdminNav } from "@/components/admin/AdminNav";
+import { PlatformNav } from "@/components/admin/PlatformNav";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { supabase } from "@/integrations/supabase/client";
@@ -127,37 +127,28 @@ function TaxRulesAdmin() {
     <>
       <NoIndexMeta />
       <Head><title>SA tax rules - CateringMS</title></Head>
-      <AdminNav />
 
-      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
-        <div className="px-3 sm:px-4 md:px-6 pt-20 lg:pt-6 pb-6 max-w-full">
+      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <PlatformNav />
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
 
-          <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-indigo-500 flex items-center justify-center shadow-lg flex-shrink-0">
-                <Sparkles className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <h1 className="text-2xl md:text-3xl font-bold text-slate-900">
-                  SA Tax Rules
-                </h1>
-                <p className="text-sm text-slate-600 mt-1">
-                  Reference rules the slip scanner uses to classify line items as deductible or not.
-                  Global to all tenants. Edit with care.
-                </p>
-              </div>
-            </div>
-            <Button
-              onClick={() => setAdding(true)}
-              className="bg-gradient-to-r from-brand-primary to-brand-secondary text-white"
-            >
-              <Plus className="w-4 h-4 mr-1.5" /> Add rule
-            </Button>
-          </div>
+          <PortalHeader
+            title="SA Tax Rules"
+            subtitle="Reference rules the slip scanner uses to classify line items as deductible or not. Global to all tenants. Edit with care."
+            icon={Sparkles}
+            actions={
+              <Button
+                onClick={() => setAdding(true)}
+                className="bg-gradient-to-r from-brand-primary to-brand-secondary text-white"
+              >
+                <Plus className="w-4 h-4 mr-1.5" /> Add rule
+              </Button>
+            }
+          />
 
           {/* Filters */}
-          <Card className="border-0 shadow-sm mb-4">
-            <CardContent className="py-3 flex flex-wrap items-center gap-3">
+          <PortalCard className="mb-4">
+            <div className="flex flex-wrap items-center gap-3">
               <div className="relative flex-1 min-w-[260px]">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <Input
@@ -182,12 +173,12 @@ function TaxRulesAdmin() {
               <span className="text-xs text-slate-500 ml-auto">
                 {visible.length} of {rules.length} rules
               </span>
-            </CardContent>
-          </Card>
+            </div>
+          </PortalCard>
 
           {/* Rules table */}
-          <Card className="border-0 shadow-lg">
-            <CardContent className="p-0">
+          <PortalCard padded={false}>
+            <div className="p-0">
               {loading ? (
                 <div className="py-16 text-center text-slate-500">
                   <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" />
@@ -274,9 +265,9 @@ function TaxRulesAdmin() {
                   </table>
                 </div>
               )}
-            </CardContent>
-          </Card>
-        </div>
+            </div>
+          </PortalCard>
+        </PortalShell>
       </div>
 
       {/* Edit / Add dialog */}
