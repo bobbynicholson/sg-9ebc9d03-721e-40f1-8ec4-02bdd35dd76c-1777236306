@@ -402,10 +402,12 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       kitchen_prep: { ok: boolean; reason?: string };
       invoice: { ok: boolean; reason?: string };
       inventory: { ok: boolean; reason?: string; skipped?: boolean };
+      schedule: { ok: boolean; reason?: string; skipped?: boolean; details?: any };
     } = {
       kitchen_prep: { ok: false },
       invoice: { ok: false },
       inventory: { ok: false, skipped: true },
+      schedule: { ok: false, skipped: true },
     };
 
     try {
@@ -473,6 +475,33 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       } catch (e: any) {
         cascade.inventory.reason = e?.message || "inventory recalc crashed";
         console.warn("[amendment-review] inventory recalc crashed:", e);
+      }
+    }
+
+    // Schedule re-sync. Bobby's rule: when delivery time / venue /
+    // equipment / guest count move, the change must land EVERYWHERE -
+    // the driver's collection trip, the cleaning handover's expected
+    // return time + item count, the vehicle window and any outsource
+    // assignment. The quote-edit path (propagateQuoteEdit) already does
+    // this; the amendment path had drifted and re-stamped none of it,
+    // so an amended order left the driver + cleaning team on the OLD
+    // time. resyncOrderScheduleArtifacts reads the now-amended order row
+    // and re-stamps from delivery_time ?? event_time. Best-effort.
+    const scheduleRelevant = ["delivery_time", "venue_address", "equipment_items", "guest_count"];
+    const touchedSchedule = Object.keys(toApply).some((k) => scheduleRelevant.includes(k));
+    if (touchedSchedule) {
+      cascade.schedule = { ok: false, skipped: false };
+      try {
+        const { resyncOrderScheduleArtifacts } = await import("@/services/order/resyncOrderSchedule");
+        const r = await resyncOrderScheduleArtifacts(ssr as any, (request as any).order_id);
+        cascade.schedule.ok = r.ok;
+        cascade.schedule.details = r;
+        if (!r.ok) {
+          cascade.schedule.reason = (r.errors || []).join("; ") || "schedule resync errors";
+        }
+      } catch (e: any) {
+        cascade.schedule.reason = e?.message || "schedule resync crashed";
+        console.warn("[amendment-review] schedule resync crashed:", e);
       }
     }
 

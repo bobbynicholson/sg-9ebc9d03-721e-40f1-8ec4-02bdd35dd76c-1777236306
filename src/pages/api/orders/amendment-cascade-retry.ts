@@ -68,12 +68,14 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       kitchen_prep?: { ok: boolean; reason?: string };
       invoice?: { ok: boolean; reason?: string };
       inventory?: { ok: boolean; reason?: string; skipped?: boolean };
+      schedule?: { ok: boolean; reason?: string; skipped?: boolean; details?: any };
     };
 
     const cascade: typeof prior = {
       kitchen_prep: prior.kitchen_prep || { ok: false },
       invoice: prior.invoice || { ok: false },
       inventory: prior.inventory || { ok: false, skipped: true },
+      schedule: prior.schedule || { ok: false, skipped: true },
     };
 
     const orderId = (request as any).order_id;
@@ -117,6 +119,23 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       }
     }
 
+    // Step 4: schedule re-sync (driver collection + cleaning handover +
+    // vehicle window + outsource). Only if previously attempted (not
+    // skipped) AND forced or failed.
+    const scheduleAttempted = prior.schedule && prior.schedule.skipped !== true;
+    if (scheduleAttempted && (force || !prior.schedule?.ok)) {
+      try {
+        const { resyncOrderScheduleArtifacts } = await import("@/services/order/resyncOrderSchedule");
+        const r = await resyncOrderScheduleArtifacts(ssr as any, orderId);
+        cascade.schedule = { ok: r.ok, skipped: false, details: r };
+        if (!r.ok) {
+          cascade.schedule.reason = (r.errors || []).join("; ") || "schedule resync errors";
+        }
+      } catch (e: any) {
+        cascade.schedule = { ok: false, skipped: false, reason: e?.message || "schedule resync crashed" };
+      }
+    }
+
     // Persist updated cascade outcome on the request row.
     await ssr.from("order_amendment_requests").update({
       applied_snapshot: { ...snapshot, cascade, retried_at: new Date().toISOString(), retried_by: user.id },
@@ -124,7 +143,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
     const allOk = cascade.kitchen_prep?.ok
       && cascade.invoice?.ok
-      && (cascade.inventory?.ok || cascade.inventory?.skipped === true);
+      && (cascade.inventory?.ok || cascade.inventory?.skipped === true)
+      && (cascade.schedule?.ok || cascade.schedule?.skipped === true);
 
     return res.status(200).json({
       ok: true,

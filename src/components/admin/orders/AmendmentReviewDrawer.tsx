@@ -98,6 +98,37 @@ function renderValue(v: any): string {
   return String(v);
 }
 
+/**
+ * Turn the amendment-review cascade receipt into a human sentence so
+ * the operator sees the change actually rippled everywhere - kitchen,
+ * finance, shopping, driver + cleaning - not just "saved". Mirrors
+ * Bobby's rule that an edit must land consistently across the whole
+ * process.
+ */
+function describeCascade(cascade: any): string {
+  if (!cascade || typeof cascade !== "object") {
+    return "Changes applied across the order.";
+  }
+  const synced: string[] = [];
+  if (cascade.kitchen_prep?.ok) synced.push("kitchen prep");
+  if (cascade.invoice?.ok) synced.push("invoice");
+  if (cascade.inventory?.ok && cascade.inventory?.skipped !== true) synced.push("shopping");
+  if (cascade.schedule?.ok && cascade.schedule?.skipped !== true) synced.push("driver + cleaning");
+
+  const failed: string[] = [];
+  if (cascade.kitchen_prep && cascade.kitchen_prep.ok === false) failed.push("kitchen prep");
+  if (cascade.invoice && cascade.invoice.ok === false) failed.push("invoice");
+  if (cascade.inventory && cascade.inventory.skipped !== true && cascade.inventory.ok === false) failed.push("shopping");
+  if (cascade.schedule && cascade.schedule.skipped !== true && cascade.schedule.ok === false) failed.push("driver + cleaning");
+
+  const base = synced.length
+    ? `Synced everywhere: ${synced.join(", ")}.`
+    : "Changes applied across the order.";
+  return failed.length
+    ? `${base} ${failed.join(", ")} need${failed.length === 1 ? "s" : ""} a retry - reopen this request to re-run.`
+    : base;
+}
+
 function formatRelative(iso: string | null): string {
   if (!iso) return "";
   const t = new Date(iso).getTime();
@@ -296,7 +327,7 @@ export function AmendmentReviewDrawer({
         description:
           action === "reject"
             ? "The client has been notified."
-            : "Changes applied. Kitchen prep + invoice are refreshing.",
+            : describeCascade(j?.cascade),
       });
       onActioned();
       onClose();
@@ -461,6 +492,12 @@ export function AmendmentReviewDrawer({
                       {(request.applied_snapshot as any).applied_keys
                         .map((k: string) => FIELD_LABELS[k] || k)
                         .join(", ")}
+                    </p>
+                  )}
+                {request.applied_snapshot &&
+                  (request.applied_snapshot as any).cascade && (
+                    <p className="text-slate-600">
+                      Re-synced: {describeCascade((request.applied_snapshot as any).cascade)}
                     </p>
                   )}
               </section>
