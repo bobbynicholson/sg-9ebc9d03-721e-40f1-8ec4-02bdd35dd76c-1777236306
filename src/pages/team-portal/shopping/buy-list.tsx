@@ -26,7 +26,6 @@
 import { useEffect, useMemo, useState } from "react";
 import Head from "next/head";
 import Link from "next/link";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -53,6 +52,7 @@ import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { supabase } from "@/integrations/supabase/client";
 import { useActiveShoppingList } from "@/hooks/useActiveShoppingList";
+import { PortalShell, PortalHeader, PortalCard, PortalCardHeader, StatTile } from "@/components/portal/ui";
 
 interface OutlookRow {
   inventory_item_id: string;
@@ -182,6 +182,20 @@ export default function ShoppingBuyListPage() {
       });
   }, [rows, search, filter]);
 
+  // Status counts across all non-OK rows, for the summary stat tiles.
+  // Pure derivation from `rows`; conveys real urgency at a glance.
+  const statusCounts = useMemo(() => {
+    let shortfall = 0;
+    let belowPar = 0;
+    let low = 0;
+    for (const r of rows) {
+      if (r.status === "shortfall") shortfall += 1;
+      else if (r.status === "below_minimum") belowPar += 1;
+      else if (r.status === "low") low += 1;
+    }
+    return { shortfall, belowPar, low, toBuy: shortfall + belowPar + low };
+  }, [rows]);
+
   // Compute the qty to buy for a single row - prefer shortfall if
   // positive, otherwise reorder_quantity, otherwise min - on_hand.
   const buyQtyFor = (r: OutlookRow): number => {
@@ -288,115 +302,115 @@ export default function ShoppingBuyListPage() {
       <Head><title>Buy list - CateringMS</title></Head>
       <ShoppingNav />
 
-      <main className="min-h-screen bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
-        <div className="px-3 sm:px-4 md:px-6 py-6 sm:py-8 max-w-full pb-24">
-          {/* Header */}
-          <div className="mb-6 flex flex-col sm:flex-row sm:items-center gap-4">
-            <div className="flex items-center gap-3 flex-1 min-w-0">
-              <div className="w-11 h-11 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 flex items-center justify-center flex-shrink-0">
-                <ListChecks className="w-5 h-5 text-amber-600 dark:text-amber-500" />
-              </div>
-              <div className="min-w-0">
-                <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
-                  Buy list
-                  <InfoTooltip content="Everything that needs buying, pulled live from confirmed orders + par levels. Tick rows to bulk-add, or use the per-row 'Add' button. Items land on your active shopping list." />
-                </h1>
-                <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
-                  What needs buying right now, ranked by urgency. Tick to add to your list.
-                </p>
-              </div>
-            </div>
+      <main className="min-h-screen lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <PortalShell className="pb-24">
+          <PortalHeader
+            icon={ListChecks}
+            title={
+              <span className="flex items-center gap-2">
+                Buy list
+                <InfoTooltip content="Everything that needs buying, pulled live from confirmed orders + par levels. Tick rows to bulk-add, or use the per-row 'Add' button. Items land on your active shopping list." />
+              </span>
+            }
+            subtitle="What needs buying right now, ranked by urgency. Tick to add to your list."
+          />
+
+          {/* Status summary */}
+          <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <StatTile label="To buy" value={statusCounts.toBuy} hint="not OK" icon={ListChecks} />
+            <StatTile label="Shortfall" value={statusCounts.shortfall} hint="next 7 days" icon={AlertTriangle} />
+            <StatTile label="Below par" value={statusCounts.belowPar} icon={AlertCircle} />
+            <StatTile label="Low" value={statusCounts.low} icon={AlertCircle} />
           </div>
 
-          {/* Active list status banner */}
-          <Card className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-none mb-5">
-            <CardContent className="p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center gap-3">
-              <div className="flex items-center gap-3 flex-1 min-w-0">
-                <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${activeList.list ? "bg-amber-600 text-white" : "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400"}`}>
-                  <ShoppingCart className="w-4 h-4" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-slate-900 dark:text-white">{activeLabel}</p>
-                  {activeList.list && (
-                    <p className="text-xs text-slate-600 dark:text-slate-400 truncate">
-                      {activeList.items.length} item{activeList.items.length === 1 ? "" : "s"} on the list ·
-                      {" "}{activeList.items.filter(i => i.purchased).length} bought
-                    </p>
-                  )}
-                </div>
+          {/* Active list status */}
+          <PortalCard className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center" padded>
+            <div className="flex min-w-0 flex-1 items-center gap-3">
+              <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${activeList.list ? "bg-amber-600 text-white" : "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400"}`}>
+                <ShoppingCart className="h-4 w-4" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-slate-900 dark:text-white">{activeLabel}</p>
+                {activeList.list && (
+                  <p className="truncate text-xs text-slate-600 dark:text-slate-400">
+                    {activeList.items.length} item{activeList.items.length === 1 ? "" : "s"} on the list ·
+                    {" "}{activeList.items.filter(i => i.purchased).length} bought
+                  </p>
+                )}
               </div>
-              {activeList.list && (
-                <Link href={withSlug("/team-portal/shopping/dashboard")}>
-                  <Button variant="outline" size="sm" className="gap-1">
-                    Open list <ArrowRight className="w-3.5 h-3.5" />
-                  </Button>
-                </Link>
-              )}
-            </CardContent>
-          </Card>
+            </div>
+            {activeList.list && (
+              <Link href={withSlug("/team-portal/shopping/dashboard")} className="shrink-0">
+                <Button variant="outline" size="sm" className="gap-1">
+                  Open list <ArrowRight className="w-3.5 h-3.5" />
+                </Button>
+              </Link>
+            )}
+          </PortalCard>
 
           {/* Filter + search */}
-          <Card className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-none mb-4">
-            <CardContent className="p-3 sm:p-4 flex flex-col sm:flex-row gap-2">
-              <div className="relative flex-1 min-w-0">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 dark:text-slate-400" />
-                <Input
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                  placeholder="Search by item or category..."
-                  className="pl-9"
-                />
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {([
-                  ["all",        "All (not OK)", "bg-slate-700 hover:bg-slate-800"],
-                  ["shortfall",  "Shortfall",    "bg-rose-600 hover:bg-rose-700"],
-                  ["below_par",  "Below par",    "bg-amber-600 hover:bg-amber-700"],
-                  ["low",        "Low",          "bg-yellow-600 hover:bg-yellow-700"],
-                ] as Array<[FilterKey, string, string]>).map(([k, label, activeClass]) => (
-                  <Button
-                    key={k}
-                    size="sm"
-                    variant={filter === k ? "default" : "outline"}
-                    onClick={() => setFilter(k)}
-                    className={filter === k ? activeClass : ""}
-                  >
-                    {label}
-                  </Button>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+          <PortalCard className="mb-5 flex flex-col gap-2 sm:flex-row" padded>
+            <div className="relative min-w-0 flex-1">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
+              <Input
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Search by item or category..."
+                className="pl-9"
+              />
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {([
+                ["all",        "All (not OK)"],
+                ["shortfall",  "Shortfall"],
+                ["below_par",  "Below par"],
+                ["low",        "Low"],
+              ] as Array<[FilterKey, string]>).map(([k, label]) => (
+                <Button
+                  key={k}
+                  size="sm"
+                  variant={filter === k ? "default" : "outline"}
+                  onClick={() => setFilter(k)}
+                  className={filter === k ? "bg-amber-600 text-white hover:bg-amber-700" : ""}
+                >
+                  {label}
+                </Button>
+              ))}
+            </div>
+          </PortalCard>
 
           {/* Buy list rows */}
-          <Card className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-none">
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-base text-slate-900 dark:text-white">
-                <ListChecks className="w-4 h-4 text-amber-600 dark:text-amber-500" />
-                {visible.length} item{visible.length === 1 ? "" : "s"} to consider
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
+          <PortalCard padded={false}>
+            <PortalCardHeader
+              className="mb-0 p-5"
+              title={
+                <span className="flex items-center gap-2">
+                  <ListChecks className="h-4 w-4 text-amber-600 dark:text-amber-500" />
+                  {visible.length} item{visible.length === 1 ? "" : "s"} to consider
+                </span>
+              }
+            />
+            <div className="border-t border-slate-200 dark:border-slate-800">
               {loading ? (
                 <ul className="divide-y divide-slate-100 dark:divide-slate-800" aria-hidden="true">
                   {Array.from({ length: 5 }).map((_, i) => (
-                    <li key={i} className="p-3 sm:p-4 flex items-center gap-3">
-                      <div className="w-4 h-4 rounded bg-slate-200 dark:bg-slate-800 animate-pulse flex-shrink-0" />
-                      <div className="flex-1 min-w-0 space-y-2">
-                        <div className="h-3.5 w-40 max-w-[60%] rounded bg-slate-200 dark:bg-slate-800 animate-pulse" />
-                        <div className="h-3 w-56 max-w-[80%] rounded bg-slate-100 dark:bg-slate-800/60 animate-pulse" />
+                    <li key={i} className="flex items-center gap-3 p-4 sm:p-5">
+                      <div className="h-4 w-4 shrink-0 animate-pulse rounded bg-slate-200 dark:bg-slate-800" />
+                      <div className="min-w-0 flex-1 space-y-2">
+                        <div className="h-3.5 w-40 max-w-[60%] animate-pulse rounded bg-slate-200 dark:bg-slate-800" />
+                        <div className="h-3 w-56 max-w-[80%] animate-pulse rounded bg-slate-100 dark:bg-slate-800/60" />
                       </div>
-                      <div className="h-8 w-10 rounded bg-slate-100 dark:bg-slate-800/60 animate-pulse" />
-                      <div className="h-8 w-16 rounded-lg bg-slate-200 dark:bg-slate-800 animate-pulse flex-shrink-0" />
+                      <div className="h-8 w-10 animate-pulse rounded bg-slate-100 dark:bg-slate-800/60" />
+                      <div className="h-8 w-16 shrink-0 animate-pulse rounded-lg bg-slate-200 dark:bg-slate-800" />
                     </li>
                   ))}
                 </ul>
               ) : visible.length === 0 ? (
-                <div className="py-16 px-6 text-center">
-                  <div className="w-12 h-12 mx-auto mb-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 flex items-center justify-center">
+                <div className="px-6 py-16 text-center">
+                  <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800/50">
                     {rows.length === 0
-                      ? <Package className="w-6 h-6 text-slate-400 dark:text-slate-500" />
-                      : <CheckCircle2 className="w-6 h-6 text-emerald-500" />}
+                      ? <Package className="h-6 w-6 text-slate-400 dark:text-slate-500" />
+                      : <CheckCircle2 className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />}
                   </div>
                   <p className="font-medium text-slate-900 dark:text-white">
                     {rows.length === 0
@@ -406,8 +420,8 @@ export default function ShoppingBuyListPage() {
                         : "Nothing in this category. Try a different filter."}
                   </p>
                   {rows.length === 0 && (
-                    <p className="text-sm text-slate-600 dark:text-slate-400 mt-2 max-w-md mx-auto">
-                      Add items in <Link href={withSlug("/team-portal/shopping/inventory")} className="text-amber-700 dark:text-amber-500 hover:text-amber-800 dark:hover:text-amber-400 underline underline-offset-2">Inventory</Link> to get a buy list.
+                    <p className="mx-auto mt-2 max-w-md text-sm text-slate-600 dark:text-slate-400">
+                      Add items in <Link href={withSlug("/team-portal/shopping/inventory")} className="text-amber-700 underline underline-offset-2 hover:text-amber-800 dark:text-amber-500 dark:hover:text-amber-400">Inventory</Link> to get a buy list.
                     </p>
                   )}
                 </div>
@@ -424,7 +438,7 @@ export default function ShoppingBuyListPage() {
                     return (
                       <li
                         key={r.inventory_item_id}
-                        className={`p-3 sm:p-4 flex items-center gap-3 transition-colors duration-150 ${
+                        className={`flex items-center gap-3 p-4 transition-colors duration-150 sm:p-5 ${
                           isSelected
                             ? "bg-amber-50 dark:bg-amber-950/30"
                             : "hover:bg-slate-50 dark:hover:bg-slate-800/40"
@@ -436,37 +450,37 @@ export default function ShoppingBuyListPage() {
                           className="flex-shrink-0"
                           aria-label={`Select ${r.item_name}`}
                         />
-                        <div className="flex-1 min-w-0">
+                        <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-center gap-2">
-                            <span className="font-semibold text-slate-900 dark:text-white truncate">{r.item_name}</span>
-                            <Badge variant="outline" className={`${meta.tone} text-[10px] gap-1`}>
-                              <Icon className="w-3 h-3" />
+                            <span className="truncate font-semibold text-slate-900 dark:text-white">{r.item_name}</span>
+                            <Badge variant="outline" className={`${meta.tone} gap-1 text-[10px]`}>
+                              <Icon className="h-3 w-3" />
                               {meta.label}
                             </Badge>
                             {alreadyOnList && (
-                              <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900 text-[10px] gap-1">
-                                <CheckCircle2 className="w-3 h-3" />
+                              <Badge variant="outline" className="gap-1 border-emerald-200 bg-emerald-50 text-[10px] text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300">
+                                <CheckCircle2 className="h-3 w-3" />
                                 Already on list
                               </Badge>
                             )}
                           </div>
-                          <div className="text-xs text-slate-600 dark:text-slate-400 mt-0.5 flex flex-wrap gap-x-3">
+                          <div className="mt-0.5 flex flex-wrap gap-x-3 text-xs text-slate-600 dark:text-slate-400">
                             <span>{r.category || "Uncategorised"}</span>
-                            <span>have {Number(r.current_stock).toLocaleString()} {r.unit_of_measure}</span>
-                            <span>par {Number(r.minimum_stock).toLocaleString()}</span>
+                            <span className="tabular-nums">have {Number(r.current_stock).toLocaleString()} {r.unit_of_measure}</span>
+                            <span className="tabular-nums">par {Number(r.minimum_stock).toLocaleString()}</span>
                             {r.upcoming_order_count > 0 && (
                               <span>{r.upcoming_order_count} order{r.upcoming_order_count === 1 ? "" : "s"} pulling</span>
                             )}
                           </div>
                         </div>
-                        <div className="text-right shrink-0">
+                        <div className="shrink-0 text-right">
                           <div className="text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">Buy</div>
-                          <div className="text-lg font-bold tabular-nums text-slate-900 dark:text-white">
+                          <div className="text-lg font-semibold tabular-nums text-slate-900 dark:text-white">
                             {qty.toLocaleString(undefined, { maximumFractionDigits: 2 })}
                           </div>
                           <div className="text-[10px] text-slate-500 dark:text-slate-400">{r.unit_of_measure}</div>
                           {cost > 0 && (
-                            <div className="text-[11px] text-slate-600 dark:text-slate-400 mt-0.5 tabular-nums">
+                            <div className="mt-0.5 text-[11px] tabular-nums text-slate-600 dark:text-slate-400">
                               ~{tenantCurrency.format(cost, 0)}
                             </div>
                           )}
@@ -479,7 +493,7 @@ export default function ShoppingBuyListPage() {
                           className="flex-shrink-0 gap-1"
                           title={`Add ${qty} ${r.unit_of_measure || ""} to your list`}
                         >
-                          <Plus className="w-3.5 h-3.5" />
+                          <Plus className="h-3.5 w-3.5" />
                           Add
                         </Button>
                       </li>
@@ -487,27 +501,27 @@ export default function ShoppingBuyListPage() {
                   })}
                 </ul>
               )}
-            </CardContent>
-          </Card>
+            </div>
+          </PortalCard>
 
           {/* Helper line */}
-          <p className="text-xs text-slate-600 dark:text-slate-400 mt-4 text-center">
+          <p className="mt-4 text-center text-xs text-slate-500 dark:text-slate-400">
             Buy quantity = shortfall over the next 7 days. For OK items, it's the reorder quantity or the gap to par.
           </p>
-        </div>
+        </PortalShell>
 
         {/* Sticky bulk-add footer */}
         {selected.size > 0 && (
           <div
-            className="fixed bottom-12 left-0 right-0 lg:left-64 xl:left-72 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur border-t border-slate-200 dark:border-slate-700 shadow-lg"
+            className="fixed bottom-12 left-0 right-0 z-40 border-t border-slate-200 bg-white/95 shadow-lg backdrop-blur lg:left-64 xl:left-72 dark:border-slate-800 dark:bg-slate-900/95"
             style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
           >
-            <div className="max-w-full mx-auto px-4 py-3 flex items-center gap-3">
-              <div className="flex-1 min-w-0">
+            <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-3 sm:px-6">
+              <div className="min-w-0 flex-1">
                 <p className="text-sm font-semibold text-slate-900 dark:text-white">
                   {selectedTotals.count} selected
                 </p>
-                <p className="text-xs text-slate-600 dark:text-slate-400 tabular-nums">
+                <p className="text-xs tabular-nums text-slate-600 dark:text-slate-400">
                   ~{tenantCurrency.format(selectedTotals.cost, 0)} estimated
                 </p>
               </div>
@@ -522,9 +536,9 @@ export default function ShoppingBuyListPage() {
               <Button
                 onClick={handleAddSelected}
                 disabled={adding}
-                className="bg-amber-600 hover:bg-amber-700 text-white rounded-lg gap-1"
+                className="gap-1 bg-amber-600 text-white hover:bg-amber-700"
               >
-                {adding ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                {adding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
                 {activeList.list ? "Add to your list" : "Start list with selected"}
               </Button>
             </div>

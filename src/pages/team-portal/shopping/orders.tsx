@@ -1,6 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import Head from "next/head";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -14,6 +13,7 @@ import { staffOrderHref } from "@/lib/orderUrls";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { ShoppingNav } from "@/components/navigation/ShoppingNav";
+import { PortalShell, PortalHeader, PortalCard, StatTile } from "@/components/portal/ui";
 import { useAuth } from "@/contexts/AuthContext";
 import { useOrderRefreshSignal } from "@/hooks/useOrderRefreshSignal";
 import { useToast } from "@/hooks/use-toast";
@@ -49,24 +49,34 @@ interface Order {
   client_name?: string | null;
 }
 
-// Semantic status tones. Keys and base hue families are load-bearing
-// (completed=emerald, cancelled=rose, pending=amber, confirmed=blue,
-// ready=green); dark variants keep the same hue, just tuned for the
-// dark surface. Don't recolour a real status.
+// Semantic status tones. Keys stay load-bearing (don't drop a status),
+// but the palette is restrained: amber carries active/in-progress work,
+// emerald = done/ready, rose = cancelled. "confirmed" is not a true info
+// state here, so it reads as a neutral slate tint rather than blue - one
+// fewer colour competing for the shopper's eye. Subtle tints only.
+const NEUTRAL_TONE =
+  "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700";
+const AMBER_TONE =
+  "bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900/60";
+const EMERALD_TONE =
+  "bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900/60";
+const ROSE_TONE =
+  "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-900/60";
+
 const listStatusTone: Record<string, string> = {
-  draft:        "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700",
-  pending:      "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900/60",
-  in_progress:  "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900/60",
-  shopping:     "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900/60",
-  completed:    "bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900/60",
-  cancelled:    "bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-900/60",
+  draft:        NEUTRAL_TONE,
+  pending:      AMBER_TONE,
+  in_progress:  AMBER_TONE,
+  shopping:     AMBER_TONE,
+  completed:    EMERALD_TONE,
+  cancelled:    ROSE_TONE,
 };
 
 const orderStatusTone: Record<string, string> = {
-  pending:    "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900/60",
-  confirmed:  "bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-900/60",
-  preparing:  "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900/60",
-  ready:      "bg-green-100 text-green-800 border-green-200 dark:bg-green-950/40 dark:text-green-300 dark:border-green-900/60",
+  pending:    AMBER_TONE,
+  confirmed:  NEUTRAL_TONE,
+  preparing:  AMBER_TONE,
+  ready:      EMERALD_TONE,
 };
 
 export default function ShoppingOrdersPage() {
@@ -258,56 +268,47 @@ export default function ShoppingOrdersPage() {
       <Head><title>Shopping orders - CateringMS</title></Head>
       <NoIndexMeta />
       <ShoppingNav />
-      <main className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
-        <div className="px-3 sm:px-4 md:px-6 py-6 sm:py-8 max-w-full">
-          <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-6">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl border border-amber-200 dark:border-amber-900/60 bg-amber-50 dark:bg-amber-950/40 flex items-center justify-center flex-shrink-0">
-                <ShoppingCart className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-              </div>
-              <div className="min-w-0">
-                <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-50">
-                  Shopping orders
-                </h1>
-                <p className="text-sm text-slate-600 dark:text-slate-400 mt-0.5">Active shopping lists and upcoming events that need procurement</p>
-              </div>
-            </div>
-            <Button onClick={openCreate} className="bg-amber-600 hover:bg-amber-700 text-white rounded-lg">
-              <Plus className="h-4 w-4 mr-2" />New shopping list
-            </Button>
-          </div>
+      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+          <PortalHeader
+            title="Shopping orders"
+            subtitle="Active shopping lists and upcoming events that need procurement"
+            icon={ShoppingCart}
+            actions={
+              <Button onClick={openCreate} className="bg-amber-600 hover:bg-amber-700 text-white rounded-lg">
+                <Plus className="h-4 w-4 mr-2" />New shopping list
+              </Button>
+            }
+          />
 
           <div className="grid grid-cols-3 gap-3 sm:gap-4 mb-6">
-            <Card className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-none">
-              <CardContent className="p-4">
-                <p className="text-xs font-medium text-slate-600 dark:text-slate-400 flex items-center gap-1">Open lists <InfoTooltip content="Shopping lists that haven't been finished off or cancelled yet." /></p>
-                <p className="text-2xl font-semibold tabular-nums text-amber-600 dark:text-amber-400 mt-1">{stats.open}</p>
-              </CardContent>
-            </Card>
-            <Card className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-none">
-              <CardContent className="p-4">
-                <p className="text-xs font-medium text-slate-600 dark:text-slate-400 flex items-center gap-1">Total lists <InfoTooltip content="Every shopping list, no matter the status.\n\nWe show the most recent 50." /></p>
-                <p className="text-2xl font-semibold tabular-nums text-slate-900 dark:text-slate-100 mt-1">{stats.totalLists}</p>
-              </CardContent>
-            </Card>
-            <Card className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-none">
-              <CardContent className="p-4">
-                <p className="text-xs font-medium text-slate-600 dark:text-slate-400 flex items-center gap-1">Upcoming events <InfoTooltip content="Confirmed or pending orders happening today or later." /></p>
-                <p className="text-2xl font-semibold tabular-nums text-slate-900 dark:text-slate-100 mt-1">{stats.upcoming}</p>
-              </CardContent>
-            </Card>
+            <StatTile
+              label={<span className="flex items-center gap-1">Open lists <InfoTooltip content="Shopping lists that haven't been finished off or cancelled yet." /></span>}
+              value={stats.open}
+              icon={ListChecks}
+            />
+            <StatTile
+              label={<span className="flex items-center gap-1">Total lists <InfoTooltip content="Every shopping list, no matter the status.\n\nWe show the most recent 50." /></span>}
+              value={stats.totalLists}
+              icon={Receipt}
+            />
+            <StatTile
+              label={<span className="flex items-center gap-1">Upcoming events <InfoTooltip content="Confirmed or pending orders happening today or later." /></span>}
+              value={stats.upcoming}
+              icon={Calendar}
+            />
           </div>
 
           <div
             role="tablist"
             aria-label="Shopping view"
-            className="inline-flex gap-1 mb-4 p-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900"
+            className="inline-flex gap-1 mb-5 p-1 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm"
           >
             <button
               role="tab"
               aria-selected={tab === "lists"}
               onClick={() => setTab("lists")}
-              className={`inline-flex items-center gap-2 px-3 h-8 rounded-md text-sm font-medium transition-[color,background-color] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-amber-500 ${
+              className={`inline-flex items-center gap-2 px-3.5 h-9 rounded-lg text-sm font-medium transition-[color,background-color] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-amber-500 ${
                 tab === "lists"
                   ? "bg-amber-600 text-white"
                   : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
@@ -319,7 +320,7 @@ export default function ShoppingOrdersPage() {
               role="tab"
               aria-selected={tab === "upcoming"}
               onClick={() => setTab("upcoming")}
-              className={`inline-flex items-center gap-2 px-3 h-8 rounded-md text-sm font-medium transition-[color,background-color] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-amber-500 ${
+              className={`inline-flex items-center gap-2 px-3.5 h-9 rounded-lg text-sm font-medium transition-[color,background-color] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-amber-500 ${
                 tab === "upcoming"
                   ? "bg-amber-600 text-white"
                   : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
@@ -331,154 +332,144 @@ export default function ShoppingOrdersPage() {
 
           {loading ? (
             tab === "lists" ? (
-              <Card className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-none">
-                <CardContent className="p-0">
-                  <ul className="divide-y divide-slate-100 dark:divide-slate-800">
-                    {[0, 1, 2, 3].map((i) => (
-                      <li key={i} className="p-4 flex items-center gap-3 motion-safe:animate-pulse">
-                        <div className="flex-1 min-w-0 space-y-2">
-                          <div className="flex items-center gap-2">
-                            <div className="h-4 w-28 rounded bg-slate-200 dark:bg-slate-800" />
-                            <div className="h-4 w-16 rounded-full bg-slate-200 dark:bg-slate-800" />
-                          </div>
-                          <div className="h-3 w-40 rounded bg-slate-100 dark:bg-slate-800/70" />
+              <PortalCard padded={false}>
+                <ul className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {[0, 1, 2, 3].map((i) => (
+                    <li key={i} className="p-5 flex items-center gap-3 motion-safe:animate-pulse">
+                      <div className="flex-1 min-w-0 space-y-2">
+                        <div className="flex items-center gap-2">
+                          <div className="h-4 w-28 rounded bg-slate-200 dark:bg-slate-800" />
+                          <div className="h-4 w-16 rounded-full bg-slate-200 dark:bg-slate-800" />
                         </div>
-                        <div className="h-8 w-24 rounded-lg bg-slate-200 dark:bg-slate-800 flex-shrink-0" />
-                      </li>
-                    ))}
-                  </ul>
-                </CardContent>
-              </Card>
+                        <div className="h-3 w-40 rounded bg-slate-100 dark:bg-slate-800/70" />
+                      </div>
+                      <div className="h-8 w-24 rounded-lg bg-slate-200 dark:bg-slate-800 flex-shrink-0" />
+                    </li>
+                  ))}
+                </ul>
+              </PortalCard>
             ) : (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 {[0, 1, 2, 3].map((i) => (
-                  <Card key={i} className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-none">
-                    <CardContent className="p-4 space-y-2 motion-safe:animate-pulse">
+                  <PortalCard key={i}>
+                    <div className="space-y-2 motion-safe:animate-pulse">
                       <div className="h-4 w-40 rounded bg-slate-200 dark:bg-slate-800" />
                       <div className="h-3 w-24 rounded bg-slate-100 dark:bg-slate-800/70" />
                       <div className="h-3 w-52 rounded bg-slate-100 dark:bg-slate-800/70" />
-                    </CardContent>
-                  </Card>
+                    </div>
+                  </PortalCard>
                 ))}
               </div>
             )
           ) : tab === "lists" ? (
             lists.length === 0 ? (
-              <Card className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-none">
-                <CardContent className="text-center py-16">
-                  <div className="w-12 h-12 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 flex items-center justify-center mx-auto mb-4">
-                    <ListChecks className="h-6 w-6 text-slate-400 dark:text-slate-500" />
-                  </div>
-                  <p className="font-medium text-slate-900 dark:text-slate-100">No shopping lists yet</p>
-                  <p className="text-sm text-slate-600 dark:text-slate-400 mt-1 max-w-sm mx-auto">Start a list before a procurement run to track what you buy and attach the till slip when you&apos;re done.</p>
-                  <Button onClick={openCreate} className="bg-amber-600 hover:bg-amber-700 text-white rounded-lg mt-4">
-                    <Plus className="h-4 w-4 mr-2" />New shopping list
-                  </Button>
-                </CardContent>
-              </Card>
+              <PortalCard className="text-center py-16">
+                <div className="w-12 h-12 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 flex items-center justify-center mx-auto mb-4">
+                  <ListChecks className="h-6 w-6 text-slate-400 dark:text-slate-500" />
+                </div>
+                <p className="font-semibold text-slate-900 dark:text-white">No shopping lists yet</p>
+                <p className="text-sm text-slate-600 dark:text-slate-400 mt-1 max-w-sm mx-auto">Start a list before a procurement run to track what you buy and attach the till slip when you&apos;re done.</p>
+                <Button onClick={openCreate} className="bg-amber-600 hover:bg-amber-700 text-white rounded-lg mt-5">
+                  <Plus className="h-4 w-4 mr-2" />New shopping list
+                </Button>
+              </PortalCard>
             ) : (
-              <Card className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-none">
-                <CardContent className="p-0">
-                  <ul className="divide-y divide-slate-100 dark:divide-slate-800">
-                    {lists.map((l) => (
-                      <li key={l.id} className="p-4 flex flex-col sm:flex-row sm:items-center gap-3 transition-colors duration-150 hover:bg-slate-50 dark:hover:bg-slate-800/50">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex flex-wrap items-center gap-2 mb-1">
-                            <span className="font-medium text-slate-900 dark:text-slate-100">{l.list_date ?? "Undated list"}</span>
-                            {l.status && (
-                              <Badge variant="outline" className={`${listStatusTone[l.status] ?? "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700"} text-xs capitalize`}>
-                                {l.status.replace("_", " ")}
-                              </Badge>
-                            )}
-                            {l.receipt_url && (
-                              <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900/60 text-xs flex items-center gap-1">
-                                <Receipt className="h-3 w-3" />Receipt attached
-                              </Badge>
-                            )}
-                          </div>
-                          {l.notes && <p className="text-xs text-slate-600 dark:text-slate-400 mb-1">{l.notes}</p>}
-                          <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-600 dark:text-slate-400">
-                            {l.estimated_total != null && <span>Est. R {Number(l.estimated_total).toFixed(2)}</span>}
-                            {l.actual_total != null && <span className="text-slate-700 dark:text-slate-200 font-medium">Actual R {Number(l.actual_total).toFixed(2)}</span>}
-                          </div>
-                        </div>
-                        <div className="flex gap-2 flex-shrink-0">
-                          {l.status !== "completed" && !l.shopper_id && (
-                            <Button size="sm" variant="outline" onClick={() => claimList(l.id)} className="border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg">Claim</Button>
+              <PortalCard padded={false}>
+                <ul className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {lists.map((l) => (
+                    <li key={l.id} className="p-5 flex flex-col sm:flex-row sm:items-center gap-3 transition-colors duration-150 hover:bg-slate-50 dark:hover:bg-slate-800/50 first:rounded-t-2xl last:rounded-b-2xl">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex flex-wrap items-center gap-2 mb-1">
+                          <span className="font-semibold text-slate-900 dark:text-white tabular-nums">{l.list_date ?? "Undated list"}</span>
+                          {l.status && (
+                            <Badge variant="outline" className={`${listStatusTone[l.status] ?? NEUTRAL_TONE} text-xs capitalize`}>
+                              {l.status.replace("_", " ")}
+                            </Badge>
                           )}
-                          {l.status !== "completed" && (
-                            <Button size="sm" onClick={() => openComplete(l.id)} className="bg-amber-600 hover:bg-amber-700 text-white rounded-lg">
-                              <Check className="h-4 w-4 mr-1" />Complete
-                            </Button>
+                          {l.receipt_url && (
+                            <Badge variant="outline" className={`${EMERALD_TONE} text-xs flex items-center gap-1`}>
+                              <Receipt className="h-3 w-3" />Receipt attached
+                            </Badge>
                           )}
                         </div>
-                      </li>
-                    ))}
-                  </ul>
-                </CardContent>
-              </Card>
+                        {l.notes && <p className="text-xs text-slate-600 dark:text-slate-400 mb-1">{l.notes}</p>}
+                        <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-600 dark:text-slate-400 tabular-nums">
+                          {l.estimated_total != null && <span>Est. R {Number(l.estimated_total).toFixed(2)}</span>}
+                          {l.actual_total != null && <span className="text-slate-700 dark:text-slate-200 font-medium">Actual R {Number(l.actual_total).toFixed(2)}</span>}
+                        </div>
+                      </div>
+                      <div className="flex gap-2 flex-shrink-0">
+                        {l.status !== "completed" && !l.shopper_id && (
+                          <Button size="sm" variant="outline" onClick={() => claimList(l.id)} className="border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg">Claim</Button>
+                        )}
+                        {l.status !== "completed" && (
+                          <Button size="sm" onClick={() => openComplete(l.id)} className="bg-amber-600 hover:bg-amber-700 text-white rounded-lg">
+                            <Check className="h-4 w-4 mr-1" />Complete
+                          </Button>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </PortalCard>
             )
           ) : (
             upcomingOrders.length === 0 ? (
-              <Card className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-none">
-                <CardContent className="text-center py-16">
-                  <div className="w-12 h-12 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 flex items-center justify-center mx-auto mb-4">
-                    <Calendar className="h-6 w-6 text-slate-400 dark:text-slate-500" />
-                  </div>
-                  <p className="font-medium text-slate-900 dark:text-slate-100">No upcoming events</p>
-                  <p className="text-sm text-slate-600 dark:text-slate-400 mt-1 max-w-sm mx-auto">Once orders are confirmed or pending for today or later, they appear here so you can shop for them.</p>
-                </CardContent>
-              </Card>
+              <PortalCard className="text-center py-16">
+                <div className="w-12 h-12 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 flex items-center justify-center mx-auto mb-4">
+                  <Calendar className="h-6 w-6 text-slate-400 dark:text-slate-500" />
+                </div>
+                <p className="font-semibold text-slate-900 dark:text-white">No upcoming events</p>
+                <p className="text-sm text-slate-600 dark:text-slate-400 mt-1 max-w-sm mx-auto">Once orders are confirmed or pending for today or later, they appear here so you can shop for them.</p>
+              </PortalCard>
             ) : (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 {upcomingOrders.map((o) => (
-                  <Card key={o.id} className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-none transition-colors duration-150 hover:border-amber-300 dark:hover:border-amber-700">
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between gap-2 mb-2">
-                        <div className="min-w-0 flex-1">
-                          {/* ODOC G.5: tap event title to open the
-                              full order doc with shopping section
-                              auto-expanded - shortfalls + push-to-
-                              shopping CTA all live there. */}
-                          <Link
-                            href={withSlug(staffOrderHref(o.id, "shopping_staff"))}
-                            className="font-medium text-slate-900 dark:text-slate-100 truncate hover:text-amber-700 dark:hover:text-amber-400 hover:underline inline-flex items-center gap-1 transition-colors duration-150"
-                          >
-                            {o.event_name ?? o.order_number ?? "Event"}
-                            <ExternalLink className="w-3 h-3 flex-shrink-0" />
-                          </Link>
-                          {o.client_name && (
-                            <div className="text-xs text-slate-600 dark:text-slate-400 truncate">{o.client_name}</div>
-                          )}
-                          <div className="text-xs text-slate-600 dark:text-slate-400 mt-0.5 flex flex-wrap gap-x-3">
-                            <span className="flex items-center gap-1"><Calendar className="h-3 w-3" />{o.event_date}</span>
-                            <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{fmtTime(o.event_time)}</span>
-                            {o.guest_count != null && <span className="flex items-center gap-1"><UsersIcon className="h-3 w-3" />{o.guest_count}</span>}
-                          </div>
-                          {/* Venue inline so the shopper knows where this
-                              event lands - useful when the kitchen is
-                              splitting purchases between branches. */}
-                          {o.venue_address && (
-                            <p className="text-xs text-slate-600 dark:text-slate-400 flex items-center gap-1 mt-1">
-                              <MapPin className="h-3 w-3 flex-shrink-0" />
-                              <span className="truncate">{o.venue_address}</span>
-                            </p>
-                          )}
+                  <PortalCard key={o.id} className="transition-colors duration-150 hover:border-amber-300 dark:hover:border-amber-700">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        {/* ODOC G.5: tap event title to open the
+                            full order doc with shopping section
+                            auto-expanded - shortfalls + push-to-
+                            shopping CTA all live there. */}
+                        <Link
+                          href={withSlug(staffOrderHref(o.id, "shopping_staff"))}
+                          className="font-semibold text-slate-900 dark:text-white truncate hover:text-amber-700 dark:hover:text-amber-400 hover:underline inline-flex items-center gap-1 transition-colors duration-150"
+                        >
+                          {o.event_name ?? o.order_number ?? "Event"}
+                          <ExternalLink className="w-3 h-3 flex-shrink-0" />
+                        </Link>
+                        {o.client_name && (
+                          <div className="text-xs text-slate-600 dark:text-slate-400 truncate">{o.client_name}</div>
+                        )}
+                        <div className="text-xs text-slate-600 dark:text-slate-400 mt-1 flex flex-wrap gap-x-3 gap-y-1 tabular-nums">
+                          <span className="flex items-center gap-1"><Calendar className="h-3 w-3 text-slate-400 dark:text-slate-500" />{o.event_date}</span>
+                          <span className="flex items-center gap-1"><Clock className="h-3 w-3 text-slate-400 dark:text-slate-500" />{fmtTime(o.event_time)}</span>
+                          {o.guest_count != null && <span className="flex items-center gap-1"><UsersIcon className="h-3 w-3 text-slate-400 dark:text-slate-500" />{o.guest_count}</span>}
                         </div>
-                        {o.status && (
-                          <Badge variant="outline" className={`${orderStatusTone[o.status] ?? "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700"} text-xs capitalize flex-shrink-0`}>
-                            {o.status}
-                          </Badge>
+                        {/* Venue inline so the shopper knows where this
+                            event lands - useful when the kitchen is
+                            splitting purchases between branches. */}
+                        {o.venue_address && (
+                          <p className="text-xs text-slate-600 dark:text-slate-400 flex items-center gap-1 mt-1">
+                            <MapPin className="h-3 w-3 flex-shrink-0 text-slate-400 dark:text-slate-500" />
+                            <span className="truncate">{o.venue_address}</span>
+                          </p>
                         )}
                       </div>
-                    </CardContent>
-                  </Card>
+                      {o.status && (
+                        <Badge variant="outline" className={`${orderStatusTone[o.status] ?? NEUTRAL_TONE} text-xs capitalize flex-shrink-0`}>
+                          {o.status}
+                        </Badge>
+                      )}
+                    </div>
+                  </PortalCard>
                 ))}
               </div>
             )
           )}
-        </div>
-      </main>
+        </PortalShell>
+      </div>
 
       <Dialog open={creating} onOpenChange={(o) => !o && closeCreate()}>
         <DialogContent>

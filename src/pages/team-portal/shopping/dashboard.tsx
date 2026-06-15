@@ -47,7 +47,7 @@ import { DynamicNav } from "@/components/DynamicNav";
 import { TeamWelcomeBanner } from "@/components/portal/TeamWelcomeBanner";
 import { UserRole } from "@/types/app";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
-import { MetricCard } from "@/components/dashboard/MetricCard";
+import { PortalShell, PortalHeader, PortalCard, PortalCardHeader, StatTile } from "@/components/portal/ui";
 import { useActiveShoppingList } from "@/hooks/useActiveShoppingList";
 import { BarcodeScanFab } from "@/components/shopping/BarcodeScanFab";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
@@ -259,23 +259,20 @@ function ShoppingDashboardInner() {
       <DynamicNav userRole={UserRole.SHOPPING_STAFF} />
 
       <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
-        <div className="px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8 lg:py-12 max-w-full">
-          {/* Header */}
-          <div className="flex items-center gap-3 mb-6 sm:mb-8">
-            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 flex items-center justify-center flex-shrink-0">
-              <ShoppingCart className="w-5 h-5 text-amber-600" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white">Shopping</h1>
-              <p className="text-sm text-slate-600 dark:text-slate-300">
-                {activeList.list
-                  ? "Your active list - tick items as you buy them"
-                  : "Open the Buy list to start a new shopping run"}
-              </p>
-            </div>
-          </div>
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+          <PortalHeader
+            title="Shopping"
+            subtitle={
+              activeList.list
+                ? "Your active list - tick items as you buy them"
+                : "Open the Buy list to start a new shopping run"
+            }
+            icon={ShoppingCart}
+          />
 
-          <TeamWelcomeBanner role="shopping" userId={user?.id} />
+          <div className="mb-6">
+            <TeamWelcomeBanner role="shopping" userId={user?.id} />
+          </div>
 
           {/* Loading + empty states */}
           {activeList.loading ? (
@@ -283,20 +280,20 @@ function ShoppingDashboardInner() {
             // into the task shape (hero strip + 4 metric tiles + rows)
             // so the layout doesn't jump when data arrives.
             <div className="space-y-6 sm:space-y-8" aria-busy="true" aria-label="Loading your active list">
-              <div className="h-40 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 animate-pulse" />
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 md:gap-4">
+              <div className="h-40 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm animate-pulse" />
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
                 {[0, 1, 2, 3].map(i => (
-                  <div key={i} className="h-24 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 animate-pulse" />
+                  <div key={i} className="h-24 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm animate-pulse" />
                 ))}
               </div>
               <div className="space-y-2">
                 {[0, 1, 2, 3, 4].map(i => (
-                  <div key={i} className="h-16 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 animate-pulse" />
+                  <div key={i} className="h-16 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm animate-pulse" />
                 ))}
               </div>
             </div>
           ) : !activeList.list ? (
-            <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
+            <PortalCard padded={false}>
               <div className="py-16 px-6 text-center">
                 <div className="w-12 h-12 mx-auto mb-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 flex items-center justify-center">
                   <Sparkles className="w-6 h-6 text-slate-400 dark:text-slate-500" />
@@ -304,7 +301,7 @@ function ShoppingDashboardInner() {
                 <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-1.5">
                   No active shopping list
                 </h2>
-                <p className="text-sm text-slate-600 dark:text-slate-300 max-w-md mx-auto mb-5">
+                <p className="text-sm text-slate-600 dark:text-slate-400 max-w-md mx-auto mb-5">
                   Open the Buy list to see what's short and start a new shopping run. Ticks save automatically once a list is going.
                 </p>
                 <Link href={withSlug("/team-portal/shopping/buy-list")}>
@@ -315,33 +312,31 @@ function ShoppingDashboardInner() {
                   </Button>
                 </Link>
               </div>
-            </div>
+            </PortalCard>
           ) : (
             <>
               {/* Active list hero */}
-              <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 mb-6 sm:mb-8">
-                <div className="px-4 sm:px-6 pt-4 sm:pt-5 pb-3">
-                  <div className="flex flex-wrap items-center gap-2 text-base sm:text-lg font-semibold text-slate-900 dark:text-white">
-                    <Package className="w-5 h-5 text-amber-600" />
-                    <span>{activeList.list.title || "Your shopping list"}</span>
-                    <Badge variant="outline" className={yourList
-                      ? "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-900 gap-1"
-                      : "bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 gap-1"
-                    }>
-                      {yourList ? <User className="w-3 h-3" /> : <UsersIcon className="w-3 h-3" />}
-                      {yourList ? "Your list" : "Team list"}
-                    </Badge>
-                    <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-900 capitalize text-[10px]">
-                      {activeList.list.status.replace("_", " ")}
-                    </Badge>
-                  </div>
+              <PortalCard className="mb-6 sm:mb-8">
+                <div className="mb-4 flex flex-wrap items-center gap-2 text-base sm:text-lg font-semibold text-slate-900 dark:text-white">
+                  <Package className="w-5 h-5 text-slate-400 dark:text-slate-500" />
+                  <span>{activeList.list.title || "Your shopping list"}</span>
+                  <Badge variant="outline" className={yourList
+                    ? "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-900 gap-1"
+                    : "bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 gap-1"
+                  }>
+                    {yourList ? <User className="w-3 h-3" /> : <UsersIcon className="w-3 h-3" />}
+                    {yourList ? "Your list" : "Team list"}
+                  </Badge>
+                  <Badge variant="outline" className="bg-slate-50 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700 capitalize text-[10px]">
+                    {activeList.list.status.replace("_", " ")}
+                  </Badge>
                 </div>
-                <div className="px-4 sm:px-6 pb-4 sm:pb-5">
-                  <div className="p-3 sm:p-4 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-3">
+                <div>
+                  <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
                       <div>
-                        <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300">Items left to buy</p>
-                        <p className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white tabular-nums">
+                        <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">Items left to buy</p>
+                        <p className="text-2xl sm:text-3xl font-semibold text-slate-900 dark:text-white tabular-nums">
                           {remaining.length}
                           <span className="text-base text-slate-500 dark:text-slate-400 font-normal">
                             {" "}of {items.length}
@@ -350,8 +345,8 @@ function ShoppingDashboardInner() {
                       </div>
                       {estimatedTotal != null && (
                         <div className="text-left sm:text-right">
-                          <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300">Estimated cost</p>
-                          <p className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white tabular-nums">
+                          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">Estimated cost</p>
+                          <p className="text-xl sm:text-2xl font-semibold text-slate-900 dark:text-white tabular-nums">
                             {tenantCurrency.format(estimatedTotal, 0)}
                           </p>
                         </div>
@@ -367,7 +362,7 @@ function ShoppingDashboardInner() {
                           {lowStockCount > 0 && (
                             <Badge
                               variant="outline"
-                              className="ml-1 bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-900 tabular-nums"
+                              className="ml-1 bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-900 tabular-nums"
                               title={`${lowStockCount} inventory items below minimum stock`}
                             >
                               {lowStockCount} low
@@ -384,7 +379,7 @@ function ShoppingDashboardInner() {
                           {pendingReceiptsCount > 0 && (
                             <Badge
                               variant="outline"
-                              className="ml-1 bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-950 dark:text-rose-300 dark:border-rose-900 tabular-nums"
+                              className="ml-1 bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950 dark:text-rose-300 dark:border-rose-900 tabular-nums"
                               title={`${pendingReceiptsCount} completed list${pendingReceiptsCount === 1 ? "" : "s"} need a receipt`}
                             >
                               {pendingReceiptsCount} to upload
@@ -421,37 +416,33 @@ function ShoppingDashboardInner() {
                     </div>
                   </div>
                 </div>
-              </div>
+              </PortalCard>
 
-              {/* Metric cards */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 md:gap-4 mb-4 sm:mb-6 md:mb-8">
-                <MetricCard
+              {/* Metric tiles */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8">
+                <StatTile
                   icon={ShoppingCart}
-                  iconColor="text-blue-600"
                   label="Total items"
                   value={items.length}
-                  tooltip="Items on your active shopping list."
+                  hint="On your active list"
                 />
-                <MetricCard
+                <StatTile
                   icon={Clock}
-                  iconColor="text-amber-600"
                   label="Remaining"
                   value={remaining.length}
-                  tooltip="Items still to buy. Tick each one off as you grab it - progress is saved to the database so it works across devices."
+                  hint="Still to buy"
                 />
-                <MetricCard
+                <StatTile
                   icon={CheckCircle}
-                  iconColor="text-emerald-600"
                   label="Bought"
                   value={bought.length}
-                  tooltip="Items already bought. Tick the box to mark as bought, untick to undo."
+                  hint="Already ticked off"
                 />
-                <MetricCard
+                <StatTile
                   icon={AlertCircle}
-                  iconColor="text-slate-500 dark:text-slate-400"
                   label="List date"
                   value={activeList.list.list_date ? new Date(activeList.list.list_date).getDate() : "--"}
-                  tooltip={`List for ${activeList.list.list_date || "(no date)"}.`}
+                  hint={activeList.list.list_date || "No date set"}
                 />
               </div>
 
@@ -505,13 +496,11 @@ function ShoppingDashboardInner() {
               </div>
 
               {/* Shopping list - persisted */}
-              <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
-                <div className="px-4 sm:px-5 md:px-6 pt-4 sm:pt-5 pb-3">
-                  <h2 className="text-base sm:text-lg font-semibold text-slate-900 dark:text-white">
-                    {filter === "pending" ? "Still to buy" : filter === "purchased" ? "Already bought" : "All items"}
-                  </h2>
-                </div>
-                <div className="px-4 sm:px-5 md:px-6 pb-4 sm:pb-5">
+              <PortalCard>
+                <PortalCardHeader
+                  title={filter === "pending" ? "Still to buy" : filter === "purchased" ? "Already bought" : "All items"}
+                />
+                <div>
                   <div className="space-y-2 sm:space-y-3">
                     {filteredItems.length === 0 ? (
                       <div className="text-center py-10 px-4">
@@ -637,7 +626,7 @@ function ShoppingDashboardInner() {
                                             type="button"
                                             onClick={(e) => handleClaim(e, item.id, true)}
                                             onKeyDown={(e) => { if (e.key === " " || e.key === "Enter") handleClaim(e, item.id, true); }}
-                                            className="text-[10px] font-semibold uppercase tracking-wide px-2 py-1 rounded border min-h-9 transition-colors duration-150 flex-shrink-0 bg-slate-100 text-slate-600 border-slate-300 hover:bg-cyan-50 hover:text-cyan-700 hover:border-cyan-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-600 dark:hover:bg-cyan-950 dark:hover:text-cyan-300 dark:hover:border-cyan-800"
+                                            className="text-[10px] font-semibold uppercase tracking-wide px-2 py-1 rounded border min-h-9 transition-colors duration-150 flex-shrink-0 bg-slate-100 text-slate-600 border-slate-200 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 dark:hover:bg-amber-950 dark:hover:text-amber-300 dark:hover:border-amber-900"
                                             title="Claim this line - shows your teammates you're on it"
                                           >Claim</button>
                                         );
@@ -648,7 +637,7 @@ function ShoppingDashboardInner() {
                                             type="button"
                                             onClick={(e) => handleClaim(e, item.id, false)}
                                             onKeyDown={(e) => { if (e.key === " " || e.key === "Enter") handleClaim(e, item.id, false); }}
-                                            className="text-[10px] font-semibold uppercase tracking-wide px-2 py-1 rounded border min-h-9 transition-colors duration-150 flex-shrink-0 bg-cyan-100 text-cyan-800 border-cyan-300 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-300 dark:bg-cyan-950 dark:text-cyan-300 dark:border-cyan-800 dark:hover:bg-rose-950 dark:hover:text-rose-300 dark:hover:border-rose-900"
+                                            className="text-[10px] font-semibold uppercase tracking-wide px-2 py-1 rounded border min-h-9 transition-colors duration-150 flex-shrink-0 bg-amber-50 text-amber-700 border-amber-200 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-900 dark:hover:bg-rose-950 dark:hover:text-rose-300 dark:hover:border-rose-900"
                                             title="You claimed this. Tap to release."
                                           >You</button>
                                         );
@@ -656,7 +645,7 @@ function ShoppingDashboardInner() {
                                       return (
                                         <Badge
                                           variant="outline"
-                                          className="text-[10px] font-semibold uppercase tracking-wide px-2 py-1 rounded border bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-900 flex-shrink-0"
+                                          className="text-[10px] font-semibold uppercase tracking-wide px-2 py-1 rounded border bg-slate-50 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700 flex-shrink-0"
                                           title={`Claimed by ${aName ?? "teammate"}`}
                                         >{aName ?? "Teammate"}</Badge>
                                       );
@@ -750,7 +739,7 @@ function ShoppingDashboardInner() {
                                     type="button"
                                     onClick={(e) => handleClaim(e, item.id, true)}
                                     onKeyDown={(e) => { if (e.key === " " || e.key === "Enter") handleClaim(e, item.id, true); }}
-                                    className="text-[10px] font-semibold uppercase tracking-wide px-2 py-1 rounded border min-h-9 transition-colors duration-150 flex-shrink-0 bg-slate-100 text-slate-600 border-slate-300 hover:bg-cyan-50 hover:text-cyan-700 hover:border-cyan-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-600 dark:hover:bg-cyan-950 dark:hover:text-cyan-300 dark:hover:border-cyan-800"
+                                    className="text-[10px] font-semibold uppercase tracking-wide px-2 py-1 rounded border min-h-9 transition-colors duration-150 flex-shrink-0 bg-slate-100 text-slate-600 border-slate-200 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 dark:hover:bg-amber-950 dark:hover:text-amber-300 dark:hover:border-amber-900"
                                     title="Claim this line - shows your teammates you're on it"
                                   >Claim</button>
                                 );
@@ -761,7 +750,7 @@ function ShoppingDashboardInner() {
                                     type="button"
                                     onClick={(e) => handleClaim(e, item.id, false)}
                                     onKeyDown={(e) => { if (e.key === " " || e.key === "Enter") handleClaim(e, item.id, false); }}
-                                    className="text-[10px] font-semibold uppercase tracking-wide px-2 py-1 rounded border min-h-9 transition-colors duration-150 flex-shrink-0 bg-cyan-100 text-cyan-800 border-cyan-300 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-300 dark:bg-cyan-950 dark:text-cyan-300 dark:border-cyan-800 dark:hover:bg-rose-950 dark:hover:text-rose-300 dark:hover:border-rose-900"
+                                    className="text-[10px] font-semibold uppercase tracking-wide px-2 py-1 rounded border min-h-9 transition-colors duration-150 flex-shrink-0 bg-amber-50 text-amber-700 border-amber-200 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-900 dark:hover:bg-rose-950 dark:hover:text-rose-300 dark:hover:border-rose-900"
                                     title="You claimed this. Tap to release."
                                   >You</button>
                                 );
@@ -802,7 +791,7 @@ function ShoppingDashboardInner() {
                     )}
                   </div>
                 </div>
-              </div>
+              </PortalCard>
 
               {activeList.error && (
                 <p className="text-xs text-rose-600 dark:text-rose-400 mt-3 text-center">
@@ -811,7 +800,7 @@ function ShoppingDashboardInner() {
               )}
             </>
           )}
-        </div>
+        </PortalShell>
 
         <Footer />
       </div>

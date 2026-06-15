@@ -22,6 +22,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { ChatBot } from "@/components/ChatBot";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { ReceiptScanner } from "@/components/shopping/ReceiptScanner";
+import { PortalShell, PortalHeader } from "@/components/portal/ui";
 
 const MAX_FILES = 20;
 
@@ -44,9 +45,8 @@ export default function ShoppingReceipts() {
 
       <DynamicNav userRole={UserRole.SHOPPING_STAFF} />
 
-      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
-        <div className="px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8 lg:py-12 max-w-full">
-
+      <div className="overflow-x-hidden lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <PortalShell className="min-h-screen">
           <div className="mb-4">
             <Link href={`${slugPrefix}/team-portal/shopping/dashboard`}>
               <Button variant="ghost" size="sm">
@@ -55,28 +55,24 @@ export default function ShoppingReceipts() {
             </Link>
           </div>
 
-          <div className="flex items-center gap-3 mb-6 sm:mb-8">
-            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-amber-600 flex items-center justify-center shadow-sm flex-shrink-0">
-              <Camera className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-50 flex items-center gap-2">
+          <PortalHeader
+            icon={Camera}
+            title={
+              <span className="flex items-center gap-2">
                 Receipt scanner
                 <InfoTooltip content={"Photograph supplier slips as they come in. We pull the supplier, line items and totals so cost prices on inventory stay current without anyone retyping them.\n\nUp to 20 photos in one batch. JPG, PNG and WebP, 8 MB per image."} />
-              </h1>
-              <p className="text-sm text-slate-600 dark:text-slate-400">
-                Snap up to {MAX_FILES} supplier slips. The model extracts supplier, date, line items and cost prices.
-              </p>
-            </div>
-          </div>
+              </span>
+            }
+            subtitle={`Snap up to ${MAX_FILES} supplier slips. The model extracts supplier, date, line items and cost prices.`}
+          />
 
           <ReceiptScanner
             historyHref={`${slugPrefix}/team-portal/shopping/dashboard`}
             accent="amber"
           />
-        </div>
 
-        <Footer />
+          <Footer />
+        </PortalShell>
       </div>
 
       <ChatBot userRole="shopping_staff" companyId={companyId || undefined} />

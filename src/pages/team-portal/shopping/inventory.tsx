@@ -2,7 +2,6 @@ import { useState, useEffect, useMemo } from "react";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import Head from "next/head";
 import { toLocalISO } from "@/lib/localDate";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -22,7 +21,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Warehouse, Search, AlertTriangle, Pencil, Loader2, History, ArrowUp, ArrowDown, Download } from "lucide-react";
+import { Warehouse, Search, AlertTriangle, Pencil, Loader2, History, ArrowUp, ArrowDown, Download, Package, PackageX } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { ShoppingNav } from "@/components/navigation/ShoppingNav";
@@ -31,6 +30,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { useToast } from "@/hooks/use-toast";
 import { inventoryService, type Inventory } from "@/services/inventoryService";
+import { PortalShell, PortalHeader, PortalCard, PortalCardHeader, StatTile } from "@/components/portal/ui";
 
 export default function ShoppingInventoryPage() {
   const { user } = useAuth();
@@ -194,24 +194,17 @@ export default function ShoppingInventoryPage() {
       </Head>
       <NoIndexMeta />
       <ShoppingNav />
-      <main className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
-        <div className="px-3 sm:px-4 md:px-6 py-6 sm:py-8 max-w-full">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between mb-6">
-            {/* Header matches the shopping portal vocabulary (see buy-list):
-                solid card-style icon tile + solid heading. No gradient text,
-                no gradient fill -- amber is reserved for actions and state. */}
-            <div className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 flex items-center justify-center flex-shrink-0">
-                <Warehouse className="h-5 w-5 text-amber-600 dark:text-amber-500" />
-              </div>
-              <div className="min-w-0">
-                <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white">
-                  Current stock
-                </h1>
-                <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">Live inventory levels. Click any row to adjust stock with an audit entry.</p>
-              </div>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
+      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+          {/* Header matches the shared portal vocabulary: neutral icon
+              tile with an amber glyph, solid heading. Amber is reserved
+              for primary actions and selected state only. */}
+          <PortalHeader
+            title="Current stock"
+            subtitle="Live inventory levels. Click any row to adjust stock with an audit entry."
+            icon={Warehouse}
+            actions={
+              <>
             {/* Phase 13 #10: inventory CSV export. Pulls the
                 currently filtered list (category + below-par +
                 search all flow through filtered) so the export
@@ -296,43 +289,41 @@ export default function ShoppingInventoryPage() {
                 Draft reorder ({stats.below})
               </Button>
             )}
-            </div>
-          </div>
+              </>
+            }
+          />
 
+          {/* KPI tiles use the shared StatTile: neutral slate values, a
+              slate glyph, soft shadow + hairline + rounded-2xl. The
+              semantic stock-level colour lives where it's per-row
+              actionable (the table status badges), not on the counts. */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
-            <Card className="rounded-xl border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-none">
-              <CardContent className="p-4">
-                <p className="text-xs font-medium text-slate-600 dark:text-slate-400 flex items-center gap-1">Total items <InfoTooltip content="Number of active inventory lines on the books for your company." /></p>
-                <p className="mt-1 text-2xl font-semibold tabular-nums text-slate-900 dark:text-white">{stats.total}</p>
-              </CardContent>
-            </Card>
-            <Card className="rounded-xl border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-none">
-              <CardContent className="p-4">
-                <p className="text-xs font-medium text-slate-600 dark:text-slate-400 flex items-center gap-1">Below par <InfoTooltip content="Items at or below their minimum stock level.\n\nThese are the things to put on the next shopping run." /></p>
-                <p className="mt-1 text-2xl font-semibold tabular-nums text-amber-700 dark:text-amber-500">{stats.below}</p>
-              </CardContent>
-            </Card>
-            <Card className="rounded-xl border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-none">
-              <CardContent className="p-4">
-                <p className="text-xs font-medium text-slate-600 dark:text-slate-400 flex items-center gap-1">Out of stock <InfoTooltip content="Items that have run out completely.\n\nYou cannot fulfil orders that need these until they're restocked." /></p>
-                <p className="mt-1 text-2xl font-semibold tabular-nums text-rose-700 dark:text-rose-500">{stats.out}</p>
-              </CardContent>
-            </Card>
-            <Card className="rounded-xl border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-none">
-              <CardContent className="p-4">
-                <p className="text-xs font-medium text-slate-600 dark:text-slate-400 flex items-center gap-1">Stock value <InfoTooltip content="Total value of every item currently sitting in stock, based on the last known cost per unit." /></p>
-                <p className="mt-1 text-2xl font-semibold tabular-nums text-slate-900 dark:text-white">{tenantCurrency.symbol} {stats.valueR.toLocaleString("en-ZA", { maximumFractionDigits: 0 })}</p>
-              </CardContent>
-            </Card>
+            <StatTile
+              label={<span className="flex items-center gap-1">Total items <InfoTooltip content="Number of active inventory lines on the books for your company." /></span>}
+              value={stats.total}
+              icon={Package}
+            />
+            <StatTile
+              label={<span className="flex items-center gap-1">Below par <InfoTooltip content="Items at or below their minimum stock level.\n\nThese are the things to put on the next shopping run." /></span>}
+              value={stats.below}
+              icon={AlertTriangle}
+            />
+            <StatTile
+              label={<span className="flex items-center gap-1">Out of stock <InfoTooltip content="Items that have run out completely.\n\nYou cannot fulfil orders that need these until they're restocked." /></span>}
+              value={stats.out}
+              icon={PackageX}
+            />
+            <StatTile
+              label={<span className="flex items-center gap-1">Stock value <InfoTooltip content="Total value of every item currently sitting in stock, based on the last known cost per unit." /></span>}
+              value={`${tenantCurrency.symbol} ${stats.valueR.toLocaleString("en-ZA", { maximumFractionDigits: 0 })}`}
+            />
           </div>
 
-          <Card className="mb-6 rounded-xl border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-none">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base text-slate-900 dark:text-white">Filter</CardTitle>
-            </CardHeader>
-            <CardContent className="flex flex-col sm:flex-row gap-3">
+          <PortalCard padded={false} className="mb-6 p-4 sm:p-5">
+            <PortalCardHeader title="Filter" />
+            <div className="flex flex-col sm:flex-row gap-3">
               <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 dark:text-slate-400 pointer-events-none" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 dark:text-slate-500 pointer-events-none" />
                 <Input
                   placeholder="Search by name, SKU, category, location..."
                   className="pl-9"
@@ -359,11 +350,10 @@ export default function ShoppingInventoryPage() {
                 <AlertTriangle className="h-4 w-4 mr-2" />
                 Below par only
               </Button>
-            </CardContent>
-          </Card>
+            </div>
+          </PortalCard>
 
-          <Card className="rounded-xl border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-none overflow-hidden">
-            <CardContent className="p-0">
+          <PortalCard padded={false} className="overflow-hidden">
               {loading ? (
                 /* Skeleton rows instead of a centred spinner: the layout
                    of the real table is previewed so the swap-in is calm
@@ -388,7 +378,7 @@ export default function ShoppingInventoryPage() {
                   /* True empty (no inventory at all): teach the next action. */
                   <div className="text-center py-16 px-6">
                     <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
-                      <Warehouse className="h-6 w-6 text-amber-600 dark:text-amber-500" />
+                      <Warehouse className="h-6 w-6 text-slate-400 dark:text-slate-500" />
                     </div>
                     <p className="font-semibold text-slate-900 dark:text-white">No inventory yet</p>
                     <p className="mx-auto mt-1.5 max-w-sm text-sm text-slate-600 dark:text-slate-400">
@@ -426,7 +416,7 @@ export default function ShoppingInventoryPage() {
                           <tr
                             key={i.id}
                             onClick={() => openEdit(i)}
-                            className="group cursor-pointer transition-colors duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-amber-50/60 dark:hover:bg-slate-800/60"
+                            className="group cursor-pointer transition-colors duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-slate-50 dark:hover:bg-slate-800/60"
                           >
                             <td className="px-4 py-3">
                               <div className="font-medium text-slate-900 dark:text-white">{i.item_name}</div>
@@ -466,7 +456,7 @@ export default function ShoppingInventoryPage() {
                         key={i.id}
                         onClick={() => openEdit(i)}
                         aria-label={`Adjust stock for ${i.item_name}`}
-                        className="w-full text-left p-4 flex items-start justify-between gap-3 transition-colors duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-amber-50/60 dark:hover:bg-slate-800/60 active:bg-amber-100/60 dark:active:bg-slate-800"
+                        className="w-full text-left p-4 flex items-start justify-between gap-3 transition-colors duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-slate-50 dark:hover:bg-slate-800/60 active:bg-slate-100 dark:active:bg-slate-800"
                       >
                         <div className="min-w-0 flex-1">
                           <div className="font-medium text-slate-900 dark:text-white truncate">{i.item_name}</div>
@@ -485,11 +475,10 @@ export default function ShoppingInventoryPage() {
                   </div>
                 </>
               )}
-            </CardContent>
-          </Card>
-        </div>
+          </PortalCard>
+        </PortalShell>
         <Footer />
-      </main>
+      </div>
 
       <Dialog open={!!editing} onOpenChange={(open) => !open && closeEdit()}>
         <DialogContent>

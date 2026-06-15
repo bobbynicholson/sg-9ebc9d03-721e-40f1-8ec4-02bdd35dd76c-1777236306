@@ -1,11 +1,11 @@
 import { useState, useEffect, useMemo } from "react";
 import Head from "next/head";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Bell, Check, AlertCircle, AlertTriangle, Info, CheckCircle2, Archive } from "lucide-react";
+import { Bell, Check, CheckCircle2, Archive } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { ShoppingNav } from "@/components/navigation/ShoppingNav";
+import { PortalShell, PortalHeader, PortalCard } from "@/components/portal/ui";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -19,27 +19,16 @@ interface Notification {
   created_at: string | null;
 }
 
-const priorityIcon = (p?: string | null) => {
-  if (p === "critical" || p === "urgent" || p === "high") return AlertCircle;
-  if (p === "medium" || p === "warning") return AlertTriangle;
-  if (p === "success" || p === "low") return CheckCircle2;
-  return Info;
-};
+// Restrained palette: the row icon is always a neutral slate bell. Severity
+// is carried by one small dot, and only where it's genuinely meaningful
+// (critical / warning / success). Anything informational stays neutral —
+// no decorative blue, no rainbow of tinted halos. priorityTone is kept (the
+// brief asks to preserve it) and now drives just that small dot.
 const priorityTone = (p?: string | null) => {
-  if (p === "critical" || p === "urgent" || p === "high") return "text-rose-500";
-  if (p === "medium" || p === "warning") return "text-amber-500";
-  if (p === "success") return "text-emerald-500";
-  return "text-blue-500";
-};
-
-// Severity semantics carry to the icon's tinted halo so a glance reads
-// critical/warning/info/success before the text does. Keyed to the same
-// effectivePriority output as priorityTone, so the two never drift.
-const priorityHalo = (p?: string | null) => {
-  if (p === "critical" || p === "urgent" || p === "high") return "bg-rose-50 dark:bg-rose-500/10";
-  if (p === "medium" || p === "warning") return "bg-amber-50 dark:bg-amber-500/10";
-  if (p === "success") return "bg-emerald-50 dark:bg-emerald-500/10";
-  return "bg-blue-50 dark:bg-blue-500/10";
+  if (p === "critical" || p === "urgent" || p === "high") return "bg-rose-500";
+  if (p === "medium" || p === "warning") return "bg-amber-500";
+  if (p === "success") return "bg-emerald-500";
+  return null; // informational → no dot, stays neutral
 };
 
 export default function ShoppingNotificationsPage() {
@@ -133,35 +122,33 @@ export default function ShoppingNotificationsPage() {
       <Head><title>Shopping notifications - CateringMS</title></Head>
       <NoIndexMeta />
       <ShoppingNav />
-      <main className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
-        <div className="px-3 sm:px-4 md:px-6 py-6 sm:py-8 max-w-3xl">
-          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="w-11 h-11 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 flex items-center justify-center flex-shrink-0">
-                <Bell className="h-5 w-5 text-amber-600 dark:text-amber-500" />
-              </div>
-              <div className="min-w-0">
-                <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-50 flex items-center gap-2">
-                  Shopping notifications
-                  <InfoTooltip content="Alerts sent to you directly, plus anything addressed to the shopping team as a whole." />
-                </h1>
-                <p className="text-sm text-slate-600 dark:text-slate-400 mt-0.5">Stock alerts, supplier updates, purchase requests</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 flex-wrap flex-shrink-0">
-              {staleCount > 0 && (
-                <Button variant="outline" size="sm" onClick={onClearStale} title={`Delete notifications older than ${STALE_NOTIFICATION_DAYS} days`} className="rounded-lg">
-                  <Archive className="h-4 w-4 mr-2" />
-                  Clear stale ({staleCount})
-                </Button>
-              )}
-              {unread > 0 && (
-                <Button onClick={markAllRead} size="sm" className="rounded-lg bg-amber-600 hover:bg-amber-700 text-white">
-                  <Check className="h-4 w-4 mr-2" />Mark all read
-                </Button>
-              )}
-            </div>
-          </div>
+      <div className="lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <PortalShell width="narrow">
+          <PortalHeader
+            icon={Bell}
+            title={
+              <span className="inline-flex items-center gap-2">
+                Shopping notifications
+                <InfoTooltip content="Alerts sent to you directly, plus anything addressed to the shopping team as a whole." />
+              </span>
+            }
+            subtitle="Stock alerts, supplier updates, purchase requests"
+            actions={
+              <>
+                {staleCount > 0 && (
+                  <Button variant="outline" size="sm" onClick={onClearStale} title={`Delete notifications older than ${STALE_NOTIFICATION_DAYS} days`} className="rounded-lg">
+                    <Archive className="h-4 w-4 mr-2" />
+                    Clear stale ({staleCount})
+                  </Button>
+                )}
+                {unread > 0 && (
+                  <Button onClick={markAllRead} size="sm" className="rounded-lg bg-amber-600 hover:bg-amber-700 text-white">
+                    <Check className="h-4 w-4 mr-2" />Mark all read
+                  </Button>
+                )}
+              </>
+            }
+          />
 
           {/* Filter pills: amber fill marks the active tab (selection state),
               everything else stays neutral. The unread count rides the pill. */}
@@ -203,7 +190,7 @@ export default function ShoppingNotificationsPage() {
             </button>
           </div>
 
-          <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 overflow-hidden">
+          <PortalCard padded={false} className="overflow-hidden">
             {loading ? (
               // Skeleton rows, not a spinner: the layout holds its shape while
               // data loads. Opacity-only pulse is reduced-motion safe.
@@ -223,8 +210,8 @@ export default function ShoppingNotificationsPage() {
               </ul>
             ) : notifs.length === 0 ? (
               <div className="text-center px-6 py-16">
-                <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-emerald-50 dark:bg-emerald-500/10 flex items-center justify-center">
-                  <CheckCircle2 className="h-6 w-6 text-emerald-500" />
+                <div className="w-12 h-12 mx-auto mb-4 rounded-full border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 flex items-center justify-center">
+                  <CheckCircle2 className="h-6 w-6 text-slate-400 dark:text-slate-500" />
                 </div>
                 <p className="font-semibold text-slate-900 dark:text-slate-100">
                   {tab === "unread" ? "You're all caught up" : "No notifications yet"}
@@ -240,13 +227,11 @@ export default function ShoppingNotificationsPage() {
                 {notifs.map((n) => {
                   // Wave 24: degrade displayed priority on stale rows.
                   const displayedPriority = effectivePriority(n.priority, n.created_at);
-                  const Icon = priorityIcon(displayedPriority);
-                  const tone = priorityTone(displayedPriority);
-                  const halo = priorityHalo(displayedPriority);
+                  const dot = priorityTone(displayedPriority);
                   return (
                     <li
                       key={n.id}
-                      className={`relative p-4 flex items-start gap-3 transition-colors duration-150 ${
+                      className={`relative p-4 sm:p-5 flex items-start gap-3 transition-colors duration-150 ${
                         n.is_read
                           ? "bg-white dark:bg-slate-900"
                           : "bg-amber-50/60 dark:bg-amber-500/[0.06]"
@@ -259,8 +244,13 @@ export default function ShoppingNotificationsPage() {
                           aria-label="Unread"
                         />
                       )}
-                      <div className={`h-9 w-9 rounded-lg flex items-center justify-center flex-shrink-0 ${halo}`}>
-                        <Icon className={`h-5 w-5 ${tone}`} />
+                      {/* Neutral icon tile — no per-severity tinted halo. */}
+                      <div className="relative h-9 w-9 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 flex items-center justify-center flex-shrink-0">
+                        <Bell className="h-4 w-4 text-slate-400 dark:text-slate-500" />
+                        {/* Severity dot only where it's genuinely meaningful. */}
+                        {dot && (
+                          <span className={`absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full ring-2 ring-white dark:ring-slate-900 ${dot}`} aria-hidden="true" />
+                        )}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-2">
@@ -270,7 +260,7 @@ export default function ShoppingNotificationsPage() {
                         {n.message && <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">{n.message}</p>}
                         <div className="flex items-center gap-3 mt-2">
                           {(n.type || n.notification_type) && (
-                            <Badge variant="outline" className="text-[10px] font-medium bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700">{n.type ?? n.notification_type}</Badge>
+                            <span className="inline-flex items-center rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-1.5 py-0.5 text-[10px] font-medium text-slate-600 dark:text-slate-300">{n.type ?? n.notification_type}</span>
                           )}
                           {!n.is_read && (
                             <button
@@ -291,9 +281,9 @@ export default function ShoppingNotificationsPage() {
                 })}
               </ul>
             )}
-          </div>
-        </div>
-      </main>
+          </PortalCard>
+        </PortalShell>
+      </div>
     </>
   );
 }
