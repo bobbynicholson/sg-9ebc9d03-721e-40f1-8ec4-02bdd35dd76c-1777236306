@@ -112,7 +112,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     // Tenant gate - all invoices for this order share the same
     // company_id; check on the first one.
     const orderCompanyId = rows[0].company_id;
-    if (!isInternal && companyIdScope && companyIdScope !== orderCompanyId) {
+    if (!isInternal && (!companyIdScope || companyIdScope !== orderCompanyId)) {
       return res.status(403).json({ error: "Wrong company" });
     }
 

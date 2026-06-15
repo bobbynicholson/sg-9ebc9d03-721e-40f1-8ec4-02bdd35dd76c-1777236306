@@ -69,7 +69,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       .from("import_rows")
       .select("id, dedup_match_id")
       .eq("id", rowId)
-      .eq("import_job_id", jobId)
+      .eq("job_id", jobId)
       .maybeSingle();
     if (!row) return res.status(404).json({ error: "Row not found in this job" });
 

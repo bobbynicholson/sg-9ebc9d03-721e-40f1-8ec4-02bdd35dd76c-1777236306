@@ -320,8 +320,13 @@ export const kitchenPrepService = {
     // Determine the pickup moment. Prefer pickup_time, else event_time on
     // event_date, else event_date at 12:00. Fall back to "now" defensively.
     const pickupAt = (() => {
-      if (order.pickup_time) {
-        const dt = new Date(order.pickup_time);
+      // pickup_time is `time without time zone` (migration 20260519180000),
+      // e.g. "14:30:00" — new Date("14:30:00") is Invalid Date, which used to
+      // silently fall through to event_time and backplan every prep task from
+      // the event start instead of the (earlier) collection time. Combine it
+      // with event_date the same way the BEO ticket does.
+      if (order.pickup_time && order.event_date) {
+        const dt = new Date(`${order.event_date}T${String(order.pickup_time).slice(0, 5)}:00`);
         if (!isNaN(dt.getTime())) return dt;
       }
       if (order.event_date && order.event_time) {
@@ -336,7 +341,7 @@ export const kitchenPrepService = {
     })();
     if (!pickupAt) return [];
 
-    const guestCount = Number(order.final_guest_count || order.guest_count || 1);
+    const guestCount = Number(order.guest_count || 1);
 
     // Wave 70.10 - the planner used to only read orders.menu_items
     // (the jsonb snapshot column). For quote-derived orders the
@@ -814,7 +819,10 @@ export const kitchenPrepService = {
       .eq("company_id", companyId)
       .gte("event_date", fromDate)
       .lte("event_date", toDate)
-      .in("status", ["confirmed", "preparing", "ready"]);
+      // Include in_transit/delivered: a same-day order often still has staged
+      // prep while its first wave is already dispatched. Dropping it at "ready"
+      // made cross-order shortfall math under-count the moment one order left.
+      .in("status", ["confirmed", "preparing", "ready", "in_transit", "delivered"]);
     if (regionId) {
       // Same fall-through rule as RLS: branch rows + null/legacy
       // (company-wide) rows. Without the OR a region_admin would lose
@@ -832,7 +840,7 @@ export const kitchenPrepService = {
       .eq("company_id", companyId)
       .gte("event_date", fromDate)
       .lte("event_date", toDate)
-      .in("order_status", ["confirmed", "preparing", "ready"]);
+      .in("order_status", ["confirmed", "preparing", "ready", "in_transit", "delivered"]);
     if (demandErr) {
       console.error("[kitchenPrepService] order_ingredient_demand fetch failed:", demandErr);
       return [];

@@ -141,7 +141,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       .eq("id", invoice_id)
       .maybeSingle();
     if (!invoice) return res.status(404).json({ error: "Invoice not found" });
-    if (!isInternal && companyIdScope && companyIdScope !== invoice.company_id) {
+    if (!isInternal && (!companyIdScope || companyIdScope !== invoice.company_id)) {
       return res.status(403).json({ error: "Wrong company" });
     }
 

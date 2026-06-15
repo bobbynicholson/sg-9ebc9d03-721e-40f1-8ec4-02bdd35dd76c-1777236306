@@ -31,6 +31,7 @@ interface MenuItem {
   prep_time_minutes: number | null;
   cook_time_minutes: number | null;
   dietary_tags: string[] | null;
+  allergen_codes: string[] | null;
   allergen_info: string | null;
   image_url: string | null;
   instructions: string | null;
@@ -284,10 +285,18 @@ export default function KitchenMenuItemsPage() {
                   ))}
                 </div>
               )}
-              {selected.allergen_info && (
+              {((selected.allergen_codes && selected.allergen_codes.length > 0) || selected.allergen_info) && (
                 <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 rounded-lg p-3 text-sm">
                   <div className="font-semibold text-amber-900 dark:text-amber-200 mb-1">Allergens</div>
-                  <div className="text-amber-800 dark:text-amber-300">{selected.allergen_info}</div>
+                  {selected.allergen_codes && selected.allergen_codes.length > 0 ? (
+                    <div className="flex flex-wrap gap-1.5">
+                      {selected.allergen_codes.map((code) => (
+                        <Badge key={code} variant="outline" className="border-amber-300 bg-amber-100 text-amber-900 dark:border-amber-800 dark:bg-amber-900/50 dark:text-amber-200 capitalize">{code}</Badge>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-amber-800 dark:text-amber-300">{selected.allergen_info}</div>
+                  )}
                 </div>
               )}
               <div>

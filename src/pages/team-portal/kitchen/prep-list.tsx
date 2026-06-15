@@ -140,7 +140,7 @@ export default function KitchenPrepListPage() {
           .select("*")
           .eq("company_id", companyId)
           .gte("event_date", todayStr)
-          .in("order_status", ["confirmed", "preparing", "ready"])
+          .in("order_status", ["confirmed", "preparing", "ready", "in_transit", "delivered"])
           .order("event_date", { ascending: true }),
         supabase
           .from("inventory_demand_outlook")
@@ -200,7 +200,7 @@ export default function KitchenPrepListPage() {
           .eq("company_id", companyId)
           .gte("event_date", todayStr)
           .lte("event_date", horizon)
-          .in("status", ["confirmed", "preparing", "ready"]);
+          .in("status", ["confirmed", "preparing", "ready", "in_transit", "delivered"]);
         if (!cancelled) setConfirmedOrdersInWindow(count || 0);
       } catch (e) {
         captureException(e, {

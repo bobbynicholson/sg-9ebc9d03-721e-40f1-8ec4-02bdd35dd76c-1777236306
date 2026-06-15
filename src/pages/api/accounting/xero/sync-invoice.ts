@@ -89,7 +89,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       console.error("[accounting/xero/sync-invoice] invoices fetch failed:", invoiceErr);
     }
     if (!invoice) return res.status(404).json({ error: "Invoice not found" });
-    if (!isInternal && companyIdScope && companyIdScope !== invoice.company_id) {
+    if (!isInternal && (!companyIdScope || companyIdScope !== invoice.company_id)) {
       return res.status(403).json({ error: "Wrong company" });
     }
 

@@ -86,7 +86,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     if (payment.payment_type !== "refund") {
       return res.status(400).json({ error: "Payment is not a refund" });
     }
-    if (!isInternal && companyIdScope && companyIdScope !== payment.company_id) {
+    if (!isInternal && (!companyIdScope || companyIdScope !== payment.company_id)) {
       return res.status(403).json({ error: "Wrong company" });
     }
 

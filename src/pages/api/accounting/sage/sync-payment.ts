@@ -71,7 +71,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       .eq("id", payment_id)
       .maybeSingle();
     if (!payment) return res.status(404).json({ error: "Payment not found" });
-    if (!isInternal && companyIdScope && companyIdScope !== payment.company_id) {
+    if (!isInternal && (!companyIdScope || companyIdScope !== payment.company_id)) {
       return res.status(403).json({ error: "Wrong company" });
     }
     if (payment.external_id) {
