@@ -105,7 +105,7 @@ export function ShoppingNav(_: ShoppingNavProps = {}) {
       // and bulk-add). /alerts kept as a deprecated alias for
       // bookmarks.
       { href: "/team-portal/shopping/buy-list", label: "Buy list",    sub: "Shortfalls first",  icon: TrendingDown, accent: "from-amber-500 to-orange-500" },
-      { href: "/team-portal/shopping/orders",   label: "Active shop", sub: "Current list",      icon: ShoppingCart, accent: "from-blue-500 to-indigo-500" },
+      { href: "/team-portal/shopping/orders",   label: "Active shop", sub: "Current list",      icon: ShoppingCart, accent: "from-amber-500 to-orange-500" },
       { href: "/team-portal/shopping/receipts", label: "Receipts",    sub: "Snap a slip",       icon: Camera,       accent: "from-amber-500 to-orange-500" },
     ],
     renderTopSlot: () => (
@@ -166,7 +166,7 @@ export function ShoppingNav(_: ShoppingNavProps = {}) {
                 return { text: `${remainingOnList} left`, tone: "default", pulse: isRunActive };
               }
               if (activeList.list && remainingOnList === 0 && activeList.items.length > 0) {
-                return { text: "All bought", tone: "info" };
+                return { text: "All bought", tone: "default" };
               }
               return null;
             },

@@ -36,20 +36,24 @@ interface Pill {
   aria: string;
 }
 
+// Restrained palette: neutral slate base, with an accent ONLY when a pill
+// genuinely needs attention (amber = something to do, rose = urgent shortfall).
+// Informational counts (active list, spend) stay neutral so the strip reads
+// calm and consistent instead of a four-colour rainbow.
 const TONE_BG: Record<Pill["tone"], string> = {
-  default:  "bg-emerald-50 hover:bg-emerald-100 border-emerald-200 text-emerald-900",
-  warning:  "bg-amber-50 hover:bg-amber-100 border-amber-200 text-amber-900",
-  critical: "bg-rose-50 hover:bg-rose-100 border-rose-200 text-rose-900",
-  info:     "bg-blue-50 hover:bg-blue-100 border-blue-200 text-blue-900",
-  muted:    "bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-500",
+  default:  "bg-slate-100 hover:bg-slate-200 border-slate-200 text-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 dark:border-slate-700 dark:text-slate-100",
+  warning:  "bg-amber-50 hover:bg-amber-100 border-amber-200 text-amber-900 dark:bg-amber-500/10 dark:hover:bg-amber-500/15 dark:border-amber-500/30 dark:text-amber-200",
+  critical: "bg-rose-50 hover:bg-rose-100 border-rose-200 text-rose-900 dark:bg-rose-500/10 dark:hover:bg-rose-500/15 dark:border-rose-500/30 dark:text-rose-200",
+  info:     "bg-slate-100 hover:bg-slate-200 border-slate-200 text-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 dark:border-slate-700 dark:text-slate-100",
+  muted:    "bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-500 dark:bg-slate-900 dark:hover:bg-slate-800 dark:border-slate-700 dark:text-slate-400",
 };
 
 const TONE_ICON_BG: Record<Pill["tone"], string> = {
-  default:  "bg-emerald-200/70 text-emerald-700",
-  warning:  "bg-amber-200/70 text-amber-700",
-  critical: "bg-rose-200/70 text-rose-700",
-  info:     "bg-blue-200/70 text-blue-700",
-  muted:    "bg-slate-200/40 text-slate-400",
+  default:  "bg-slate-200/70 text-slate-600 dark:bg-slate-700 dark:text-slate-300",
+  warning:  "bg-amber-200/70 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300",
+  critical: "bg-rose-200/70 text-rose-700 dark:bg-rose-500/20 dark:text-rose-300",
+  info:     "bg-slate-200/70 text-slate-600 dark:bg-slate-700 dark:text-slate-300",
+  muted:    "bg-slate-200/40 text-slate-400 dark:bg-slate-800 dark:text-slate-500",
 };
 
 export function ShoppingLiveStateStrip() {
@@ -150,7 +154,7 @@ export function ShoppingLiveStateStrip() {
             aria-label={p.aria}
             title={p.aria}
             className={cn(
-              "flex items-center gap-2 rounded-lg border px-2 py-1.5 transition-all active:scale-[0.98]",
+              "flex items-center gap-2 rounded-lg border px-2 py-1.5 transition-colors duration-150 active:scale-[0.98]",
               TONE_BG[p.tone],
             )}
           >

@@ -45,8 +45,8 @@ const MODE_META: Record<ShoppingPortalMode, {
     shortLabel: "Plan",
     description: "Shortfalls or upcoming events. Build today's buy list.",
     icon: ListChecks,
-    bg: "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800",
-    text: "text-emerald-800 dark:text-emerald-300",
+    bg: "bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/30",
+    text: "text-amber-800 dark:text-amber-200",
     pulse: false,
   },
   run: {
@@ -54,7 +54,7 @@ const MODE_META: Record<ShoppingPortalMode, {
     shortLabel: "Run",
     description: "A shopping list is active right now. Tick items off as you buy.",
     icon: ShoppingCart,
-    bg: "bg-gradient-to-r from-green-500 to-emerald-500 border-green-600",
+    bg: "bg-amber-600 border-amber-600",
     text: "text-white",
     pulse: true,
   },
@@ -63,8 +63,8 @@ const MODE_META: Record<ShoppingPortalMode, {
     shortLabel: "Reconcile",
     description: "Today's shops are done. Upload receipts and log actual totals.",
     icon: Receipt,
-    bg: "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800",
-    text: "text-amber-800 dark:text-amber-300",
+    bg: "bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/30",
+    text: "text-amber-800 dark:text-amber-200",
     pulse: false,
   },
 };
@@ -100,7 +100,7 @@ export function ShoppingModeBadge() {
     <button
       type="button"
       className={cn(
-        "w-full flex items-center justify-between gap-2 rounded-xl border px-3 py-2.5 transition-all",
+        "w-full flex items-center justify-between gap-2 rounded-xl border px-3 py-2.5 transition-colors duration-150",
         meta.bg,
         meta.text,
         "hover:brightness-105 active:scale-[0.99]",
@@ -162,15 +162,15 @@ export function ShoppingModeBadge() {
                   setOpen(false);
                 }}
                 className={cn(
-                  "w-full flex items-start gap-2.5 rounded-md border px-2.5 py-2 text-left transition-all",
+                  "w-full flex items-start gap-2.5 rounded-md border px-2.5 py-2 text-left transition-colors duration-150",
                   active
-                    ? "border-emerald-500 bg-emerald-50"
+                    ? "border-amber-500 bg-amber-50"
                     : "border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300",
                 )}
               >
                 <span className={cn(
                   "flex-shrink-0 w-7 h-7 rounded-md flex items-center justify-center mt-0.5",
-                  active ? "bg-emerald-500 text-white" : "bg-slate-100 text-slate-600",
+                  active ? "bg-amber-600 text-white" : "bg-slate-100 text-slate-600",
                 )}>
                   <MIcon className="h-3.5 w-3.5" />
                 </span>
@@ -178,12 +178,12 @@ export function ShoppingModeBadge() {
                   <span className="flex items-center gap-1.5">
                     <span className={cn(
                       "text-[12px] font-semibold",
-                      active ? "text-emerald-900" : "text-slate-800",
+                      active ? "text-amber-900" : "text-slate-800",
                     )}>
                       {M.shortLabel}
                     </span>
                     {active && (
-                      <span className="text-[9px] uppercase tracking-wider bg-emerald-500 text-white px-1.5 py-0.5 rounded font-bold">
+                      <span className="text-[9px] uppercase tracking-wider bg-amber-600 text-white px-1.5 py-0.5 rounded font-bold">
                         Active
                       </span>
                     )}
