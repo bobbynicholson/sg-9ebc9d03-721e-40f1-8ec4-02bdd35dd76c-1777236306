@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect, useMemo } from "react";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { PortalShell, PortalHeader } from "@/components/portal/ui";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LayoutDashboard, TrendingUp, Users, DollarSign, Package, Clock, AlertCircle, CheckCircle, Loader2, Calendar, ShoppingCart, FileText } from "lucide-react";
 import Head from "next/head";
@@ -564,44 +565,41 @@ function AdminDashboardPage() {
       <Head><title>Admin dashboard - CateringMS</title></Head>
       <AdminNav />
 
-      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
-        <div className="px-3 sm:px-4 md:px-6 pt-20 lg:pt-6 pb-6 max-w-full">
+      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
 
           {/* Header + date range, date controls every metric below */}
-          <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-brand-primary to-brand-secondary flex items-center justify-center shadow-lg flex-shrink-0">
-                <LayoutDashboard className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
-              </div>
-              <div className="min-w-0">
-                <h1 className="text-2xl sm:text-3xl xl:text-4xl font-bold text-slate-900">
-                  Admin Dashboard
-                </h1>
-                <p className="text-sm sm:text-base text-slate-600 mt-1">
-                  Live metrics for events in <span className="font-semibold text-slate-900">{range.label}</span>
-                  {tenantTimezone && (
-                    <span className="ml-2 inline-flex items-center gap-1 text-[11px] text-slate-500 align-middle">
-                      <Clock className="w-3 h-3" />
-                      <span className="font-mono">{tenantTimezone}</span>
-                    </span>
-                  )}
-                </p>
-              </div>
-            </div>
-            <div className="flex flex-wrap items-center gap-2 lg:flex-shrink-0">
-              <DashboardDateRange range={range} onChange={setRange} />
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={loadMetrics}
-                disabled={loading}
-                className="gap-2"
-              >
-                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <TrendingUp className="w-4 h-4" />}
-                Refresh
-              </Button>
-            </div>
-          </div>
+          <PortalHeader
+            title="Admin Dashboard"
+            icon={LayoutDashboard}
+            subtitle={
+              <>
+                Live metrics for events in{" "}
+                <span className="font-semibold text-slate-900 dark:text-white">{range.label}</span>
+                {tenantTimezone && (
+                  <span className="ml-2 inline-flex items-center gap-1 text-[11px] text-slate-500 align-middle">
+                    <Clock className="w-3 h-3" />
+                    <span className="font-mono">{tenantTimezone}</span>
+                  </span>
+                )}
+              </>
+            }
+            actions={
+              <>
+                <DashboardDateRange range={range} onChange={setRange} />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={loadMetrics}
+                  disabled={loading}
+                  className="gap-2"
+                >
+                  {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <TrendingUp className="w-4 h-4" />}
+                  Refresh
+                </Button>
+              </>
+            }
+          />
 
           {/* Operator safety net: if no email provider is wired up,
               every send silently fails. Show the banner directly under
@@ -1264,7 +1262,7 @@ function AdminDashboardPage() {
           <WidgetErrorBoundary label="Business intelligence">
             <BusinessIntelligence companyId={companyId} dateRange={{ from: range.from, to: range.to }} />
           </WidgetErrorBoundary>
-        </div>
+        </PortalShell>
       </div>
 
       <ChatBot userRole="admin" companyId={companyId} />
