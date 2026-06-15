@@ -14,11 +14,11 @@ import {
   Star, ArrowRight, Phone, CheckCircle, Check, Zap, Users, Clock, Sparkles,
   Heart, Building2, PartyPopper, Crown, ChefHat, FileText, Calendar, Truck,
   RefreshCw, TrendingUp, Bell, Leaf, Shield, Award, Quote, MapPin, Utensils,
-  ChevronDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { LandingFooter } from "@/components/landing/LandingFooter";
 import { LandingHeader } from "@/components/landing/LandingHeader";
+import { ProductPreview } from "@/components/landing/ProductPreview";
 import { Reveal, Stagger, StaggerItem } from "@/components/motion/Reveal";
 import { EASE, btnPress, Eyebrow } from "@/components/motion/marketing";
 
@@ -375,7 +375,7 @@ export default function HomePage() {
             />
           </motion.div>
           {/* Scrims for legible text over any photo */}
-          <div className="absolute inset-0 -z-10 bg-gradient-to-t from-stone-950 via-stone-950/80 to-stone-950/50" />
+          <div className="absolute inset-0 -z-10 bg-gradient-to-t from-stone-950 via-stone-950/90 to-stone-950/75" />
           <div className="absolute inset-0 -z-10 bg-[radial-gradient(75%_55%_at_50%_0%,rgba(245,158,11,0.20),transparent)]" />
 
           <div className="relative mx-auto max-w-7xl px-4 pb-24 pt-14 md:pb-32 md:pt-20">
@@ -440,12 +440,13 @@ export default function HomePage() {
                 </span>
               </StaggerItem>
             </Stagger>
+
+            {/* Product showcase — the "this is serious software" centrepiece */}
+            <Reveal className="mt-14 md:mt-20" y={28}>
+              <ProductPreview />
+            </Reveal>
           </div>
 
-          {/* Subtle scroll cue */}
-          <div className="pointer-events-none absolute inset-x-0 bottom-5 flex justify-center">
-            <ChevronDown className="h-5 w-5 animate-bounce text-white/40 motion-reduce:animate-none" />
-          </div>
         </section>
 
         {/* ===================== SOCIAL PROOF ===================== */}

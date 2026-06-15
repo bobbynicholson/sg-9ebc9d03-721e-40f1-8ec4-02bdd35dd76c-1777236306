@@ -313,3 +313,11 @@
 @keyframes shimmer {
   to { background-position: 200% center; }
 }
+@keyframes floaty {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-9px); }
+}
+@keyframes growbar {
+  from { transform: scaleY(0); }
+  to   { transform: scaleY(1); }
+}
