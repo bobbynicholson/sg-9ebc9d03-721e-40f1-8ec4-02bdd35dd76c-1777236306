@@ -394,6 +394,10 @@ async function handler(
         if (companyData.owner_id) {
           await supabase.from("notifications").insert([{
             company_id: companyId,
+            // recipient_id is what RLS + notificationService.getNotifications
+            // filter reads on; user_id alone left this row unreadable so the
+            // owner never saw the invoice-payment alert. Set both.
+            recipient_id: companyData.owner_id,
             user_id: companyData.owner_id,
             title: `Invoice Payment Received - ${invoiceData.invoice_number}`,
             message: `Payment of R${amount_gross} received for invoice ${invoiceData.invoice_number}`,
@@ -781,6 +785,7 @@ async function handler(
     // Owner / admin in-app notification (kept legacy shape for the
     // notifications inbox the owner already uses).
     await supabase.from("notifications").insert([{
+      company_id: order.company_id || order.user_id,
       user_id: order.user_id,
       recipient_id: order.user_id,
       notification_type: "payment_received",

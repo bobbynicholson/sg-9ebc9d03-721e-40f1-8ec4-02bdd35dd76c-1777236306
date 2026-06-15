@@ -178,12 +178,12 @@ export async function runAutoCancel(
     try {
       await sb.from("audit_logs").insert({
         company_id: input.companyId,
-        order_id: input.orderId,
         user_id: input.cancelledByUserId,
         action: "cancellation_credit_issued",
         entity_type: "payments",
         entity_id: credit_payment_id,
-        metadata: {
+        details: {
+          order_id: input.orderId,
           credit_amount: credit_final,
           credit_pct,
           bonus_pp,

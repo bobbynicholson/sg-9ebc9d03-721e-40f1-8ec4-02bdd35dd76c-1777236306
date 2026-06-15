@@ -137,9 +137,19 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       : { data: null };
 
     const lineAccountCode = xs.default_account_code || "200";
-    const taxType = xs.default_tax_type || "OUTPUT";
+    // The CateringMS invoice carries gross (total_amount) and the VAT it
+    // actually charged (tax_amount). Push the GROSS line as VAT-inclusive so
+    // Xero back-calculates the same tax instead of adding 15% on top of the
+    // ex-VAT net (the old code sent `subtotal` with the default Exclusive mode,
+    // inflating every Xero invoice by the VAT). If the invoice charged no VAT
+    // (non-VAT-registered tenant, tax_amount = 0) zero-rate the line so Xero
+    // doesn't invent phantom output VAT. See SA SARS tax-invoice rules.
+    const hasVat = Number(invoice.tax_amount || 0) > 0;
+    const taxType = hasVat ? (xs.default_tax_type || "OUTPUT") : "NONE";
+    const grossLineAmount = Number(invoice.total_amount || invoice.subtotal || 0);
     const xeroPayload = {
       Type: "ACCREC",
+      LineAmountTypes: "Inclusive",
       InvoiceNumber: invoice.invoice_number,
       Date: invoice.invoice_date,
       DueDate: invoice.due_date,
@@ -167,7 +177,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         {
           Description: `Catering services - invoice ${invoice.invoice_number}`,
           Quantity: 1,
-          UnitAmount: Number(invoice.subtotal || invoice.total_amount || 0),
+          UnitAmount: grossLineAmount,
           AccountCode: lineAccountCode,
           TaxType: taxType,
         },

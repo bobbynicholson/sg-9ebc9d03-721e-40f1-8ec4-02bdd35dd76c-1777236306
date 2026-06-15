@@ -261,12 +261,11 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
     await sb.from("audit_logs").insert({
       company_id: (quote as any).company_id,
-      order_id: receipt.orderId,
       user_id: user.id,
       action: "quote_resynced_to_order",
       entity_type: "orders",
       entity_id: receipt.orderId,
-      metadata: {
+      details: {
         quote_id: quoteId,
         quote_number: (quote as any).quote_number,
         order_number: receipt.orderNumber,

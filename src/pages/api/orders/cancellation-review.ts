@@ -566,12 +566,12 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       try {
         await (ssr as any).from("audit_logs").insert({
           company_id: (request as any).company_id,
-          order_id: (request as any).order_id,
           user_id: user.id,
           action: "cancellation_credit_issued",
           entity_type: "payments",
           entity_id: creditPaymentId,
           details: {
+            order_id: (request as any).order_id,
             credit_amount: credit_final,
             credit_pct,
             bonus_pp,

@@ -214,12 +214,12 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       try {
         await (admin as any).from("audit_logs").insert({
           company_id: invoice.company_id,
-          order_id: invoice.order_id,
           user_id: user?.id || null,
           action: "credit_redeemed",
           entity_type: "invoices",
           entity_id: invoice.id,
-          metadata: {
+          details: {
+            order_id: invoice.order_id,
             credit_applied: creditApplied,
             invoice_number: invoice.invoice_number,
             new_balance: newBalance,
