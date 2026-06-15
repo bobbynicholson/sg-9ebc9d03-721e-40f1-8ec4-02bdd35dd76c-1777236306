@@ -66,6 +66,10 @@ interface CompanyBrand {
 // warm amber, so un-branded tenant portals match the rest of the product.
 const DEFAULT_PRIMARY = "#f59e0b";
 const DEFAULT_SECONDARY = "#ea580c";
+// Same food photo as the generic CateringMS login so all sign-in pages share
+// one composition; the tenant's colour layers on top as a glow.
+const PANEL_IMG =
+  "https://images.unsplash.com/photo-1600891964092-4316c288032e?auto=format&fit=crop&q=70&w=1300";
 const EMAIL_CACHE_PREFIX = "cateringms.client_email.";
 
 interface PageProps {
@@ -325,16 +329,23 @@ export default function CompanyClientLoginPage({
       </Head>
       <div className="min-h-screen lg:grid lg:grid-cols-2 bg-white">
         {/* Brand showcase panel - desktop only, tenant-branded */}
-        <div
-          className="relative hidden lg:flex lg:sticky lg:top-0 lg:h-screen lg:self-start flex-col justify-between overflow-hidden p-12 text-white"
-          style={{ background: brandGradient }}
-        >
+        <div className="relative hidden lg:flex lg:sticky lg:top-0 lg:h-screen lg:self-start flex-col justify-between overflow-hidden bg-stone-950 p-12 text-white">
+          {/* Shared food photography (same as the generic CateringMS login) */}
           <div
-            className="pointer-events-none absolute inset-0 opacity-[0.12]"
-            style={{ backgroundImage: "radial-gradient(circle, #ffffff 1px, transparent 1px)", backgroundSize: "22px 22px" }}
+            aria-hidden
+            className="absolute inset-0 bg-cover bg-center"
+            style={{ backgroundImage: `url('${PANEL_IMG}')` }}
           />
-          <div className="pointer-events-none absolute -top-24 -left-24 h-96 w-96 rounded-full bg-white/15 blur-3xl" />
-          <div className="pointer-events-none absolute -bottom-32 -right-16 h-[28rem] w-[28rem] rounded-full bg-white/10 blur-3xl" />
+          <div className="absolute inset-0 bg-gradient-to-t from-stone-950 via-stone-950/85 to-stone-950/70" />
+          {/* Tenant-colour glow (their brand, or the amber default) */}
+          <div
+            className="pointer-events-none absolute inset-0"
+            style={{ background: `radial-gradient(60% 50% at 25% 0%, ${(companyBrand?.primary || DEFAULT_PRIMARY)}40, transparent)` }}
+          />
+          <div
+            className="pointer-events-none absolute inset-0 opacity-[0.08]"
+            style={{ backgroundImage: "radial-gradient(circle, #ffffff 1px, transparent 1px)", backgroundSize: "24px 24px" }}
+          />
 
           <div className="relative flex items-center gap-3">
             <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/15 shadow-lg backdrop-blur">
