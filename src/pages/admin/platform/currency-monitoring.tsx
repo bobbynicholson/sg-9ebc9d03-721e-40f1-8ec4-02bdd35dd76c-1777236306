@@ -186,26 +186,26 @@ function PlatformCurrencyMonitoringPage() {
 
         <div className="space-y-6">
         {refreshError && (
-          <Alert className="border-rose-300 bg-rose-50 dark:bg-rose-950">
-            <AlertTriangle className="h-5 w-5 text-rose-600" />
-            <AlertTitle className="text-rose-900 dark:text-rose-100 font-semibold">
+          <Alert className="border-rose-200 bg-rose-50 dark:border-rose-500/30 dark:bg-rose-500/10">
+            <AlertTriangle className="h-4 w-4 flex-shrink-0 text-rose-600 dark:text-rose-400" />
+            <AlertTitle className="font-semibold text-rose-900 dark:text-rose-300">
               Run Check Now failed
             </AlertTitle>
-            <AlertDescription className="text-rose-800 dark:text-rose-200">
+            <AlertDescription className="text-sm text-rose-800 dark:text-rose-300/90">
               {refreshError}
             </AlertDescription>
           </Alert>
         )}
 
         {hasSignificantFluctuation && (
-          <Alert className="border-red-500 bg-red-50 dark:bg-red-950">
-            <AlertTriangle className="h-5 w-5 text-red-600" />
-            <AlertTitle className="text-red-900 dark:text-red-100 font-bold">
-              Critical: 15% Threshold Exceeded
+          <Alert className="border-rose-200 bg-rose-50 dark:border-rose-500/30 dark:bg-rose-500/10">
+            <AlertTriangle className="h-4 w-4 flex-shrink-0 text-rose-600 dark:text-rose-400" />
+            <AlertTitle className="font-semibold text-rose-900 dark:text-rose-300">
+              Critical: 15% threshold exceeded
             </AlertTitle>
-            <AlertDescription className="text-red-800 dark:text-red-200">
+            <AlertDescription className="text-sm text-rose-800 dark:text-rose-300/90">
               The ZAR has fluctuated by {fluctuation.percentage.toFixed(2)}% over the last 90 days.
-              Please review and adjust pricing to maintain USD equivalency.
+              Review and adjust pricing to maintain USD equivalency.
             </AlertDescription>
           </Alert>
         )}
@@ -230,7 +230,7 @@ function PlatformCurrencyMonitoringPage() {
           <StatTile
             label="Active Alerts"
             value={
-              <span className={alerts.length > 0 ? "text-orange-600 dark:text-orange-500" : undefined}>
+              <span className={alerts.length > 0 ? "text-amber-600 dark:text-amber-500" : undefined}>
                 {alerts.length}
               </span>
             }
@@ -243,8 +243,8 @@ function PlatformCurrencyMonitoringPage() {
           <PortalCardHeader
             title={
               <span className="flex items-center gap-2">
-                <Activity className="h-5 w-5" />
-                Exchange Rate History (Last 90 Days)
+                <Activity className="h-4 w-4 text-amber-600 dark:text-amber-500" />
+                Exchange rate history (last 90 days)
               </span>
             }
           />
@@ -259,7 +259,7 @@ function PlatformCurrencyMonitoringPage() {
                     {historicalRates.slice().reverse().slice(0, 30).map((rate) => (
                       <div
                         key={rate.id}
-                        className="flex items-center justify-between p-3 rounded-lg bg-slate-100 dark:bg-slate-800"
+                        className="flex items-center justify-between rounded-xl border border-slate-200/80 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-800/50"
                       >
                         <div className="flex items-center gap-2">
                           <Calendar className="h-4 w-4 text-slate-500" />
@@ -282,15 +282,15 @@ function PlatformCurrencyMonitoringPage() {
           <PortalCardHeader
             title={
               <span className="flex items-center gap-2">
-                <AlertTriangle className="h-5 w-5" />
-                Fluctuation Alerts
+                <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-500" />
+                Fluctuation alerts
               </span>
             }
           />
             <div className="space-y-4">
               {alerts.length === 0 ? (
                 <div className="text-center py-8">
-                  <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-3" />
+                  <CheckCircle className="h-12 w-12 text-emerald-500 mx-auto mb-3" />
                   <p className="text-slate-600 dark:text-slate-400">
                     No active alerts. Currency is within acceptable range.
                   </p>
@@ -299,7 +299,7 @@ function PlatformCurrencyMonitoringPage() {
                 alerts.map((alert) => (
                   <div
                     key={alert.id}
-                    className="border-2 border-orange-200 dark:border-orange-800 rounded-lg p-4 bg-orange-50 dark:bg-orange-950"
+                    className="rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-500/30 dark:bg-amber-500/10"
                   >
                     <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
                       <div className="flex-1">
