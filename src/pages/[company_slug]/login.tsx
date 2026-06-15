@@ -24,7 +24,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Mail, ArrowRight, Loader2, Building2, Lock } from "lucide-react";
+import { Mail, ArrowRight, Loader2, Building2, Lock, Star, CheckCircle2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -40,8 +40,10 @@ interface CompanyBrand {
   secondary: string;
 }
 
-const DEFAULT_PRIMARY = "#9333ea";
-const DEFAULT_SECONDARY = "#ec4899";
+// Default brand when a tenant hasn't set custom colours — the CateringMS
+// warm amber, so un-branded tenant portals match the rest of the product.
+const DEFAULT_PRIMARY = "#f59e0b";
+const DEFAULT_SECONDARY = "#ea580c";
 
 interface PageProps {
   // Raw branding from getStaticProps. _app.tsx forwards this to
@@ -257,7 +259,7 @@ export default function CompanyStaffLoginPage({
   if (!company_slug && !companyLookupFailed) {
     return (
       <div
-        className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-purple-50 to-pink-50 px-4"
+        className="min-h-screen flex items-center justify-center bg-gradient-to-br from-stone-50 via-amber-50 to-orange-50 px-4"
         style={{
           paddingTop: "max(1rem, env(safe-area-inset-top, 1rem))",
           paddingBottom: "max(1rem, env(safe-area-inset-bottom, 1rem))",
@@ -291,7 +293,7 @@ export default function CompanyStaffLoginPage({
         : "We couldn't find the catering company at this URL. Please double-check the link.";
     return (
       <div
-        className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 px-4"
+        className="min-h-screen flex items-center justify-center bg-gradient-to-br from-stone-50 to-stone-100 px-4"
         style={{
           paddingTop: "max(1rem, env(safe-area-inset-top, 1rem))",
           paddingBottom: "max(1rem, env(safe-area-inset-bottom, 1rem))",
@@ -368,10 +370,39 @@ export default function CompanyStaffLoginPage({
           </div>
 
           <div className="relative max-w-md">
-            <h2 className="text-[2.6rem] font-bold leading-[1.1] tracking-tight">Welcome back.</h2>
-            <p className="mt-4 text-lg text-white/85">
+            <span className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-3 py-1 text-xs font-medium text-white/90 backdrop-blur-md">
+              <Star className="h-3.5 w-3.5 fill-white text-white" />
+              Your team&apos;s command centre
+            </span>
+            <h2 className="mt-5 font-display text-[2.6rem] font-semibold leading-[1.08] tracking-tight">Welcome back.</h2>
+            <p className="mt-4 text-lg leading-relaxed text-white/85">
               Sign in to manage quotes, kitchen prep, dispatch and deliveries — your whole operation in one place.
             </p>
+            <div className="mt-6 flex flex-wrap gap-2">
+              {["Quotes & invoices", "Live delivery tracking", "Online payments"].map((p) => (
+                <span
+                  key={p}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-[13px] text-white/90 backdrop-blur-sm"
+                >
+                  <CheckCircle2 className="h-3.5 w-3.5 text-white" />
+                  {p}
+                </span>
+              ))}
+            </div>
+            <figure className="mt-8 rounded-2xl border border-white/15 bg-white/10 p-5 backdrop-blur-md">
+              <div className="mb-2 flex gap-0.5">
+                {[...Array(5)].map((_, i) => (
+                  <Star key={i} className="h-4 w-4 fill-white text-white" />
+                ))}
+              </div>
+              <blockquote className="text-sm italic leading-relaxed text-white/90">
+                &ldquo;Everything from the first quote to the final invoice lives in one place now —
+                our team stopped chasing spreadsheets.&rdquo;
+              </blockquote>
+              <figcaption className="mt-3 text-xs font-semibold text-white/70">
+                Run on CateringMS
+              </figcaption>
+            </figure>
           </div>
 
           <p className="relative text-sm text-white/70">Powered by CateringMS</p>
@@ -379,7 +410,7 @@ export default function CompanyStaffLoginPage({
 
         {/* Form column */}
         <div
-          className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 px-4 py-10 lg:min-h-0 lg:bg-white lg:bg-none"
+          className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-stone-50 to-stone-100 px-4 py-10 lg:min-h-0 lg:bg-white lg:bg-none"
           style={{
             paddingTop: "max(2.5rem, env(safe-area-inset-top, 2.5rem))",
             paddingBottom: "max(2.5rem, env(safe-area-inset-bottom, 2.5rem))",
@@ -401,8 +432,8 @@ export default function CompanyStaffLoginPage({
           <Card className="w-full max-w-md border border-slate-200/70 shadow-2xl shadow-slate-200/60 rounded-2xl">
           <CardContent className="p-6 sm:p-8">
             <div className="mb-7">
-              <h1 className="text-3xl font-bold tracking-tight text-slate-900">Staff sign-in</h1>
-              <p className="text-sm text-slate-500 mt-1.5">Welcome back — sign in to your portal.</p>
+              <h1 className="font-display text-3xl font-semibold tracking-tight text-stone-900">Staff sign-in</h1>
+              <p className="text-sm text-stone-500 mt-1.5">Welcome back — sign in to your portal.</p>
             </div>
             <form onSubmit={handleStaffLogin} className="space-y-5">
               {error && (
