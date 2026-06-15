@@ -46,9 +46,9 @@ import {
   Building2,
   CheckCircle2,
   RotateCcw,
-  Star,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { AuthShell } from "@/components/auth/AuthShell";
 import {
   getInitialBrandingForSlugDetailed,
   type InitialBranding,
@@ -66,10 +66,6 @@ interface CompanyBrand {
 // warm amber, so un-branded tenant portals match the rest of the product.
 const DEFAULT_PRIMARY = "#f59e0b";
 const DEFAULT_SECONDARY = "#ea580c";
-// Same food photo as the generic CateringMS login so all sign-in pages share
-// one composition; the tenant's colour layers on top as a glow.
-const PANEL_IMG =
-  "https://images.unsplash.com/photo-1600891964092-4316c288032e?auto=format&fit=crop&q=70&w=1300";
 const EMAIL_CACHE_PREFIX = "cateringms.client_email.";
 
 interface PageProps {
@@ -327,98 +323,16 @@ export default function CompanyClientLoginPage({
         <title>{companyBrand ? `${companyBrand.name} | Sign in` : "Sign in"}</title>
         <meta name="robots" content="noindex, nofollow" />
       </Head>
-      <div className="min-h-screen lg:grid lg:grid-cols-2 bg-white">
-        {/* Brand showcase panel - desktop only, tenant-branded */}
-        <div className="relative hidden lg:flex lg:sticky lg:top-0 lg:h-screen lg:self-start flex-col justify-between overflow-hidden bg-stone-950 p-12 text-white">
-          {/* Shared food photography (same as the generic CateringMS login) */}
-          <div
-            aria-hidden
-            className="absolute inset-0 bg-cover bg-center"
-            style={{ backgroundImage: `url('${PANEL_IMG}')` }}
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-stone-950 via-stone-950/85 to-stone-950/70" />
-          {/* Tenant-colour glow (their brand, or the amber default) */}
-          <div
-            className="pointer-events-none absolute inset-0"
-            style={{ background: `radial-gradient(60% 50% at 25% 0%, ${(companyBrand?.primary || DEFAULT_PRIMARY)}40, transparent)` }}
-          />
-          <div
-            className="pointer-events-none absolute inset-0 opacity-[0.08]"
-            style={{ backgroundImage: "radial-gradient(circle, #ffffff 1px, transparent 1px)", backgroundSize: "24px 24px" }}
-          />
-
-          <div className="relative flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/15 shadow-lg backdrop-blur">
-              {companyBrand?.logo ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={companyBrand.logo} alt={companyBrand.name} className="h-10 w-10 rounded-lg object-contain" />
-              ) : (
-                <Building2 className="h-6 w-6 text-white" />
-              )}
-            </div>
-            <span className="text-xl font-bold tracking-tight truncate">{companyBrand?.name || "Your portal"}</span>
-          </div>
-
-          <div className="relative max-w-md">
-            <span className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-3 py-1 text-xs font-medium text-white/90 backdrop-blur-md">
-              <Star className="h-3.5 w-3.5 fill-white text-white" />
-              Your booking, beautifully handled
-            </span>
-            <h2 className="mt-5 font-display text-[2.6rem] font-semibold leading-[1.08] tracking-tight">Your events, in one place.</h2>
-            <p className="mt-4 text-lg leading-relaxed text-white/85">
-              View your quotes and orders, track your event, and pay securely — sign in with just your email, no password to remember.
-            </p>
-            <div className="mt-6 flex flex-wrap gap-2">
-              {["Track your event", "View quotes & orders", "Pay securely online"].map((p) => (
-                <span
-                  key={p}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-[13px] text-white/90 backdrop-blur-sm"
-                >
-                  <CheckCircle2 className="h-3.5 w-3.5 text-white" />
-                  {p}
-                </span>
-              ))}
-            </div>
-            <figure className="mt-8 rounded-2xl border border-white/15 bg-white/10 p-5 backdrop-blur-md">
-              <div className="mb-2 flex gap-0.5">
-                {[...Array(5)].map((_, i) => (
-                  <Star key={i} className="h-4 w-4 fill-white text-white" />
-                ))}
-              </div>
-              <blockquote className="text-sm italic leading-relaxed text-white/90">
-                &ldquo;Loved being able to see exactly where my order was on the day —
-                no phone calls, no stress.&rdquo;
-              </blockquote>
-              <figcaption className="mt-3 text-xs font-semibold text-white/70">
-                A happy CateringMS customer
-              </figcaption>
-            </figure>
-          </div>
-
-          <p className="relative text-sm text-white/70">Powered by CateringMS</p>
-        </div>
-
-        {/* Form column */}
-        <div
-          className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-stone-50 to-stone-100 px-4 py-10 lg:min-h-0 lg:bg-white lg:bg-none"
-          style={{
-            paddingTop: "max(2.5rem, env(safe-area-inset-top, 2.5rem))",
-            paddingBottom: "max(2.5rem, env(safe-area-inset-bottom, 2.5rem))",
-          }}
-        >
-          {/* Mobile brand badge */}
-          <div className="mb-6 flex items-center gap-2.5 lg:hidden">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl shadow-md" style={{ background: brandGradient }}>
-              {companyBrand?.logo ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={companyBrand.logo} alt={companyBrand.name} className="h-8 w-8 rounded-md object-contain" />
-              ) : (
-                <Building2 className="h-5 w-5 text-white" />
-              )}
-            </div>
-            <span className="text-lg font-bold tracking-tight text-slate-800 truncate max-w-[60vw]">{companyBrand?.name || "Your portal"}</span>
-          </div>
-
+      <AuthShell
+        brandName={companyBrand?.name || "Your portal"}
+        brandLogoUrl={companyBrand?.logo || null}
+        accent={companyBrand?.primary || DEFAULT_PRIMARY}
+        accentTo={companyBrand?.secondary || DEFAULT_SECONDARY}
+        headline="Your events, in one place."
+        subcopy="View your quotes and orders, track your event, and pay securely — sign in with just your email, no password to remember."
+        pills={["Track your event", "View quotes & orders", "Pay securely online"]}
+        footerNote="Powered by CateringMS"
+      >
           <Card className="w-full max-w-md border border-slate-200/70 shadow-2xl shadow-slate-200/60 rounded-2xl">
           <CardContent className="p-6 sm:p-8">
             <div className="mb-5">
@@ -553,8 +467,7 @@ export default function CompanyClientLoginPage({
             )}
           </CardContent>
         </Card>
-        </div>
-      </div>
+      </AuthShell>
     </>
   );
 }
