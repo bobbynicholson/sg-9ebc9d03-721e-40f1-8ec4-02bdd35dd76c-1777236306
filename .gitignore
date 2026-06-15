@@ -42,3 +42,6 @@ build.log
 
 # Dev logs
 logs/
+
+# emilkowalski skill (separate repo, cloned locally)
+skill/
