@@ -318,6 +318,36 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       .eq("id", (request as any).order_id);
     if (updateErr) return res.status(500).json({ error: updateErr.message });
 
+    // Rebuild order_items BEFORE the totals recompute. order_items is the
+    // authoritative line-item layer that totals + inventory + the demand view
+    // + the invoice all read from, but the quote path was the only one that
+    // rebuilt it on a menu change. So a menu_items amendment (and a guest_count
+    // amendment, which must re-scale per-person line quantities) left
+    // order_items frozen on the OLD spec -> stale totals, inventory and
+    // invoice. Rebuild from the freshly-applied orders.menu_items + guest_count
+    // using the same shared helper the quote path uses (kept symmetric).
+    if (Object.keys(toApply).some((k) => ["guest_count", "menu_items"].includes(k))) {
+      try {
+        const { data: freshOrder } = await ssr
+          .from("orders")
+          .select("menu_items, guest_count")
+          .eq("id", (request as any).order_id)
+          .maybeSingle();
+        const { rebuildOrderItemsFromMenu } = await import("@/services/order/rebuildOrderItems");
+        const rebuild = await rebuildOrderItemsFromMenu(
+          ssr,
+          (request as any).order_id,
+          (freshOrder as any)?.menu_items,
+          Number((freshOrder as any)?.guest_count || 0),
+        );
+        if (!rebuild.rebuilt || rebuild.errors.length > 0) {
+          console.warn("[amendment-review] order_items rebuild issues:", rebuild.errors);
+        }
+      } catch (e) {
+        console.warn("[amendment-review] order_items rebuild crashed (non-blocking):", e);
+      }
+    }
+
     // Wave 21 audit: amendment-review applied the diff (guest_count,
     // menu_items, equipment_items) but never recomputed orders.subtotal /
     // tax_amount / total_amount. recalcInvoiceForOrder below pulls the
@@ -502,6 +532,35 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       } catch (e: any) {
         cascade.schedule.reason = e?.message || "schedule resync crashed";
         console.warn("[amendment-review] schedule resync crashed:", e);
+      }
+    }
+
+    // Equipment bookings re-sync. equipment_items is editable on the amendment
+    // path, but resyncOrderScheduleArtifacts only re-stamps the cleaning
+    // expected-count — it never reconciled equipment_bookings (quantities /
+    // booked-vs-cancelled rows / the availability window). The quote path does
+    // this via _resyncEquipmentBookings; the amendment path had drifted. Use
+    // the same shared helper so they stay symmetric. Best-effort.
+    if (Object.keys(toApply).includes("equipment_items")) {
+      try {
+        const { data: eqOrder } = await ssr
+          .from("orders")
+          .select("equipment_items, event_date")
+          .eq("id", (request as any).order_id)
+          .maybeSingle();
+        const { resyncEquipmentBookings } = await import("@/services/order/resyncEquipmentBookings");
+        const eqResult = await resyncEquipmentBookings(
+          ssr,
+          (request as any).order_id,
+          (request as any).company_id,
+          (eqOrder as any)?.equipment_items,
+          (eqOrder as any)?.event_date,
+        );
+        if (!eqResult.ok) {
+          console.warn("[amendment-review] equipment bookings resync:", eqResult.reason);
+        }
+      } catch (e: any) {
+        console.warn("[amendment-review] equipment bookings resync crashed:", e);
       }
     }
 

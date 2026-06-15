@@ -270,94 +270,20 @@ export async function propagateQuoteEditToOrder(
       JSON.stringify((linkedOrder as any).menu_items || null);
     if (menuChanged) {
       try {
-        // Soft-clear existing line items for this order then re-insert
-        // from the quote using the same shape postCreationCascade Step 0
-        // builds. NOTE: we hard-delete here - order_items has no
-        // soft-delete column on every tenant's schema and re-insert is
-        // simpler than diff. Operator would need to confirm via the
-        // modal upstream.
-        const { error: delErr } = await (supabase as any)
-          .from("order_items")
-          .delete()
-          .eq("order_id", receipt.orderId);
-        if (delErr) {
-          receipt.errors.push(`order_items_delete_failed: ${delErr.message}`);
-        } else {
-          const raw = (quote as any).menu_items;
-          const items: any[] = Array.isArray(raw)
-            ? raw
-            : typeof raw === "string"
-              ? (() => { try { const p = JSON.parse(raw); return Array.isArray(p) ? p : []; } catch { return []; } })()
-              : [];
-          const guestCount = Number((quote as any).guest_count || 0);
-
-          // PR-B (cashflow cost mapping): re-snapshot
-          // menu_items.cost_per_unit onto unit_cost when the amendment
-          // rebuilds order_items. Mirrors the postCreationCascade logic.
-          const menuItemIds = Array.from(
-            new Set(
-              (items as any[])
-                .map((it) => it.menu_item_id)
-                .filter((x): x is string => typeof x === "string" && x.length > 0),
-            ),
-          );
-          const costById = new Map<string, number>();
-          if (menuItemIds.length > 0) {
-            try {
-              const { data: menuRows } = await (supabase as any)
-                .from("menu_items")
-                .select("id, cost_per_unit")
-                .in("id", menuItemIds);
-              for (const m of (menuRows || []) as any[]) {
-                const c = Number(m?.cost_per_unit);
-                if (Number.isFinite(c) && c > 0) costById.set(m.id, c);
-              }
-            } catch (e) {
-              receipt.errors.push(`menu_cost_lookup_warn: ${(e as any)?.message || e}`);
-            }
-          }
-
-          const rows = items
-            .map((it: any) => {
-              const name = it.item_name || it.name || "";
-              if (!name) return null;
-              const mode = String(it.pricing_mode || it.pricingMode || "per_person");
-              const baseQty = Number(it.quantity || 0);
-              const qty = mode === "per_person"
-                ? (baseQty > 0 ? baseQty : guestCount)
-                : (mode === "flat" ? 1 : baseQty);
-              const unit = Number(it.unit_price ?? it.unitPrice ?? it.pricePerPerson ?? 0);
-              const lineTotal = Number(it.line_total ?? (qty * unit));
-              const menuItemId = it.menu_item_id || null;
-              const unitCost = menuItemId && costById.has(menuItemId)
-                ? costById.get(menuItemId)!
-                : null;
-              return {
-                order_id: receipt.orderId,
-                menu_item_id: menuItemId,
-                item_name: name,
-                description: it.category || it.dietary_tags?.join?.(", ") || null,
-                quantity: qty,
-                unit_price: unit,
-                unit_cost: unitCost,
-                line_total: lineTotal,
-              };
-            })
-            .filter(Boolean);
-          if (rows.length > 0) {
-            const { error: insErr } = await (supabase as any)
-              .from("order_items")
-              .insert(rows);
-            if (insErr) {
-              receipt.errors.push(`order_items_insert_failed: ${insErr.message}`);
-            } else {
-              receipt.orderItemsRebuilt = true;
-              receipt.fieldsChanged.push("menu_items");
-            }
-          } else {
-            receipt.orderItemsRebuilt = true;
-            receipt.fieldsChanged.push("menu_items");
-          }
+        // Delete + re-insert order_items from the quote's menu_items using the
+        // shared helper the amendment path also uses (kept symmetric so the two
+        // edit-cascade paths can't drift on the line-item layer).
+        const { rebuildOrderItemsFromMenu } = await import("@/services/order/rebuildOrderItems");
+        const rebuild = await rebuildOrderItemsFromMenu(
+          supabase,
+          receipt.orderId,
+          (quote as any).menu_items,
+          Number((quote as any).guest_count || 0),
+        );
+        receipt.errors.push(...rebuild.errors);
+        if (rebuild.rebuilt) {
+          receipt.orderItemsRebuilt = true;
+          receipt.fieldsChanged.push("menu_items");
         }
       } catch (e: any) {
         receipt.errors.push(`order_items_rebuild_crashed: ${e?.message || e}`);
@@ -505,83 +431,15 @@ async function _resyncEquipmentBookings(
   quote: any,
   linkedOrder: any,
 ): Promise<{ ok: boolean; reason?: string }> {
-  const eventDate = quote.event_date || linkedOrder.event_date;
-  if (!eventDate) return { ok: true, reason: "no_event_date" };
-
-  const eventTs = new Date(`${eventDate}T00:00:00`).getTime();
-  const oneDayMs = 24 * 60 * 60 * 1000;
-  const bookedFrom = new Date(eventTs - oneDayMs).toISOString();
-  const bookedUntil = new Date(eventTs + oneDayMs).toISOString();
-
-  const raw = quote.equipment_items;
-  const items: any[] = Array.isArray(raw)
-    ? raw
-    : typeof raw === "string"
-      ? (() => { try { const p = JSON.parse(raw); return Array.isArray(p) ? p : []; } catch { return []; } })()
-      : [];
-
-  const desired = new Map<string, { quantity: number }>();
-  for (const it of items) {
-    const equipmentId = it.id || it.equipment_id || null;
-    const quantity = Number(it.quantity || 0);
-    if (!equipmentId || quantity <= 0) continue;
-    desired.set(equipmentId, { quantity });
-  }
-
-  const { data: existing, error: existingErr } = await (supabase as any)
-    .from("equipment_bookings")
-    .select("id, equipment_id, quantity, status")
-    .eq("order_id", orderId);
-  if (existingErr) return { ok: false, reason: `existing_lookup_failed: ${existingErr.message}` };
-
-  const existingMap = new Map<string, any>();
-  for (const row of (existing || []) as any[]) {
-    existingMap.set(row.equipment_id, row);
-  }
-
-  // INSERT new, UPDATE quantity / window changes
-  for (const [equipmentId, want] of desired.entries()) {
-    const have = existingMap.get(equipmentId);
-    if (!have) {
-      await (supabase as any).from("equipment_bookings").insert([{
-        company_id: companyId,
-        order_id: orderId,
-        equipment_id: equipmentId,
-        quantity: want.quantity,
-        status: "booked",
-        booked_from: bookedFrom,
-        booked_until: bookedUntil,
-      }]);
-    } else if (have.quantity !== want.quantity || have.status === "cancelled") {
-      await (supabase as any)
-        .from("equipment_bookings")
-        .update({
-          quantity: want.quantity,
-          status: "booked",
-          booked_from: bookedFrom,
-          booked_until: bookedUntil,
-        })
-        .eq("id", have.id);
-    } else {
-      // Quantity unchanged but window may have moved.
-      await (supabase as any)
-        .from("equipment_bookings")
-        .update({ booked_from: bookedFrom, booked_until: bookedUntil })
-        .eq("id", have.id);
-    }
-  }
-
-  // Mark removed bookings as cancelled (don't delete - preserve history)
-  for (const [equipmentId, row] of existingMap.entries()) {
-    if (!desired.has(equipmentId) && row.status !== "cancelled") {
-      await (supabase as any)
-        .from("equipment_bookings")
-        .update({ status: "cancelled" })
-        .eq("id", row.id);
-    }
-  }
-
-  return { ok: true };
+  // Delegate to the shared helper so the quote + amendment paths stay symmetric.
+  const { resyncEquipmentBookings } = await import("../order/resyncEquipmentBookings");
+  return resyncEquipmentBookings(
+    supabase,
+    orderId,
+    companyId,
+    quote.equipment_items,
+    quote.event_date || linkedOrder.event_date,
+  );
 }
 
 /** Re-stamp collection driver_assignment.scheduled_for using the
