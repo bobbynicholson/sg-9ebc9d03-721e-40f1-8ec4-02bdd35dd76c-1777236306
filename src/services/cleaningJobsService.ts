@@ -353,14 +353,19 @@ export async function completeJob(
     try {
       const { data: invRow, error: invReadErr } = await sb
         .from("equipment")
-        .select("available_quantity")
+        .select("available_quantity, quantity")
         .eq("id", jobRow.equipment_id)
         .maybeSingle();
       if (invReadErr || !invRow) {
         // eslint-disable-next-line no-console
         console.warn("[cleaningJobsService.completeJob] inventory read failed:", invReadErr);
       } else {
-        const newAvail = Number(invRow.available_quantity || 0) + qty;
+        // Booking/dispatch does NOT decrement available_quantity (it relies on
+        // the live calculator), so adding the cleaned qty back must be clamped
+        // at the owned total — otherwise available creeps above quantity and
+        // the in-use stat (quantity - available) goes negative.
+        const owned = Number(invRow.quantity || 0);
+        const newAvail = Math.min(owned, Number(invRow.available_quantity || 0) + qty);
         const { error: bumpErr } = await sb
           .from("equipment")
           .update({ available_quantity: newAvail, updated_at: new Date().toISOString() })

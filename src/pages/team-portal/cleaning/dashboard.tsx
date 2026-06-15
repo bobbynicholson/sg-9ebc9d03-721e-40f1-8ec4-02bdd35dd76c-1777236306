@@ -125,8 +125,6 @@ function CleaningDashboardInner() {
           .update({
             condition: "good",
             available_quantity: inspectItem.quantity,
-            last_cleaned_at: new Date().toISOString(),
-            last_cleaned_by: user.id,
           } as never)
           .eq("id", inspectItem.id)
           .eq("company_id", user.company_id);

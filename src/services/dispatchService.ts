@@ -1267,7 +1267,10 @@ export const dispatchService = {
     let declineCount = 0;
     const declineReasons: string[] = [];
     for (const a of assignments || []) {
-      if ((a as any).status === "completed") {
+      // driver_assignments mirrors order status: delivered -> completed only
+      // after the auto-complete cron. Count both so earnings aren't zeroed for
+      // the delivered-but-not-yet-completed window.
+      if ((a as any).status === "completed" || (a as any).status === "delivered") {
         totalEarnings += Number((a as any).total_earnings || 0);
       }
       if ((a as any).status === "rejected") {

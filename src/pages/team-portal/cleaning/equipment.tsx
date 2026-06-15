@@ -143,7 +143,8 @@ export default function CleaningEquipmentPage() {
       if (missing > 0 || damageNotes.trim()) {
         await supabase.from("equipment_damages").insert([{
           company_id: user.company_id,
-          damage_type: missing > 0 ? "missing" : "damage",
+          equipment_id: verifyItem.id,
+          damage_type: missing > 0 ? "lost" : "damaged",
           notes: damageNotes.trim() || `${missing} missing on verification`,
           repair_cost: missing * Number(verifyItem.replacement_cost || 0),
           reported_by: user.id,

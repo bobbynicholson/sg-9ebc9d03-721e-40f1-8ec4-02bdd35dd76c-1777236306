@@ -769,7 +769,10 @@ export const driverPayService = {
         .eq("company_id", opts.companyId)
         .in("assigned_driver_id", opts.driverIds)
         .is("deleted_at", null)
-        .eq("status", "delivered")
+        // delivered orders auto-complete (status -> "completed") ~24h after
+        // delivery, so payroll must include both terminal states or a driver's
+        // distance/callout pay vanishes for every past period.
+        .in("status", ["delivered", "completed"])
         .gte("event_date", opts.range.from)
         .lte("event_date", opts.range.to)
         .then((r: any) => (r.data || []) as Array<{
@@ -1088,7 +1091,8 @@ export const driverPayService = {
       .eq("company_id", opts.companyId)
       .eq("assigned_driver_id", opts.driverId)
       .is("deleted_at", null)
-      .eq("status", "delivered")
+      // include completed too — delivered orders auto-complete ~24h later.
+      .in("status", ["delivered", "completed"])
       .gte("event_date", opts.range.from)
       .lte("event_date", opts.range.to);
     if (orderErr) {
