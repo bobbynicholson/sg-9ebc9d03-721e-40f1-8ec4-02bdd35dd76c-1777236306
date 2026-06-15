@@ -13,9 +13,11 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
-import { Plus, Search, MessageSquare, Clock, Send, ArrowLeft } from "lucide-react";
+import { Plus, Search, MessageSquare, Clock, Send, ArrowLeft, LifeBuoy, Lock } from "lucide-react";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
+import { Reveal, Stagger, StaggerItem } from "@/components/motion/Reveal";
+import { EASE, cardBase, btnPress, iconChip, Eyebrow } from "@/components/motion/marketing";
 import { supportTicketService } from "@/services/supportTicketService";
 import type { Database } from "@/integrations/supabase/types";
 
@@ -131,18 +133,19 @@ export default function SupportPage() {
     return (
       <>
         <Header />
-        <div className="flex items-center justify-center min-h-screen">
-          <Card className="w-96">
-            <CardHeader>
-              <CardTitle>Authentication Required</CardTitle>
-              <CardDescription>Please sign in to access support</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button onClick={() => router.push("/auth/login")} className="w-full">
+        <div className="flex min-h-screen items-center justify-center bg-white px-4 text-slate-900">
+          <Reveal className="w-full max-w-sm">
+            <div className={`${cardBase} p-8 text-center`}>
+              <div className={`${iconChip} mx-auto mb-5 h-14 w-14 bg-gradient-to-br from-violet-500 to-fuchsia-500`}>
+                <Lock className="h-7 w-7 text-white" />
+              </div>
+              <h1 className="text-2xl font-bold tracking-tight text-slate-900">Authentication Required</h1>
+              <p className="mt-2 text-slate-600">Please sign in to access support</p>
+              <Button onClick={() => router.push("/auth/login")} className="mt-6 h-11 w-full rounded-full">
                 Sign In
               </Button>
-            </CardContent>
-          </Card>
+            </div>
+          </Reveal>
         </div>
         <Footer />
       </>
@@ -153,12 +156,13 @@ export default function SupportPage() {
     return (
       <>
         <Header />
-        <div className="container mx-auto p-6 max-w-4xl">
+        <div className="mx-auto max-w-4xl px-4 py-10 md:py-14">
           <Head>
             <title>{selectedTicket.subject} - Support - CateringMS</title>
             <meta name="robots" content="noindex, nofollow" />
           </Head>
 
+          <Reveal>
           <Button variant="ghost" onClick={() => setSelectedTicket(null)} className="mb-4">
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Tickets
@@ -240,6 +244,7 @@ export default function SupportPage() {
               </div>
             </CardContent>
           </Card>
+          </Reveal>
         </div>
         <Footer />
       </>
@@ -249,21 +254,25 @@ export default function SupportPage() {
   return (
     <>
       <Header />
-      <div className="container mx-auto p-6 max-w-6xl">
+      <div className="mx-auto max-w-6xl px-4 py-10 md:py-14">
         <Head>
           <title>Support - CateringMS</title>
           <meta name="robots" content="noindex, nofollow" />
         </Head>
 
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-4">
+        <Reveal className="mb-8">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-slate-900">Support Center</h1>
-              <p className="text-slate-600 mt-2">Get help from our support team</p>
+              <Eyebrow icon={LifeBuoy} className="border-violet-200 bg-violet-50 text-violet-700">
+                Support Center
+              </Eyebrow>
+              <h1 className="mt-4 text-balance text-3xl font-bold tracking-tight text-slate-900 md:text-4xl">
+                Get help from our support team
+              </h1>
             </div>
             <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
               <DialogTrigger asChild>
-                <Button className="bg-gradient-to-r from-purple-600 to-pink-600">
+                <Button className="h-11 rounded-full bg-gradient-to-r from-violet-600 to-fuchsia-600 px-6 font-semibold text-white">
                   <Plus className="h-4 w-4 mr-2" />
                   New Ticket
                 </Button>
@@ -372,7 +381,7 @@ export default function SupportPage() {
             </Dialog>
           </div>
 
-          <div className="relative">
+          <div className="relative mt-6">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
             <Input
               placeholder="Search tickets..."
@@ -381,7 +390,7 @@ export default function SupportPage() {
               className="pl-10"
             />
           </div>
-        </div>
+        </Reveal>
 
         {loading ? (
           <div className="flex items-center justify-center py-12">
@@ -391,23 +400,25 @@ export default function SupportPage() {
             </div>
           </div>
         ) : filteredTickets.length === 0 ? (
-          <Card>
-            <CardContent className="flex flex-col items-center justify-center py-12">
-              <MessageSquare className="h-16 w-16 text-slate-300 mb-4" />
-              <p className="text-lg font-medium text-slate-900 mb-2">No support tickets yet</p>
-              <p className="text-slate-600 mb-4">Create your first ticket to get help from our team</p>
-              <Button onClick={() => setCreateDialogOpen(true)}>
+          <Reveal>
+            <div className={`${cardBase} flex flex-col items-center justify-center p-12 text-center`}>
+              <div className={`${iconChip} mb-5 h-16 w-16 bg-gradient-to-br from-violet-100 to-fuchsia-100`}>
+                <MessageSquare className="h-8 w-8 text-violet-600" />
+              </div>
+              <p className="mb-2 text-lg font-semibold text-slate-900">No support tickets yet</p>
+              <p className="mb-5 text-slate-600">Create your first ticket to get help from our team</p>
+              <Button onClick={() => setCreateDialogOpen(true)} className="h-11 rounded-full px-6">
                 <Plus className="h-4 w-4 mr-2" />
                 Create Ticket
               </Button>
-            </CardContent>
-          </Card>
+            </div>
+          </Reveal>
         ) : (
-          <div className="grid gap-4">
+          <Stagger className="grid gap-4" gap={0.05}>
             {filteredTickets.map((ticket) => (
-              <Card
-                key={ticket.id}
-                className="cursor-pointer hover:shadow-md transition-shadow"
+              <StaggerItem key={ticket.id}>
+              <div
+                className={`${cardBase} cursor-pointer`}
                 onClick={() => handleSelectTicket(ticket)}
               >
                 <CardContent className="p-6">
@@ -442,9 +453,10 @@ export default function SupportPage() {
                     </div>
                   </div>
                 </CardContent>
-              </Card>
+              </div>
+              </StaggerItem>
             ))}
-          </div>
+          </Stagger>
         )}
       </div>
       <Footer />

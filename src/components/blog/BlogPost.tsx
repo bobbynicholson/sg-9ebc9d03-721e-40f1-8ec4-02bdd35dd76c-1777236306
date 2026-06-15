@@ -8,6 +8,8 @@ import {
   ChevronRight, BookOpen, Share2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Reveal } from "@/components/motion/Reveal";
+import { EASE, btnPress } from "@/components/motion/marketing";
 
 interface BlogPostProps {
   title: string;
@@ -175,7 +177,7 @@ export function BlogPost({
                     <a
                       key={i}
                       href={path}
-                      className={cn("font-semibold underline hover:no-underline transition-colors", theme.accent)}
+                      className={cn(`font-semibold underline transition-[text-decoration-color,color] duration-200 ${EASE} hover:no-underline`, theme.accent)}
                     >
                       {part}
                     </a>
@@ -210,14 +212,14 @@ export function BlogPost({
       {/* Reading Progress Bar */}
       <div className="fixed top-0 left-0 w-full h-1 bg-slate-200 z-50">
         <div
-          className={cn("h-full bg-gradient-to-r transition-all duration-300", theme.gradient)}
+          className={cn("h-full bg-gradient-to-r transition-[width] duration-150 ease-out", theme.gradient)}
           style={{ width: `${readingProgress}%` }}
         />
       </div>
 
       {/* Hero Section */}
       <div className={cn("bg-gradient-to-r py-20", theme.gradient)}>
-        <div className="max-w-4xl mx-auto px-6">
+        <Reveal className="max-w-4xl mx-auto px-6">
           <Button
             variant="ghost"
             onClick={() => router.push("/blog")}
@@ -257,7 +259,7 @@ export function BlogPost({
               <span>{readingTime} min read</span>
             </div>
           </div>
-        </div>
+        </Reveal>
       </div>
 
       <div className="max-w-7xl mx-auto px-6 py-12">
@@ -275,7 +277,7 @@ export function BlogPost({
                     key={item.id}
                     onClick={() => scrollToSection(item.id)}
                     className={cn(
-                      "block w-full text-left text-sm transition-colors py-2 px-3 rounded-lg",
+                      `block w-full rounded-lg px-3 py-2 text-left text-sm transition-[background-color,color] duration-200 ${EASE} ${btnPress}`,
                       item.level === 3 && "pl-6 text-slate-600",
                       activeSection === item.id
                         ? cn("font-semibold", theme.accent, theme.badge)
@@ -298,7 +300,7 @@ export function BlogPost({
                 </div>
                 <div className="w-full bg-slate-200 rounded-full h-2">
                   <div
-                    className={cn("h-2 rounded-full bg-gradient-to-r transition-all", theme.gradient)}
+                    className={cn("h-2 rounded-full bg-gradient-to-r transition-[width] duration-150 ease-out", theme.gradient)}
                     style={{ width: `${readingProgress}%` }}
                   />
                 </div>
@@ -337,7 +339,7 @@ export function BlogPost({
               )}
 
               {/* Related Articles CTA */}
-              <div className={cn("mt-12 p-8 rounded-xl bg-gradient-to-r text-white", theme.gradient)}>
+              <Reveal className={cn("mt-12 p-8 rounded-xl bg-gradient-to-r text-white", theme.gradient)}>
                 <h3 className="text-2xl font-bold mb-4">Ready to Grow Your Catering Business?</h3>
                 <p className="text-white/90 mb-6">
                   Explore our platform features and see how we can help you scale.
@@ -357,7 +359,7 @@ export function BlogPost({
                     View Pricing
                   </Button>
                 </div>
-              </div>
+              </Reveal>
             </Card>
           </div>
         </div>

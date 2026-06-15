@@ -5,36 +5,8 @@ import { Users, FileText, Calendar, DollarSign, ChefHat, Package, Truck, Trendin
 import { Footer } from "@/components/Footer";
 import { Header } from "@/components/Header";
 import { Reveal, Stagger, StaggerItem } from "@/components/motion/Reveal";
+import { EASE, cardBase, btnPress, iconChip, Eyebrow } from "@/components/motion/marketing";
 import Head from "next/head";
-
-// Shared visual language for the refined/premium marketing pass.
-// Specific transition properties + the strong ease-out curve (never
-// `transition-all`); subtle hover-lift; `active:scale` press feedback so
-// pressable elements feel like they heard the user.
-const EASE = "ease-[cubic-bezier(0.23,1,0.32,1)]";
-const cardBase = `group h-full rounded-2xl border border-slate-200 bg-white shadow-sm transition-[transform,box-shadow,border-color] duration-300 ${EASE} hover:-translate-y-1 hover:border-slate-300 hover:shadow-xl`;
-const btnPress = `transition-[transform,box-shadow,background-color,border-color,color] duration-150 ${EASE} active:scale-[0.97]`;
-const iconChip = `inline-flex items-center justify-center rounded-xl shadow-sm transition-transform duration-300 ${EASE} group-hover:scale-105`;
-
-// Reusable eyebrow label above each section heading.
-function Eyebrow({
-  icon: Icon,
-  children,
-  className = "border-slate-200 bg-white text-slate-600",
-}: {
-  icon: React.ComponentType<{ className?: string }>;
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return (
-    <span
-      className={`inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-sm font-medium shadow-sm ${className}`}
-    >
-      <Icon className="h-4 w-4" />
-      {children}
-    </span>
-  );
-}
 
 export default function HomePage() {
   const problems = [

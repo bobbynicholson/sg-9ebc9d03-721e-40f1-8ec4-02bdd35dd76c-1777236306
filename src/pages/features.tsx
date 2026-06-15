@@ -1,11 +1,11 @@
 import Link from "next/link";
 import { useState } from "react";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Users, FileText, Calendar, DollarSign, ChefHat, Package, TrendingUp, Mail, Zap, ArrowRight, BarChart3, Globe, MapPin, Bell, Star, Shield, CheckCircle, Sparkles, ShoppingCart, Clock, RefreshCw, Target, Repeat, CreditCard, Settings } from "lucide-react";
 import { Footer } from "@/components/Footer";
 import { Header } from "@/components/Header";
+import { Reveal, Stagger, StaggerItem } from "@/components/motion/Reveal";
+import { EASE, cardBase, btnPress, iconChip, Eyebrow } from "@/components/motion/marketing";
 import Head from "next/head";
 
 export default function FeaturesPage() {
@@ -315,7 +315,7 @@ export default function FeaturesPage() {
         <meta name="description" content="Explore 15 integrated systems working together to automate operations, connect your team, and maximize profitability. Complete feature overview of CateringMS catering management platform." />
         <meta name="keywords" content="catering software features, GPS tracking, inventory management, kitchen management, email automation, payment processing, multi-region support" />
         <link rel="canonical" href="https://cateringms.com/features" />
-        
+
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(productSchema) }}
@@ -328,334 +328,345 @@ export default function FeaturesPage() {
 
       <Header />
 
-      <div className="min-h-screen bg-white">
-        <div className="relative overflow-hidden bg-gradient-to-br from-purple-50 via-white to-pink-50">
-          <div className="absolute inset-0 bg-grid-slate-100 [mask-image:linear-gradient(0deg,white,rgba(255,255,255,0.5))] bg-[size:40px_40px]" />
-        
-          <div className="relative container mx-auto px-4 py-16 md:py-24 max-w-7xl">
-            <div className="text-center max-w-4xl mx-auto">
-              <Badge className="mb-6 px-4 py-2 bg-purple-100 text-purple-700 border-purple-200 text-sm shadow-sm">
-                <Sparkles className="w-4 h-4 mr-2 inline" />
-                Complete Platform Overview
-              </Badge>
-              <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold mb-6 bg-gradient-to-r from-purple-600 via-pink-600 to-rose-600 bg-clip-text text-transparent leading-tight">
-                Every Feature You Need to Run a Profitable Catering Business
-              </h1>
-              <p className="text-xl md:text-2xl text-slate-700 mb-8 leading-relaxed">
-                15 integrated systems working seamlessly together to automate operations, connect your team, and maximize profitability.
-              </p>
-              {/* Mobile-Optimized Hero CTAs */}
-              <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
+      <div className="min-h-screen bg-white text-slate-900">
+        {/* ===================== HERO ===================== */}
+        <section className="relative overflow-hidden border-b border-slate-100 bg-white">
+          {/* Soft brand glow + faint grid, masked so it fades into the page. */}
+          <div className="pointer-events-none absolute inset-x-0 -top-40 h-[560px] bg-[radial-gradient(60%_60%_at_50%_0%,rgba(124,58,237,0.12),transparent)]" />
+          <div className="pointer-events-none absolute inset-0 [background-image:linear-gradient(to_right,rgba(15,23,42,0.04)_1px,transparent_1px),linear-gradient(to_bottom,rgba(15,23,42,0.04)_1px,transparent_1px)] [background-size:46px_46px] [mask-image:radial-gradient(70%_55%_at_50%_0%,black,transparent)]" />
+
+          <div className="relative mx-auto max-w-7xl px-4 py-20 md:py-28">
+            <Stagger className="mx-auto max-w-3xl text-center" gap={0.07}>
+              <StaggerItem className="mb-6 flex justify-center">
+                <Eyebrow icon={Sparkles} className="border-violet-200 bg-violet-50 text-violet-700">
+                  Complete Platform Overview
+                </Eyebrow>
+              </StaggerItem>
+
+              <StaggerItem>
+                <h1 className="text-balance text-4xl font-bold tracking-tight text-slate-900 sm:text-5xl lg:text-6xl">
+                  Every feature you need to run a{" "}
+                  <span className="bg-gradient-to-r from-violet-600 via-fuchsia-600 to-rose-500 bg-clip-text text-transparent">
+                    profitable catering business
+                  </span>
+                </h1>
+              </StaggerItem>
+
+              <StaggerItem>
+                <p className="mx-auto mt-6 max-w-2xl text-balance text-lg leading-relaxed text-slate-600 sm:text-xl">
+                  15 integrated systems working seamlessly together to automate operations, connect your team, and maximize profitability.
+                </p>
+              </StaggerItem>
+
+              <StaggerItem className="mx-auto mt-8 flex max-w-md flex-col items-stretch justify-center gap-3 sm:max-w-none sm:flex-row sm:items-center">
                 <Link href="/company-signup" className="w-full sm:w-auto">
-                  <Button 
-                    size="lg" 
-                    className="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white h-14 px-8 text-base sm:text-lg hover:shadow-2xl transition-all hover:scale-105"
+                  <Button
+                    size="lg"
+                    className={`h-12 w-full rounded-full bg-gradient-to-b from-violet-600 to-violet-700 px-8 text-base font-semibold text-white shadow-lg shadow-violet-600/20 hover:from-violet-600 hover:to-violet-800 hover:shadow-xl hover:shadow-violet-600/30 sm:w-auto ${btnPress}`}
                   >
                     Start Free Trial
-                    <ArrowRight className="w-5 h-5 ml-2" />
+                    <ArrowRight className="h-5 w-5 transition-transform duration-200 group-hover:translate-x-0.5" />
                   </Button>
                 </Link>
                 <Link href="/pricing" className="w-full sm:w-auto">
-                  <Button 
-                    size="lg" 
-                    variant="outline" 
-                    className="w-full h-14 px-8 text-base sm:text-lg border-2 border-purple-200 hover:border-purple-400 hover:bg-purple-50"
+                  <Button
+                    size="lg"
+                    variant="outline"
+                    className={`h-12 w-full rounded-full border-slate-300 bg-white px-8 text-base font-semibold text-slate-700 hover:border-slate-400 hover:bg-slate-50 sm:w-auto ${btnPress}`}
                   >
                     View Pricing
                   </Button>
                 </Link>
-              </div>
-            </div>
+              </StaggerItem>
+            </Stagger>
           </div>
-        </div>
+        </section>
 
-        <div className="container mx-auto px-4 py-16 md:py-24 max-w-7xl">
-          <div className="text-center max-w-3xl mx-auto mb-16">
-            <Badge className="mb-4 px-4 py-2 bg-green-100 text-green-700 border-green-200">
-              <CheckCircle className="w-4 h-4 mr-2 inline" />
+        {/* ===================== CORE FEATURES ===================== */}
+        <section className="mx-auto max-w-7xl px-4 py-20 md:py-28">
+          <Reveal className="mx-auto mb-16 max-w-3xl text-center">
+            <Eyebrow icon={CheckCircle} className="border-emerald-200 bg-emerald-50 text-emerald-600">
               All Core Systems Operational
-            </Badge>
-            <h2 className="text-3xl md:text-5xl font-bold text-slate-900 mb-6">
-              Click Each Card to Discover How It Works
+            </Eyebrow>
+            <h2 className="mt-5 text-balance text-3xl font-bold tracking-tight text-slate-900 md:text-5xl">
+              Click each card to discover how it works
             </h2>
-            <p className="text-xl text-slate-600 mb-4">
+            <p className="mt-4 text-balance text-lg text-slate-600">
               Hover or tap on any feature to see detailed benefits and real-world impact
             </p>
-            <p className="text-base text-slate-500">
-              Read more about <Link href="/blog/catering-management-software-benefits" className="text-purple-600 hover:text-purple-700 underline">software benefits</Link> and <Link href="/blog/automate-catering-operations" className="text-purple-600 hover:text-purple-700 underline">automation strategies</Link> on our blog.
+            <p className="mt-3 text-base text-slate-500">
+              Read more about <Link href="/blog/catering-management-software-benefits" className="font-medium text-violet-600 underline-offset-2 hover:underline">software benefits</Link> and <Link href="/blog/automate-catering-operations" className="font-medium text-violet-600 underline-offset-2 hover:underline">automation strategies</Link> on our blog.
             </p>
-          </div>
+          </Reveal>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 mb-16">
+          <Stagger className="mb-16 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {coreFeatures.map((feature, index) => (
-              <div
-                key={index}
-                className="relative h-[32rem] cursor-pointer perspective-1000"
-                onMouseEnter={() => setFlippedCard(index)}
-                onMouseLeave={() => setFlippedCard(null)}
-                onClick={() => setFlippedCard(flippedCard === index ? null : index)}
-              >
+              <StaggerItem key={index}>
                 <div
-                  className={`relative w-full h-full transition-transform duration-500 transform-style-3d ${
-                    flippedCard === index ? "rotate-y-180" : ""
-                  }`}
-                  style={{
-                    transformStyle: "preserve-3d",
-                    transform: flippedCard === index ? "rotateY(180deg)" : "rotateY(0deg)"
-                  }}
+                  className="relative h-[32rem] cursor-pointer perspective-1000"
+                  onMouseEnter={() => setFlippedCard(index)}
+                  onMouseLeave={() => setFlippedCard(null)}
+                  onClick={() => setFlippedCard(flippedCard === index ? null : index)}
                 >
-                  <Card className="absolute w-full h-full border-0 shadow-xl backface-hidden overflow-hidden">
-                    <CardContent className="h-full flex flex-col justify-between p-8">
-                      <div>
-                        <div className={`inline-flex p-4 bg-gradient-to-br ${feature.gradient} rounded-2xl shadow-lg mb-6`}>
-                          <feature.icon className="w-8 h-8 text-white" />
-                        </div>
-                        <h3 className="text-2xl font-bold text-slate-900 mb-3">{feature.title}</h3>
-                        <p className="text-slate-600 leading-relaxed">{feature.shortDesc}</p>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <Badge className={`bg-gradient-to-r ${feature.gradient} text-white border-0`}>
-                          {feature.impact}
-                        </Badge>
-                        <ArrowRight className="w-5 h-5 text-slate-400" />
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card
-                    className="absolute w-full h-full border-0 shadow-xl backface-hidden overflow-hidden"
+                  <div
+                    className="relative h-full w-full transform-style-3d"
                     style={{
-                      transform: "rotateY(180deg)",
-                      backfaceVisibility: "hidden"
+                      transformStyle: "preserve-3d",
+                      transition: "transform 0.5s cubic-bezier(0.23,1,0.32,1)",
+                      transform: flippedCard === index ? "rotateY(180deg)" : "rotateY(0deg)"
                     }}
                   >
-                    <CardContent className={`h-full flex flex-col justify-between p-8 bg-gradient-to-br ${feature.gradient} text-white overflow-y-auto`}>
+                    {/* Front */}
+                    <div
+                      className="absolute flex h-full w-full flex-col justify-between rounded-2xl border border-slate-200 bg-white p-8 shadow-sm backface-hidden"
+                      style={{ backfaceVisibility: "hidden" }}
+                    >
                       <div>
-                        <h3 className="text-2xl font-bold mb-4">{feature.title}</h3>
+                        <div className={`${iconChip} mb-6 h-16 w-16 bg-gradient-to-br ${feature.gradient}`}>
+                          <feature.icon className="h-8 w-8 text-white" />
+                        </div>
+                        <h3 className="mb-3 text-2xl font-semibold tracking-tight text-slate-900">{feature.title}</h3>
+                        <p className="leading-relaxed text-slate-600">{feature.shortDesc}</p>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className={`inline-flex items-center rounded-full bg-gradient-to-r ${feature.gradient} px-3 py-1.5 text-sm font-medium text-white`}>
+                          {feature.impact}
+                        </span>
+                        <ArrowRight className="h-5 w-5 text-slate-400" />
+                      </div>
+                    </div>
+
+                    {/* Back */}
+                    <div
+                      className={`absolute flex h-full w-full flex-col justify-between overflow-y-auto rounded-2xl bg-gradient-to-br p-8 text-white backface-hidden ${feature.gradient}`}
+                      style={{
+                        transform: "rotateY(180deg)",
+                        backfaceVisibility: "hidden"
+                      }}
+                    >
+                      <div>
+                        <h3 className="mb-4 text-2xl font-semibold tracking-tight">{feature.title}</h3>
                         <p className="mb-6 leading-relaxed opacity-95">{feature.fullDesc}</p>
-                        <ul className="space-y-3 mb-4">
+                        <ul className="mb-4 space-y-3">
                           {feature.benefits.map((benefit, i) => (
                             <li key={i} className="flex items-start gap-2">
-                              <CheckCircle className="w-5 h-5 shrink-0 mt-0.5" />
+                              <CheckCircle className="mt-0.5 h-5 w-5 shrink-0" />
                               <span className="text-sm leading-relaxed">{benefit}</span>
                             </li>
                           ))}
                         </ul>
                       </div>
                       <div className="space-y-3">
-                        <Badge className="bg-white/20 text-white border-white/30 backdrop-blur-sm w-full justify-center">
+                        <span className="flex w-full items-center justify-center rounded-full border border-white/30 bg-white/20 px-3 py-1.5 text-sm font-medium text-white backdrop-blur-sm">
                           Impact: {feature.impact}
-                        </Badge>
+                        </span>
                         {feature.link && (
                           <Link href={feature.link}>
-                            <Button 
-                              className="w-full bg-white/90 hover:bg-white text-slate-900 font-semibold shadow-lg hover:shadow-xl transition-all hover:scale-105"
+                            <Button
+                              className={`w-full bg-white/90 font-semibold text-slate-900 shadow-lg hover:bg-white hover:shadow-xl ${btnPress}`}
                               size="lg"
                             >
                               Learn More
-                              <ArrowRight className="w-4 h-4 ml-2" />
+                              <ArrowRight className="ml-2 h-4 w-4" />
                             </Button>
                           </Link>
                         )}
                       </div>
-                    </CardContent>
-                  </Card>
+                    </div>
+                  </div>
                 </div>
-              </div>
+              </StaggerItem>
             ))}
-          </div>
+          </Stagger>
 
-          {/* Mobile-Optimized Mid-Page CTA */}
-          <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-3xl p-6 sm:p-8 md:p-12 border-2 border-purple-100 text-center mb-16">
-            <h3 className="text-2xl md:text-4xl font-bold text-slate-900 mb-4">
-              Ready to Transform Your Catering Business?
+          {/* Mid-Page CTA */}
+          <Reveal className="rounded-3xl border border-violet-100 bg-gradient-to-br from-violet-50 to-fuchsia-50 p-8 text-center md:p-12">
+            <h3 className="text-2xl font-bold tracking-tight text-slate-900 md:text-4xl">
+              Ready to transform your catering business?
             </h3>
-            <p className="text-base sm:text-lg text-slate-600 mb-4 max-w-2xl mx-auto">
+            <p className="mx-auto mt-4 max-w-2xl text-base text-slate-600 sm:text-lg">
               Join forward-thinking catering businesses across South Africa who are automating operations and maximizing profitability.
             </p>
-            <p className="text-sm sm:text-base text-slate-500 mb-8">
-              Explore our <Link href="/pricing" className="text-purple-600 hover:text-purple-700 underline font-medium">pricing plans</Link> or read success stories on our <Link href="/blog" className="text-purple-600 hover:text-purple-700 underline font-medium">blog</Link>.
+            <p className="mt-3 text-sm text-slate-500 sm:text-base">
+              Explore our <Link href="/pricing" className="font-medium text-violet-600 underline-offset-2 hover:underline">pricing plans</Link> or read success stories on our <Link href="/blog" className="font-medium text-violet-600 underline-offset-2 hover:underline">blog</Link>.
             </p>
-            
-            {/* Mobile-Optimized CTAs */}
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+
+            <div className="mx-auto mt-8 flex max-w-md flex-col gap-3 sm:max-w-none sm:flex-row sm:justify-center">
               <Link href="/company-signup" className="w-full sm:w-auto">
-                <Button 
-                  size="lg" 
-                  className="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white h-14 px-8 sm:px-10 text-base sm:text-lg hover:shadow-2xl transition-all hover:scale-105"
+                <Button
+                  size="lg"
+                  className={`h-12 w-full rounded-full bg-gradient-to-b from-violet-600 to-violet-700 px-9 text-base font-semibold text-white shadow-lg shadow-violet-600/20 hover:from-violet-600 hover:to-violet-800 hover:shadow-xl hover:shadow-violet-600/30 sm:w-auto ${btnPress}`}
                 >
                   Start Your Free Trial Now
-                  <ArrowRight className="w-5 h-5 ml-2" />
+                  <ArrowRight className="h-5 w-5 transition-transform duration-200 group-hover:translate-x-0.5" />
                 </Button>
               </Link>
               <Link href="/pricing" className="w-full sm:w-auto">
-                <Button 
-                  size="lg" 
-                  variant="outline" 
-                  className="w-full h-14 px-8 sm:px-10 text-base sm:text-lg border-2 border-purple-300 hover:bg-purple-50"
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className={`h-12 w-full rounded-full border-slate-300 bg-white px-9 text-base font-semibold text-slate-700 hover:border-slate-400 hover:bg-slate-50 sm:w-auto ${btnPress}`}
                 >
                   See Pricing Plans
                 </Button>
               </Link>
             </div>
-            <p className="text-xs sm:text-sm text-slate-500 mt-6">
-              No credit card required • Cancel anytime • Setup in under 3 hours
+            <p className="mt-6 text-xs text-slate-500 sm:text-sm">
+              No credit card required · Cancel anytime · Setup in under 3 hours
             </p>
-          </div>
+          </Reveal>
+        </section>
 
-          <div className="mb-16">
-            <div className="text-center mb-12">
-              <Badge className="mb-4 px-4 py-2 bg-blue-100 text-blue-700 border-blue-200">
-                <Zap className="w-4 h-4 mr-2 inline" />
+        {/* ===================== ADDITIONAL FEATURES ===================== */}
+        <section className="bg-slate-50 py-20 md:py-28">
+          <div className="mx-auto max-w-7xl px-4">
+            <Reveal className="mb-16 text-center">
+              <Eyebrow icon={Zap} className="border-blue-200 bg-blue-50 text-blue-600">
                 Even More Powerful Features
-              </Badge>
-              <h2 className="text-3xl md:text-5xl font-bold text-slate-900 mb-4">
-                Additional Tools Included
+              </Eyebrow>
+              <h2 className="mt-5 text-balance text-3xl font-bold tracking-tight text-slate-900 md:text-5xl">
+                Additional tools included
               </h2>
-              <p className="text-xl text-slate-600">
+              <p className="mt-4 text-lg text-slate-600">
                 Everything you need, nothing you don't
               </p>
-            </div>
+            </Reveal>
 
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <Stagger className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
               {additionalFeatures.map((feature, index) => (
-                <Card key={index} className="border-2 border-slate-200 hover:border-purple-300 hover:shadow-xl transition-all group">
-                  <CardContent className="pt-6 pb-6">
+                <StaggerItem key={index}>
+                  <div className={`${cardBase} p-7`}>
                     <div className="flex items-start gap-4">
-                      <div className="p-3 bg-gradient-to-br from-purple-100 to-pink-100 rounded-xl group-hover:scale-110 transition-transform">
-                        <feature.icon className="w-6 h-6 text-purple-600" />
+                      <div className={`${iconChip} h-12 w-12 shrink-0 bg-gradient-to-br from-violet-100 to-fuchsia-100`}>
+                        <feature.icon className="h-6 w-6 text-violet-600" />
                       </div>
                       <div>
-                        <h3 className="text-lg font-bold text-slate-900 mb-2">{feature.title}</h3>
-                        <p className="text-slate-600 text-sm">{feature.description}</p>
+                        <h3 className="mb-2 text-lg font-semibold text-slate-900">{feature.title}</h3>
+                        <p className="text-sm text-slate-600">{feature.description}</p>
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
+                  </div>
+                </StaggerItem>
               ))}
-            </div>
+            </Stagger>
           </div>
+        </section>
 
-          {/* Mobile-Optimized Bottom CTA Section */}
-          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-900 p-6 sm:p-8 md:p-12 text-center">
-            <div className="absolute inset-0 bg-grid-white/5 [mask-image:linear-gradient(0deg,rgba(255,255,255,0.1),rgba(255,255,255,0.05))] bg-[size:40px_40px]" />
-            <div className="relative">
-              <h2 className="text-2xl sm:text-3xl md:text-5xl font-bold text-white mb-6">
-                Everything Works Together Seamlessly
+        {/* ===================== SEAMLESS / CONNECTED (dark) ===================== */}
+        <section className="relative overflow-hidden bg-slate-950 py-20 md:py-28">
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(50%_50%_at_50%_0%,rgba(124,58,237,0.18),transparent)]" />
+          <div className="relative mx-auto max-w-6xl px-4">
+            <Reveal className="mx-auto max-w-3xl text-center">
+              <h2 className="text-balance text-2xl font-bold tracking-tight text-white sm:text-3xl md:text-5xl">
+                Everything works together seamlessly
               </h2>
-              <p className="text-base sm:text-xl text-slate-300 mb-4 max-w-3xl mx-auto">
-                No more juggling 10 different tools. One platform. One login. Everything connected. 
+              <p className="mx-auto mt-4 max-w-3xl text-balance text-base text-slate-300 sm:text-xl">
+                No more juggling 10 different tools. One platform. One login. Everything connected.
                 Your entire operation flows from lead to delivery to follow-up automatically.
               </p>
-              <p className="text-sm sm:text-base text-purple-200 mb-8">
-                Learn about <Link href="/blog/gps-tracking-catering-delivery" className="text-white hover:text-purple-100 underline">GPS tracking benefits</Link> and <Link href="/blog/inventory-management-catering" className="text-white hover:text-purple-100 underline">inventory best practices</Link>.
+              <p className="mt-3 text-sm text-violet-200 sm:text-base">
+                Learn about <Link href="/blog/gps-tracking-catering-delivery" className="font-medium text-white underline-offset-2 hover:underline">GPS tracking benefits</Link> and <Link href="/blog/inventory-management-catering" className="font-medium text-white underline-offset-2 hover:underline">inventory best practices</Link>.
               </p>
-              
-              {/* Mobile-Optimized CTAs */}
-              <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
+
+              <div className="mx-auto mt-8 flex max-w-md flex-col gap-3 sm:max-w-none sm:flex-row sm:justify-center">
                 <Link href="/company-signup" className="w-full sm:w-auto">
-                  <Button 
-                    size="lg" 
-                    className="w-full bg-white text-purple-600 hover:bg-purple-50 h-14 px-8 sm:px-10 text-base sm:text-lg shadow-2xl hover:scale-105 transition-all"
+                  <Button
+                    size="lg"
+                    className={`h-12 w-full rounded-full bg-white px-8 text-base font-semibold text-slate-900 shadow-xl hover:bg-slate-100 sm:w-auto ${btnPress}`}
                   >
                     Get Started Free
-                    <ArrowRight className="w-5 h-5 ml-2" />
+                    <ArrowRight className="h-5 w-5 transition-transform duration-200 group-hover:translate-x-0.5" />
                   </Button>
                 </Link>
                 <Link href="/contact" className="w-full sm:w-auto">
-                  <Button 
-                    size="lg" 
-                    variant="outline" 
-                    className="w-full border-2 border-white text-white hover:bg-white/10 h-14 px-8 sm:px-10 text-base sm:text-lg"
+                  <Button
+                    size="lg"
+                    variant="outline"
+                    className={`h-12 w-full rounded-full border-white/60 bg-transparent px-8 text-base font-semibold text-white hover:border-white hover:bg-white/10 sm:w-auto ${btnPress}`}
                   >
                     Schedule a Demo
                   </Button>
                 </Link>
               </div>
-              
-              {/* Mobile-Optimized Feature Pills */}
-              <div className="flex flex-wrap justify-center gap-3 sm:gap-6 text-purple-200 text-xs sm:text-sm">
-                <div className="flex items-center gap-2">
-                  <CheckCircle className="w-4 h-4 shrink-0" />
-                  <span>15 integrated systems</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <CheckCircle className="w-4 h-4 shrink-0" />
-                  <span>Mobile-optimized</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <CheckCircle className="w-4 h-4 shrink-0" />
-                  <span>Unlimited users</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <CheckCircle className="w-4 h-4 shrink-0" />
-                  <span>24/7 support</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+            </Reveal>
 
-        {/* Mobile-Optimized Final CTA Section */}
-        <div className="bg-slate-50 py-16 md:py-24">
-          <div className="container mx-auto px-4 max-w-6xl">
-            <div className="text-center max-w-3xl mx-auto mb-12">
-              <Badge className="mb-4 px-4 py-2 bg-purple-100 text-purple-700 border-purple-200">
-                <TrendingUp className="w-4 h-4 mr-2 inline" />
-                Real Results
-              </Badge>
-              <h2 className="text-3xl md:text-5xl font-bold text-slate-900 mb-6">
-                The Impact on Your Business
-              </h2>
-              <p className="text-base text-slate-600">
-                See how our platform helps with <Link href="/blog/improve-catering-profit-margins" className="text-purple-600 hover:text-purple-700 underline">improving margins</Link> and <Link href="/blog/scale-catering-business" className="text-purple-600 hover:text-purple-700 underline">scaling your business</Link>.
-              </p>
-            </div>
-
-            <div className="grid md:grid-cols-4 gap-6 mb-12">
+            <Stagger className="mt-10 flex flex-wrap justify-center gap-3" gap={0.05}>
               {[
-                { value: "12+", label: "Hours Saved Weekly", icon: Clock },
-                { value: "50-55%", label: "Fewer Admin Calls", icon: Bell },
-                { value: "10-16%", label: "Margin Increase", icon: TrendingUp },
-                { value: "1.5-2x", label: "Repeat Bookings", icon: RefreshCw }
-              ].map((stat, index) => (
-                <Card key={index} className="border-0 shadow-lg text-center">
-                  <CardContent className="pt-8 pb-8">
-                    <div className="flex justify-center mb-4">
-                      <div className="p-4 bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl">
-                        <stat.icon className="w-8 h-8 text-white" />
-                      </div>
-                    </div>
-                    <div className="text-4xl font-bold text-slate-900 mb-2">{stat.value}</div>
-                    <div className="text-slate-600">{stat.label}</div>
-                  </CardContent>
-                </Card>
+                "15 integrated systems",
+                "Mobile-optimized",
+                "Unlimited users",
+                "24/7 support"
+              ].map((item) => (
+                <StaggerItem key={item}>
+                  <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-sm text-slate-200 backdrop-blur-sm">
+                    <CheckCircle className="h-4 w-4 shrink-0 text-violet-300" />
+                    <span>{item}</span>
+                  </div>
+                </StaggerItem>
               ))}
-            </div>
+            </Stagger>
+          </div>
+        </section>
 
-            <Card className="border-0 shadow-2xl bg-gradient-to-r from-purple-600 to-pink-600 text-white">
-              <CardContent className="py-8 sm:py-12 px-6 sm:px-8 text-center">
-                <h3 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-6">
-                  Stop Wasting Time. Start Growing Today.
+        {/* ===================== IMPACT / STATS ===================== */}
+        <section className="bg-slate-50 py-20 md:py-28">
+          <div className="mx-auto max-w-6xl px-4">
+            <Reveal className="mx-auto mb-12 max-w-3xl text-center">
+              <Eyebrow icon={TrendingUp} className="border-emerald-200 bg-emerald-50 text-emerald-600">
+                Real Results
+              </Eyebrow>
+              <h2 className="mt-5 text-balance text-3xl font-bold tracking-tight text-slate-900 md:text-5xl">
+                The impact on your business
+              </h2>
+              <p className="mt-4 text-base text-slate-600">
+                See how our platform helps with <Link href="/blog/improve-catering-profit-margins" className="font-medium text-violet-600 underline-offset-2 hover:underline">improving margins</Link> and <Link href="/blog/scale-catering-business" className="font-medium text-violet-600 underline-offset-2 hover:underline">scaling your business</Link>.
+              </p>
+            </Reveal>
+
+            <Stagger className="mb-12 grid grid-cols-2 gap-4 md:grid-cols-4" gap={0.06}>
+              {[
+                { value: "12+", label: "Hours Saved Weekly", icon: Clock, color: "from-blue-500 to-cyan-500" },
+                { value: "50-55%", label: "Fewer Admin Calls", icon: Bell, color: "from-purple-500 to-pink-500" },
+                { value: "10-16%", label: "Margin Increase", icon: TrendingUp, color: "from-green-500 to-emerald-500" },
+                { value: "1.5-2x", label: "Repeat Bookings", icon: RefreshCw, color: "from-orange-500 to-amber-500" }
+              ].map((stat, index) => (
+                <StaggerItem key={index}>
+                  <div className={`${cardBase} flex flex-col items-center p-6 text-center`}>
+                    <div className={`${iconChip} mb-3 h-12 w-12 bg-gradient-to-br ${stat.color}`}>
+                      <stat.icon className="h-6 w-6 text-white" />
+                    </div>
+                    <div className="text-3xl font-bold tracking-tight text-slate-900 md:text-4xl">{stat.value}</div>
+                    <div className="mt-1 text-sm text-slate-600">{stat.label}</div>
+                  </div>
+                </StaggerItem>
+              ))}
+            </Stagger>
+
+            <Reveal className="relative mx-auto overflow-hidden rounded-3xl bg-gradient-to-br from-violet-600 via-fuchsia-600 to-rose-500 px-6 py-12 text-center shadow-2xl shadow-violet-600/20 sm:px-8 md:py-16">
+              <div className="pointer-events-none absolute inset-0 [background-image:linear-gradient(to_right,rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.08)_1px,transparent_1px)] [background-size:40px_40px] [mask-image:radial-gradient(70%_70%_at_50%_50%,black,transparent)]" />
+              <div className="relative mx-auto max-w-3xl">
+                <h3 className="text-balance text-2xl font-bold tracking-tight text-white sm:text-3xl md:text-4xl">
+                  Stop wasting time. Start growing today.
                 </h3>
-                <p className="text-base sm:text-xl text-purple-100 mb-8 max-w-2xl mx-auto">
+                <p className="mx-auto mt-6 max-w-2xl text-balance text-base text-violet-50 sm:text-xl">
                   Join the catering revolution. Build a profitable, scalable business that runs smoothly without constant manual intervention.
                 </p>
-                
-                {/* Mobile-Optimized Final CTA */}
-                <Link href="/company-signup" className="inline-block w-full sm:w-auto">
-                  <Button 
-                    size="lg" 
-                    className="w-full sm:w-auto bg-white text-purple-600 hover:bg-purple-50 h-14 px-8 sm:px-10 text-base sm:text-lg shadow-2xl hover:scale-105 transition-all"
-                  >
-                    Start Your Free Trial
-                    <ArrowRight className="w-5 h-5 ml-2" />
-                  </Button>
-                </Link>
-              </CardContent>
-            </Card>
+
+                <div className="mt-8">
+                  <Link href="/company-signup" className="inline-block w-full sm:w-auto">
+                    <Button
+                      size="lg"
+                      className={`h-12 w-full rounded-full bg-white px-9 text-base font-semibold text-violet-700 shadow-xl hover:bg-violet-50 sm:w-auto ${btnPress}`}
+                    >
+                      Start Your Free Trial
+                      <ArrowRight className="h-5 w-5 transition-transform duration-200 group-hover:translate-x-0.5" />
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+            </Reveal>
           </div>
-        </div>
+        </section>
 
         <Footer />
       </div>

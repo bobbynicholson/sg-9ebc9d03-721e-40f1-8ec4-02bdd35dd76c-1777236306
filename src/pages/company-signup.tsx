@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Building2, CheckCircle, DollarSign, AlertCircle, Loader2, X } from "lucide-react";
+import { Building2, CheckCircle, DollarSign, AlertCircle, Loader2, X, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { AuthShell } from "@/components/auth/AuthShell";
 import { isValidEmail, validateNewPassword } from "@/lib/validation/authValidation";
@@ -14,6 +14,8 @@ import { roleService } from "@/services/roleService";
 import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
 import { UserRole } from "@/types/app";
+import { Reveal } from "@/components/motion/Reveal";
+import { EASE, iconChip, Eyebrow } from "@/components/motion/marketing";
 
 // Slug availability states surfaced to the UI.
 type SlugAvailability =
@@ -449,13 +451,14 @@ export default function CompanySignupPage() {
         headline="Welcome aboard."
         subcopy="Your catering business is set up — let's get your first event in the door."
       >
-        <Card className="w-full max-w-xl border border-slate-200/80 shadow-xl rounded-2xl">
+        <Reveal className="w-full max-w-xl">
+        <Card className="w-full border border-slate-200/80 shadow-xl rounded-2xl">
           <CardContent className="p-8 md:p-12">
             <div className="text-center mb-8">
               <div className={`w-20 h-20 rounded-full mx-auto flex items-center justify-center shadow-lg mb-6 ${
                 emailVerificationRequired
                   ? "bg-gradient-to-br from-amber-500 to-orange-500"
-                  : "bg-gradient-to-br from-green-500 to-emerald-500 animate-pulse"
+                  : "bg-gradient-to-br from-emerald-500 to-green-500 animate-pulse"
               }`}>
                 <CheckCircle className="w-10 h-10 text-white" />
               </div>
@@ -478,33 +481,21 @@ export default function CompanySignupPage() {
               <div className="space-y-4 mb-8">
                 <h3 className="text-lg font-semibold text-slate-900">What's next</h3>
                 <div className="space-y-3">
-                  <div className="flex items-start gap-3 p-3 bg-white rounded-lg border border-slate-200">
-                    <div className="w-6 h-6 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                      <span className="text-sm font-bold text-purple-600">1</span>
+                  {[
+                    { n: "1", title: "Complete your onboarding", body: "Set up your company profile and preferences" },
+                    { n: "2", title: "Invite your team", body: "Add drivers, kitchen staff, and other team members" },
+                    { n: "3", title: "Start managing orders", body: "Create your first quote or order" },
+                  ].map((step) => (
+                    <div key={step.n} className="flex items-start gap-3 rounded-xl border border-slate-200 bg-white p-3.5">
+                      <div className="mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-violet-100">
+                        <span className="text-sm font-bold text-violet-600">{step.n}</span>
+                      </div>
+                      <div>
+                        <p className="font-medium text-slate-900">{step.title}</p>
+                        <p className="text-sm text-slate-600">{step.body}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="font-medium text-slate-900">Complete your onboarding</p>
-                      <p className="text-sm text-slate-600">Set up your company profile and preferences</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3 p-3 bg-white rounded-lg border border-slate-200">
-                    <div className="w-6 h-6 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                      <span className="text-sm font-bold text-purple-600">2</span>
-                    </div>
-                    <div>
-                      <p className="font-medium text-slate-900">Invite your team</p>
-                      <p className="text-sm text-slate-600">Add drivers, kitchen staff, and other team members</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3 p-3 bg-white rounded-lg border border-slate-200">
-                    <div className="w-6 h-6 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                      <span className="text-sm font-bold text-purple-600">3</span>
-                    </div>
-                    <div>
-                      <p className="font-medium text-slate-900">Start managing orders</p>
-                      <p className="text-sm text-slate-600">Create your first quote or order</p>
-                    </div>
-                  </div>
+                  ))}
                 </div>
               </div>
             )}
@@ -557,7 +548,7 @@ export default function CompanySignupPage() {
               {emailVerificationRequired ? (
                 <Button
                   size="lg"
-                  className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 text-white h-12"
+                  className="h-12 flex-1 bg-gradient-to-b from-violet-600 to-violet-700 text-white shadow-lg shadow-violet-600/20 hover:from-violet-600 hover:to-violet-800"
                   onClick={() => router.push(`/${formData.customSlug}/login`)}
                 >
                   Go to login
@@ -566,7 +557,7 @@ export default function CompanySignupPage() {
                 <>
                   <Button
                     size="lg"
-                    className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 text-white h-12"
+                    className="h-12 flex-1 bg-gradient-to-b from-violet-600 to-violet-700 text-white shadow-lg shadow-violet-600/20 hover:from-violet-600 hover:to-violet-800"
                     onClick={() => router.push(`/${formData.customSlug}/admin/onboarding`)}
                   >
                     Start onboarding
@@ -586,13 +577,14 @@ export default function CompanySignupPage() {
             <div className="mt-6 text-center">
               <p className="text-sm text-slate-500">
                 Need help? Contact us at{" "}
-                <a href="tel:+27836525755" className="text-purple-600 hover:text-purple-700 underline">
+                <a href="tel:+27836525755" className="font-medium text-violet-600 underline-offset-2 hover:text-violet-700 hover:underline">
                   083 652 5755
                 </a>
               </p>
             </div>
           </CardContent>
         </Card>
+        </Reveal>
       </AuthShell>
     );
   }
@@ -602,17 +594,24 @@ export default function CompanySignupPage() {
       headline="Grow your catering business."
       subcopy="Set up your company in minutes — quotes, kitchen, delivery and payments, all in one place."
     >
-      <Card className="w-full max-w-xl border border-slate-200/80 shadow-xl rounded-2xl">
+      <Card className="group w-full max-w-xl rounded-2xl border border-slate-200/80 shadow-xl">
         <CardHeader className="space-y-3">
-          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500 mx-auto flex items-center justify-center shadow-lg">
-            <Building2 className="w-7 h-7 text-white" />
-          </div>
-          <CardTitle className="text-2xl font-bold text-center text-slate-900">
-            Register your catering business
-          </CardTitle>
-          <CardDescription className="text-center text-slate-600 text-sm">
-            Join CateringMS and transform how you manage your operations
-          </CardDescription>
+          <Reveal className="flex flex-col items-center space-y-3">
+            <span className="mb-1">
+              <Eyebrow icon={ShieldCheck} className="border-violet-200 bg-violet-50 text-violet-700">
+                Free trial · No credit card
+              </Eyebrow>
+            </span>
+            <div className={`${iconChip} h-14 w-14 bg-gradient-to-br from-violet-500 to-fuchsia-500`}>
+              <Building2 className="h-7 w-7 text-white" />
+            </div>
+            <CardTitle className="text-center text-2xl font-bold tracking-tight text-slate-900">
+              Register your catering business
+            </CardTitle>
+            <CardDescription className="text-center text-sm text-slate-600">
+              Join CateringMS and transform how you manage your operations
+            </CardDescription>
+          </Reveal>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleRegister} className="space-y-6">
@@ -643,8 +642,8 @@ export default function CompanySignupPage() {
               );
             })()}
 
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <p className="text-sm text-blue-800">
+            <div className="rounded-xl border border-violet-200 bg-violet-50 p-4">
+              <p className="text-sm text-violet-900">
                 <strong>For Catering Companies Only:</strong> This form is for catering businesses to register their company. If you're an employee or client, please use the regular registration link provided by your company.
               </p>
             </div>
@@ -871,7 +870,7 @@ export default function CompanySignupPage() {
 
             <Button
               type="submit"
-              className="w-full h-12 bg-gradient-to-r from-purple-500 to-pink-500 hover:opacity-90 transition-opacity text-white font-semibold"
+              className={`h-12 w-full bg-gradient-to-b from-violet-600 to-violet-700 font-semibold text-white shadow-lg shadow-violet-600/20 transition-[background-color,box-shadow] duration-200 ${EASE} hover:from-violet-600 hover:to-violet-800 hover:shadow-xl hover:shadow-violet-600/30`}
               // Block submit until the chosen slug is available.
               // Server-side trigger is the source of truth, but the
               // disabled state stops a wasted round-trip.
@@ -893,21 +892,21 @@ export default function CompanySignupPage() {
 
             {/* Terms agreement - registering = acceptance. Links to the
                 real /terms and /privacy pages (both ship in the app). */}
-            <p className="text-center text-xs text-slate-400 leading-relaxed">
+            <p className="text-center text-xs leading-relaxed text-slate-400">
               By registering you agree to our{" "}
-              <Link href="/terms" className="text-purple-600 hover:text-purple-700 font-medium">
+              <Link href="/terms" className="font-medium text-violet-600 underline-offset-2 hover:text-violet-700 hover:underline">
                 Terms of Service
               </Link>{" "}
               and{" "}
-              <Link href="/privacy" className="text-purple-600 hover:text-purple-700 font-medium">
+              <Link href="/privacy" className="font-medium text-violet-600 underline-offset-2 hover:text-violet-700 hover:underline">
                 Privacy Policy
               </Link>.
             </p>
 
-            <div className="text-center pt-2 border-t border-slate-100">
-              <p className="text-sm text-slate-500 mt-3">
+            <div className="border-t border-slate-100 pt-2 text-center">
+              <p className="mt-3 text-sm text-slate-500">
                 Already have an account?{" "}
-                <Link href="/auth/login" className="text-purple-600 hover:text-purple-700 font-medium">
+                <Link href="/auth/login" className="font-medium text-violet-600 underline-offset-2 hover:text-violet-700 hover:underline">
                   Sign in
                 </Link>
               </p>

@@ -1,10 +1,12 @@
 import Link from "next/link";
 import Head from "next/head";
+import { Shield } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
+import { Reveal } from "@/components/motion/Reveal";
+import { EASE, Eyebrow } from "@/components/motion/marketing";
 
 export default function PrivacyPage() {
   const schema = {
@@ -79,28 +81,36 @@ export default function PrivacyPage() {
 
       <Header />
 
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50">
-        <div className="container mx-auto px-4 py-8 max-w-4xl">
-          <Card className="border-0 shadow-xl">
-            <CardHeader>
-              <CardTitle className="text-3xl">Privacy Policy</CardTitle>
-              <p className="text-slate-600">Last updated: {new Date().toLocaleDateString("en-ZA", { day: "numeric", month: "long", year: "numeric" })}</p>
-              <p className="text-sm text-slate-600 mt-2">
-                Learn about our <Link href="/features" className="text-purple-600 hover:text-purple-700 underline">secure platform features</Link> or read about <Link href="/blog/catering-management-software-benefits" className="text-purple-600 hover:text-purple-700 underline">software benefits</Link> on our blog.
-              </p>
-            </CardHeader>
-            <CardContent className="prose prose-slate max-w-none space-y-6">
-              <section>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-violet-50/40">
+        <div className="container mx-auto px-4 py-12 sm:py-16 max-w-3xl">
+          <Card className={`border border-slate-200/70 shadow-xl shadow-slate-900/[0.04] transition-shadow duration-300 ${EASE} hover:shadow-2xl hover:shadow-slate-900/[0.06]`}>
+            <Reveal>
+              <CardHeader className="space-y-3 pb-8">
+                <Eyebrow icon={Shield} className="w-fit border-violet-200 bg-violet-50 text-violet-700">
+                  Privacy &amp; data protection
+                </Eyebrow>
+                <CardTitle className="text-3xl sm:text-4xl font-semibold tracking-tight text-slate-900">Privacy Policy</CardTitle>
+                <p className="text-sm text-slate-500">Last updated: {new Date().toLocaleDateString("en-ZA", { day: "numeric", month: "long", year: "numeric" })}</p>
+                <p className="text-sm text-slate-600">
+                  Learn about our <Link href="/features" className="text-violet-600 underline decoration-violet-200 underline-offset-2 transition-colors duration-150 hover:text-violet-700 hover:decoration-violet-400">secure platform features</Link> or read about <Link href="/blog/catering-management-software-benefits" className="text-violet-600 underline decoration-violet-200 underline-offset-2 transition-colors duration-150 hover:text-violet-700 hover:decoration-violet-400">software benefits</Link> on our blog.
+                </p>
+              </CardHeader>
+            </Reveal>
+            <CardContent className="prose prose-slate max-w-none space-y-6 prose-headings:tracking-tight prose-h2:scroll-mt-24">
+              <Reveal>
+                <section>
                 <h2 className="text-2xl font-semibold mb-4">1. Introduction</h2>
                 <p className="text-slate-700 leading-relaxed">
                   Welcome to the Catering Management Platform. We are committed to protecting your privacy and ensuring the security of your personal information. This Privacy Policy explains how we collect, use, disclose, and safeguard your data when you use our Service.
                 </p>
                 <p className="text-slate-700 leading-relaxed mt-3">
-                  By using our Service, you consent to the data practices described in this policy. If you do not agree with our policies and practices, please do not use the Service. Learn more about <Link href="/features" className="text-purple-600 hover:text-purple-700 underline">our features</Link> and how we protect your data.
+                  By using our Service, you consent to the data practices described in this policy. If you do not agree with our policies and practices, please do not use the Service. Learn more about <Link href="/features" className="text-violet-600 underline decoration-violet-200 underline-offset-2 transition-colors duration-150 hover:text-violet-700 hover:decoration-violet-400">our features</Link> and how we protect your data.
                 </p>
-              </section>
+                </section>
+              </Reveal>
 
-              <section>
+              <Reveal>
+                <section>
                 <h2 className="text-2xl font-semibold mb-4">2. Information We Collect</h2>
                 <h3 className="text-xl font-semibold mt-4 mb-2">2.1 Information You Provide</h3>
                 <p className="text-slate-700 leading-relaxed mb-3">We collect information that you voluntarily provide when you:</p>
@@ -125,9 +135,11 @@ export default function PrivacyPage() {
                 <p className="text-slate-700 leading-relaxed">
                   We use cookies and similar tracking technologies to enhance your experience, analyze usage patterns, and improve the Service. You can control cookie settings through your browser preferences.
                 </p>
-              </section>
+                </section>
+              </Reveal>
 
-              <section>
+              <Reveal>
+                <section>
                 <h2 className="text-2xl font-semibold mb-4">3. How We Use Your Information</h2>
                 <p className="text-slate-700 leading-relaxed mb-3">We use the collected information for the following purposes:</p>
                 <ul className="list-disc pl-6 space-y-2 text-slate-700">
@@ -140,9 +152,11 @@ export default function PrivacyPage() {
                   <li><strong>Legal Compliance:</strong> To comply with legal obligations and enforce our Terms</li>
                   <li><strong>Marketing:</strong> To send promotional content (you can opt-out anytime)</li>
                 </ul>
-              </section>
+                </section>
+              </Reveal>
 
-              <section>
+              <Reveal>
+                <section>
                 <h2 className="text-2xl font-semibold mb-4">4. How We Share Your Information</h2>
                 <p className="text-slate-700 leading-relaxed mb-3">We do not sell your personal information. We may share your information in the following circumstances:</p>
 
@@ -171,11 +185,13 @@ export default function PrivacyPage() {
                 <p className="text-slate-700 leading-relaxed">
                   We may share your information with third parties when you give us explicit consent to do so.
                 </p>
-              </section>
+                </section>
+              </Reveal>
 
-              <section>
+              <Reveal>
+                <section>
                 <h2 className="text-2xl font-semibold mb-4">5. Data Security</h2>
-                <p className="text-slate-700 leading-relaxed mb-3">We implement industry-standard security measures to protect your information. Read more about <Link href="/blog/catering-management-software-benefits" className="text-purple-600 hover:text-purple-700 underline">security benefits</Link> of our platform, including:</p>
+                <p className="text-slate-700 leading-relaxed mb-3">We implement industry-standard security measures to protect your information. Read more about <Link href="/blog/catering-management-software-benefits" className="text-violet-600 underline decoration-violet-200 underline-offset-2 transition-colors duration-150 hover:text-violet-700 hover:decoration-violet-400">security benefits</Link> of our platform, including:</p>
                 <ul className="list-disc pl-6 space-y-2 text-slate-700">
                   <li>Encryption of data in transit (HTTPS/TLS)</li>
                   <li>Encryption of sensitive data at rest</li>
@@ -186,9 +202,11 @@ export default function PrivacyPage() {
                 <p className="text-slate-700 leading-relaxed mt-3">
                   However, no internet transmission or electronic storage is 100% secure. While we strive to protect your information, we cannot guarantee absolute security.
                 </p>
-              </section>
+                </section>
+              </Reveal>
 
-              <section>
+              <Reveal>
+                <section>
                 <h2 className="text-2xl font-semibold mb-4">6. Data Retention</h2>
                 <p className="text-slate-700 leading-relaxed">
                   We retain your personal information for as long as necessary to provide the Service and fulfill the purposes outlined in this Privacy Policy. When you cancel your account, we retain your data for 30 days to allow for account recovery. After this period, we permanently delete your data, except where required by law to retain it longer.
@@ -196,9 +214,11 @@ export default function PrivacyPage() {
                 <p className="text-slate-700 leading-relaxed mt-3">
                   You can request deletion of your data at any time by contacting our support team. We will process your request within 30 days, subject to legal obligations.
                 </p>
-              </section>
+                </section>
+              </Reveal>
 
-              <section>
+              <Reveal>
+                <section>
                 <h2 className="text-2xl font-semibold mb-4">7. Your Privacy Rights</h2>
                 <p className="text-slate-700 leading-relaxed mb-3">Depending on your location, you may have the following rights:</p>
                 <ul className="list-disc pl-6 space-y-2 text-slate-700">
@@ -213,69 +233,86 @@ export default function PrivacyPage() {
                 <p className="text-slate-700 leading-relaxed mt-3">
                   To exercise any of these rights, please contact us at privacy@cateringplatform.co.za. We will respond to your request within 30 days.
                 </p>
-              </section>
+                </section>
+              </Reveal>
 
-              <section>
+              <Reveal>
+                <section>
                 <h2 className="text-2xl font-semibold mb-4">8. Children's Privacy</h2>
                 <p className="text-slate-700 leading-relaxed">
                   The Service is not intended for children under 18 years of age. We do not knowingly collect personal information from children. If you believe we have collected information from a child, please contact us immediately, and we will delete such information.
                 </p>
-              </section>
+                </section>
+              </Reveal>
 
-              <section>
+              <Reveal>
+                <section>
                 <h2 className="text-2xl font-semibold mb-4">9. International Data Transfers</h2>
                 <p className="text-slate-700 leading-relaxed">
                   Your information may be transferred to and processed in countries other than South Africa. These countries may have different data protection laws. By using the Service, you consent to such transfers. We ensure appropriate safeguards are in place to protect your information in accordance with this Privacy Policy.
                 </p>
-              </section>
+                </section>
+              </Reveal>
 
-              <section>
+              <Reveal>
+                <section>
                 <h2 className="text-2xl font-semibold mb-4">10. Third-Party Links</h2>
                 <p className="text-slate-700 leading-relaxed">
                   The Service may contain links to third-party websites or services. We are not responsible for the privacy practices of these third parties. We encourage you to review their privacy policies before providing any information.
                 </p>
-              </section>
+                </section>
+              </Reveal>
 
-              <section>
+              <Reveal>
+                <section>
                 <h2 className="text-2xl font-semibold mb-4">11. Marketing Communications</h2>
                 <p className="text-slate-700 leading-relaxed">
                   We may send you marketing emails about new features, promotions, and updates. You can opt out of marketing communications at any time by clicking the unsubscribe link in our emails or by adjusting your account settings. Note that you cannot opt out of transactional emails related to your account or subscription.
                 </p>
-              </section>
+                </section>
+              </Reveal>
 
-              <section>
+              <Reveal>
+                <section>
                 <h2 className="text-2xl font-semibold mb-4">12. POPIA Compliance (South Africa)</h2>
                 <p className="text-slate-700 leading-relaxed">
                   We comply with the Protection of Personal Information Act (POPIA) of South Africa. We process your information lawfully, transparently, and for specific purposes. You have the right to file a complaint with the Information Regulator if you believe we have violated your privacy rights.
                 </p>
-              </section>
+                </section>
+              </Reveal>
 
-              <section>
+              <Reveal>
+                <section>
                 <h2 className="text-2xl font-semibold mb-4">13. Changes to This Privacy Policy</h2>
                 <p className="text-slate-700 leading-relaxed">
                   We may update this Privacy Policy from time to time. We will notify you of material changes by email or through a prominent notice on the Service. The "Last updated" date at the top of this policy indicates when it was last revised. Your continued use of the Service after such notification constitutes acceptance of the updated Privacy Policy.
                 </p>
-              </section>
+                </section>
+              </Reveal>
 
-              <section>
+              <Reveal>
+                <section>
                 <h2 className="text-2xl font-semibold mb-4">14. Contact Us</h2>
                 <p className="text-slate-700 leading-relaxed mb-4">
-                  If you have questions, concerns, or requests regarding this Privacy Policy or our data practices, please contact us. You can also explore our <Link href="/pricing" className="text-purple-600 hover:text-purple-700 underline">pricing plans</Link> or read <Link href="/blog" className="text-purple-600 hover:text-purple-700 underline">helpful guides</Link> on our blog:
+                  If you have questions, concerns, or requests regarding this Privacy Policy or our data practices, please contact us. You can also explore our <Link href="/pricing" className="text-violet-600 underline decoration-violet-200 underline-offset-2 transition-colors duration-150 hover:text-violet-700 hover:decoration-violet-400">pricing plans</Link> or read <Link href="/blog" className="text-violet-600 underline decoration-violet-200 underline-offset-2 transition-colors duration-150 hover:text-violet-700 hover:decoration-violet-400">helpful guides</Link> on our blog:
                 </p>
-                <div className="p-4 bg-slate-50 rounded-lg">
+                <div className={`p-4 bg-slate-50 rounded-xl border border-slate-200/70 transition-colors duration-300 ${EASE} hover:border-violet-200`}>
                   <p className="text-slate-700"><strong>Company:</strong> CateringMS (A product of Skylight Digital)</p>
                   <p className="text-slate-700"><strong>Address:</strong> 17 Swalle Street, Golden Acre, South Africa</p>
                   <p className="text-slate-700"><strong>Phone:</strong> 083 652 5755</p>
                   <p className="text-slate-700"><strong>Email:</strong> privacy@cateringms.com</p>
                   <p className="text-slate-700"><strong>Support:</strong> support@cateringms.com</p>
                 </div>
-              </section>
+                </section>
+              </Reveal>
 
-              <section className="mt-8 pt-6 border-t">
+              <Reveal>
+                <section className="mt-8 pt-6 border-t">
                 <p className="text-sm text-slate-600">
-                  By using the Catering Management Platform, you acknowledge that you have read, understood, and agree to this Privacy Policy. For more information, visit our <Link href="/" className="text-purple-600 hover:text-purple-700 underline">homepage</Link> or review our <Link href="/terms" className="text-purple-600 hover:text-purple-700 underline">Terms of Service</Link>.
+                  By using the Catering Management Platform, you acknowledge that you have read, understood, and agree to this Privacy Policy. For more information, visit our <Link href="/" className="text-violet-600 underline decoration-violet-200 underline-offset-2 transition-colors duration-150 hover:text-violet-700 hover:decoration-violet-400">homepage</Link> or review our <Link href="/terms" className="text-violet-600 underline decoration-violet-200 underline-offset-2 transition-colors duration-150 hover:text-violet-700 hover:decoration-violet-400">Terms of Service</Link>.
                 </p>
-              </section>
+                </section>
+              </Reveal>
             </CardContent>
           </Card>
         </div>

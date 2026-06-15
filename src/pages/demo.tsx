@@ -14,10 +14,13 @@ import {
   Check,
   ArrowRight,
   Eye,
-  LogIn
+  LogIn,
+  Target
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/router";
+import { Reveal, Stagger, StaggerItem } from "@/components/motion/Reveal";
+import { EASE, cardBase, btnPress, iconChip, Eyebrow } from "@/components/motion/marketing";
 
 interface DemoPortal {
   id: string;
@@ -165,24 +168,24 @@ export default function DemoPage() {
     sessionStorage.setItem("demo_email", portal.email);
     sessionStorage.setItem("demo_password", portal.password);
     sessionStorage.setItem("demo_role", portal.role);
-    
+
     // Navigate to login page
     router.push(portal.loginUrl);
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-pink-50">
+    <div className="min-h-screen bg-white text-slate-900">
       {/* Header */}
-      <div className="bg-white border-b shadow-sm sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+      <div className="sticky top-0 z-50 border-b border-slate-100 bg-white/90 backdrop-blur-md">
+        <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between">
             <Link href="/" className="flex items-center gap-2">
-              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
-                <span className="text-white font-bold text-xl">C</span>
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-violet-600 to-fuchsia-500 shadow-sm">
+                <span className="text-xl font-bold text-white">C</span>
               </div>
-              <span className="text-xl font-bold text-slate-900">CateringMS</span>
+              <span className="text-xl font-bold tracking-tight text-slate-900">CateringMS</span>
             </Link>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 sm:gap-4">
               <Link href="/features">
                 <Button variant="ghost" size="sm">Features</Button>
               </Link>
@@ -190,7 +193,7 @@ export default function DemoPage() {
                 <Button variant="ghost" size="sm">Pricing</Button>
               </Link>
               <Link href="/company-signup">
-                <Button className="bg-gradient-to-r from-purple-500 to-pink-500">
+                <Button className={`rounded-full bg-gradient-to-b from-violet-600 to-violet-700 font-semibold text-white shadow-lg shadow-violet-600/20 hover:from-violet-600 hover:to-violet-800 hover:shadow-xl hover:shadow-violet-600/30`}>
                   Start Free Trial
                 </Button>
               </Link>
@@ -199,129 +202,169 @@ export default function DemoPage() {
         </div>
       </div>
 
-      {/* Hero Section */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="text-center mb-12">
-          <Badge className="mb-4 bg-gradient-to-r from-purple-500 to-pink-500 text-white">
-            <Eye className="w-3 h-3 mr-1" />
-            Live Demo
-          </Badge>
-          <h1 className="text-4xl md:text-5xl font-bold text-slate-900 mb-4">
-            Explore CateringMS Portals
-          </h1>
-          <p className="text-xl text-slate-600 max-w-3xl mx-auto">
-            Test drive our complete catering management system. Each portal is designed for specific roles in your catering business.
-          </p>
+      {/* ===================== HERO ===================== */}
+      <section className="relative overflow-hidden border-b border-slate-100 bg-white">
+        {/* Soft brand glow + faint grid, masked so it fades into the page. */}
+        <div className="pointer-events-none absolute inset-x-0 -top-40 h-[480px] bg-[radial-gradient(60%_60%_at_50%_0%,rgba(124,58,237,0.12),transparent)]" />
+        <div className="pointer-events-none absolute inset-0 [background-image:linear-gradient(to_right,rgba(15,23,42,0.04)_1px,transparent_1px),linear-gradient(to_bottom,rgba(15,23,42,0.04)_1px,transparent_1px)] [background-size:46px_46px] [mask-image:radial-gradient(70%_55%_at_50%_0%,black,transparent)]" />
+
+        <div className="relative mx-auto max-w-7xl px-4 py-16 sm:px-6 md:py-24 lg:px-8">
+          <Stagger className="mx-auto max-w-3xl text-center" gap={0.07}>
+            <StaggerItem className="mb-6 flex justify-center">
+              <Eyebrow icon={Eye} className="border-violet-200 bg-violet-50 text-violet-700">
+                Live Demo
+              </Eyebrow>
+            </StaggerItem>
+
+            <StaggerItem>
+              <h1 className="text-balance text-4xl font-bold tracking-tight text-slate-900 sm:text-5xl lg:text-6xl">
+                Explore CateringMS Portals
+              </h1>
+            </StaggerItem>
+
+            <StaggerItem>
+              <p className="mx-auto mt-6 max-w-2xl text-balance text-lg leading-relaxed text-slate-600 sm:text-xl">
+                Test drive our complete catering management system. Each portal is designed for specific roles in your catering business.
+              </p>
+            </StaggerItem>
+          </Stagger>
+
+          <Reveal className="mx-auto mt-10 max-w-3xl" delay={0.05}>
+            <Alert className="border-blue-200 bg-blue-50">
+              <AlertDescription className="text-blue-800">
+                <strong>🎯 How to Test:</strong> Click "Login as Demo User" on any portal below to access a fully functional demo environment. All demo accounts use the same test company: <strong>Test Company</strong>
+              </AlertDescription>
+            </Alert>
+          </Reveal>
         </div>
+      </section>
 
-        <Alert className="mb-8 bg-blue-50 border-blue-200">
-          <AlertDescription className="text-blue-800">
-            <strong>🎯 How to Test:</strong> Click "Login as Demo User" on any portal below to access a fully functional demo environment. All demo accounts use the same test company: <strong>Test Company</strong>
-          </AlertDescription>
-        </Alert>
+      {/* ===================== PORTAL CARDS ===================== */}
+      <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 md:py-24 lg:px-8">
+        <Reveal className="mx-auto mb-14 max-w-3xl text-center">
+          <Eyebrow icon={Target} className="border-violet-200 bg-violet-50 text-violet-700">
+            Six role-based portals
+          </Eyebrow>
+          <h2 className="mt-5 text-balance text-3xl font-bold tracking-tight text-slate-900 md:text-4xl">
+            One platform, every role connected
+          </h2>
+          <p className="mt-4 text-balance text-lg text-slate-600">
+            Pick a portal and sign in instantly with the demo credentials below.
+          </p>
+        </Reveal>
 
-        {/* Portal Cards */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
+        <Stagger className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {DEMO_PORTALS.map((portal) => {
             const Icon = portal.icon;
             const isCopied = copiedId === portal.id;
 
             return (
-              <Card key={portal.id} className="border-2 hover:shadow-xl transition-all hover:-translate-y-1">
-                <CardHeader>
-                  <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${portal.bgGradient} flex items-center justify-center mb-4 shadow-lg`}>
-                    <Icon className="w-8 h-8 text-white" />
-                  </div>
-                  <CardTitle className="text-xl">{portal.name}</CardTitle>
-                  <CardDescription className="text-sm">
-                    {portal.description}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {/* Features */}
-                  <div className="mb-6">
-                    <h4 className="text-xs font-semibold text-slate-600 uppercase tracking-wider mb-3">
-                      Key Features
-                    </h4>
-                    <ul className="space-y-2">
-                      {portal.features.slice(0, 4).map((feature, idx) => (
-                        <li key={idx} className="flex items-start gap-2 text-sm text-slate-700">
-                          <Check className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" />
-                          <span>{feature}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-
-                  {/* Demo Credentials */}
-                  <div className="bg-slate-50 rounded-lg p-4 mb-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <h4 className="text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                        Demo Credentials
+              <StaggerItem key={portal.id}>
+                <Card className={`${cardBase} flex h-full flex-col`}>
+                  <CardHeader>
+                    <div className={`${iconChip} mb-4 h-16 w-16 bg-gradient-to-br ${portal.bgGradient}`}>
+                      <Icon className="h-8 w-8 text-white" />
+                    </div>
+                    <CardTitle className="text-xl">{portal.name}</CardTitle>
+                    <CardDescription className="text-sm">
+                      {portal.description}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="flex flex-1 flex-col">
+                    {/* Features */}
+                    <div className="mb-6">
+                      <h4 className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                        Key Features
                       </h4>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleCopyCredentials(portal)}
-                        className="h-7 text-xs"
-                      >
-                        {isCopied ? (
-                          <>
-                            <Check className="w-3 h-3 mr-1" />
-                            Copied!
-                          </>
-                        ) : (
-                          <>
-                            <Copy className="w-3 h-3 mr-1" />
-                            Copy
-                          </>
-                        )}
-                      </Button>
+                      <ul className="space-y-2">
+                        {portal.features.slice(0, 4).map((feature, idx) => (
+                          <li key={idx} className="flex items-start gap-2 text-sm text-slate-700">
+                            <Check className="mt-0.5 h-4 w-4 flex-shrink-0 text-emerald-600" />
+                            <span>{feature}</span>
+                          </li>
+                        ))}
+                      </ul>
                     </div>
-                    <div className="space-y-1">
-                      <p className="text-xs text-slate-600">
-                        <strong>Email:</strong>
-                        <code className="ml-2 bg-white px-2 py-0.5 rounded text-xs">
-                          {portal.email}
-                        </code>
-                      </p>
-                      <p className="text-xs text-slate-600">
-                        <strong>Password:</strong>
-                        <code className="ml-2 bg-white px-2 py-0.5 rounded text-xs">
-                          {portal.password}
-                        </code>
-                      </p>
-                    </div>
-                  </div>
 
-                  {/* Login Button */}
-                  <Button
-                    className={`w-full bg-gradient-to-r ${portal.bgGradient} hover:opacity-90`}
-                    onClick={() => handleDirectLogin(portal)}
-                  >
-                    <LogIn className="w-4 h-4 mr-2" />
-                    Login as Demo {portal.role.charAt(0).toUpperCase() + portal.role.slice(1)}
-                  </Button>
-                </CardContent>
-              </Card>
+                    {/* Demo Credentials */}
+                    <div className="mb-4 mt-auto rounded-xl border border-slate-200 bg-slate-50 p-4">
+                      <div className="mb-2 flex items-center justify-between">
+                        <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                          Demo Credentials
+                        </h4>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleCopyCredentials(portal)}
+                          className="h-7 text-xs"
+                        >
+                          {isCopied ? (
+                            <>
+                              <Check className="mr-1 h-3 w-3" />
+                              Copied!
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="mr-1 h-3 w-3" />
+                              Copy
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-xs text-slate-600">
+                          <strong>Email:</strong>
+                          <code className="ml-2 rounded bg-white px-2 py-0.5 text-xs">
+                            {portal.email}
+                          </code>
+                        </p>
+                        <p className="text-xs text-slate-600">
+                          <strong>Password:</strong>
+                          <code className="ml-2 rounded bg-white px-2 py-0.5 text-xs">
+                            {portal.password}
+                          </code>
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Login Button */}
+                    <Button
+                      className={`w-full bg-gradient-to-r ${portal.bgGradient} hover:opacity-90`}
+                      onClick={() => handleDirectLogin(portal)}
+                    >
+                      <LogIn className="mr-2 h-4 w-4" />
+                      Login as Demo {portal.role.charAt(0).toUpperCase() + portal.role.slice(1)}
+                    </Button>
+                  </CardContent>
+                </Card>
+              </StaggerItem>
             );
           })}
-        </div>
+        </Stagger>
+      </section>
 
-        {/* Bottom CTA */}
-        <div className="bg-gradient-to-r from-purple-500 to-pink-500 rounded-2xl p-8 text-center text-white shadow-2xl">
-          <h2 className="text-3xl font-bold mb-4">Ready to Transform Your Catering Business?</h2>
-          <p className="text-lg text-purple-100 mb-6 max-w-2xl mx-auto">
-            Start your 14-day free trial today. No credit card required.
-          </p>
-          <Link href="/company-signup">
-            <Button size="lg" className="bg-white text-purple-600 hover:bg-slate-100 text-lg px-8">
-              Start Free Trial
-              <ArrowRight className="w-5 h-5 ml-2" />
-            </Button>
-          </Link>
-        </div>
-      </div>
+      {/* ===================== FINAL CTA ===================== */}
+      <section className="px-4 pb-20 sm:px-6 lg:px-8">
+        <Reveal className="relative mx-auto max-w-6xl overflow-hidden rounded-3xl bg-gradient-to-br from-violet-600 via-fuchsia-600 to-rose-500 px-6 py-16 text-center shadow-2xl shadow-violet-600/20 sm:px-12 md:py-20">
+          <div className="pointer-events-none absolute inset-0 [background-image:linear-gradient(to_right,rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.08)_1px,transparent_1px)] [background-size:40px_40px] [mask-image:radial-gradient(70%_70%_at_50%_50%,black,transparent)]" />
+          <div className="relative mx-auto max-w-3xl">
+            <h2 className="text-balance text-3xl font-bold tracking-tight text-white sm:text-4xl">
+              Ready to Transform Your Catering Business?
+            </h2>
+            <p className="mx-auto mt-6 max-w-2xl text-balance text-lg text-violet-50">
+              Start your 14-day free trial today. No credit card required.
+            </p>
+            <div className="mt-8 flex justify-center">
+              <Link href="/company-signup">
+                <Button size="lg" className={`h-12 rounded-full bg-white px-9 text-base font-semibold text-violet-700 shadow-xl hover:bg-violet-50`}>
+                  Start Free Trial
+                  <ArrowRight className="ml-2 h-5 w-5 transition-transform duration-200 group-hover:translate-x-0.5" />
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </Reveal>
+      </section>
     </div>
   );
 }
