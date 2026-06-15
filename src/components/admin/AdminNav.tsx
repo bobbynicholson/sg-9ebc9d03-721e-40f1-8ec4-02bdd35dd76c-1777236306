@@ -114,8 +114,8 @@ function AdminTopSlot({ companySlug }: { companySlug: string }) {
 
       {/* Company identity */}
       <div className="flex items-center gap-2.5 rounded-xl border border-slate-200/80 bg-white px-3 py-2.5 dark:border-slate-800 dark:bg-slate-900">
-        <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full border-2 border-violet-300 bg-violet-100">
-          <span className="text-[11px] font-bold text-violet-700">{initials}</span>
+        <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full border-2 border-amber-300 bg-amber-100">
+          <span className="text-[11px] font-bold text-amber-700">{initials}</span>
         </div>
         <div className="min-w-0 flex-1 overflow-hidden">
           <div className="flex items-center gap-1.5">
@@ -124,7 +124,7 @@ function AdminTopSlot({ companySlug }: { companySlug: string }) {
             </span>
             <Badge
               variant="outline"
-              className="h-4 flex-shrink-0 border-violet-200 bg-violet-50 px-1 text-[9px] text-violet-700"
+              className="h-4 flex-shrink-0 border-amber-200 bg-amber-50 px-1 text-[9px] text-amber-700"
             >
               Admin
             </Badge>
@@ -362,21 +362,21 @@ export function AdminNav(_: AdminNavProps = {}) {
     title: "Admin",
     mobileSubtitle: "Operations & admin",
     brandIcon: LayoutDashboard,
-    // Violet/purple accent preserves the admin portal's established
-    // identity (the old nav's primary colour was #9333ea) while adopting
-    // the shared sidebar - distinct from the platform's amber.
-    accentGradient: "from-violet-500 to-purple-500",
-    accentGradientDark: "from-violet-600 to-purple-600",
-    hoverClasses: "hover:bg-violet-50 hover:text-violet-700 dark:hover:bg-violet-500/10",
-    activeHoverClasses: "hover:from-violet-600 hover:to-purple-600",
-    mobileSubtitleClasses: "text-violet-100",
-    searchAccent: "bg-violet-50 hover:bg-violet-100 text-violet-700",
+    // Unified warm CateringMS brand accent - identical to the platform
+    // (super-admin) sidebar so tenant admin and super-admin read as one
+    // consistent product. Matches shopping + auth + landing.
+    accentGradient: "from-amber-500 to-orange-500",
+    accentGradientDark: "from-amber-600 to-orange-600",
+    hoverClasses: "hover:bg-amber-50 hover:text-amber-700 dark:hover:bg-amber-500/10",
+    activeHoverClasses: "hover:from-amber-600 hover:to-orange-600",
+    mobileSubtitleClasses: "text-amber-100",
+    searchAccent: "bg-amber-50 hover:bg-amber-100 text-amber-700",
     searchHint: "Search anywhere...",
     dashboardHref: "/admin/dashboard",
     mobileQuickActions: [
-      { href: "/admin/dashboard", label: "Dashboard", sub: "Live metrics",   icon: LayoutDashboard, accent: "from-violet-500 to-purple-500" },
-      { href: "/admin/orders",    label: "Orders",    sub: "All orders",     icon: Package,         accent: "from-violet-500 to-purple-500" },
-      { href: "/admin/quotes",    label: "Quotes",    sub: "Create + manage", icon: FileSpreadsheet, accent: "from-violet-500 to-purple-500" },
+      { href: "/admin/dashboard", label: "Dashboard", sub: "Live metrics",   icon: LayoutDashboard, accent: "from-amber-500 to-orange-500" },
+      { href: "/admin/orders",    label: "Orders",    sub: "All orders",     icon: Package,         accent: "from-amber-500 to-orange-500" },
+      { href: "/admin/quotes",    label: "Quotes",    sub: "Create + manage", icon: FileSpreadsheet, accent: "from-amber-500 to-orange-500" },
     ],
     // Mode-driven smart quick actions replace the static trio on mobile.
     renderMobileQuickActions: ({ onNavigate }) => <AdminSmartQuickActions onNavigate={onNavigate} />,
