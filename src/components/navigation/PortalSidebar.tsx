@@ -189,12 +189,15 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
           // Wave 70.41b - overflow-hidden so long badges + descriptions
           // never bleed outside the sidebar's right edge. Matches the
           // AdminNav fix Bobby flagged on "1 gap" badge overflow.
-          "group flex items-center gap-3 rounded-lg transition-all overflow-hidden",
-          footer ? "px-3 py-2 text-[13px] font-medium" : "px-4 py-3 text-sm font-medium",
+          // Density per dashboard best practice: ~40px rows (py-2.5), 14px
+          // labels, 20px icons. Active = refined accent gradient (rounded,
+          // soft shadow), not a heavy bar. Specific transition, not `all`.
+          "group flex items-center gap-2.5 rounded-lg transition-colors duration-150 overflow-hidden",
+          footer ? "px-3 py-2 text-[13px] font-medium" : "px-3 py-2.5 text-sm font-medium",
           config.hoverClasses,
           active
-            ? `bg-gradient-to-r ${config.accentGradient} text-white ${config.activeHoverClasses} shadow-md`
-            : footer ? "text-slate-600 dark:text-slate-400" : "text-slate-700",
+            ? `bg-gradient-to-r ${config.accentGradient} text-white ${config.activeHoverClasses} shadow-sm`
+            : footer ? "text-slate-600 dark:text-slate-400" : "text-slate-700 dark:text-slate-300",
           collapsed ? "justify-center" : "",
         )}
         title={collapsed ? item.title : ""}
@@ -203,7 +206,9 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
           <Icon
             className={cn(
               footer ? "h-4 w-4" : "h-5 w-5",
-              active ? "text-white" : footer ? "text-slate-500" : "text-slate-600",
+              active
+                ? "text-white"
+                : "text-slate-500 dark:text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-200",
             )}
           />
           {overlay && (
@@ -215,7 +220,7 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
             <div className="flex-1 min-w-0">
               <div className="truncate">{item.title}</div>
               {description && !active && !footer && (
-                <div className="text-[11px] text-slate-500/80 truncate">{description}</div>
+                <div className="text-[11px] text-slate-500/90 dark:text-slate-400 truncate">{description}</div>
               )}
             </div>
             {badge && !active && (
