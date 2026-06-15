@@ -69,6 +69,13 @@ const config: Config = {
         "brand-secondary": "rgb(var(--brand-secondary-rgb) / <alpha-value>)",
         "brand-accent":    "rgb(var(--brand-accent-rgb)    / <alpha-value>)",
       },
+      fontFamily: {
+        // Elegant display serif (Playfair Display) loaded + self-hosted via
+        // next/font in _app.tsx and exposed as --font-display. Opt-in only
+        // (use `font-display`), so body copy and the rest of the app keep
+        // their default sans — this is the marketing landing page's voice.
+        display: ["var(--font-display)", "ui-serif", "Georgia", "Cambria", "serif"],
+      },
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",

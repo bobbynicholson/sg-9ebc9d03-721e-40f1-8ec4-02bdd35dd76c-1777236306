@@ -1,6 +1,7 @@
 import type { AppProps } from "next/app";
 import { useEffect } from "react";
 import { useRouter } from "next/router";
+import { Playfair_Display } from "next/font/google";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { TenantBrandingApplier } from "@/components/TenantBrandingApplier";
 import type { InitialBranding } from "@/lib/branding/serverBrandingForSlug";
@@ -12,6 +13,16 @@ import { MiddlewareErrorToast } from "@/components/MiddlewareErrorToast";
 import { CommandPalette } from "@/components/CommandPalette";
 import { GlobalInternalFooter } from "@/components/GlobalInternalFooter";
 import "@/styles/globals.css";
+
+// Elegant display serif for marketing headings (opt-in via Tailwind's
+// `font-display`). Self-hosted by next/font — no external request, no layout
+// shift. Exposed as the --font-display CSS variable on a wrapper below.
+const playfair = Playfair_Display({
+  subsets: ["latin"],
+  weight: ["500", "600", "700"],
+  variable: "--font-display",
+  display: "swap",
+});
 
 // Note: P2-14 originally tried to skip AuthProvider on public pages
 // to avoid the empty-session round-trip on cold caches. That broke
@@ -90,7 +101,7 @@ export default function App({ Component, pageProps }: AppProps) {
   }, []);
 
   return (
-    <>
+    <div className={playfair.variable}>
       <NoIndexMeta />
       <ThemeProvider>
         <AuthProvider>
@@ -114,6 +125,6 @@ export default function App({ Component, pageProps }: AppProps) {
           </RegionFilterProvider>
         </AuthProvider>
       </ThemeProvider>
-    </>
+    </div>
   );
 }
