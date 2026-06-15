@@ -1,16 +1,20 @@
-import { useRef } from "react";
+import { useRef, useEffect } from "react";
 import Link from "next/link";
 import Head from "next/head";
 import {
   motion,
+  animate,
   useScroll,
   useTransform,
+  useMotionValue,
+  useInView,
   useReducedMotion,
 } from "framer-motion";
 import {
   Star, ArrowRight, Phone, CheckCircle, Check, Zap, Users, Clock, Sparkles,
   Heart, Building2, PartyPopper, Crown, ChefHat, FileText, Calendar, Truck,
   RefreshCw, TrendingUp, Bell, Leaf, Shield, Award, Quote, MapPin, Utensils,
+  ChevronDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { LandingFooter } from "@/components/landing/LandingFooter";
@@ -102,6 +106,45 @@ function Photo({
   );
 }
 
+/**
+ * Count-up number for the social-proof stats. Animates only when scrolled into
+ * view, exactly once, and snaps straight to the value under reduced-motion.
+ * `prefix`/`suffix` keep the honest range + unit (e.g. "10–" … "%").
+ */
+function CountUp({
+  to,
+  prefix = "",
+  suffix = "",
+  className = "",
+}: {
+  to: number;
+  prefix?: string;
+  suffix?: string;
+  className?: string;
+}) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const inView = useInView(ref, { once: true, margin: "-60px" });
+  const reduce = useReducedMotion();
+  const mv = useMotionValue(0);
+  const text = useTransform(mv, (v) => `${prefix}${Math.round(v)}${suffix}`);
+
+  useEffect(() => {
+    if (!inView) return;
+    if (reduce) {
+      mv.set(to);
+      return;
+    }
+    const controls = animate(mv, to, { duration: 1.1, ease: [0.23, 1, 0.32, 1] });
+    return () => controls.stop();
+  }, [inView, reduce, to, mv]);
+
+  return (
+    <motion.span ref={ref} className={className}>
+      {text}
+    </motion.span>
+  );
+}
+
 export default function HomePage() {
   const heroRef = useRef<HTMLDivElement>(null);
   const reduce = useReducedMotion();
@@ -176,11 +219,12 @@ export default function HomePage() {
     },
   ];
 
+  // prefix/suffix preserve the honest range; CountUp animates the headline figure.
   const stats = [
-    { value: "12+", label: "Hours saved every week", icon: Clock },
-    { value: "50–55%", label: "Fewer admin calls", icon: Bell },
-    { value: "10–16%", label: "Higher profit margins", icon: TrendingUp },
-    { value: "1.5–2×", label: "More repeat bookings", icon: RefreshCw },
+    { prefix: "", to: 12, suffix: "+", label: "Hours saved every week", icon: Clock },
+    { prefix: "50–", to: 55, suffix: "%", label: "Fewer admin calls", icon: Bell },
+    { prefix: "10–", to: 16, suffix: "%", label: "Higher profit margins", icon: TrendingUp },
+    { prefix: "1.5–", to: 2, suffix: "×", label: "More repeat bookings", icon: RefreshCw },
   ];
 
   const integrations = ["PayFast", "Stripe", "Xero", "QuickBooks", "Sage", "Paystack"];
@@ -345,7 +389,7 @@ export default function HomePage() {
               <StaggerItem>
                 <h1 className="text-balance font-display text-5xl font-semibold leading-[1.05] tracking-tight text-white sm:text-6xl lg:text-7xl">
                   Run a catering business your{" "}
-                  <span className="bg-gradient-to-r from-amber-300 via-amber-200 to-orange-300 bg-clip-text text-transparent">
+                  <span className="bg-gradient-to-r from-amber-300 via-amber-100 to-orange-300 bg-[length:200%_auto] bg-clip-text text-transparent animate-[shimmer_6s_linear_infinite] motion-reduce:animate-none">
                     clients rave about
                   </span>
                 </h1>
@@ -397,6 +441,11 @@ export default function HomePage() {
               </StaggerItem>
             </Stagger>
           </div>
+
+          {/* Subtle scroll cue */}
+          <div className="pointer-events-none absolute inset-x-0 bottom-5 flex justify-center">
+            <ChevronDown className="h-5 w-5 animate-bounce text-white/40 motion-reduce:animate-none" />
+          </div>
         </section>
 
         {/* ===================== SOCIAL PROOF ===================== */}
@@ -407,9 +456,12 @@ export default function HomePage() {
                 <StaggerItem key={index} className="text-center">
                   <div className="flex flex-col items-center">
                     <stat.icon className="mb-2 h-5 w-5 text-amber-500" />
-                    <div className="font-display text-4xl font-semibold tracking-tight text-stone-900 md:text-5xl">
-                      {stat.value}
-                    </div>
+                    <CountUp
+                      to={stat.to}
+                      prefix={stat.prefix}
+                      suffix={stat.suffix}
+                      className="font-display text-4xl font-semibold tracking-tight text-stone-900 md:text-5xl"
+                    />
                     <div className="mt-1 text-sm text-stone-500">{stat.label}</div>
                   </div>
                 </StaggerItem>
@@ -420,12 +472,20 @@ export default function HomePage() {
               <p className="text-center text-xs font-semibold uppercase tracking-[0.2em] text-stone-400">
                 Payments &amp; accounting that just work
               </p>
-              <div className="mt-5 flex flex-wrap items-center justify-center gap-x-8 gap-y-3">
-                {integrations.map((name) => (
-                  <span key={name} className="text-lg font-semibold tracking-tight text-stone-400">
-                    {name}
-                  </span>
-                ))}
+              {/* Slow, seamless logo marquee (linear, pauses on hover, off under
+                  reduced motion). Track is duplicated so -50% loops forever. */}
+              <div className="group mt-6 overflow-hidden [mask-image:linear-gradient(to_right,transparent,black_12%,black_88%,transparent)]">
+                <div className="flex w-max animate-[marquee_26s_linear_infinite] items-center gap-12 group-hover:[animation-play-state:paused] motion-reduce:animate-none motion-reduce:justify-center">
+                  {[...integrations, ...integrations].map((name, i) => (
+                    <span
+                      key={`${name}-${i}`}
+                      className="shrink-0 text-lg font-semibold tracking-tight text-stone-400 transition-colors duration-200 hover:text-stone-600"
+                      aria-hidden={i >= integrations.length}
+                    >
+                      {name}
+                    </span>
+                  ))}
+                </div>
               </div>
             </Reveal>
           </div>

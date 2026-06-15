@@ -301,3 +301,15 @@
 .animate-pulse-once {
   animation: pulse-once 1.6s ease-out 1;
 }
+
+/* Marketing landing-page motion (warm catering homepage only).
+   Constant motion uses linear timing per the emil-design-eng framework;
+   both are gated behind motion-reduce:animate-none in the markup. */
+@keyframes marquee {
+  /* The track duplicates its children, so -50% loops seamlessly. */
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+@keyframes shimmer {
+  to { background-position: 200% center; }
+}
