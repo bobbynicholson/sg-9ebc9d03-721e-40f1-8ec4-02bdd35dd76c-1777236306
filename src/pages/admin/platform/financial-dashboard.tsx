@@ -15,7 +15,8 @@ import Head from "next/head";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { PlatformNav } from "@/components/admin/PlatformNav";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PortalShell, PortalHeader, PortalCard, PortalCardHeader, StatTile } from "@/components/portal/ui";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useSortable, type ColumnDef } from "@/lib/useSortable";
 import { SortHeader } from "@/components/ui/sort-header";
@@ -101,84 +102,63 @@ function PlatformFinancialDashboard() {
         <title>Platform financial dashboard - CateringMS</title>
         <meta name="robots" content="noindex, nofollow" />
       </Head>
-      <PlatformNav />
-      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80 pt-20 lg:pt-0">
-        <div className="px-4 py-8 max-w-full">
-
-          {/* Header */}
-          <div className="mb-6 flex items-center justify-between flex-wrap gap-3">
-            <div className="flex items-center gap-3">
-              <div className="p-3 rounded-2xl bg-gradient-to-br from-brand-primary to-brand-secondary shadow-lg">
-                <Crown className="w-7 h-7 text-white" />
-              </div>
-              <div>
-                <h1 className="text-2xl lg:text-3xl font-bold text-slate-900">
-                  Platform finances
-                </h1>
-                <p className="text-sm text-slate-600 mt-0.5">
-                  CateringMS's own revenue across every catering company on the platform.
-                  This is NOT a tenant view, per-tenant books live on /admin/financial-dashboard.
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={load}
-              disabled={loading}
-              className="inline-flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900 px-3 py-1.5 rounded-md border border-slate-200 bg-white hover:bg-slate-50"
-            >
-              <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-              Refresh
-            </button>
-          </div>
+      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <PlatformNav />
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+          <PortalHeader
+            title="Platform finances"
+            subtitle="CateringMS's own revenue across every catering company on the platform. This is NOT a tenant view, per-tenant books live on /admin/financial-dashboard."
+            icon={Crown}
+            actions={
+              <Button onClick={load} disabled={loading} variant="outline" className="gap-2">
+                <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+                Refresh
+              </Button>
+            }
+          />
 
           {/* Stat tiles */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            <Stat label="Total tenants" value={stats.total} icon={Users} />
-            <Stat label="Active subs" value={stats.active} tone="emerald" icon={Activity} />
-            <Stat label="On trial" value={stats.trialing} tone="amber" icon={TrendingUp} />
-            <Stat label="Cancelled / churned" value={stats.cancelled} tone="rose" icon={AlertTriangle} />
+            <StatTile label="Total tenants" value={stats.total} icon={Users} />
+            <StatTile label="Active subs" value={<span className="text-emerald-600 dark:text-emerald-500">{stats.active}</span>} icon={Activity} />
+            <StatTile label="On trial" value={<span className="text-amber-600 dark:text-amber-500">{stats.trialing}</span>} icon={TrendingUp} />
+            <StatTile label="Cancelled / churned" value={<span className="text-rose-600 dark:text-rose-500">{stats.cancelled}</span>} icon={AlertTriangle} />
           </div>
 
           {/* Trial expiry alert */}
           {stats.expiringSoon > 0 && (
-            <Card className="border-amber-200 bg-amber-50 mb-6">
-              <CardContent className="p-4 flex items-start gap-3">
-                <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
-                <div>
-                  <p className="font-medium text-amber-900">
-                    {stats.expiringSoon} trial{stats.expiringSoon === 1 ? "" : "s"} expiring within 7 days
-                  </p>
-                  <p className="text-xs text-amber-700 mt-0.5">
-                    Use Trials in the sidebar to extend or convert before the cutoff.
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
+            <PortalCard className="border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/40 mb-6 flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="font-medium text-amber-900 dark:text-amber-200">
+                  {stats.expiringSoon} trial{stats.expiringSoon === 1 ? "" : "s"} expiring within 7 days
+                </p>
+                <p className="text-xs text-amber-700 dark:text-amber-300 mt-0.5">
+                  Use Trials in the sidebar to extend or convert before the cutoff.
+                </p>
+              </div>
+            </PortalCard>
           )}
 
           {/* Tenants list */}
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">Tenants on the books</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {loading ? (
-                <p className="text-sm text-slate-500 py-6 text-center">Loading...</p>
-              ) : companies.length === 0 ? (
-                <p className="text-sm text-slate-500 py-6 text-center">
-                  No tenants yet. Once a company signs up, they'll show here.
-                </p>
-              ) : (
-                <CompaniesSortableTable companies={companies} />
-              )}
-            </CardContent>
-          </Card>
+          <PortalCard>
+            <PortalCardHeader title="Tenants on the books" />
+            {loading ? (
+              <p className="text-sm text-slate-500 dark:text-slate-400 py-6 text-center">Loading...</p>
+            ) : companies.length === 0 ? (
+              <p className="text-sm text-slate-500 dark:text-slate-400 py-6 text-center">
+                No tenants yet. Once a company signs up, they'll show here.
+              </p>
+            ) : (
+              <CompaniesSortableTable companies={companies} />
+            )}
+          </PortalCard>
 
           <p className="text-[11px] text-slate-400 mt-4">
             Pricing tiers + invoice-level MRR breakdown live behind the Pricing and Subscriptions pages in the sidebar.
             Voiding a leaky shortcut here meant rebuilding this view from scratch, {fmtR(0)} of cross-tenant data leaked while it was wrong.
           </p>
-        </div>
+        </PortalShell>
       </div>
     </>
   );
@@ -249,25 +229,5 @@ function CompaniesSortableTable({ companies }: { companies: CompanyRow[] }) {
         </tbody>
       </table>
     </div>
-  );
-}
-
-function Stat({
-  label, value, tone, icon: Icon,
-}: { label: string; value: number; tone?: "emerald" | "amber" | "rose"; icon: any }) {
-  const valueClass =
-    tone === "emerald" ? "text-emerald-600" :
-    tone === "amber"   ? "text-amber-600"   :
-    tone === "rose"    ? "text-rose-600"    : "text-slate-900";
-  return (
-    <Card className="border-0 shadow-md">
-      <CardContent className="p-4">
-        <div className="flex items-center justify-between mb-1">
-          <p className="text-xs text-slate-600">{label}</p>
-          <Icon className={`w-4 h-4 ${valueClass}`} />
-        </div>
-        <p className={`text-2xl font-bold ${valueClass}`}>{value}</p>
-      </CardContent>
-    </Card>
   );
 }

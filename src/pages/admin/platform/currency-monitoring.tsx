@@ -1,16 +1,16 @@
 import { useState, useEffect } from "react";
 import Head from "next/head";
 import { PlatformNav } from "@/components/admin/PlatformNav";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { PortalShell, PortalHeader, PortalCard, PortalCardHeader, StatTile } from "@/components/portal/ui";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { currencyMonitoringService } from "@/services/currencyMonitoringService";
-import { 
-  TrendingUp, 
-  TrendingDown, 
-  AlertTriangle, 
-  CheckCircle, 
+import {
+  TrendingUp,
+  TrendingDown,
+  AlertTriangle,
+  CheckCircle,
   RefreshCw,
   DollarSign,
   Calendar,
@@ -20,7 +20,6 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/router";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
-import { InfoTooltip } from "@/components/ui/info-tooltip";
 
 interface ExchangeRate {
   id: string;
@@ -146,44 +145,46 @@ function PlatformCurrencyMonitoringPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 p-4 md:p-8">
-        <div className="max-w-full">
-          <div className="flex items-center justify-center h-96">
-            <RefreshCw className="h-8 w-8 animate-spin text-purple-600" />
-          </div>
-        </div>
+      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <PlatformNav />
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+          <PortalCard className="flex items-center justify-center py-16">
+            <div className="text-center text-slate-500 dark:text-slate-400">
+              <RefreshCw className="mx-auto mb-4 h-8 w-8 animate-spin" />
+              <p>Loading currency data...</p>
+            </div>
+          </PortalCard>
+        </PortalShell>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 p-4 md:p-8 lg:pl-72 xl:pl-80 pt-20 lg:pt-8">
+    <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
       <PlatformNav />
       <Head>
         <title>Currency monitoring - CateringMS</title>
         <meta name="robots" content="noindex, nofollow" />
       </Head>
 
-      <div className="max-w-full space-y-6">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <h1 className="text-3xl md:text-4xl font-bold text-slate-900">
-              Currency Monitoring
-            </h1>
-            <p className="text-slate-600 dark:text-slate-400 mt-2">
-              Track USD/ZAR rates. Alerts here are a manual review trigger. Pricing pegs in /admin/platform/pricing-management are fixed and only change when an admin updates them.
-            </p>
-          </div>
-          <Button
-            onClick={handleRefresh}
-            disabled={refreshing}
-            className="bg-gradient-to-r from-brand-primary to-brand-secondary text-white"
-          >
-            <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? "animate-spin" : ""}`} />
-            Run Check Now
-          </Button>
-        </div>
+      <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+        <PortalHeader
+          title="Currency Monitoring"
+          subtitle="Track USD/ZAR rates. Alerts here are a manual review trigger. Pricing pegs in /admin/platform/pricing-management are fixed and only change when an admin updates them."
+          icon={DollarSign}
+          actions={
+            <Button
+              onClick={handleRefresh}
+              disabled={refreshing}
+              className="gap-2"
+            >
+              <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+              Run Check Now
+            </Button>
+          }
+        />
 
+        <div className="space-y-6">
         {refreshError && (
           <Alert className="border-rose-300 bg-rose-50 dark:bg-rose-950">
             <AlertTriangle className="h-5 w-5 text-rose-600" />
@@ -209,114 +210,44 @@ function PlatformCurrencyMonitoringPage() {
           </Alert>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Card className="border-2 hover:shadow-lg transition-shadow">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-slate-600 dark:text-slate-400 flex items-center gap-1.5">
-                Current Rate
-                <InfoTooltip content="Latest USD to ZAR rate stored in exchange_rates.\n\nRefreshed daily by the currency-check cron (04:00 UTC) and on-demand via Run Check Now." />
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-3xl font-bold text-slate-900 dark:text-white">
-                    {/* Wave 24: prefix with the explicit code so the
-                        platform-internal forex view is unambiguous;
-                        "R 18.45" looked like a tenant-side amount.
-                        These rows ARE always ZAR (USD->ZAR rate
-                        tracking) so we hardcode the code. */}
-                    ZAR {currentRate.toFixed(2)}
-                  </div>
-                  <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-                    per USD
-                    {currentRateDate ? ` · as of ${new Date(currentRateDate).toLocaleDateString()}` : " · no rate stored yet"}
-                  </p>
-                </div>
-                <div className="h-12 w-12 rounded-full bg-gradient-to-br from-brand-primary to-brand-secondary flex items-center justify-center">
-                  <DollarSign className="h-6 w-6 text-white" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-2 hover:shadow-lg transition-shadow">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-slate-600 dark:text-slate-400 flex items-center gap-1.5">
-                90-Day Change
-                <InfoTooltip content="How much the USD to ZAR rate has moved over the past 90 days.\n\nA positive number means ZAR has weakened, negative means it's strengthened. A move of 15% or more triggers an alert." />
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className={`text-3xl font-bold ${
-                    fluctuation.percentage >= 0 ? "text-red-600" : "text-green-600"
-                  }`}>
-                    {fluctuation.percentage >= 0 ? "+" : ""}{fluctuation.percentage.toFixed(2)}%
-                  </div>
-                  <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 capitalize">
-                    ZAR {fluctuation.trend}
-                  </p>
-                </div>
-                <div className={`h-12 w-12 rounded-full flex items-center justify-center ${
-                  fluctuation.percentage >= 0 
-                    ? "bg-red-100 dark:bg-red-950" 
-                    : "bg-green-100 dark:bg-green-950"
-                }`}>
-                  {fluctuation.percentage >= 0 ? (
-                    <TrendingUp className="h-6 w-6 text-red-600" />
-                  ) : (
-                    <TrendingDown className="h-6 w-6 text-green-600" />
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-2 hover:shadow-lg transition-shadow">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-slate-600 dark:text-slate-400 flex items-center gap-1.5">
-                Active Alerts
-                <InfoTooltip content="Open currency fluctuation alerts that haven't been resolved yet.\n\nResolve one once the related pricing review or adjustment is done." />
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-3xl font-bold text-slate-900 dark:text-white">
-                    {alerts.length}
-                  </div>
-                  <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-                    Unresolved
-                  </p>
-                </div>
-                <div className={`h-12 w-12 rounded-full flex items-center justify-center ${
-                  alerts.length > 0 
-                    ? "bg-orange-100 dark:bg-orange-950" 
-                    : "bg-green-100 dark:bg-green-950"
-                }`}>
-                  <AlertTriangle className={`h-6 w-6 ${
-                    alerts.length > 0 ? "text-orange-600" : "text-green-600"
-                  }`} />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <StatTile
+            label="Current Rate"
+            value={`ZAR ${currentRate.toFixed(2)}`}
+            hint={`per USD${currentRateDate ? ` · as of ${new Date(currentRateDate).toLocaleDateString()}` : " · no rate stored yet"}`}
+            icon={DollarSign}
+          />
+          <StatTile
+            label="90-Day Change"
+            value={
+              <span className={fluctuation.percentage >= 0 ? "text-red-600 dark:text-red-500" : "text-green-600 dark:text-green-500"}>
+                {fluctuation.percentage >= 0 ? "+" : ""}{fluctuation.percentage.toFixed(2)}%
+              </span>
+            }
+            hint={<span className="capitalize">ZAR {fluctuation.trend}</span>}
+            icon={fluctuation.percentage >= 0 ? TrendingUp : TrendingDown}
+          />
+          <StatTile
+            label="Active Alerts"
+            value={
+              <span className={alerts.length > 0 ? "text-orange-600 dark:text-orange-500" : undefined}>
+                {alerts.length}
+              </span>
+            }
+            hint="Unresolved"
+            icon={AlertTriangle}
+          />
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Activity className="h-5 w-5" />
-              Exchange Rate History (Last 90 Days)
-              <InfoTooltip content="Daily USD to ZAR exchange rates for the past 90 days.\n\nPopulated by the daily currency check that runs in the background." />
-            </CardTitle>
-            <CardDescription>
-              Track historical USD to ZAR exchange rates
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
+        <PortalCard>
+          <PortalCardHeader
+            title={
+              <span className="flex items-center gap-2">
+                <Activity className="h-5 w-5" />
+                Exchange Rate History (Last 90 Days)
+              </span>
+            }
+          />
             <div className="space-y-2">
               {historicalRates.length === 0 ? (
                 <div className="text-center py-8 text-slate-500">
@@ -345,21 +276,17 @@ function PlatformCurrencyMonitoringPage() {
                 </div>
               )}
             </div>
-          </CardContent>
-        </Card>
+        </PortalCard>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5" />
-              Fluctuation Alerts
-              <InfoTooltip content="Alerts raised when the 90-day rate move crosses the 15% threshold, with the start and end rates that triggered each one.\n\nMark an alert resolved once the pricing review is done." />
-            </CardTitle>
-            <CardDescription>
-              Manage currency fluctuation alerts and pricing adjustments
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
+        <PortalCard>
+          <PortalCardHeader
+            title={
+              <span className="flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5" />
+                Fluctuation Alerts
+              </span>
+            }
+          />
             <div className="space-y-4">
               {alerts.length === 0 ? (
                 <div className="text-center py-8">
@@ -410,22 +337,18 @@ function PlatformCurrencyMonitoringPage() {
                 ))
               )}
             </div>
-          </CardContent>
-        </Card>
+        </PortalCard>
 
-        <Card className="border-2 border-purple-200 dark:border-purple-800 bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-950 dark:to-pink-950">
-          <CardHeader>
-            <CardTitle>Currency Policy Reminder</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="bg-white dark:bg-slate-900 rounded-lg p-4">
+        <PortalCard className="space-y-3">
+          <PortalCardHeader title="Currency Policy Reminder" />
+            <div className="bg-slate-50 dark:bg-slate-800/60 rounded-lg p-4">
               <h4 className="font-semibold mb-2">Currency Display:</h4>
               <p className="text-sm text-slate-600 dark:text-slate-400">
-                Prices shown in ZAR (South African Rand). USD, GBP, and EUR are approximate 
+                Prices shown in ZAR (South African Rand). USD, GBP, and EUR are approximate
                 conversions for reference only. All payments are processed in ZAR.
               </p>
             </div>
-            <div className="bg-white dark:bg-slate-900 rounded-lg p-4">
+            <div className="bg-slate-50 dark:bg-slate-800/60 rounded-lg p-4">
               <h4 className="font-semibold mb-2">USD-Pegged Pricing:</h4>
               <p className="text-sm text-slate-600 dark:text-slate-400">
                 Our ZAR pricing is pegged to USD rates. We reserve the right to adjust ZAR
@@ -439,9 +362,9 @@ function PlatformCurrencyMonitoringPage() {
                 changes when an admin updates them.
               </p>
             </div>
-          </CardContent>
-        </Card>
-      </div>
+        </PortalCard>
+        </div>
+      </PortalShell>
     </div>
   );
 }

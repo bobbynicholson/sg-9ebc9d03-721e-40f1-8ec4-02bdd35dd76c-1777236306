@@ -3,6 +3,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/router";
 import Head from "next/head";
 import { PlatformNav } from "@/components/admin/PlatformNav";
+import { PortalShell, PortalHeader, PortalCard, PortalCardHeader, StatTile } from "@/components/portal/ui";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -23,8 +24,6 @@ import {
   MapPin,
   Package,
   Calendar,
-  ArrowUpRight,
-  ArrowDownRight,
   RefreshCw
 } from "lucide-react";
 import { analyticsService } from "@/services/analyticsService";
@@ -41,7 +40,6 @@ const StatCard = ({
   changeType,
   icon: Icon,
   subtitle,
-  tooltip,
 }: {
   title: string;
   value: string;
@@ -51,31 +49,13 @@ const StatCard = ({
   subtitle?: string;
   tooltip?: string;
 }) => (
-  <Card>
-    <CardContent className="p-4">
-      <div className="flex items-center justify-between mb-1.5">
-        <span className="text-xs font-medium text-slate-600 flex items-center gap-1">
-          {title}
-          {tooltip && <InfoTooltip content={tooltip} />}
-        </span>
-        <Icon className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
-      </div>
-      <div className="text-xl sm:text-2xl font-bold text-slate-900 tabular-nums">{value}</div>
-      {subtitle && <p className="text-[11px] text-slate-500 mt-0.5">{subtitle}</p>}
-      {change && (
-        <div className={`flex items-center gap-1 text-[11px] mt-1 ${
-          changeType === "positive" ? "text-green-600" : "text-red-600"
-        }`}>
-          {changeType === "positive" ? (
-            <ArrowUpRight className="h-3 w-3" />
-          ) : (
-            <ArrowDownRight className="h-3 w-3" />
-          )}
-          {change}
-        </div>
-      )}
-    </CardContent>
-  </Card>
+  <StatTile
+    label={title}
+    value={value}
+    hint={subtitle}
+    icon={Icon}
+    trend={change ? { label: change, dir: changeType === "negative" ? "down" : "up" } : undefined}
+  />
 );
 
 // Wave 24: super_admin gate. The platform dashboard reads tenant-
@@ -152,11 +132,16 @@ function PlatformDashboard() {
   // Show loading only if we don't have a user yet
   if (!user || loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4 text-purple-600" />
-          <p className="text-slate-600">Loading analytics dashboard...</p>
-        </div>
+      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <PlatformNav />
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+          <PortalCard className="flex items-center justify-center py-16">
+            <div className="text-center text-slate-500 dark:text-slate-400">
+              <RefreshCw className="mx-auto mb-4 h-8 w-8 animate-spin" />
+              <p>Loading analytics dashboard...</p>
+            </div>
+          </PortalCard>
+        </PortalShell>
       </div>
     );
   }
@@ -310,7 +295,7 @@ function PlatformDashboard() {
   }
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80 pt-20 lg:pt-0">
+    <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
       <Head>
         <title>Platform dashboard - CateringMS</title>
         <meta name="robots" content="noindex, nofollow" />
@@ -318,62 +303,59 @@ function PlatformDashboard() {
 
       <PlatformNav />
 
-      <div className="px-4 sm:px-6 lg:px-8 py-6 max-w-full">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between mb-6 sm:mb-8">
-          <div className="min-w-0">
-            <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold text-slate-900">
-              Platform Analytics
-            </h1>
-            <p className="text-sm text-slate-600 mt-1">System-wide sales and business metrics</p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2 sm:gap-3 lg:flex-shrink-0">
-            <CompanySwitcher />
-            <Select value={dateRange} onValueChange={setDateRange}>
-              <SelectTrigger className="w-[140px] sm:w-[170px]">
-                <SelectValue placeholder="Select period" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Time</SelectItem>
-                <SelectItem value="today">Today</SelectItem>
-                <SelectItem value="week">This Week</SelectItem>
-                <SelectItem value="month">This Month</SelectItem>
-                <SelectItem value="quarter">This Quarter</SelectItem>
-                <SelectItem value="year">This Year</SelectItem>
-              </SelectContent>
-            </Select>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleRefresh}
-              disabled={refreshing}
-            >
-              <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? "animate-spin" : ""}`} />
-              <span className="hidden sm:inline">Refresh</span>
-            </Button>
-          </div>
-        </div>
+      <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+        <PortalHeader
+          title="Platform Analytics"
+          subtitle="System-wide sales and business metrics"
+          icon={Activity}
+          actions={
+            <>
+              <CompanySwitcher />
+              <Select value={dateRange} onValueChange={setDateRange}>
+                <SelectTrigger className="w-[140px] sm:w-[170px]">
+                  <SelectValue placeholder="Select period" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Time</SelectItem>
+                  <SelectItem value="today">Today</SelectItem>
+                  <SelectItem value="week">This Week</SelectItem>
+                  <SelectItem value="month">This Month</SelectItem>
+                  <SelectItem value="quarter">This Quarter</SelectItem>
+                  <SelectItem value="year">This Year</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleRefresh}
+                disabled={refreshing}
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? "animate-spin" : ""}`} />
+                <span className="hidden sm:inline">Refresh</span>
+              </Button>
+            </>
+          }
+        />
 
         {/* Platform Health: compact horizontal strip */}
-        <Card className="mb-6 sm:mb-8 border border-green-200 bg-gradient-to-r from-green-50 to-emerald-50">
-          <CardContent className="p-4 flex flex-wrap items-center gap-x-6 gap-y-3">
+        <PortalCard className="mb-6 sm:mb-8 flex flex-wrap items-center gap-x-6 gap-y-3 p-4">
             <div className="flex items-center gap-2.5">
               <div className="w-2 h-2 rounded-full bg-green-500 ring-4 ring-green-200 animate-pulse" />
-              <span className="text-sm font-semibold text-slate-900 flex items-center gap-1.5">
+              <span className="text-sm font-semibold text-slate-900 dark:text-white flex items-center gap-1.5">
                 Platform Health
                 <InfoTooltip content="A quick health snapshot of the platform.\n\nOnly the active companies number is live right now. The 98% score, response time, ticket count and uptime are placeholders until a monitoring service is connected." />
               </span>
               <span className="text-2xl font-bold text-green-600 tabular-nums">98%</span>
             </div>
-            <div className="h-4 w-px bg-green-200 hidden sm:block" />
-            <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-xs text-slate-600">
-              <span><span className="font-semibold text-slate-900">{metrics?.activeCompanies ?? metrics?.activeSubscriptions ?? 0}</span> active companies</span>
-              <span><span className="font-semibold text-slate-900">1.2s</span> avg response</span>
-              <span><span className="font-semibold text-slate-900">3</span> open tickets</span>
+            <div className="h-4 w-px bg-slate-200 dark:bg-slate-700 hidden sm:block" />
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-xs text-slate-600 dark:text-slate-400">
+              <span><span className="font-semibold text-slate-900 dark:text-white">{metrics?.activeCompanies ?? metrics?.activeSubscriptions ?? 0}</span> active companies</span>
+              <span><span className="font-semibold text-slate-900 dark:text-white">1.2s</span> avg response</span>
+              <span><span className="font-semibold text-slate-900 dark:text-white">3</span> open tickets</span>
               <span><span className="font-semibold text-red-600">0</span> failed payments</span>
               <span>99.9% uptime</span>
             </div>
-          </CardContent>
-        </Card>
+        </PortalCard>
 
         <div className="grid gap-3 sm:gap-4 grid-cols-2 md:grid-cols-4 mb-4 sm:mb-6">
           <StatCard
@@ -440,15 +422,16 @@ function PlatformDashboard() {
 
           <TabsContent value="overview" className="space-y-6">
             <div className="grid gap-6 md:grid-cols-2">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    Customer Growth
-                    <InfoTooltip content="New tenant signups each month next to the running platform total, with monthly revenue overlaid.\n\nGrouped by signup month from the companies table." />
-                  </CardTitle>
-                  <CardDescription>New customers and cumulative total over time</CardDescription>
-                </CardHeader>
-                <CardContent>
+              <PortalCard>
+                <PortalCardHeader
+                  title={
+                    <span className="flex items-center gap-2">
+                      Customer Growth
+                      <InfoTooltip content="New tenant signups each month next to the running platform total, with monthly revenue overlaid.\n\nGrouped by signup month from the companies table." />
+                    </span>
+                  }
+                />
+                <p className="-mt-2 mb-3 text-sm text-slate-500 dark:text-slate-400">New customers and cumulative total over time</p>
                   {customerGrowth.length === 0 ? (
                     <p className="text-center text-slate-500 py-8">No growth data available yet</p>
                   ) : (
@@ -471,18 +454,18 @@ function PlatformDashboard() {
                       ))}
                     </div>
                   )}
-                </CardContent>
-              </Card>
+              </PortalCard>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    Subscription Status
-                    <InfoTooltip content="A breakdown of every tenant by subscription state, active, trial and cancelled.\n\nPercentages show each bucket as a share of the total customer base." />
-                  </CardTitle>
-                  <CardDescription>Current subscription distribution</CardDescription>
-                </CardHeader>
-                <CardContent>
+              <PortalCard>
+                <PortalCardHeader
+                  title={
+                    <span className="flex items-center gap-2">
+                      Subscription Status
+                      <InfoTooltip content="A breakdown of every tenant by subscription state, active, trial and cancelled.\n\nPercentages show each bucket as a share of the total customer base." />
+                    </span>
+                  }
+                />
+                <p className="-mt-2 mb-3 text-sm text-slate-500 dark:text-slate-400">Current subscription distribution</p>
                   <div className="space-y-4">
                     <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg border border-green-200">
                       <div className="flex items-center gap-3">
@@ -547,21 +530,21 @@ function PlatformDashboard() {
                       </Badge>
                     </div>
                   </div>
-                </CardContent>
-              </Card>
+              </PortalCard>
             </div>
           </TabsContent>
 
           <TabsContent value="customers" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  Top Customers by Revenue
-                  <InfoTooltip content="The ten highest-spending tenants on the platform, ranked by lifetime payments.\n\nUseful for spotting who to look after and where to focus account management." />
-                </CardTitle>
-                <CardDescription>Highest spending customers on the platform</CardDescription>
-              </CardHeader>
-              <CardContent>
+            <PortalCard>
+              <PortalCardHeader
+                title={
+                  <span className="flex items-center gap-2">
+                    Top Customers by Revenue
+                    <InfoTooltip content="The ten highest-spending tenants on the platform, ranked by lifetime payments.\n\nUseful for spotting who to look after and where to focus account management." />
+                  </span>
+                }
+              />
+              <p className="-mt-2 mb-3 text-sm text-slate-500 dark:text-slate-400">Highest spending customers on the platform</p>
                 {topCustomers.length === 0 ? (
                   <p className="text-center text-slate-500 py-8">No customer data available yet</p>
                 ) : (
@@ -590,20 +573,20 @@ function PlatformDashboard() {
                     ))}
                   </div>
                 )}
-              </CardContent>
-            </Card>
+            </PortalCard>
           </TabsContent>
 
           <TabsContent value="plans" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  Plan Distribution
-                  <InfoTooltip content="How tenants and revenue are spread across each subscription plan, Starter, Growth, Scale and Enterprise.\n\nHelpful for seeing which tier is pulling its weight." />
-                </CardTitle>
-                <CardDescription>Revenue and customer breakdown by subscription plan</CardDescription>
-              </CardHeader>
-              <CardContent>
+            <PortalCard>
+              <PortalCardHeader
+                title={
+                  <span className="flex items-center gap-2">
+                    Plan Distribution
+                    <InfoTooltip content="How tenants and revenue are spread across each subscription plan, Starter, Growth, Scale and Enterprise.\n\nHelpful for seeing which tier is pulling its weight." />
+                  </span>
+                }
+              />
+              <p className="-mt-2 mb-3 text-sm text-slate-500 dark:text-slate-400">Revenue and customer breakdown by subscription plan</p>
                 {planDistribution.length === 0 ? (
                   <p className="text-center text-slate-500 py-8">No plan data available yet</p>
                 ) : (
@@ -629,20 +612,20 @@ function PlatformDashboard() {
                     ))}
                   </div>
                 )}
-              </CardContent>
-            </Card>
+            </PortalCard>
           </TabsContent>
 
           <TabsContent value="geography" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  Geographic Distribution
-                  <InfoTooltip content="Tenant count and revenue grouped by country and region.\n\nPulled from the country and state set on each company's profile." />
-                </CardTitle>
-                <CardDescription>Customers and revenue by location</CardDescription>
-              </CardHeader>
-              <CardContent>
+            <PortalCard>
+              <PortalCardHeader
+                title={
+                  <span className="flex items-center gap-2">
+                    Geographic Distribution
+                    <InfoTooltip content="Tenant count and revenue grouped by country and region.\n\nPulled from the country and state set on each company's profile." />
+                  </span>
+                }
+              />
+              <p className="-mt-2 mb-3 text-sm text-slate-500 dark:text-slate-400">Customers and revenue by location</p>
                 {geoDistribution.length === 0 ? (
                   <p className="text-center text-slate-500 py-8">No geographic data available yet</p>
                 ) : (
@@ -671,8 +654,7 @@ function PlatformDashboard() {
                     ))}
                   </div>
                 )}
-              </CardContent>
-            </Card>
+            </PortalCard>
           </TabsContent>
         </Tabs>
 
@@ -680,7 +662,7 @@ function PlatformDashboard() {
         <div className="mt-12">
           <AuditLogsViewer />
         </div>
-      </div>
+      </PortalShell>
     </div>
   );
 }

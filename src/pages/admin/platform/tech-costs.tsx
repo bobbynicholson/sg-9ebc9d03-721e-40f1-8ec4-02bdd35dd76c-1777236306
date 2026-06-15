@@ -33,7 +33,7 @@ import Head from "next/head";
 import Link from "next/link";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
-import { Card, CardContent } from "@/components/ui/card";
+import { PortalShell, PortalHeader, PortalCard, StatTile } from "@/components/portal/ui";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -489,105 +489,75 @@ function TechCostsDashboard() {
     <>
       <NoIndexMeta />
       <Head><title>Tech-stack costs - CateringMS</title></Head>
-      <PlatformNav />
 
-      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
-        <div className="px-3 sm:px-4 md:px-6 pt-20 lg:pt-6 pb-12 max-w-full">
+      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <PlatformNav />
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
 
-          {/* Header */}
-          <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg flex-shrink-0">
-                <Calculator className="w-6 h-6 text-white" />
-              </div>
-              <div className="min-w-0">
-                <h1 className="text-2xl md:text-3xl font-bold text-slate-900 flex items-center gap-2">
-                  Tech-stack costs
-                  <InfoTooltip content={"Predict CateringMS's monthly COGS as a function of tenant count and per-tenant usage. Sliders update the projection live, showing where each rand goes, your margin per tenant, and where you cross the next vendor tier."} />
-                </h1>
-                <p className="text-sm sm:text-base text-slate-600 mt-1">
-                  Unit economics calculator. How much does the platform cost to run, and where does the money go?
-                </p>
-              </div>
-            </div>
-            <Link
-              href="/admin/platform/pricing-management"
-              className="inline-flex items-center gap-1 text-sm font-medium text-emerald-700 hover:text-emerald-800"
-            >
-              Pricing tiers <ArrowRight className="w-4 h-4" />
-            </Link>
-          </div>
+          <PortalHeader
+            title={
+              <span className="flex items-center gap-2">
+                Tech-stack costs
+                <InfoTooltip content={"Predict CateringMS's monthly COGS as a function of tenant count and per-tenant usage. Sliders update the projection live, showing where each rand goes, your margin per tenant, and where you cross the next vendor tier."} />
+              </span>
+            }
+            subtitle="Unit economics calculator. How much does the platform cost to run, and where does the money go?"
+            icon={Calculator}
+            actions={
+              <Link
+                href="/admin/platform/pricing-management"
+                className="inline-flex items-center gap-1 text-sm font-medium text-emerald-700 hover:text-emerald-800"
+              >
+                Pricing tiers <ArrowRight className="w-4 h-4" />
+              </Link>
+            }
+          />
 
           {/* Headline numbers */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            <Card className="border-0 shadow-md bg-gradient-to-br from-emerald-50 to-teal-50">
-              <CardContent className="p-5">
-                <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">
-                  Monthly platform cost
-                </p>
-                <p className="text-3xl font-bold text-slate-900 mt-1">
-                  ZAR {total_zar.toLocaleString("en-ZA", { maximumFractionDigits: 0 })}
-                </p>
-                <p className="text-xs text-slate-600 mt-1">
-                  US${total_usd.toFixed(2)} at ZAR {usdToZar.toFixed(2)}/USD
-                </p>
-              </CardContent>
-            </Card>
-            <Card className="border-0 shadow-md bg-gradient-to-br from-blue-50 to-indigo-50">
-              <CardContent className="p-5">
-                <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">
-                  Cost per tenant
-                </p>
-                <p className="text-3xl font-bold text-slate-900 mt-1">
-                  ZAR {cost_per_tenant_zar.toLocaleString("en-ZA", { maximumFractionDigits: 0 })}
-                </p>
-                <p className="text-xs text-slate-600 mt-1">
+            <StatTile
+              label="Monthly platform cost"
+              value={`ZAR ${total_zar.toLocaleString("en-ZA", { maximumFractionDigits: 0 })}`}
+              hint={`US$${total_usd.toFixed(2)} at ZAR ${usdToZar.toFixed(2)}/USD`}
+            />
+            <StatTile
+              label="Cost per tenant"
+              value={`ZAR ${cost_per_tenant_zar.toLocaleString("en-ZA", { maximumFractionDigits: 0 })}`}
+              hint={
+                <>
                   At {assumptions.tenants.toLocaleString()} tenants
                   {actualTenants !== null && actualTenants !== assumptions.tenants && (
                     <span className="ml-1 text-slate-400">(actual: {actualTenants})</span>
                   )}
-                </p>
-              </CardContent>
-            </Card>
-            <Card
-              className={`border-0 shadow-md ${
-                margin_per_tenant_zar > 0
-                  ? "bg-gradient-to-br from-amber-50 to-orange-50"
-                  : "bg-gradient-to-br from-rose-50 to-red-50"
-              }`}
-            >
-              <CardContent className="p-5">
-                <p className={`text-xs font-semibold uppercase tracking-wide ${
-                  margin_per_tenant_zar > 0 ? "text-amber-700" : "text-rose-700"
-                }`}>
-                  Margin per tenant
-                </p>
-                <p className="text-3xl font-bold text-slate-900 mt-1">
+                </>
+              }
+            />
+            <StatTile
+              label="Margin per tenant"
+              value={
+                <span className={margin_per_tenant_zar > 0 ? "text-amber-600 dark:text-amber-500" : "text-rose-600 dark:text-rose-500"}>
                   ZAR {margin_per_tenant_zar.toLocaleString("en-ZA", { maximumFractionDigits: 0 })}
-                </p>
-                <p className="text-xs text-slate-600 mt-1">
-                  {margin_pct.toFixed(0)}% of ZAR {assumptions.subscription_zar_per_tenant.toLocaleString()} sub
-                </p>
-              </CardContent>
-            </Card>
+                </span>
+              }
+              hint={`${margin_pct.toFixed(0)}% of ZAR ${assumptions.subscription_zar_per_tenant.toLocaleString()} sub`}
+            />
           </div>
 
           {/* Total revenue + total margin row */}
-          <Card className="border-0 shadow-sm mb-6">
-            <CardContent className="p-4 grid grid-cols-2 sm:grid-cols-4 gap-4 text-center sm:text-left">
+          <PortalCard className="mb-6 grid grid-cols-2 sm:grid-cols-4 gap-4 text-center sm:text-left p-4">
               <div>
                 <p className="text-[11px] uppercase font-semibold text-slate-500">Tenants</p>
-                <p className="text-xl font-bold text-slate-900">{assumptions.tenants.toLocaleString()}</p>
+                <p className="text-xl font-bold text-slate-900 dark:text-white">{assumptions.tenants.toLocaleString()}</p>
               </div>
               <div>
                 <p className="text-[11px] uppercase font-semibold text-slate-500">Monthly revenue</p>
-                <p className="text-xl font-bold text-slate-900">
+                <p className="text-xl font-bold text-slate-900 dark:text-white">
                   ZAR {platform_revenue_zar.toLocaleString("en-ZA", { maximumFractionDigits: 0 })}
                 </p>
               </div>
               <div>
                 <p className="text-[11px] uppercase font-semibold text-slate-500">Monthly costs</p>
-                <p className="text-xl font-bold text-slate-900">
+                <p className="text-xl font-bold text-slate-900 dark:text-white">
                   ZAR {total_zar.toLocaleString("en-ZA", { maximumFractionDigits: 0 })}
                 </p>
               </div>
@@ -597,13 +567,11 @@ function TechCostsDashboard() {
                   ZAR {platform_margin_zar.toLocaleString("en-ZA", { maximumFractionDigits: 0 })}
                 </p>
               </div>
-            </CardContent>
-          </Card>
+          </PortalCard>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Assumptions panel */}
-            <Card className="lg:col-span-1 border-0 shadow-md">
-              <CardContent className="p-5 space-y-5">
+            <PortalCard className="lg:col-span-1 space-y-5">
                 <div>
                   <h2 className="text-base font-bold text-slate-900 mb-1">Assumptions</h2>
                   <p className="text-xs text-slate-500">Adjust these to see how cost changes.</p>
@@ -733,12 +701,10 @@ function TechCostsDashboard() {
                 >
                   Reset to defaults
                 </Button>
-              </CardContent>
-            </Card>
+            </PortalCard>
 
             {/* Cost breakdown */}
-            <Card className="lg:col-span-2 border-0 shadow-md">
-              <CardContent className="p-5 space-y-5">
+            <PortalCard className="lg:col-span-2 space-y-5">
                 <div>
                   <h2 className="text-base font-bold text-slate-900 mb-1">Cost breakdown</h2>
                   <p className="text-xs text-slate-500">
@@ -807,13 +773,11 @@ function TechCostsDashboard() {
                     </div>
                   </div>
                 )}
-              </CardContent>
-            </Card>
+            </PortalCard>
           </div>
 
           {/* Scaling table */}
-          <Card className="mt-6 border-0 shadow-md">
-            <CardContent className="p-5">
+          <PortalCard className="mt-6">
               <div className="flex items-center gap-2 mb-3">
                 <TrendingUp className="w-5 h-5 text-blue-600" />
                 <h2 className="text-base font-bold text-slate-900">Cost at scale</h2>
@@ -855,21 +819,20 @@ function TechCostsDashboard() {
                   </tbody>
                 </table>
               </div>
-            </CardContent>
-          </Card>
+          </PortalCard>
 
           {/* Footnote on assumptions */}
-          <div className="mt-6 rounded-lg border border-slate-200 bg-white p-4 flex items-start gap-2">
+          <PortalCard className="mt-6 p-4 flex items-start gap-2">
             <Info className="w-4 h-4 text-slate-500 flex-shrink-0 mt-0.5" />
-            <p className="text-xs text-slate-600 leading-relaxed">
+            <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
               All vendor pricing is captured in named constants at the top of{" "}
               <code className="bg-slate-100 px-1 rounded">src/pages/admin/platform/tech-costs.tsx</code>.
               Update those when a vendor changes their card and the projection here, the recommendations,
               and the per-tenant margin all recompute on the next page load. This is a calculator, not an
               integration. It doesn&apos;t pull live billing from any vendor.
             </p>
-          </div>
-        </div>
+          </PortalCard>
+        </PortalShell>
       </div>
     </>
   );
