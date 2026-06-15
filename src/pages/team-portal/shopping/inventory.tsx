@@ -198,11 +198,11 @@ export default function ShoppingInventoryPage() {
                 of the team portal (driver, kitchen). The shopping
                 portal predated the pattern; this brings it in line. */}
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center shadow-md flex-shrink-0">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center shadow-md flex-shrink-0">
                 <Warehouse className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
               </div>
               <div className="min-w-0">
-                <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
+                <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold bg-gradient-to-r from-amber-600 to-orange-600 bg-clip-text text-transparent">
                   Current Stock
                 </h1>
                 <p className="text-sm text-slate-600 mt-0.5">Live inventory levels, click any row to adjust stock with an audit entry</p>
@@ -483,7 +483,7 @@ export default function ShoppingInventoryPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={closeEdit} disabled={saving}>Cancel</Button>
-            <Button onClick={saveAdjustment} disabled={saving} className="bg-emerald-600 hover:bg-emerald-700">
+            <Button onClick={saveAdjustment} disabled={saving} className="bg-amber-600 hover:bg-amber-700">
               {saving ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Saving</> : "Save adjustment"}
             </Button>
           </DialogFooter>

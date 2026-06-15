@@ -77,11 +77,11 @@ export default function ShoppingSettingsPage() {
           <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-6">
             {/* Wave 34: gradient-box icon header. */}
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-md flex-shrink-0">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center shadow-md flex-shrink-0">
                 <SettingsIcon className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
               </div>
               <div className="min-w-0">
-                <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">
+                <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold bg-gradient-to-r from-amber-600 to-orange-600 bg-clip-text text-transparent">
                   Shopping Settings
                 </h1>
                 <p className="text-sm text-slate-600 mt-0.5">Procurement defaults for this catering company</p>
@@ -89,7 +89,7 @@ export default function ShoppingSettingsPage() {
             </div>
             <div className="flex gap-2">
               <Button variant="outline" size="sm" onClick={() => setSettings(DEFAULTS)}>Reset</Button>
-              <Button size="sm" onClick={save} disabled={saving || !loaded} className="bg-emerald-600 hover:bg-emerald-700">
+              <Button size="sm" onClick={save} disabled={saving || !loaded} className="bg-amber-600 hover:bg-amber-700">
                 {saving ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving</> : <><Save className="h-4 w-4 mr-2" />Save</>}
               </Button>
             </div>
@@ -98,7 +98,7 @@ export default function ShoppingSettingsPage() {
           <div className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle className="text-base flex items-center gap-2"><ShoppingCart className="h-4 w-4 text-emerald-600" />Purchase runs <InfoTooltip content="Defaults used when a new shopping list is created, receipts, auto-generation window, lead time.\n\nSaved on this device only." /></CardTitle>
+                <CardTitle className="text-base flex items-center gap-2"><ShoppingCart className="h-4 w-4 text-amber-600" />Purchase runs <InfoTooltip content="Defaults used when a new shopping list is created, receipts, auto-generation window, lead time.\n\nSaved on this device only." /></CardTitle>
                 <CardDescription>Defaults for shopping lists and procurement runs</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">

@@ -131,7 +131,7 @@ export default function ShoppingKitchenDemandPage() {
           {/* Header */}
           <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-orange-500 flex items-center justify-center shadow-lg flex-shrink-0">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center shadow-lg flex-shrink-0">
                 <ChefHat className="w-6 h-6 text-white" />
               </div>
               <div>
@@ -147,7 +147,7 @@ export default function ShoppingKitchenDemandPage() {
             <Button
               onClick={handleCreateList}
               disabled={creating || stats.shortfall === 0}
-              className="bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700"
+              className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600"
             >
               {creating ? <><Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />Creating</> : (
                 <><ShoppingCart className="w-4 h-4 mr-2" />Create shopping list</>
@@ -193,7 +193,7 @@ export default function ShoppingKitchenDemandPage() {
                     size="sm"
                     variant={horizon === h.key ? "default" : "outline"}
                     onClick={() => setHorizon(h.key)}
-                    className={horizon === h.key ? "bg-emerald-600 hover:bg-emerald-700" : ""}
+                    className={horizon === h.key ? "bg-amber-600 hover:bg-amber-700" : ""}
                   >{h.label}</Button>
                 ))}
               </div>
@@ -243,7 +243,7 @@ export default function ShoppingKitchenDemandPage() {
                       : "Try a different search."}
                 </p>
                 {demand.length === 0 && (
-                  <Link href="/admin/menu" className="inline-flex items-center gap-1 text-sm text-emerald-700 hover:text-emerald-800 mt-4 font-medium">
+                  <Link href="/admin/menu" className="inline-flex items-center gap-1 text-sm text-amber-700 hover:text-amber-800 mt-4 font-medium">
                     Open menu builder <ExternalLink className="w-3 h-3" />
                   </Link>
                 )}
@@ -336,7 +336,7 @@ export default function ShoppingKitchenDemandPage() {
           {/* Helper line */}
           <p className="text-xs text-slate-500 mt-4 text-center">
             Demand math comes from menu item recipes, if something's missing, ask the owner to attach a recipe in
-            <Link href="/admin/menu" className="text-emerald-700 hover:text-emerald-800 ml-1 underline">/admin/menu</Link>.
+            <Link href="/admin/menu" className="text-amber-700 hover:text-amber-800 ml-1 underline">/admin/menu</Link>.
           </p>
         </div>
         <Footer />

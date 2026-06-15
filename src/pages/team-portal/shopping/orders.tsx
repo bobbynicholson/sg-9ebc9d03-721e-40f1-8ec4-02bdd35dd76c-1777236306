@@ -52,8 +52,8 @@ interface Order {
 const listStatusTone: Record<string, string> = {
   draft:        "bg-slate-100 text-slate-700 border-slate-200",
   pending:      "bg-amber-100 text-amber-800 border-amber-200",
-  in_progress:  "bg-purple-100 text-purple-800 border-purple-200",
-  shopping:     "bg-purple-100 text-purple-800 border-purple-200",
+  in_progress:  "bg-amber-100 text-amber-800 border-amber-200",
+  shopping:     "bg-amber-100 text-amber-800 border-amber-200",
   completed:    "bg-emerald-100 text-emerald-800 border-emerald-200",
   cancelled:    "bg-rose-100 text-rose-700 border-rose-200",
 };
@@ -61,7 +61,7 @@ const listStatusTone: Record<string, string> = {
 const orderStatusTone: Record<string, string> = {
   pending:    "bg-amber-100 text-amber-800 border-amber-200",
   confirmed:  "bg-blue-100 text-blue-800 border-blue-200",
-  preparing:  "bg-purple-100 text-purple-800 border-purple-200",
+  preparing:  "bg-amber-100 text-amber-800 border-amber-200",
   ready:      "bg-green-100 text-green-800 border-green-200",
 };
 
@@ -259,17 +259,17 @@ export default function ShoppingOrdersPage() {
           <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-6">
             {/* Wave 34: gradient-box icon header. */}
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-md flex-shrink-0">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center shadow-md flex-shrink-0">
                 <ShoppingCart className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
               </div>
               <div className="min-w-0">
-                <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">
+                <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold bg-gradient-to-r from-amber-600 to-orange-600 bg-clip-text text-transparent">
                   Shopping Orders
                 </h1>
                 <p className="text-sm text-slate-600 mt-0.5">Active shopping lists + upcoming events that need procurement</p>
               </div>
             </div>
-            <Button onClick={openCreate} className="bg-emerald-600 hover:bg-emerald-700">
+            <Button onClick={openCreate} className="bg-amber-600 hover:bg-amber-700">
               <Plus className="h-4 w-4 mr-2" />New shopping list
             </Button>
           </div>
@@ -281,10 +281,10 @@ export default function ShoppingOrdersPage() {
           </div>
 
           <div className="flex gap-2 mb-4">
-            <Button variant={tab === "lists" ? "default" : "outline"} size="sm" onClick={() => setTab("lists")} className={tab === "lists" ? "bg-emerald-600 hover:bg-emerald-700" : ""}>
+            <Button variant={tab === "lists" ? "default" : "outline"} size="sm" onClick={() => setTab("lists")} className={tab === "lists" ? "bg-amber-600 hover:bg-amber-700" : ""}>
               <ListChecks className="h-4 w-4 mr-2" />Shopping lists
             </Button>
-            <Button variant={tab === "upcoming" ? "default" : "outline"} size="sm" onClick={() => setTab("upcoming")} className={tab === "upcoming" ? "bg-emerald-600 hover:bg-emerald-700" : ""}>
+            <Button variant={tab === "upcoming" ? "default" : "outline"} size="sm" onClick={() => setTab("upcoming")} className={tab === "upcoming" ? "bg-amber-600 hover:bg-amber-700" : ""}>
               <Calendar className="h-4 w-4 mr-2" />Upcoming events
             </Button>
           </div>
@@ -331,7 +331,7 @@ export default function ShoppingOrdersPage() {
                             <Button size="sm" variant="outline" onClick={() => claimList(l.id)}>Claim</Button>
                           )}
                           {l.status !== "completed" && (
-                            <Button size="sm" onClick={() => openComplete(l.id)} className="bg-emerald-600 hover:bg-emerald-700">
+                            <Button size="sm" onClick={() => openComplete(l.id)} className="bg-amber-600 hover:bg-amber-700">
                               <Check className="h-4 w-4 mr-1" />Complete
                             </Button>
                           )}
@@ -420,7 +420,7 @@ export default function ShoppingOrdersPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={closeCreate} disabled={saving}>Cancel</Button>
-            <Button onClick={saveCreate} disabled={saving} className="bg-emerald-600 hover:bg-emerald-700">
+            <Button onClick={saveCreate} disabled={saving} className="bg-amber-600 hover:bg-amber-700">
               {saving ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving</> : "Create list"}
             </Button>
           </DialogFooter>
@@ -500,7 +500,7 @@ export default function ShoppingOrdersPage() {
             <Button
               onClick={completeList}
               disabled={completing}
-              className="bg-emerald-600 hover:bg-emerald-700"
+              className="bg-amber-600 hover:bg-amber-700"
             >
               {completing ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving</> : <><Check className="h-4 w-4 mr-2" />Mark complete</>}
             </Button>

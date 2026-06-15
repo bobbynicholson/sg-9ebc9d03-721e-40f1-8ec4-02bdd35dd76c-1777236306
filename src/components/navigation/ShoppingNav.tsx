@@ -87,12 +87,14 @@ export function ShoppingNav(_: ShoppingNavProps = {}) {
     title: "Shopping Portal",
     mobileSubtitle: "Plan, run, reconcile",
     brandIcon: ShoppingCart,
-    accentGradient: "from-green-500 to-emerald-500",
-    accentGradientDark: "from-green-600 to-emerald-600",
-    hoverClasses: "hover:bg-emerald-50 hover:text-emerald-700",
-    activeHoverClasses: "hover:from-green-600 hover:to-emerald-600",
-    mobileSubtitleClasses: "text-green-100",
-    searchAccent: "bg-emerald-50 hover:bg-emerald-100 text-emerald-700",
+    // Unified warm CateringMS brand accent (matches the landing page +
+    // auth). Was green/emerald (the old per-role colour).
+    accentGradient: "from-amber-500 to-orange-500",
+    accentGradientDark: "from-amber-600 to-orange-600",
+    hoverClasses: "hover:bg-amber-50 hover:text-amber-700",
+    activeHoverClasses: "hover:from-amber-600 hover:to-orange-600",
+    mobileSubtitleClasses: "text-amber-100",
+    searchAccent: "bg-amber-50 hover:bg-amber-100 text-amber-700",
     searchHint: "Search items, suppliers, lists...",
     dashboardHref: "/team-portal/shopping/dashboard",
     // Static fallback. The smart renderer below normally takes over.
@@ -102,7 +104,7 @@ export function ShoppingNav(_: ShoppingNavProps = {}) {
       // buy-list surface is /buy-list (action-driven with checkboxes
       // and bulk-add). /alerts kept as a deprecated alias for
       // bookmarks.
-      { href: "/team-portal/shopping/buy-list", label: "Buy list",    sub: "Shortfalls first",  icon: TrendingDown, accent: "from-green-500 to-emerald-500" },
+      { href: "/team-portal/shopping/buy-list", label: "Buy list",    sub: "Shortfalls first",  icon: TrendingDown, accent: "from-amber-500 to-orange-500" },
       { href: "/team-portal/shopping/orders",   label: "Active shop", sub: "Current list",      icon: ShoppingCart, accent: "from-blue-500 to-indigo-500" },
       { href: "/team-portal/shopping/receipts", label: "Receipts",    sub: "Snap a slip",       icon: Camera,       accent: "from-amber-500 to-orange-500" },
     ],

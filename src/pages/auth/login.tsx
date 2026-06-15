@@ -274,7 +274,7 @@ export default function LoginPage() {
           </Button>
         )}
         <Card className="w-full max-w-4xl border-0 shadow-2xl rounded-3xl overflow-hidden">
-          <div className="px-7 pt-7 pb-6 bg-gradient-to-br from-purple-500 to-pink-500">
+          <div className="px-7 pt-7 pb-6 bg-gradient-to-br from-amber-500 to-orange-500">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 rounded-xl bg-white/20 backdrop-blur flex items-center justify-center shadow-lg flex-shrink-0">
                 <Mail className="w-6 h-6 text-white" />
@@ -356,8 +356,8 @@ export default function LoginPage() {
         <Card className="w-full border border-slate-200/70 shadow-2xl shadow-slate-200/60 rounded-2xl">
           <CardContent className="p-6 sm:p-8">
             <div className="mb-7">
-              <h1 className="text-3xl font-bold tracking-tight text-slate-900">Welcome back</h1>
-              <p className="text-sm text-slate-500 mt-1.5">
+              <h1 className="font-display text-3xl font-semibold tracking-tight text-stone-900">Welcome back</h1>
+              <p className="text-sm text-stone-500 mt-1.5">
                 Sign in and we'll route you straight to your portal.
               </p>
             </div>
@@ -422,7 +422,7 @@ export default function LoginPage() {
 
                 <Button
                   type="submit"
-                  className="w-full h-12 bg-gradient-to-r from-purple-600 to-pink-500 hover:opacity-95 hover:shadow-lg hover:shadow-purple-500/25 active:scale-[0.99] transition-all text-white font-semibold text-base rounded-xl"
+                  className="w-full h-12 bg-gradient-to-r from-amber-500 to-orange-600 hover:opacity-95 hover:shadow-lg hover:shadow-amber-500/25 text-white font-semibold text-base rounded-xl"
                   disabled={loading}
                 >
                   {loading ? (
@@ -438,7 +438,7 @@ export default function LoginPage() {
                 <div className="mt-2 text-center space-y-3">
                   <p className="text-sm text-slate-500">
                     Don't have an account?{" "}
-                    <Link href="/company-signup" className="text-purple-600 hover:text-purple-700 font-medium">
+                    <Link href="/company-signup" className="text-amber-700 hover:text-amber-800 font-medium">
                       Sign up for free
                     </Link>
                   </p>
@@ -447,7 +447,7 @@ export default function LoginPage() {
                   </p>
                   <p className="text-xs text-slate-400">
                     Need help?{" "}
-                    <Link href="/support" className="text-purple-600 hover:text-purple-700 font-medium">
+                    <Link href="/support" className="text-amber-700 hover:text-amber-800 font-medium">
                       Contact support
                     </Link>
                   </p>

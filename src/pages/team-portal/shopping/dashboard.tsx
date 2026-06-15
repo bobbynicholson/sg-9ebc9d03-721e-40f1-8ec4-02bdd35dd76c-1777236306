@@ -263,7 +263,7 @@ function ShoppingDashboardInner() {
         <div className="px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8 lg:py-12 max-w-full">
           {/* Header */}
           <div className="flex items-center gap-2 sm:gap-3 mb-6 sm:mb-8">
-            <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-xl bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center shadow-lg flex-shrink-0">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center shadow-lg flex-shrink-0">
               <ShoppingCart className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-white" />
             </div>
             <div>
@@ -297,7 +297,7 @@ function ShoppingDashboardInner() {
                   Open the Buy list to see what's short and start a new shopping run. Ticks save automatically once a list is going.
                 </p>
                 <Link href={withSlug("/team-portal/shopping/buy-list")}>
-                  <Button className="bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 gap-1.5">
+                  <Button className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 gap-1.5">
                     <ListChecks className="w-4 h-4" />
                     Open Buy list
                     <ArrowRight className="w-3.5 h-3.5 ml-1" />
@@ -311,10 +311,10 @@ function ShoppingDashboardInner() {
               <Card className="border-0 shadow-lg mb-6 sm:mb-8">
                 <CardHeader className="pb-2 sm:pb-3 px-3 sm:px-6">
                   <CardTitle className="flex flex-wrap items-center gap-2 text-base sm:text-lg">
-                    <Package className="w-4 h-4 sm:w-5 sm:h-5 text-green-600" />
+                    <Package className="w-4 h-4 sm:w-5 sm:h-5 text-amber-600" />
                     <span>{activeList.list.title || "Your shopping list"}</span>
                     <Badge variant="outline" className={yourList
-                      ? "bg-emerald-50 text-emerald-700 border-emerald-200 gap-1"
+                      ? "bg-amber-50 text-amber-700 border-amber-200 gap-1"
                       : "bg-slate-50 text-slate-700 border-slate-200 gap-1"
                     }>
                       {yourList ? <User className="w-3 h-3" /> : <UsersIcon className="w-3 h-3" />}
@@ -326,11 +326,11 @@ function ShoppingDashboardInner() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="px-3 sm:px-6">
-                  <div className="p-3 sm:p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg">
+                  <div className="p-3 sm:p-4 bg-gradient-to-r from-amber-50 to-orange-50 rounded-lg">
                     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-3">
                       <div>
                         <p className="text-xs sm:text-sm text-slate-600">Items left to buy</p>
-                        <p className="text-2xl sm:text-3xl font-bold text-green-600 tabular-nums">
+                        <p className="text-2xl sm:text-3xl font-bold text-amber-600 tabular-nums">
                           {remaining.length}
                           <span className="text-base text-slate-500 font-normal">
                             {" "}of {items.length}
@@ -401,7 +401,7 @@ function ShoppingDashboardInner() {
                       {remaining.length === 0 && items.length > 0 && (
                         <Button
                           onClick={handleCompleteOpen}
-                          className="flex-1 text-sm sm:text-base h-10 sm:h-11 bg-emerald-600 hover:bg-emerald-700 gap-1.5"
+                          className="flex-1 text-sm sm:text-base h-10 sm:h-11 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 gap-1.5"
                         >
                           <CheckCircle className="w-4 h-4" />
                           Mark list complete
@@ -481,7 +481,7 @@ function ShoppingDashboardInner() {
                     size="sm"
                     variant={filter === f ? "default" : "outline"}
                     onClick={() => setFilter(f)}
-                    className={filter === f ? "bg-emerald-600 hover:bg-emerald-700 capitalize" : "capitalize"}
+                    className={filter === f ? "bg-amber-600 hover:bg-amber-700 capitalize" : "capitalize"}
                   >
                     {f === "pending" ? "Remaining" : f === "purchased" ? "Bought" : "All"}
                   </Button>
@@ -512,7 +512,7 @@ function ShoppingDashboardInner() {
                         </p>
                         {items.length === 0 && (
                           <p className="text-xs text-slate-500 mt-2 max-w-md mx-auto">
-                            Head to the <Link href={withSlug("/team-portal/shopping/buy-list")} className="text-emerald-700 underline">Buy list</Link> to add items based on the next 7 days of demand.
+                            Head to the <Link href={withSlug("/team-portal/shopping/buy-list")} className="text-amber-700 underline">Buy list</Link> to add items based on the next 7 days of demand.
                           </p>
                         )}
                       </div>
@@ -556,7 +556,7 @@ function ShoppingDashboardInner() {
                                   className={`flex items-center gap-3 p-3 sm:p-4 rounded-lg border-2 transition-colors cursor-pointer select-none min-h-11 ${
                                     item.purchased
                                       ? "bg-green-50 border-green-200"
-                                      : "bg-white border-slate-200 hover:border-emerald-300 active:bg-emerald-50"
+                                      : "bg-white border-slate-200 hover:border-amber-300 active:bg-amber-50"
                                   }`}
                                   aria-pressed={item.purchased}
                                   aria-label={`Mark ${item.name} as ${item.purchased ? "not bought" : "bought"}`}
@@ -691,7 +691,7 @@ function ShoppingDashboardInner() {
                           className={`flex items-center gap-3 p-3 sm:p-4 rounded-lg border-2 transition-colors cursor-pointer select-none min-h-11 ${
                             item.purchased
                               ? "bg-green-50 border-green-200"
-                              : "bg-white border-slate-200 hover:border-emerald-300 active:bg-emerald-50"
+                              : "bg-white border-slate-200 hover:border-amber-300 active:bg-amber-50"
                           }`}
                           aria-pressed={item.purchased}
                           aria-label={`Mark ${item.name} as ${item.purchased ? "not bought" : "bought"}`}
@@ -831,7 +831,7 @@ function ShoppingDashboardInner() {
             <Button
               onClick={handleCompleteConfirm}
               disabled={completing}
-              className="bg-emerald-600 hover:bg-emerald-700"
+              className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600"
             >
               {completing ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Saving</> : "Mark complete"}
             </Button>

@@ -68,7 +68,7 @@ interface ReceiptScannerProps {
   historyHref?: string;
   /** Tone of the upload card title. Both surfaces use purple today
    *  but kept as a prop so a future surface can override. */
-  accent?: "purple" | "emerald";
+  accent?: "purple" | "emerald" | "amber";
 }
 
 export function ReceiptScanner({
@@ -114,10 +114,12 @@ export function ReceiptScanner({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [companyId, jobId]);
 
-  const accentText = accent === "emerald" ? "text-emerald-600" : "text-purple-600";
-  const accentBorder = accent === "emerald" ? "border-emerald-300 hover:border-emerald-500 hover:bg-emerald-50" : "border-purple-300 hover:border-purple-500 hover:bg-purple-50";
-  const accentIcon = accent === "emerald" ? "text-emerald-400" : "text-purple-400";
-  const accentBtn = accent === "emerald"
+  const accentText = accent === "amber" ? "text-amber-700" : accent === "emerald" ? "text-emerald-600" : "text-purple-600";
+  const accentBorder = accent === "amber" ? "border-amber-300 hover:border-amber-500 hover:bg-amber-50" : accent === "emerald" ? "border-emerald-300 hover:border-emerald-500 hover:bg-emerald-50" : "border-purple-300 hover:border-purple-500 hover:bg-purple-50";
+  const accentIcon = accent === "amber" ? "text-amber-400" : accent === "emerald" ? "text-emerald-400" : "text-purple-400";
+  const accentBtn = accent === "amber"
+    ? "bg-gradient-to-r from-amber-500 to-orange-500"
+    : accent === "emerald"
     ? "bg-gradient-to-r from-emerald-600 to-teal-600"
     : "bg-gradient-to-r from-purple-600 to-pink-600";
 

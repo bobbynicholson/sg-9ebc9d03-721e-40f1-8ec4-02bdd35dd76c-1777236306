@@ -30,7 +30,7 @@ const priorityTone = (p?: string | null) => {
   if (p === "critical" || p === "urgent" || p === "high") return "text-rose-500";
   if (p === "medium" || p === "warning") return "text-amber-500";
   if (p === "success") return "text-emerald-500";
-  return "text-emerald-500";
+  return "text-blue-500";
 };
 
 export default function ShoppingNotificationsPage() {
@@ -129,11 +129,11 @@ export default function ShoppingNotificationsPage() {
           <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-6">
             {/* Wave 34: gradient-box icon header. */}
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-md flex-shrink-0">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center shadow-md flex-shrink-0">
                 <Bell className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
               </div>
               <div className="min-w-0">
-                <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent flex items-center gap-2">
+                <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold bg-gradient-to-r from-amber-600 to-orange-600 bg-clip-text text-transparent flex items-center gap-2">
                   Shopping Notifications
                   <InfoTooltip content="Alerts sent to you directly, plus anything addressed to the shopping team as a whole." />
                 </h1>
@@ -156,8 +156,8 @@ export default function ShoppingNotificationsPage() {
           </div>
 
           <div className="flex gap-2 mb-4">
-            <Button variant={tab === "all" ? "default" : "outline"} size="sm" onClick={() => setTab("all")} className={tab === "all" ? "bg-emerald-600 hover:bg-emerald-700" : ""}>All</Button>
-            <Button variant={tab === "unread" ? "default" : "outline"} size="sm" onClick={() => setTab("unread")} className={tab === "unread" ? "bg-emerald-600 hover:bg-emerald-700" : ""}>
+            <Button variant={tab === "all" ? "default" : "outline"} size="sm" onClick={() => setTab("all")} className={tab === "all" ? "bg-amber-600 hover:bg-amber-700" : ""}>All</Button>
+            <Button variant={tab === "unread" ? "default" : "outline"} size="sm" onClick={() => setTab("unread")} className={tab === "unread" ? "bg-amber-600 hover:bg-amber-700" : ""}>
               Unread {unread > 0 && <span className="ml-1.5 bg-white/20 px-1.5 rounded text-[10px] tabular-nums">{unread}</span>}
             </Button>
           </div>
@@ -179,7 +179,7 @@ export default function ShoppingNotificationsPage() {
                     const Icon = priorityIcon(displayedPriority);
                     const tone = priorityTone(displayedPriority);
                     return (
-                      <li key={n.id} className={`p-4 flex items-start gap-3 ${n.is_read ? "bg-white" : "bg-emerald-50/50"}`}>
+                      <li key={n.id} className={`p-4 flex items-start gap-3 ${n.is_read ? "bg-white" : "bg-amber-50/50"}`}>
                         <Icon className={`h-5 w-5 ${tone} flex-shrink-0 mt-0.5`} />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-start justify-between gap-2">
@@ -197,7 +197,7 @@ export default function ShoppingNotificationsPage() {
                               </Button>
                             )}
                             {(n.link || n.action_url) && (
-                              <a href={n.link ?? n.action_url ?? "#"} className="text-[11px] text-emerald-600 hover:underline">Open</a>
+                              <a href={n.link ?? n.action_url ?? "#"} className="text-[11px] text-amber-700 hover:underline">Open</a>
                             )}
                           </div>
                         </div>

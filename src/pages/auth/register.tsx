@@ -147,7 +147,7 @@ export default function RegisterPage() {
     >
       <Card className="w-full max-w-md border border-slate-200/80 shadow-xl rounded-2xl">
         <CardHeader className="space-y-3 px-4 sm:px-6 pt-6 sm:pt-8">
-          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500 mx-auto flex items-center justify-center shadow-lg">
+          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-500 mx-auto flex items-center justify-center shadow-lg">
             <UserPlus className="w-7 h-7 text-white" />
           </div>
           <CardTitle className="text-2xl font-bold text-center text-slate-900">
@@ -299,7 +299,7 @@ export default function RegisterPage() {
 
             <Button
               type="submit"
-              className="w-full h-11 sm:h-12 bg-gradient-to-r from-purple-500 to-pink-500 hover:opacity-90 transition-opacity text-white font-semibold text-sm sm:text-base"
+              className="w-full h-11 sm:h-12 bg-gradient-to-r from-amber-500 to-orange-600 hover:opacity-95 hover:shadow-lg hover:shadow-amber-500/25 text-white font-semibold text-sm sm:text-base rounded-xl"
               disabled={loading || googleLoading}
             >
               {loading ? "Creating Account..." : "Create Account"}
@@ -307,22 +307,22 @@ export default function RegisterPage() {
 
             <p className="text-center text-xs text-slate-400 leading-relaxed">
               By creating an account you agree to our{" "}
-              <Link href="/terms" className="text-purple-600 hover:text-purple-700 font-medium">
+              <Link href="/terms" className="text-amber-700 hover:text-amber-800 font-medium">
                 Terms of Service
               </Link>{" "}
               and{" "}
-              <Link href="/privacy" className="text-purple-600 hover:text-purple-700 font-medium">
+              <Link href="/privacy" className="text-amber-700 hover:text-amber-800 font-medium">
                 Privacy Policy
               </Link>.
             </p>
 
             <div className="text-center space-y-2">
-              <Link href="/auth/login" className="text-xs sm:text-sm text-purple-600 hover:text-purple-700 font-medium block">
+              <Link href="/auth/login" className="text-xs sm:text-sm text-amber-700 hover:text-amber-800 font-medium block">
                 Already have an account? Sign in here
               </Link>
               <div className="text-xs text-slate-500 pt-2 border-t">
                 <p className="mb-1">Are you a catering company looking to sign up?</p>
-                <Link href="/company-signup" className="text-purple-600 hover:text-purple-700 font-medium">
+                <Link href="/company-signup" className="text-amber-700 hover:text-amber-800 font-medium">
                   Register your catering business here
                 </Link>
               </div>

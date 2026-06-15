@@ -294,7 +294,7 @@ export default function ShoppingBuyListPage() {
           {/* Header */}
           <div className="mb-6 flex flex-col sm:flex-row sm:items-center gap-4">
             <div className="flex items-center gap-3 flex-1 min-w-0">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center shadow-lg flex-shrink-0">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center shadow-lg flex-shrink-0">
                 <ListChecks className="w-6 h-6 text-white" />
               </div>
               <div className="min-w-0">
@@ -310,10 +310,10 @@ export default function ShoppingBuyListPage() {
           </div>
 
           {/* Active list status banner */}
-          <Card className={`border-0 shadow-sm mb-5 ${activeList.list ? "bg-gradient-to-r from-emerald-50 to-green-50" : "bg-slate-50"}`}>
+          <Card className={`border-0 shadow-sm mb-5 ${activeList.list ? "bg-gradient-to-r from-amber-50 to-orange-50" : "bg-slate-50"}`}>
             <CardContent className="p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center gap-3">
               <div className="flex items-center gap-3 flex-1 min-w-0">
-                <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${activeList.list ? "bg-emerald-500 text-white" : "bg-slate-200 text-slate-500"}`}>
+                <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${activeList.list ? "bg-amber-500 text-white" : "bg-slate-200 text-slate-500"}`}>
                   <ShoppingCart className="w-4 h-4" />
                 </div>
                 <div className="min-w-0">
@@ -373,7 +373,7 @@ export default function ShoppingBuyListPage() {
           <Card className="border-0 shadow-lg">
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-base">
-                <ListChecks className="w-4 h-4 text-emerald-600" />
+                <ListChecks className="w-4 h-4 text-amber-600" />
                 {visible.length} item{visible.length === 1 ? "" : "s"} to consider
               </CardTitle>
             </CardHeader>
@@ -394,7 +394,7 @@ export default function ShoppingBuyListPage() {
                   </p>
                   {rows.length === 0 && (
                     <p className="text-xs mt-2 max-w-md mx-auto">
-                      Add items in <Link href={withSlug("/team-portal/shopping/inventory")} className="text-emerald-700 hover:text-emerald-800 underline">Inventory</Link> to get a buy list.
+                      Add items in <Link href={withSlug("/team-portal/shopping/inventory")} className="text-amber-700 hover:text-amber-800 underline">Inventory</Link> to get a buy list.
                     </p>
                   )}
                 </div>
@@ -409,7 +409,7 @@ export default function ShoppingBuyListPage() {
                     const alreadyOnList = activeList.items.some(i => i.item_id === r.inventory_item_id && !i.purchased);
 
                     return (
-                      <li key={r.inventory_item_id} className={`p-3 sm:p-4 flex items-center gap-3 ${isSelected ? "bg-emerald-50/60" : ""}`}>
+                      <li key={r.inventory_item_id} className={`p-3 sm:p-4 flex items-center gap-3 ${isSelected ? "bg-amber-50/60" : ""}`}>
                         <Checkbox
                           checked={isSelected}
                           onCheckedChange={() => toggleSelect(r.inventory_item_id)}
@@ -502,7 +502,7 @@ export default function ShoppingBuyListPage() {
               <Button
                 onClick={handleAddSelected}
                 disabled={adding}
-                className="bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 gap-1"
+                className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 gap-1"
               >
                 {adding ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
                 {activeList.list ? "Add to your list" : "Start list with selected"}

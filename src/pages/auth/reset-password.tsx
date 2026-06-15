@@ -148,11 +148,11 @@ export default function ResetPassword() {
 
   if (validatingSession) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 via-white to-pink-50">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-amber-50 via-white to-orange-50">
         <Card className="w-full max-w-md">
           <CardContent className="pt-6">
             <div className="flex flex-col items-center justify-center py-8">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mb-4"></div>
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-amber-600 mb-4"></div>
               <p className="text-slate-600">Validating reset link...</p>
             </div>
           </CardContent>
@@ -163,7 +163,7 @@ export default function ResetPassword() {
 
   if (success) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 via-white to-pink-50">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-amber-50 via-white to-orange-50">
         <Card className="w-full max-w-md">
           <CardContent className="pt-6">
             <div className="flex flex-col items-center justify-center py-8">
@@ -187,15 +187,15 @@ export default function ResetPassword() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 via-white to-pink-50 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-amber-50 via-white to-orange-50 p-4">
       <Card className="w-full max-w-md shadow-xl">
         <CardHeader className="space-y-1 text-center">
           <div className="flex justify-center mb-4">
-            <div className="bg-purple-100 p-3 rounded-full">
-              <Lock className="h-8 w-8 text-purple-600" />
+            <div className="bg-amber-100 p-3 rounded-full">
+              <Lock className="h-8 w-8 text-amber-600" />
             </div>
           </div>
-          <CardTitle className="text-2xl font-bold">
+          <CardTitle className="font-display text-2xl font-bold text-stone-900">
             {isInvite ? "Set Your Password" : "Reset Your Password"}
           </CardTitle>
           <CardDescription>
@@ -277,7 +277,7 @@ export default function ResetPassword() {
 
             <Button
               type="submit"
-              className="w-full bg-purple-600 hover:bg-purple-700"
+              className="w-full bg-gradient-to-r from-amber-500 to-orange-600 hover:opacity-95 hover:shadow-lg hover:shadow-amber-500/25 text-white font-semibold"
               disabled={loading}
             >
               {loading ? (
@@ -294,7 +294,7 @@ export default function ResetPassword() {
           <div className="mt-6 text-center">
             <Link
               href="/auth/login"
-              className="text-sm text-purple-600 hover:text-purple-700 hover:underline"
+              className="text-sm text-amber-700 hover:text-amber-800 hover:underline"
             >
               ← Back to Login
             </Link>

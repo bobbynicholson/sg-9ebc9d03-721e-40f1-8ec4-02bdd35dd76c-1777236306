@@ -487,8 +487,8 @@ export default function CompanySignupPage() {
                     { n: "3", title: "Start managing orders", body: "Create your first quote or order" },
                   ].map((step) => (
                     <div key={step.n} className="flex items-start gap-3 rounded-xl border border-slate-200 bg-white p-3.5">
-                      <div className="mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-violet-100">
-                        <span className="text-sm font-bold text-violet-600">{step.n}</span>
+                      <div className="mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-amber-100">
+                        <span className="text-sm font-bold text-amber-700">{step.n}</span>
                       </div>
                       <div>
                         <p className="font-medium text-slate-900">{step.title}</p>
@@ -548,7 +548,7 @@ export default function CompanySignupPage() {
               {emailVerificationRequired ? (
                 <Button
                   size="lg"
-                  className="h-12 flex-1 bg-gradient-to-b from-violet-600 to-violet-700 text-white shadow-lg shadow-violet-600/20 hover:from-violet-600 hover:to-violet-800"
+                  className="h-12 flex-1 bg-gradient-to-r from-amber-500 to-orange-600 text-white shadow-lg shadow-amber-500/25 hover:opacity-95 hover:shadow-xl"
                   onClick={() => router.push(`/${formData.customSlug}/login`)}
                 >
                   Go to login
@@ -557,7 +557,7 @@ export default function CompanySignupPage() {
                 <>
                   <Button
                     size="lg"
-                    className="h-12 flex-1 bg-gradient-to-b from-violet-600 to-violet-700 text-white shadow-lg shadow-violet-600/20 hover:from-violet-600 hover:to-violet-800"
+                    className="h-12 flex-1 bg-gradient-to-r from-amber-500 to-orange-600 text-white shadow-lg shadow-amber-500/25 hover:opacity-95 hover:shadow-xl"
                     onClick={() => router.push(`/${formData.customSlug}/admin/onboarding`)}
                   >
                     Start onboarding
@@ -577,7 +577,7 @@ export default function CompanySignupPage() {
             <div className="mt-6 text-center">
               <p className="text-sm text-slate-500">
                 Need help? Contact us at{" "}
-                <a href="tel:+27836525755" className="font-medium text-violet-600 underline-offset-2 hover:text-violet-700 hover:underline">
+                <a href="tel:+27836525755" className="font-medium text-amber-700 underline-offset-2 hover:text-amber-800 hover:underline">
                   083 652 5755
                 </a>
               </p>
@@ -598,11 +598,11 @@ export default function CompanySignupPage() {
         <CardHeader className="space-y-3">
           <Reveal className="flex flex-col items-center space-y-3">
             <span className="mb-1">
-              <Eyebrow icon={ShieldCheck} className="border-violet-200 bg-violet-50 text-violet-700">
+              <Eyebrow icon={ShieldCheck} className="border-amber-200 bg-amber-50 text-amber-700">
                 Free trial · No credit card
               </Eyebrow>
             </span>
-            <div className={`${iconChip} h-14 w-14 bg-gradient-to-br from-violet-500 to-fuchsia-500`}>
+            <div className={`${iconChip} h-14 w-14 bg-gradient-to-br from-amber-500 to-orange-500`}>
               <Building2 className="h-7 w-7 text-white" />
             </div>
             <CardTitle className="text-center text-2xl font-bold tracking-tight text-slate-900">
@@ -642,8 +642,8 @@ export default function CompanySignupPage() {
               );
             })()}
 
-            <div className="rounded-xl border border-violet-200 bg-violet-50 p-4">
-              <p className="text-sm text-violet-900">
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+              <p className="text-sm text-amber-900">
                 <strong>For Catering Companies Only:</strong> This form is for catering businesses to register their company. If you're an employee or client, please use the regular registration link provided by your company.
               </p>
             </div>
@@ -870,7 +870,7 @@ export default function CompanySignupPage() {
 
             <Button
               type="submit"
-              className={`h-12 w-full bg-gradient-to-b from-violet-600 to-violet-700 font-semibold text-white shadow-lg shadow-violet-600/20 transition-[background-color,box-shadow] duration-200 ${EASE} hover:from-violet-600 hover:to-violet-800 hover:shadow-xl hover:shadow-violet-600/30`}
+              className={`h-12 w-full bg-gradient-to-r from-amber-500 to-orange-600 font-semibold text-white shadow-lg shadow-amber-500/25 transition-[opacity,box-shadow] duration-200 ${EASE} hover:opacity-95 hover:shadow-xl hover:shadow-amber-500/30`}
               // Block submit until the chosen slug is available.
               // Server-side trigger is the source of truth, but the
               // disabled state stops a wasted round-trip.
@@ -894,11 +894,11 @@ export default function CompanySignupPage() {
                 real /terms and /privacy pages (both ship in the app). */}
             <p className="text-center text-xs leading-relaxed text-slate-400">
               By registering you agree to our{" "}
-              <Link href="/terms" className="font-medium text-violet-600 underline-offset-2 hover:text-violet-700 hover:underline">
+              <Link href="/terms" className="font-medium text-amber-700 underline-offset-2 hover:text-amber-800 hover:underline">
                 Terms of Service
               </Link>{" "}
               and{" "}
-              <Link href="/privacy" className="font-medium text-violet-600 underline-offset-2 hover:text-violet-700 hover:underline">
+              <Link href="/privacy" className="font-medium text-amber-700 underline-offset-2 hover:text-amber-800 hover:underline">
                 Privacy Policy
               </Link>.
             </p>
@@ -906,7 +906,7 @@ export default function CompanySignupPage() {
             <div className="border-t border-slate-100 pt-2 text-center">
               <p className="mt-3 text-sm text-slate-500">
                 Already have an account?{" "}
-                <Link href="/auth/login" className="font-medium text-violet-600 underline-offset-2 hover:text-violet-700 hover:underline">
+                <Link href="/auth/login" className="font-medium text-amber-700 underline-offset-2 hover:text-amber-800 hover:underline">
                   Sign in
                 </Link>
               </p>

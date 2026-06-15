@@ -3,15 +3,15 @@
  * sign-up pages.
  *
  * Desktop (lg+): two columns. Left is a branded showcase panel
- * (CateringMS purple->pink gradient, decorative blur orbs, headline +
- * feature bullets). Right is the form, centred on a clean white field.
+ * (dark stone with a warm amber glow, decorative blur orbs, headline +
+ * feature bullets). Right is the form, centred on a clean field.
  *
- * Mobile: the brand panel is hidden; the form sits on a soft slate
+ * Mobile: the brand panel is hidden; the form sits on a soft stone
  * gradient with a compact brand badge above it so the page still feels
  * branded without the big panel.
  *
- * Brand colours are intentionally the platform purple->pink (same as
- * the rest of the public chrome) - no theme change.
+ * Brand colours match the marketing landing page (warm amber on dark
+ * stone) so the whole product reads as one premium brand.
  */
 import Link from "next/link";
 import { ChefHat, CheckCircle2 } from "lucide-react";
@@ -50,34 +50,34 @@ export function AuthShell({
           height (sticky, self-start) so a long form on the right (e.g.
           the company-signup page) doesn't stretch the panel tall and
           spread its content into awkward gaps. */}
-      <div className="relative hidden lg:flex lg:sticky lg:top-0 lg:h-screen lg:self-start flex-col justify-between overflow-hidden bg-gradient-to-br from-purple-600 via-purple-500 to-pink-500 p-12 text-white">
-        {/* Soft dot-grid texture for depth */}
+      <div className="relative hidden lg:flex lg:sticky lg:top-0 lg:h-screen lg:self-start flex-col justify-between overflow-hidden bg-stone-950 p-12 text-white">
+        {/* Warm amber glow + soft dot-grid texture for depth */}
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(70%_50%_at_30%_0%,rgba(245,158,11,0.22),transparent)]" />
         <div
-          className="pointer-events-none absolute inset-0 opacity-[0.12]"
+          className="pointer-events-none absolute inset-0 opacity-[0.10]"
           style={{
             backgroundImage: "radial-gradient(circle, #ffffff 1px, transparent 1px)",
             backgroundSize: "22px 22px",
           }}
         />
-        <div className="pointer-events-none absolute -top-24 -left-24 h-96 w-96 rounded-full bg-white/15 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-32 -right-16 h-[28rem] w-[28rem] rounded-full bg-pink-300/25 blur-3xl" />
-        <div className="pointer-events-none absolute top-1/3 right-10 h-40 w-40 rounded-full bg-fuchsia-300/20 blur-3xl" />
+        <div className="pointer-events-none absolute -top-24 -left-24 h-96 w-96 rounded-full bg-amber-500/20 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-32 -right-16 h-[28rem] w-[28rem] rounded-full bg-orange-500/15 blur-3xl" />
 
         <div className="relative flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/15 shadow-lg backdrop-blur">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 shadow-lg">
             <ChefHat className="h-6 w-6 text-white" />
           </div>
-          <span className="text-xl font-bold tracking-tight">CateringMS</span>
+          <span className="font-display text-2xl font-semibold tracking-tight">CateringMS</span>
         </div>
 
         <div className="relative max-w-md">
-          <h2 className="text-[2.75rem] font-bold leading-[1.1] tracking-tight">{headline}</h2>
-          <p className="mt-4 text-lg text-white/85">{subcopy}</p>
+          <h2 className="font-display text-[2.75rem] font-semibold leading-[1.1] tracking-tight">{headline}</h2>
+          <p className="mt-4 text-lg text-stone-300">{subcopy}</p>
           <ul className="mt-8 space-y-3.5">
             {FEATURES.map((f) => (
-              <li key={f} className="flex items-center gap-3 text-white/90">
-                <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-white/20">
-                  <CheckCircle2 className="h-4 w-4 text-white" />
+              <li key={f} className="flex items-center gap-3 text-stone-200">
+                <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-amber-500/20">
+                  <CheckCircle2 className="h-4 w-4 text-amber-300" />
                 </span>
                 <span className="text-[15px]">{f}</span>
               </li>
@@ -85,35 +85,35 @@ export function AuthShell({
           </ul>
 
           {/* Trust stats row */}
-          <div className="mt-9 grid grid-cols-3 gap-4 border-t border-white/20 pt-6">
+          <div className="mt-9 grid grid-cols-3 gap-4 border-t border-white/15 pt-6">
             {STATS.map((s) => (
               <div key={s.label}>
-                <p className="text-2xl font-bold text-white">{s.value}</p>
-                <p className="mt-1 text-xs leading-snug text-white/70">{s.label}</p>
+                <p className="font-display text-2xl font-semibold text-white">{s.value}</p>
+                <p className="mt-1 text-xs leading-snug text-stone-400">{s.label}</p>
               </div>
             ))}
           </div>
 
           {/* Testimonial */}
-          <div className="mt-8 rounded-2xl bg-white/10 p-5 backdrop-blur">
-            <p className="text-sm italic text-white/90">
+          <div className="mt-8 rounded-2xl border border-white/10 bg-white/[0.05] p-5 backdrop-blur">
+            <p className="text-sm italic text-stone-200">
               &ldquo;Everything from the first quote to the final invoice lives in one
               place now — our team stopped chasing spreadsheets.&rdquo;
             </p>
-            <p className="mt-3 text-xs font-semibold text-white/80">
+            <p className="mt-3 text-xs font-semibold text-stone-400">
               Catering teams running on CateringMS
             </p>
           </div>
         </div>
 
-        <p className="relative text-sm text-white/60">
+        <p className="relative text-sm text-stone-500">
           © CateringMS — catering management, simplified.
         </p>
       </div>
 
       {/* Form column */}
       <div
-        className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 px-4 py-10 lg:min-h-0 lg:bg-white lg:bg-none"
+        className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-stone-50 to-stone-100 px-4 py-10 lg:min-h-0 lg:bg-white lg:bg-none"
         style={{
           paddingTop: "max(2.5rem, env(safe-area-inset-top, 2.5rem))",
           paddingBottom: "max(2.5rem, env(safe-area-inset-bottom, 2.5rem))",
@@ -121,10 +121,10 @@ export function AuthShell({
       >
         {/* Mobile brand badge (panel is hidden below lg) */}
         <div className="mb-6 flex items-center gap-2.5 lg:hidden">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-purple-600 to-pink-500 shadow-md">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 shadow-md">
             <ChefHat className="h-5 w-5 text-white" />
           </div>
-          <span className="text-lg font-bold tracking-tight text-slate-800">CateringMS</span>
+          <span className="font-display text-xl font-semibold tracking-tight text-stone-900">CateringMS</span>
         </div>
 
         {children}

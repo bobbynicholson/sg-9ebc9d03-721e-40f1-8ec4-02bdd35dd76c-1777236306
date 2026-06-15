@@ -30,8 +30,8 @@ const statusTone: Record<string, string> = {
   completed:    "bg-emerald-100 text-emerald-800 border-emerald-200",
   draft:        "bg-slate-100 text-slate-700 border-slate-200",
   pending:      "bg-amber-100 text-amber-800 border-amber-200",
-  in_progress:  "bg-purple-100 text-purple-800 border-purple-200",
-  shopping:     "bg-purple-100 text-purple-800 border-purple-200",
+  in_progress:  "bg-amber-100 text-amber-800 border-amber-200",
+  shopping:     "bg-amber-100 text-amber-800 border-amber-200",
   cancelled:    "bg-rose-100 text-rose-700 border-rose-200",
 };
 
@@ -102,11 +102,11 @@ export default function ShoppingInvoicesPage() {
           {/* Wave 34: gradient-box icon header for shopping portal
               consistency. */}
           <div className="mb-6 flex items-center gap-3">
-            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-md flex-shrink-0">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center shadow-md flex-shrink-0">
               <Receipt className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
             </div>
             <div className="min-w-0">
-              <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">
+              <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold bg-gradient-to-r from-amber-600 to-orange-600 bg-clip-text text-transparent">
                 Purchase Receipts
               </h1>
               <p className="text-sm text-slate-600 mt-0.5">All your purchase runs with their receipts and actual spend</p>
@@ -116,7 +116,7 @@ export default function ShoppingInvoicesPage() {
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
             <Card><CardContent className="p-4"><p className="text-xs text-slate-600 flex items-center gap-1">Completed runs <InfoTooltip content="Shopping lists where the buyer has finished the run." /></p><p className="text-2xl font-bold tabular-nums">{stats.completedCount}</p></CardContent></Card>
             <Card><CardContent className="p-4"><p className="text-xs text-slate-600 flex items-center gap-1">Total spend <InfoTooltip content="Total actual spend across every completed shopping run." /></p><p className="text-2xl font-bold tabular-nums">R {stats.totalSpend.toLocaleString("en-ZA", { maximumFractionDigits: 0 })}</p></CardContent></Card>
-            <Card><CardContent className="p-4"><p className="text-xs text-slate-600 flex items-center gap-1">Receipts on file <InfoTooltip content="Runs that have a receipt uploaded against them.\n\nIf the receipt rule is on in settings, you can't close a run without one." /></p><p className="text-2xl font-bold tabular-nums text-emerald-600">{stats.withReceipt}</p></CardContent></Card>
+            <Card><CardContent className="p-4"><p className="text-xs text-slate-600 flex items-center gap-1">Receipts on file <InfoTooltip content="Runs that have a receipt uploaded against them.\n\nIf the receipt rule is on in settings, you can't close a run without one." /></p><p className="text-2xl font-bold tabular-nums text-amber-700">{stats.withReceipt}</p></CardContent></Card>
             <Card><CardContent className="p-4">
               <p className="text-xs text-slate-600 flex items-center gap-1">Estimate variance <InfoTooltip content="What you actually spent against what you estimated, across every run.\n\nA positive number means you went over budget." /></p>
               <p className={`text-2xl font-bold tabular-nums ${stats.variance > 0 ? "text-rose-600" : "text-emerald-600"}`}>
@@ -137,7 +137,7 @@ export default function ShoppingInvoicesPage() {
                 type="button"
                 variant={hasReceiptOnly ? "default" : "outline"}
                 onClick={() => setHasReceiptOnly((v) => !v)}
-                className={hasReceiptOnly ? "bg-emerald-600 hover:bg-emerald-700 gap-2" : "gap-2"}
+                className={hasReceiptOnly ? "bg-amber-600 hover:bg-amber-700 gap-2" : "gap-2"}
               >
                 <FileText className="h-4 w-4" />Receipt attached only
               </Button>
@@ -189,7 +189,7 @@ export default function ShoppingInvoicesPage() {
                         </div>
                         <div className="flex-shrink-0">
                           {l.receipt_url ? (
-                            <a href={l.receipt_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-sm text-emerald-600 hover:text-emerald-700 hover:underline">
+                            <a href={l.receipt_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-sm text-amber-700 hover:text-amber-800 hover:underline">
                               <ExternalLink className="h-3.5 w-3.5" />View receipt
                             </a>
                           ) : (
