@@ -34,11 +34,11 @@
        styles (gradients); the -rgb triplet variants drive Tailwind's
        brand-primary / brand-secondary / brand-accent utilities. Defaults
        match DEFAULT_BRANDING in src/contexts/BrandingContext.tsx. */
-    --brand-primary: #2563eb;
-    --brand-secondary: #7c3aed;
+    --brand-primary: #d97706;
+    --brand-secondary: #ea580c;
     --brand-accent: #f59e0b;
-    --brand-primary-rgb: 37 99 235;
-    --brand-secondary-rgb: 124 58 237;
+    --brand-primary-rgb: 217 119 6;
+    --brand-secondary-rgb: 234 88 12;
     --brand-accent-rgb: 245 158 11;
 
     /* Smooth scroll */
