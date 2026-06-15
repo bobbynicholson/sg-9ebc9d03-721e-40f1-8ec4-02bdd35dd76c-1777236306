@@ -70,11 +70,13 @@ const config: Config = {
         "brand-accent":    "rgb(var(--brand-accent-rgb)    / <alpha-value>)",
       },
       fontFamily: {
-        // Elegant display serif (Playfair Display) loaded + self-hosted via
-        // next/font in _app.tsx and exposed as --font-display. Opt-in only
-        // (use `font-display`), so body copy and the rest of the app keep
-        // their default sans — this is the marketing landing page's voice.
+        // Marketing typography, self-hosted via next/font in _app.tsx and
+        // exposed as CSS vars. Both are opt-in (use `font-display` /
+        // `font-body`) so the app/dashboard default font is untouched.
+        //   font-display — Playfair Display (elegant headings)
+        //   font-body    — Plus Jakarta Sans (premium, approachable copy)
         display: ["var(--font-display)", "ui-serif", "Georgia", "Cambria", "serif"],
+        body: ["var(--font-body)", "ui-sans-serif", "system-ui", "sans-serif"],
       },
       borderRadius: {
         lg: "var(--radius)",

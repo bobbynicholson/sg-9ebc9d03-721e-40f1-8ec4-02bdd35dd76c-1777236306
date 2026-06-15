@@ -1,7 +1,7 @@
 import type { AppProps } from "next/app";
 import { useEffect } from "react";
 import { useRouter } from "next/router";
-import { Playfair_Display } from "next/font/google";
+import { Playfair_Display, Plus_Jakarta_Sans } from "next/font/google";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { TenantBrandingApplier } from "@/components/TenantBrandingApplier";
 import type { InitialBranding } from "@/lib/branding/serverBrandingForSlug";
@@ -21,6 +21,16 @@ const playfair = Playfair_Display({
   subsets: ["latin"],
   weight: ["500", "600", "700"],
   variable: "--font-display",
+  display: "swap",
+});
+
+// Refined body sans for marketing surfaces (opt-in via Tailwind `font-body`).
+// Self-hosted by next/font. Pairs with Playfair for a luxury-but-approachable
+// voice without changing the default app/dashboard font.
+const jakarta = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-body",
   display: "swap",
 });
 
@@ -101,7 +111,7 @@ export default function App({ Component, pageProps }: AppProps) {
   }, []);
 
   return (
-    <div className={playfair.variable}>
+    <div className={`${playfair.variable} ${jakarta.variable}`}>
       <NoIndexMeta />
       <ThemeProvider>
         <AuthProvider>

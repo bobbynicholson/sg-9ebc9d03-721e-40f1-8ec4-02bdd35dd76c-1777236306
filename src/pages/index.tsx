@@ -13,8 +13,8 @@ import {
   RefreshCw, TrendingUp, Bell, Leaf, Shield, Award, Quote, MapPin, Utensils,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Footer } from "@/components/Footer";
-import { Header } from "@/components/Header";
+import { LandingFooter } from "@/components/landing/LandingFooter";
+import { LandingHeader } from "@/components/landing/LandingHeader";
 import { Reveal, Stagger, StaggerItem } from "@/components/motion/Reveal";
 import { EASE, btnPress, Eyebrow } from "@/components/motion/marketing";
 
@@ -28,6 +28,43 @@ const PHONE_TEL = "+27836525755";
 const warmCard = `group relative h-full overflow-hidden rounded-2xl border border-stone-200/80 bg-white shadow-sm transition-[transform,box-shadow,border-color] duration-300 ${EASE} hover:-translate-y-1 hover:border-amber-200/80 hover:shadow-[0_24px_60px_-24px_rgba(120,53,15,0.30)]`;
 const amberBtn = `h-12 rounded-full bg-gradient-to-b from-amber-500 to-amber-600 px-8 text-base font-semibold text-white shadow-lg shadow-amber-700/25 hover:from-amber-500 hover:to-amber-700 hover:shadow-xl hover:shadow-amber-700/30 ${btnPress}`;
 const chip = `inline-flex items-center justify-center rounded-xl shadow-sm transition-transform duration-300 ${EASE} group-hover:scale-105`;
+
+// Authentic, hand-picked Unsplash catering photography (validated to resolve).
+// `u()` builds an optimised, CDN-resized URL. Swap any id for your own shoot
+// later — or drop a local file and point src at /images/... instead.
+const u = (id: string, w: number, extra = "") =>
+  `https://images.unsplash.com/photo-${id}?auto=format&fit=crop&q=70&w=${w}${extra}`;
+
+const IMG = {
+  hero: u("1511795409834-ef04bbd61622", 2000),
+  cta: u("1463183547458-6a2c760d0912", 1800),
+  services: {
+    weddings: u("1606660023296-81d67734170a", 800),
+    corporate: u("1671612451404-f4f8fc5fe25e", 800),
+    private: u("1660120447916-123439b05c40", 800),
+    gala: u("1525441273400-056e9c7517b3", 800),
+  },
+  menu: {
+    beef: u("1600891964092-4316c288032e", 800),
+    arancini: u("1780134758247-f780bcb9dca5", 800),
+    linefish: u("1467003909585-2f8a72700288", 800),
+    grazing: u("1773517906154-f98ddb122263", 800),
+    malva: u("1527751171053-6ac5ec50000b", 800),
+    potjie: u("1594041680534-e8c8cdebd659", 800),
+  },
+  gallery: [
+    u("1576842546422-60562b9242ae", 900),
+    u("1663530761401-15eefb544889", 600),
+    u("1774921676955-b54c02fe4fb0", 600),
+    u("1767500536243-bf6807a331e4", 600),
+    u("1414235077428-338989a2e8c0", 600),
+  ],
+  people: {
+    sarah: u("1494790108377-be9c29b29330", 240, "&h=240&crop=faces"),
+    michael: u("1507003211169-0a1dd7228f2d", 240, "&h=240&crop=faces"),
+    linda: u("1573497491765-dccce02b29df", 240, "&h=240&crop=faces"),
+  },
+};
 
 /**
  * Graceful image slot. Renders a warm gradient immediately and layers the
@@ -80,40 +117,40 @@ export default function HomePage() {
     {
       icon: Heart,
       title: "Weddings",
-      img: "/images/services/weddings.jpg",
+      img: IMG.services.weddings,
       gradient: "from-rose-200 to-amber-200",
       body: "From the proposal to the last dance — itemised quotes, dietary tracking, minute-perfect kitchen timing and on-the-day coordination.",
     },
     {
       icon: Building2,
       title: "Corporate Events",
-      img: "/images/services/corporate.jpg",
+      img: IMG.services.corporate,
       gradient: "from-amber-200 to-stone-300",
       body: "Recurring orders, PO-friendly invoicing, multi-site delivery and last-minute headcount changes — handled without the email chaos.",
     },
     {
       icon: PartyPopper,
       title: "Private Parties",
-      img: "/images/services/private.jpg",
+      img: IMG.services.private,
       gradient: "from-orange-200 to-rose-200",
       body: "Fast quotes, deposit links and a branded client portal that makes booking a birthday or celebration feel effortless.",
     },
     {
       icon: Crown,
       title: "Galas & Special Events",
-      img: "/images/services/gala.jpg",
+      img: IMG.services.gala,
       gradient: "from-amber-300 to-yellow-200",
       body: "Large-scale logistics: hire-in equipment, staffing rosters, allergen sheets and live tracking for your flagship functions.",
     },
   ];
 
   const dishes = [
-    { name: "Seared Beef Fillet", tag: "Signature Mains", img: "/images/menu/beef-fillet.jpg", gradient: "from-rose-300 to-amber-300", popular: true },
-    { name: "Truffle Arancini", tag: "Canapés", img: "/images/menu/arancini.jpg", gradient: "from-amber-200 to-yellow-300" },
-    { name: "Cape Malay Curry", tag: "Mains", img: "/images/menu/curry.jpg", gradient: "from-orange-300 to-amber-400" },
-    { name: "Grazing Table", tag: "Sharing", img: "/images/menu/grazing.jpg", gradient: "from-stone-300 to-amber-200", popular: true },
-    { name: "Malva Pudding", tag: "Desserts", img: "/images/menu/malva.jpg", gradient: "from-amber-300 to-orange-200" },
-    { name: "Lamb Potjie", tag: "Mains", img: "/images/menu/potjie.jpg", gradient: "from-stone-400 to-amber-300" },
+    { name: "Seared Beef Fillet", tag: "Signature Mains", img: IMG.menu.beef, gradient: "from-rose-300 to-amber-300", popular: true },
+    { name: "Truffle Arancini", tag: "Canapés", img: IMG.menu.arancini, gradient: "from-amber-200 to-yellow-300" },
+    { name: "Pan-Seared Linefish", tag: "Mains", img: IMG.menu.linefish, gradient: "from-orange-300 to-amber-400" },
+    { name: "Grazing Table", tag: "Sharing", img: IMG.menu.grazing, gradient: "from-stone-300 to-amber-200", popular: true },
+    { name: "Malva Pudding", tag: "Desserts", img: IMG.menu.malva, gradient: "from-amber-300 to-orange-200" },
+    { name: "Lamb Potjie", tag: "Mains", img: IMG.menu.potjie, gradient: "from-stone-400 to-amber-300" },
   ];
 
   const reasons = [
@@ -162,7 +199,7 @@ export default function HomePage() {
       author: "Sarah Johnson",
       role: "Owner, Cape Town Catering Co.",
       event: "Weddings & functions",
-      img: "/images/testimonials/sarah.jpg",
+      img: IMG.people.sarah,
       rating: 5,
     },
     {
@@ -170,7 +207,7 @@ export default function HomePage() {
       author: "Michael Peters",
       role: "Director, Durban Events & Catering",
       event: "Corporate catering",
-      img: "/images/testimonials/michael.jpg",
+      img: IMG.people.michael,
       rating: 5,
     },
     {
@@ -178,17 +215,17 @@ export default function HomePage() {
       author: "Linda Ndlovu",
       role: "Founder, Johannesburg Function Foods",
       event: "Private & special events",
-      img: "/images/testimonials/linda.jpg",
+      img: IMG.people.linda,
       rating: 5,
     },
   ];
 
   const gallery = [
-    { img: "/images/gallery/1.jpg", alt: "Elegant wedding banquet table setting", gradient: "from-rose-200 to-amber-200", span: "md:col-span-2 md:row-span-2" },
-    { img: "/images/gallery/2.jpg", alt: "Plated fine-dining main course", gradient: "from-amber-200 to-orange-300", span: "" },
-    { img: "/images/gallery/3.jpg", alt: "Canapés on a serving platter", gradient: "from-stone-300 to-amber-200", span: "" },
-    { img: "/images/gallery/4.jpg", alt: "Grazing table with cheeses and fruit", gradient: "from-orange-200 to-rose-200", span: "" },
-    { img: "/images/gallery/5.jpg", alt: "Chef plating a dessert at a live event", gradient: "from-amber-300 to-yellow-200", span: "" },
+    { img: IMG.gallery[0], alt: "A table laid with a variety of catered dishes", gradient: "from-rose-200 to-amber-200", span: "md:col-span-2 md:row-span-2" },
+    { img: IMG.gallery[1], alt: "Chef finishing a plated main course with sauce", gradient: "from-amber-200 to-orange-300", span: "" },
+    { img: IMG.gallery[2], alt: "Gourmet canapés arranged on a serving tray", gradient: "from-stone-300 to-amber-200", span: "" },
+    { img: IMG.gallery[3], alt: "Grazing board with cheeses, fruit and bread", gradient: "from-orange-200 to-rose-200", span: "" },
+    { img: IMG.gallery[4], alt: "Elegant fine-dining plated dish", gradient: "from-amber-300 to-yellow-200", span: "" },
   ];
 
   const faqs = [
@@ -280,15 +317,14 @@ export default function HomePage() {
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }} />
       </Head>
 
-      <Header />
-
-      <div className="min-h-screen bg-stone-50 text-stone-900">
+      <div className="font-body min-h-screen bg-stone-50 text-stone-900">
+        <LandingHeader />
         {/* ===================== HERO ===================== */}
         <section ref={heroRef} className="relative isolate overflow-hidden bg-stone-950 text-white">
           {/* Parallax food photography (graceful gradient until a real photo is dropped in) */}
           <motion.div style={{ y: heroY }} className="absolute inset-0 -z-20 scale-[1.18]">
             <Photo
-              src="/images/hero.jpg"
+              src={IMG.hero}
               alt="An elegant catering spread of plated dishes and canapés"
               gradient="from-stone-700 via-stone-900 to-stone-950"
               className="h-full w-full"
@@ -396,7 +432,7 @@ export default function HomePage() {
         </section>
 
         {/* ===================== FEATURED SERVICES ===================== */}
-        <section className="mx-auto max-w-7xl px-4 py-20 md:py-28">
+        <section id="services" className="mx-auto max-w-7xl scroll-mt-24 px-4 py-20 md:py-28">
           <Reveal className="mx-auto mb-14 max-w-3xl text-center">
             <Eyebrow icon={Utensils} className="border-amber-200 bg-amber-50 text-amber-700">
               Every kind of event
@@ -430,7 +466,7 @@ export default function HomePage() {
         </section>
 
         {/* ===================== SIGNATURE MENU SHOWCASE ===================== */}
-        <section className="bg-stone-100 py-20 md:py-28">
+        <section id="menu" className="scroll-mt-24 bg-stone-100 py-20 md:py-28">
           <div className="mx-auto max-w-7xl px-4">
             <Reveal className="mx-auto mb-14 max-w-3xl text-center">
               <Eyebrow icon={ChefHat} className="border-amber-200 bg-amber-50 text-amber-700">
@@ -516,7 +552,7 @@ export default function HomePage() {
         </section>
 
         {/* ===================== TESTIMONIALS ===================== */}
-        <section className="bg-stone-950 py-20 text-white md:py-28">
+        <section id="reviews" className="scroll-mt-24 bg-stone-950 py-20 text-white md:py-28">
           <div className="mx-auto max-w-6xl px-4">
             <Reveal className="mb-14 text-center">
               <Eyebrow icon={Star} className="border-amber-300/30 bg-white/10 text-amber-100 backdrop-blur-md">
@@ -564,7 +600,7 @@ export default function HomePage() {
         </section>
 
         {/* ===================== EVENT GALLERY ===================== */}
-        <section className="mx-auto max-w-7xl px-4 py-20 md:py-28">
+        <section id="gallery" className="mx-auto max-w-7xl scroll-mt-24 px-4 py-20 md:py-28">
           <Reveal className="mx-auto mb-14 max-w-3xl text-center">
             <Eyebrow icon={Sparkles} className="border-amber-200 bg-amber-50 text-amber-700">
               From our caterers&apos; events
@@ -663,7 +699,7 @@ export default function HomePage() {
           <Reveal className="relative mx-auto max-w-6xl overflow-hidden rounded-[2rem] bg-stone-950 px-6 py-16 text-center shadow-2xl sm:px-12 md:py-20">
             {/* Warm food photo wash behind the banner */}
             <Photo
-              src="/images/cta.jpg"
+              src={IMG.cta}
               alt=""
               gradient="from-amber-700 via-stone-900 to-stone-950"
               className="absolute inset-0"
@@ -711,7 +747,7 @@ export default function HomePage() {
           </Reveal>
         </section>
 
-        <Footer />
+        <LandingFooter />
       </div>
     </>
   );
