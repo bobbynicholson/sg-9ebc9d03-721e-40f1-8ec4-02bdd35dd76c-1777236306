@@ -596,8 +596,15 @@ export async function deductInventoryForOrder(
           .from("notifications")
           .insert({
             company_id: companyId,
+            // The bell query filters on recipient_id + notification_type
+            // (notificationService.getNotifications). Setting only
+            // user_id + the enum `type` left recipient_id/notification_type
+            // NULL, so this alert never surfaced in anyone's inbox.
+            // Ops audit 2026-06-15.
+            recipient_id: performedBy,
             user_id: performedBy,
             type: 'stock_low',
+            notification_type: 'stock_low',
             title,
             message,
             related_entity_type: 'inventory_item',
@@ -972,8 +979,13 @@ export async function manualInventoryDeduction(
         .from("notifications")
         .insert({
           company_id: companyId,
+          // recipient_id + notification_type required for the bell to
+          // see it (ops audit 2026-06-15) - manualInventoryDeduction has
+          // no broadcast fallback, so without these the alert was lost.
+          recipient_id: performedBy,
           user_id: performedBy,
           type: 'stock_low',
+          notification_type: 'stock_low',
           title: newStock === 0 ? 'Out of Stock Alert' : 'Low Stock Alert',
           message: `${item.item_name} is ${newStock === 0 ? 'out of' : 'low on'} stock (${newStock} ${item.unit_of_measure} remaining)`,
           related_entity_type: 'inventory_item',

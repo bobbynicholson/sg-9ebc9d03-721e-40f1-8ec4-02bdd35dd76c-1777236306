@@ -77,7 +77,7 @@ export function EquipmentVerificationPanel() {
           equipment:equipment_id (
             name,
             category,
-            unit_cost
+            replacement_cost
           ),
           order:order_id (
             order_number
@@ -86,7 +86,7 @@ export function EquipmentVerificationPanel() {
         .eq("company_id", companyId)
         .eq("to_stage", "kitchen")
         .is("received_at", null)
-        .order("handed_at", { ascending: false });
+        .order("handover_time", { ascending: false });
 
       if (error) {
         console.error("Error loading pending verifications:", error);
@@ -151,7 +151,7 @@ export function EquipmentVerificationPanel() {
             quantityDamaged: damagedQuantity,
             damageType: "lost",
             damageStage: "return",
-            unitCost: handover.equipment?.unit_cost || 0,
+            unitCost: handover.equipment?.replacement_cost || 0,
             description: notes,
           });
         }

@@ -46,7 +46,7 @@ export const equipmentManagementService = {
       .from("equipment")
       .select("*")
       .eq("company_id", companyId)
-      .gt("quantity_available", 0)
+      .gt("available_quantity", 0)
       .order("category", { ascending: true });
 
     if (error) throw error;
@@ -88,20 +88,23 @@ export const equipmentManagementService = {
 
   async updateEquipmentQuantity(id: string, quantityChange: number) {
     const equipment = await this.getEquipmentById(id);
-    const newAvailable = equipment.quantity_available + quantityChange;
+    // Ops audit 2026-06-15: the equipment table has available_quantity /
+    // quantity, not the quantity_available / quantity_total this method
+    // referenced (which made every call throw "column does not exist").
+    const newAvailable = (equipment.available_quantity ?? 0) + quantityChange;
 
     if (newAvailable < 0) {
       throw new Error("Not enough equipment available");
     }
 
-    if (newAvailable > equipment.quantity_total) {
+    if (equipment.quantity != null && newAvailable > equipment.quantity) {
       throw new Error("Available quantity cannot exceed total quantity");
     }
 
     const { data, error } = await supabase
       .from("equipment")
       .update({
-        quantity_available: newAvailable,
+        available_quantity: newAvailable,
         updated_at: new Date().toISOString()
       } as any)
       .eq("id", id)

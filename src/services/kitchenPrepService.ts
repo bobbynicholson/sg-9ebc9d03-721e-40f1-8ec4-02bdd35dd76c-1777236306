@@ -119,11 +119,19 @@ export const kitchenPrepService = {
       console.error("[kitchenPrepService] companies fetch failed:", error2);
     }
     const raw = (data as any)?.kitchen_settings || {};
+    // Ops audit 2026-06-15: the three Phase-4 fields below were never
+    // mapped from raw, so they came back undefined. computeShiftEarnings
+    // (overtime / meal-break warnings) and the hot-hold check compare
+    // against them, and `workedH >= undefined` is always false - the
+    // warnings silently never fired and tenant overrides were ignored.
     return {
       prepSafetyBufferMin:    Number(raw.prep_safety_buffer_min     ?? DEFAULT_KITCHEN_SETTINGS.prepSafetyBufferMin),
       defaultPrepMinPerDish:  Number(raw.default_prep_min_per_dish  ?? DEFAULT_KITCHEN_SETTINGS.defaultPrepMinPerDish),
       defaultCookMinPerDish:  Number(raw.default_cook_min_per_dish  ?? DEFAULT_KITCHEN_SETTINGS.defaultCookMinPerDish),
       autoGeneratePrepTasks:  Boolean(raw.auto_generate_prep_tasks  ?? DEFAULT_KITCHEN_SETTINGS.autoGeneratePrepTasks),
+      overtimeAfterHours:     Number(raw.overtime_after_hours       ?? DEFAULT_KITCHEN_SETTINGS.overtimeAfterHours),
+      maxHotHoldMin:          Number(raw.max_hot_hold_min           ?? DEFAULT_KITCHEN_SETTINGS.maxHotHoldMin),
+      mealBreakAfterHours:    Number(raw.meal_break_after_hours     ?? DEFAULT_KITCHEN_SETTINGS.mealBreakAfterHours),
     } as KitchenSettings;
   },
 
@@ -133,6 +141,10 @@ export const kitchenPrepService = {
       default_prep_min_per_dish: s.defaultPrepMinPerDish,
       default_cook_min_per_dish: s.defaultCookMinPerDish,
       auto_generate_prep_tasks: s.autoGeneratePrepTasks,
+      // Persist the Phase-4 thresholds too (were silently dropped).
+      overtime_after_hours: s.overtimeAfterHours,
+      max_hot_hold_min: s.maxHotHoldMin,
+      meal_break_after_hours: s.mealBreakAfterHours,
     };
     const { error } = await supabase
       .from("companies")

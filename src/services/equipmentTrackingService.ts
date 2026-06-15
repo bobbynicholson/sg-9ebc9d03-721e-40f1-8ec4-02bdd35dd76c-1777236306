@@ -31,18 +31,28 @@ export const equipmentTrackingService = {
     handedByName: string;
     quantitySent: number;
   }): Promise<EquipmentHandover> {
+    // Tenant-stamp from the order so the verification panel can scope
+    // by company_id. Ops audit 2026-06-15: column names reconciled to
+    // the real equipment_handovers schema (handed_over_by / handover_time
+    // / quantity_sent) plus the migrated equipment_id / company_id.
+    const { data: ho } = await supabase
+      .from("orders")
+      .select("company_id")
+      .eq("id", params.orderId)
+      .maybeSingle();
+
     const { data, error } = await supabase
       .from("equipment_handovers")
       .insert({
+        company_id: (ho as any)?.company_id ?? null,
         order_id: params.orderId,
         equipment_id: params.equipmentId,
-        quantity: params.quantity,
         from_stage: params.fromStage,
         to_stage: params.toStage,
-        handed_by_user_id: params.handedByUserId,
-        handed_by_name: params.handedByName,
-        quantity_sent: params.quantitySent,
-        handed_at: new Date().toISOString(),
+        handed_over_by: params.handedByUserId ?? null,
+        quantity_sent: params.quantitySent ?? params.quantity,
+        handover_time: new Date().toISOString(),
+        notes: params.handedByName ? `Handed over by ${params.handedByName}` : null,
       } as any)
       .select()
       .single();
@@ -81,7 +91,7 @@ export const equipmentTrackingService = {
       .from("equipment_handovers")
       .update({
         received_by_user_id: params.receivedByUserId,
-        received_by_name: params.receivedByName,
+        received_by: params.receivedByName,
         quantity_received: params.quantityReceived,
         discrepancy_noted: hasDiscrepancy,
         discrepancy_reason: hasDiscrepancy ? params.discrepancyReason : null,
@@ -110,11 +120,11 @@ export const equipmentTrackingService = {
         equipment:equipment_id (
           name,
           category,
-          unit_cost
+          replacement_cost
         )
       `)
       .eq("order_id", orderId)
-      .order("handed_at", { ascending: true });
+      .order("handover_time", { ascending: true });
 
     if (error) {
       console.error("Error fetching handover chain:", error);
@@ -143,12 +153,25 @@ export const equipmentTrackingService = {
   }): Promise<EquipmentDamage> {
     const totalCost = params.quantityDamaged * params.unitCost;
 
+    // Resolve company_id (and order context) up front so the damage row
+    // is tenant-stamped on insert. RLS policies key on company_id, and
+    // a NULL company_id would orphan the row from the analytics that
+    // scope by tenant. Ops audit 2026-06-15.
+    const { data: order, error: orderErr } = await supabase
+      .from("orders")
+      .select("user_id, company_id, order_number, client_name")
+      .eq("id", params.orderId)
+      .single();
+    if (orderErr) console.error("[equipmentTrackingService/reportDamage] orders lookup failed:", orderErr);
+
     const { data, error } = await supabase
       .from("equipment_damages")
       .insert({
+        company_id: order?.company_id ?? null,
         order_id: params.orderId,
         equipment_id: params.equipmentId,
         handover_id: params.handoverId,
+        reported_by: params.responsibleUserId ?? null,
         quantity_damaged: params.quantityDamaged,
         damage_type: params.damageType,
         damage_stage: params.damageStage,
@@ -167,14 +190,6 @@ export const equipmentTrackingService = {
       console.error("Error reporting damage:", error);
       throw error;
     }
-
-    // Get order and equipment details for notifications
-    const { data: order, error: orderErr } = await supabase
-      .from("orders")
-      .select("user_id, company_id, order_number, client_name")
-      .eq("id", params.orderId)
-      .single();
-    if (orderErr) console.error("[equipmentTrackingService/reportDamage] orders lookup failed:", orderErr);
 
     const { data: equipment, error: equipmentErr } = await supabase
       .from("equipment")

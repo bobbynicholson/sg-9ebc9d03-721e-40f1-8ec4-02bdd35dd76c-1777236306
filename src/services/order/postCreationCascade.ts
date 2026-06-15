@@ -861,7 +861,10 @@ export async function postOrderCreationCascade(
         const menuItems = (itemRows || []).map((r: any) => ({
           name: r.item_name,
           menu_item_id: r.menu_item_id,
-          quantity: 1,
+          // Ops audit 2026-06-15: was hardcoded to 1, so multi-unit lines
+          // (e.g. 3 platters) under-forecast the shopping demand. The
+          // select already pulls quantity - use it.
+          quantity: Number(r.quantity) || 1,
         }));
         const guestCount = Number(
           (order as any).final_guest_count ||
