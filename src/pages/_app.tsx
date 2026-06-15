@@ -1,7 +1,7 @@
 import type { AppProps } from "next/app";
 import { useEffect } from "react";
 import { useRouter } from "next/router";
-import { Playfair_Display, Plus_Jakarta_Sans } from "next/font/google";
+import { Fraunces, Inter } from "next/font/google";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { TenantBrandingApplier } from "@/components/TenantBrandingApplier";
 import type { InitialBranding } from "@/lib/branding/serverBrandingForSlug";
@@ -14,22 +14,22 @@ import { CommandPalette } from "@/components/CommandPalette";
 import { GlobalInternalFooter } from "@/components/GlobalInternalFooter";
 import "@/styles/globals.css";
 
-// Elegant display serif for marketing headings (opt-in via Tailwind's
+// Warm modern display serif for marketing headings (opt-in via Tailwind's
 // `font-display`). Self-hosted by next/font — no external request, no layout
-// shift. Exposed as the --font-display CSS variable on a wrapper below.
-const playfair = Playfair_Display({
+// shift. Exposed as the --font-display CSS variable on the wrapper below.
+const fraunces = Fraunces({
   subsets: ["latin"],
   weight: ["500", "600", "700"],
+  style: ["normal", "italic"],
   variable: "--font-display",
   display: "swap",
 });
 
-// Refined body sans for marketing surfaces (opt-in via Tailwind `font-body`).
-// Self-hosted by next/font. Pairs with Playfair for a luxury-but-approachable
-// voice without changing the default app/dashboard font.
-const jakarta = Plus_Jakarta_Sans({
+// Clean, neutral body sans for marketing surfaces (opt-in via `font-body`).
+// Self-hosted by next/font. Pairs with Fraunces for a modern, warm, editorial
+// voice — without changing the default app/dashboard font.
+const inter = Inter({
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
   variable: "--font-body",
   display: "swap",
 });
@@ -111,7 +111,7 @@ export default function App({ Component, pageProps }: AppProps) {
   }, []);
 
   return (
-    <div className={`${playfair.variable} ${jakarta.variable}`}>
+    <div className={`${fraunces.variable} ${inter.variable}`}>
       <NoIndexMeta />
       <ThemeProvider>
         <AuthProvider>

@@ -73,8 +73,8 @@ const config: Config = {
         // Marketing typography, self-hosted via next/font in _app.tsx and
         // exposed as CSS vars. Both are opt-in (use `font-display` /
         // `font-body`) so the app/dashboard default font is untouched.
-        //   font-display — Playfair Display (elegant headings)
-        //   font-body    — Plus Jakarta Sans (premium, approachable copy)
+        //   font-display — Fraunces (warm modern display serif, headings)
+        //   font-body    — Inter (clean, neutral copy)
         display: ["var(--font-display)", "ui-serif", "Georgia", "Cambria", "serif"],
         body: ["var(--font-body)", "ui-sans-serif", "system-ui", "sans-serif"],
       },
