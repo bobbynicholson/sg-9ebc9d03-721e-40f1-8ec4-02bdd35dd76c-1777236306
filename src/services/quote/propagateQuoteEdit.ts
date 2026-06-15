@@ -390,6 +390,40 @@ export async function propagateQuoteEditToOrder(
       await _recalcInvoice(receipt.orderId!, companyId);
     }
 
+    // 9b. Tell the working staff the order changed so they re-check their tasks
+    //     against the new spec — the amendment path broadcasts this but the
+    //     quote-edit path used to run the whole cascade silently, leaving
+    //     kitchen / shopping / driver / cleaning working off the OLD guest
+    //     count / menu / time. Best-effort + dedup'd; never blocks the edit.
+    const staffAffected =
+      menuChanged || equipmentChanged || needsPrepReplan || needsRescheduling ||
+      receipt.fieldsChanged.some((f) => ["guest_count", "menu_items", "equipment_items"].includes(f));
+    if (staffAffected) {
+      try {
+        const orderLabel =
+          (linkedOrder as any)?.order_number ||
+          String(receipt.orderId).slice(0, 8);
+        const changed = Array.from(new Set(receipt.fieldsChanged))
+          .map((k) => String(k).replace(/_/g, " "))
+          .join(", ") || "details";
+        const { notificationService } = await import("../notificationService");
+        await notificationService.broadcastNotification({
+          companyId,
+          type: "amendment_approved",
+          title: "Order updated - re-check your tasks",
+          message: `Order ${orderLabel} was updated (${changed}). Prep, shopping quantities, delivery and equipment for it may have changed - please re-check your assigned work.`,
+          targetRoles: ["kitchen_staff", "shopping_staff", "driver", "cleaning_staff", "company_admin", "admin", "owner", "super_admin"] as any,
+          priority: "high",
+          link: `/admin/orders?orderId=${receipt.orderId}`,
+          relatedEntityType: "order",
+          relatedEntityId: receipt.orderId!,
+          dedup: true,
+        }, supabase as any);
+      } catch (notifyErr: any) {
+        receipt.errors.push(`staff_broadcast_failed: ${notifyErr?.message || notifyErr}`);
+      }
+    }
+
     // 10. Audit row in order_amendment_requests so the change is
     //     traceable. applied_snapshot captures the orders payload + the
     //     cascade outcomes for finance / dispute resolution.

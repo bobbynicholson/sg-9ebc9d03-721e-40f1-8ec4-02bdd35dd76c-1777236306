@@ -309,7 +309,7 @@ export const kitchenPrepService = {
       .from("orders")
       // Wave 66.9 trap: final_guest_count doesn't exist on orders -
       // selecting it 400s the whole query. guest_count alone.
-      .select("id, company_id, region_id, menu_items, guest_count, event_date, event_time, pickup_time")
+      .select("id, company_id, region_id, menu_items, guest_count, event_date, event_time, pickup_time, delivery_time")
       .eq("id", orderId)
       .maybeSingle();
     if (orderErr) {
@@ -327,6 +327,14 @@ export const kitchenPrepService = {
       // with event_date the same way the BEO ticket does.
       if (order.pickup_time && order.event_date) {
         const dt = new Date(`${order.event_date}T${String(order.pickup_time).slice(0, 5)}:00`);
+        if (!isNaN(dt.getTime())) return dt;
+      }
+      // delivery_time (also a `time` column) is the next-best anchor: food must
+      // be ready by the time it's delivered. Without this, changing an order's
+      // delivery_time re-stamped the driver + cleaning but left the cook
+      // backplan on the old event_time, so food wasn't ready when the truck left.
+      if (order.delivery_time && order.event_date) {
+        const dt = new Date(`${order.event_date}T${String(order.delivery_time).slice(0, 5)}:00`);
         if (!isNaN(dt.getTime())) return dt;
       }
       if (order.event_date && order.event_time) {

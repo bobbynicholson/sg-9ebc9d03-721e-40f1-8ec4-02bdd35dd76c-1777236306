@@ -81,23 +81,68 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     const orderId = (request as any).order_id;
     const companyId = (request as any).company_id;
 
+    // Step 0: rebuild the line-item + equipment layer from the current order
+    // row so every downstream step below (inventory, invoice, cleaning count)
+    // reads a consistent spec — a retry must converge to the same state the
+    // main amendment handler produces, not re-run cascade steps over stale
+    // order_items. Best-effort.
+    try {
+      const { data: freshOrder } = await ssr
+        .from("orders")
+        .select("menu_items, guest_count, equipment_items, event_date")
+        .eq("id", orderId)
+        .maybeSingle();
+      const { rebuildOrderItemsFromMenu } = await import("@/services/order/rebuildOrderItems");
+      await rebuildOrderItemsFromMenu(
+        ssr,
+        orderId,
+        (freshOrder as any)?.menu_items,
+        Number((freshOrder as any)?.guest_count || 0),
+      );
+      const { resyncEquipmentBookings } = await import("@/services/order/resyncEquipmentBookings");
+      await resyncEquipmentBookings(
+        ssr,
+        orderId,
+        companyId,
+        (freshOrder as any)?.equipment_items,
+        (freshOrder as any)?.event_date,
+      );
+    } catch (e) {
+      console.warn("[amendment-cascade-retry] line-item/equipment rebuild failed:", e);
+    }
+
     // Step 1: kitchen prep regen (skip if previously ok and not forced).
     if (force || !prior.kitchen_prep?.ok) {
       try {
         const { kitchenPrepService } = await import("@/services/kitchenPrepService");
-        await (kitchenPrepService as any).ensurePrepTasksForOrder(companyId, orderId);
+        // force:true — otherwise this no-ops on a confirmed order's existing tasks.
+        await (kitchenPrepService as any).ensurePrepTasksForOrder(
+          companyId,
+          orderId,
+          user.id,
+          ssr,
+          { force: true },
+        );
         cascade.kitchen_prep = { ok: true };
       } catch (e: any) {
         cascade.kitchen_prep = { ok: false, reason: e?.message || "kitchen prep regen failed" };
       }
     }
 
-    // Step 2: invoice refresh.
+    // Step 2: invoice refresh. recalc-first so an EXISTING invoice picks up the
+    // new total (ensureInvoiceForOrder no-ops when an invoice already exists).
     if (force || !prior.invoice?.ok) {
       try {
-        const { ensureInvoiceForOrder } = await import("@/services/invoiceGenerationService");
-        await ensureInvoiceForOrder(orderId, companyId);
-        cascade.invoice = { ok: true };
+        const { ensureInvoiceForOrder, recalcInvoiceForOrder } = await import("@/services/invoiceGenerationService");
+        const recalc = await recalcInvoiceForOrder(orderId, companyId, ssr);
+        if (recalc.success && recalc.updated) {
+          cascade.invoice = { ok: true };
+        } else if (recalc.reason === "no_invoice") {
+          await ensureInvoiceForOrder(orderId, companyId);
+          cascade.invoice = { ok: true };
+        } else {
+          cascade.invoice = { ok: false, reason: recalc.error || recalc.reason || "invoice recalc returned no update" };
+        }
       } catch (e: any) {
         cascade.invoice = { ok: false, reason: e?.message || "invoice refresh failed" };
       }

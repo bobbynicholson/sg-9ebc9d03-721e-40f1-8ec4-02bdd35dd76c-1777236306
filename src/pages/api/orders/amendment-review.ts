@@ -442,9 +442,16 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
     try {
       const { kitchenPrepService } = await import("@/services/kitchenPrepService");
+      // force:true — without it ensurePrepTasksForOrder bails with
+      // "already_has_pending_tasks" for any confirmed order, so a guest_count /
+      // menu / time amendment left the chef's prep + cook tasks frozen on the
+      // OLD spec. The quote-edit path already forces; the amendment path didn't.
       await (kitchenPrepService as any).ensurePrepTasksForOrder(
         (request as any).company_id,
         (request as any).order_id,
+        user.id,
+        ssr,
+        { force: true },
       );
       cascade.kitchen_prep.ok = true;
     } catch (e: any) {
@@ -508,39 +515,13 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       }
     }
 
-    // Schedule re-sync. Bobby's rule: when delivery time / venue /
-    // equipment / guest count move, the change must land EVERYWHERE -
-    // the driver's collection trip, the cleaning handover's expected
-    // return time + item count, the vehicle window and any outsource
-    // assignment. The quote-edit path (propagateQuoteEdit) already does
-    // this; the amendment path had drifted and re-stamped none of it,
-    // so an amended order left the driver + cleaning team on the OLD
-    // time. resyncOrderScheduleArtifacts reads the now-amended order row
-    // and re-stamps from delivery_time ?? event_time. Best-effort.
-    const scheduleRelevant = ["delivery_time", "venue_address", "equipment_items", "guest_count"];
-    const touchedSchedule = Object.keys(toApply).some((k) => scheduleRelevant.includes(k));
-    if (touchedSchedule) {
-      cascade.schedule = { ok: false, skipped: false };
-      try {
-        const { resyncOrderScheduleArtifacts } = await import("@/services/order/resyncOrderSchedule");
-        const r = await resyncOrderScheduleArtifacts(ssr as any, (request as any).order_id);
-        cascade.schedule.ok = r.ok;
-        cascade.schedule.details = r;
-        if (!r.ok) {
-          cascade.schedule.reason = (r.errors || []).join("; ") || "schedule resync errors";
-        }
-      } catch (e: any) {
-        cascade.schedule.reason = e?.message || "schedule resync crashed";
-        console.warn("[amendment-review] schedule resync crashed:", e);
-      }
-    }
-
-    // Equipment bookings re-sync. equipment_items is editable on the amendment
-    // path, but resyncOrderScheduleArtifacts only re-stamps the cleaning
-    // expected-count — it never reconciled equipment_bookings (quantities /
-    // booked-vs-cancelled rows / the availability window). The quote path does
-    // this via _resyncEquipmentBookings; the amendment path had drifted. Use
-    // the same shared helper so they stay symmetric. Best-effort.
+    // Equipment bookings re-sync — MUST run BEFORE the schedule resync below,
+    // because resyncOrderScheduleArtifacts recomputes the cleaning expected
+    // item-count FROM equipment_bookings. equipment_items is editable on the
+    // amendment path, but the schedule helper only re-stamps the cleaning count
+    // and never reconciled equipment_bookings (quantities / booked-vs-cancelled
+    // rows / the availability window). The quote path does this via the shared
+    // helper; the amendment path had drifted. Best-effort.
     if (Object.keys(toApply).includes("equipment_items")) {
       try {
         const { data: eqOrder } = await ssr
@@ -561,6 +542,31 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         }
       } catch (e: any) {
         console.warn("[amendment-review] equipment bookings resync crashed:", e);
+      }
+    }
+
+    // Schedule re-sync. Bobby's rule: when delivery time / venue /
+    // equipment / guest count move, the change must land EVERYWHERE -
+    // the driver's collection trip, the cleaning handover's expected
+    // return time + item count (recomputed from the now-fresh
+    // equipment_bookings above), the vehicle window and any outsource
+    // assignment. resyncOrderScheduleArtifacts reads the now-amended order
+    // row and re-stamps from delivery_time ?? event_time. Best-effort.
+    const scheduleRelevant = ["delivery_time", "venue_address", "equipment_items", "guest_count"];
+    const touchedSchedule = Object.keys(toApply).some((k) => scheduleRelevant.includes(k));
+    if (touchedSchedule) {
+      cascade.schedule = { ok: false, skipped: false };
+      try {
+        const { resyncOrderScheduleArtifacts } = await import("@/services/order/resyncOrderSchedule");
+        const r = await resyncOrderScheduleArtifacts(ssr as any, (request as any).order_id);
+        cascade.schedule.ok = r.ok;
+        cascade.schedule.details = r;
+        if (!r.ok) {
+          cascade.schedule.reason = (r.errors || []).join("; ") || "schedule resync errors";
+        }
+      } catch (e: any) {
+        cascade.schedule.reason = e?.message || "schedule resync crashed";
+        console.warn("[amendment-review] schedule resync crashed:", e);
       }
     }
 
@@ -715,8 +721,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         companyId: (request as any).company_id,
         type: "amendment_approved",
         title: "Order amended - re-check your tasks",
-        message: `Order ${orderLabel} was amended (${appliedHuman}). Prep, delivery and equipment for it may have changed - please re-check your assigned work.`,
-        targetRoles: ["kitchen_staff", "driver", "cleaning_staff", "company_admin", "admin", "owner", "super_admin"] as any,
+        message: `Order ${orderLabel} was amended (${appliedHuman}). Prep, shopping quantities, delivery and equipment for it may have changed - please re-check your assigned work.`,
+        targetRoles: ["kitchen_staff", "shopping_staff", "driver", "cleaning_staff", "company_admin", "admin", "owner", "super_admin"] as any,
         priority: "high",
         link: `/admin/orders?orderId=${(request as any).order_id}`,
         relatedEntityType: "order",
@@ -725,6 +731,37 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       }, ssr);
     } catch (notifyErr) {
       console.warn("[amendment-review] staff broadcast failed:", notifyErr);
+    }
+
+    // Venue change can't be auto-geocoded server-side (the maps service is
+    // browser-only), so delivery_distance_km / delivery_fee / venue_lat,lng and
+    // the driver ETA/route stay on the OLD address. Rather than leave that
+    // silently stale, alert admins to recompute the distance + fee so the
+    // customer total and the driver route are corrected. Best-effort + dedup'd.
+    if (Object.keys(toApply).includes("venue_address")) {
+      try {
+        const { data: ordRow2 } = await ssr
+          .from("orders")
+          .select("order_number")
+          .eq("id", (request as any).order_id)
+          .maybeSingle();
+        const orderLabel2 = (ordRow2 as any)?.order_number || String((request as any).order_id).slice(0, 8);
+        const { notificationService } = await import("@/services/notificationService");
+        await notificationService.broadcastNotification({
+          companyId: (request as any).company_id,
+          type: "amendment_approved",
+          title: "Venue changed - review delivery distance & fee",
+          message: `Order ${orderLabel2} moved to a new venue. The delivery distance, fee and driver route were NOT auto-recalculated - please re-open the order and confirm the distance/fee so the customer total and route are correct.`,
+          targetRoles: ["company_admin", "admin", "owner", "super_admin"] as any,
+          priority: "high",
+          link: `/admin/orders?orderId=${(request as any).order_id}`,
+          relatedEntityType: "order",
+          relatedEntityId: (request as any).order_id,
+          dedup: true,
+        }, ssr);
+      } catch (venueNotifyErr) {
+        console.warn("[amendment-review] venue review alert failed:", venueNotifyErr);
+      }
     }
 
     // LCF-T: client email so the change lands even for clients who
