@@ -675,13 +675,27 @@ export const dispatchService = {
     // silently and the second one won. Now we condition on the
     // assigned_driver_id we read above still being the current value;
     // a 0-row result means another writer raced us first.
+    const updatePayload: {
+      assigned_driver_id: string | null;
+      driver_id: string | null;
+      assignment_score: number | null;
+      assigned_at?: string;
+    } = {
+      assigned_driver_id: payload.driverId,
+      driver_id: payload.driverId,
+      assignment_score: payload.score ?? null,
+    };
+    // Stamp assigned_at on the FIRST assignment only. getDispatchKpis
+    // derives median time-to-assign from (assigned_at - confirmed_at);
+    // this column was never written on the dispatch path, so the KPI was
+    // permanently null. Gating on fromDriverId === null means a later
+    // reassignment doesn't reset the clock and inflate the metric.
+    if (fromDriverId === null) {
+      updatePayload.assigned_at = new Date().toISOString();
+    }
     let updateQ = supabase
       .from("orders")
-      .update({
-        assigned_driver_id: payload.driverId,
-        driver_id: payload.driverId,
-        assignment_score: payload.score ?? null,
-      })
+      .update(updatePayload)
       .eq("id", payload.orderId);
     if (fromDriverId === null) {
       updateQ = updateQ.is("assigned_driver_id", null);

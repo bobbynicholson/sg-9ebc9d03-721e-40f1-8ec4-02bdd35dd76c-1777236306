@@ -156,6 +156,7 @@ export const deliveryService = {
     // Now route a matching status flip through the same machine
     // that the new driver UI uses, so both tables advance in
     // lockstep until the deliveries table is fully retired.
+    let mirrored = false;
     if (status === "delivered" || status === "in_transit") {
       try {
         const targetStatus = status === "in_transit" ? "in_transit" : "delivered";
@@ -163,14 +164,22 @@ export const deliveryService = {
         if (orderId) {
           const { updateOrderStatus } = await import("./order/orderWorkflow");
           await updateOrderStatus(orderId, targetStatus as any);
+          mirrored = true;
         }
       } catch (e) {
         console.warn("[deliveryService] orderWorkflow lockstep mirror failed (non-blocking):", e);
       }
     }
 
-    // Send real-time notification on status change
-    await this.notifyStatusChange(deliveryId, status, driverNotes);
+    // Legacy fan-out, but ONLY for statuses we did NOT route through the
+    // canonical machine. updateOrderStatus already runs
+    // sendStatusNotifications (owner + client email/WhatsApp), so firing
+    // notifyStatusChange here too double-notifies and double-emails the
+    // client on delivered/in_transit. Keep it for failed/other statuses
+    // (and as a fallback when the mirror couldn't run, e.g. no order_id).
+    if (!mirrored) {
+      await this.notifyStatusChange(deliveryId, status, driverNotes);
+    }
 
     return result;
   },

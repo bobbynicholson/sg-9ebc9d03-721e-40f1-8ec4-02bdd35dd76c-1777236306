@@ -174,9 +174,15 @@ export async function calculateETA(
       destinationLon
     );
 
-    // Estimate ETA based on average speed (assume 40 km/h in city)
-    const averageSpeed = location.speed || 40;
-    const eta = (distance / averageSpeed) * 60; // in minutes
+    // Estimate ETA. `location.speed` originates from the W3C
+    // Geolocation API (position.coords.speed), which reports METERS PER
+    // SECOND - the UI shows it as km/h via *3.6. distance is in km, so
+    // convert speed to km/h before dividing, else a driver doing 10 m/s
+    // (36 km/h) is treated as 10 km/h and the ETA comes out ~3.6x too
+    // long. Fall back to 40 km/h when speed is missing or effectively
+    // stationary (< ~1.8 km/h) so a red light doesn't blow up the ETA.
+    const speedKmh = location.speed && location.speed > 0.5 ? location.speed * 3.6 : 40;
+    const eta = (distance / speedKmh) * 60; // in minutes
 
     return {
       success: true,

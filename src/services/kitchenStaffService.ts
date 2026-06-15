@@ -645,7 +645,7 @@ export const kitchenStaffService = {
   }): Promise<KitchenShift> {
     const { data: shift, error: gErr } = await supabase
       .from("kitchen_staff_shifts")
-      .select("*, staff:staff_member_id ( standard_hours_per_day )")
+      .select("*, staff:staff_member_id ( standard_hours_per_day, weekly_ordinary_hours )")
       .eq("id", args.shiftId)
       .single();
     if (gErr || !shift) throw gErr || new Error("Shift not found");
@@ -668,12 +668,59 @@ export const kitchenStaffService = {
     if (newEnd) {
       const grossMin = Math.max(0, Math.floor((new Date(newEnd).getTime() - new Date(newStart).getTime()) / 60_000));
       const workedMin = Math.max(0, grossMin - newBreakMin);
-      const split = splitStandardOvertime(workedMin, stdHours);
+
+      // Mirror clockOut's BCEA split EXACTLY. The old code used
+      // splitStandardOvertime (no Sunday/holiday bucket), so editing a
+      // Sunday/public-holiday shift left a stale sunday_holiday_min on
+      // the row while re-deriving standard/overtime from the full worked
+      // minutes - double-counting the 2x hours and producing an
+      // internally inconsistent wage record. Re-detect holiday +
+      // week-to-date ordinary minutes against the (possibly edited)
+      // start and stamp all three buckets together.
+      const weeklyHours = Number((shift as any).staff?.weekly_ordinary_hours ?? 45);
+      const shiftStart = new Date(newStart);
+      const dateStr = shiftStart.toISOString().slice(0, 10);
+      const { data: holidayRow, error: holidayRowErr } = await supabase
+        .from("public_holidays")
+        .select("id")
+        .eq("date", dateStr)
+        .or(`company_id.is.null,company_id.eq.${(shift as any).company_id}`)
+        .limit(1)
+        .maybeSingle();
+      if (holidayRowErr) console.error("[kitchenStaffService] public_holidays lookup failed:", holidayRowErr);
+      const isPublicHoliday = !!holidayRow;
+
+      const weekStart = isoWeekStart(shiftStart);
+      const { data: weekShifts, error: weekShiftsErr } = await supabase
+        .from("kitchen_staff_shifts")
+        .select("standard_min, shift_start")
+        .eq("staff_member_id", (shift as any).staff_member_id)
+        .eq("company_id", (shift as any).company_id)
+        .gte("shift_start", weekStart.toISOString())
+        .lt("shift_start", new Date(weekStart.getTime() + 7 * 86400000).toISOString())
+        .neq("id", args.shiftId)
+        .is("deleted_at", null);
+      if (weekShiftsErr) console.error("[kitchenStaffService] kitchen_staff_shifts week lookup failed:", weekShiftsErr);
+      const weekToDateOrdinaryMin = (weekShifts || []).reduce(
+        (sum: number, w: any) => sum + (Number(w.standard_min) || 0),
+        0,
+      );
+
+      const split = splitBCEA({
+        shiftStart,
+        workedMin,
+        standardHoursPerDay: stdHours,
+        weeklyOrdinaryHours: weeklyHours,
+        isPublicHoliday,
+        weekToDateOrdinaryMin,
+      });
       patch.standard_min = split.standard_min;
       patch.overtime_min = split.overtime_min;
+      patch.sunday_holiday_min = split.sunday_holiday_min;
     } else {
       patch.standard_min = null;
       patch.overtime_min = null;
+      patch.sunday_holiday_min = null;
     }
 
     const { data, error } = await supabase
