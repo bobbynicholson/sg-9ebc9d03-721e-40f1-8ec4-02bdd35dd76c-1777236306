@@ -1,15 +1,28 @@
-import { useState, useEffect } from "react";
-import Link from "next/link";
-import { useRouter } from "next/router";
-import { useAuth } from "@/contexts/AuthContext";
-import { signOutAndRedirect } from "@/lib/signOut";
-import { useTenantHref } from "@/lib/tenantUrl";
-import { useCloseOnDesktop, useSyncSidebarCollapsed } from "@/lib/useCloseOnDesktop";
-import { useNavScrollRestore } from "@/hooks/useNavScrollRestore";
-import { MobileSearchTrigger } from "@/components/portal/MobileDrawerExtras";
-import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { ScrollArea } from "@/components/ui/scroll-area";
+/**
+ * AdminNav - tenant (company) admin sidebar.
+ *
+ * Wave 72 redesign: rebuilt on the shared PortalSidebar primitive (the
+ * same component the kitchen / driver / shopping / cleaning portals and
+ * the platform admin now use) so the tenant admin matches the rest of the
+ * product - item descriptions, live badges, footer treatment, collapse,
+ * notification bell + theme switch + clock, mobile drawer - all for free.
+ *
+ * What's preserved from the bespoke 895-line implementation:
+ *   - the full Wave 70.31 information architecture (Today, Pipeline,
+ *     Operations, Money[gated], Catalogue, People[+payroll gated],
+ *     Settings[gated], Platform[super_admin], Account)
+ *   - the live badges + liveDescriptions wired to useAdminLiveCounts
+ *   - the admin-specific top-slot extras: identity strip, command-palette
+ *     hint, region filter, staff-view switcher, mode badge + live strip
+ *   - mode-driven smart quick actions in the mobile drawer
+ *
+ * role:"admin" keeps the same localStorage keys (adminNav-collapsed,
+ * admin-nav scroll) the old nav used, so operators don't lose state.
+ * All hrefs are bare /admin/* and PortalSidebar's withSlug() prefixes the
+ * tenant slug at render time; /admin/platform/* + /account/* are global
+ * prefixes so they stay un-prefixed.
+ */
+
 import {
   LayoutDashboard,
   Users,
@@ -28,8 +41,6 @@ import {
   Clock,
   TrendingUp,
   Bell,
-  Menu,
-  ChevronRight,
   Briefcase,
   MessageSquare,
   Truck,
@@ -43,11 +54,9 @@ import {
   ShoppingBag,
   Zap,
   BarChart3,
-  LogOut,
   ChefHat,
   BookOpen,
   Wand2,
-  ChevronLeft,
   Palette,
   Code2,
   Sparkles,
@@ -60,17 +69,15 @@ import {
   CookingPot,
   FlaskConical,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { ThemeSwitch } from "@/components/ThemeSwitch";
-import { NotificationBell } from "@/components/notifications/NotificationBell";
-import { DigitalClock } from "@/components/portal/DigitalClock";
+import { useRouter } from "next/router";
+import { Badge } from "@/components/ui/badge";
+import { useAuth } from "@/contexts/AuthContext";
+import { canAccessFinance, isCompanyAdmin } from "@/lib/authGuards";
+import { UserRole } from "@/types/app";
+import { PortalSidebar, type PortalSidebarConfig, type PortalSidebarSection } from "@/components/navigation/PortalSidebar";
 import { RegionFilterDropdown } from "@/components/admin/RegionFilterDropdown";
 import { StaffViewSwitcher } from "@/components/admin/StaffViewSwitcher";
 import { CommandPaletteHint } from "@/components/CommandPaletteHint";
-import { canAccessFinance, isCompanyAdmin } from "@/lib/authGuards";
-import { UserRole } from "@/types/app";
-import { CollapsibleNavSection } from "@/components/navigation/CollapsibleNavSection";
-// Wave 70.31 live intelligence layer.
 import { AdminModeBadge } from "@/components/admin/AdminModeBadge";
 import { AdminLiveStateStrip } from "@/components/admin/AdminLiveStateStrip";
 import { AdminSmartQuickActions } from "@/components/admin/AdminSmartQuickActions";
@@ -78,134 +85,87 @@ import { useAdminLiveCounts } from "@/hooks/useAdminLiveCounts";
 import { useAdminPortalMode } from "@/hooks/useAdminPortalMode";
 import { useAdminModeToast } from "@/hooks/useAdminModeToast";
 
-interface NavItem {
-  title: string;
-  href: string;
-  icon: React.ComponentType<{ className?: string }>;
-  description?: string;
-  /** Wave 70.31 - optional live badge. Receives the live counts +
-   *  mode so individual items can react (e.g. "5 overdue" critical
-   *  when quotesOverdue > 0). Return null to render no badge. */
-  badge?: () => { text: string; tone?: "default" | "warning" | "critical" | "info"; pulse?: boolean } | null;
-  /** Wave 70.31 - optional dynamic description override. */
-  liveDescription?: () => string | null;
-}
-
-interface NavSection {
-  /** Stable id for localStorage persistence - never change once shipped. */
-  id: string;
-  title: string;
-  /** Whether this section is open the first time a user sees it. Pick
-   *  based on usage frequency: daily-use sections open, quarterly sections
-   *  closed. The user can override and we remember their choice. */
-  defaultOpen: boolean;
-  items: NavItem[];
-}
-
 interface AdminNavProps {
   className?: string;
 }
 
-export function AdminNav({ className }: AdminNavProps) {
-  const router = useRouter();
-  const [open, setOpen] = useState(false);
-  useCloseOnDesktop(open, setOpen);
-  const [isCollapsed, setIsCollapsed] = useState(false);
-  useSyncSidebarCollapsed(isCollapsed);
-  const [signingOut, setSigningOut] = useState(false);
+// ---------------------------------------------------------------------------
+// Top slot: identity strip + command-palette hint + region filter +
+// staff-view switcher + live intelligence (mode badge + state strip).
+// Mounts above the nav sections on both desktop expanded + mobile drawer,
+// mirroring PlatformNav's renderTopSlot pattern.
+// ---------------------------------------------------------------------------
+
+function AdminTopSlot({ companySlug }: { companySlug: string }) {
   const { profile, company } = useAuth() as any;
-  // Slug-aware href wrapper. Every internal link rendered by AdminNav
-  // gets prefixed with the company slug so URLs read
-  // /spit-braai-delivery/admin/<page> end-to-end. Bare /admin/<page>
-  // hrefs in NAV_ITEMS keep the source readable; withSlug applies the
-  // prefix at render time.
-  const { withSlug } = useTenantHref();
-  const companyName  = company?.company_name || "Admin Portal";
-  const primaryColor   = company?.primary_color   || "#9333ea";
-  const secondaryColor = company?.secondary_color || "#ec4899";
-  // First two letters of the company name for the avatar tile
-  const initials = (companyName as string)
-    .split(" ")
-    .map((s: string) => s[0])
-    .filter(Boolean)
-    .slice(0, 2)
-    .join("")
-    .toUpperCase() || "CM";
+  const companyName = company?.company_name || "Admin Portal";
+  const initials =
+    (companyName as string)
+      .split(" ")
+      .map((s: string) => s[0])
+      .filter(Boolean)
+      .slice(0, 2)
+      .join("")
+      .toUpperCase() || "CM";
 
-  // Sidebar scroll restoration. Pure restore - the operator chose
-  // where to look, we don't auto-scroll the active item into view
-  // and override that. Hook handles the Radix ScrollArea viewport
-  // lookup + sessionStorage persistence.
-  const scrollAreaRef = useNavScrollRestore<HTMLDivElement>("admin-nav");
+  return (
+    <div className="space-y-3">
+      <CommandPaletteHint className="w-full justify-center" />
 
-  // Wave 70.31 - live intelligence hooks. These replace the
-  // standalone todayEventCount fetch that used to live here (the
-  // count is now part of useAdminLiveCounts.eventsToday).
+      {/* Company identity */}
+      <div className="flex items-center gap-2.5 rounded-xl border border-slate-200/80 bg-white px-3 py-2.5 dark:border-slate-800 dark:bg-slate-900">
+        <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full border-2 border-violet-300 bg-violet-100">
+          <span className="text-[11px] font-bold text-violet-700">{initials}</span>
+        </div>
+        <div className="min-w-0 flex-1 overflow-hidden">
+          <div className="flex items-center gap-1.5">
+            <span className="truncate text-sm font-semibold text-slate-900 dark:text-white">
+              {companyName}
+            </span>
+            <Badge
+              variant="outline"
+              className="h-4 flex-shrink-0 border-violet-200 bg-violet-50 px-1 text-[9px] text-violet-700"
+            >
+              Admin
+            </Badge>
+          </div>
+          <div className="truncate text-[11px] leading-tight text-slate-400">
+            {profile?.full_name || profile?.email || ""}
+          </div>
+        </div>
+      </div>
+
+      {/* Admin utility row: region scope + (super-admin) staff-view switch */}
+      <div className="flex flex-wrap items-center gap-2">
+        <RegionFilterDropdown />
+        {companySlug && <StaffViewSwitcher companySlug={companySlug} />}
+      </div>
+
+      {/* Live intelligence: mode badge + 2x3 live state pills */}
+      <div className="space-y-2">
+        <AdminModeBadge />
+        <AdminLiveStateStrip />
+      </div>
+    </div>
+  );
+}
+
+export function AdminNav(_: AdminNavProps = {}) {
+  const router = useRouter();
+  const { profile } = useAuth() as any;
+
+  // Live intelligence hooks - badges + liveDescriptions below close over
+  // these so the operator sees urgency inline without opening a page.
   const liveCounts = useAdminLiveCounts();
   const portalMode = useAdminPortalMode();
   useAdminModeToast();
-  // Kept under the old name for the brand-tile pulse + drawer
-  // subtitle copy so we don't have to touch the JSX below.
-  const todayEventCount = liveCounts.eventsToday;
 
-  // Close mobile drawer on every route change
-  useEffect(() => {
-    setOpen(false);
-  }, [router.pathname]);
+  const companySlug =
+    profile?.company_slug || (router.query.company_slug as string) || "";
 
-  const handleSignOut = async () => {
-    if (signingOut) return;
-    setSigningOut(true);
-    await signOutAndRedirect(profile);
-  };
-  
-  // Get company slug for the view switcher
-  const companySlug = profile?.company_slug || (router.query.company_slug as string) || "";
-
-  // Load collapsed state from localStorage on mount
-  useEffect(() => {
-    const saved = localStorage.getItem("adminNav-collapsed");
-    if (saved) setIsCollapsed(JSON.parse(saved));
-  }, []);
-
-  // Save collapsed state to localStorage
-  const toggleCollapse = () => {
-    const newState = !isCollapsed;
-    setIsCollapsed(newState);
-    localStorage.setItem("adminNav-collapsed", JSON.stringify(newState));
-  };
-
-  // Wave 70.31 restructure (signed off May 2026):
-  //
-  //   12 sections collapsed to 8 around the owner's mental model:
-  //
-  //     TODAY      - live ops surface, always open, 4 items
-  //     PIPELINE   - customer journey (was "Core Management")
-  //     OPERATIONS - in-house execution
-  //     MONEY      - all finance in one nucleus (gated)
-  //     CATALOGUE  - stock + offering + suppliers merged
-  //     PEOPLE     - team management + teams hub + HR merged
-  //     SETTINGS   - all config + comms + audit log in one nucleus (gated)
-  //     PLATFORM   - super_admin only (unchanged)
-  //
-  //   Key moves:
-  //     - Audit Log surfaced in nav for the first time (Settings)
-  //     - Wages folded into Money (was its own section)
-  //     - "Team Management" + "Teams" + Wages-staff bits merged into People
-  //     - "Communications" + "Branding & Settings" merged into Settings
-  //     - Stock + Offering + Suppliers + Outsource + Shopping merged into Catalogue
-  //
-  //   Icon collisions resolved:
-  //     - Financial Dashboard: DollarSign (was BarChart3 = collision with Stock + Job Progress)
-  //     - Job Progress: Activity (was BarChart3)
-  //     - Regions: Map (was MapPin = collision with Live Operations)
-  //     - Public Holidays: CalendarHeart (was Calendar = collision)
-  //     - Kitchen Settings: CookingPot (was ChefHat = collision with Kitchen)
-  //
-  //   Live wiring: badges + liveDescriptions on Today + Pipeline + Money
-  //   items read from useAdminLiveCounts so the operator sees urgency
-  //   inline without opening a page.
-  const adminNavSections: NavSection[] = [
+  // Wave 70.31 information architecture (signed off May 2026). Section ids
+  // are stable - never rename or operators lose saved open/closed state.
+  const sections: PortalSidebarSection[] = [
     {
       id: "today",
       title: "Today",
@@ -274,11 +234,8 @@ export function AdminNav({ className }: AdminNavProps) {
             : null,
         },
         { title: "Orders",        href: "/admin/orders",        icon: Package,          description: "All orders" },
-        // Wave 70.45b - booking packages (multi-day event grouping).
         { title: "Packages",      href: "/admin/packages",      icon: Layers,           description: "Multi-day event groupings" },
         { title: "Client search", href: "/admin/client-search", icon: Search,           description: "Find any client" },
-        // RVW-A: client reviews surface. Reads delivery_feedback
-        // (rated via /client-portal/dashboard or future magic-link).
         { title: "Reviews",       href: "/admin/reviews",       icon: Star,             description: "Client ratings + comments" },
       ],
     },
@@ -287,38 +244,20 @@ export function AdminNav({ className }: AdminNavProps) {
       title: "Operations",
       defaultOpen: false,
       items: [
-        { title: "Plan routes",    href: "/admin/route-planning",        icon: Route,    description: "Auto-assign + optimise tomorrow" },
-        { title: "Vehicles",       href: "/admin/vehicles",              icon: Truck,    description: "Fleet roster + cold-chain" },
-        { title: "Regions",        href: "/admin/regions",               icon: Map,      description: "Manage service regions" },
-        // Phase 3 admin sweep: "Job progress" pointed at
-        // /admin/job-progress-overview which was a redirect stub to
-        // /admin/orders. The fan-out across orders + dispatch +
-        // tracking already covers the same intent. Dropped from nav;
-        // see docs/personas/admin.md.
-        { title: "Public holidays", href: "/admin/public-holidays",      icon: CalendarHeart, description: "SA gazetted dates - drives 2x BCEA rate" },
+        { title: "Plan routes",     href: "/admin/route-planning",  icon: Route,         description: "Auto-assign + optimise tomorrow" },
+        { title: "Vehicles",        href: "/admin/vehicles",        icon: Truck,         description: "Fleet roster + cold-chain" },
+        { title: "Regions",         href: "/admin/regions",         icon: Map,           description: "Manage service regions" },
+        { title: "Public holidays", href: "/admin/public-holidays", icon: CalendarHeart, description: "SA gazetted dates - drives 2x BCEA rate" },
       ],
     },
-    // MONEY - one nucleus for everything financial. Gated.
-    // Refunds stays here too (was previously in Core Mgmt ungated).
-    // Restricted admins lose Refunds visibility - acceptable
-    // tradeoff for a single financial nucleus. The /admin/refunds
-    // page still loads directly for anyone with link access.
-    //
-    // TIGHTEN I.25 (2026-05-27) per admin.md section 7: the four
-    // payroll items (Wages, Staff & rates, Staff hours, Driver
-    // settlement) moved out of MONEY and into PEOPLE. They sit at
-    // the bottom of PEOPLE as a payroll cluster - same items, same
-    // finance gate, but the IA matches the mental model (people
-    // management + payroll are one workflow). MONEY now reads as
-    // "outside money" (revenue, cash, invoices, payables, refunds,
-    // tax) - 7 items instead of 11.
+    // MONEY - finance nucleus, gated to finance-bearing roles.
     ...(profile && canAccessFinance(profile.role as UserRole) ? [{
       id: "money",
       title: "Money",
       defaultOpen: false,
       items: [
         { title: "Financial dashboard", href: "/admin/financial-dashboard", icon: DollarSign, description: "Revenue + profitability snapshot" },
-        { title: "Cashflow dashboard", href: "/admin/cashflow-dashboard", icon: TrendingUp, description: "30-day forecast, payables and fixed costs" },
+        { title: "Cashflow dashboard",  href: "/admin/cashflow-dashboard",  icon: TrendingUp, description: "30-day forecast, payables and fixed costs" },
         {
           title: "Invoices",
           href: "/admin/invoices",
@@ -328,25 +267,25 @@ export function AdminNav({ className }: AdminNavProps) {
             ? { text: "overdue", tone: "critical" as const }
             : null,
         },
-        { title: "Payables",            href: "/admin/payables",            icon: FileText,      description: "Supplier invoices owed - feeds cashflow forecast" },
-        { title: "Fixed costs",         href: "/admin/fixed-costs",         icon: Wallet,        description: "Recurring rent, software, vehicles - feeds cashflow forecast" },
-        { title: "Refunds",             href: "/admin/refunds",             icon: CreditCard,    description: "Cancellation refunds" },
-        { title: "Tax & purchases",     href: "/admin/tax-purchases",       icon: FileText,      description: "VAT exposure + deductible export" },
+        { title: "Payables",        href: "/admin/payables",      icon: FileText,   description: "Supplier invoices owed - feeds cashflow forecast" },
+        { title: "Fixed costs",     href: "/admin/fixed-costs",   icon: Wallet,     description: "Recurring rent, software, vehicles - feeds cashflow forecast" },
+        { title: "Refunds",         href: "/admin/refunds",       icon: CreditCard, description: "Cancellation refunds" },
+        { title: "Tax & purchases", href: "/admin/tax-purchases", icon: FileText,   description: "VAT exposure + deductible export" },
       ],
-    }] : []),
+    } as PortalSidebarSection] : []),
     {
       id: "catalogue",
       title: "Catalogue",
       defaultOpen: false,
       items: [
-        { title: "Offering hub",       href: "/admin/offering",            icon: Sparkles,  description: "Menu + Equipment health" },
-        { title: "Menu",               href: "/admin/menu",                icon: BookOpen,  description: "Build items + recipes" },
-        { title: "Stock overview",     href: "/admin/stock",               icon: BarChart3, description: "Pressure feed: low + commitments + hire-in" },
-        { title: "Inventory",          href: "/admin/inventory",           icon: Package,   description: "Pantry + chiller outlook" },
-        { title: "Equipment",          href: "/admin/equipment",           icon: Layers,    description: "Catalog, availability, shortages, hire-in" },
-        { title: "Suppliers",          href: "/admin/suppliers",           icon: Building2, description: "Contacts, products, spend" },
-        { title: "Outsource providers", href: "/admin/outsource-providers", icon: HardHat,   description: "Per-event chefs, florists, photographers" },
-        { title: "Shopping",           href: "/admin/shopping",            icon: ShoppingBag, description: "Procurement: buy now, plan, slips" },
+        { title: "Offering hub",        href: "/admin/offering",            icon: Sparkles,    description: "Menu + Equipment health" },
+        { title: "Menu",                href: "/admin/menu",                icon: BookOpen,    description: "Build items + recipes" },
+        { title: "Stock overview",      href: "/admin/stock",               icon: BarChart3,   description: "Pressure feed: low + commitments + hire-in" },
+        { title: "Inventory",           href: "/admin/inventory",           icon: Package,     description: "Pantry + chiller outlook" },
+        { title: "Equipment",           href: "/admin/equipment",           icon: Layers,      description: "Catalog, availability, shortages, hire-in" },
+        { title: "Suppliers",           href: "/admin/suppliers",           icon: Building2,   description: "Contacts, products, spend" },
+        { title: "Outsource providers", href: "/admin/outsource-providers", icon: HardHat,     description: "Per-event chefs, florists, photographers" },
+        { title: "Shopping",            href: "/admin/shopping",            icon: ShoppingBag, description: "Procurement: buy now, plan, slips" },
       ],
     },
     {
@@ -354,542 +293,98 @@ export function AdminNav({ className }: AdminNavProps) {
       title: "People",
       defaultOpen: false,
       items: [
-        { title: "Teams hub",      href: "/admin/teams",          icon: Briefcase,    description: "Monday glance across every team" },
-        { title: "Full team",      href: "/admin/users",          icon: Users,        description: "Everyone with a login" },
-        { title: "Kitchen team",   href: "/admin/teams/kitchen",  icon: ChefHat,      description: "Kitchen staff + duties" },
-        { title: "Drivers team",   href: "/admin/teams/drivers",  icon: Truck,        description: "Driver roster + routes" },
-        { title: "Cleaning team",  href: "/admin/teams/cleaning", icon: Sparkles,     description: "Cleaning roster + workflows" },
-        { title: "HR solutions",   href: "/admin/hr-solutions",   icon: Briefcase,    description: "Compliance, contracts, HR" },
-        { title: "Onboarding",     href: "/admin/onboarding",     icon: Wand2,        description: "Bring clients + orders + slips on board" },
-        // TIGHTEN I.25 - payroll cluster, finance-gated. Sits at
-        // the bottom of People so non-finance roles see a clean
-        // 7-item team-management list and finance-bearing roles
-        // see the same list plus the four pay-rate / wages pages
-        // that used to live in Money. Same canAccessFinance gate
-        // as the original Money section so visibility doesn't
-        // change at the page level.
+        { title: "Teams hub",     href: "/admin/teams",          icon: Briefcase, description: "Monday glance across every team" },
+        { title: "Full team",     href: "/admin/users",          icon: Users,     description: "Everyone with a login" },
+        { title: "Kitchen team",  href: "/admin/teams/kitchen",  icon: ChefHat,   description: "Kitchen staff + duties" },
+        { title: "Drivers team",  href: "/admin/teams/drivers",  icon: Truck,     description: "Driver roster + routes" },
+        { title: "Cleaning team", href: "/admin/teams/cleaning", icon: Sparkles,  description: "Cleaning roster + workflows" },
+        { title: "HR solutions",  href: "/admin/hr-solutions",   icon: Briefcase, description: "Compliance, contracts, HR" },
+        { title: "Onboarding",    href: "/admin/onboarding",     icon: Wand2,     description: "Bring clients + orders + slips on board" },
+        // Payroll cluster - same finance gate as Money.
         ...(profile && canAccessFinance(profile.role as UserRole) ? [
-          { title: "Wages dashboard",     href: "/admin/wages",             icon: Wallet,     description: "Payroll - hours x rates with overtime split" },
-          { title: "Staff & rates",       href: "/admin/staff",             icon: Users,      description: "Payroll - pay rates per staff member" },
-          { title: "Staff hours",         href: "/admin/staff-hours",       icon: Clock,      description: "Payroll - track staff working hours" },
-          { title: "Driver settlement",   href: "/admin/driver-settlement", icon: DollarSign, description: "Payroll - hourly + distance + callout" },
+          { title: "Wages dashboard",   href: "/admin/wages",             icon: Wallet,     description: "Payroll - hours x rates with overtime split" },
+          { title: "Staff & rates",     href: "/admin/staff",             icon: Users,      description: "Payroll - pay rates per staff member" },
+          { title: "Staff hours",       href: "/admin/staff-hours",       icon: Clock,      description: "Payroll - track staff working hours" },
+          { title: "Driver settlement", href: "/admin/driver-settlement", icon: DollarSign, description: "Payroll - hourly + distance + callout" },
         ] : []),
       ],
     },
-    // SETTINGS - one nucleus for everything config. Gated to
-    // company-admin. Includes comms, branding, integrations, audit
-    // log (NEW in nav - previously a hidden page).
+    // SETTINGS - config nucleus, gated to company-admin.
     ...(profile && isCompanyAdmin(profile.role as UserRole) ? [{
       id: "settings",
       title: "Settings",
       defaultOpen: false,
       items: [
-        { title: "Company profile",     href: "/admin/company-profile",       icon: Building2,     description: "Address, branding, lat/lng for routing" },
-        { title: "Branding",            href: "/admin/white-label",           icon: Palette,       description: "Logo, colours, white-label" },
-        { title: "Kitchen rules",       href: "/admin/kitchen-settings",      icon: CookingPot,    description: "Prep timing, BCEA thresholds, dietary alerts" },
-        { title: "Email",               href: "/admin/email-settings",        icon: Mail,          description: "SMTP, Gmail, Outlook, Mailchimp" },
-        { title: "Integrations",        href: "/admin/integrations",          icon: Zap,           description: "Zapier, webhooks, 5,000+ apps" },
-        { title: "Lead capture forms",  href: "/admin/integrations/embed",    icon: Code2,         description: "Public embeddable forms" },
-        // LCF-Q (task #239): /admin/messaging-templates and
-        // /admin/email-templates both surface the same registry-backed
-        // editor now. Collapsed into one nav entry pointing at the
-        // canonical hub (/admin/email-templates) so operators stop
-        // toggling between two pages that do the same thing. The
-        // legacy /admin/messaging-templates route still resolves for
-        // deep links from older notifications.
-        { title: "Messages & templates", href: "/admin/email-templates",      icon: MessageSquare, description: "Edit every email + WhatsApp message, see what's been sent, manage automation" },
-        { title: "Notifications",       href: "/admin/notification-settings", icon: Bell,          description: "Channel routing + opt-ins" },
-        { title: "Audit log",           href: "/admin/audit-logs",            icon: Shield,        description: "Compliance trail - who did what" },
-        // Wave 70.47 - end-to-end smoke test. One-click regression net
-        // covering the full lifecycle + package cancel cascade.
-        { title: "Smoke test",          href: "/admin/smoke-test",            icon: FlaskConical,  description: "Run end-to-end regression" },
-        { title: "System",              href: "/admin/settings",              icon: Settings,      description: "General configuration" },
+        { title: "Company profile",       href: "/admin/company-profile",       icon: Building2,     description: "Address, branding, lat/lng for routing" },
+        { title: "Branding",              href: "/admin/white-label",           icon: Palette,       description: "Logo, colours, white-label" },
+        { title: "Kitchen rules",         href: "/admin/kitchen-settings",      icon: CookingPot,    description: "Prep timing, BCEA thresholds, dietary alerts" },
+        { title: "Email",                 href: "/admin/email-settings",        icon: Mail,          description: "SMTP, Gmail, Outlook, Mailchimp" },
+        { title: "Integrations",          href: "/admin/integrations",          icon: Zap,           description: "Zapier, webhooks, 5,000+ apps" },
+        { title: "Lead capture forms",    href: "/admin/integrations/embed",    icon: Code2,         description: "Public embeddable forms" },
+        { title: "Messages & templates",  href: "/admin/email-templates",       icon: MessageSquare, description: "Edit every email + WhatsApp message, see what's been sent, manage automation" },
+        { title: "Notifications",         href: "/admin/notification-settings", icon: Bell,          description: "Channel routing + opt-ins" },
+        { title: "Audit log",             href: "/admin/audit-logs",            icon: Shield,        description: "Compliance trail - who did what" },
+        { title: "Smoke test",            href: "/admin/smoke-test",            icon: FlaskConical,  description: "Run end-to-end regression" },
+        { title: "System",                href: "/admin/settings",              icon: Settings,      description: "General configuration" },
       ],
-    }] : []),
+    } as PortalSidebarSection] : []),
+    // PLATFORM - super_admin only. /admin/platform/* are global prefixes.
     ...(profile && profile.role === "super_admin" ? [{
       id: "platform",
       title: "Platform Admin",
       defaultOpen: false,
       items: [
-        {
-          title: "Platform Dashboard",
-          href: "/admin/platform/dashboard",
-          icon: LayoutDashboard,
-          description: "Platform overview"
-        },
-        {
-          title: "Company Database",
-          href: "/admin/platform/company-database",
-          icon: Building2,
-          description: "Manage all companies"
-        },
-        {
-          title: "User Management",
-          href: "/admin/platform/user-management",
-          icon: Users,
-          description: "Platform-wide users"
-        },
-        {
-          title: "Subscription Management",
-          href: "/admin/platform/subscription-management",
-          icon: CreditCard,
-          description: "Platform subscriptions"
-        },
-        {
-          title: "Pricing Management",
-          href: "/admin/platform/pricing-management",
-          icon: DollarSign,
-          description: "Manage pricing tiers"
-        },
-        {
-          title: "Trial Management",
-          href: "/admin/platform/trial-management",
-          icon: Clock,
-          description: "Manage trial periods"
-        },
-        {
-          title: "Currency Monitoring",
-          href: "/admin/platform/currency-monitoring",
-          icon: TrendingUp,
-          description: "Monitor exchange rates"
-        },
-        {
-          title: "CMS Blog",
-          href: "/admin/platform/cms-blog",
-          icon: FileText,
-          description: "Manage blog content"
-        },
-        {
-          title: "CMS Pages",
-          href: "/admin/platform/cms-pages",
-          icon: Globe,
-          description: "Manage static pages"
-        },
-        {
-          title: "SA Tax Rules",
-          href: "/admin/platform/tax-rules",
-          icon: FileText,
-          description: "Edit slip-scanner deductibility rules"
-        }
-      ]
-    }] : []),
+        { title: "Platform Dashboard",      href: "/admin/platform/dashboard",              icon: LayoutDashboard, description: "Platform overview" },
+        { title: "Company Database",        href: "/admin/platform/company-database",       icon: Building2,       description: "Manage all companies" },
+        { title: "User Management",         href: "/admin/platform/user-management",        icon: Users,           description: "Platform-wide users" },
+        { title: "Subscription Management", href: "/admin/platform/subscription-management", icon: CreditCard,      description: "Platform subscriptions" },
+        { title: "Pricing Management",      href: "/admin/platform/pricing-management",     icon: DollarSign,      description: "Manage pricing tiers" },
+        { title: "Trial Management",        href: "/admin/platform/trial-management",       icon: Clock,           description: "Manage trial periods" },
+        { title: "Currency Monitoring",     href: "/admin/platform/currency-monitoring",    icon: TrendingUp,      description: "Monitor exchange rates" },
+        { title: "CMS Blog",                href: "/admin/platform/cms-blog",               icon: FileText,        description: "Manage blog content" },
+        { title: "CMS Pages",               href: "/admin/platform/cms-pages",              icon: Globe,           description: "Manage static pages" },
+        { title: "SA Tax Rules",            href: "/admin/platform/tax-rules",              icon: FileText,        description: "Edit slip-scanner deductibility rules" },
+      ],
+    } as PortalSidebarSection] : []),
     {
       id: "account",
-      title: "Account",
-      defaultOpen: false,
+      title: "",
+      defaultOpen: true,
+      footerTreatment: true,
       items: [
-        {
-          title: "My Profile",
-          href: "/account/settings",
-          icon: User,
-          description: "Personal settings"
-        }
-      ]
-    }
+        { title: "My Profile", href: "/account/settings", icon: User, description: "Personal settings" },
+      ],
+    },
   ];
 
-  // Path-vs-href matcher used by both highlight logic and section
-  // auto-expand. Matches sub-paths so /admin/onboarding/imports lights
-  // up the Onboarding entry; the trailing "/" boundary check keeps
-  // /admin/orders from matching /admin/order-assignments.
-  //
-  // Query-param awareness: when an href specifies query params (e.g.
-  // /admin/equipment?tab=shortages), every key in the href's query
-  // must match the current URL's query for the entry to count as
-  // active. Plain hrefs (no query) match path-only as before. This
-  // lets two nav items share a path but disambiguate by tab - the
-  // longest-match resolver below then picks the more specific one.
-  const splitHref = (h: string): { path: string; query: URLSearchParams | null } => {
-    const i = h.indexOf("?");
-    if (i < 0) return { path: h, query: null };
-    return { path: h.slice(0, i), query: new URLSearchParams(h.slice(i + 1)) };
+  const config: PortalSidebarConfig = {
+    role: "admin",
+    title: "Admin",
+    mobileSubtitle: "Operations & admin",
+    brandIcon: LayoutDashboard,
+    // Violet/purple accent preserves the admin portal's established
+    // identity (the old nav's primary colour was #9333ea) while adopting
+    // the shared sidebar - distinct from the platform's amber.
+    accentGradient: "from-violet-500 to-purple-500",
+    accentGradientDark: "from-violet-600 to-purple-600",
+    hoverClasses: "hover:bg-violet-50 hover:text-violet-700 dark:hover:bg-violet-500/10",
+    activeHoverClasses: "hover:from-violet-600 hover:to-purple-600",
+    mobileSubtitleClasses: "text-violet-100",
+    searchAccent: "bg-violet-50 hover:bg-violet-100 text-violet-700",
+    searchHint: "Search anywhere...",
+    dashboardHref: "/admin/dashboard",
+    mobileQuickActions: [
+      { href: "/admin/dashboard", label: "Dashboard", sub: "Live metrics",   icon: LayoutDashboard, accent: "from-violet-500 to-purple-500" },
+      { href: "/admin/orders",    label: "Orders",    sub: "All orders",     icon: Package,         accent: "from-violet-500 to-purple-500" },
+      { href: "/admin/quotes",    label: "Quotes",    sub: "Create + manage", icon: FileSpreadsheet, accent: "from-violet-500 to-purple-500" },
+    ],
+    // Mode-driven smart quick actions replace the static trio on mobile.
+    renderMobileQuickActions: ({ onNavigate }) => <AdminSmartQuickActions onNavigate={onNavigate} />,
+    renderTopSlot: () => <AdminTopSlot companySlug={companySlug} />,
+    sections,
   };
 
-  const matchesHref = (href: string) => {
-    const { path: hrefPath, query: hrefQuery } = splitHref(href);
-    const slugHrefPath = splitHref(withSlug(href)).path;
-    const stripQuery = (p: string) => p.split("?")[0];
-    // Candidates are the *current* location - the user's actual URL.
-    // slugHrefPath is the link being tested, NOT a current-location
-    // value, so it must never appear here. (Older code had it in this
-    // list, which made the third comparison `c === slugHrefPath`
-    // trivially true on the link's own iteration - every nav item
-    // ended up "matching", and the longest-match resolver lit up the
-    // longest href on every page.)
-    const candidates = [
-      stripQuery(router.pathname),
-      stripQuery(router.asPath),
-    ];
-    let pathMatched = false;
-    for (const c of candidates) {
-      if (c === hrefPath || c === slugHrefPath) { pathMatched = true; break; }
-      if (c.startsWith(hrefPath + "/") || c.startsWith(slugHrefPath + "/")) { pathMatched = true; break; }
-    }
-    if (!pathMatched) return false;
-    // No query in the href: pure path match wins.
-    if (!hrefQuery) return true;
-    // Href specifies query keys: every one of them must match the
-    // current URL's query value to count as active.
-    const currentQ = new URLSearchParams(router.asPath.split("?")[1] || "");
-    for (const [k, v] of hrefQuery.entries()) {
-      if (currentQ.get(k) !== v) return false;
-    }
-    return true;
-  };
-
-  // Longest-match resolution. When the active route is /admin/equipment/
-  // hire-orders, BOTH Equipment (`/admin/equipment`) and Hire-in Orders
-  // (`/admin/equipment/hire-orders`) match via the prefix rule - but only
-  // the more specific one should visually highlight. We resolve once per
-  // render: collect every nav href that matches, sort by length desc,
-  // pick the longest. `isActive` then becomes equality against that
-  // single winner.
-  const activeHref = (() => {
-    const all = adminNavSections.flatMap((s) => s.items.map((i) => i.href));
-    const matching = all.filter(matchesHref);
-    if (matching.length === 0) return null;
-    return matching.sort((a, b) => b.length - a.length)[0];
-  })();
-  const isActive = (href: string) => href === activeHref;
-
-  const SignOutBlock = ({ collapsed = false }: { collapsed?: boolean }) => (
-    <Button
-      variant="ghost"
-      onClick={handleSignOut}
-      disabled={signingOut}
-      title="Sign out"
-      className={cn(
-        "w-full mt-3 border border-red-100 bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700",
-        collapsed ? "justify-center px-2" : "justify-start gap-3 px-4"
-      )}
-    >
-      <LogOut className="h-4 w-4" />
-      {!collapsed && <span>{signingOut ? "Signing out..." : "Sign out"}</span>}
-    </Button>
-  );
-
-  // Wave 70.31 - shared nav row renderer that honours the new
-  // badge + liveDescription fields on NavItem. Used in both the
-  // mobile drawer and the desktop sidebar so the treatment stays
-  // identical across breakpoints.
-  const renderNavRow = (item: NavItem, opts: { active: boolean; collapsed?: boolean; onClickAfterNav?: () => void }) => {
-    const Icon = item.icon;
-    const badge = item.badge ? item.badge() : null;
-    const liveDesc = item.liveDescription ? item.liveDescription() : null;
-    const desc = liveDesc !== null ? liveDesc : item.description ?? null;
-    const badgeTone =
-      badge?.tone === "critical" ? "bg-rose-100 text-rose-800 border-rose-200" :
-      badge?.tone === "warning"  ? "bg-amber-100 text-amber-800 border-amber-200" :
-      badge?.tone === "info"     ? "bg-blue-100 text-blue-800 border-blue-200" :
-      "bg-slate-100 text-slate-700 border-slate-200";
-
-    return (
-      <Link
-        key={item.href}
-        href={withSlug(item.href)}
-        onClick={opts.onClickAfterNav}
-        data-active={opts.active ? "true" : undefined}
-        title={opts.collapsed ? item.title : ""}
-        className={cn(
-          // Wave 70.41b - overflow-hidden so badges + descriptions
-          // never bleed outside the sidebar's right edge (Bobby
-          // flagged the "1 gap" badge on Dispatch leaking into the
-          // main content area). Combined with the badge max-width
-          // below this caps the row content within the row width.
-          "group flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors overflow-hidden",
-          opts.active
-            ? "bg-gradient-to-r from-brand-primary to-brand-secondary text-white shadow-sm"
-            : "text-slate-700 hover:bg-slate-100 hover:text-slate-900",
-          opts.collapsed ? "justify-center" : "",
-        )}
-      >
-        <Icon className={cn("h-4 w-4 flex-shrink-0", opts.active ? "text-white" : "text-slate-500")} />
-        {!opts.collapsed && (
-          <>
-            <div className="flex-1 min-w-0">
-              <div className="truncate">{item.title}</div>
-              {desc && !opts.active && (
-                <div className="text-[10px] text-slate-500/80 truncate">{desc}</div>
-              )}
-            </div>
-            {badge && !opts.active && (
-              <span
-                className={cn(
-                  // Wave 70.41b - max-width + truncate cap badge
-                  // width so badges with long text ("12 overdue")
-                  // don't push the row past the sidebar edge.
-                  // title attribute preserves the full text on hover.
-                  "inline-flex items-center justify-center px-1.5 py-0.5 rounded-md border text-[10px] font-semibold tabular-nums flex-shrink-0 max-w-[80px] truncate",
-                  badgeTone,
-                  badge.pulse ? "motion-safe:animate-pulse" : "",
-                )}
-                aria-label={badge.text}
-                title={badge.text}
-              >
-                {badge.text}
-              </span>
-            )}
-            {opts.active && <ChevronRight className="h-4 w-4 flex-shrink-0" />}
-          </>
-        )}
-      </Link>
-    );
-  };
-
-  const NavContent = ({ mobile = false, hideSignOut = false }: { mobile?: boolean; hideSignOut?: boolean } = {}) => (
-    <ScrollArea ref={scrollAreaRef} className="h-full py-6 px-4">
-      <div className="space-y-5">
-        {mobile ? (
-          <div className="space-y-3">
-            <MobileSearchTrigger accent="bg-purple-50 hover:bg-purple-100 text-purple-700" hint="Search anywhere..." />
-            {/* Wave 70.31 - mode-driven smart quick actions replace
-                the static trio. Rotates by mode (setup/quiet/pipeline/
-                ops/review). */}
-            <AdminSmartQuickActions onNavigate={() => setOpen(false)} />
-          </div>
-        ) : (
-          <CommandPaletteHint className="w-full justify-center" />
-        )}
-        {/* Wave 70.31 - live intelligence layer above the sections.
-            Mode badge + 2x3 live state pill grid. Mounted on both
-            mobile drawer + desktop expanded sidebar. */}
-        <div className="space-y-2">
-          <AdminModeBadge />
-          <AdminLiveStateStrip />
-        </div>
-        {adminNavSections.map((section) => {
-          const containsActive = section.items.some((i) => isActive(i.href));
-          return (
-            <CollapsibleNavSection
-              key={section.id}
-              title={section.title}
-              storageKey={`admin:${section.id}`}
-              defaultOpen={section.defaultOpen}
-              containsActiveRoute={containsActive}
-            >
-              {section.items.map((item) => renderNavRow(item, {
-                active: isActive(item.href),
-                onClickAfterNav: () => setOpen(false),
-              }))}
-            </CollapsibleNavSection>
-          );
-        })}
-        {!hideSignOut && <SignOutBlock />}
-      </div>
-    </ScrollArea>
-  );
-
-  return (
-    <>
-      {/* Mobile Header (single source of truth for the mobile drawer) */}
-      <div
-        className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700"
-        style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
-      >
-        <div className="flex items-center justify-between px-4 py-3">
-          <div className="flex items-center gap-3">
-            <Sheet open={open} onOpenChange={setOpen}>
-              <SheetTrigger asChild>
-                <Button variant="ghost" size="icon">
-                  <Menu className="h-6 w-6" />
-                </Button>
-              </SheetTrigger>
-              <SheetContent
-                side="left"
-                className="w-[300px] sm:w-[350px] max-w-[85vw] p-0 flex flex-col"
-              >
-                <div
-                  className="px-6 py-4 border-b text-white flex-shrink-0"
-                  style={{
-                    background: `linear-gradient(135deg, ${primaryColor} 0%, ${secondaryColor} 100%)`,
-                    paddingTop: "max(1rem, env(safe-area-inset-top, 1rem))",
-                  }}
-                >
-                  <h2 className="text-lg sm:text-xl font-bold truncate">{companyName}</h2>
-                  <p className="text-sm opacity-90 mt-1">
-                    {todayEventCount && todayEventCount > 0
-                      ? `${todayEventCount} event${todayEventCount === 1 ? "" : "s"} today`
-                      : "Admin portal"}
-                  </p>
-                </div>
-                <div className="flex-1 min-h-0 overflow-hidden">
-                  <NavContent mobile hideSignOut />
-                </div>
-                {/* Pinned sign-out so the most-used 'leave the app' action is
-                    one tap away on mobile, not buried under 50 nav items. */}
-                <div
-                  className="border-t border-slate-200 dark:border-slate-700 px-4 py-3 flex-shrink-0 bg-white dark:bg-slate-900"
-                  style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom, 0.75rem))" }}
-                >
-                  <SignOutBlock />
-                </div>
-              </SheetContent>
-            </Sheet>
-            <Link href={withSlug("/admin/dashboard")} className="flex items-center gap-2 min-w-0">
-              <div
-                className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-                style={{ background: `linear-gradient(135deg, ${primaryColor} 0%, ${secondaryColor} 100%)` }}
-              >
-                {company?.logo_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={company.logo_url} alt={companyName} className="w-full h-full rounded-lg object-cover" />
-                ) : (
-                  <span className="text-white font-bold text-xs">{initials}</span>
-                )}
-              </div>
-              <span className="font-bold text-slate-900 dark:text-white truncate">{companyName}</span>
-            </Link>
-          </div>
-          <div className="flex items-center gap-2">
-            {/* Wave 70.10 - digital clock in mobile header. Hidden
-                on the smallest screens so the brand + bell + theme
-                still fit comfortably. */}
-            <DigitalClock variant="mobile" className="hidden sm:inline-flex" />
-            <RegionFilterDropdown />
-            <NotificationBell />
-            <ThemeSwitch />
-          </div>
-        </div>
-      </div>
-
-      {/* Desktop Sidebar. Width MUST match the page wrappers'
-          lg:pl-72 xl:pl-80 offset - the old lg:w-64 xl:w-72 left a
-          permanent 32px dead gutter between the nav and every page
-          (and squeezed the row descriptions + badges into truncation). */}
-      <div className={`hidden lg:flex lg:flex-col lg:fixed lg:inset-y-0 lg:left-0 lg:border-r lg:border-slate-200 dark:lg:border-slate-700 lg:bg-white dark:lg:bg-slate-900 transition-all duration-300 ${
-        isCollapsed ? "lg:w-20" : "lg:w-72 xl:w-80"
-      }`}>
-        <div className="flex flex-col flex-1 min-h-0">
-          {/* Header */}
-          <div className="flex flex-col gap-3 px-6 py-4 border-b border-slate-200 dark:border-slate-700">
-            {!isCollapsed ? (
-              <>
-                <div className="flex items-center justify-between gap-2">
-                <Link href={withSlug("/admin/dashboard")} className="flex items-center gap-3 min-w-0">
-                  <div
-                    className="relative w-10 h-10 rounded-xl flex items-center justify-center shadow-lg flex-shrink-0"
-                    style={{ background: `linear-gradient(135deg, ${primaryColor} 0%, ${secondaryColor} 100%)` }}
-                  >
-                    {company?.logo_url ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={company.logo_url} alt={companyName} className="w-full h-full rounded-xl object-cover" />
-                    ) : (
-                      <span className="text-white font-bold">{initials}</span>
-                    )}
-                    {!!todayEventCount && todayEventCount > 0 && (
-                      <span
-                        className="absolute -top-1 -right-1 flex h-3 w-3"
-                        title={`${todayEventCount} event${todayEventCount === 1 ? "" : "s"} on today`}
-                      >
-                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-                        <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500 ring-2 ring-white" />
-                      </span>
-                    )}
-                  </div>
-                  <div className="min-w-0">
-                    <h1 className="font-bold text-slate-900 dark:text-white truncate">{companyName}</h1>
-                    <p className="text-xs text-slate-600 dark:text-slate-400">
-                      {todayEventCount && todayEventCount > 0
-                        ? `${todayEventCount} event${todayEventCount === 1 ? "" : "s"} today`
-                        : "Admin portal"}
-                    </p>
-                  </div>
-                </Link>
-                <div className="flex items-center gap-2">
-                  <RegionFilterDropdown />
-                  <NotificationBell />
-                  {companySlug && <StaffViewSwitcher companySlug={companySlug} />}
-                  <ThemeSwitch />
-                </div>
-                </div>
-                {/* Wave 70.10 - digital clock under the brand row.
-                    Two-line variant: HH:mm + day/date, ticking
-                    every second so the admin sees current time
-                    without checking their phone. */}
-                <DigitalClock variant="sidebar" />
-              </>
-            ) : (
-              <div className="flex flex-col items-center gap-3 w-full">
-                <div
-                  className="relative w-10 h-10 rounded-xl flex items-center justify-center shadow-lg"
-                  style={{ background: `linear-gradient(135deg, ${primaryColor} 0%, ${secondaryColor} 100%)` }}
-                  title={companyName}
-                >
-                  {company?.logo_url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={company.logo_url} alt={companyName} className="w-full h-full rounded-xl object-cover" />
-                  ) : (
-                    <span className="text-white font-bold text-sm">{initials}</span>
-                  )}
-                  {!!todayEventCount && todayEventCount > 0 && (
-                    <span className="absolute -top-1 -right-1 flex h-3 w-3">
-                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-                      <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500 ring-2 ring-white" />
-                    </span>
-                  )}
-                </div>
-                <NotificationBell />
-              </div>
-            )}
-          </div>
-
-          {/* Navigation */}
-          <ScrollArea className="flex-1 p-4">
-            <div className="space-y-5">
-              {/* Wave 70.31 - live intelligence layer on the desktop
-                  sidebar too. Hidden when the sidebar is collapsed to
-                  icon-only mode (no room for pills + badge). */}
-              {!isCollapsed && (
-                <div className="space-y-2">
-                  <AdminModeBadge />
-                  <AdminLiveStateStrip />
-                </div>
-              )}
-              {adminNavSections.map((section) => {
-                const containsActive = section.items.some((i) => isActive(i.href));
-                const linkRows = section.items.map((item) => renderNavRow(item, {
-                  active: isActive(item.href),
-                  collapsed: isCollapsed,
-                }));
-                return (
-                  <CollapsibleNavSection
-                    key={section.id}
-                    title={section.title}
-                    storageKey={`admin:${section.id}`}
-                    defaultOpen={section.defaultOpen}
-                    containsActiveRoute={containsActive}
-                    flatMode={isCollapsed}
-                  >
-                    {linkRows}
-                  </CollapsibleNavSection>
-                );
-              })}
-            </div>
-          </ScrollArea>
-
-          {/* Footer */}
-          <div className="p-4 border-t border-slate-200 dark:border-slate-700 space-y-2">
-            <SignOutBlock collapsed={isCollapsed} />
-            <Button
-              variant="ghost"
-              className={`w-full text-slate-600 hover:text-slate-900 hover:bg-slate-100 ${
-                isCollapsed ? "justify-center px-2" : "justify-start"
-              }`}
-              onClick={toggleCollapse}
-              title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-            >
-              {isCollapsed ? (
-                <ChevronRight className="w-5 h-5" />
-              ) : (
-                <>
-                  <ChevronLeft className="w-5 h-5 mr-3" />
-                  Collapse
-                </>
-              )}
-            </Button>
-          </div>
-        </div>
-      </div>
-    </>
-  );
+  return <PortalSidebar config={config} />;
 }
+
+export default AdminNav;
