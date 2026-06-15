@@ -647,10 +647,15 @@ export async function deductInventoryForOrder(
     }
     
     // inventory_deducted_at was already stamped by the atomic claim above.
-    // Keep it on success; roll it back to NULL on failure (errors, or
-    // nothing actually deducted) so a retry can re-run instead of being
-    // permanently no-op'd by the guard [P1-14].
-    if (claimed && !(errors.length === 0 && deducted.length > 0)) {
+    // Release the claim (null it) ONLY when NOTHING was deducted - then a
+    // retry can safely re-run from scratch. If some items deducted but
+    // others errored (partial failure), KEEP the claim stamped: nulling it
+    // would let a retry deduct the already-deducted items a SECOND time
+    // (double-deduction). The errors are surfaced to the caller; the
+    // shortfall is reconciled via recalculateInventoryForOrder, which
+    // reverses prior usage by order_id before re-deducting.
+    // [P1-14 + partial-failure double-deduction fix]
+    if (claimed && deducted.length === 0) {
       const { error: rbErr } = await (supabase as any)
         .from("orders")
         .update({ inventory_deducted_at: null })
@@ -668,8 +673,11 @@ export async function deductInventoryForOrder(
   } catch (error: any) {
     console.error("Inventory deduction failed:", error);
     errors.push(error.message || "Unknown error");
-    // Release the claim so the crash doesn't permanently block a retry.
-    if (claimed) {
+    // Release the claim ONLY if nothing was deducted before the crash, so
+    // a retry can re-run cleanly. If a partial deduction already landed,
+    // keep the claim to avoid double-deducting on retry - recover via
+    // recalculateInventoryForOrder (reverses prior usage by order_id).
+    if (claimed && deducted.length === 0) {
       try {
         await (supabase as any)
           .from("orders")

@@ -813,7 +813,26 @@ export const kitchenStaffService = {
       1,
       Math.round((new Date(toISO).getTime() - new Date(fromISO).getTime()) / 86_400_000),
     );
-    const monthFraction = windowDays / 30;
+    // Prorate salary by summing each day in the window as
+    // 1/daysInThatMonth, so a FULL calendar month totals exactly 1.0
+    // regardless of length. The old `windowDays / 30` over-paid in
+    // 31-day months (31/30 = 103%) and under-paid in February
+    // (28/30 = 93%), systematically mis-stating salaried pay on the
+    // monthly wage report. Stepped in UTC by fixed 24h to avoid DST
+    // drift; the for-loop is bounded by a guard.
+    const monthFraction = (() => {
+      const startMs = new Date(fromISO).getTime();
+      const endMs = new Date(toISO).getTime();
+      if (!(endMs > startMs)) return windowDays / 30;
+      let frac = 0;
+      let guard = 0;
+      for (let t = startMs; t < endMs && guard < 4000; t += 86_400_000, guard++) {
+        const d = new Date(t);
+        const daysInMonth = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).getUTCDate();
+        frac += 1 / daysInMonth;
+      }
+      return frac;
+    })();
 
     // Make sure salaried staff with zero clocked hours still appear in
     // the dashboard - otherwise the owner thinks they vanished.
