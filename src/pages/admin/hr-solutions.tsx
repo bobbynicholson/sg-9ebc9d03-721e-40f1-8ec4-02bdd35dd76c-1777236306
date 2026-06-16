@@ -46,6 +46,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { PortalShell, PortalHeader } from "@/components/portal/ui";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { useAuth } from "@/contexts/AuthContext";
@@ -382,22 +383,14 @@ function AdminHRSolutions() {
 
       <AdminNav />
 
-      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
-        <div className="px-4 py-6 md:py-8 lg:py-10 max-w-6xl mx-auto">
+      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
 
-          <div className="flex items-start gap-3 mb-6">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg flex-shrink-0">
-              <Users className="w-6 h-6 text-white" />
-            </div>
-            <div className="min-w-0">
-              <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 flex items-center gap-2">
-                HR <InfoTooltip content={"One landing for every staff-related tool. Active tiles take you straight to the feature; chips show this week's live numbers."} />
-              </h1>
-              <p className="text-slate-600 text-sm sm:text-base">
-                Hours, wages, accounts and invites at a glance. Drill into a card for the full surface.
-              </p>
-            </div>
-          </div>
+          <PortalHeader
+            title={<span className="flex items-center gap-2">HR <InfoTooltip content={"One landing for every staff-related tool. Active tiles take you straight to the feature; chips show this week's live numbers."} /></span>}
+            icon={Users}
+            subtitle="Hours, wages, accounts and invites at a glance. Drill into a card for the full surface."
+          />
 
           {/* HRS-B: top chip row. Same shape as the team landings. */}
           <div className="flex flex-wrap gap-2 mb-6">
@@ -590,7 +583,7 @@ function AdminHRSolutions() {
               );
             })}
           </div>
-        </div>
+        </PortalShell>
       </div>
 
       {/* HRS-4: ChatBot now receives the real role + companyId. */}

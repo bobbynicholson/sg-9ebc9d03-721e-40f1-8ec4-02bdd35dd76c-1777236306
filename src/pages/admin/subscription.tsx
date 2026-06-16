@@ -30,6 +30,7 @@ import { subscriptionService } from "@/services/subscriptionService";
 import type { Database } from "@/integrations/supabase/types";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { PortalShell, PortalHeader } from "@/components/portal/ui";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import {  UserRole  } from "@/types/app";
@@ -249,21 +250,18 @@ function SubscriptionPage() {
           <title>Subscription - CateringMS</title>
         </Head>
         <AdminNav />
-        <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80 pt-20 lg:pt-0">
-          <div className="px-4 sm:px-6 py-8 max-w-full">
-            <div className="flex items-center gap-3 mb-8">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-brand-primary to-brand-secondary flex items-center justify-center shadow-lg flex-shrink-0">
-                <CreditCard className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <h1 className="text-3xl font-bold text-slate-900">Subscription</h1>
-                <p className="text-slate-600">
-                  {trialStatus?.isInTrial
-                    ? `You're on the free trial. ${trialStatus.daysRemaining} day${trialStatus.daysRemaining === 1 ? "" : "s"} left.`
-                    : "Pick a plan to keep using CateringMS once your trial ends."}
-                </p>
-              </div>
-            </div>
+        <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+          <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+
+            <PortalHeader
+              title="Subscription"
+              icon={CreditCard}
+              subtitle={
+                trialStatus?.isInTrial
+                  ? `You're on the free trial. ${trialStatus.daysRemaining} day${trialStatus.daysRemaining === 1 ? "" : "s"} left.`
+                  : "Pick a plan to keep using CateringMS once your trial ends."
+              }
+            />
 
             <Card className="border-0 shadow-sm">
               <CardHeader>
@@ -283,7 +281,7 @@ function SubscriptionPage() {
                 </Button>
               </CardContent>
             </Card>
-          </div>
+          </PortalShell>
         </div>
       </>
     );
@@ -302,8 +300,15 @@ function SubscriptionPage() {
 
       <AdminNav />
 
-      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80 pt-20 lg:pt-0">
-        <div className="px-4 sm:px-6 py-8 max-w-full">
+      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+
+          <PortalHeader
+            title="Subscription"
+            icon={CreditCard}
+            subtitle="Manage your plan, billing history and account."
+          />
+
           {pendingDeletion && (
             <Alert className="mb-6 border-red-200 bg-red-50">
               <AlertTriangle className="h-5 w-5 text-red-600" />
@@ -636,7 +641,7 @@ function SubscriptionPage() {
               </div>
             </CardContent>
           </Card>
-        </div>
+        </PortalShell>
       </div>
     </>
   );

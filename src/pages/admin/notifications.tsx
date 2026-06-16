@@ -3,6 +3,7 @@ import { UserRole } from "@/types/app";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { PortalShell, PortalHeader } from "@/components/portal/ui";
 import { toLocalISO } from "@/lib/localDate";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -210,33 +211,26 @@ function NotificationsPage() {
   };
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
+    <>
       <AdminNav />
-      <div className="px-3 sm:px-4 md:px-6 pt-20 lg:pt-6 pb-12 max-w-5xl">
+      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+
+          <PortalHeader
+            title={<span className="flex items-center gap-2">Notifications<InfoTooltip content={"Your inbox of system alerts: low stock, delivery updates, order changes and other events that need your attention."} /></span>}
+            icon={Bell}
+            subtitle="System alerts inbox. Low stock warnings, delivery updates, order changes, payment confirmations, and anything else flagged automatically by the platform. Open a row for details or jump straight to the source page."
+            actions={
+              unreadCount > 0 ? (
+                <Badge variant="destructive" className="text-lg px-4 py-2">
+                  {unreadCount} unread
+                </Badge>
+              ) : undefined
+            }
+          />
+
         {/* Header */}
         <div className="mb-6 sm:mb-8">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-xl bg-brand-primary/10 flex items-center justify-center flex-shrink-0">
-                <Bell className="w-5 h-5 text-brand-primary" />
-              </div>
-              <div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 flex items-center gap-2">
-                Notifications
-                <InfoTooltip content={"Your inbox of system alerts: low stock, delivery updates, order changes and other events that need your attention."} />
-              </h1>
-              <p className="text-sm sm:text-base text-slate-600 mt-1">
-                System alerts inbox. Low stock warnings, delivery updates, order changes, payment confirmations, and anything else flagged automatically by the platform. Open a row for details or jump straight to the source page.
-              </p>
-              </div>
-            </div>
-            {unreadCount > 0 && (
-              <Badge variant="destructive" className="text-lg px-4 py-2">
-                {unreadCount} unread
-              </Badge>
-            )}
-          </div>
-
           {/* Actions Bar */}
           <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
             <div className="relative flex-1">
@@ -760,7 +754,8 @@ function NotificationsPage() {
             </Card>
           </TabsContent>
         </Tabs>
+        </PortalShell>
       </div>
-    </div>
+    </>
   );
 }

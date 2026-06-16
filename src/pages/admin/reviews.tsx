@@ -22,6 +22,7 @@ import { Input } from "@/components/ui/input";
 import { Star, AlertTriangle, RefreshCw, MessageSquareText, Search, CheckCircle2, ExternalLink, Loader2 } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { PortalShell, PortalHeader } from "@/components/portal/ui";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRegionFilter } from "@/contexts/RegionFilterContext";
 import { useToast } from "@/hooks/use-toast";
@@ -195,21 +196,14 @@ export default function AdminReviewsPage() {
       <Head><title>Reviews - CateringMS</title></Head>
       <NoIndexMeta />
       <AdminNav />
-      <main className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80 pt-20 lg:pt-0">
-        <div className="px-3 sm:px-4 md:px-6 py-6 sm:py-8 max-w-full">
-          <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-brand-primary to-brand-secondary flex items-center justify-center shadow-md flex-shrink-0">
-                <Star className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
-              </div>
-              <div className="min-w-0">
-                <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold text-slate-900">
-                  Reviews
-                </h1>
-                <p className="text-sm text-slate-600 mt-0.5">Client ratings + comments from the post-event prompt</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
+      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+          <PortalHeader
+            title="Reviews"
+            icon={Star}
+            subtitle="Client ratings + comments from the post-event prompt"
+            actions={
+            <>
               {lastLoadedAt && (
                 <span className="text-[11px] text-slate-500 tabular-nums hidden sm:inline" title={lastLoadedAt.toLocaleString("en-ZA")}>
                   As of {lastLoadedAt.toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" })}
@@ -218,8 +212,9 @@ export default function AdminReviewsPage() {
               <Button variant="outline" size="sm" onClick={() => load()} disabled={loading} className="h-8" title="Refresh">
                 <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
               </Button>
-            </div>
-          </div>
+            </>
+            }
+          />
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-6">
             <Card><CardContent className="p-4">
@@ -356,8 +351,8 @@ export default function AdminReviewsPage() {
               )}
             </CardContent>
           </Card>
-        </div>
-      </main>
+        </PortalShell>
+      </div>
     </>
   );
 }

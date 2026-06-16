@@ -31,6 +31,7 @@ import {
 import { Calendar as CalendarIcon, Plus, Trash2, Loader2, Globe, Building2, Download, RefreshCw } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { PortalShell, PortalHeader } from "@/components/portal/ui";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { useAuth } from "@/contexts/AuthContext";
@@ -110,22 +111,15 @@ function PublicHolidaysAdmin() {
       <Head><title>Public holidays - CateringMS</title></Head>
       <AdminNav />
 
-      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
-        <div className="px-3 sm:px-4 md:px-6 pt-20 lg:pt-6 pb-6 max-w-6xl mx-auto">
+      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
 
-          <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-rose-500 to-orange-500 flex items-center justify-center shadow-lg flex-shrink-0">
-                <CalendarIcon className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <h1 className="text-2xl md:text-3xl font-bold text-slate-900">Public holidays</h1>
-                <p className="text-sm text-slate-600 mt-1">
-                  SA gazetted dates plus any extras you observe. Shifts that land on these dates get paid at 2x per BCEA.
-                </p>
-              </div>
-            </div>
-            <div className="flex gap-2">
+          <PortalHeader
+            title="Public holidays"
+            icon={CalendarIcon}
+            subtitle="SA gazetted dates plus any extras you observe. Shifts that land on these dates get paid at 2x per BCEA."
+            actions={
+            <>
               {/* Phase 28 #7: manual refresh. Year switching already
                   triggers a reload but a manual button covers the
                   case where another admin has just added a company
@@ -179,8 +173,9 @@ function PublicHolidaysAdmin() {
               <Button onClick={() => setAdding(true)} className="bg-gradient-to-r from-rose-500 to-orange-500 text-white">
                 <Plus className="w-4 h-4 mr-1.5" /> Add company holiday
               </Button>
-            </div>
-          </div>
+            </>
+            }
+          />
 
           <Card className="border-0 shadow-sm mb-4">
             <CardContent className="py-3 flex flex-wrap items-center gap-2">
@@ -271,7 +266,7 @@ function PublicHolidaysAdmin() {
               )}
             </CardContent>
           </Card>
-        </div>
+        </PortalShell>
       </div>
 
       <AddHolidayDialog

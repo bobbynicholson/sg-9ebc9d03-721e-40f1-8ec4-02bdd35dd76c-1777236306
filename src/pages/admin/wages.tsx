@@ -27,6 +27,7 @@ import {
 } from "recharts";
 import { DollarSign, Calendar as CalendarIcon, Download, Loader2, Users, ChefHat, Truck, ShoppingBag, Sparkles, TrendingUp, AlertTriangle, Building2, Trophy, Clock as ClockIcon, ArrowUp, ArrowDown, Wallet } from "lucide-react";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { PortalShell, PortalHeader } from "@/components/portal/ui";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
@@ -754,26 +755,20 @@ function WageDashboardPage() {
       <Head><title>Wages - CateringMS</title></Head>
       <AdminNav />
 
-      <main className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80 pt-20 lg:pt-0">
-        <div className="px-3 sm:px-4 md:px-6 pt-20 lg:pt-6 pb-6 max-w-full">
+      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
 
-          {/* Header */}
-          <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg flex-shrink-0">
-                <DollarSign className="w-6 h-6 text-white" />
-              </div>
-              <div className="min-w-0">
-                <h1 className="text-2xl md:text-3xl font-bold text-slate-900 flex items-center gap-2 flex-wrap">
-                  Wage dashboard
-                  <InfoTooltip content="Hours x rates roll-up across every department. Drivers run on the dispatch ledger (hourly + distance + callout); kitchen / shopping / cleaning run on the clocked-shift ledger with a BCEA Sunday + public-holiday split.\n\nThis page is the only place rand values surface, the team tablet shows hours only." />
-                </h1>
-                <p className="text-sm text-slate-600 mt-1">
-                  Hours and wages, owner-only. The kitchen and dispatch tablets never see rates.
-                </p>
-              </div>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
+          <PortalHeader
+            title={
+              <span className="flex items-center gap-2 flex-wrap">
+                Wage dashboard
+                <InfoTooltip content="Hours x rates roll-up across every department. Drivers run on the dispatch ledger (hourly + distance + callout); kitchen / shopping / cleaning run on the clocked-shift ledger with a BCEA Sunday + public-holiday split.\n\nThis page is the only place rand values surface, the team tablet shows hours only." />
+              </span>
+            }
+            icon={DollarSign}
+            subtitle="Hours and wages, owner-only. The kitchen and dispatch tablets never see rates."
+            actions={
+            <>
               {activeRegion && (
                 <span className="inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700">
                   <Building2 className="w-3 h-3" />
@@ -799,8 +794,9 @@ function WageDashboardPage() {
               >
                 <Download className="w-4 h-4" />Export CSV
               </Button>
-            </div>
-          </div>
+            </>
+            }
+          />
 
           {/* Department tabs */}
           <Tabs value={department} onValueChange={(v) => setDepartment(v as DepartmentKey)} className="mb-4">
@@ -1136,10 +1132,10 @@ function WageDashboardPage() {
               )}
             </TabsContent>
           </Tabs>
-        </div>
+        </PortalShell>
 
         <Footer />
-      </main>
+      </div>
     </ProtectedRoute>
   );
 }

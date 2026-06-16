@@ -43,6 +43,7 @@ import { ReconcileSlipDrawer } from "@/components/shopping/ReconcileSlipDrawer";
 import { ReceiptsTab } from "@/components/shopping/ReceiptsTab";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { PortalShell, PortalHeader } from "@/components/portal/ui";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { useAuth } from "@/contexts/AuthContext";
 import { useOrderRefreshSignal } from "@/hooks/useOrderRefreshSignal";
@@ -1130,26 +1131,20 @@ function SmartShoppingPage() {
       <Head><title>Shopping - CateringMS</title></Head>
       <AdminNav />
 
-      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
-        <div className="px-3 sm:px-4 md:px-6 pt-20 lg:pt-6 pb-6 max-w-full">
+      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
 
-          {/* Header + cart pill */}
-          <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-brand-primary to-brand-secondary flex items-center justify-center shadow-lg flex-shrink-0">
-                <ShoppingCart className="w-6 h-6 text-white" />
-              </div>
-              <div className="min-w-0">
-                <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold text-slate-900 flex items-center gap-2 flex-wrap">
-                  Smart Shopping
-                  <InfoTooltip content={"Looks at your stock, your confirmed orders for the week ahead, and your suppliers, then tells you exactly what to buy and when."} />
-                </h1>
-                <p className="text-sm sm:text-base text-slate-600 mt-1">
-                  Live procurement brain. Knows what to buy, when to buy it, and which supplier handles it.
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 flex-shrink-0 flex-wrap">
+          <PortalHeader
+            title={
+              <span className="flex items-center gap-2 flex-wrap">
+                Smart Shopping
+                <InfoTooltip content={"Looks at your stock, your confirmed orders for the week ahead, and your suppliers, then tells you exactly what to buy and when."} />
+              </span>
+            }
+            icon={ShoppingCart}
+            subtitle="Live procurement brain. Knows what to buy, when to buy it, and which supplier handles it."
+            actions={
+            <>
               {/* Phase 20 #1: shopping CSV export. Procurement
                   brains the buy-now list nicely on screen, but the
                   shopper out in the field wants a printable list
@@ -1245,8 +1240,9 @@ function SmartShoppingPage() {
                   </Button>
                 </Card>
               )}
-            </div>
-          </div>
+            </>
+            }
+          />
 
           {/* Top stats */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
@@ -1907,7 +1903,7 @@ function SmartShoppingPage() {
             <code className="bg-slate-100 px-1 rounded">order_ingredient_demand</code> views.
             Updates the moment a stock change or new order lands.
           </p>
-        </div>
+        </PortalShell>
       </div>
 
       {/* AD-2: print-only view of today's shopping list. Hidden on

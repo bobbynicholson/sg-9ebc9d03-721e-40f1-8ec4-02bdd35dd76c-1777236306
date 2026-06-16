@@ -29,6 +29,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { PortalShell, PortalHeader } from "@/components/portal/ui";
 import { Footer } from "@/components/Footer";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -329,38 +330,27 @@ function TaxPurchasesPage() {
       <Head><title>Tax overview - CateringMS</title></Head>
       <AdminNav />
 
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-amber-50/30 to-slate-100">
-        <div className="overflow-x-hidden lg:pl-72 xl:pl-80">
-          <div className="px-3 sm:px-4 md:px-6 pt-20 lg:pt-6 pb-24 max-w-full">
-
-            {/* HEADER */}
-            <div className="mb-6">
-              <div className="flex items-start justify-between gap-3 flex-wrap">
-                <div>
-                  <h1 className="text-3xl font-bold text-slate-900 mb-2 flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-brand-primary to-brand-secondary flex items-center justify-center">
-                      <Receipt className="w-6 h-6 text-white" />
-                    </div>
-                    Tax overview
-                  </h1>
-                  <p className="text-slate-600 max-w-2xl text-sm">
-                    Read-only view of your deductible spend. Snapping slips, marking lines and editing the log all happen on the Shopping dashboard now. This page is the accountant's lens onto the same data.
-                  </p>
-                </div>
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm" onClick={handleExportCsv} className="gap-1.5" disabled={receipts.length === 0}>
-                    <Download className="w-4 h-4" />
-                    Export CSV
+      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+          <PortalHeader
+            title="Tax overview"
+            icon={Receipt}
+            subtitle="Read-only view of your deductible spend. Snapping slips, marking lines and editing the log all happen on the Shopping dashboard now. This page is the accountant's lens onto the same data."
+            actions={
+              <>
+                <Button variant="outline" size="sm" onClick={handleExportCsv} className="gap-1.5" disabled={receipts.length === 0}>
+                  <Download className="w-4 h-4" />
+                  Export CSV
+                </Button>
+                <Link href={withSlug("/admin/shopping?tab=receipts")}>
+                  <Button size="sm" className="gap-1.5 bg-emerald-600 hover:bg-emerald-700">
+                    <ShoppingCart className="w-4 h-4" />
+                    Manage receipts
                   </Button>
-                  <Link href={withSlug("/admin/shopping?tab=receipts")}>
-                    <Button size="sm" className="gap-1.5 bg-emerald-600 hover:bg-emerald-700">
-                      <ShoppingCart className="w-4 h-4" />
-                      Manage receipts
-                    </Button>
-                  </Link>
-                </div>
-              </div>
-            </div>
+                </Link>
+              </>
+            }
+          />
 
             {/* TAX-B: page-level mismatch + override banner. Promotes
                 the per-slip rose chip to a louder warning so the
@@ -714,12 +704,9 @@ function TaxPurchasesPage() {
               </CardContent>
             </Card>
 
-          </div>
-        </div>
+        </PortalShell>
 
-        <div className="lg:pl-72 xl:pl-80">
-          <Footer />
-        </div>
+        <Footer />
       </div>
     </>
   );

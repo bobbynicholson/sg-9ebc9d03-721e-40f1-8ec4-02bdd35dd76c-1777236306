@@ -8,7 +8,8 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { AdminNav } from "@/components/admin/AdminNav";
-import { 
+import { PortalShell, PortalHeader } from "@/components/portal/ui";
+import {
   Settings,
   Bell,
   Mail,
@@ -363,44 +364,40 @@ function SettingsPage() {
       
       <AdminNav />
       
-      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 px-4 md:px-6 pt-20 lg:pt-6 pb-6 lg:pl-72 xl:pl-80">
-        <div className="max-w-6xl mx-auto space-y-4 md:space-y-6">
-          {/* Header - Mobile Optimized */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-gradient-to-br from-brand-primary to-brand-secondary flex items-center justify-center shadow-lg flex-shrink-0">
-                <Settings className="w-5 h-5 md:w-6 md:h-6 text-white" />
-              </div>
-              <div>
-                <h1 className="text-2xl md:text-3xl font-bold text-slate-900 flex items-center gap-2">Settings <InfoTooltip content={"Every operational setting in one place: company info, notifications, automation, pricing, operations, finance, and email.\n\nWork through the tabs and hit Save All when you are done."} /></h1>
-                <p className="text-sm md:text-base text-slate-600">Operational defaults that drive the rest of the system. Quote minimums, kitchen prep lead times, delivery radius, VAT, refund SLA, follow-up cadences. Saved against your company and applied everywhere immediately.</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              {hasUnsavedChanges && (
-                <span className="hidden sm:inline-flex items-center gap-1.5 text-[11px] font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-2.5 py-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-                  Unsaved changes
-                </span>
-              )}
-              <InfoTooltip
-                content={"Saves changes across every tab in one go.\n\nYour preferences apply straight away. The bar at the bottom of the page mirrors this button so you can save without scrolling back up."}
-                side="left"
-              />
-              <Button
-                onClick={handleSave}
-                disabled={!hasUnsavedChanges || saving}
-                className={hasUnsavedChanges
-                  ? "bg-amber-600 hover:bg-amber-700 w-full sm:w-auto"
-                  : "bg-slate-600 hover:bg-slate-700 w-full sm:w-auto"}
-                size="sm"
-              >
-                <Save className="w-4 h-4 mr-2" />
-                {saving ? "Saving..." : (hasUnsavedChanges ? "Save changes" : "Saved")}
-              </Button>
-            </div>
-          </div>
+      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+          <PortalHeader
+            title={<span className="flex items-center gap-2">Settings <InfoTooltip content={"Every operational setting in one place: company info, notifications, automation, pricing, operations, finance, and email.\n\nWork through the tabs and hit Save All when you are done."} /></span>}
+            icon={Settings}
+            subtitle="Operational defaults that drive the rest of the system. Quote minimums, kitchen prep lead times, delivery radius, VAT, refund SLA, follow-up cadences. Saved against your company and applied everywhere immediately."
+            actions={
+              <>
+                {hasUnsavedChanges && (
+                  <span className="hidden sm:inline-flex items-center gap-1.5 text-[11px] font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-2.5 py-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                    Unsaved changes
+                  </span>
+                )}
+                <InfoTooltip
+                  content={"Saves changes across every tab in one go.\n\nYour preferences apply straight away. The bar at the bottom of the page mirrors this button so you can save without scrolling back up."}
+                  side="left"
+                />
+                <Button
+                  onClick={handleSave}
+                  disabled={!hasUnsavedChanges || saving}
+                  className={hasUnsavedChanges
+                    ? "bg-amber-600 hover:bg-amber-700 w-full sm:w-auto"
+                    : "bg-slate-600 hover:bg-slate-700 w-full sm:w-auto"}
+                  size="sm"
+                >
+                  <Save className="w-4 h-4 mr-2" />
+                  {saving ? "Saving..." : (hasUnsavedChanges ? "Save changes" : "Saved")}
+                </Button>
+              </>
+            }
+          />
 
+          <div className="space-y-4 md:space-y-6">
           {saved && (
             <Card className="border-0 shadow-lg bg-gradient-to-r from-green-50 to-emerald-50 border-l-4 border-l-green-500">
               <CardContent className="py-3 md:py-4 px-4 md:px-6">
@@ -632,7 +629,8 @@ function SettingsPage() {
               />
             </TabsContent>
           </Tabs>
-        </div>
+          </div>
+        </PortalShell>
       </div>
 
       {/* Sticky save bar - always visible at the bottom of the page so

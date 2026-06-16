@@ -37,6 +37,7 @@ import { Zap, Key, Webhook, Copy, Check, Trash2, Plus, ExternalLink, ArrowRight,
 import { captureException } from "@/lib/observability";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { PortalShell, PortalHeader } from "@/components/portal/ui";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { useAuth } from "@/contexts/AuthContext";
 import { UserRole } from "@/types/app";
@@ -353,32 +354,21 @@ function IntegrationsPage() {
       <Head><title>Integrations - CateringMS</title></Head>
       <AdminNav />
 
-      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
-        <div className="px-3 sm:px-4 md:px-6 pt-20 lg:pt-6 pb-6 max-w-6xl mx-auto">
+      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
 
-          <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-orange-500 to-pink-500 flex items-center justify-center shadow-lg flex-shrink-0">
-                <Zap className="w-6 h-6 text-white" />
-              </div>
-              <div className="min-w-0">
-                <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold bg-gradient-to-r from-orange-600 to-pink-600 bg-clip-text text-transparent flex items-center gap-2 flex-wrap">
-                  Integrations & Zapier
-                  <InfoTooltip content={"Push data in with API keys, send data out with webhooks.\n\nThis is what hooks CateringMS up to Zapier and the 5,000+ apps it reaches."} />
-                </h1>
-                <p className="text-sm sm:text-base text-slate-600 mt-1">
-                  API keys for inbound data and webhooks for outbound. Hook CateringMS into Zapier so leads, orders, and payments flow into Google Sheets, Slack, WhatsApp, Mailchimp, or anywhere else you already work.
-                </p>
-              </div>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
+          <PortalHeader
+            title={<span className="flex items-center gap-2 flex-wrap">Integrations & Zapier<InfoTooltip content={"Push data in with API keys, send data out with webhooks.\n\nThis is what hooks CateringMS up to Zapier and the 5,000+ apps it reaches."} /></span>}
+            icon={Zap}
+            subtitle="API keys for inbound data and webhooks for outbound. Hook CateringMS into Zapier so leads, orders, and payments flow into Google Sheets, Slack, WhatsApp, Mailchimp, or anywhere else you already work."
+            actions={
               <Link href="https://zapier.com/apps/webhook/integrations" target="_blank" rel="noopener">
                 <Button variant="outline" className="gap-2">
                   <ExternalLink className="w-4 h-4" /> Open Zapier
                 </Button>
               </Link>
-            </div>
-          </div>
+            }
+          />
 
           {/* Quickstart */}
           <Card className="border-0 shadow-lg mb-6 bg-gradient-to-r from-orange-50 to-pink-50">
@@ -822,7 +812,7 @@ function IntegrationsPage() {
               </div>
             </CardContent>
           </Card>
-        </div>
+        </PortalShell>
       </div>
     </>
   );

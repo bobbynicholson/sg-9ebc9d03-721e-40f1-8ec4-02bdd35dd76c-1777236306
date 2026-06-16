@@ -24,6 +24,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { PortalShell, PortalHeader } from "@/components/portal/ui";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import {  UserRole  } from "@/types/app";
@@ -483,8 +484,8 @@ function WhiteLabelPage() {
 
       <AdminNav />
 
-      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
-        <div className="px-4 py-8 max-w-6xl mx-auto">
+      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <Link href={withSlug("/admin/settings")}>
             <Button variant="ghost" className="mb-4">
               <ArrowLeft className="w-4 h-4 mr-2" />
@@ -492,20 +493,16 @@ function WhiteLabelPage() {
             </Button>
           </Link>
 
-          <div className="mb-8">
-            <div className="flex items-start justify-between">
-              <div className="flex items-center gap-3">
-                <div className="p-3 bg-gradient-to-br from-brand-primary to-brand-secondary rounded-2xl shadow-lg">
-                  <Palette className="w-8 h-8 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-4xl font-bold text-slate-900 flex items-center gap-2">
-                    White Label Branding
-                    <InfoTooltip content={"Set your logo, organisation name, and three brand colours that show up on client portals and emails.\n\nSaved to your tenant. Every admin and client logged into your account sees the same branding."} />
-                  </h1>
-                  <p className="text-slate-600 mt-1">Logo, organisation name, and three brand colours that show on every client surface: portal, public quote pages, public invoices, and outgoing emails.</p>
-                </div>
-              </div>
+          <PortalHeader
+            title={
+              <span className="flex items-center gap-2">
+                White Label Branding
+                <InfoTooltip content={"Set your logo, organisation name, and three brand colours that show up on client portals and emails.\n\nSaved to your tenant. Every admin and client logged into your account sees the same branding."} />
+              </span>
+            }
+            icon={Palette}
+            subtitle="Logo, organisation name, and three brand colours that show on every client surface: portal, public quote pages, public invoices, and outgoing emails."
+            actions={
               <div className="flex flex-col items-end gap-2">
                 {isWhiteLabeled && (
                   <Badge className="bg-green-100 text-green-700 border-green-200">
@@ -525,8 +522,8 @@ function WhiteLabelPage() {
                   </span>
                 ) : null)}
               </div>
-            </div>
-          </div>
+            }
+          />
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="space-y-6">
@@ -886,7 +883,7 @@ function WhiteLabelPage() {
               </div>
             </CardContent>
           </Card>
-        </div>
+        </PortalShell>
 
         <Footer />
       </div>
