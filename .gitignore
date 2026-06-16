@@ -49,3 +49,6 @@ skill/
 # Design skill repos (cloned locally, not part of the app)
 impeccable/
 taste-skill/
+
+# Playwright visual-check output
+screenshots/
