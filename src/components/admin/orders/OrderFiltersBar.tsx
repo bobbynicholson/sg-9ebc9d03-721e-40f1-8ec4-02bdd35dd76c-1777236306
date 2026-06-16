@@ -35,6 +35,10 @@ interface Props {
   onApplySavedView: (view: SavedView) => void;
   onRemoveSavedView: (id: string) => void;
   onSaveCurrentView: () => void;
+
+  /** Export the currently-filtered list to CSV. When omitted the button
+   *  is hidden (rather than rendering a dead control). */
+  onExport?: () => void;
 }
 
 const QUICK_DATE_FILTERS: Array<{ key: string; label: string }> = [
@@ -75,6 +79,7 @@ export function OrderFiltersBar({
   onApplySavedView,
   onRemoveSavedView,
   onSaveCurrentView,
+  onExport,
 }: Props) {
   return (
     <Card className="border-0 shadow-lg">
@@ -174,10 +179,12 @@ export function OrderFiltersBar({
               )}
             </div>
           )}
-          <Button variant="outline" className="gap-2">
-            <Download className="w-4 h-4" />
-            Export
-          </Button>
+          {onExport && (
+            <Button variant="outline" className="gap-2" onClick={onExport}>
+              <Download className="w-4 h-4" />
+              Export
+            </Button>
+          )}
         </div>
         {/* Phase 13 #5 + 13 #8: saved views chip strip with a 'Mine
             only' toggle. Saved views snap back to named filter

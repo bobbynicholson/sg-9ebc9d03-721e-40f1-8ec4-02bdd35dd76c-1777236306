@@ -1259,26 +1259,61 @@ function OrderProcessDashboard() {
     setBulkBusy(true);
     try {
       const ids = Array.from(selectedIds);
-      const { error } = await supabase
-        .from("orders")
-        .update({ status: newStatus as any })
-        .in("id", ids);
-      if (error) throw error;
-      // Optimistic local update so the screen reflects the move
-      // without waiting for a refetch.
-      setOrders((prev) =>
-        prev.map((o) => (selectedIds.has((o as any).id) ? ({ ...o, status: newStatus } as AppOrder) : o)),
+      // Route each order through the canonical workflow instead of a raw
+      // `orders.update({status})`. The raw bulk update silently skipped
+      // every side effect updateOrderStatus owns - transition validation,
+      // kitchen-prep re-plan + auto-invoice on confirm, after-sales on
+      // completion, the POD check on delivered, status emails, dispatch
+      // broadcast, and the order_status_history audit row. A bookkeeper
+      // bulk-confirming 10 orders got NO invoices and NO prep lists.
+      const { updateOrderStatus } = await import("@/services/order/orderWorkflow");
+      const results = await Promise.all(
+        ids.map(async (id) => {
+          try {
+            const r: any = await updateOrderStatus(id, newStatus, user?.id);
+            return { id, ok: !(r && r.success === false), error: r?.error as string | undefined };
+          } catch (e: any) {
+            return { id, ok: false, error: e?.message as string | undefined };
+          }
+        }),
       );
-      // ORD-A (orders audit, ORD-5): emit cateringms:order-updated for
-      // each affected row so dispatch / kitchen / calendar / contacts
-      // pick up the bulk change without manual refresh.
-      for (const id of ids) {
-        emitOrderUpdated(id, "admin/orders:bulk-status", ["status"]);
+      const succeeded = results.filter((r) => r.ok).map((r) => r.id);
+      const failed = results.filter((r) => !r.ok);
+
+      if (succeeded.length > 0) {
+        // Optimistic local update for the rows that actually moved.
+        setOrders((prev) =>
+          prev.map((o) => (succeeded.includes((o as any).id) ? ({ ...o, status: newStatus } as AppOrder) : o)),
+        );
+        // ORD-A: emit cateringms:order-updated so dispatch / kitchen /
+        // calendar / contacts pick up the change without manual refresh.
+        for (const id of succeeded) {
+          emitOrderUpdated(id, "admin/orders:bulk-status", ["status"]);
+        }
       }
-      toast({
-        title: "Bulk update",
-        description: `${ids.length} order${ids.length === 1 ? "" : "s"} moved to ${newStatus}.`,
-      });
+
+      if (failed.length === 0) {
+        toast({
+          title: "Bulk update",
+          description: `${succeeded.length} order${succeeded.length === 1 ? "" : "s"} moved to ${newStatus}.`,
+        });
+      } else if (succeeded.length === 0) {
+        toast({
+          title: "Bulk update failed",
+          description: failed[0].error
+            || `None of the ${failed.length} order${failed.length === 1 ? "" : "s"} could move to ${newStatus} - that transition isn't allowed from their current status.`,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Partly done",
+          description: `${succeeded.length} moved to ${newStatus}; ${failed.length} skipped (transition not allowed from their current status).`,
+          variant: "destructive",
+        });
+      }
+      // Refetch so cascade side-effects (invoices, prep) and any rejected
+      // rows reflect their true persisted state.
+      loadOrders();
       clearSelection();
     } catch (e: any) {
       toast({
@@ -1289,6 +1324,47 @@ function OrderProcessDashboard() {
     } finally {
       setBulkBusy(false);
     }
+  };
+
+  // CSV export of the currently-filtered list. Shared by the overflow
+  // menu item and the filters-bar Export button (the latter was a dead
+  // button with no handler).
+  const exportFilteredCsv = () => {
+    const rows = fuzzyOrders as any[];
+    if (rows.length === 0) {
+      toast({
+        title: "Nothing to export",
+        description: "Adjust filters until you see at least one order.",
+      });
+      return;
+    }
+    const headers = [
+      "Order number", "Status", "Client", "Email", "Phone",
+      "Event date", "Event time", "Guests", "Venue",
+      "Total", "Currency", "Payment status",
+      "Created", "Confirmed",
+    ];
+    const esc = (v: any) => {
+      if (v == null) return "";
+      const s = String(v).replace(/"/g, '""');
+      return /[",\n]/.test(s) ? `"${s}"` : s;
+    };
+    const lines = [headers.join(",")];
+    for (const o of rows) {
+      lines.push([
+        esc(o.order_number), esc(o.status), esc(o.client_name), esc(o.client_email), esc(o.client_phone),
+        esc(o.event_date), esc(o.event_time), esc(o.guest_count), esc(o.venue_address),
+        esc(o.total_amount), esc(o.currency || "ZAR"), esc(o.payment_status),
+        esc(o.created_at), esc(o.confirmed_at),
+      ].join(","));
+    }
+    const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `orders_${toLocalISO(new Date())}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   // Pre-group filtered orders by status once per filter-state change.
@@ -1487,54 +1563,7 @@ function OrderProcessDashboard() {
                     </DropdownMenuItem>
                     {/* Phase 7 #3: CSV export of the filtered list. */}
                     <DropdownMenuItem
-                      onClick={() => {
-                        const rows = fuzzyOrders;
-                        if (rows.length === 0) {
-                          toast({
-                            title: "Nothing to export",
-                            description: "Adjust filters until you see at least one order.",
-                          });
-                          return;
-                        }
-                        const headers = [
-                          "Order number", "Status", "Client", "Email", "Phone",
-                          "Event date", "Event time", "Guests", "Venue",
-                          "Total", "Currency", "Payment status",
-                          "Created", "Confirmed",
-                        ];
-                        const esc = (v: any) => {
-                          if (v == null) return "";
-                          const s = String(v).replace(/"/g, '""');
-                          return /[",\n]/.test(s) ? `"${s}"` : s;
-                        };
-                        const lines = [headers.join(",")];
-                        for (const o of rows as any[]) {
-                          lines.push([
-                            esc(o.order_number),
-                            esc(o.status),
-                            esc(o.client_name),
-                            esc(o.client_email),
-                            esc(o.client_phone),
-                            esc(o.event_date),
-                            esc(o.event_time),
-                            esc(o.guest_count),
-                            esc(o.venue_address),
-                            esc(o.total_amount),
-                            esc(o.currency || "ZAR"),
-                            esc(o.payment_status),
-                            esc(o.created_at),
-                            esc(o.confirmed_at),
-                          ].join(","));
-                        }
-                        const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
-                        const url = URL.createObjectURL(blob);
-                        const a = document.createElement("a");
-                        a.href = url;
-                        const stamp = toLocalISO(new Date());
-                        a.download = `orders_${stamp}.csv`;
-                        a.click();
-                        URL.revokeObjectURL(url);
-                      }}
+                      onClick={exportFilteredCsv}
                       className="cursor-pointer"
                     >
                       <Download className="w-4 h-4 mr-2" />
@@ -1629,6 +1658,7 @@ function OrderProcessDashboard() {
               onApplySavedView={applySavedView}
               onRemoveSavedView={removeSavedView}
               onSaveCurrentView={saveCurrentView}
+              onExport={exportFilteredCsv}
             />
 
             {/* Kanban Board / Timeline View */}
