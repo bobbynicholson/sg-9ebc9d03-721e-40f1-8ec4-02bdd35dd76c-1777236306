@@ -851,6 +851,25 @@ function NewQuotePage() {
     }
   }, [companyId, eventDate, eventName, guestCount, venueAddress, venueLat, venueLng, toast]);
 
+  // Typing in the name field must UNLINK a previously-picked client when
+  // the text no longer matches them. Without this, picking "Beverley
+  // Page" then editing the name to "Callum Rogers" left client_id
+  // pointing at Beverley while client_name said Callum - the order
+  // inherited both and the auto-invoice (which resolves the client via
+  // order.client_id) was billed to the wrong person. Once client_id is
+  // cleared, the save path re-matches or creates the right client from
+  // the typed name + email.
+  const handleClientNameChange = useCallback((v: string) => {
+    setClientName(v);
+    if (clientId) {
+      const linked = (clientSnapshot?.full_name || "").trim().toLowerCase();
+      if (linked && v.trim().toLowerCase() !== linked) {
+        setClientId(null);
+        setClientSnapshot(null);
+      }
+    }
+  }, [clientId, clientSnapshot]);
+
   const applyTemplate = useCallback((q: ClientSnapshot["recent_quotes"][number]) => {
     const menu = Array.isArray(q.menu_items) ? q.menu_items : [];
     if (menu.length === 0) {
@@ -1905,7 +1924,7 @@ function NewQuotePage() {
                     <ClientTypeahead
                       companyId={companyId}
                       value={clientName}
-                      onChange={setClientName}
+                      onChange={handleClientNameChange}
                       onPick={handleClientPick}
                       placeholder="Search clients, or type a new name"
                     />
