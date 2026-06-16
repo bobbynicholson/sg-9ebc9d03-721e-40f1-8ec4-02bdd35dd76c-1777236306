@@ -88,6 +88,10 @@
       "schedule": "*/15 * * * *"
     },
     {
+      "path": "/api/cron/order-sla-monitor",
+      "schedule": "*/15 * * * *"
+    },
+    {
       "path": "/api/cron/quote-followup-send",
       "schedule": "0 9 * * *"
     },
