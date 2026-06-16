@@ -8,6 +8,7 @@
  */
 import { useState, useEffect, useMemo, useRef } from "react";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { PortalShell, PortalHeader } from "@/components/portal/ui";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -784,23 +785,15 @@ function AdminCalendar() {
       <Head><title>Event calendar - CateringMS</title></Head>
       <AdminNav />
 
-      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
-        <div className="px-3 sm:px-4 md:px-6 pt-20 lg:pt-6 pb-6 max-w-full">
-          <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center shadow-lg flex-shrink-0">
-                <CalendarIcon className="w-6 h-6 text-white" />
-              </div>
-              <div className="min-w-0">
-                <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold text-slate-900">
-                  Calendar
-                </h1>
-                <p className="text-sm sm:text-base text-slate-600 mt-1">
-                  Every confirmed event on a calendar grid. Click a day to see its events; arrow keys move you through the calendar.
-                </p>
-              </div>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
+      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+
+          <PortalHeader
+            title="Calendar"
+            icon={CalendarIcon}
+            subtitle="Every confirmed event on a calendar grid. Click a day to see its events; arrow keys move you through the calendar."
+            actions={
+            <>
               <Button variant="outline" size="sm" onClick={jumpToday} className="gap-1.5">
                 <Sparkles className="w-3.5 h-3.5" /> Today
               </Button>
@@ -1011,8 +1004,9 @@ function AdminCalendar() {
                   <Plus className="w-4 h-4" /> New Event
                 </Button>
               </Link>
-            </div>
-          </div>
+            </>
+            }
+          />
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2">
@@ -1625,7 +1619,7 @@ function AdminCalendar() {
               </Card>
             </div>
           </div>
-        </div>
+        </PortalShell>
       </div>
 
       {/* Day detail sheet - shared resizable host (drag the left edge) */}

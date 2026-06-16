@@ -28,6 +28,7 @@ import { useRouter } from "next/router";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { PortalShell, PortalHeader } from "@/components/portal/ui";
 import { RemoveOrderDialog } from "@/components/admin/orders/RemoveOrderDialog";
 import { PauseOrderDialog } from "@/components/admin/orders/PauseOrderDialog";
 import { AmendmentReviewDrawer, CancellationReviewDrawer } from "@/components/admin/orders/AmendmentReviewDrawer";
@@ -1349,24 +1350,15 @@ function OrderProcessDashboard() {
         </div>
       )}
 
-      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
-        <div className="px-4 pt-20 lg:pt-6 pb-12 max-w-full">
+      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <div className="space-y-6">
-            {/* Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-brand-primary to-brand-secondary flex items-center justify-center shadow-lg">
-                  <ShoppingCart className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                  {/* Wave 56 - gradient text H1 was the loudest
-                      element on the page and conveyed nothing. Plain
-                      text-slate-900 lets the actual data carry
-                      visual hierarchy. */}
-                  <h1 className="text-3xl md:text-4xl font-bold text-slate-900">
-                    Orders
-                  </h1>
-                  <p className="text-slate-600 mt-1">Confirmed events. Every booked job from accepted quote through to delivery, with kitchen prep, dispatch, and post-event status all in one place.</p>
+            <PortalHeader
+              title="Orders"
+              icon={ShoppingCart}
+              subtitle={
+                <>
+                  Confirmed events. Every booked job from accepted quote through to delivery, with kitchen prep, dispatch, and post-event status all in one place.
                   {/* Phase 13 #9: tenant timezone hint chip. The
                       date filters interpret event_date in the
                       company's configured timezone, but multi-
@@ -1374,10 +1366,10 @@ function OrderProcessDashboard() {
                       driving the math. Self-hides when no tz is
                       set on companies.timezone. */}
                   {tenantTimezone && (
-                    <div className="mt-2 inline-flex items-center gap-1.5 text-[11px] text-slate-500">
+                    <span className="mt-2 inline-flex items-center gap-1.5 text-[11px] text-slate-500 align-middle">
                       <Clock className="w-3 h-3" />
                       Times shown in <span className="font-medium text-slate-700">{tenantTimezone}</span>
-                    </div>
+                    </span>
                   )}
                   {/* Phase 11 #8: pending amendment + cancellation
                       request badges. Hidden when both counts are
@@ -1385,7 +1377,7 @@ function OrderProcessDashboard() {
                       deep-links to the relevant URL filter that
                       opens the AmendmentReviewDrawer pre-scoped. */}
                   {(pendingAmendmentCount > 0 || pendingCancellationCount > 0) && (
-                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <span className="mt-2 flex flex-wrap items-center gap-2">
                       {pendingAmendmentCount > 0 && (
                         <Link
                           href={withSlug("/admin/orders?status=pending-amendments")}
@@ -1406,11 +1398,12 @@ function OrderProcessDashboard() {
                           {pendingCancellationCount} pending cancellation{pendingCancellationCount === 1 ? "" : "s"}
                         </Link>
                       )}
-                    </div>
+                    </span>
                   )}
-                </div>
-              </div>
-              {/* TIGHTEN I.51 (2026-06-01): toolbar redesign.
+                </>
+              }
+              actions={
+              /* TIGHTEN I.51 (2026-06-01): toolbar redesign.
                   Previous version had a heavy dark "Kanban / Timeline"
                   pill pair that overpowered the actual primary CTA,
                   plus inconsistent button heights that wrapped onto
@@ -1423,8 +1416,8 @@ function OrderProcessDashboard() {
                   buttons land at the same h-9 height so the row
                   reads as one unit. flex-nowrap + ml-auto pushes the
                   whole cluster to the right edge without wrapping at
-                  the awkward in-between widths. */}
-              <div className="flex items-center gap-2 sm:flex-nowrap sm:ml-auto">
+                  the awkward in-between widths. */
+              <>
                 {/* Segmented view toggle - subtle "inactive on a card
                     background" pattern so the active state reads as
                     a single elevated chip, not a dark button. */}
@@ -1564,8 +1557,9 @@ function OrderProcessDashboard() {
                     New Quote
                   </Button>
                 </Link>
-              </div>
-            </div>
+              </>
+              }
+            />
 
             <OrderKpiPills stats={stats} />
 
@@ -1880,7 +1874,7 @@ function OrderProcessDashboard() {
               onEditOrder={openOrderDetail}
             />
           </div>
-        </div>
+        </PortalShell>
 
         <Footer />
 

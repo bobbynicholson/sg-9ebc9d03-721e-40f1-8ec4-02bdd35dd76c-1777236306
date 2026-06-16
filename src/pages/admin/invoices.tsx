@@ -9,6 +9,7 @@ import { captureException } from "@/lib/observability";
 import { BulkRemindDialog } from "@/components/admin/financial/BulkRemindDialog";
 import { useRegionFilter } from "@/contexts/RegionFilterContext";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { PortalShell, PortalHeader } from "@/components/portal/ui";
 import { CashflowContextBanner } from "@/components/admin/financial/CashflowContextBanner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -1253,7 +1254,7 @@ function InvoicesPageInner() {
   return (
     <>
     <Head><title>Invoices - CateringMS</title></Head>
-    <div className="min-h-screen overflow-x-hidden bg-slate-50 lg:pl-72 xl:pl-80 print:pl-0 print:bg-white">
+    <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0 print:pl-0 print:bg-white">
       {/* Wave 66 - print stylesheet for paper invoices. SA municipal
           + government clients still ask for posted PDFs; bookkeepers
           want clean A4 output without the admin chrome. Hides the
@@ -1274,7 +1275,7 @@ function InvoicesPageInner() {
       `}</style>
       <AdminNav />
 
-      <div className="py-8 px-4 max-w-full">
+      <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
         <CashflowContextBanner message="Filtered to unpaid invoices. Send bulk reminders from the forecast page, or pick a row below to chase individually." />
         {/* Wave 66 - accounting reconnect banner. Surfaces when an
             integration is marked active but its OAuth refresh has
@@ -1308,14 +1309,11 @@ function InvoicesPageInner() {
         )}
 
         {/* Header */}
-        <div className="mb-8 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-xl bg-brand-primary/10 flex items-center justify-center flex-shrink-0">
-              <FileText className="w-5 h-5 text-brand-primary" />
-            </div>
-            <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-slate-900 mb-1">Invoices</h1>
-            <p className="text-slate-600">
+        <PortalHeader
+          title="Invoices"
+          icon={FileText}
+          subtitle={
+            <>
               Bills issued for orders. Generate, send, and track payments. EFT claims show at the top so you can confirm against your bank statement before marking them paid.
               {tenantTimezone && (
                 <span className="ml-2 inline-flex items-center gap-1 text-[11px] text-slate-500 align-middle">
@@ -1323,10 +1321,10 @@ function InvoicesPageInner() {
                   Dates in <span className="font-mono">{tenantTimezone}</span>
                 </span>
               )}
-            </p>
-            </div>
-          </div>
-          <div className="flex flex-wrap gap-2 self-start sm:self-auto">
+            </>
+          }
+          actions={
+            <>
           {/* Phase 27 #5: manual refresh. Bookkeeping running
               reconciliation throughout the day needed a way to
               pick up new payments without a hard reload. */}
@@ -1441,8 +1439,9 @@ function InvoicesPageInner() {
           >
             Send overdue reminders
           </Button>
-          </div>
-        </div>
+            </>
+          }
+        />
 
         {/* Client filter pill - shows when /admin/invoices was opened
             with ?clientId. Click X to clear back to the unfiltered
@@ -2385,7 +2384,7 @@ function InvoicesPageInner() {
             )}
           </CardContent>
         </Card>
-      </div>
+      </PortalShell>
 
       {/* Preview Dialog */}
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
