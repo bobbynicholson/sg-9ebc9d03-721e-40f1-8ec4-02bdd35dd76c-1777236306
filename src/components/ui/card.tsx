@@ -9,7 +9,12 @@ const Card = React.forwardRef<
   <div
     ref={ref}
     className={cn(
-      "rounded-lg border bg-card text-card-foreground shadow-xs",
+      // Refined default to match the admin dashboard "refresh" look:
+      // softer radius + a quiet layered shadow (tight contact + wide
+      // ambient) instead of the flat hard-bordered shadow-xs. Keeps the
+      // theme-aware border/bg tokens, so this lifts every card across all
+      // roles consistently. Override per-card with className as before.
+      "rounded-xl border bg-card text-card-foreground shadow-[0_1px_2px_rgba(15,23,42,0.04),0_10px_30px_-16px_rgba(15,23,42,0.12)]",
       className
     )}
     {...props}
