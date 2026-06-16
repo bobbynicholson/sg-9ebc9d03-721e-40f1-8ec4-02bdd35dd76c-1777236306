@@ -25,6 +25,7 @@ import Link from "next/link";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { GetServerSideProps } from "next";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { PortalShell, PortalHeader } from "@/components/portal/ui";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { useCompanyKitchens } from "@/hooks/useCompanyKitchens";
 import { Building2 } from "lucide-react";
@@ -631,17 +632,16 @@ function FinancialDashboardInner() {
       <NoIndexMeta />
 
       <AdminNav />
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-4 md:p-8 lg:pl-72 xl:pl-80 pt-20 lg:pt-8">
-        <div className="max-w-6xl mx-auto">
+      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <CashflowContextBanner message="Margin, health score and per-order analysis. Use the cashflow forecast for the forward 30-day view." />
           {/* Header with Health Score */}
           <div className="mb-8">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-4">
-              <div>
-                <h1 className="text-3xl md:text-4xl font-bold text-slate-900 mb-2">
-                  Financial Dashboard
-                </h1>
-                <p className="text-slate-600">
+            <PortalHeader
+              title="Financial Dashboard"
+              icon={DollarSign}
+              subtitle={
+                <>
                   {/* FIN-B: honest hero copy. The page is a rolling
                       90-day snapshot, not a configurable daily /
                       weekly / monthly view - that affordance is the
@@ -649,8 +649,7 @@ function FinancialDashboardInner() {
                   Revenue, profitability and cashflow at a glance.
                   Rolling 90-day view with profit margin and
                   outstanding balances.
-                </p>
-                <div className="mt-3 flex flex-wrap gap-2">
+                  <div className="mt-3 flex flex-wrap gap-2">
                   {/* Phase 27 #4: manual refresh. The page only
                       auto-loads on mount; a bookkeeper running
                       reconciliation throughout the day previously
@@ -713,9 +712,11 @@ function FinancialDashboardInner() {
                       Export snapshot CSV
                     </Button>
                   )}
-                </div>
-              </div>
-              <div className="mt-4 md:mt-0">
+                  </div>
+                </>
+              }
+              actions={
+                <div className="mt-4 md:mt-0">
                 {/* FIN-B (financial dashboard audit): retuned the
                     threshold cutoffs to match the score function's
                     actual range. calculateHealthScore caps at 80
@@ -747,8 +748,9 @@ function FinancialDashboardInner() {
                     </div>
                   </CardContent>
                 </Card>
-              </div>
-            </div>
+                </div>
+              }
+            />
 
             {/* TIGHTEN I.29: the inline zero-data card moved into a
                 dedicated early-return at the top of the component.
@@ -1522,7 +1524,7 @@ function FinancialDashboardInner() {
               </TabsContent>
             )}
           </Tabs>
-        </div>
+        </PortalShell>
       </div>
 
       {/* FIN-C / CASH-D: bulk-remind dialog. Extracted into a shared

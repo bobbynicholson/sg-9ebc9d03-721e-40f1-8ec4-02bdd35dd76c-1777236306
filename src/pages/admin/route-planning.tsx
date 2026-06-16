@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { PortalShell, PortalHeader } from "@/components/portal/ui";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { toLocalISO } from "@/lib/localDate";
@@ -371,35 +372,28 @@ function RoutePlanningInner() {
 
       <AdminNav />
 
-      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-blue-50 py-8 lg:pl-72 xl:pl-80">
-        <div className="max-w-full px-4 sm:px-6 lg:px-8">
+      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-blue-50 py-8 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           {/* Page Header */}
-          <div className="mb-8">
-            <div className="flex items-center justify-between flex-wrap gap-4">
-              <div>
-                <h1 className="text-3xl font-bold text-slate-900 mb-2">
-                  <Route className="inline-block mr-3 text-blue-600" />
-                  Route Planning
-                </h1>
-                {/* RP-B (route-planning audit, RP-3): honest copy. Pre-
-                    RP-B this claimed "for tomorrow" but no date filter
-                    was applied anywhere - the queue surfaces every
-                    unassigned confirmed order regardless of date. And
-                    "Capacity, time-conflict, and vehicle gates run
-                    before any assignment lands" is only true for the
-                    Auto-assign + Batch paths (both go through
-                    dispatchService.assignDriverWithGate). The Apply
-                    path on optimised routes still bypasses every
-                    gate; that refactor is its own PR. New copy
-                    describes what's actually true today. */}
-                <p className="text-slate-600">
-                  Auto-assign drivers and optimise routes for upcoming
-                  unassigned orders. Capacity, time-conflict and
-                  vehicle gates run on the Auto-assign and Batch
-                  buttons before any assignment lands.
-                </p>
-              </div>
-              <div className="flex gap-2">
+          <PortalHeader
+            title="Route Planning"
+            icon={Route}
+            subtitle={
+              /* RP-B (route-planning audit, RP-3): honest copy. Pre-
+                 RP-B this claimed "for tomorrow" but no date filter
+                 was applied anywhere - the queue surfaces every
+                 unassigned confirmed order regardless of date. And
+                 "Capacity, time-conflict, and vehicle gates run
+                 before any assignment lands" is only true for the
+                 Auto-assign + Batch paths (both go through
+                 dispatchService.assignDriverWithGate). The Apply
+                 path on optimised routes still bypasses every
+                 gate; that refactor is its own PR. New copy
+                 describes what's actually true today. */
+              "Auto-assign drivers and optimise routes for upcoming unassigned orders. Capacity, time-conflict and vehicle gates run on the Auto-assign and Batch buttons before any assignment lands."
+            }
+            actions={
+            <>
                 <Button
                   variant="outline"
                   onClick={loadDispatchData}
@@ -446,9 +440,9 @@ function RoutePlanningInner() {
                     </>
                   )}
                 </Button>
-              </div>
-            </div>
-          </div>
+            </>
+            }
+          />
 
           {/* Stats Overview */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
@@ -939,7 +933,7 @@ function RoutePlanningInner() {
               )}
             </div>
           </div>
-        </div>
+        </PortalShell>
       </div>
 
       <Footer />

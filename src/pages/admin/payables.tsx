@@ -30,6 +30,7 @@ import { Plus, CheckCircle2, AlertTriangle, Trash2, Upload, Wallet } from "lucid
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { PortalShell, PortalHeader } from "@/components/portal/ui";
 import { CashflowContextBanner } from "@/components/admin/financial/CashflowContextBanner";
 import { useAuth } from "@/contexts/AuthContext";
 import { UserRole } from "@/types/app";
@@ -345,40 +346,34 @@ function PayablesPage() {
       </Head>
       <NoIndexMeta />
       <AdminNav />
-      {/* TIGHTEN I.12: persona-standard wrapper (was lg:ml-64
-          xl:ml-72 + max-w-6xl mx-auto, which kept the page narrow
-          even on wide monitors and sat flush against the sidebar
-          with no breathing room). */}
-      <div className="min-h-screen bg-slate-50 lg:pl-72 xl:pl-80">
-        <div className="max-w-full px-4 md:px-6 py-8">
-          <CashflowContextBanner message="Payables here feed the 30-day forecast outflow. Add a missing one to sharpen the projection." />
-          <div className="flex items-start justify-between mb-6 gap-3">
-            <div className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-xl bg-brand-primary/10 flex items-center justify-center flex-shrink-0">
-                <Wallet className="w-5 h-5 text-brand-primary" />
-              </div>
-              <div>
-              <h1 className="text-2xl md:text-3xl font-bold text-slate-900">Payables</h1>
-              <p className="text-sm text-slate-600 mt-1">
+      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+          <PortalHeader
+            title="Payables"
+            icon={Wallet}
+            subtitle={
+              <>
                 Outstanding supplier invoices. Drives the cashflow forecast on{" "}
                 <Link href="/admin/financial-dashboard" className="text-blue-600 hover:underline">
                   Financial dashboard
                 </Link>
                 .
-              </p>
-              </div>
-            </div>
-            <div className="flex gap-2 flex-shrink-0">
-              <Button onClick={openBulk} variant="outline">
-                <Upload className="w-4 h-4 mr-1.5" />
-                Bulk import
-              </Button>
-              <Button onClick={() => setDialogOpen(true)} className="bg-emerald-600 hover:bg-emerald-700">
-                <Plus className="w-4 h-4 mr-1.5" />
-                Add payable
-              </Button>
-            </div>
-          </div>
+              </>
+            }
+            actions={
+              <>
+                <Button onClick={openBulk} variant="outline">
+                  <Upload className="w-4 h-4 mr-1.5" />
+                  Bulk import
+                </Button>
+                <Button onClick={() => setDialogOpen(true)} className="bg-emerald-600 hover:bg-emerald-700">
+                  <Plus className="w-4 h-4 mr-1.5" />
+                  Add payable
+                </Button>
+              </>
+            }
+          />
+          <CashflowContextBanner message="Payables here feed the 30-day forecast outflow. Add a missing one to sharpen the projection." />
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             <Card className="border-2">
@@ -500,7 +495,7 @@ function PayablesPage() {
               )}
             </CardContent>
           </Card>
-        </div>
+        </PortalShell>
       </div>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

@@ -29,6 +29,7 @@ import { Label } from "@/components/ui/label";
 import { Mail, Shield, Server, CheckCircle2, AlertTriangle, Send, Loader2, ExternalLink, Inbox, BarChart3, Sparkles, Globe, ShieldCheck } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { PortalShell, PortalHeader } from "@/components/portal/ui";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { useAuth } from "@/contexts/AuthContext";
 import { UserRole } from "@/types/app";
@@ -475,23 +476,19 @@ function EmailSettingsPage() {
       <Head><title>Email settings - CateringMS</title></Head>
       <AdminNav />
 
-      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
-        <div className="px-3 sm:px-4 md:px-6 pt-20 lg:pt-6 pb-6 max-w-6xl mx-auto">
+      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
 
-          <div className="mb-6 flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-brand-primary to-brand-secondary flex items-center justify-center shadow-lg flex-shrink-0">
-              <Mail className="w-6 h-6 text-white" />
-            </div>
-            <div className="min-w-0">
-              <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold text-slate-900 flex items-center gap-2 flex-wrap">
+          <PortalHeader
+            title={
+              <span className="flex items-center gap-2 flex-wrap">
                 Email settings
                 <InfoTooltip content={"How CateringMS sends mail on your behalf.\n\nOut of the box you're already set up via our shared sender. Verify your own domain below to send from your address.\n\nGmail / Microsoft 365 / SMTP live further down under 'Switch provider'."} />
-              </h1>
-              <p className="text-sm text-slate-600 mt-1">
-                You're already set up to send. Verify your own domain below for full branding, or just edit your sender name and address.
-              </p>
-            </div>
-          </div>
+              </span>
+            }
+            icon={Mail}
+            subtitle="You're already set up to send. Verify your own domain below for full branding, or just edit your sender name and address."
+          />
 
           {/* Daily quota tile */}
           <Card className="border-0 shadow-lg mb-6 bg-gradient-to-r from-blue-50 to-indigo-50">
@@ -1031,7 +1028,7 @@ function EmailSettingsPage() {
                 - "Direct send activates once OAuth/SMTP is verified" is
                   already covered by the OAuth section's amber banner
                   and the test-failure error state in Sender identity */}
-        </div>
+        </PortalShell>
       </div>
     </>
   );

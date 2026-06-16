@@ -11,6 +11,7 @@
 import Head from "next/head";
 import { Settings } from "lucide-react";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { PortalShell, PortalHeader } from "@/components/portal/ui";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
@@ -23,26 +24,20 @@ function KitchenSettingsAdminPage() {
       <Head><title>Kitchen rules - CateringMS</title></Head>
       <AdminNav />
 
-      <main className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
-        <div className="px-3 sm:px-4 md:px-6 pt-20 lg:pt-6 pb-6 max-w-6xl">
+      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
 
-          <div className="mb-6 flex items-start gap-3">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-brand-primary to-brand-secondary flex items-center justify-center shadow-lg flex-shrink-0">
-              <Settings className="w-6 h-6 text-white" />
-            </div>
-            <div className="min-w-0">
-              <h1 className="text-2xl md:text-3xl font-bold text-slate-900">Kitchen rules</h1>
-              <p className="text-sm text-slate-600 mt-1">
-                Per-tenant policy: prep timing, BCEA shift thresholds, dietary alerts.
-              </p>
-            </div>
-          </div>
+          <PortalHeader
+            title="Kitchen rules"
+            icon={Settings}
+            subtitle="Per-tenant policy: prep timing, BCEA shift thresholds, dietary alerts."
+          />
 
           <KitchenRulesPanel
             contextNote="These rules also surface as the 'Kitchen rules' tab inside the Kitchen team landing page (/admin/teams/kitchen) - either entry point edits the same companies.kitchen_settings JSON."
           />
-        </div>
-      </main>
+        </PortalShell>
+      </div>
     </>
   );
 }

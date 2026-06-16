@@ -20,6 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { PortalShell, PortalHeader } from "@/components/portal/ui";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { useAuth } from "@/contexts/AuthContext";
@@ -291,22 +292,15 @@ function KitchenSettlementPage() {
       <Head><title>Kitchen settlement - CateringMS</title></Head>
       <NoIndexMeta />
       <AdminNav />
-      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
-        <div className="px-4 pt-20 lg:pt-6 pb-12 max-w-full">
-          <div className="space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-brand-primary to-brand-secondary flex items-center justify-center shadow-md flex-shrink-0">
-                  <Wallet className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-2xl md:text-3xl font-bold text-slate-900">Kitchen settlement</h1>
-                  <p className="text-slate-600 text-sm mt-0.5">
-                    Period summary, OT + Sunday multipliers, one-tap payslip issue.
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 flex-wrap">
+      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+
+          <PortalHeader
+            title="Kitchen settlement"
+            icon={Wallet}
+            subtitle="Period summary, OT + Sunday multipliers, one-tap payslip issue."
+            actions={
+            <>
                 <Button variant="outline" size="sm" onClick={load} disabled={loading}>
                   <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
                 </Button>
@@ -322,8 +316,9 @@ function KitchenSettlementPage() {
                   {bulkPersisting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileCheck className="w-3.5 h-3.5" />}
                   Issue all payslips
                 </Button>
-              </div>
-            </div>
+            </>
+            }
+          />
 
             {/* Period picker */}
             <Card>
@@ -483,8 +478,7 @@ function KitchenSettlementPage() {
                 )}
               </CardContent>
             </Card>
-          </div>
-        </div>
+        </PortalShell>
         <Footer />
       </div>
     </>

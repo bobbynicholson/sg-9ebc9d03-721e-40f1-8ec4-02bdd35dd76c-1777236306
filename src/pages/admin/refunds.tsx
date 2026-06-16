@@ -35,6 +35,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { PortalShell, PortalHeader } from "@/components/portal/ui";
 import { UserRole } from "@/types/app";
 import {
   Receipt, CheckCircle2, Clock, RefreshCw, XCircle, Zap, Download,
@@ -843,20 +844,15 @@ function RefundsPage() {
         <title>Refunds & Credits - CateringMS</title>
         <NoIndexMeta />
       </Head>
-      <div className="min-h-screen bg-slate-50 lg:pl-72 xl:pl-80 pt-20 lg:pt-0">
-        <AdminNav />
-        <div className="max-w-full px-4 md:px-6 py-6 md:py-8 space-y-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl md:text-3xl font-bold text-slate-900 flex items-center gap-2">
-                <Receipt className="w-7 h-7 text-rose-600" />
-                Refunds &amp; Credits
-              </h1>
-              <p className="text-sm text-slate-600 mt-1">
-                Cancellation refunds plus store-credit issuances and redemptions. PayFast refunds auto-process; EFT and cash need a manual mark as paid. Credit movements are display-only - they auto-completed at issue or redeem time.
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
+      <AdminNav />
+      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+          <PortalHeader
+            title="Refunds & Credits"
+            icon={Receipt}
+            subtitle="Cancellation refunds plus store-credit issuances and redemptions. PayFast refunds auto-process; EFT and cash need a manual mark as paid. Credit movements are display-only - they auto-completed at issue or redeem time."
+            actions={
+              <>
               {/* Phase 16 #7: refunds CSV export. Bookkeeping team
                   reconciling refunds against the gateway / bank
                   statement needs an offline copy. Reads from the
@@ -917,9 +913,11 @@ function RefundsPage() {
                 <RefreshCw className="w-4 h-4" />
                 Refresh
               </Button>
-            </div>
-          </div>
+              </>
+            }
+          />
 
+          <div className="space-y-6">
           {/* REF-A intel: orphan cancelled-orders banner. Pre-REF-A
               the page had no way to surface cancellations that
               should have refunded or credited but didn't. The
@@ -1095,7 +1093,8 @@ function RefundsPage() {
               )}
             </CardContent>
           </Card>
-        </div>
+          </div>
+        </PortalShell>
       </div>
     </>
   );

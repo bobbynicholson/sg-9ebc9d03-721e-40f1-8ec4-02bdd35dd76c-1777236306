@@ -21,6 +21,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { PortalShell, PortalHeader } from "@/components/portal/ui";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -559,25 +560,20 @@ function VehiclesPage() {
       <Head><title>Vehicles - CateringMS</title></Head>
       <AdminNav />
 
-      <div className="min-h-screen overflow-x-hidden bg-slate-50 lg:pl-72 xl:pl-80">
-        <div className="px-4 pt-20 lg:pt-6 pb-6 max-w-full">
+      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
 
-          <div className="mb-5 flex items-center justify-between flex-wrap gap-3">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-brand-primary to-brand-secondary flex items-center justify-center shadow-sm">
-                <Truck className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-semibold text-slate-900 flex items-center gap-2">
-                  Vehicles
-                  <InfoTooltip content={"Your fleet plus any vehicles drivers bring themselves.\n\nDispatch uses these to suggest the right vehicle for an order, and to flag jobs that need two drivers."} />
-                </h1>
-                <p className="text-sm text-slate-500">
-                  Fleet roster. Refrigerated and warmer vehicles unlock cold and hot-chain orders for assignment.
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
+          <PortalHeader
+            title={
+              <span className="flex items-center gap-2">
+                Vehicles
+                <InfoTooltip content={"Your fleet plus any vehicles drivers bring themselves.\n\nDispatch uses these to suggest the right vehicle for an order, and to flag jobs that need two drivers."} />
+              </span>
+            }
+            icon={Truck}
+            subtitle="Fleet roster. Refrigerated and warmer vehicles unlock cold and hot-chain orders for assignment."
+            actions={
+            <>
               {/* Phase 28 #3: manual refresh. Fleet roster loads on
                   mount; a dispatcher who has just had a colleague
                   add a hire-in vehicle needs to pull the new row. */}
@@ -598,8 +594,9 @@ function VehiclesPage() {
                 <Plus className="w-4 h-4" />
                 Add vehicle
               </Button>
-            </div>
-          </div>
+            </>
+            }
+          />
 
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
             <Card className="border-0 shadow-sm">
@@ -856,7 +853,7 @@ function VehiclesPage() {
           </div>
             </>
           )}
-        </div>
+        </PortalShell>
       </div>
 
       {/* Add / Edit dialog */}

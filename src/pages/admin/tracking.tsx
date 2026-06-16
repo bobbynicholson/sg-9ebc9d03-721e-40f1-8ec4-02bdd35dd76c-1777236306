@@ -14,6 +14,7 @@ import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { staffOrderHref } from "@/lib/orderUrls";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { PortalShell, PortalHeader } from "@/components/portal/ui";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { useAuth } from "@/contexts/AuthContext";
 import { useOrderRefreshSignal } from "@/hooks/useOrderRefreshSignal";
@@ -547,22 +548,13 @@ function AdminTrackingInner() {
 
       <AdminNav />
 
-      <div className="min-h-screen overflow-x-hidden bg-slate-50 pb-20 lg:pl-72 xl:pl-80">
-        <div className="px-4 py-8 max-w-full">
-          {/* Header */}
-          <div className="mb-6 flex items-center gap-3">
-            <div className="w-11 h-11 rounded-xl bg-brand-primary/10 flex items-center justify-center flex-shrink-0">
-              <Navigation className="w-5 h-5 text-brand-primary" />
-            </div>
-            <div>
-              <h1 className="text-2xl md:text-3xl font-bold text-slate-900">
-                Live operations
-              </h1>
-              <p className="text-sm text-slate-600 mt-1">
-                Today's deliveries in flight. Live driver pins on the map, prep status per order, and at-risk flags surfaced first so you can intervene before the client phones.
-              </p>
-            </div>
-          </div>
+      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 pb-20 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+          <PortalHeader
+            title="Live operations"
+            icon={Navigation}
+            subtitle="Today's deliveries in flight. Live driver pins on the map, prep status per order, and at-risk flags surfaced first so you can intervene before the client phones."
+          />
 
           {/* Stats Cards */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
@@ -995,7 +987,7 @@ function AdminTrackingInner() {
               </Card>
             </TabsContent>
           </Tabs>
-        </div>
+        </PortalShell>
 
         <Footer />
       </div>

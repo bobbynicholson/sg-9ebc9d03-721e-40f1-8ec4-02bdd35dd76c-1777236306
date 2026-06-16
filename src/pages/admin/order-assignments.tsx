@@ -4,6 +4,7 @@ import { useRouter } from "next/router";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { PortalShell, PortalHeader } from "@/components/portal/ui";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -672,23 +673,15 @@ function DispatchQueuePage() {
       <Head><title>Dispatch queue - CateringMS</title></Head>
       <AdminNav />
 
-      <div className="min-h-screen overflow-x-hidden bg-slate-50 lg:pl-72 xl:pl-80">
-        <div className="px-4 pt-20 lg:pt-6 pb-6 max-w-full">
+      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
 
-          {/* Header */}
-          <div className="mb-5 flex items-center justify-between flex-wrap gap-3">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center shadow-sm">
-                <Truck className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-semibold text-slate-900">Dispatch queue</h1>
-                <p className="text-sm text-slate-500">
-                  Confirmed orders waiting on a driver. Auto-suggest a driver per order with capacity, vehicle, and shift checks, or override manually. Bulk-assign by date when prep is locked in.
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
+          <PortalHeader
+            title="Dispatch queue"
+            icon={Truck}
+            subtitle="Confirmed orders waiting on a driver. Auto-suggest a driver per order with capacity, vehicle, and shift checks, or override manually. Bulk-assign by date when prep is locked in."
+            actions={
+            <>
               {/* DI-E: server-side date window selector. Default 30
                   days covers the dispatcher's planning horizon. 90
                   is for the "look ahead a quarter" planning view;
@@ -798,8 +791,9 @@ function DispatchQueuePage() {
                 <Printer className="w-4 h-4" />
                 Print run sheet
               </Button>
-            </div>
-          </div>
+            </>
+            }
+          />
 
           {/* KPIs */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
@@ -1439,7 +1433,7 @@ function DispatchQueuePage() {
               })
             )}
           </div>
-        </div>
+        </PortalShell>
       </div>
 
       {/* ── Assign dialog ──────────────────────────────────────────────── */}

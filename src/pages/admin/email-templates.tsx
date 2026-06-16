@@ -22,6 +22,7 @@ import Head from "next/head";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Mail } from "lucide-react";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { PortalShell, PortalHeader } from "@/components/portal/ui";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { TemplatesPanel } from "@/components/admin/lifecycle-emails/TemplatesPanel";
@@ -73,21 +74,13 @@ function LifecycleEmailsPage() {
 
       <AdminNav />
 
-      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
-        <div className="px-4 py-8 max-w-6xl mx-auto">
-          <div className="mb-6 flex items-center gap-3">
-            <div className="p-3 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl shadow-lg">
-              <Mail className="w-7 h-7 text-white" />
-            </div>
-            <div>
-              <h1 className="text-2xl lg:text-3xl font-bold text-slate-900">
-                Lifecycle Emails
-              </h1>
-              <p className="text-sm text-slate-600 mt-0.5">
-                Templates, sent log, and automation. All your post-sale email touchpoints in one place.
-              </p>
-            </div>
-          </div>
+      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+          <PortalHeader
+            title="Lifecycle Emails"
+            icon={Mail}
+            subtitle="Templates, sent log, and automation. All your post-sale email touchpoints in one place."
+          />
 
           <Tabs value={tab} onValueChange={handleTabChange} className="w-full">
             <TabsList className="grid grid-cols-2 md:grid-cols-4 w-full md:w-auto h-auto">
@@ -113,7 +106,7 @@ function LifecycleEmailsPage() {
               <AutomationSettingsPanel />
             </TabsContent>
           </Tabs>
-        </div>
+        </PortalShell>
 
         <Footer />
       </div>

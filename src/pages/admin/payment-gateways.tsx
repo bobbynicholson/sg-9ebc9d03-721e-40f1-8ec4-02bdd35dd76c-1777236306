@@ -41,6 +41,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { CreditCard, Check, AlertCircle, Settings, Trash2, Power, Activity, Loader2 } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { PortalShell, PortalHeader } from "@/components/portal/ui";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import {
   paymentGatewayService,
@@ -285,16 +286,20 @@ function PaymentGatewaysPage() {
       </Head>
 
       <AdminNav />
-      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
-        <div className="px-4 py-8 max-w-6xl mx-auto space-y-6">
-          <div>
-            <h1 className="text-4xl font-bold mb-2 flex items-center gap-2">
-              Payment Gateways
-              <InfoTooltip content={"Configure a South African gateway so your clients can pay invoices online.\n\nOne gateway can be active at a time. Saved credentials are encrypted at rest and never read back into the browser."} />
-            </h1>
-            <p className="text-muted-foreground">Online card and EFT processing. Connect a South African gateway like PayFast or Yoco so clients can pay quotes and invoices through the public link instead of manual EFT.</p>
-          </div>
+      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+          <PortalHeader
+            title={
+              <span className="flex items-center gap-2">
+                Payment Gateways
+                <InfoTooltip content={"Configure a South African gateway so your clients can pay invoices online.\n\nOne gateway can be active at a time. Saved credentials are encrypted at rest and never read back into the browser."} />
+              </span>
+            }
+            icon={CreditCard}
+            subtitle="Online card and EFT processing. Connect a South African gateway like PayFast or Yoco so clients can pay quotes and invoices through the public link instead of manual EFT."
+          />
 
+          <div className="space-y-6">
           {/* Super_admin tenant picker. Tenant admins never see this;
               their company comes from profile.company_id. */}
           {isSuperAdmin && (
@@ -513,7 +518,8 @@ function PaymentGatewaysPage() {
               </div>
             </CardContent>
           </Card>
-        </div>
+          </div>
+        </PortalShell>
       </div>
 
       <Dialog open={!!editProvider} onOpenChange={(o) => !o && closeDialog()}>
