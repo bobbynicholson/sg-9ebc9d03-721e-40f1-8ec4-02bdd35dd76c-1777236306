@@ -79,8 +79,6 @@ import { BRAND_PORTAL_PALETTE, BRAND_ACCENT } from "@/lib/branding/portalPalette
 import { RegionFilterDropdown } from "@/components/admin/RegionFilterDropdown";
 import { StaffViewSwitcher } from "@/components/admin/StaffViewSwitcher";
 import { CommandPaletteHint } from "@/components/CommandPaletteHint";
-import { AdminModeBadge } from "@/components/admin/AdminModeBadge";
-import { AdminLiveStateStrip } from "@/components/admin/AdminLiveStateStrip";
 import { AdminSmartQuickActions } from "@/components/admin/AdminSmartQuickActions";
 import { useAdminLiveCounts } from "@/hooks/useAdminLiveCounts";
 import { useAdminPortalMode } from "@/hooks/useAdminPortalMode";
@@ -136,16 +134,14 @@ function AdminTopSlot({ companySlug }: { companySlug: string }) {
         </div>
       </div>
 
-      {/* Admin utility row: region scope + (super-admin) staff-view switch */}
+      {/* Compact utility row: region scope + (super-admin) staff-view
+          switch. Matched to the platform sidebar's restraint - the mode
+          badge + 2x3 live-state pill grid that used to sit here were
+          dropped from the nav (that live intelligence lives on the
+          dashboard) so the navigation isn't pushed down the rail. */}
       <div className="flex flex-wrap items-center gap-2">
         <RegionFilterDropdown />
         {companySlug && <StaffViewSwitcher companySlug={companySlug} />}
-      </div>
-
-      {/* Live intelligence: mode badge + 2x3 live state pills */}
-      <div className="space-y-2">
-        <AdminModeBadge />
-        <AdminLiveStateStrip />
       </div>
     </div>
   );
