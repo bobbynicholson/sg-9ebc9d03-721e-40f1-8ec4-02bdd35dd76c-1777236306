@@ -31,6 +31,7 @@ import { MobileSearchTrigger, MobileQuickActions } from "@/components/portal/Mob
 import { DigitalClock } from "@/components/portal/DigitalClock";
 import { CollapsibleNavSection } from "@/components/navigation/CollapsibleNavSection";
 import { buildIsActive } from "@/lib/navActiveMatcher";
+import { useBrandingRow } from "@/lib/branding/useBranding";
 
 export interface PortalSidebarNavItem {
   title: string;
@@ -154,6 +155,35 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
 
   const desktopScrollRef = useNavScrollRestore<HTMLDivElement>(`${config.role}-nav`);
   const BrandIcon = config.brandIcon;
+
+  // Tenant logo. When the company has uploaded a white-label logo we
+  // show it in the brand tile instead of the generic role glyph, so the
+  // admin + team portals carry the tenant's identity (not just colour).
+  // Falls back to the gradient + BrandIcon for non-white-label tenants.
+  const branding = useBrandingRow();
+  const logoUrl = branding?.logoUrl || null;
+  const LogoTile = ({ size }: { size: "sm" | "lg" }) => {
+    const box = size === "sm" ? "w-8 h-8 rounded-lg" : "w-10 h-10 rounded-xl shadow-lg";
+    const glyph = size === "sm" ? "w-4 h-4" : "w-5 h-5";
+    if (logoUrl) {
+      return (
+        <div
+          className={cn(
+            "flex items-center justify-center overflow-hidden bg-white border border-slate-200 dark:border-slate-700",
+            box,
+          )}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={logoUrl} alt={config.title} className="w-full h-full object-contain p-0.5" />
+        </div>
+      );
+    }
+    return (
+      <div className={cn("bg-gradient-to-br flex items-center justify-center", box, config.accentGradientDark)}>
+        <BrandIcon className={cn(glyph, "text-white")} />
+      </div>
+    );
+  };
 
   // Wave 70.7 - shared row renderer so the same row treatment is
   // used in the mobile drawer + desktop expanded + desktop collapsed
@@ -370,14 +400,7 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
               </SheetContent>
             </Sheet>
             <Link href={config.dashboardHref} className="flex items-center gap-2">
-              <div
-                className={cn(
-                  "w-8 h-8 bg-gradient-to-br rounded-lg flex items-center justify-center",
-                  config.accentGradientDark,
-                )}
-              >
-                <BrandIcon className="w-4 h-4 text-white" />
-              </div>
+              <LogoTile size="sm" />
               <span className="font-bold text-slate-900 dark:text-white">{config.title}</span>
             </Link>
           </div>
@@ -407,14 +430,7 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
               <>
                 <div className="flex items-center justify-between">
                   <Link href={config.dashboardHref} className="flex items-center gap-3">
-                    <div
-                      className={cn(
-                        "w-10 h-10 bg-gradient-to-br rounded-xl flex items-center justify-center shadow-lg",
-                        config.accentGradientDark,
-                      )}
-                    >
-                      <BrandIcon className="w-5 h-5 text-white" />
-                    </div>
+                    <LogoTile size="lg" />
                     <div>
                       <h1 className="font-bold text-slate-900 dark:text-white">{config.title}</h1>
                       <p className="text-xs text-slate-600 dark:text-slate-400">CateringMS</p>
@@ -434,14 +450,7 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
               </>
             ) : (
               <div className="flex flex-col items-center gap-3 w-full">
-                <div
-                  className={cn(
-                    "w-10 h-10 bg-gradient-to-br rounded-xl flex items-center justify-center shadow-lg",
-                    config.accentGradientDark,
-                  )}
-                >
-                  <BrandIcon className="w-5 h-5 text-white" />
-                </div>
+                <LogoTile size="lg" />
                 <NotificationBell />
               </div>
             )}
