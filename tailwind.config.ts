@@ -75,8 +75,10 @@ const config: Config = {
         // `font-body`) so the app/dashboard default font is untouched.
         //   font-display — Fraunces (warm modern display serif, headings)
         //   font-body    — Inter (clean, neutral copy)
-        display: ["var(--font-display)", "ui-serif", "Georgia", "Cambria", "serif"],
-        body: ["var(--font-body)", "ui-sans-serif", "system-ui", "sans-serif"],
+        // --brand-font-* is set per white-label tenant (applyBranding);
+        // when unset it falls through to the next/font default var.
+        display: ["var(--brand-font-display, var(--font-display))", "ui-serif", "Georgia", "Cambria", "serif"],
+        body: ["var(--brand-font-body, var(--font-body))", "ui-sans-serif", "system-ui", "sans-serif"],
       },
       borderRadius: {
         lg: "var(--radius)",

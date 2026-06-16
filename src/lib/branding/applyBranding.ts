@@ -10,6 +10,7 @@
  * component in `src/components/TenantBrandingApplier.tsx` owns the
  * fetch + dispatch lifecycle on top.
  */
+import { fontFamilyValue, googleFontsHref } from "./fonts";
 
 export interface BrandingRow {
   id: string;
@@ -18,6 +19,10 @@ export interface BrandingRow {
   primaryColor: string | null;
   secondaryColor: string | null;
   accentColor: string | null;
+  /** White-label body font family name (Google Fonts), null = default. */
+  fontBody?: string | null;
+  /** White-label display/heading font family name, null = default. */
+  fontDisplay?: string | null;
 }
 
 // Default theme for users/tenants WITHOUT custom branding - the warm
@@ -69,4 +74,42 @@ export function applyBrandingToDOM(row: BrandingRow | null): void {
   root.style.setProperty("--brand-primary-rgb",   hexToRgbTriplet(primary)   ?? "37 99 235");
   root.style.setProperty("--brand-secondary-rgb", hexToRgbTriplet(secondary) ?? "124 58 237");
   root.style.setProperty("--brand-accent-rgb",    hexToRgbTriplet(accent)    ?? "245 158 11");
+
+  // Typography. The tailwind font-body / font-display utilities and the
+  // global `body` rule read --brand-font-* with a fallback to the
+  // next/font defaults, so clearing the var restores Inter / Fraunces.
+  const bodyFamily = fontFamilyValue(row?.fontBody);
+  const displayFamily = fontFamilyValue(row?.fontDisplay);
+  if (bodyFamily) root.style.setProperty("--brand-font-body", bodyFamily);
+  else root.style.removeProperty("--brand-font-body");
+  if (displayFamily) root.style.setProperty("--brand-font-display", displayFamily);
+  else root.style.removeProperty("--brand-font-display");
+}
+
+// Idempotent <link> id for the tenant Google Fonts stylesheet.
+const BRAND_FONTS_LINK_ID = "brand-fonts-link";
+
+/**
+ * Inject (or update / remove) the Google Fonts stylesheet for the
+ * tenant's chosen families. Separate from applyBrandingToDOM because it
+ * touches <head> (network) rather than just CSS vars; the applier calls
+ * both together. No-op on the server.
+ */
+export function loadBrandFonts(row: BrandingRow | null): void {
+  if (typeof document === "undefined") return;
+  const href = googleFontsHref([row?.fontBody, row?.fontDisplay]);
+  const existing = document.getElementById(BRAND_FONTS_LINK_ID) as HTMLLinkElement | null;
+  if (!href) {
+    if (existing) existing.remove();
+    return;
+  }
+  if (existing) {
+    if (existing.href !== href) existing.href = href;
+    return;
+  }
+  const link = document.createElement("link");
+  link.id = BRAND_FONTS_LINK_ID;
+  link.rel = "stylesheet";
+  link.href = href;
+  document.head.appendChild(link);
 }

@@ -1470,6 +1470,8 @@ export type Database = {
           auto_followups_enabled: boolean
           auto_reply_to_embed_submissions: boolean
           balance_due_days: number
+          brand_font_body: string | null
+          brand_font_display: string | null
           bank_account_holder: string | null
           bank_account_number: string | null
           bank_account_type: string | null
@@ -1555,6 +1557,8 @@ export type Database = {
           auto_followups_enabled?: boolean
           auto_reply_to_embed_submissions?: boolean
           balance_due_days?: number
+          brand_font_body?: string | null
+          brand_font_display?: string | null
           bank_account_holder?: string | null
           bank_account_number?: string | null
           bank_account_type?: string | null
@@ -1640,6 +1644,8 @@ export type Database = {
           auto_followups_enabled?: boolean
           auto_reply_to_embed_submissions?: boolean
           balance_due_days?: number
+          brand_font_body?: string | null
+          brand_font_display?: string | null
           bank_account_holder?: string | null
           bank_account_number?: string | null
           bank_account_type?: string | null

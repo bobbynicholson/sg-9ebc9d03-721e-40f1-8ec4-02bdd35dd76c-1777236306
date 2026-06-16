@@ -12,7 +12,7 @@
 import { useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { applyBrandingToDOM, type BrandingRow } from "@/lib/branding/applyBranding";
+import { applyBrandingToDOM, loadBrandFonts, type BrandingRow } from "@/lib/branding/applyBranding";
 import {
   getBrandingRow,
   readBrandingCache,
@@ -28,7 +28,17 @@ const initialToRow = (b: InitialBranding): BrandingRow => ({
   primaryColor: b.primaryColor,
   secondaryColor: b.secondaryColor,
   accentColor: b.accentColor,
+  fontBody: b.fontBody ?? null,
+  fontDisplay: b.fontDisplay ?? null,
 });
+
+// Apply both halves of the theme together: colour CSS vars (sync) +
+// the Google Fonts <link> for the chosen families. Every call site uses
+// this so fonts can never drift out of sync with colours.
+const paint = (row: BrandingRow | null): void => {
+  applyBrandingToDOM(row);
+  loadBrandFonts(row);
+};
 
 interface Props {
   initialBranding?: InitialBranding | null;
@@ -44,7 +54,7 @@ export function TenantBrandingApplier({ initialBranding }: Props) {
     if (!initialBranding) return;
     const row = initialToRow(initialBranding);
     setBrandingRow(row);
-    applyBrandingToDOM(row);
+    paint(row);
     // Run once - subsequent updates flow via auth/companyId.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -58,7 +68,7 @@ export function TenantBrandingApplier({ initialBranding }: Props) {
       // keep that paint; otherwise fall back to defaults.
       if (!getBrandingRow()) {
         setBrandingRow(null);
-        applyBrandingToDOM(null);
+        paint(null);
       }
       return;
     }
@@ -66,20 +76,20 @@ export function TenantBrandingApplier({ initialBranding }: Props) {
     const cached = readBrandingCache(companyId);
     if (cached) {
       setBrandingRow(cached);
-      applyBrandingToDOM(cached);
+      paint(cached);
     }
 
     (async () => {
       const { data, error } = await supabase
         .from("companies")
-        .select("id, company_name, logo_url, primary_color, secondary_color, accent_color")
+        .select("id, company_name, logo_url, primary_color, secondary_color, accent_color, brand_font_body, brand_font_display")
         .eq("id", companyId)
         .maybeSingle();
 
       if (cancelled) return;
       if (error) {
         console.warn("[TenantBrandingApplier] fetch failed:", error);
-        if (!getBrandingRow()) applyBrandingToDOM(null);
+        if (!getBrandingRow()) paint(null);
         return;
       }
 
@@ -93,9 +103,11 @@ export function TenantBrandingApplier({ initialBranding }: Props) {
         primaryColor: r.primary_color ?? null,
         secondaryColor: r.secondary_color ?? null,
         accentColor: r.accent_color ?? null,
+        fontBody: r.brand_font_body ?? null,
+        fontDisplay: r.brand_font_display ?? null,
       };
       setBrandingRow(row);
-      applyBrandingToDOM(row);
+      paint(row);
       writeBrandingCache(row);
     })();
 
@@ -111,7 +123,7 @@ export function TenantBrandingApplier({ initialBranding }: Props) {
     const handler = (e: Event) => {
       const detail = (e as CustomEvent<BrandingRow | null>).detail ?? null;
       setBrandingRow(detail);
-      applyBrandingToDOM(detail);
+      paint(detail);
       if (detail) writeBrandingCache(detail);
     };
     window.addEventListener("branding:updated", handler);

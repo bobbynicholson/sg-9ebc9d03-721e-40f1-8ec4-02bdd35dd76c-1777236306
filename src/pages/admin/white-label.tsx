@@ -32,8 +32,10 @@ import {
   DEFAULT_PALETTE,
   DEFAULT_ORG_NAME,
   isWhiteLabelRow,
+  loadBrandFonts,
   type BrandingRow,
 } from "@/lib/branding/applyBranding";
+import { BRAND_FONTS, fontFamilyValue } from "@/lib/branding/fonts";
 import { clearBrandingCache } from "@/lib/branding/store";
 import { useTenantHref } from "@/lib/tenantUrl";
 
@@ -148,6 +150,9 @@ function WhiteLabelPage() {
   const [accentColor, setAccentColor] = useState(DEFAULT_PALETTE.accent);
   const [logoUrl, setLogoUrl] = useState("");
   const [uploading, setUploading] = useState(false);
+  // "" = use the CateringMS default font (stored as NULL).
+  const [fontBody, setFontBody] = useState("");
+  const [fontDisplay, setFontDisplay] = useState("");
 
   // WL-B (task #219, 2026-05-25): savedSnapshot is the canonical
   // "last persisted" string for the four-field set the Save button
@@ -156,7 +161,7 @@ function WhiteLabelPage() {
   const [savedSnapshot, setSavedSnapshot] = useState<string>("");
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const currentSnapshot = JSON.stringify({
-    organizationName, primaryColor, secondaryColor, accentColor, logoUrl,
+    organizationName, primaryColor, secondaryColor, accentColor, logoUrl, fontBody, fontDisplay,
   });
   const isDirty = savedSnapshot !== "" && currentSnapshot !== savedSnapshot;
 
@@ -172,6 +177,13 @@ function WhiteLabelPage() {
     return () => window.removeEventListener("beforeunload", handler);
   }, [isDirty]);
 
+  // Load the selected Google Fonts as the operator picks them so the
+  // preview text below each dropdown renders in the real face (the DOM
+  // only fully re-paints tenant-wide on Save via branding:updated).
+  useEffect(() => {
+    loadBrandFonts({ fontBody: fontBody || null, fontDisplay: fontDisplay || null } as BrandingRow);
+  }, [fontBody, fontDisplay]);
+
   const isWhiteLabeled = isWhiteLabelRow(branding);
 
   // Load tenant row directly from companies. Single canonical source of
@@ -186,7 +198,7 @@ function WhiteLabelPage() {
     (async () => {
       const { data, error } = await supabase
         .from("companies")
-        .select("id, company_name, logo_url, primary_color, secondary_color, accent_color")
+        .select("id, company_name, logo_url, primary_color, secondary_color, accent_color, brand_font_body, brand_font_display")
         .eq("id", companyId)
         .maybeSingle();
       if (cancelled) return;
@@ -202,6 +214,8 @@ function WhiteLabelPage() {
         primaryColor: r.primary_color ?? null,
         secondaryColor: r.secondary_color ?? null,
         accentColor: r.accent_color ?? null,
+        fontBody: r.brand_font_body ?? null,
+        fontDisplay: r.brand_font_display ?? null,
       };
       setBranding(row);
       const initialOrg = row.companyName || "";
@@ -209,11 +223,15 @@ function WhiteLabelPage() {
       const initialSec = row.secondaryColor || DEFAULT_PALETTE.secondary;
       const initialAcc = row.accentColor || DEFAULT_PALETTE.accent;
       const initialLogo = row.logoUrl || "";
+      const initialFontBody = row.fontBody || "";
+      const initialFontDisplay = row.fontDisplay || "";
       setOrganizationName(initialOrg);
       setPrimaryColor(initialPrim);
       setSecondaryColor(initialSec);
       setAccentColor(initialAcc);
       setLogoUrl(initialLogo);
+      setFontBody(initialFontBody);
+      setFontDisplay(initialFontDisplay);
       // WL-B: seed snapshot so isDirty starts at false.
       setSavedSnapshot(JSON.stringify({
         organizationName: initialOrg,
@@ -221,6 +239,8 @@ function WhiteLabelPage() {
         secondaryColor: initialSec,
         accentColor: initialAcc,
         logoUrl: initialLogo,
+        fontBody: initialFontBody,
+        fontDisplay: initialFontDisplay,
       }));
       setLoading(false);
     })();
@@ -249,12 +269,16 @@ function WhiteLabelPage() {
         primaryColor: branding?.primaryColor ?? null,
         secondaryColor: branding?.secondaryColor ?? null,
         accentColor: branding?.accentColor ?? null,
+        fontBody: branding?.fontBody ?? null,
+        fontDisplay: branding?.fontDisplay ?? null,
       };
       if ("company_name" in patch) merged.companyName = patch.company_name ?? null;
       if ("logo_url" in patch) merged.logoUrl = patch.logo_url ?? null;
       if ("primary_color" in patch) merged.primaryColor = patch.primary_color ?? null;
       if ("secondary_color" in patch) merged.secondaryColor = patch.secondary_color ?? null;
       if ("accent_color" in patch) merged.accentColor = patch.accent_color ?? null;
+      if ("brand_font_body" in patch) merged.fontBody = patch.brand_font_body ?? null;
+      if ("brand_font_display" in patch) merged.fontDisplay = patch.brand_font_display ?? null;
       setBranding(merged);
       dispatchBrandingUpdated(merged);
       return merged;
@@ -272,11 +296,13 @@ function WhiteLabelPage() {
         primary_color: primaryColor || null,
         secondary_color: secondaryColor || null,
         accent_color: accentColor || null,
+        brand_font_body: fontBody || null,
+        brand_font_display: fontDisplay || null,
       });
       // WL-B: refresh snapshot + chip so isDirty flips back to
       // false + the chip reads "Just saved".
       setSavedSnapshot(JSON.stringify({
-        organizationName, primaryColor, secondaryColor, accentColor, logoUrl,
+        organizationName, primaryColor, secondaryColor, accentColor, logoUrl, fontBody, fontDisplay,
       }));
       setLastSavedAt(new Date());
       toast({
@@ -307,6 +333,8 @@ function WhiteLabelPage() {
         primary_color: null,
         secondary_color: null,
         accent_color: null,
+        brand_font_body: null,
+        brand_font_display: null,
       });
       clearBrandingCache(companyId);
       setOrganizationName(DEFAULT_ORG_NAME);
@@ -314,6 +342,8 @@ function WhiteLabelPage() {
       setSecondaryColor(DEFAULT_PALETTE.secondary);
       setAccentColor(DEFAULT_PALETTE.accent);
       setLogoUrl("");
+      setFontBody("");
+      setFontDisplay("");
       // Dispatch null so the applier reverts the DOM to defaults.
       dispatchBrandingUpdated(null);
       // WL-B: snapshot the new defaults so isDirty stays false.
@@ -323,6 +353,8 @@ function WhiteLabelPage() {
         secondaryColor: DEFAULT_PALETTE.secondary,
         accentColor: DEFAULT_PALETTE.accent,
         logoUrl: "",
+        fontBody: "",
+        fontDisplay: "",
       }));
       setLastSavedAt(new Date());
       toast({
@@ -693,6 +725,54 @@ function WhiteLabelPage() {
                   <div className="rounded-lg bg-slate-50 border border-slate-200 p-3 text-xs text-slate-600">
                     <p className="font-semibold text-slate-700 mb-1">Where you&apos;ll see these</p>
                     <p>Sidebar logo tile, primary CTAs, the page header gradient on tenant-scoped pages, the left rail accent on email templates, and the highlight colour on buttons throughout the admin and client portals. Status colours (success green, warning amber, error red) stay fixed so they remain readable.</p>
+                  </div>
+
+                  {/* Typography. NULL/"" = the CateringMS defaults
+                      (Inter body / Fraunces display). Both pickers list
+                      every face so a tenant can pair e.g. a serif body
+                      with a sans heading if they want. */}
+                  <div className="space-y-4 border-t border-slate-200 pt-5">
+                    <div>
+                      <Label htmlFor="fontBody">Body font</Label>
+                      <select
+                        id="fontBody"
+                        value={fontBody}
+                        onChange={(e) => setFontBody(e.target.value)}
+                        className="mt-1.5 w-full h-10 rounded-md border border-slate-300 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/40"
+                      >
+                        <option value="">Default (Inter)</option>
+                        {BRAND_FONTS.map((f) => (
+                          <option key={f.name} value={f.name}>{f.label}</option>
+                        ))}
+                      </select>
+                      <p
+                        className="text-sm text-slate-600 mt-2"
+                        style={{ fontFamily: fontFamilyValue(fontBody) || undefined }}
+                      >
+                        The quick brown fox jumps over the lazy dog. Used for all body copy across the admin, team portals, and client portal.
+                      </p>
+                    </div>
+
+                    <div>
+                      <Label htmlFor="fontDisplay">Heading font</Label>
+                      <select
+                        id="fontDisplay"
+                        value={fontDisplay}
+                        onChange={(e) => setFontDisplay(e.target.value)}
+                        className="mt-1.5 w-full h-10 rounded-md border border-slate-300 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/40"
+                      >
+                        <option value="">Default (Fraunces)</option>
+                        {BRAND_FONTS.map((f) => (
+                          <option key={f.name} value={f.name}>{f.label}</option>
+                        ))}
+                      </select>
+                      <p
+                        className="text-xl font-semibold text-slate-800 mt-2"
+                        style={{ fontFamily: fontFamilyValue(fontDisplay) || undefined }}
+                      >
+                        Your headings look like this
+                      </p>
+                    </div>
                   </div>
                 </CardContent>
               </Card>

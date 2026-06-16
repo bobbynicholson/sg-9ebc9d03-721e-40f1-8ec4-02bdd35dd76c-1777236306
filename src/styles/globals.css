@@ -95,6 +95,11 @@
   
   body {
     @apply text-foreground;
+    /* White-label body font. --brand-font-body is set per tenant by
+       applyBranding; unset = the app's existing default sans stack, so
+       non-white-label tenants are visually unchanged. Headings that opt
+       into `font-display` pick up --brand-font-display the same way. */
+    font-family: var(--brand-font-body, ui-sans-serif, system-ui, sans-serif);
     /* Wave 70.34 -- match the start colour of every admin / portal
        page's gradient (from-slate-50). The previous bg-background
        (white) produced a visible white flash between route mounts,

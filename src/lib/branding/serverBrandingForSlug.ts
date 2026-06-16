@@ -47,6 +47,8 @@ export interface InitialBranding {
   primaryColor: string | null;
   secondaryColor: string | null;
   accentColor: string | null;
+  fontBody: string | null;
+  fontDisplay: string | null;
 }
 
 export type BrandingLookupReason = "not_found" | "not_configured" | "server_error";
@@ -87,7 +89,7 @@ export async function getInitialBrandingForSlugDetailed(
   try {
     const { data, error } = await supabase
       .from("companies")
-      .select("id, slug, company_name, logo_url, primary_color, secondary_color, accent_color")
+      .select("id, slug, company_name, logo_url, primary_color, secondary_color, accent_color, brand_font_body, brand_font_display")
       .eq("slug", slug)
       .maybeSingle();
 
@@ -121,6 +123,8 @@ export async function getInitialBrandingForSlugDetailed(
         primaryColor: row.primary_color || null,
         secondaryColor: row.secondary_color || null,
         accentColor: row.accent_color || null,
+        fontBody: row.brand_font_body || null,
+        fontDisplay: row.brand_font_display || null,
       },
       reason: null,
       debug: null,
