@@ -1449,7 +1449,7 @@ function DispatchQueuePage() {
               Assign driver · {assignTarget?.client_name}
             </DialogTitle>
             <p className="text-sm text-slate-500">
-              Every driver, scored by distance, current load, region, on-time rate and rating - best match first. Pick anyone; one click to assign.
+              Every driver, scored by distance, current load, region and on-time rate - best match first. Pick anyone; one click to assign.
             </p>
           </DialogHeader>
 

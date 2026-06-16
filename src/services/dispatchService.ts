@@ -59,7 +59,10 @@ const DEFAULT_SETTINGS: DispatchSettings = {
     currentLoad:  0.20,
     regionMatch:  0.25,
     onTimeRate:   0.15,
-    rating:       0.10,
+    // Rating no longer influences driver selection (2026-06-17). Kept at 0
+    // for settings back-compat; scoreDriverForOrder ignores it and
+    // renormalises on the remaining factors.
+    rating:       0,
   },
 };
 
@@ -278,7 +281,6 @@ export const dispatchService = {
       currentLoad: number;
       driverLatLng?: { lat: number; lng: number } | null;
       onTimeRate?: number; // 0-1
-      rating?: number;     // 0-5
       weights: DispatchSettings["weights"];
     },
   ): ScoreBreakdown {
@@ -324,16 +326,19 @@ export const dispatchService = {
     const onTimeScore = Math.max(0, Math.min(1, ctx.onTimeRate ?? 0.85));
     if (ctx.onTimeRate != null) reasons.push(`${Math.round(ctx.onTimeRate * 100)}% on-time`);
 
-    // Rating (0-5 -> 0-1). Default 4.5/5 when unknown.
-    const ratingScore = Math.max(0, Math.min(1, (ctx.rating ?? 4.5) / 5));
-
+    // Rating removed from selection (2026-06-17): drivers aren't chosen on
+    // a star rating, so it no longer influences the score. We score on
+    // distance, current load, region and on-time only, and renormalise by
+    // the active weights so the total stays 0-100 regardless of any legacy
+    // rating weight still stored in a tenant's settings.
     const w = ctx.weights;
+    const activeWeightSum =
+      (w.distance + w.currentLoad + w.regionMatch + w.onTimeRate) || 1;
     const weighted =
-      w.distance    * distanceScore +
-      w.currentLoad * loadScore +
-      w.regionMatch * regionScore +
-      w.onTimeRate  * onTimeScore +
-      w.rating      * ratingScore;
+      (w.distance    * distanceScore +
+       w.currentLoad * loadScore +
+       w.regionMatch * regionScore +
+       w.onTimeRate  * onTimeScore) / activeWeightSum;
 
     const total = Math.round(weighted * 100);
 
@@ -343,7 +348,7 @@ export const dispatchService = {
       currentLoad: loadScore,
       regionMatch: regionScore,
       onTimeRate:  onTimeScore,
-      rating:      ratingScore,
+      rating:      0,
       reasons,
     };
   },
