@@ -362,8 +362,8 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
         className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700"
         style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
       >
-        <div className="flex items-center justify-between px-4 py-3">
-          <div className="flex items-center gap-3">
+        <div className="flex items-center justify-between gap-2 px-4 py-3">
+          <div className="flex items-center gap-3 min-w-0 flex-1">
             <Sheet open={open} onOpenChange={setOpen}>
               <SheetTrigger asChild>
                 <Button variant="ghost" size="icon" aria-label="Open navigation menu">
@@ -399,12 +399,12 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
                 </div>
               </SheetContent>
             </Sheet>
-            <Link href={config.dashboardHref} className="flex items-center gap-2">
+            <Link href={config.dashboardHref} className="flex items-center gap-2 min-w-0">
               <LogoTile size="sm" />
-              <span className="font-bold text-slate-900 dark:text-white">{config.title}</span>
+              <span className="font-bold text-slate-900 dark:text-white truncate">{config.title}</span>
             </Link>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             {/* Wave 70.10 - digital clock in the mobile header.
                 Compact variant so it fits next to the bell + theme
                 switch without crowding. */}
@@ -428,15 +428,15 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
           <div className="flex flex-col gap-3 px-6 py-4 border-b border-slate-200 dark:border-slate-700">
             {!isCollapsed ? (
               <>
-                <div className="flex items-center justify-between">
-                  <Link href={config.dashboardHref} className="flex items-center gap-3">
+                <div className="flex items-center justify-between gap-2">
+                  <Link href={config.dashboardHref} className="flex items-center gap-3 min-w-0 flex-1">
                     <LogoTile size="lg" />
-                    <div>
-                      <h1 className="font-bold text-slate-900 dark:text-white">{config.title}</h1>
-                      <p className="text-xs text-slate-600 dark:text-slate-400">CateringMS</p>
+                    <div className="min-w-0">
+                      <h1 className="font-bold text-slate-900 dark:text-white truncate">{config.title}</h1>
+                      <p className="text-xs text-slate-600 dark:text-slate-400 truncate">CateringMS</p>
                     </div>
                   </Link>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 shrink-0">
                     <NotificationBell />
                     <ThemeSwitch />
                   </div>
