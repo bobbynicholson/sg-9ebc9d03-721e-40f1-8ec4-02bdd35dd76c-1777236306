@@ -25,6 +25,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { PortalShell, PortalHeader } from "@/components/portal/ui";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { useAuth } from "@/contexts/AuthContext";
@@ -327,22 +328,15 @@ function KitchenScheduleGrid() {
       <Head><title>Kitchen schedule - CateringMS</title></Head>
       <NoIndexMeta />
       <AdminNav />
-      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
-        <div className="px-4 pt-20 lg:pt-6 pb-12 max-w-full">
+      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <div className="space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-brand-primary to-brand-secondary flex items-center justify-center shadow-md flex-shrink-0">
-                  <CalendarClock className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-2xl md:text-3xl font-bold text-slate-900">Kitchen schedule</h1>
-                  <p className="text-slate-600 text-sm mt-0.5">
-                    Weekly roster. Click an empty cell to plan a shift; cells flip to actual hours when the chef clocks in.
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 flex-wrap">
+            <PortalHeader
+              title="Kitchen schedule"
+              icon={CalendarClock}
+              subtitle="Weekly roster. Click an empty cell to plan a shift; cells flip to actual hours when the chef clocks in."
+              actions={
+              <>
                 {/* Wave 66.2 - view-mode toggle. Week stays the
                     daily-ops surface (Mon-Sun grid with per-cell
                     rostering); Month gives the planner a 5-6 week
@@ -450,8 +444,9 @@ function KitchenScheduleGrid() {
                 >
                   <Download className="w-3.5 h-3.5" /> Export CSV
                 </Button>
-              </div>
-            </div>
+              </>
+              }
+            />
 
             <Card>
               <CardHeader className="pb-3">
@@ -891,7 +886,7 @@ function KitchenScheduleGrid() {
               </CardContent>
             </Card>
           </div>
-        </div>
+        </PortalShell>
         <Footer />
       </div>
 

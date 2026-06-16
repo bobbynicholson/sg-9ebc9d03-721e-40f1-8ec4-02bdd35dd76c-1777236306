@@ -25,6 +25,7 @@ import Link from "next/link";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { PortalShell, PortalHeader } from "@/components/portal/ui";
 import { AddressAutocomplete } from "@/components/admin/AddressAutocomplete";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { COUNTRIES, getCountry, type CountryCode } from "@/lib/regionGeography";
@@ -692,20 +693,15 @@ function RegionsPage() {
       </Head>
       <AdminNav />
 
-      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
-        <div className="px-4 py-8 max-w-6xl mx-auto">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
-            <div className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-xl bg-brand-primary/10 flex items-center justify-center flex-shrink-0">
-                <Globe className="w-5 h-5 text-brand-primary" />
-              </div>
-              <div>
-                <h1 className="text-2xl md:text-3xl font-bold text-slate-900">
-                  Branches
-                </h1>
-                <p className="text-sm text-slate-600 mt-1">
-                  One company, multiple operating cities. Each branch has its own delivery rate, manager, kitchen, drivers, and inventory. Quotes, orders, and reporting all stay scoped to the branch the lead came in on.
-                </p>
+      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+
+          <PortalHeader
+            title="Branches"
+            icon={Globe}
+            subtitle={
+              <>
+                One company, multiple operating cities. Each branch has its own delivery rate, manager, kitchen, drivers, and inventory. Quotes, orders, and reporting all stay scoped to the branch the lead came in on.
                 {/* Phase 17 #6: HQ defaults chip. Each per-region
                     chip surfaces a 'differs from HQ' warning
                     (Phase 12 #10) when the value diverges; this
@@ -722,9 +718,10 @@ function RegionsPage() {
                     {companyDefaults.currency}
                   </span>
                 </div>
-              </div>
-            </div>
-            <div className="flex gap-2">
+              </>
+            }
+            actions={
+            <>
               {/* Phase 28 #6: manual refresh. Region stats roll up
                   from MTD orders and open quote counts; a refresh
                   re-pulls the join after a quote or order changes
@@ -797,8 +794,9 @@ function RegionsPage() {
                   Add Branch
                 </Button>
               )}
-            </div>
-          </div>
+            </>
+            }
+          />
 
           {/* REG-D (regions follow-ups): unlinked-staff banner. Pre-
               REG-D the page never surfaced HOW MANY staff weren't
@@ -1091,7 +1089,7 @@ function RegionsPage() {
               <ArrowLeft className="w-4 h-4" /> Back to dashboard
             </Link>
           </div>
-        </div>
+        </PortalShell>
         <Footer />
       </div>
 

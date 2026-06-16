@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { PortalShell, PortalHeader } from "@/components/portal/ui";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -28,21 +29,15 @@ export default function InventoryRecipes() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 lg:pl-72 xl:pl-80 pt-20 lg:pt-0">
+    <>
       <AdminNav />
-      <div className="px-4 py-8">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-3">
-              <ChefHat className="h-8 w-8 text-purple-600" />
-              Recipes
-            </h1>
-            <p className="text-slate-600 mt-1">
-              Menu items linked to the ingredients they use. When an event books, the kitchen knows what to pull and inventory deducts automatically. No more guessing what to thaw.
-            </p>
-          </div>
-        </div>
+      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+          <PortalHeader
+            title="Recipes"
+            icon={ChefHat}
+            subtitle="Menu items linked to the ingredients they use. When an event books, the kitchen knows what to pull and inventory deducts automatically. No more guessing what to thaw."
+          />
 
         {/* Info Alert */}
         <Card className="mb-6 border-blue-200 bg-blue-50">
@@ -250,7 +245,8 @@ export default function InventoryRecipes() {
             </div>
           </CardContent>
         </Card>
+        </PortalShell>
       </div>
-    </div>
+    </>
   );
 }

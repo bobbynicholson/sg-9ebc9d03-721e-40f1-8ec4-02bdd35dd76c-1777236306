@@ -20,6 +20,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { PortalShell, PortalHeader } from "@/components/portal/ui";
 import {
   Users,
   ArrowLeft,
@@ -694,8 +695,8 @@ function AdminUsersPage() {
       
       <AdminNav />
       
-      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
-        <div className="px-4 py-6 md:py-8 max-w-full">
+      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <Link href={withSlug("/admin/dashboard")}>
             <Button variant="ghost" className="mb-4" size="sm">
               <ArrowLeft className="w-4 h-4 mr-2" />
@@ -703,28 +704,19 @@ function AdminUsersPage() {
             </Button>
           </Link>
 
-          <div className="mb-6 md:mb-8">
-            <div className="flex items-center justify-between flex-wrap gap-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-gradient-to-br from-brand-primary to-brand-secondary flex items-center justify-center shadow-lg flex-shrink-0">
-                  <Users className="w-5 h-5 md:w-8 md:h-8 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-slate-900">
-                    Full team
-                  </h1>
-                  {/* USR-A (task #207, 2026-05-24): copy fix. Pre-fix
-                      this line claimed clients were listed too, but
-                      the loadUsers call passes excludeRoles=["client"]
-                      so they are not. Same line also promised "Assign
-                      roles and revoke access here" - role edit ships
-                      via Edit Departments; revoke isn't surfaced yet
-                      (deferred to #208). Honest framing now. */}
-                  <p className="text-sm md:text-base text-slate-600 mt-1">Everyone with a staff login: owners, admins, kitchen, drivers, shopping, cleaning. Assign departments here; client portal accounts are managed under /admin/contacts.</p>
-                </div>
-              </div>
-              
-              <div className="flex items-center gap-2">
+          {/* USR-A (task #207, 2026-05-24): copy fix. Pre-fix
+              the subtitle claimed clients were listed too, but
+              the loadUsers call passes excludeRoles=["client"]
+              so they are not. Same line also promised "Assign
+              roles and revoke access here" - role edit ships
+              via Edit Departments; revoke isn't surfaced yet
+              (deferred to #208). Honest framing now. */}
+          <PortalHeader
+            title="Full team"
+            icon={Users}
+            subtitle="Everyone with a staff login: owners, admins, kitchen, drivers, shopping, cleaning. Assign departments here; client portal accounts are managed under /admin/contacts."
+            actions={
+            <>
                 <InfoTooltip
                   content={"Refresh the user list to pick up the latest changes and department assignments."}
                   side="left"
@@ -798,9 +790,9 @@ function AdminUsersPage() {
                   <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
                   Refresh
                 </Button>
-              </div>
-            </div>
-          </div>
+            </>
+            }
+          />
 
           <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 md:gap-4 mb-6">
             <Card className="border-0 shadow-lg">
@@ -1255,7 +1247,7 @@ function AdminUsersPage() {
               ))}
             </div>
           )}
-        </div>
+        </PortalShell>
       </div>
 
       {/* USR-C (task #208, 2026-05-24): Invite User dialog. Calls

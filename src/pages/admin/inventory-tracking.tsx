@@ -5,6 +5,7 @@ import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { supabase } from "@/integrations/supabase/client";
 import { toLocalISO } from "@/lib/localDate";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { PortalShell, PortalHeader } from "@/components/portal/ui";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -457,16 +458,16 @@ export default function InventoryTracking() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 lg:pl-72 xl:pl-80 pt-20 lg:pt-0">
+    <>
       <AdminNav />
-      <div className="px-4 py-8">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-slate-900">Inventory tracking</h1>
-            <p className="text-slate-600 mt-1">Live stock levels with low-stock alerts. Generate a shopping list from the gap between what you have and what upcoming events will need.</p>
-          </div>
-          <div className="flex gap-2">
+      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+          <PortalHeader
+            title="Inventory tracking"
+            icon={Package}
+            subtitle="Live stock levels with low-stock alerts. Generate a shopping list from the gap between what you have and what upcoming events will need."
+            actions={
+            <>
             {/* Phase 28 #5: manual refresh. Stock counts change
                 constantly via clock-outs, deliveries, manual
                 edits from other tabs. */}
@@ -538,8 +539,9 @@ export default function InventoryTracking() {
               setFormData={setFormData}
               onSubmit={handleAddItem}
             />
-          </div>
-        </div>
+            </>
+            }
+          />
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
@@ -809,7 +811,8 @@ export default function InventoryTracking() {
           setStockMovementData={setStockMovementData}
           onSubmit={handleStockMovement}
         />
+        </PortalShell>
       </div>
-    </div>
+    </>
   );
 }

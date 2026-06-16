@@ -6,6 +6,7 @@ import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import { useSortable, type ColumnDef } from "@/lib/useSortable";
 import { SortHeader } from "@/components/ui/sort-header";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { PortalShell, PortalHeader } from "@/components/portal/ui";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -930,27 +931,23 @@ function AdminInventory() {
       <Head><title>Inventory - CateringMS</title></Head>
       <AdminNav />
 
-      <div className="min-h-screen overflow-x-hidden bg-slate-50 lg:pl-72 xl:pl-80">
-        <div className="px-4 pt-20 lg:pt-6 pb-6 max-w-full">
+      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
 
-          {/* Compressed header */}
-          <div className="mb-5 flex items-center justify-between flex-wrap gap-3">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-emerald-500 to-green-600 flex items-center justify-center shadow-sm">
-                <Package className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-semibold text-slate-900">Food &amp; Ingredients</h1>
-                <p className="text-sm text-slate-600">
-                  Pantry and chiller stock. Levels per item, low-stock alerts, and what each upcoming event will pull.
-                </p>
-                <p className="text-xs text-slate-500 mt-0.5">
+          <PortalHeader
+            title="Food & Ingredients"
+            icon={Package}
+            subtitle={
+              <>
+                Pantry and chiller stock. Levels per item, low-stock alerts, and what each upcoming event will pull.
+                <span className="block text-xs text-slate-500 mt-0.5">
                   {inventory.length} item{inventory.length === 1 ? "" : "s"}
                   {lastActivity && <> · last movement {relativeTime(lastActivity.created_at)}</>}
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
+                </span>
+              </>
+            }
+            actions={
+            <>
               <Button
                 variant="ghost"
                 size="sm"
@@ -1007,8 +1004,9 @@ function AdminInventory() {
                 <Package className="w-4 h-4" />
                 Receive
               </Button>
-            </div>
-          </div>
+            </>
+            }
+          />
 
           {/* Recent receipts that fed inventory - collapsible audit
               trail tying stock movements back to the slip they came from. */}
@@ -1726,7 +1724,7 @@ function AdminInventory() {
               })
             )}
           </div>
-        </div>
+        </PortalShell>
       </div>
 
       {/* ── Add modal ──────────────────────────────────────────────── */}

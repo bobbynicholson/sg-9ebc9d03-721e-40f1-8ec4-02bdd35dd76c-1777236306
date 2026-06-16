@@ -30,6 +30,7 @@ import {
 import { captureException } from "@/lib/observability";
 import { supabase } from "@/integrations/supabase/client";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { PortalShell, PortalHeader } from "@/components/portal/ui";
 import { AllergenReviewBadge } from "@/components/admin/AllergenReviewBadge";
 import { MenuTopSellersWidget } from "@/components/admin/MenuTopSellersWidget";
 import { WidgetErrorBoundary } from "@/components/dashboard/WidgetErrorBoundary";
@@ -1066,26 +1067,20 @@ function MenuPage() {
       <Head><title>Menu - CateringMS</title></Head>
       <NoIndexMeta />
       <AdminNav />
-      <main className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80 pt-20 lg:pt-0">
-        <div className="px-3 sm:px-4 md:px-6 pt-20 lg:pt-6 pb-6 max-w-full">
+      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
 
-          {/* Header */}
-          <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-brand-primary to-brand-secondary flex items-center justify-center shadow-lg flex-shrink-0">
-                <BookOpen className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <h1 className="text-2xl md:text-3xl font-bold text-slate-900 flex items-center gap-2">
-                  Menu
-                  <InfoTooltip content="Build the dishes your kitchen cooks. Each menu item can have a recipe attached, the recipe lists ingredients and links each one to the inventory item it consumes.\n\nThe kitchen tablet sees these recipes when cooking, and the prep flywheel uses them to project ingredient demand and surface shortfalls before they hit." />
-                </h1>
-                <p className="text-sm text-slate-600 mt-1">
-                  Add menu items and build their recipes. Kitchen, dispatch and shopping read from this list.
-                </p>
-              </div>
-            </div>
-            <div className="flex gap-2">
+          <PortalHeader
+            title={
+              <span className="flex items-center gap-2">
+                Menu
+                <InfoTooltip content="Build the dishes your kitchen cooks. Each menu item can have a recipe attached, the recipe lists ingredients and links each one to the inventory item it consumes.\n\nThe kitchen tablet sees these recipes when cooking, and the prep flywheel uses them to project ingredient demand and surface shortfalls before they hit." />
+              </span>
+            }
+            icon={BookOpen}
+            subtitle="Add menu items and build their recipes. Kitchen, dispatch and shopping read from this list."
+            actions={
+            <>
               {/* Phase 28 #2: manual refresh. The catalogue loads
                   once on mount; the kitchen lead who has just
                   added an item from another tab needs to pull
@@ -1164,8 +1159,9 @@ function MenuPage() {
               <Button onClick={openAdd} className="bg-gradient-to-r from-brand-primary to-brand-secondary hover:opacity-90">
                 <Plus className="w-4 h-4 mr-2" />Add menu item
               </Button>
-            </div>
-          </div>
+            </>
+            }
+          />
 
           {/* Stat strip - MNU-B widened to 6 tiles. */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-5">
@@ -1634,9 +1630,9 @@ function MenuPage() {
               </WidgetErrorBoundary>
             </div>
           ) : null}
-        </div>
+        </PortalShell>
         <Footer />
-      </main>
+      </div>
 
       {/* ── Add / Edit dialog ─────────────────────────────────────────── */}
       <Dialog open={dialogOpen} onOpenChange={(o) => { if (!o) closeDialog(); else setDialogOpen(true); }}>

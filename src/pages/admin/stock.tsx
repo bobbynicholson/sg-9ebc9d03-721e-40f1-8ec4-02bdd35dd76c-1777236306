@@ -34,6 +34,7 @@ import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { PortalShell, PortalHeader } from "@/components/portal/ui";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { toLocalISO } from "@/lib/localDate";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -841,31 +842,26 @@ function StockPage() {
       <Head><title>Stock - CateringMS</title></Head>
       <AdminNav />
 
-      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
-        <div className="px-3 sm:px-4 md:px-6 pt-20 lg:pt-6 pb-6 max-w-full">
+      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
 
-          <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-brand-primary to-brand-secondary flex items-center justify-center shadow-lg flex-shrink-0">
-                <Boxes className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
-              </div>
-              <div className="min-w-0">
-                <h1 className="text-2xl sm:text-3xl xl:text-4xl font-bold text-slate-900">
-                  Stock
-                </h1>
+          <PortalHeader
+            title="Stock"
+            icon={Boxes}
+            subtitle={
+              <>
                 {/* STK-B: operator-language hero copy. "Pressure feed"
                     was too clever; this names the three pillars. */}
-                <p className="text-sm sm:text-base text-slate-600 mt-1">
-                  What needs your attention today: stock running low, equipment committed for upcoming events, and hire-in orders still pending.
-                  {regionLabel && (
-                    <span className="ml-2 inline-flex items-center gap-1 text-xs text-slate-500">
-                      <MapPin className="w-3 h-3" /> {regionLabel}
-                    </span>
-                  )}
-                </p>
-              </div>
-            </div>
-            <div className="flex flex-wrap items-center gap-2 lg:flex-shrink-0">
+                What needs your attention today: stock running low, equipment committed for upcoming events, and hire-in orders still pending.
+                {regionLabel && (
+                  <span className="ml-2 inline-flex items-center gap-1 text-xs text-slate-500">
+                    <MapPin className="w-3 h-3" /> {regionLabel}
+                  </span>
+                )}
+              </>
+            }
+            actions={
+            <>
               {totalAttention > 0 && (
                 <a
                   href="#needs-attention"
@@ -884,8 +880,9 @@ function StockPage() {
                 {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <TrendingUp className="w-4 h-4" />}
                 Refresh
               </Button>
-            </div>
-          </div>
+            </>
+            }
+          />
 
           {/* STK-B: aging hire-in escalation banner. Loud when one or
               more suppliers owe orders that are >7 days overdue. */}
@@ -1346,7 +1343,7 @@ function StockPage() {
           {/* STK-B: dropped the Shortcuts grid - the three KPI tiles
               above already reach Inventory / Equipment / Hire-in.
               Duplicate destinations was the audit smell. */}
-        </div>
+        </PortalShell>
       </div>
     </>
   );

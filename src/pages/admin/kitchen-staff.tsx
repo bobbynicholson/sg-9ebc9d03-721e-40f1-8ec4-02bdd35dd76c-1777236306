@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { PortalShell, PortalHeader } from "@/components/portal/ui";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
@@ -547,30 +548,24 @@ function KitchenStaffPage() {
       <Head><title>Staff & rates - CateringMS</title></Head>
       <NoIndexMeta />
       <AdminNav />
-      <main className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80 pt-20 lg:pt-0">
-        <div className="px-3 sm:px-4 md:px-6 pt-20 lg:pt-6 pb-6 max-w-full">
+      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
 
-          {/* Header */}
-          <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-brand-primary to-brand-secondary flex items-center justify-center shadow-lg flex-shrink-0">
-                <Users className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                {/* STA-B: hero rebranded "Staff & rates" - the page
-                    covers Kitchen / Cleaning / Shopping / Service /
-                    Office, not just the kitchen. The Users icon
-                    replaces ChefHat for the same reason. */}
-                <h1 className="text-2xl md:text-3xl font-bold text-slate-900 flex items-center gap-2">
-                  Staff &amp; rates
-                  <InfoTooltip content="Add the people working across kitchen, cleaning, shopping, service and office, set their rates and standard daily hours.\n\nThe department tablet boards show their tiles, one tap to clock them in, one to clock out.\n\nRates and wages stay on this and the wage dashboard. The team surfaces never see them." />
-                </h1>
-                <p className="text-sm text-slate-600 mt-1">
-                  Team roster across every department. Add staff, set pay type (hourly, monthly, or per shift), and decide who gets a portal login versus who just gets clocked in by the manager.
-                </p>
-              </div>
-            </div>
-            <div className="flex gap-2">
+          {/* STA-B: hero rebranded "Staff & rates" - the page
+              covers Kitchen / Cleaning / Shopping / Service /
+              Office, not just the kitchen. The Users icon
+              replaces ChefHat for the same reason. */}
+          <PortalHeader
+            title={
+              <span className="flex items-center gap-2">
+                Staff &amp; rates
+                <InfoTooltip content="Add the people working across kitchen, cleaning, shopping, service and office, set their rates and standard daily hours.\n\nThe department tablet boards show their tiles, one tap to clock them in, one to clock out.\n\nRates and wages stay on this and the wage dashboard. The team surfaces never see them." />
+              </span>
+            }
+            icon={Users}
+            subtitle="Team roster across every department. Add staff, set pay type (hourly, monthly, or per shift), and decide who gets a portal login versus who just gets clocked in by the manager."
+            actions={
+            <>
               {/* Phase 28 #1: manual refresh. The roster loads once
                   on mount; a manager who has just added or
                   archived a staff member from another tab needs
@@ -644,8 +639,9 @@ function KitchenStaffPage() {
                 <UserPlus className="w-4 h-4 mr-2" />
                 Add staff
               </Button>
-            </div>
-          </div>
+            </>
+            }
+          />
 
           {/* STA-B: missing-rate banner. Pre-STA-B this was an amber
               tile that looked like every other stat; operators
@@ -1110,10 +1106,10 @@ function KitchenStaffPage() {
               )}
             </CardContent>
           </Card>
-        </div>
+        </PortalShell>
 
         <Footer />
-      </main>
+      </div>
 
       {/* Add / Edit dialog. The form body is long enough on a phone /
           short laptop that the Save button slid below the fold, so the

@@ -26,6 +26,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { PortalShell, PortalHeader } from "@/components/portal/ui";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { useAuth } from "@/contexts/AuthContext";
@@ -699,21 +700,13 @@ function DriverSettlementPage() {
       <Head><title>Driver settlement - CateringMS</title></Head>
       <AdminNav />
 
-      <div className="min-h-screen bg-slate-50 lg:pl-72 xl:pl-80 pt-20 lg:pt-0">
-        <div className="px-4 py-8 max-w-full">
-          <div className="mb-6">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-orange-500 to-amber-600 flex items-center justify-center shadow-lg">
-                <Wallet className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <h1 className="text-3xl font-bold text-slate-900">Driver Settlement</h1>
-                <p className="text-slate-600 mt-1">
-                  Per-driver pay summary. Hourly, round-trip kilometres, callout fees, and the total owed for the period. Mark each driver as paid once the money's out.
-                </p>
-              </div>
-            </div>
-          </div>
+      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+          <PortalHeader
+            title="Driver Settlement"
+            icon={Wallet}
+            subtitle="Per-driver pay summary. Hourly, round-trip kilometres, callout fees, and the total owed for the period. Mark each driver as paid once the money's out."
+          />
 
           {/* Period picker */}
           <Card className="border-0 shadow mb-6">
@@ -1207,7 +1200,7 @@ function DriverSettlementPage() {
               </DialogFooter>
             </DialogContent>
           </Dialog>
-        </div>
+        </PortalShell>
         <Footer />
       </div>
     </>

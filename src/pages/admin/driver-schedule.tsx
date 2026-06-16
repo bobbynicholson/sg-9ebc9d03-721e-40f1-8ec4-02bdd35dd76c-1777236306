@@ -21,6 +21,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { PortalShell, PortalHeader } from "@/components/portal/ui";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { useAuth } from "@/contexts/AuthContext";
@@ -205,22 +206,14 @@ function DriverScheduleGrid() {
       <Head><title>Driver schedule - CateringMS</title></Head>
       <NoIndexMeta />
       <AdminNav />
-      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
-        <div className="px-4 pt-20 lg:pt-6 pb-12 max-w-full">
-          <div className="space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg">
-                  <Calendar className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-2xl md:text-3xl font-bold text-slate-900">Driver schedule</h1>
-                  <p className="text-slate-600 text-sm mt-0.5">
-                    Weekly grid of every driver's logged shifts. Click an empty cell to log a shift.
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
+      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+          <PortalHeader
+            title="Driver schedule"
+            icon={Calendar}
+            subtitle="Weekly grid of every driver's logged shifts. Click an empty cell to log a shift."
+            actions={
+            <>
                 <Button variant="outline" size="sm" onClick={() => setWeekStart(addDays(weekStart, -7))}>
                   <ChevronLeft className="w-4 h-4" />
                 </Button>
@@ -297,8 +290,9 @@ function DriverScheduleGrid() {
                 >
                   <Download className="w-3.5 h-3.5" /> Export CSV
                 </Button>
-              </div>
-            </div>
+            </>
+            }
+          />
 
             <Card>
               <CardHeader className="pb-3">
@@ -489,8 +483,7 @@ function DriverScheduleGrid() {
                 )}
               </CardContent>
             </Card>
-          </div>
-        </div>
+        </PortalShell>
         <Footer />
       </div>
 

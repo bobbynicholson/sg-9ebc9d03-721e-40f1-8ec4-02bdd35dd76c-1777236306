@@ -24,6 +24,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { PortalShell, PortalHeader } from "@/components/portal/ui";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import {  UserRole  } from "@/types/app";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
@@ -367,26 +368,22 @@ function StaffHoursPage() {
 
       <AdminNav />
 
-      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
-        <div className="px-4 py-8 max-w-full">
-          <div className="mb-8 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
-            <div>
-              {/* STH-D (2026-05-23): page covers the live clock-
-                  in log (staff_work_sessions). The wage roll-up
-                  (hours x rates with BCEA overtime / Sunday /
-                  public-holiday splits) lives on /admin/wages and
-                  reads kitchen_staff_shifts. Pre-STH-D the copy
-                  said "tablet clock-in" - kitchen actually runs on
-                  desktop for now, the tablet flow is deferred. */}
-              <h1 className="text-3xl font-bold mb-2">Time Clock Log</h1>
-              <p className="text-muted-foreground">
+      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+          <PortalHeader
+            title="Time Clock Log"
+            icon={Clock}
+            subtitle={
+              <>
                 Clock-in / clock-out audit per staff member, with payments processed on this page. For the full wage roll-up (BCEA overtime + Sunday + public-holiday splits) see{" "}
                 <Link href={withSlug("/admin/wages")} className="text-blue-600 hover:underline inline-flex items-center gap-0.5">
                   Wages dashboard <ExternalLink className="w-3 h-3" />
                 </Link>
                 .
-              </p>
-            </div>
+              </>
+            }
+            actions={
+            <>
             {/* Phase 17 #10: CSV export. Payroll team needs an
                 offline copy of the period roll-up to push through
                 their bank-transfer template + reconcile against
@@ -445,7 +442,9 @@ function StaffHoursPage() {
               <Download className="w-4 h-4" />
               Export CSV
             </Button>
-          </div>
+            </>
+            }
+          />
 
           {/* STH-B intel: open-shift anomaly banner. A session
               still open more than 14 hours after clock-in is
@@ -980,7 +979,7 @@ function StaffHoursPage() {
               </div>
             </CardContent>
           </Card>
-        </div>
+        </PortalShell>
 
         {/* STH-C: manual-entry dialog. Manager backfill for a
             clock-in that never happened. Writes a

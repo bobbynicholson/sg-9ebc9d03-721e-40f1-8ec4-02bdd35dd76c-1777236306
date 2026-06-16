@@ -17,6 +17,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Truck, UserPlus, Mail, Phone, Search, MoreVertical, Activity, Clock, Settings, MapPin, Calendar, Snowflake, Flame, Users, User, Building2, Download, X, RefreshCw, Copy, MailWarning } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { PortalShell, PortalHeader } from "@/components/portal/ui";
 import { LogDriverShiftModal } from "@/components/admin/LogDriverShiftModal";
 import { DriverLeaderboard } from "@/components/admin/DriverLeaderboard";
 import { Footer } from "@/components/Footer";
@@ -740,31 +741,18 @@ function DriverManagementPage() {
   const inactiveDrivers = drivers.filter(d => !d.is_active).length;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+    <>
       <NoIndexMeta />
       <AdminNav />
 
-      {/* Two-level layout matches admin/dashboard + admin/inventory: outer
-          handles the sidebar offset, inner caps the content width. The
-          earlier single-div version put pl-72 INSIDE the max-w box, which
-          ate ~288px from inside the cap, that's why the content looked
-          centred / narrow on wide viewports. */}
-      <div className="min-h-screen overflow-x-hidden lg:pl-72 xl:pl-80">
-        <div className="px-3 sm:px-4 md:px-6 pt-20 lg:pt-6 pb-6 max-w-full">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h1 className="text-3xl font-bold text-slate-900 mb-2 flex items-center gap-3">
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-brand-primary to-brand-secondary flex items-center justify-center">
-                  <Truck className="w-6 h-6 text-white" />
-                </div>
-                Drivers
-              </h1>
-              <p className="text-slate-600">Driver roster, vehicles, and pay rates. Add a driver, link their vehicle, set per-driver overrides for hourly, distance per km, and callouts. Falls back to company defaults where no override is set.</p>
-            </div>
-
-            <div className="flex items-center gap-2">
+      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+          <PortalHeader
+            title="Drivers"
+            icon={Truck}
+            subtitle="Driver roster, vehicles, and pay rates. Add a driver, link their vehicle, set per-driver overrides for hourly, distance per km, and callouts. Falls back to company defaults where no override is set."
+            actions={
+            <>
               {/* Phase 28 #4: manual refresh. Drivers are added
                   from multiple surfaces (this page, mobile sign-up,
                   dispatch creating an account) - dispatch leads
@@ -1273,9 +1261,11 @@ function DriverManagementPage() {
                   )}
                 </DialogContent>
               </Dialog>
-            </div>
-          </div>
+            </>
+            }
+          />
 
+          <div className="mb-8">
           {/* Phase 11 #3: month-to-date driver leaderboard.
               Top 5 by hours worked with completed deliveries as
               a tiebreaker. Self-hides if no driver has activity
@@ -1714,7 +1704,7 @@ function DriverManagementPage() {
             })()}
           </CardContent>
         </Card>
-      </div>
+        </PortalShell>
 
       {/* Shift schedule dialog (Phase 2) */}
       <ShiftScheduleDialog
@@ -1905,7 +1895,7 @@ function DriverManagementPage() {
 
         <Footer />
       </div>
-    </div>
+    </>
   );
 }
 

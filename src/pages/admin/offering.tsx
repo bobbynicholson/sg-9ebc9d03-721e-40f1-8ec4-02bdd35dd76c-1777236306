@@ -31,6 +31,7 @@ import { useEffect, useMemo, useState } from "react";
 import Head from "next/head";
 import Link from "next/link";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { PortalShell, PortalHeader } from "@/components/portal/ui";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -542,22 +543,15 @@ function OfferingPage() {
       <Head><title>Offering - CateringMS</title></Head>
       <AdminNav />
 
-      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
-        <div className="px-3 sm:px-4 md:px-6 pt-20 lg:pt-6 pb-6 max-w-6xl mx-auto">
+      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
 
-          <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-brand-primary to-brand-secondary flex items-center justify-center shadow-lg flex-shrink-0">
-                <Sparkles className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
-              </div>
-              <div className="min-w-0">
-                <h1 className="text-2xl sm:text-3xl xl:text-4xl font-bold text-slate-900">
-                  Offering
-                </h1>
-                <p className="text-sm sm:text-base text-slate-600 mt-1">Snapshot of what you sell. Menu items, equipment for hire, and packages combined into one view so you can spot gaps in pricing or photos before they hit a quote.</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
+          <PortalHeader
+            title="Offering"
+            icon={Sparkles}
+            subtitle="Snapshot of what you sell. Menu items, equipment for hire, and packages combined into one view so you can spot gaps in pricing or photos before they hit a quote."
+            actions={
+            <>
               {/* OFR-B: period selector. Drives Top 3 + Recent strip
                   + Never-quoted callout so the operator can flex the
                   window between 30 / 60 / 90 days without leaving
@@ -582,8 +576,9 @@ function OfferingPage() {
                 {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <TrendingUp className="w-4 h-4" />}
                 Refresh
               </Button>
-            </div>
-          </div>
+            </>
+            }
+          />
 
           {/* OFR-B: inline error banner. Pre-OFR-B a network failure
               left the page showing zeros silently; now the operator
@@ -1120,7 +1115,7 @@ function OfferingPage() {
               </CardContent>
             </Card>
           )}
-        </div>
+        </PortalShell>
       </div>
     </>
   );
