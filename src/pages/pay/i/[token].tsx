@@ -104,6 +104,12 @@ export default function InvoicePaymentPage() {
   const [creditMaxApplicable, setCreditMaxApplicable] = useState<number>(0);
   const [applyCredit, setApplyCredit] = useState<boolean>(false);
   const [settledByCredit, setSettledByCredit] = useState<boolean>(false);
+  // Client-chosen amount to pay now. Prefilled with the suggested
+  // deposit (companies.deposit_percent of the total, default 50%) but
+  // fully editable - clients often pay a deposit that isn't exactly
+  // that %, and the balance must then reflect whatever they pay. Held
+  // as a string so the field can be cleared/typed freely; parsed on use.
+  const [payAmount, setPayAmount] = useState<string>("");
 
   // Apply per-tenant brand colours once the invoice + company resolve.
   // Same pattern as /q/[token] - public route, no auth context, so we
@@ -195,8 +201,26 @@ export default function InvoicePaymentPage() {
     return () => { cancelled = true; };
   }, [token]);
 
+  // Prefill "amount to pay now" with the suggested deposit once the
+  // invoice loads, capped to the outstanding balance (a re-visit after
+  // a part-payment shouldn't propose more than what's left).
+  useEffect(() => {
+    if (!invoice) return;
+    const p = Number(invoice.companies?.deposit_percent);
+    const pct = Number.isFinite(p) && p > 0 && p < 100 ? p : 50;
+    const suggested = Math.round((invoice.total_amount || 0) * (pct / 100) * 100) / 100;
+    const capped = Math.min(suggested || invoice.balance_due, invoice.balance_due);
+    setPayAmount(capped > 0 ? String(capped) : String(invoice.balance_due || 0));
+  }, [invoice]);
+
   async function initiatePayment() {
     if (!invoice) return;
+    // What the client chose to pay now, clamped to the balance.
+    const payNowAmt = Math.max(0, Math.min(Number(payAmount) || 0, invoice.balance_due));
+    if (payNowAmt <= 0) {
+      setError("Enter an amount to pay.");
+      return;
+    }
     try {
       setProcessing(true);
       setError(null);
@@ -217,12 +241,17 @@ export default function InvoicePaymentPage() {
         body: JSON.stringify({
           invoice_id: invoice.id,
           public_token: invoice.public_token,
+          // The amount the client chose to pay now (server caps it to
+          // the outstanding balance). Lets them part-pay a deposit that
+          // isn't exactly the suggested %.
+          pay_amount: payNowAmt,
           // Wave 29.2: pass the toggle state through so the server
           // nets credit before the gateway charge. apply_credit_amount
           // explicitly carries the cap we computed up-front; the RPC
-          // will further cap by available balance under its lock.
+          // will further cap by available balance under its lock. Cap
+          // to what they're paying now so credit can't exceed it.
           apply_credit: applyCredit,
-          apply_credit_amount: applyCredit ? creditMaxApplicable : undefined,
+          apply_credit_amount: applyCredit ? Math.min(creditMaxApplicable, payNowAmt) : undefined,
         }),
       });
       const json = await resp.json();
@@ -348,6 +377,11 @@ export default function InvoicePaymentPage() {
   const balancePct = 100 - depositPct;
   const depositAmount = Math.round((invoice.total_amount || 0) * (depositPct / 100) * 100) / 100;
   const balanceAmount = Math.round(((invoice.total_amount || 0) - depositAmount) * 100) / 100;
+
+  // Live payment figures driven by the editable "amount to pay now"
+  // field: what they're paying and the balance that will remain after.
+  const payNow = Math.max(0, Math.min(Number(payAmount) || 0, invoice.balance_due));
+  const remainingAfter = Math.max(0, Math.round((invoice.balance_due - payNow) * 100) / 100);
 
   return (
     <>
@@ -554,6 +588,57 @@ export default function InvoicePaymentPage() {
                     </p>
                   </div>
 
+                  {/* Editable amount-to-pay. Clients commonly pay a
+                      deposit that isn't exactly the suggested %, so let
+                      them set the figure; the remaining balance updates
+                      live and the gateway is charged for exactly this. */}
+                  <div className="rounded-lg border border-stone-200 bg-stone-50 p-4 space-y-2">
+                    <label htmlFor="pay-amount" className="text-xs font-semibold text-stone-700">
+                      Amount to pay now (R)
+                    </label>
+                    <input
+                      id="pay-amount"
+                      type="number"
+                      min={0}
+                      max={invoice.balance_due}
+                      step="0.01"
+                      inputMode="decimal"
+                      value={payAmount}
+                      onChange={(e) => setPayAmount(e.target.value)}
+                      onBlur={() => {
+                        // Clamp on blur so the figure can never exceed
+                        // the outstanding balance.
+                        const n = Math.max(0, Math.min(Number(payAmount) || 0, invoice.balance_due));
+                        setPayAmount(n > 0 ? String(n) : "");
+                      }}
+                      className="w-full h-11 rounded-md border border-stone-300 px-3 text-base tabular-nums focus:outline-none focus:ring-2 focus:ring-brand-primary/40"
+                    />
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-stone-500">Outstanding balance</span>
+                      <span className="font-semibold text-stone-700 tabular-nums">{fmtMoney.format(invoice.balance_due)}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-stone-500">Balance remaining after this payment</span>
+                      <span className="font-semibold text-stone-900 tabular-nums">{fmtMoney.format(remainingAfter)}</span>
+                    </div>
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => setPayAmount(String(Math.min(depositAmount, invoice.balance_due)))}
+                        className="text-[11px] rounded-full border border-stone-300 px-2.5 py-1 text-stone-600 hover:bg-white"
+                      >
+                        Deposit ({depositPct}%): {fmtMoney.format(Math.min(depositAmount, invoice.balance_due))}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPayAmount(String(invoice.balance_due))}
+                        className="text-[11px] rounded-full border border-stone-300 px-2.5 py-1 text-stone-600 hover:bg-white"
+                      >
+                        Full balance: {fmtMoney.format(invoice.balance_due)}
+                      </button>
+                    </div>
+                  </div>
+
                   {/* Wave 29.2: store-credit toggle for the magic-link
                       pay flow. Only shown when the client holds credit
                       with this catering company. Default-on for the
@@ -596,7 +681,7 @@ export default function InvoicePaymentPage() {
                   ) : (
                     <Button
                       onClick={initiatePayment}
-                      disabled={processing}
+                      disabled={processing || payNow <= 0}
                       size="lg"
                       className="w-full bg-brand-primary hover:opacity-90 gap-2"
                     >
@@ -605,18 +690,18 @@ export default function InvoicePaymentPage() {
                           <Loader2 className="w-5 h-5 animate-spin" />
                           Redirecting to payment...
                         </>
-                      ) : applyCredit && creditMaxApplicable >= invoice.balance_due ? (
+                      ) : applyCredit && creditMaxApplicable >= payNow ? (
                         <>
                           <Wallet className="w-5 h-5" />
-                          Settle with {fmtMoney.format(creditMaxApplicable)} credit
+                          Settle with {fmtMoney.format(Math.min(creditMaxApplicable, payNow))} credit
                         </>
                       ) : (
                         <>
                           <CreditCard className="w-5 h-5" />
                           Pay {fmtMoney.format(
                             applyCredit
-                              ? Math.max(0, invoice.balance_due - creditMaxApplicable)
-                              : invoice.balance_due,
+                              ? Math.max(0, payNow - creditMaxApplicable)
+                              : payNow,
                           )} now
                         </>
                       )}

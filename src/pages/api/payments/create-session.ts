@@ -138,10 +138,20 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     }
 
     const isDeposit = orderRow ? !orderRow.deposit_paid : false;
-    const grossAmount =
+    const defaultGross =
       orderRow && isDeposit
         ? Number(orderRow.deposit_amount) || Number(invoice.balance_due) || 0
         : Number(invoice.balance_due) || Number(invoice.total_amount) || 0;
+    // The payer can choose how much to pay now (a deposit that may not
+    // be exactly the configured %). Honour `pay_amount` when supplied,
+    // but ALWAYS cap to the outstanding balance so a client can never
+    // overpay the invoice. Falls back to the deposit/balance default.
+    const maxPayable = Number(invoice.balance_due) || defaultGross;
+    const requestedPay = Number(body.pay_amount);
+    const grossAmount =
+      Number.isFinite(requestedPay) && requestedPay > 0
+        ? Math.min(Math.round(requestedPay * 100) / 100, maxPayable)
+        : defaultGross;
     if (!grossAmount || grossAmount <= 0) {
       return res.status(400).json({ error: "Nothing to pay" });
     }
