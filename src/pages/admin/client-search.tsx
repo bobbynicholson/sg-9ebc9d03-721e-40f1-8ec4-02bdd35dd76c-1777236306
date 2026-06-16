@@ -10,11 +10,11 @@ import { Badge } from "@/components/ui/badge";
 import { Search, Users, FileText, Receipt, Eye, Mail, Phone, MapPin, Building, ArrowLeft, X } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { PortalShell, PortalHeader } from "@/components/portal/ui";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute"; // Assumed import for ProtectedRoute
 import {  UserRole  } from "@/types/app"; // Assumed import for UserRole
-import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { useTenantHref } from "@/lib/tenantUrl";
 
 export default function ProtectedClientSearchPage() {
@@ -170,30 +170,26 @@ function ClientSearchPage() {
       
       <AdminNav />
       
-      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
-        <div className="px-4 py-8 max-w-full">
-          <Link href={withSlug("/admin/dashboard")}>
-            <Button variant="ghost" className="mb-4" size="sm">
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Dashboard
-            </Button>
-          </Link>
+      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+          <PortalHeader
+            title="Client Search"
+            icon={Search}
+            subtitle="Searchable directory of every registered client. Filter by name, email, phone, company, or region. For the merged inbox view including leads and prospects, use Contacts instead."
+            actions={
+            <>
+              <Link href={withSlug("/admin/dashboard")}>
+                <Button variant="ghost" size="sm">
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Back to Dashboard
+                </Button>
+              </Link>
+            </>
+            }
+          />
 
           {/* Header */}
           <div className="mb-8">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="p-3 bg-gradient-to-br from-brand-primary to-brand-secondary rounded-xl shadow-lg">
-                <Search className="w-8 h-8 text-white" />
-              </div>
-              <div>
-                <h1 className="text-4xl font-bold text-slate-900 flex items-center gap-3">
-                  Client Search
-                  <InfoTooltip content={"Searchable directory of your registered clients. Look them up by name, email, phone, company or region."} />
-                </h1>
-                <p className="text-slate-600 mt-1">Searchable directory of every registered client. Filter by name, email, phone, company, or region. For the merged inbox view including leads and prospects, use Contacts instead.</p>
-              </div>
-            </div>
-
             {/* Search and Filters */}
             <div className="bg-white rounded-xl shadow-lg p-6 space-y-4">
               <div className="flex flex-col md:flex-row gap-4">
@@ -370,7 +366,7 @@ function ClientSearchPage() {
               ))}
             </div>
           )}
-        </div>
+        </PortalShell>
       </div>
     </>
   );

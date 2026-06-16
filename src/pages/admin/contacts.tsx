@@ -41,6 +41,7 @@ import { ImportRecordsModal } from "@/components/admin/ImportRecordsModal";
 import { Checkbox } from "@/components/ui/checkbox";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { PortalShell, PortalHeader } from "@/components/portal/ui";
 import { TopClientsWidget } from "@/components/admin/TopClientsWidget";
 import { WidgetErrorBoundary } from "@/components/dashboard/WidgetErrorBoundary";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
@@ -1077,30 +1078,15 @@ function ClientsCRM() {
       <Head><title>Contacts - CateringMS</title></Head>
       <AdminNav />
 
-      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
-        <div className="px-3 sm:px-4 md:px-6 pt-20 lg:pt-6 pb-6 max-w-full">
+      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
 
-          <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-            {/* flex-1 + min-w-0 lets the title block claim the leftover
-                space once the action toolbar on the right is laid out.
-                Without flex-1, min-w-0 alone allowed the description
-                column to shrink to its longest word's width - which on
-                ~1100px viewports rendered the paragraph as one word
-                per line. */}
-            <div className="flex items-center gap-3 min-w-0 flex-1">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-brand-primary to-brand-secondary flex items-center justify-center shadow-lg flex-shrink-0">
-                <Users className="w-6 h-6 text-white" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold text-slate-900">
-                  Contacts
-                </h1>
-                <p className="text-sm sm:text-base text-slate-600 mt-1">
-                  Your CRM inbox. Everyone you've touched so far, leads and clients combined, sorted by suggested next action.
-                </p>
-              </div>
-            </div>
-            <div className="flex flex-wrap items-center gap-2 lg:flex-shrink-0">
+          <PortalHeader
+            title="Contacts"
+            icon={Users}
+            subtitle="Your CRM inbox. Everyone you've touched so far, leads and clients combined, sorted by suggested next action."
+            actions={
+            <>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <Input
@@ -1220,8 +1206,9 @@ function ClientsCRM() {
               >
                 <Plus className="w-4 h-4" /> Add contact
               </Button>
-            </div>
-          </div>
+            </>
+            }
+          />
 
           {/* Wave 70.57: top clients by spend relocated here from
               /admin/dashboard per owner brief 2026-05-22. Retention
@@ -1807,7 +1794,7 @@ function ClientsCRM() {
               )}
             </CardContent>
           </Card>
-        </div>
+        </PortalShell>
       </div>
 
       {/* Add / Edit client dialog */}

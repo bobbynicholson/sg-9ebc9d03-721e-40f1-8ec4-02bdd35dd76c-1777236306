@@ -25,6 +25,7 @@ import { Label } from "@/components/ui/label";
 import { Building2, MapPin, Mail, Phone, Globe, Image as ImageIcon, Palette, Save, Loader2, ShieldCheck, ExternalLink, ArrowRight, Landmark, Hash, Calendar, AlertTriangle, CheckCircle2, Clock } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { PortalShell, PortalHeader } from "@/components/portal/ui";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { useAuth } from "@/contexts/AuthContext";
 import { UserRole } from "@/types/app";
@@ -332,7 +333,7 @@ function CompanyProfilePage() {
         <NoIndexMeta />
         <Head><title>Company profile - CateringMS</title></Head>
         <AdminNav />
-        <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80 flex items-center justify-center">
+        <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0 flex items-center justify-center">
           <Loader2 className="w-8 h-8 animate-spin text-slate-400" />
         </div>
       </>
@@ -345,25 +346,15 @@ function CompanyProfilePage() {
       <Head><title>Company profile - CateringMS</title></Head>
       <AdminNav />
 
-      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
-        <div className="px-3 sm:px-4 md:px-6 pt-20 lg:pt-6 pb-6 max-w-6xl mx-auto">
+      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
 
-          <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex items-center gap-3 min-w-0">
-              <div
-                className="w-12 h-12 rounded-xl flex items-center justify-center shadow-lg flex-shrink-0"
-                style={{ background: `linear-gradient(135deg, ${row.primary_color || "#9333ea"} 0%, ${row.secondary_color || "#ec4899"} 100%)` }}
-              >
-                <Building2 className="w-6 h-6 text-white" />
-              </div>
-              <div className="min-w-0">
-                <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold text-slate-900 flex items-center gap-2">Company profile <InfoTooltip content={"Your business name, contacts, and HQ location all live here.\n\nThis feeds the sidebar header, client-facing pages, route planning, and delivery fees. Brand colours + logo live on the White Label page."} /></h1>
-                <p className="text-sm sm:text-base text-slate-600 mt-1">
-                  This drives the sidebar branding, client-facing pages, route planning and delivery fees.
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 flex-wrap">
+          <PortalHeader
+            title={<span className="flex items-center gap-2">Company profile <InfoTooltip content={"Your business name, contacts, and HQ location all live here.\n\nThis feeds the sidebar header, client-facing pages, route planning, and delivery fees. Brand colours + logo live on the White Label page."} /></span>}
+            icon={Building2}
+            subtitle="This drives the sidebar branding, client-facing pages, route planning and delivery fees."
+            actions={
+            <>
               {/* CP-B: last-saved chip + unsaved-changes chip beside
                   the primary Save button. The chip text reads from
                   updated_at and re-formats every render (cheap; the
@@ -381,8 +372,9 @@ function CompanyProfilePage() {
                 {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                 Save profile
               </Button>
-            </div>
-          </div>
+            </>
+            }
+          />
 
           {/* CP-B: setup completeness banner. Each row links to the
               anchor of the section that owns the field; clicking
@@ -985,7 +977,7 @@ function CompanyProfilePage() {
             <code className="bg-slate-100 px-1 rounded">/c/account</code>, and{" "}
             <code className="bg-slate-100 px-1 rounded">googleMapsService.calculateDeliveryFee</code>.
           </p>
-        </div>
+        </PortalShell>
       </div>
     </>
   );

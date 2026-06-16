@@ -36,6 +36,7 @@ import * as currencyUtils from "@/lib/currencyUtils";
 import type { Order } from "@/types";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { PortalShell, PortalHeader } from "@/components/portal/ui";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { CashflowForecastCard } from "@/components/admin/financial/CashflowForecastCard";
@@ -433,21 +434,14 @@ function CashflowDashboardInner() {
       <NoIndexMeta />
 
       <AdminNav />
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-4 md:p-8 lg:pl-72 xl:pl-80 pt-20 lg:pt-8">
-        <div className="max-w-6xl mx-auto">
-          {/* Header */}
-          <div className="mb-6">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-4 gap-3">
-              <div>
-                <h1 className="text-3xl md:text-4xl font-bold text-slate-900 mb-2 flex items-center gap-2">
-                  <TrendingUp className="w-8 h-8 text-emerald-600" />
-                  Cashflow Dashboard
-                </h1>
-                <p className="text-slate-600">
-                  Forward-looking view of cash in and cash out. Answer the question
-                  &quot;can I pay this week?&quot; without doing the maths by hand.
-                </p>
-              </div>
+      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+          <PortalHeader
+            title="Cashflow Dashboard"
+            icon={TrendingUp}
+            subtitle={"Forward-looking view of cash in and cash out. Answer the question “can I pay this week?” without doing the maths by hand."}
+            actions={
+            <>
               <Button
                 variant="outline"
                 size="sm"
@@ -458,8 +452,9 @@ function CashflowDashboardInner() {
                 <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
                 Refresh
               </Button>
-            </div>
-          </div>
+            </>
+            }
+          />
 
           {/* Admin follow-up (admin.md): zero-data empty state.
               Replace the chart + KPI tiles with a "no activity yet"
@@ -629,7 +624,7 @@ function CashflowDashboardInner() {
               </CardContent>
             </Card>
           </div>
-        </div>
+        </PortalShell>
       </div>
 
       <BulkRemindDialog open={remindDialogOpen} onOpenChange={setRemindDialogOpen} />

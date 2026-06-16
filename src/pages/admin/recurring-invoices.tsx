@@ -18,6 +18,7 @@ import { useEffect, useMemo, useState } from "react";
 import Head from "next/head";
 import Link from "next/link";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { PortalShell, PortalHeader } from "@/components/portal/ui";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { toLocalISO } from "@/lib/localDate";
 import { Button } from "@/components/ui/button";
@@ -220,23 +221,18 @@ export default function RecurringInvoicesPage() {
     <>
       <NoIndexMeta />
       <Head><title>Recurring invoices - CateringMS</title></Head>
-      <div className="min-h-screen bg-slate-50 lg:pl-72 xl:pl-80">
-        <AdminNav />
-        <div className="py-8 px-4 max-w-5xl">
+      <AdminNav />
+      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <Link href="/admin/invoices" className="inline-flex items-center gap-1 text-sm text-slate-600 hover:text-slate-900 mb-4">
             <ArrowLeft className="w-4 h-4" /> Back to invoices
           </Link>
-          <div className="flex items-end justify-between mb-6 gap-3 flex-wrap">
-            <div>
-              <h1 className="text-3xl font-bold text-slate-900 mb-1 inline-flex items-center gap-2">
-                <Repeat className="w-7 h-7 text-blue-600" />
-                Recurring invoices
-              </h1>
-              <p className="text-slate-600 text-sm">
-                Set up weekly / monthly / quarterly invoices once; the platform generates a draft on each cycle.
-              </p>
-            </div>
-            <div className="flex gap-2">
+          <PortalHeader
+            title="Recurring invoices"
+            icon={Repeat}
+            subtitle="Set up weekly / monthly / quarterly invoices once; the platform generates a draft on each cycle."
+            actions={
+            <>
               <Button variant="outline" onClick={load} disabled={loading}>
                 <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
                 Refresh
@@ -245,8 +241,9 @@ export default function RecurringInvoicesPage() {
                 <Plus className="w-4 h-4 mr-2" />
                 New template
               </Button>
-            </div>
-          </div>
+            </>
+            }
+          />
 
           <Card>
             <CardHeader>
@@ -291,7 +288,7 @@ export default function RecurringInvoicesPage() {
               </div>
             </CardContent>
           </Card>
-        </div>
+        </PortalShell>
       </div>
 
       {/* Wave 68.1 - new-template dialog. Replaces the 4-prompt

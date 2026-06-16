@@ -21,6 +21,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toLocalISO } from "@/lib/localDate";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { PortalShell, PortalHeader } from "@/components/portal/ui";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -332,50 +333,42 @@ function CompanyAuditLogsViewer() {
       <Head><title>Audit logs - CateringMS</title></Head>
       <NoIndexMeta />
       <AdminNav />
-      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
-        <div className="px-4 pt-20 lg:pt-6 pb-12 max-w-full">
+      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+          <PortalHeader
+            title="Audit logs"
+            icon={ScrollText}
+            subtitle="Append-only trail of meaningful actions across orders, quotes, payments, shifts and more. Read-only - mutations belong on the per-entity pages."
+            actions={
+            <>
+              <Button
+                onClick={exportCsv}
+                variant="outline"
+                size="sm"
+                disabled={exporting || loading || (totalCount ?? 0) === 0}
+                title="Export the currently filtered set as CSV (capped at 5000 rows)"
+              >
+                <Download className="w-4 h-4 mr-2" />
+                {exporting ? "Exporting..." : "Export CSV"}
+              </Button>
+              <Button onClick={() => { setPage(0); void load(); }} variant="outline" size="sm">
+                <RefreshCw className="w-4 h-4 mr-2" /> Refresh
+              </Button>
+            </>
+            }
+          />
           <div className="space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-slate-600 to-slate-700 flex items-center justify-center shadow-lg">
-                  <ScrollText className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-3xl md:text-4xl font-bold text-slate-900">
-                    Audit logs
-                  </h1>
-                  <p className="text-slate-600 mt-1 text-sm">
-                    Append-only trail of meaningful actions across orders, quotes, payments, shifts and more. Read-only - mutations belong on the per-entity pages.
-                  </p>
-                  {oldestEntryAt && (() => {
-                    const days = Math.max(
-                      0,
-                      Math.floor((Date.now() - new Date(oldestEntryAt).getTime()) / (24 * 60 * 60 * 1000)),
-                    );
-                    return (
-                      <p className="text-xs text-slate-500 mt-1">
-                        Earliest entry on file: {fmtTs(oldestEntryAt)} ({days} day{days === 1 ? "" : "s"} of history retained).
-                      </p>
-                    );
-                  })()}
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  onClick={exportCsv}
-                  variant="outline"
-                  size="sm"
-                  disabled={exporting || loading || (totalCount ?? 0) === 0}
-                  title="Export the currently filtered set as CSV (capped at 5000 rows)"
-                >
-                  <Download className="w-4 h-4 mr-2" />
-                  {exporting ? "Exporting..." : "Export CSV"}
-                </Button>
-                <Button onClick={() => { setPage(0); void load(); }} variant="outline" size="sm">
-                  <RefreshCw className="w-4 h-4 mr-2" /> Refresh
-                </Button>
-              </div>
-            </div>
+            {oldestEntryAt && (() => {
+              const days = Math.max(
+                0,
+                Math.floor((Date.now() - new Date(oldestEntryAt).getTime()) / (24 * 60 * 60 * 1000)),
+              );
+              return (
+                <p className="text-xs text-slate-500">
+                  Earliest entry on file: {fmtTs(oldestEntryAt)} ({days} day{days === 1 ? "" : "s"} of history retained).
+                </p>
+              );
+            })()}
 
             <Card>
               <CardHeader className="pb-3">
@@ -633,7 +626,7 @@ function CompanyAuditLogsViewer() {
               </CardContent>
             </Card>
           </div>
-        </div>
+        </PortalShell>
         <Footer />
       </div>
     </>

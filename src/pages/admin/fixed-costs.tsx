@@ -44,6 +44,7 @@ import { Plus, Trash2, Repeat, Pencil, AlertCircle, ChevronDown, ChevronRight, T
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { PortalShell, PortalHeader } from "@/components/portal/ui";
 import { CashflowContextBanner } from "@/components/admin/financial/CashflowContextBanner";
 import { useAuth } from "@/contexts/AuthContext";
 import { UserRole } from "@/types/app";
@@ -513,24 +514,23 @@ function FixedCostsPage() {
       </Head>
       <NoIndexMeta />
       <AdminNav />
-      {/* Match the standard admin layout (AdminNav is a fixed sidebar
-          at lg+). Without lg:pl-72 xl:pl-80 the cards sit behind it. */}
-      <div className="min-h-screen bg-slate-50 lg:pl-72 xl:pl-80">
-        <div className="max-w-6xl mx-auto px-4 md:px-6 py-8">
-          <CashflowContextBanner message="Each fixed cost expands into 30-day occurrences on the forecast. Edit one here to see the chart redraw." />
-          <div className="flex items-start justify-between mb-6 gap-3">
-            <div>
-              <h1 className="text-2xl md:text-3xl font-bold text-slate-900">Fixed costs</h1>
-              <p className="text-sm text-slate-600 mt-1">
+      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+          <PortalHeader
+            title="Fixed costs"
+            icon={Repeat}
+            subtitle={
+              <>
                 Recurring rent, software, vehicles, anything that hits the bank account on a schedule.
                 Drives the cashflow forecast on{" "}
                 <Link href="/admin/cashflow-dashboard" className="text-blue-600 hover:underline">
                   Cashflow dashboard
                 </Link>
                 .
-              </p>
-            </div>
-            <div className="flex gap-2 flex-shrink-0">
+              </>
+            }
+            actions={
+            <>
               <Button onClick={openBulk} variant="outline">
                 <Upload className="w-4 h-4 mr-1.5" />
                 Bulk import
@@ -539,8 +539,10 @@ function FixedCostsPage() {
                 <Plus className="w-4 h-4 mr-1.5" />
                 Add fixed cost
               </Button>
-            </div>
-          </div>
+            </>
+            }
+          />
+          <CashflowContextBanner message="Each fixed cost expands into 30-day occurrences on the forecast. Edit one here to see the chart redraw." />
 
           {/* FXC-A: three summary tiles. Active + Monthly were the
               pre-FXC-A pair; Annual is new. Bobby's prompt called
@@ -752,7 +754,7 @@ function FixedCostsPage() {
               )}
             </div>
           )}
-        </div>
+        </PortalShell>
       </div>
 
       <Dialog open={dialogOpen} onOpenChange={(open) => {
