@@ -36,6 +36,7 @@ import {
   Flame,
 } from "lucide-react";
 import { PortalSidebar, type PortalSidebarConfig } from "./PortalSidebar";
+import { BRAND_PORTAL_PALETTE, BRAND_ACCENT } from "@/lib/branding/portalPalette";
 import { useKitchenLiveCounts } from "@/hooks/useKitchenLiveCounts";
 import { usePortalServiceMode } from "@/hooks/usePortalServiceMode";
 import { KitchenServiceModeBadge } from "@/components/kitchen/KitchenServiceModeBadge";
@@ -67,18 +68,14 @@ export function KitchenNav(_: KitchenNavProps = {}) {
     title: "Kitchen Portal",
     mobileSubtitle: "Manage production",
     brandIcon: ChefHat,
-    accentGradient: "from-amber-500 to-orange-500",
-    accentGradientDark: "from-amber-600 to-orange-600",
-    hoverClasses: "hover:bg-amber-50 hover:text-amber-700",
-    activeHoverClasses: "hover:from-amber-600 hover:to-orange-600",
-    mobileSubtitleClasses: "text-amber-100",
-    searchAccent: "bg-amber-50 hover:bg-amber-100 text-amber-700",
+    // Tenant brand accent via brand-* CSS vars (amber default). See portalPalette.ts.
+    ...BRAND_PORTAL_PALETTE,
     searchHint: "Search recipes, prep...",
     dashboardHref: "/team-portal/kitchen/today",
     mobileQuickActions: [
-      { href: "/team-portal/kitchen/prep-list",  label: "Today's prep",  sub: "Per-order ingredients", icon: ClipboardList, accent: "from-amber-500 to-orange-500" },
-      { href: "/team-portal/kitchen/production", label: "Production",    sub: "Mark items ready",      icon: ChefHat,       accent: "from-amber-500 to-orange-500" },
-      { href: "/team-portal/kitchen/stock",      label: "Stock check",   sub: "Pull from inventory",   icon: Package,       accent: "from-amber-500 to-orange-500" },
+      { href: "/team-portal/kitchen/prep-list",  label: "Today's prep",  sub: "Per-order ingredients", icon: ClipboardList, accent: BRAND_ACCENT },
+      { href: "/team-portal/kitchen/production", label: "Production",    sub: "Mark items ready",      icon: ChefHat,       accent: BRAND_ACCENT },
+      { href: "/team-portal/kitchen/stock",      label: "Stock check",   sub: "Pull from inventory",   icon: Package,       accent: BRAND_ACCENT },
     ],
     renderTopSlot: () => (
       <div className="space-y-2">

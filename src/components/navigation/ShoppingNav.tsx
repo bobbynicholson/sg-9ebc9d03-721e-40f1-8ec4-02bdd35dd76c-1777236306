@@ -52,6 +52,7 @@ import {
   Settings,
 } from "lucide-react";
 import { PortalSidebar, type PortalSidebarConfig } from "./PortalSidebar";
+import { BRAND_PORTAL_PALETTE, BRAND_ACCENT } from "@/lib/branding/portalPalette";
 import { useShoppingLiveCounts } from "@/hooks/useShoppingLiveCounts";
 import { useShoppingPortalMode } from "@/hooks/useShoppingPortalMode";
 import { useActiveShoppingList } from "@/hooks/useActiveShoppingList";
@@ -87,14 +88,9 @@ export function ShoppingNav(_: ShoppingNavProps = {}) {
     title: "Shopping Portal",
     mobileSubtitle: "Plan, run, reconcile",
     brandIcon: ShoppingCart,
-    // Unified warm CateringMS brand accent (matches the landing page +
-    // auth). Was green/emerald (the old per-role colour).
-    accentGradient: "from-amber-500 to-orange-500",
-    accentGradientDark: "from-amber-600 to-orange-600",
-    hoverClasses: "hover:bg-amber-50 hover:text-amber-700",
-    activeHoverClasses: "hover:from-amber-600 hover:to-orange-600",
-    mobileSubtitleClasses: "text-amber-100",
-    searchAccent: "bg-amber-50 hover:bg-amber-100 text-amber-700",
+    // Tenant brand accent via brand-* CSS vars (amber default). See
+    // portalPalette.ts. (Was green/emerald, then hardcoded amber.)
+    ...BRAND_PORTAL_PALETTE,
     searchHint: "Search items, suppliers, lists...",
     dashboardHref: "/team-portal/shopping/dashboard",
     // Static fallback. The smart renderer below normally takes over.
@@ -104,9 +100,9 @@ export function ShoppingNav(_: ShoppingNavProps = {}) {
       // buy-list surface is /buy-list (action-driven with checkboxes
       // and bulk-add). /alerts kept as a deprecated alias for
       // bookmarks.
-      { href: "/team-portal/shopping/buy-list", label: "Buy list",    sub: "Shortfalls first",  icon: TrendingDown, accent: "from-amber-500 to-orange-500" },
-      { href: "/team-portal/shopping/orders",   label: "Active shop", sub: "Current list",      icon: ShoppingCart, accent: "from-amber-500 to-orange-500" },
-      { href: "/team-portal/shopping/receipts", label: "Receipts",    sub: "Snap a slip",       icon: Camera,       accent: "from-amber-500 to-orange-500" },
+      { href: "/team-portal/shopping/buy-list", label: "Buy list",    sub: "Shortfalls first",  icon: TrendingDown, accent: BRAND_ACCENT },
+      { href: "/team-portal/shopping/orders",   label: "Active shop", sub: "Current list",      icon: ShoppingCart, accent: BRAND_ACCENT },
+      { href: "/team-portal/shopping/receipts", label: "Receipts",    sub: "Snap a slip",       icon: Camera,       accent: BRAND_ACCENT },
     ],
     renderTopSlot: () => (
       <div className="space-y-2">

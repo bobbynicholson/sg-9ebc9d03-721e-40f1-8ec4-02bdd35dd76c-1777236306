@@ -25,24 +25,21 @@ import {
   Navigation,
 } from "lucide-react";
 import { PortalSidebar, type PortalSidebarConfig } from "./PortalSidebar";
+import { BRAND_PORTAL_PALETTE, BRAND_ACCENT } from "@/lib/branding/portalPalette";
 
 const config: PortalSidebarConfig = {
   role: "driver",
   title: "Driver Portal",
   mobileSubtitle: "Manage deliveries",
   brandIcon: Truck,
-  accentGradient: "from-amber-500 to-orange-500",
-  accentGradientDark: "from-amber-600 to-orange-600",
-  hoverClasses: "hover:bg-amber-50 hover:text-amber-700",
-  activeHoverClasses: "hover:from-amber-600 hover:to-orange-600",
-  mobileSubtitleClasses: "text-amber-100",
-  searchAccent: "bg-amber-50 hover:bg-amber-100 text-amber-700",
+  // Tenant brand accent via brand-* CSS vars (amber default). See portalPalette.ts.
+  ...BRAND_PORTAL_PALETTE,
   searchHint: "Search routes, deliveries...",
   dashboardHref: "/team-portal/driver/dashboard",
   mobileQuickActions: [
-    { href: "/team-portal/driver/routes",   label: "Today's routes", sub: "What you're driving", icon: Navigation, accent: "from-amber-500 to-orange-500" },
-    { href: "/team-portal/driver/tracking", label: "Live tracking",  sub: "Update status",       icon: MapPin,     accent: "from-amber-500 to-orange-500" },
-    { href: "/team-portal/driver/earnings", label: "My earnings",    sub: "Hours + pay",         icon: DollarSign, accent: "from-amber-500 to-orange-500" },
+    { href: "/team-portal/driver/routes",   label: "Today's routes", sub: "What you're driving", icon: Navigation, accent: BRAND_ACCENT },
+    { href: "/team-portal/driver/tracking", label: "Live tracking",  sub: "Update status",       icon: MapPin,     accent: BRAND_ACCENT },
+    { href: "/team-portal/driver/earnings", label: "My earnings",    sub: "Hours + pay",         icon: DollarSign, accent: BRAND_ACCENT },
   ],
   sections: [
     {

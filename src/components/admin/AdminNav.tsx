@@ -75,6 +75,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { canAccessFinance, isCompanyAdmin } from "@/lib/authGuards";
 import { UserRole } from "@/types/app";
 import { PortalSidebar, type PortalSidebarConfig, type PortalSidebarSection } from "@/components/navigation/PortalSidebar";
+import { BRAND_PORTAL_PALETTE, BRAND_ACCENT } from "@/lib/branding/portalPalette";
 import { RegionFilterDropdown } from "@/components/admin/RegionFilterDropdown";
 import { StaffViewSwitcher } from "@/components/admin/StaffViewSwitcher";
 import { CommandPaletteHint } from "@/components/CommandPaletteHint";
@@ -114,8 +115,8 @@ function AdminTopSlot({ companySlug }: { companySlug: string }) {
 
       {/* Company identity */}
       <div className="flex items-center gap-2.5 rounded-xl border border-slate-200/80 bg-white px-3 py-2.5 dark:border-slate-800 dark:bg-slate-900">
-        <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full border-2 border-amber-300 bg-amber-100">
-          <span className="text-[11px] font-bold text-amber-700">{initials}</span>
+        <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full border-2 border-brand-primary/30 bg-brand-primary/10">
+          <span className="text-[11px] font-bold text-brand-primary">{initials}</span>
         </div>
         <div className="min-w-0 flex-1 overflow-hidden">
           <div className="flex items-center gap-1.5">
@@ -124,7 +125,7 @@ function AdminTopSlot({ companySlug }: { companySlug: string }) {
             </span>
             <Badge
               variant="outline"
-              className="h-4 flex-shrink-0 border-amber-200 bg-amber-50 px-1 text-[9px] text-amber-700"
+              className="h-4 flex-shrink-0 border-brand-primary/20 bg-brand-primary/10 px-1 text-[9px] text-brand-primary"
             >
               Admin
             </Badge>
@@ -362,21 +363,17 @@ export function AdminNav(_: AdminNavProps = {}) {
     title: "Admin",
     mobileSubtitle: "Operations & admin",
     brandIcon: LayoutDashboard,
-    // Unified warm CateringMS brand accent - identical to the platform
-    // (super-admin) sidebar so tenant admin and super-admin read as one
-    // consistent product. Matches shopping + auth + landing.
-    accentGradient: "from-amber-500 to-orange-500",
-    accentGradientDark: "from-amber-600 to-orange-600",
-    hoverClasses: "hover:bg-amber-50 hover:text-amber-700 dark:hover:bg-amber-500/10",
-    activeHoverClasses: "hover:from-amber-600 hover:to-orange-600",
-    mobileSubtitleClasses: "text-amber-100",
-    searchAccent: "bg-amber-50 hover:bg-amber-100 text-amber-700",
+    // Tenant brand accent - resolves to THIS company's colours via the
+    // brand-* CSS vars (set by TenantBrandingApplier), falling back to
+    // the CateringMS amber default for non-white-label tenants. The
+    // platform / super-admin sidebar stays fixed amber (PlatformNav).
+    ...BRAND_PORTAL_PALETTE,
     searchHint: "Search anywhere...",
     dashboardHref: "/admin/dashboard",
     mobileQuickActions: [
-      { href: "/admin/dashboard", label: "Dashboard", sub: "Live metrics",   icon: LayoutDashboard, accent: "from-amber-500 to-orange-500" },
-      { href: "/admin/orders",    label: "Orders",    sub: "All orders",     icon: Package,         accent: "from-amber-500 to-orange-500" },
-      { href: "/admin/quotes",    label: "Quotes",    sub: "Create + manage", icon: FileSpreadsheet, accent: "from-amber-500 to-orange-500" },
+      { href: "/admin/dashboard", label: "Dashboard", sub: "Live metrics",   icon: LayoutDashboard, accent: BRAND_ACCENT },
+      { href: "/admin/orders",    label: "Orders",    sub: "All orders",     icon: Package,         accent: BRAND_ACCENT },
+      { href: "/admin/quotes",    label: "Quotes",    sub: "Create + manage", icon: FileSpreadsheet, accent: BRAND_ACCENT },
     ],
     // Mode-driven smart quick actions replace the static trio on mobile.
     renderMobileQuickActions: ({ onNavigate }) => <AdminSmartQuickActions onNavigate={onNavigate} />,

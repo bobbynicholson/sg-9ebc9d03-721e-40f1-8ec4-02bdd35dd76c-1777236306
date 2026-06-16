@@ -54,6 +54,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { PortalSidebar, type PortalSidebarConfig } from "./PortalSidebar";
+import { BRAND_PORTAL_PALETTE, BRAND_ACCENT } from "@/lib/branding/portalPalette";
 import { useCleaningLiveCounts } from "@/hooks/useCleaningLiveCounts";
 import { useCleaningPortalMode } from "@/hooks/useCleaningPortalMode";
 import { CleaningModeBadge } from "@/components/cleaning/CleaningModeBadge";
@@ -85,20 +86,16 @@ export function CleaningNav(_: CleaningNavProps = {}) {
     title: "Cleaning Portal",
     mobileSubtitle: "Returns, washes, damages",
     brandIcon: Sparkles,
-    accentGradient: "from-amber-500 to-orange-500",
-    accentGradientDark: "from-amber-600 to-orange-600",
-    hoverClasses: "hover:bg-amber-50 hover:text-amber-700",
-    activeHoverClasses: "hover:from-amber-600 hover:to-orange-600",
-    mobileSubtitleClasses: "text-amber-100",
-    searchAccent: "bg-amber-50 hover:bg-amber-100 text-amber-700",
+    // Tenant brand accent via brand-* CSS vars (amber default). See portalPalette.ts.
+    ...BRAND_PORTAL_PALETTE,
     searchHint: "Search handovers, equipment, supplies...",
     dashboardHref: "/team-portal/cleaning/dashboard",
     // Static fallback mobile quick actions - only used if the smart
     // renderer below somehow doesn't fire. Kept for safety.
     mobileQuickActions: [
-      { href: "/team-portal/cleaning/dashboard#returns", label: "Returns",     sub: "Equipment coming back", icon: PackageOpen, accent: "from-amber-500 to-orange-500" },
-      { href: "/team-portal/cleaning/dashboard#washing", label: "Washing",     sub: "Active jobs",           icon: Droplets,    accent: "from-amber-500 to-orange-500" },
-      { href: "/team-portal/cleaning/equipment",         label: "Equipment",   sub: "Verify + catalogue",    icon: Package,     accent: "from-amber-500 to-orange-500" },
+      { href: "/team-portal/cleaning/dashboard#returns", label: "Returns",     sub: "Equipment coming back", icon: PackageOpen, accent: BRAND_ACCENT },
+      { href: "/team-portal/cleaning/dashboard#washing", label: "Washing",     sub: "Active jobs",           icon: Droplets,    accent: BRAND_ACCENT },
+      { href: "/team-portal/cleaning/equipment",         label: "Equipment",   sub: "Verify + catalogue",    icon: Package,     accent: BRAND_ACCENT },
     ],
     renderTopSlot: () => (
       <div className="space-y-2">
