@@ -16,7 +16,7 @@ import { withApiLogging } from "@/lib/withApiLogging";
 
 
 const ALLOWED_ROLES = new Set([
-  "super_admin", "company_admin", "admin", "sales_admin", "region_admin",
+  "super_admin", "company_admin", "owner", "admin", "sales_admin", "region_admin",
 ]);
 
 function mintToken(): string {

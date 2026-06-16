@@ -329,17 +329,27 @@ export function OutsourcedFulfilmentPanel({
   };
 
   const callAction = async (id: string, body: any) => {
-    const resp = await fetch(`/api/admin/outsource-assignments/${id}/action`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    const json = await resp.json();
-    if (!resp.ok) {
-      toast({ title: "Action failed", description: json?.error || "Try again", variant: "destructive" });
+    try {
+      const resp = await fetch(`/api/admin/outsource-assignments/${id}/action`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const json = await resp.json().catch(() => ({}));
+      if (!resp.ok) {
+        toast({
+          title: "Action failed",
+          description: (json as any)?.error || `Request failed (${resp.status})`,
+          variant: "destructive",
+        });
+        return false;
+      }
+      return true;
+    } catch (e: any) {
+      // Network / parse failure must never silently do nothing - surface it.
+      toast({ title: "Action failed", description: e?.message || "Network error - try again", variant: "destructive" });
       return false;
     }
-    return true;
   };
 
   const handleMarkAccepted = async (a: OutsourceAssignmentWithProvider) => {

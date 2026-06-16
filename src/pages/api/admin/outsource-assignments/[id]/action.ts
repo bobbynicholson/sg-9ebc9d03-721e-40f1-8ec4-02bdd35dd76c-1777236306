@@ -16,7 +16,7 @@ import { withApiLogging } from "@/lib/withApiLogging";
 
 
 const ALLOWED_ROLES = new Set([
-  "super_admin", "company_admin", "admin", "sales_admin", "region_admin",
+  "super_admin", "company_admin", "owner", "admin", "sales_admin", "region_admin",
 ]);
 const ALLOWED_STATUSES = new Set([
   "requested", "accepted", "declined", "en_route", "on_site", "completed", "cancelled",
