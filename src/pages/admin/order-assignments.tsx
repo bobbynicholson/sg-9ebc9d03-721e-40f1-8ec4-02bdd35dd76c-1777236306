@@ -505,7 +505,11 @@ function DispatchQueuePage() {
         venue_lat: order.venue_lat,
         venue_lng: order.venue_lng,
         region_id: (order as any).region_id ?? null,
-      }, 3);
+        // Was capped at 3, which hid the rest of the fleet - operators
+        // couldn't pick a driver outside the top suggestions. Return the
+        // whole scored list (best-first); the dialog scrolls. 200 is an
+        // effectively-unlimited ceiling for any catering fleet.
+      }, 200);
       setSuggestions(result);
     } finally {
       setSuggestLoading(false);
@@ -1445,7 +1449,7 @@ function DispatchQueuePage() {
               Assign driver · {assignTarget?.client_name}
             </DialogTitle>
             <p className="text-sm text-slate-500">
-              Top 3 matches scored by distance, current load, region, on-time rate, rating. One click to accept.
+              Every driver, scored by distance, current load, region, on-time rate and rating - best match first. Pick anyone; one click to assign.
             </p>
           </DialogHeader>
 
@@ -1460,7 +1464,7 @@ function DispatchQueuePage() {
               <p className="mt-1">Add drivers from the Drivers page first.</p>
             </div>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-2 max-h-[55vh] overflow-y-auto pr-1">
               {suggestions.map((s, idx) => {
                 const blocked = !s.capacity.ok || !s.feasibility.ok || !s.vehicle.ok;
                 return (
