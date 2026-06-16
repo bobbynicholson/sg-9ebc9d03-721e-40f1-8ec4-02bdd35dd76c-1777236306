@@ -608,7 +608,7 @@ export default function ClientProfilePage() {
                 >
                   Cancel
                 </Button>
-                <Button onClick={save} disabled={saving} className="gap-2 bg-amber-600 hover:bg-amber-700 text-white">
+                <Button onClick={save} disabled={saving} className="gap-2 bg-brand-primary hover:opacity-90 text-white">
                   {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                   Save changes
                 </Button>

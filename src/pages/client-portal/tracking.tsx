@@ -380,7 +380,7 @@ export default function ClientTracking() {
                 <RefreshCw className="w-12 h-12 text-rose-400 dark:text-rose-500 mx-auto mb-3" />
                 <h3 className="text-lg font-semibold text-rose-900 dark:text-rose-200 mb-2">Couldn't load your deliveries</h3>
                 <p className="text-sm text-slate-600 dark:text-slate-400 max-w-md mx-auto mb-4">{loadError}</p>
-                <Button onClick={() => loadOrders()} className="bg-amber-600 hover:bg-amber-700 text-white">
+                <Button onClick={() => loadOrders()} className="bg-brand-primary hover:opacity-90 text-white">
                   <RefreshCw className="w-4 h-4 mr-2" /> Try again
                 </Button>
               </div>
@@ -420,7 +420,7 @@ export default function ClientTracking() {
                   Until then you can see all your bookings under &ldquo;My Orders&rdquo;.
                 </p>
                 <div className="inline-flex gap-2">
-                  <Button asChild className="bg-amber-600 hover:bg-amber-700 text-white">
+                  <Button asChild className="bg-brand-primary hover:opacity-90 text-white">
                     <Link href="/client-portal/my-orders">View my orders</Link>
                   </Button>
                   <Button asChild variant="outline">
@@ -455,7 +455,7 @@ export default function ClientTracking() {
               <Button
                 onClick={handleRefresh}
                 disabled={refreshing}
-                className="bg-amber-600 hover:bg-amber-700 text-white"
+                className="bg-brand-primary hover:opacity-90 text-white"
               >
                 <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? "animate-spin" : ""}`} />
                 Refresh
@@ -494,7 +494,7 @@ export default function ClientTracking() {
               <PortalCard>
                 <div className="mb-4 flex items-center justify-between gap-3">
                   <h2 className="flex items-center gap-2 text-base font-semibold text-slate-900 dark:text-white">
-                    <MapPin className="w-5 h-5 text-amber-600 dark:text-amber-500" />
+                    <MapPin className="w-5 h-5 text-brand-primary" />
                     Live Tracking
                   </h2>
                   {selectedOrder && (
@@ -610,7 +610,7 @@ export default function ClientTracking() {
                       onClick={() => handleOrderSelect(order)}
                       className={`p-4 rounded-xl border-2 cursor-pointer transition-colors ${
                         selectedOrder?.id === order.id
-                          ? "border-amber-500 bg-amber-50 dark:bg-amber-950/40 dark:border-amber-600"
+                          ? "border-brand-primary bg-brand-primary/5 dark:bg-brand-primary/10 dark:border-brand-primary"
                           : "border-slate-200 hover:border-slate-300 dark:border-slate-700 dark:hover:border-slate-600"
                       }`}
                     >

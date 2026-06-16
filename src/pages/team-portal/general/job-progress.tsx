@@ -8,11 +8,11 @@ import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { toLocalISO } from "@/lib/localDate";
-import { Header } from "@/components/Header";
 import Head from "next/head";
 import { useAuth } from "@/contexts/AuthContext";
 import { ChatBot } from "@/components/ChatBot";
 import { DynamicNav } from "@/components/DynamicNav";
+import { PortalShell, PortalHeader } from "@/components/portal/ui";
 import { supabase } from "@/integrations/supabase/client";
 
 interface JobProgress {
@@ -127,30 +127,28 @@ export default function StaffJobProgress() {
 
       {user && <DynamicNav userRole={user.role} />}
 
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 pt-20">
-        <div className="px-4 py-6 md:py-8 lg:py-12 max-w-full">
-          <div className="flex items-center gap-3 mb-8">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg">
-              <Package className="w-6 h-6 text-white" />
-            </div>
-            <div>
-              <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-2">
-                Job Progress Overview
+      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+          <PortalHeader
+            title={
+              <span className="flex items-center gap-2">
+                Job progress overview
                 <InfoTooltip content="Live view of every active job with kitchen and driver progress in one place. Pulls every order in the next seven days that is confirmed or further along." />
-              </h1>
-              <p className="text-slate-600">Monitor all active jobs and their progress in real-time</p>
-            </div>
-          </div>
+              </span>
+            }
+            subtitle="Monitor all active jobs and their progress in real-time"
+            icon={Package}
+          />
 
           <div className="grid gap-6">
             {loading ? (
-              <div className="text-center py-12 text-slate-600">Loading jobs...</div>
+              <div className="text-center py-12 text-slate-600 dark:text-slate-400">Loading jobs...</div>
             ) : jobs.length === 0 ? (
               <Card className="border-0 shadow-lg">
                 <CardContent className="py-12 text-center">
-                  <Package className="w-16 h-16 mx-auto mb-4 text-slate-300" />
-                  <p className="text-slate-600 font-medium">No active jobs</p>
-                  <p className="text-sm text-slate-500 mt-1">Jobs will appear here when orders are confirmed</p>
+                  <Package className="w-16 h-16 mx-auto mb-4 text-slate-300 dark:text-slate-600" />
+                  <p className="text-slate-600 dark:text-slate-300 font-medium">No active jobs</p>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Jobs will appear here when orders are confirmed</p>
                 </CardContent>
               </Card>
             ) : (
@@ -172,7 +170,7 @@ export default function StaffJobProgress() {
                           })}
                         </p>
                       </div>
-                      <Badge className="bg-blue-100 text-blue-800">
+                      <Badge variant="outline" className="bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700">
                         <Users className="w-3 h-3 mr-1" />
                         {job.guestCount} guests
                       </Badge>
@@ -191,10 +189,10 @@ export default function StaffJobProgress() {
                     </div>
 
                     <div className="grid md:grid-cols-2 gap-4">
-                      <div className="p-4 bg-gradient-to-br from-orange-50 to-red-50 rounded-lg">
+                      <div className="p-4 bg-slate-50 border border-slate-200 dark:bg-slate-800/50 dark:border-slate-700 rounded-lg">
                         <div className="flex items-center justify-between mb-3">
                           <div className="flex items-center gap-2">
-                            <ChefHat className="w-5 h-5 text-orange-600" />
+                            <ChefHat className="w-5 h-5 text-amber-600 dark:text-amber-500" />
                             <span className="font-medium text-slate-900 flex items-center gap-1">
                               Kitchen Status
                               <InfoTooltip content="Where the kitchen is with prep: pending, preparing, or ready to go." />
@@ -224,10 +222,10 @@ export default function StaffJobProgress() {
                         </div>
                       </div>
 
-                      <div className="p-4 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg">
+                      <div className="p-4 bg-slate-50 border border-slate-200 dark:bg-slate-800/50 dark:border-slate-700 rounded-lg">
                         <div className="flex items-center justify-between mb-3">
                           <div className="flex items-center gap-2">
-                            <Truck className="w-5 h-5 text-blue-600" />
+                            <Truck className="w-5 h-5 text-amber-600 dark:text-amber-500" />
                             <span className="font-medium text-slate-900 flex items-center gap-1">
                               Driver Status
                               <InfoTooltip content="Where the delivery is at: pending, assigned to a driver, or completed." />
@@ -268,7 +266,7 @@ export default function StaffJobProgress() {
               ))
             )}
           </div>
-        </div>
+        </PortalShell>
 
         <Footer />
       </div>

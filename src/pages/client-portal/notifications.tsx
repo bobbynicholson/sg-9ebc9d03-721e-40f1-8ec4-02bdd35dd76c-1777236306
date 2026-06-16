@@ -168,7 +168,7 @@ export default function ClientNotificationsPage() {
               unreadCount > 0 ? (
                 <Button
                   onClick={onMarkAllRead}
-                  className="bg-amber-600 hover:bg-amber-700 text-white rounded-lg gap-1.5"
+                  className="bg-brand-primary hover:opacity-90 text-white rounded-lg gap-1.5"
                 >
                   <CheckCircle2 className="w-4 h-4" />
                   Mark all read

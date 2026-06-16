@@ -63,7 +63,7 @@ export function PortalHeader({
           </span>
         )}
         <div className="min-w-0">
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white">{title}</h1>
+          <h1 className="font-brand-display text-2xl font-semibold tracking-tight text-slate-900 dark:text-white">{title}</h1>
           {subtitle && <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">{subtitle}</p>}
         </div>
       </div>

@@ -23,6 +23,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ArrowLeft, CheckCircle2, Package, Loader2, AlertTriangle, ExternalLink } from "lucide-react";
 import { BookingHeader } from "@/components/booking/BookingHeader";
 import { CleaningNav } from "@/components/navigation/CleaningNav";
+import { PortalShell } from "@/components/portal/ui";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { Footer } from "@/components/Footer";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
@@ -174,11 +175,11 @@ function HandoverDetailInner() {
       </Head>
       <CleaningNav />
 
-      <main className="min-h-screen bg-slate-50 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
-        <div className="pt-20 lg:pt-6 px-3 sm:px-4 md:px-6 pb-6 max-w-full">
+      <main className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <Link
             href={withSlug("/team-portal/cleaning/dashboard")}
-            className="inline-flex items-center gap-1 text-sm text-slate-600 hover:text-slate-900 mb-4"
+            className="inline-flex items-center gap-1 text-sm text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200 mb-4"
           >
             <ArrowLeft className="w-4 h-4" /> Back to cleaning dashboard
           </Link>
@@ -372,7 +373,7 @@ function HandoverDetailInner() {
               )}
             </>
           )}
-        </div>
+        </PortalShell>
         <Footer />
       </main>
     </>

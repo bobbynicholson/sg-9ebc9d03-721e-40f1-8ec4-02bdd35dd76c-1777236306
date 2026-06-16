@@ -79,6 +79,11 @@ const config: Config = {
         // when unset it falls through to the next/font default var.
         display: ["var(--brand-font-display, var(--font-display))", "ui-serif", "Georgia", "Cambria", "serif"],
         body: ["var(--brand-font-body, var(--font-body))", "ui-sans-serif", "system-ui", "sans-serif"],
+        // App-header heading font. Applies the tenant's chosen display
+        // font ONLY when set; otherwise inherits (so non-white-label
+        // admin/portal headers keep their current sans look - we don't
+        // force Fraunces on every dashboard heading). Used by PortalHeader.
+        "brand-display": ["var(--brand-font-display, inherit)"],
       },
       borderRadius: {
         lg: "var(--radius)",

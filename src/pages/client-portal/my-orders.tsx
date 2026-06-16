@@ -253,7 +253,7 @@ export default function MyOrders() {
               size="sm"
               variant={filter === "all" ? "default" : "outline"}
               onClick={() => setFilter("all")}
-              className={filter === "all" ? "bg-amber-600 hover:bg-amber-700" : ""}
+              className={filter === "all" ? "bg-brand-primary hover:opacity-90" : ""}
             >
               All Orders
             </Button>
@@ -261,7 +261,7 @@ export default function MyOrders() {
               size="sm"
               variant={filter === "active" ? "default" : "outline"}
               onClick={() => setFilter("active")}
-              className={filter === "active" ? "bg-amber-600 hover:bg-amber-700" : ""}
+              className={filter === "active" ? "bg-brand-primary hover:opacity-90" : ""}
             >
               Active
             </Button>
@@ -269,7 +269,7 @@ export default function MyOrders() {
               size="sm"
               variant={filter === "completed" ? "default" : "outline"}
               onClick={() => setFilter("completed")}
-              className={filter === "completed" ? "bg-amber-600 hover:bg-amber-700" : ""}
+              className={filter === "completed" ? "bg-brand-primary hover:opacity-90" : ""}
             >
               Completed
             </Button>
@@ -333,7 +333,7 @@ export default function MyOrders() {
                       className={`p-4 md:p-6 border rounded-2xl transition-colors duration-200 ${
                         clientTl?.blocked
                           ? "border-l-4 border-l-rose-500 border-y-rose-100 border-r-rose-100 bg-rose-50/40 dark:border-l-rose-500 dark:border-y-rose-900/40 dark:border-r-rose-900/40 dark:bg-rose-950/20"
-                          : "border-slate-200/80 bg-white hover:border-amber-300 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-amber-700"
+                          : "border-slate-200/80 bg-white hover:border-brand-primary/40 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-brand-primary/40"
                       }`}
                     >
                       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -484,7 +484,7 @@ export default function MyOrders() {
                           {order.status === "completed" && (
                             <Button
                               size="sm"
-                              className="w-full sm:w-auto bg-amber-600 hover:bg-amber-700"
+                              className="w-full sm:w-auto bg-brand-primary hover:opacity-90"
                               onClick={() => setRebookOrder(order)}
                             >
                               <RotateCcw className="w-4 h-4 mr-2" />
@@ -654,7 +654,7 @@ export default function MyOrders() {
                       setAmendSubmitting(false);
                     }
                   }}
-                  className="bg-amber-600 hover:bg-amber-700"
+                  className="bg-brand-primary hover:opacity-90"
                 >
                   {amendSubmitting ? "Submitting..." : "Submit request"}
                 </Button>
@@ -718,7 +718,7 @@ export default function MyOrders() {
                   Keep the date
                 </Button>
                 <Button
-                  className="bg-amber-600 hover:bg-amber-700 text-white"
+                  className="bg-brand-primary hover:opacity-90 text-white"
                   disabled={cancelSubmitting || !cancelPostponeDate}
                   onClick={async () => {
                     if (!cancelRequestOrder) return;

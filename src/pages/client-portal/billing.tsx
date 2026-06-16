@@ -473,7 +473,7 @@ export default function ClientBillingPage() {
                     {filteredInvoices.map((invoice) => (
                       <div
                         key={invoice.id}
-                        className="p-4 border border-slate-200 dark:border-slate-800 rounded-xl bg-white dark:bg-slate-900 hover:border-amber-300 dark:hover:border-amber-700 transition-colors"
+                        className="p-4 border border-slate-200 dark:border-slate-800 rounded-xl bg-white dark:bg-slate-900 hover:border-brand-primary/40 dark:hover:border-brand-primary/40 transition-colors"
                       >
                         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                           <div className="flex-1">
@@ -539,7 +539,7 @@ export default function ClientBillingPage() {
                                 <Button
                                   size="sm"
                                   onClick={() => handlePayInvoice(invoice)}
-                                  className="bg-amber-600 hover:bg-amber-700 text-white"
+                                  className="bg-brand-primary hover:opacity-90 text-white"
                                 >
                                   <CreditCard className="w-4 h-4 mr-2" />
                                   Pay Now
