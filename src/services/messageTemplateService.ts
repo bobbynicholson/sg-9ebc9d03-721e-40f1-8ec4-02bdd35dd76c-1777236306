@@ -262,27 +262,70 @@ export interface SaveArgs {
 
 export async function saveOverride(args: SaveArgs): Promise<void> {
   if (!args.companyId) throw new Error("companyId required");
+  // NB: neither email_templates(company_id,template_type) nor
+  // whatsapp_templates(company_id,template_key) has a UNIQUE constraint,
+  // so an upsert with onConflict fails with "no unique or exclusion
+  // constraint matching the ON CONFLICT specification". Do an explicit
+  // lookup -> update / insert instead (same pattern as the platform
+  // messaging-templates save route). limit(1) on the read tolerates any
+  // pre-existing duplicate rows that the missing constraint allowed.
   if (args.channel === "email") {
-    const { error } = await (supabase as any)
+    const { data: rows, error: lookupErr } = await (supabase as any)
       .from("email_templates")
-      .upsert({
-        company_id: args.companyId,
-        template_type: args.key,
-        subject: args.subject ?? "",
-        body: args.body,
-        is_active: args.isActive !== false,
-      }, { onConflict: "company_id,template_type" });
-    if (error) throw error;
+      .select("id")
+      .eq("company_id", args.companyId)
+      .eq("template_type", args.key)
+      .limit(1);
+    if (lookupErr) throw lookupErr;
+    const existingId = Array.isArray(rows) && rows.length > 0 ? rows[0].id : null;
+    const row = {
+      company_id: args.companyId,
+      template_type: args.key,
+      subject: args.subject ?? "",
+      body: args.body,
+      is_active: args.isActive !== false,
+      updated_at: new Date().toISOString(),
+    };
+    if (existingId) {
+      const { error } = await (supabase as any)
+        .from("email_templates")
+        .update(row)
+        .eq("id", existingId);
+      if (error) throw error;
+    } else {
+      const { error } = await (supabase as any)
+        .from("email_templates")
+        .insert(row);
+      if (error) throw error;
+    }
   } else {
-    const { error } = await (supabase as any)
+    const { data: rows, error: lookupErr } = await (supabase as any)
       .from("whatsapp_templates")
-      .upsert({
-        company_id: args.companyId,
-        template_key: args.key,
-        template_content: args.body,
-        is_enabled: args.isActive !== false,
-      }, { onConflict: "company_id,template_key" });
-    if (error) throw error;
+      .select("id")
+      .eq("company_id", args.companyId)
+      .eq("template_key", args.key)
+      .limit(1);
+    if (lookupErr) throw lookupErr;
+    const existingId = Array.isArray(rows) && rows.length > 0 ? rows[0].id : null;
+    const row = {
+      company_id: args.companyId,
+      template_key: args.key,
+      template_content: args.body,
+      is_enabled: args.isActive !== false,
+      updated_at: new Date().toISOString(),
+    };
+    if (existingId) {
+      const { error } = await (supabase as any)
+        .from("whatsapp_templates")
+        .update(row)
+        .eq("id", existingId);
+      if (error) throw error;
+    } else {
+      const { error } = await (supabase as any)
+        .from("whatsapp_templates")
+        .insert(row);
+      if (error) throw error;
+    }
   }
   invalidateCompanyCache(args.companyId);
 }
