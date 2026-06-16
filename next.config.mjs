@@ -71,42 +71,50 @@ const nextConfig = {
   },
 
   async rewrites() {
+    // IMPORTANT: array rewrites are applied as `afterFiles`, which run
+    // AFTER static files but BEFORE dynamic routes. The `:company_slug`
+    // param would otherwise match `api` (e.g. /api/admin/invoices/:id/
+    // mark-paid) and hijack DYNAMIC /api/admin/*/[id]/* routes to a
+    // non-existent page -> 404. Static /api routes survived (filesystem
+    // phase wins) but dynamic ones did not. The `((?!api)[^/]+)`
+    // constraint stops the slug from matching anything starting with
+    // "api", so /api/* always falls through to the real API handlers.
     return [
       // ── Client portal (clients) ────────────────────────────────
       {
-        source: "/:company_slug/client-portal/:path*",
+        source: "/:company_slug((?!api)[^/]+)/client-portal/:path*",
         destination: "/client-portal/:path*?company_slug=:company_slug",
       },
       {
-        source: "/:company_slug/client-portal",
+        source: "/:company_slug((?!api)[^/]+)/client-portal",
         destination: "/client-portal/dashboard?company_slug=:company_slug",
       },
       // ── Admin (owner / company_admin) ──────────────────────────
       {
-        source: "/:company_slug/admin/:path*",
+        source: "/:company_slug((?!api)[^/]+)/admin/:path*",
         destination: "/admin/:path*?company_slug=:company_slug",
       },
       {
-        source: "/:company_slug/admin",
+        source: "/:company_slug((?!api)[^/]+)/admin",
         destination: "/admin/dashboard?company_slug=:company_slug",
       },
       // ── Team portal (kitchen / driver / shopping / cleaning) ───
       {
-        source: "/:company_slug/team-portal/:path*",
+        source: "/:company_slug((?!api)[^/]+)/team-portal/:path*",
         destination: "/team-portal/:path*?company_slug=:company_slug",
       },
       {
-        source: "/:company_slug/team-portal",
+        source: "/:company_slug((?!api)[^/]+)/team-portal",
         destination: "/team-portal/general?company_slug=:company_slug",
       },
       // ── Account settings ───────────────────────────────────────
       {
-        source: "/:company_slug/account/:path*",
+        source: "/:company_slug((?!api)[^/]+)/account/:path*",
         destination: "/account/:path*?company_slug=:company_slug",
       },
       // ── Subscription (billing) ────────────────────────────────
       {
-        source: "/:company_slug/subscription/:path*",
+        source: "/:company_slug((?!api)[^/]+)/subscription/:path*",
         destination: "/subscription/:path*?company_slug=:company_slug",
       },
       // ── Customer public surfaces (TIGHTEN I.115, 2026-06-02) ──
@@ -118,15 +126,15 @@ const nextConfig = {
       // surfaces the tenant brand and goes through the same
       // slug-aware routing every other surface uses.
       {
-        source: "/:company_slug/q/:token",
+        source: "/:company_slug((?!api)[^/]+)/q/:token",
         destination: "/q/:token?company_slug=:company_slug",
       },
       {
-        source: "/:company_slug/c/order/:path*",
+        source: "/:company_slug((?!api)[^/]+)/c/order/:path*",
         destination: "/c/order/:path*?company_slug=:company_slug",
       },
       {
-        source: "/:company_slug/pay/i/:token",
+        source: "/:company_slug((?!api)[^/]+)/pay/i/:token",
         destination: "/pay/i/:token?company_slug=:company_slug",
       },
     ];
