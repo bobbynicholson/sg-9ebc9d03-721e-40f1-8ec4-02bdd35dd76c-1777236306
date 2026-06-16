@@ -12,7 +12,15 @@ export function CommandPaletteHint({ className }: { className?: string }) {
   const [isMac, setIsMac] = useState(false);
 
   useEffect(() => {
-    setIsMac(/Mac|iPhone|iPad/.test(navigator.platform));
+    // navigator.platform is deprecated and unreliable on Windows (can report
+    // odd values), which made the pill show the wrong key. Prefer the modern
+    // userAgentData.platform, fall back to platform/userAgent.
+    const plat =
+      (navigator as any).userAgentData?.platform ||
+      navigator.platform ||
+      navigator.userAgent ||
+      "";
+    setIsMac(/mac|iphone|ipad|ipod/i.test(plat));
   }, []);
 
   const open = () => {
