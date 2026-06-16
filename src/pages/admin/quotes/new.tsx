@@ -958,8 +958,14 @@ function NewQuotePage() {
   // line.id + equipment_id in the cache key so the swap forces a fresh
   // fetch - and so the rendering code can detect a stale snapshot
   // even when the join in the dependency array misses an edit.
+  // The cache key MUST include the event date. Availability is
+  // date-specific - "how many plates are free?" is a different question
+  // on a different day. Omitting the date meant a date change couldn't
+  // invalidate the cache: the stale-closure check in the fetch effect
+  // below saw the previous date's snapshot under the same key and skipped
+  // the refetch, freezing "200 reserved on this date" across date edits.
   const availKey = (line: { id: string; equipment_id: string | null }) =>
-    `${line.id}::${line.equipment_id || "none"}`;
+    `${line.id}::${line.equipment_id || "none"}::${eventDate || "nodate"}`;
   useEffect(() => {
     if (!companyId || !eventDate) return;
     let cancelled = false;
@@ -1027,11 +1033,12 @@ function NewQuotePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [companyId, equipment.map((e) => `${e.id}:${e.equipment_id}`).join("|")]);
 
-  // When the event date changes, blow the cache so the next render
-  // re-fetches every line against the new date.
-  useEffect(() => {
-    setAvailability({});
-  }, [eventDate]);
+  // NB: no "clear cache on date change" effect any more. The event date
+  // is now part of availKey, so a date change naturally produces fresh
+  // keys and the fetch effect above refetches each line against the new
+  // date. The old clear-effect raced with that fetch (it ran *after* it
+  // and wiped the just-scheduled result), which is what left the stale
+  // "reserved on this date" figure stuck.
 
   // ── Persistence ──────────────────────────────────────────────────
   const buildPayload = useCallback(() => {
