@@ -495,7 +495,10 @@ export default function PublicQuotePage() {
                       {companyName}
                     </p>
                     <p className="text-[10px] uppercase tracking-[0.25em] text-stone-400 font-semibold mt-0.5">
-                      {vatRegistered ? "Quotation · Tax document" : "Quotation"}
+                      {/* A quote is NOT a legal tax document - only a Tax
+                          Invoice is. Never label a quotation "Tax document",
+                          even for VAT-registered tenants. */}
+                      Quotation
                     </p>
                   </div>
                 </div>
