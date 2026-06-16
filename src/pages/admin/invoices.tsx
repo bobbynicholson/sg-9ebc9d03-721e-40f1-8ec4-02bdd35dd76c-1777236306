@@ -58,6 +58,20 @@ import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { PendingClaimsBanner } from "@/components/billing/PendingClaimsBanner";
 import { InvoiceAgingCard } from "@/components/admin/InvoiceAgingCard";
 
+// An invoice is "effectively overdue" when the cron has already flipped
+// it to 'overdue' OR it's still sent / partially_paid with a balance and
+// the due date has passed (covers cron lag). Used by both the Overdue
+// quick-filter and its count so the chip number and the filtered rows
+// always agree. Module-scope (pure) so it's a stable memo dependency.
+function isEffectivelyOverdue(inv: any): boolean {
+  if (!inv) return false;
+  if (inv.status === "overdue") return true;
+  if (inv.status !== "sent" && inv.status !== "partially_paid") return false;
+  if (Number(inv.balance_due || 0) <= 0) return false;
+  if (!inv.due_date) return false;
+  return String(inv.due_date).slice(0, 10) < new Date().toISOString().slice(0, 10);
+}
+
 function InvoicesPageInner() {
   const router = useRouter();
   const { user, activeRole, loading: authLoading } = useAuth() as any;
@@ -1172,7 +1186,11 @@ function InvoicesPageInner() {
 
   const statusFilteredInvoices = useMemo(() => {
     let rows: any[] = invoices;
-    if (statusFilter !== "all") {
+    if (statusFilter === "overdue") {
+      // Effective overdue (stored 'overdue' + past-due unpaid) so the
+      // view is right even if the overdue cron hasn't run yet.
+      rows = rows.filter(isEffectivelyOverdue);
+    } else if (statusFilter !== "all") {
       rows = rows.filter((inv: any) => inv.status === statusFilter);
     } else if (!includeWrittenOff) {
       // Wave 66.7 - with "All statuses" selected and the toggle off,
@@ -1211,7 +1229,20 @@ function InvoicesPageInner() {
       }
     }
     return rows;
-  }, [invoices, statusFilter, clientFilterId, dateFrom, dateTo, amountMin, amountMax]);
+  }, [invoices, statusFilter, includeWrittenOff, clientFilterId, dateFrom, dateTo, amountMin, amountMax]);
+
+  // Live counts per status for the quick-filter chips. Written-off rows
+  // are excluded (they're closed-loop); overdue uses the effective rule.
+  const statusCounts = useMemo(() => {
+    const base = invoices.filter((i: any) => i.status !== "written_off");
+    return {
+      all: base.length,
+      sent: base.filter((i: any) => i.status === "sent").length,
+      partially_paid: base.filter((i: any) => i.status === "partially_paid").length,
+      overdue: base.filter(isEffectivelyOverdue).length,
+      paid: base.filter((i: any) => i.status === "paid").length,
+    };
+  }, [invoices]);
 
   const filteredInvoices = useFuzzyItems(
     statusFilteredInvoices,
@@ -1653,6 +1684,43 @@ function InvoicesPageInner() {
                     <X className="w-4 h-4" />
                   </button>
                 )}
+              </div>
+              {/* Quick status filters with live counts. Faster than the
+                  dropdown for the everyday chase view and surfaces the
+                  overdue count up front. The dropdown stays for draft /
+                  written-off edge cases. */}
+              <div className="flex flex-wrap items-center gap-1.5 w-full" data-print-hidden="true">
+                {([
+                  { key: "all", label: "All", count: statusCounts.all, tone: "slate" },
+                  { key: "sent", label: "Awaiting payment", count: statusCounts.sent, tone: "blue" },
+                  { key: "partially_paid", label: "Part paid", count: statusCounts.partially_paid, tone: "amber" },
+                  { key: "overdue", label: "Overdue", count: statusCounts.overdue, tone: "rose" },
+                  { key: "paid", label: "Paid", count: statusCounts.paid, tone: "emerald" },
+                ] as Array<{ key: string; label: string; count: number; tone: "slate" | "blue" | "amber" | "rose" | "emerald" }>).map((c) => {
+                  const active = statusFilter === c.key;
+                  const activeTone: Record<string, string> = {
+                    slate: "bg-slate-800 text-white border-slate-800",
+                    blue: "bg-blue-600 text-white border-blue-600",
+                    amber: "bg-amber-500 text-white border-amber-500",
+                    rose: "bg-rose-600 text-white border-rose-600",
+                    emerald: "bg-emerald-600 text-white border-emerald-600",
+                  };
+                  return (
+                    <button
+                      key={c.key}
+                      type="button"
+                      onClick={() => setStatusFilter(c.key)}
+                      className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition ${
+                        active ? activeTone[c.tone] : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                      }`}
+                    >
+                      {c.label}
+                      <span className={`tabular-nums rounded-full px-1.5 py-0.5 text-[10px] ${active ? "bg-white/20 text-white" : "bg-slate-100 text-slate-600"}`}>
+                        {c.count}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
               <select
                 value={statusFilter}
