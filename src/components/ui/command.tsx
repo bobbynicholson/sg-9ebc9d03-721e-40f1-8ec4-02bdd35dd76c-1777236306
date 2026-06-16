@@ -31,7 +31,12 @@ type CommandDialogProps = DialogProps & {
 const CommandDialog = ({ children, shouldFilter, label, ...props }: CommandDialogProps) => {
   return (
     <Dialog {...props}>
-      <DialogContent className="overflow-hidden p-0">
+      {/* Command-palette sizing: anchor near the top (palette convention,
+          not a centred modal), cap the width, and drop the grid gap/padding.
+          twMerge lets these override DialogContent's centred defaults. The
+          results list scrolls internally so the dialog never runs off the
+          viewport. */}
+      <DialogContent className="top-[12vh] max-h-[76vh] max-w-xl translate-y-0 gap-0 overflow-hidden p-0">
         <Command
           shouldFilter={shouldFilter}
           label={label}
@@ -69,7 +74,7 @@ const CommandList = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <CommandPrimitive.List
     ref={ref}
-    className={cn("max-h-[300px] overflow-y-auto overflow-x-hidden", className)}
+    className={cn("max-h-[min(56vh,400px)] overflow-y-auto overflow-x-hidden", className)}
     {...props}
   />
 ))
