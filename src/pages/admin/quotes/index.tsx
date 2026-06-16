@@ -43,6 +43,7 @@ import { Quote } from "@/types";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { PortalShell, PortalHeader } from "@/components/portal/ui";
 import { RowPrimaryAction } from "@/components/admin/RowPrimaryAction";
 import {
   computeFollowupState,
@@ -1406,22 +1407,14 @@ function AdminQuotesInner() {
 
       <AdminNav />
 
-      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
-        <div className="px-4 pt-20 lg:pt-6 pb-12 max-w-full">
-          <div className="mb-8">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="p-3 bg-gradient-to-br from-brand-primary to-brand-secondary rounded-2xl shadow-lg shrink-0">
-                  <DollarSign className="w-8 h-8 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-3xl sm:text-4xl font-bold text-slate-900">
-                    Quotes
-                  </h1>
-                  <p className="text-slate-600 mt-1 text-sm sm:text-base hidden sm:block">Priced proposals. Build a quote from a lead or directly off a client, send the public link, then chase with reminders until accepted or declined. Accepted quotes convert to orders.</p>
-                </div>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
+      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+          <PortalHeader
+            title="Quotes"
+            icon={DollarSign}
+            subtitle="Priced proposals. Build a quote from a lead or directly off a client, send the public link, then chase with reminders until accepted or declined. Accepted quotes convert to orders."
+            actions={
+              <>
                 {/* Phase 27 #8: manual refresh bumps refreshTick which
                     is wired into the load effect's deps. Realtime
                     channels handle most cases but operators want
@@ -1498,9 +1491,9 @@ function AdminQuotesInner() {
                     New Quote
                   </Button>
                 </Link>
-              </div>
-            </div>
-          </div>
+              </>
+            }
+          />
 
           {/* Wave 70.92: date range selector that scopes the KPI
               tiles. Bobby asked "Won THIS PERIOD - which period?"
@@ -2482,7 +2475,7 @@ function AdminQuotesInner() {
               })
             )}
           </div>
-        </div>
+        </PortalShell>
 
         <Footer />
       </div>
