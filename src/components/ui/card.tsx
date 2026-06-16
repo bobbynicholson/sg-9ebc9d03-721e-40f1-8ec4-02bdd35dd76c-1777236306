@@ -9,12 +9,12 @@ const Card = React.forwardRef<
   <div
     ref={ref}
     className={cn(
-      // Refined default to match the admin dashboard "refresh" look:
-      // softer radius + a quiet layered shadow (tight contact + wide
-      // ambient) instead of the flat hard-bordered shadow-xs. Keeps the
-      // theme-aware border/bg tokens, so this lifts every card across all
-      // roles consistently. Override per-card with className as before.
-      "rounded-xl border bg-card text-card-foreground shadow-[0_1px_2px_rgba(15,23,42,0.04),0_10px_30px_-16px_rgba(15,23,42,0.12)]",
+      // Matched to PortalCard (the platform-admin reference card) so every
+      // shadcn <Card> across all roles reads identically to the polished
+      // platform pages: rounded-2xl, hairline slate border, and a quiet
+      // layered shadow (tight contact + wide ambient) instead of the flat
+      // hard-bordered shadow-xs. Override per-card with className as before.
+      "rounded-2xl border border-slate-200/80 bg-card text-card-foreground shadow-[0_1px_2px_rgba(15,23,42,0.04),0_10px_30px_-16px_rgba(15,23,42,0.12)] dark:border-slate-800",
       className
     )}
     {...props}
