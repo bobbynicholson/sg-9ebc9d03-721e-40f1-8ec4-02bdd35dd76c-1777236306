@@ -338,7 +338,7 @@ function TaxPurchasesPage() {
               <div className="flex items-start justify-between gap-3 flex-wrap">
                 <div>
                   <h1 className="text-3xl font-bold text-slate-900 mb-2 flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center">
+                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-brand-primary to-brand-secondary flex items-center justify-center">
                       <Receipt className="w-6 h-6 text-white" />
                     </div>
                     Tax overview
@@ -585,7 +585,7 @@ function TaxPurchasesPage() {
                       onClick={() => setWindowKind(t.id)}
                       className={`px-3 py-1.5 rounded-md ${
                         windowKind === t.id
-                          ? "bg-amber-600 text-white font-medium"
+                          ? "bg-brand-primary text-white font-medium"
                           : "text-slate-600 hover:bg-slate-50"
                       }`}
                     >
@@ -666,7 +666,7 @@ function TaxPurchasesPage() {
             <Card className="border-0 shadow-sm">
               <CardContent className="py-4 px-4">
                 <h2 className="text-sm font-semibold text-slate-900 mb-3 flex items-center gap-2">
-                  <Receipt className="w-4 h-4 text-amber-600" />
+                  <Receipt className="w-4 h-4 text-brand-primary" />
                   Slips in this window
                   {categoryFilter && (
                     <span className="text-[10px] font-normal text-blue-700 ml-2">

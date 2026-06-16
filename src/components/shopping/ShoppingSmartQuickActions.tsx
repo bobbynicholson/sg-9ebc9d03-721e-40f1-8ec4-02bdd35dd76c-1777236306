@@ -39,26 +39,26 @@ export function ShoppingSmartQuickActions({ onNavigate }: ShoppingSmartQuickActi
 
   const ACTIONS_BY_MODE = {
     quiet: [
-      { href: "/team-portal/shopping/suppliers",      label: "Suppliers",      sub: "Contacts + prices",     icon: Users,     accent: "from-amber-500 to-orange-500" },
-      { href: "/team-portal/shopping/inventory",      label: "Inventory",      sub: "Stock levels",          icon: Warehouse, accent: "from-amber-500 to-orange-500" },
-      { href: "/team-portal/shopping/kitchen-demand", label: "Kitchen demand", sub: "What's coming up",      icon: ChefHat,   accent: "from-amber-500 to-orange-500" },
+      { href: "/team-portal/shopping/suppliers",      label: "Suppliers",      sub: "Contacts + prices",     icon: Users,     accent: "from-brand-primary to-brand-secondary" },
+      { href: "/team-portal/shopping/inventory",      label: "Inventory",      sub: "Stock levels",          icon: Warehouse, accent: "from-brand-primary to-brand-secondary" },
+      { href: "/team-portal/shopping/kitchen-demand", label: "Kitchen demand", sub: "What's coming up",      icon: ChefHat,   accent: "from-brand-primary to-brand-secondary" },
     ],
     plan: [
       // Wave 70.30: re-pointed at the canonical /buy-list page.
-      { href: "/team-portal/shopping/buy-list",       label: "Build buy list", sub: "Shortfall first",       icon: ListChecks, accent: "from-amber-500 to-orange-500" },
-      { href: "/team-portal/shopping/kitchen-demand", label: "Kitchen demand", sub: "Recipe pull",           icon: ChefHat,    accent: "from-amber-500 to-orange-500" },
-      { href: "/team-portal/shopping/inventory",      label: "Inventory",      sub: "Check par levels",      icon: Warehouse,  accent: "from-amber-500 to-orange-500" },
+      { href: "/team-portal/shopping/buy-list",       label: "Build buy list", sub: "Shortfall first",       icon: ListChecks, accent: "from-brand-primary to-brand-secondary" },
+      { href: "/team-portal/shopping/kitchen-demand", label: "Kitchen demand", sub: "Recipe pull",           icon: ChefHat,    accent: "from-brand-primary to-brand-secondary" },
+      { href: "/team-portal/shopping/inventory",      label: "Inventory",      sub: "Check par levels",      icon: Warehouse,  accent: "from-brand-primary to-brand-secondary" },
     ],
     run: [
-      { href: "/team-portal/shopping/receipts",       label: "Snap a receipt", sub: "Photo the slip",        icon: Camera,      accent: "from-amber-500 to-orange-500" },
+      { href: "/team-portal/shopping/receipts",       label: "Snap a receipt", sub: "Photo the slip",        icon: Camera,      accent: "from-brand-primary to-brand-secondary" },
       // Wave 70.30: "Active list" now lives on the dashboard.
-      { href: "/team-portal/shopping/dashboard",      label: "Your list",      sub: "Tick items off",        icon: ShoppingCart, accent: "from-amber-500 to-orange-500" },
-      { href: "/team-portal/shopping/buy-list",       label: "Quick add",      sub: "Add more from shortfall", icon: Plus,       accent: "from-amber-500 to-orange-500" },
+      { href: "/team-portal/shopping/dashboard",      label: "Your list",      sub: "Tick items off",        icon: ShoppingCart, accent: "from-brand-primary to-brand-secondary" },
+      { href: "/team-portal/shopping/buy-list",       label: "Quick add",      sub: "Add more from shortfall", icon: Plus,       accent: "from-brand-primary to-brand-secondary" },
     ],
     reconcile: [
-      { href: "/team-portal/shopping/receipts",       label: "File receipts",  sub: "Upload today's slips",  icon: Receipt,   accent: "from-amber-500 to-orange-500" },
-      { href: "/team-portal/shopping/invoices",       label: "Spend today",    sub: "Match totals",          icon: Wallet,    accent: "from-amber-500 to-orange-500" },
-      { href: "/team-portal/shopping/suppliers",      label: "Suppliers",      sub: "Confirm contacts",      icon: Users,     accent: "from-amber-500 to-orange-500" },
+      { href: "/team-portal/shopping/receipts",       label: "File receipts",  sub: "Upload today's slips",  icon: Receipt,   accent: "from-brand-primary to-brand-secondary" },
+      { href: "/team-portal/shopping/invoices",       label: "Spend today",    sub: "Match totals",          icon: Wallet,    accent: "from-brand-primary to-brand-secondary" },
+      { href: "/team-portal/shopping/suppliers",      label: "Suppliers",      sub: "Confirm contacts",      icon: Users,     accent: "from-brand-primary to-brand-secondary" },
     ],
   } as const;
 
