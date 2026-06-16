@@ -67,7 +67,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       total_amount, amount_paid, balance_due, status, invoice_data,
       companies:company_id (
         id, company_name, logo_url, email, phone_number:phone,
-        vat_registered, vat_number, vat_rate,
+        vat_registered, vat_number, vat_rate, deposit_percent,
         primary_color, secondary_color, accent_color
       )
     `)

@@ -58,6 +58,7 @@ interface InvoiceView {
     vat_registered: boolean | null;
     vat_number: string | null;
     vat_rate: number | null;
+    deposit_percent: number | null;
     primary_color: string | null;
     secondary_color: string | null;
     accent_color: string | null;
@@ -336,6 +337,18 @@ export default function InvoicePaymentPage() {
     : `Due in ${daysToDue} days`;
   const dueChipTone = isOverdue ? "overdue" : daysToDue <= 3 ? "soon" : "ok";
 
+  // Deposit / balance split for the client's payment plan. Uses the
+  // caterer's configured deposit_percent (default 50%). Informational
+  // so the client sees the staged structure - deposit to confirm the
+  // booking, balance before the event - on the same document.
+  const depositPct = (() => {
+    const p = Number(company.deposit_percent);
+    return Number.isFinite(p) && p > 0 && p < 100 ? p : 50;
+  })();
+  const balancePct = 100 - depositPct;
+  const depositAmount = Math.round((invoice.total_amount || 0) * (depositPct / 100) * 100) / 100;
+  const balanceAmount = Math.round(((invoice.total_amount || 0) - depositAmount) * 100) / 100;
+
   return (
     <>
       <Head>
@@ -447,6 +460,28 @@ export default function InvoicePaymentPage() {
                 <div>
                   <p className="text-[10px] uppercase tracking-[0.15em] text-brand-primary font-bold">Paid to date</p>
                   <p className="text-xl font-bold text-emerald-700 tabular-nums">{fmtMoney.format(invoice.amount_paid)}</p>
+                </div>
+              </div>
+
+              {/* Payment plan: deposit + balance split of the total.
+                  Shown so the client understands the staged structure
+                  (deposit to confirm, balance before the event) even
+                  before any payment lands. Reflects the caterer's
+                  configured deposit %. */}
+              <div className="grid grid-cols-2 gap-4 rounded-lg bg-stone-50 p-4">
+                <div>
+                  <p className="text-[10px] uppercase tracking-[0.15em] text-brand-primary font-bold">
+                    Deposit payment ({depositPct}%)
+                  </p>
+                  <p className="text-lg font-bold text-stone-900 tabular-nums">{fmtMoney.format(depositAmount)}</p>
+                  <p className="text-[11px] text-stone-500 mt-0.5">Payable to confirm your booking</p>
+                </div>
+                <div>
+                  <p className="text-[10px] uppercase tracking-[0.15em] text-brand-primary font-bold">
+                    Balance payment ({balancePct}%)
+                  </p>
+                  <p className="text-lg font-bold text-stone-900 tabular-nums">{fmtMoney.format(balanceAmount)}</p>
+                  <p className="text-[11px] text-stone-500 mt-0.5">Payable before the event</p>
                 </div>
               </div>
 
