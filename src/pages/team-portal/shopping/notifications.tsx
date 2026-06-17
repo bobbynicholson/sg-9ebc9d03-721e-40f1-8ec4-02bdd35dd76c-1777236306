@@ -122,8 +122,8 @@ export default function ShoppingNotificationsPage() {
       <Head><title>Shopping notifications - CateringMS</title></Head>
       <NoIndexMeta />
       <ShoppingNav />
-      <div className="lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
-        <PortalShell width="narrow">
+      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <PortalHeader
             icon={Bell}
             title={

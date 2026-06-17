@@ -565,7 +565,7 @@ function ShoppingDashboardInner() {
                                   }}
                                   className={`flex items-center gap-3 p-3 sm:p-4 rounded-lg border transition-colors duration-150 cursor-pointer select-none min-h-11 ${
                                     item.purchased
-                                      ? "bg-emerald-50 border-emerald-200 dark:bg-emerald-950/40 dark:border-emerald-900"
+                                      ? "bg-slate-50 border-slate-200 dark:bg-slate-900/60 dark:border-slate-800"
                                       : "bg-white border-slate-200 hover:border-amber-400 active:bg-amber-50 dark:bg-slate-900 dark:border-slate-700 dark:hover:border-amber-600 dark:active:bg-amber-950/40"
                                   }`}
                                   aria-pressed={item.purchased}
@@ -700,7 +700,7 @@ function ShoppingDashboardInner() {
                           }}
                           className={`flex items-center gap-3 p-3 sm:p-4 rounded-lg border transition-colors duration-150 cursor-pointer select-none min-h-11 ${
                             item.purchased
-                              ? "bg-emerald-50 border-emerald-200 dark:bg-emerald-950/40 dark:border-emerald-900"
+                              ? "bg-slate-50 border-slate-200 dark:bg-slate-900/60 dark:border-slate-800"
                               : "bg-white border-slate-200 hover:border-amber-400 active:bg-amber-50 dark:bg-slate-900 dark:border-slate-700 dark:hover:border-amber-600 dark:active:bg-amber-950/40"
                           }`}
                           aria-pressed={item.purchased}
