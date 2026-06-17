@@ -408,16 +408,6 @@ export default function KitchenDashboard() {
       if (regionId) {
         ordersQuery = ordersQuery.eq("region_id", regionId);
       }
-      const { data: ordersData, error: ordersError } = await ordersQuery;
-
-      if (ordersError) {
-        captureException(ordersError, {
-          tags: { route: "/team-portal/kitchen/dashboard", step: "load-orders", companyId: user.company_id },
-        });
-      } else {
-        setOrders(ordersData || []);
-      }
-
       // Load low stock items. PostgREST can't compare two columns in a
       // filter (the old `.filter("current_stock","lt","minimum_stock")` sent
       // the literal string "minimum_stock" and 400'd with 22P02, so the Low
@@ -436,7 +426,21 @@ export default function KitchenDashboard() {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         invQuery = (invQuery as any).eq("region_id", regionId);
       }
-      const { data: inventoryData, error: inventoryError } = await invQuery;
+
+      // Orders and low-stock are independent reads — run them in parallel so
+      // the board load costs one round-trip instead of two.
+      const [
+        { data: ordersData, error: ordersError },
+        { data: inventoryData, error: inventoryError },
+      ] = await Promise.all([ordersQuery, invQuery]);
+
+      if (ordersError) {
+        captureException(ordersError, {
+          tags: { route: "/team-portal/kitchen/dashboard", step: "load-orders", companyId: user.company_id },
+        });
+      } else {
+        setOrders(ordersData || []);
+      }
 
       if (inventoryError) {
         captureException(inventoryError, {
