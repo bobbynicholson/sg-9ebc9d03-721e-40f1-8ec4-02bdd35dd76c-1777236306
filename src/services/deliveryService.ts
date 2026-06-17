@@ -19,16 +19,10 @@ export const deliveryService = {
           client_name,
           event_date,
           user_id
-        ),
-        profiles!deliveries_driver_id_fkey (
-          id,
-          full_name,
-          email,
-          phone_number
         )
       `)
       .eq("orders.user_id", userId)
-      .order("delivery_time", { ascending: true });
+      .order("created_at", { ascending: true });
 
     if (error) throw error;
     return data as unknown as (Delivery & {
@@ -47,12 +41,6 @@ export const deliveryService = {
           client_name,
           event_date,
           venue_address
-        ),
-        profiles!deliveries_driver_id_fkey (
-          id,
-          full_name,
-          email,
-          phone_number
         )
       `)
       .eq("id", id)
@@ -75,7 +63,7 @@ export const deliveryService = {
         )
       `)
       .eq("driver_id", driverId)
-      .order("delivery_time", { ascending: true });
+      .order("created_at", { ascending: true });
 
     if (error) throw error;
     return data;
@@ -91,17 +79,11 @@ export const deliveryService = {
           client_name,
           event_date,
           user_id
-        ),
-        profiles!deliveries_driver_id_fkey (
-          id,
-          full_name,
-          email,
-          phone_number
         )
       `)
       .eq("orders.user_id", userId)
       .eq("status", status)
-      .order("delivery_time", { ascending: true });
+      .order("created_at", { ascending: true });
 
     if (error) throw error;
     return data;
@@ -119,9 +101,13 @@ export const deliveryService = {
   },
 
   async updateDelivery(id: string, updates: DeliveryUpdate) {
+    // deliveries has NO updated_at column - adding it 400'd every update,
+    // which means the live DeliveryStatusModal "mark delivered" (via
+    // updateDeliveryStatus -> updateDelivery) threw before the orders
+    // mirror could run.
     const { data, error } = await supabase
       .from("deliveries")
-      .update({ ...updates, updated_at: new Date().toISOString() } as any)
+      .update({ ...updates } as any)
       .eq("id", id)
       .select()
       .single();
@@ -399,18 +385,12 @@ export const deliveryService = {
           client_name,
           event_date,
           user_id
-        ),
-        profiles!deliveries_driver_id_fkey (
-          id,
-          full_name,
-          email,
-          phone_number
         )
       `)
       .eq("orders.user_id", userId)
-      .gte("delivery_time", today.toISOString())
-      .lt("delivery_time", tomorrow.toISOString())
-      .order("delivery_time", { ascending: true });
+      .gte("created_at", today.toISOString())
+      .lt("created_at", tomorrow.toISOString())
+      .order("created_at", { ascending: true });
 
     if (error) throw error;
     return data;
@@ -430,18 +410,12 @@ export const deliveryService = {
           client_name,
           event_date,
           user_id
-        ),
-        profiles!deliveries_driver_id_fkey (
-          id,
-          full_name,
-          email,
-          phone_number
         )
       `)
       .eq("orders.user_id", userId)
-      .gte("delivery_time", now.toISOString())
-      .lte("delivery_time", futureDate.toISOString())
-      .order("delivery_time", { ascending: true });
+      .gte("created_at", now.toISOString())
+      .lte("created_at", futureDate.toISOString())
+      .order("created_at", { ascending: true });
 
     if (error) throw error;
     return data;

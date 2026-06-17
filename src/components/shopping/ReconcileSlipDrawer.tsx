@@ -468,6 +468,23 @@ export function ReconcileSlipDrawer({
       // 3) For lines flagged as 'add to stock' but with no existing
       //    inventory_item_id (operator opted into Create-new), insert
       //    the inventory item first so we have an id to reference.
+      // Idempotency guard for re-saves: if this receipt already has items
+      // whose stock was received in a prior commit, don't receive that
+      // inventory again - re-committing the same slip would otherwise
+      // inflate current_stock (the auto-payable IS deduped by supplier +
+      // invoice_ref, but the stock quantity is not).
+      let alreadyReceivedItemIds = new Set<string>();
+      if (existingReceiptId) {
+        const { data: priorItems } = await supabase
+          .from("purchase_receipt_items")
+          .select("inventory_item_id")
+          .eq("receipt_id", existingReceiptId)
+          .not("inventory_received_at", "is", null);
+        alreadyReceivedItemIds = new Set(
+          ((priorItems || []) as any[]).map((r) => r.inventory_item_id).filter(Boolean),
+        );
+      }
+
       const kept = lines.filter((l) => l.keep);
       const itemsToInsert: any[] = [];
       const stockReceives: Array<{ itemId: string; qty: number; unitCost: number }> = [];
@@ -498,7 +515,8 @@ export function ReconcileSlipDrawer({
 
         const rule = rules.find((r) => r.id === ln.tax_rule_id) || null;
 
-        const willReceive = ln.add_to_stock && !!inventoryItemId && ln.quantity > 0;
+        const alreadyReceived = !!inventoryItemId && alreadyReceivedItemIds.has(inventoryItemId);
+        const willReceive = ln.add_to_stock && !!inventoryItemId && ln.quantity > 0 && !alreadyReceived;
         if (willReceive && inventoryItemId) {
           stockReceives.push({ itemId: inventoryItemId, qty: ln.quantity, unitCost: toStoredCost(ln.unit_price) });
         }
@@ -514,7 +532,7 @@ export function ReconcileSlipDrawer({
           quantity: ln.quantity || null,
           unit_of_measure: ln.unit || null,
           unit_price: ln.unit_price || null,
-          inventory_received_at: willReceive ? new Date().toISOString() : null,
+          inventory_received_at: (willReceive || alreadyReceived) ? new Date().toISOString() : null,
         });
       }
 

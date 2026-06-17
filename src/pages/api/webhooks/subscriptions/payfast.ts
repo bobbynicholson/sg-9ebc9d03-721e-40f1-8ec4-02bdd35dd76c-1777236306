@@ -48,6 +48,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import crypto from "node:crypto";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { getPlanById } from "@/lib/payfastService";
 
 
 export const config = { api: { bodyParser: true } };
@@ -227,6 +228,28 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     // so the company's stored plan reflects what they actually bought.
     const planFromCustom = (body.custom_str2 || "").trim();
     if (planFromCustom) companyPatch.subscription_plan = planFromCustom;
+
+    // Amount sanity check. The ITN is already signature-verified (PayFast
+    // can't be forged), so this is monitoring, not a hard gate: flag when
+    // the paid amount doesn't match the plan's price for the billing cycle,
+    // so price-table drift / tampering is visible instead of trusting the
+    // ITN's plan blindly. Recorded on the event, not blocking the renewal.
+    if (paymentStatus === "COMPLETE" && planFromCustom) {
+      const plan = getPlanById(planFromCustom);
+      if (plan) {
+        const cycle = (body.custom_str3 || "").toLowerCase();
+        const expected = cycle.includes("annual") || cycle.includes("year")
+          ? plan.annualPrice : plan.monthlyPrice;
+        const paid = Number(body.amount_gross || body.amount || 0);
+        if (expected > 0 && Math.abs(paid - expected) > 1) {
+          console.error(`[subscriptions/payfast] AMOUNT MISMATCH company ${companyId}: plan ${planFromCustom} (${cycle}) expected R${expected}, paid R${paid}`);
+          await sb.from("subscription_webhook_events")
+            .update({ rejection_reason: `amount_mismatch: expected ${expected}, paid ${paid}` })
+            .eq("provider", "payfast").eq("event_id", eventId);
+        }
+      }
+    }
+
     await sb.from("companies").update(companyPatch).eq("id", companyId);
 
     // billing_history row for the operator's records. NOTE: billing_history
