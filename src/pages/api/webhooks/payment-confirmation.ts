@@ -401,6 +401,11 @@ async function handler(
             user_id: companyData.owner_id,
             title: `Invoice Payment Received - ${invoiceData.invoice_number}`,
             message: `Payment of R${amount_gross} received for invoice ${invoiceData.invoice_number}`,
+            // notification_type (free-text) is what notificationService +
+            // RLS-side filtering/dedup read on; the order-payment branch
+            // sets it. Setting only the enum `type` left this row
+            // type-null so type-based filtering silently dropped it.
+            notification_type: "payment_received",
             type: "payment_received",
             channels: ["in_app", "email"]
           }]);

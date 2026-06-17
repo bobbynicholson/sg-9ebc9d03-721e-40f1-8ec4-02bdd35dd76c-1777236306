@@ -7,7 +7,9 @@
  * When CateringMS records a payment against an invoice that has
  * already been pushed to Sage (invoice.external_id set), this
  * endpoint creates a Sage contact_payment so the balance there
- * matches ours. Idempotent via payments.external_id.
+ * matches ours. Idempotent via
+ * payments.gateway_response->>sage_payment_id (payments has no
+ * external_id column - that lives on invoices).
  *
  * Sage Business Cloud Accounting API v3.1:
  *   POST /v3.1/contact_payments
@@ -65,17 +67,25 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
     const admin: any = getServiceSupabase();
 
+    // NOTE: `payments` has NO external_id / synced_at columns (those are
+    // on `invoices`). Selecting external_id here 400s the whole query →
+    // payment came back null → 404 on every call. We read/write the Sage
+    // payment id from `gateway_response` JSON instead.
     const { data: payment } = await admin
       .from("payments")
-      .select("id, company_id, invoice_id, amount, payment_method, processed_at, external_id, payment_reference")
+      .select("id, company_id, invoice_id, amount, payment_method, processed_at, gateway_response, payment_reference")
       .eq("id", payment_id)
       .maybeSingle();
     if (!payment) return res.status(404).json({ error: "Payment not found" });
     if (!isInternal && (!companyIdScope || companyIdScope !== payment.company_id)) {
       return res.status(403).json({ error: "Wrong company" });
     }
-    if (payment.external_id) {
-      return res.status(200).json({ ok: true, alreadySynced: true, externalId: payment.external_id });
+    const existingGateway =
+      payment.gateway_response && typeof payment.gateway_response === "object"
+        ? (payment.gateway_response as Record<string, any>)
+        : {};
+    if (existingGateway.sage_payment_id) {
+      return res.status(200).json({ ok: true, alreadySynced: true, externalId: existingGateway.sage_payment_id });
     }
 
     const { data: invoice } = await admin
@@ -170,9 +180,18 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       return res.status(502).json({ error: "Sage returned no payment id" });
     }
 
+    // `payments` has no external_id/synced_at columns; persist the Sage
+    // payment id + sync flag inside gateway_response JSON (merged).
     await admin
       .from("payments")
-      .update({ external_id: created.id, synced_at: new Date().toISOString() })
+      .update({
+        gateway_response: {
+          ...existingGateway,
+          sage_payment_id: created.id,
+          synced_to_accounting: true,
+          sage_synced_at: new Date().toISOString(),
+        },
+      })
       .eq("id", payment_id);
 
     try {

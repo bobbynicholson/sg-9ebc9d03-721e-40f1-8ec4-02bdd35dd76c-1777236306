@@ -133,6 +133,13 @@ const nextConfig = {
         source: "/:company_slug((?!api)[^/]+)/c/order/:path*",
         destination: "/c/order/:path*?company_slug=:company_slug",
       },
+      // Client account self-service ("email me my link" recovery landing).
+      // The page lives at /c/account; without this rewrite the branded
+      // slugged URL that client-tokens/request.ts emails out 404s.
+      {
+        source: "/:company_slug((?!api)[^/]+)/c/account",
+        destination: "/c/account?company_slug=:company_slug",
+      },
       {
         source: "/:company_slug((?!api)[^/]+)/pay/i/:token",
         destination: "/pay/i/:token?company_slug=:company_slug",

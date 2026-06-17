@@ -3,8 +3,9 @@
  *
  * Creates a Xero credit note linked to a previously-synced invoice
  * to reflect a cancellation refund. Idempotent via
- * payments.external_id (the refund payment row stores Xero's
- * CreditNoteID once written).
+ * payments.gateway_response->>xero_credit_note_id (the refund payment
+ * row stores Xero's CreditNoteID in its gateway_response JSON once written;
+ * `payments` has no external_id column - that lives on `invoices`).
  *
  * P1-24 from the 2026-05 audit: a cancellation refund leaves Xero
  * out of sync until someone manually issues a credit note. This
@@ -74,9 +75,13 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
     const supabase: any = getServiceSupabase();
 
+    // NOTE: `payments` has NO external_id / synced_to_accounting /
+    // last_synced_at columns (those live on `invoices`). We persist the
+    // Xero CreditNoteID + sync flag inside the existing `gateway_response`
+    // JSON instead, and read idempotency back from there.
     const { data: payment, error: paymentErr } = await supabase
       .from("payments")
-      .select("id, company_id, order_id, amount, payment_type, payment_status, external_id, reason")
+      .select("id, company_id, order_id, amount, payment_type, payment_status, gateway_response, reason")
       .eq("id", refund_payment_id)
       .maybeSingle();
     if (paymentErr) {
@@ -91,9 +96,13 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     }
 
     // Idempotency: if we already wrote a credit note for this refund,
-    // bail out cleanly.
-    if (payment.external_id) {
-      return res.status(200).json({ ok: true, alreadySynced: true, externalId: payment.external_id });
+    // bail out cleanly. The Xero id lives in gateway_response JSON.
+    const existingGateway =
+      payment.gateway_response && typeof payment.gateway_response === "object"
+        ? (payment.gateway_response as Record<string, any>)
+        : {};
+    if (existingGateway.xero_credit_note_id) {
+      return res.status(200).json({ ok: true, alreadySynced: true, externalId: existingGateway.xero_credit_note_id });
     }
 
     // We need the original invoice's Xero ID to link the credit note.
@@ -232,13 +241,17 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     }
 
     // Persist the Xero ID back onto the refund payment row so we
-    // don't double-issue.
+    // don't double-issue. `payments` has no external_id column, so the
+    // id + sync flag go into gateway_response JSON (merged, not clobbered).
     await supabase
       .from("payments")
       .update({
-        external_id: creditNoteId,
-        synced_to_accounting: true,
-        last_synced_at: new Date().toISOString(),
+        gateway_response: {
+          ...existingGateway,
+          xero_credit_note_id: creditNoteId,
+          synced_to_accounting: true,
+          last_synced_at: new Date().toISOString(),
+        },
       })
       .eq("id", payment.id);
 
