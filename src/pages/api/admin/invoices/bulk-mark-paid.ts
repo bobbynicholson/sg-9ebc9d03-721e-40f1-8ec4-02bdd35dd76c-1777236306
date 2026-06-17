@@ -27,6 +27,7 @@ import { createPagesServerClient } from "@/lib/supabase/server";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { withApiLogging } from "@/lib/withApiLogging";
 import { notifyInvoicePaid } from "@/services/payments/notifyInvoicePaid";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 
 
 const ALLOWED_ROLES = new Set(["super_admin", "company_admin", "admin", "owner", "sales_admin", "region_admin"]);
@@ -77,7 +78,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       .in("id", invoiceIds);
     if (readErr) {
       console.error("[bulk-mark-paid] read failed:", readErr);
-      return res.status(500).json({ error: readErr.message });
+      return res.status(500).json({ error: dbErrorMessage(readErr) });
     }
 
     let admin: any;
@@ -192,7 +193,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         });
         if (rpcErr) {
           failed += 1;
-          errors.push({ invoiceId: id, reason: rpcErr.message });
+          errors.push({ invoiceId: id, reason: dbErrorMessage(rpcErr) });
           continue;
         }
         paid += 1;
@@ -209,7 +210,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         }
       } catch (e: any) {
         failed += 1;
-        errors.push({ invoiceId: id, reason: e?.message || "RPC crashed" });
+        errors.push({ invoiceId: id, reason: dbErrorMessage(e) || "RPC crashed" });
       }
     }
 
@@ -257,7 +258,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     return res.status(200).json({ ok: true, paid, skipped, failed, errors });
   } catch (err: any) {
     console.error("[bulk-mark-paid] crashed:", err);
-    return res.status(500).json({ error: err?.message || "Bulk mark-paid failed" });
+    return res.status(500).json({ error: dbErrorMessage(err) || "Bulk mark-paid failed" });
   }
 }
 

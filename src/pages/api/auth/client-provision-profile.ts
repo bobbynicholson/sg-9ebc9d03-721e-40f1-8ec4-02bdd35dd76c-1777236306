@@ -23,6 +23,7 @@
  *     a different catering company in some other role.
  */
 import type { NextApiRequest, NextApiResponse } from "next";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { createPagesServerClient } from "@/lib/supabase/server";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { withApiLogging } from "@/lib/withApiLogging";
@@ -210,7 +211,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
     if (insErr) {
       console.error("Client profile auto-provision failed:", insErr);
-      return res.status(500).json({ error: `Could not create profile: ${insErr.message}` });
+      return res.status(500).json({ error: `Could not create profile: ${dbErrorMessage(insErr)}` });
     }
 
     // Same email-relink logic as the existing-profile path. Lets the
@@ -225,7 +226,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     });
   } catch (e: any) {
     console.error("client-provision-profile crashed:", e);
-    return res.status(500).json({ error: e?.message || "Unexpected server error" });
+    return res.status(500).json({ error: dbErrorMessage(e) || "Unexpected server error" });
   }
 }
 

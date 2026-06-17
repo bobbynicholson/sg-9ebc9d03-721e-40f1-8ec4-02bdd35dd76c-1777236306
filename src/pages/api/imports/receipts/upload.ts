@@ -18,6 +18,7 @@
  */
 import type { NextApiRequest, NextApiResponse } from "next";
 import formidable from "formidable";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { promises as fs } from "fs";
 import { randomUUID } from "node:crypto";
 import { createPagesServerClient } from "@/lib/supabase/server";
@@ -159,7 +160,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       .select("id")
       .single();
     if (jobErr || !job) {
-      return res.status(500).json({ error: jobErr?.message || "Could not create job" });
+      return res.status(500).json({ error: dbErrorMessage(jobErr) || "Could not create job" });
     }
     const jobId = (job as any).id as string;
 
@@ -254,7 +255,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     });
   } catch (e: any) {
     console.error("/api/imports/receipts/upload crashed:", e);
-    return res.status(500).json({ error: e?.message || "Receipt upload failed" });
+    return res.status(500).json({ error: dbErrorMessage(e) || "Receipt upload failed" });
   }
 }
 

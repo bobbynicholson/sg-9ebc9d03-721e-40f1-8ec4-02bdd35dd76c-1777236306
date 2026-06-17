@@ -15,6 +15,7 @@
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { NextApiRequest, NextApiResponse } from "next";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { withApiLogging } from "@/lib/withApiLogging";
 
@@ -54,7 +55,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
   if (readErr) {
     console.error("[outsource/accept] read failed:", readErr);
-    return res.status(500).json({ error: readErr.message });
+    return res.status(500).json({ error: dbErrorMessage(readErr) });
   }
   if (!assignment) {
     return res.status(404).json({ error: "Link not found or expired" });
@@ -117,7 +118,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     .eq("id", assignment.id);
   if (updErr) {
     console.error("[outsource/accept] update failed:", updErr);
-    return res.status(500).json({ error: updErr.message });
+    return res.status(500).json({ error: dbErrorMessage(updErr) });
   }
 
   // Audit log so the operator sees the magic-link response in the

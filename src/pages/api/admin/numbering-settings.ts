@@ -21,6 +21,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@/lib/supabase/server";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 
 
 const ALLOWED_ROLES = new Set(["super_admin", "company_admin", "admin", "owner"]);
@@ -217,7 +218,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
       if (upsertErr) {
         console.error("[numbering-settings] upsert failed:", upsertErr);
-        return res.status(500).json({ error: upsertErr.message });
+        return res.status(500).json({ error: dbErrorMessage(upsertErr) });
       }
 
       // Audit log. Service role bypasses RLS so this writes regardless
@@ -237,7 +238,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     return res.status(405).json({ error: "Method not allowed" });
   } catch (err: any) {
     console.error("[numbering-settings] crashed:", err);
-    return res.status(500).json({ error: err?.message || "Server error" });
+    return res.status(500).json({ error: dbErrorMessage(err) || "Server error" });
   }
 }
 

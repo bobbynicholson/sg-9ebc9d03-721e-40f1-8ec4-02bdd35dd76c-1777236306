@@ -13,6 +13,7 @@ import { createPagesServerClient } from "@/lib/supabase/server";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import crypto from "crypto";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 
 
 const ALLOWED_ROLES = new Set([
@@ -136,7 +137,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
     if (insErr) {
       console.error("[admin/outsource-assignments] insert failed:", insErr);
-      return res.status(500).json({ error: insErr.message });
+      return res.status(500).json({ error: dbErrorMessage(insErr) });
     }
 
     try {
@@ -155,7 +156,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     return res.status(200).json({ ok: true, assignment: inserted });
   } catch (err: any) {
     console.error("[admin/outsource-assignments] crashed:", err);
-    return res.status(500).json({ error: err?.message || "Create failed" });
+    return res.status(500).json({ error: dbErrorMessage(err) || "Create failed" });
   }
 }
 

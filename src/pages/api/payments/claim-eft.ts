@@ -30,6 +30,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@/lib/supabase/server";
 import { getServiceSupabase } from "@/lib/supabase/service";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { withApiLogging } from "@/lib/withApiLogging";
 
 
@@ -146,7 +147,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       .single();
     if (payErr || !payment) {
       console.error("claim-eft: payment insert failed", payErr);
-      return res.status(500).json({ error: payErr?.message || "Could not record claim" });
+      return res.status(500).json({ error: dbErrorMessage(payErr) || "Could not record claim" });
     }
 
     // Notify every admin/owner under this tenant. We fan out one row
@@ -192,7 +193,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     return res.status(201).json({ ok: true, payment_id: payment.id });
   } catch (e: any) {
     console.error("claim-eft crashed:", e);
-    return res.status(500).json({ error: e?.message || "Unexpected server error" });
+    return res.status(500).json({ error: dbErrorMessage(e) || "Unexpected server error" });
   }
 }
 

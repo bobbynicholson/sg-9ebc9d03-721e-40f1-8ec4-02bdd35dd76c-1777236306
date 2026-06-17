@@ -13,6 +13,7 @@
  * spam email is just a deletion.
  */
 import type { NextApiRequest, NextApiResponse } from "next";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { Resend } from "resend";
 import { withApiLogging } from "@/lib/withApiLogging";
 
@@ -92,7 +93,7 @@ ${body.company ? `<p><strong>Company:</strong> ${escapeHtml(body.company)}</p>` 
     return res.status(200).json({ ok: true });
   } catch (err: any) {
     console.error("[contact-form] crashed:", err);
-    return res.status(500).json({ error: err?.message || "Could not send" });
+    return res.status(500).json({ error: dbErrorMessage(err) || "Could not send" });
   }
 }
 

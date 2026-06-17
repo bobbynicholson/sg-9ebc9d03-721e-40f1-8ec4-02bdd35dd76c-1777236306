@@ -25,6 +25,7 @@ import {
 } from "@/lib/resendDomains";
 import type { NextApiRequest, NextApiResponse } from "next";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 
 
 const ALLOWED_ROLES = new Set([
@@ -172,7 +173,7 @@ async function handler(
     if (upsertErr) {
       console.error("[create-domain] persist failed:", upsertErr);
       return res.status(500).json({
-        error: `Could not save domain locally: ${upsertErr.message}`,
+        error: `Could not save domain locally: ${dbErrorMessage(upsertErr)}`,
       });
     }
 
@@ -186,7 +187,7 @@ async function handler(
     console.error("[create-domain] crashed:", e);
     return res
       .status(500)
-      .json({ error: e?.message || "Unexpected server error" });
+      .json({ error: dbErrorMessage(e) || "Unexpected server error" });
   }
 }
 

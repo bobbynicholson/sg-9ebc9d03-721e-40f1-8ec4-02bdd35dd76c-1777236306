@@ -7,6 +7,7 @@
  */
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@/lib/supabase/server";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { getImportJob, listImportRows } from "@/services/importService";
 import { withApiLogging } from "@/lib/withApiLogging";
 
@@ -66,7 +67,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         .delete()
         .eq("id", jobId)
         .eq("company_id", companyId);
-      if (error) return res.status(500).json({ error: error.message });
+      if (error) return res.status(500).json({ error: dbErrorMessage(error) });
       return res.status(200).json({ ok: true, deleted: true });
     }
 
@@ -86,7 +87,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         .update(patch)
         .eq("id", jobId)
         .eq("company_id", companyId);
-      if (error) return res.status(500).json({ error: error.message });
+      if (error) return res.status(500).json({ error: dbErrorMessage(error) });
       return res.status(200).json({ ok: true });
     }
 
@@ -99,7 +100,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     return res.status(200).json({ ok: true, job, rows });
   } catch (outer: any) {
     console.error("imports/[id] GET crashed:", outer);
-    return res.status(500).json({ error: outer?.message || "Failed to load job" });
+    return res.status(500).json({ error: dbErrorMessage(outer) || "Failed to load job" });
   }
 }
 

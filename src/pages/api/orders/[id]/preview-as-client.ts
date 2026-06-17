@@ -14,6 +14,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@/lib/supabase/server";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 
 
 const ADMIN_ROLES = new Set(["super_admin", "company_admin", "admin", "owner"]);
@@ -72,7 +73,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       p_order_id: orderId,
       p_label: `admin-preview-${user.id.slice(0, 8)}`,
     });
-    if (mintErr) return res.status(500).json({ error: mintErr.message });
+    if (mintErr) return res.status(500).json({ error: dbErrorMessage(mintErr) });
 
     const raw = (tokenRow as any)?.raw_token;
     if (!raw) return res.status(500).json({ error: "Token mint failed" });
@@ -84,7 +85,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     });
   } catch (err: any) {
     console.error("[orders/preview-as-client] crashed:", err);
-    return res.status(500).json({ error: err?.message || "Preview link failed" });
+    return res.status(500).json({ error: dbErrorMessage(err) || "Preview link failed" });
   }
 }
 

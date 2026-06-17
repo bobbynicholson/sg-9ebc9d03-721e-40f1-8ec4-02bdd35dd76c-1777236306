@@ -17,6 +17,7 @@
  */
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@/lib/supabase/server";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { getImportJob, listImportRows, logEvent } from "@/services/importService";
 import { repairRowViaAI } from "@/lib/importAi";
@@ -155,7 +156,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     });
   } catch (e: any) {
     console.error("/api/imports/[id]/rows/[rowId]/repair crashed:", e);
-    return res.status(500).json({ error: e?.message || "Row repair failed" });
+    return res.status(500).json({ error: dbErrorMessage(e) || "Row repair failed" });
   }
 }
 

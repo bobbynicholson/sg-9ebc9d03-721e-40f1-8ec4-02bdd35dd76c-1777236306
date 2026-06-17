@@ -12,6 +12,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@/lib/supabase/server";
 import { refundService } from "@/services/refundService";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { withApiLogging } from "@/lib/withApiLogging";
 
 
@@ -65,7 +66,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     return res.status(200).json({ ok: true, ...result });
   } catch (err: any) {
     console.error("[refunds/retry] crashed:", err);
-    return res.status(500).json({ error: err?.message || "Retry refund failed" });
+    return res.status(500).json({ error: dbErrorMessage(err) || "Retry refund failed" });
   }
 }
 

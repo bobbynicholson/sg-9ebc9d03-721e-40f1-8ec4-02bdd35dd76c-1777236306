@@ -15,6 +15,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@/lib/supabase/server";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 
 
 const ALLOWED = new Set(["super_admin", "company_admin", "admin"]);
@@ -59,7 +60,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       .select("id, company_name, embed_token, embed_pricing_tiers, primary_color, secondary_color")
       .eq("id", companyId)
       .single();
-    if (error) return res.status(500).json({ error: error.message });
+    if (error) return res.status(500).json({ error: dbErrorMessage(error) });
     return res.status(200).json({ ok: true, company: data });
   }
 
@@ -79,7 +80,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       .eq("id", companyId)
       .select("embed_pricing_tiers")
       .single();
-    if (error) return res.status(500).json({ error: error.message });
+    if (error) return res.status(500).json({ error: dbErrorMessage(error) });
     return res.status(200).json({ ok: true, embed_pricing_tiers: data.embed_pricing_tiers });
   }
 

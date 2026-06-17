@@ -24,6 +24,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@/lib/supabase/server";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { resolveClientUserId } from "@/services/lifecycle/resolveClientUserId";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { withApiLogging } from "@/lib/withApiLogging";
 
 
@@ -123,7 +124,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         })
         .eq("id", payment.id);
       if (rejErr) {
-        return res.status(500).json({ error: rejErr.message });
+        return res.status(500).json({ error: dbErrorMessage(rejErr) });
       }
 
       // Notify the client so they can fix the reference and try again.
@@ -174,7 +175,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       })
       .eq("id", payment.id);
     if (confErr) {
-      return res.status(500).json({ error: confErr.message });
+      return res.status(500).json({ error: dbErrorMessage(confErr) });
     }
 
     const { error: invErr } = await admin
@@ -339,7 +340,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     });
   } catch (e: any) {
     console.error("verify-claim crashed:", e);
-    return res.status(500).json({ error: e?.message || "Unexpected server error" });
+    return res.status(500).json({ error: dbErrorMessage(e) || "Unexpected server error" });
   }
 }
 

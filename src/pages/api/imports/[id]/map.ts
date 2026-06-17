@@ -11,6 +11,7 @@
  */
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@/lib/supabase/server";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import {
   getImportJob, listImportRows, setJobStatus, logEvent,
 } from "@/services/importService";
@@ -140,7 +141,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     });
   } catch (outer: any) {
     console.error("imports/[id]/map handler crashed:", outer);
-    return res.status(500).json({ error: outer?.message || "Mapping failed" });
+    return res.status(500).json({ error: dbErrorMessage(outer) || "Mapping failed" });
   }
 }
 

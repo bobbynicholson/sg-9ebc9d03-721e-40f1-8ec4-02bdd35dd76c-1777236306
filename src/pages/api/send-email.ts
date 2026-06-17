@@ -1,4 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from "next";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { emailService } from "@/services/emailService";
 import { createPagesServerClient } from "@/lib/supabase/server";
 import { getServiceSupabase } from "@/lib/supabase/service";
@@ -545,7 +546,7 @@ async function handler(
     console.error("Email API error:", error);
     return res.status(500).json({
       success: false,
-      error: error instanceof Error ? error.message : "Unknown error",
+      error: error instanceof Error ? dbErrorMessage(error) : "Unknown error",
       error_code: "unknown",
     });
   }

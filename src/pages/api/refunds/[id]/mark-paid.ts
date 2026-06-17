@@ -10,6 +10,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@/lib/supabase/server";
 import { sendRefundPaidEmail } from "@/services/email/cancellationEmails";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { withApiLogging } from "@/lib/withApiLogging";
 
 
@@ -71,7 +72,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           : (payment as any).reason || null,
       } as any)
       .eq("id", refundId);
-    if (payErr) return res.status(500).json({ error: payErr.message });
+    if (payErr) return res.status(500).json({ error: dbErrorMessage(payErr) });
 
     // Audit log entry so the dashboard can show "refund of R4,500 paid
     // by Bobby on 2026-05-04".
@@ -100,7 +101,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     return res.status(200).json({ ok: true, refund_id: refundId, processed_at: paidAt });
   } catch (err: any) {
     console.error("[refunds/mark-paid] crashed:", err);
-    return res.status(500).json({ error: err?.message || "Mark refund paid failed" });
+    return res.status(500).json({ error: dbErrorMessage(err) || "Mark refund paid failed" });
   }
 }
 

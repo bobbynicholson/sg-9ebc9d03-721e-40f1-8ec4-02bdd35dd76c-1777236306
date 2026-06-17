@@ -32,6 +32,7 @@ import { createClient } from "@supabase/supabase-js";
 import crypto from "node:crypto";
 import { consumeApiKeyRateLimitDb } from "@/lib/apiKeyRateLimit";
 import { getServiceSupabase } from "@/lib/supabase/service";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { withApiLogging } from "@/lib/withApiLogging";
 
 
@@ -74,7 +75,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     p_key_hash: tokenHash,
     p_payload: body,
   });
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) return res.status(500).json({ error: dbErrorMessage(error) });
 
   const result = data as any;
   if (!result?.ok) {

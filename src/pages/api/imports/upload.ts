@@ -20,6 +20,7 @@
  */
 import type { NextApiRequest, NextApiResponse } from "next";
 import formidable from "formidable";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { promises as fs } from "fs";
 import { randomUUID } from "node:crypto";
 import * as XLSX from "xlsx";
@@ -430,7 +431,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           await getServiceSupabase().storage.from("imports").remove([filePath]);
         } catch { /* swallow */ }
       }
-      return res.status(500).json({ error: e?.message || "Could not save the import" });
+      return res.status(500).json({ error: dbErrorMessage(e) || "Could not save the import" });
     }
 
     // Auto-mapping shortcut. If every sheet's headers match a known
@@ -512,7 +513,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     });
   } catch (outer: any) {
     console.error("imports/upload handler crashed:", outer);
-    return res.status(500).json({ error: outer?.message || "Upload failed" });
+    return res.status(500).json({ error: dbErrorMessage(outer) || "Upload failed" });
   }
 }
 

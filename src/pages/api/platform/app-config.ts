@@ -10,6 +10,7 @@
  * GET returns every row. PUT accepts { key, value } and upserts.
  */
 import type { NextApiRequest, NextApiResponse } from "next";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { createPagesServerClient } from "@/lib/supabase/server";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { withApiLogging } from "@/lib/withApiLogging";
@@ -38,7 +39,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         .from("app_config")
         .select("key, value")
         .order("key", { ascending: true });
-      if (error) return res.status(500).json({ error: error.message });
+      if (error) return res.status(500).json({ error: dbErrorMessage(error) });
       return res.status(200).json({ entries: data || [] });
     }
 
@@ -51,7 +52,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       const { error } = await sb
         .from("app_config")
         .upsert({ key, value } as any, { onConflict: "key" });
-      if (error) return res.status(500).json({ error: error.message });
+      if (error) return res.status(500).json({ error: dbErrorMessage(error) });
       return res.status(200).json({ ok: true });
     }
 
@@ -59,7 +60,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     return res.status(405).json({ error: "Method not allowed" });
   } catch (e: any) {
     console.error("/api/platform/app-config crashed:", e);
-    return res.status(500).json({ error: e?.message || "Failed" });
+    return res.status(500).json({ error: dbErrorMessage(e) || "Failed" });
   }
 }
 

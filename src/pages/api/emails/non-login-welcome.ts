@@ -12,6 +12,7 @@
  * from kitchen_staff_members.departments.
  */
 import type { NextApiRequest, NextApiResponse } from "next";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import * as React from "react";
 import { createPagesServerClient } from "@/lib/supabase/server";
 import { getServiceSupabase } from "@/lib/supabase/service";
@@ -108,7 +109,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
     return res.status(result.ok ? 200 : 502).json(result);
   } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : "Send failed";
+    const msg = e instanceof Error ? dbErrorMessage(e) : "Send failed";
     console.error("non-login-welcome failed:", e);
     return res.status(500).json({ error: msg });
   }

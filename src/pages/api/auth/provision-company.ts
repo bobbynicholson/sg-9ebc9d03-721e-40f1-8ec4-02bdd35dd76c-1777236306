@@ -25,6 +25,7 @@
  * company we return it instead of creating a duplicate.
  */
 import type { NextApiRequest, NextApiResponse } from "next";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { withApiLogging } from "@/lib/withApiLogging";
 
@@ -147,7 +148,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       });
     }
     console.error("[auth/provision-company] company insert failed:", companyErr);
-    return res.status(500).json({ error: companyErr?.message || "Failed to create company" });
+    return res.status(500).json({ error: dbErrorMessage(companyErr) || "Failed to create company" });
   }
 
   // 5. Link the owner's profile to the company. The signup page waits

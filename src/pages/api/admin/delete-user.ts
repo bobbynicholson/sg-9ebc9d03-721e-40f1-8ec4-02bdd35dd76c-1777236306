@@ -3,6 +3,7 @@ import { createPagesServerClient } from "@/lib/supabase/server";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import type { NextApiRequest, NextApiResponse } from "next";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 
 
 const CALLER_ROLES_ALLOWED = new Set(["super_admin", "company_admin", "admin", "owner"]);
@@ -97,7 +98,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       .eq("id", userId);
     if (delErr) {
       console.error("Profile soft-delete failed:", delErr);
-      return res.status(500).json({ error: `Could not remove user: ${delErr.message}` });
+      return res.status(500).json({ error: `Could not remove user: ${dbErrorMessage(delErr)}` });
     }
 
     // 2. Disable the auth user so they cannot log in. ban_duration of
@@ -145,7 +146,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     });
   } catch (outer: any) {
     console.error("delete-user handler crashed:", outer);
-    return res.status(500).json({ error: outer?.message || "Unexpected server error" });
+    return res.status(500).json({ error: dbErrorMessage(outer) || "Unexpected server error" });
   }
 }
 

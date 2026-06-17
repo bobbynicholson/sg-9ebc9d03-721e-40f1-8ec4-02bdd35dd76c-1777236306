@@ -18,6 +18,7 @@
  */
 import type { NextApiRequest, NextApiResponse } from "next";
 import * as XLSX from "xlsx";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { createPagesServerClient } from "@/lib/supabase/server";
 import { TEMPLATE_TYPES, getTemplateDefinition } from "@/lib/importTemplates";
 import { withApiLogging } from "@/lib/withApiLogging";
@@ -132,7 +133,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     return res.status(200).send(buf);
   } catch (e: any) {
     console.error("/api/imports/templates/onboarding-workbook crashed:", e);
-    return res.status(500).json({ error: e?.message || "Workbook generation failed" });
+    return res.status(500).json({ error: dbErrorMessage(e) || "Workbook generation failed" });
   }
 }
 

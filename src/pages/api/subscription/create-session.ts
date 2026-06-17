@@ -21,6 +21,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@/lib/supabase/server";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { PayFastService, getPlanById } from "@/lib/payfastService";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { withApiLogging } from "@/lib/withApiLogging";
 
 async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -105,7 +106,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     return res.status(200).json({ ok: true, html });
   } catch (e: any) {
     console.error("/api/subscription/create-session crashed:", e);
-    return res.status(500).json({ error: e?.message || "Could not start checkout" });
+    return res.status(500).json({ error: dbErrorMessage(e) || "Could not start checkout" });
   }
 }
 

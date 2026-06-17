@@ -34,6 +34,7 @@ import { lifecycleService } from "@/services/lifecycleService";
 import { postOrderCreationCascade } from "@/services/order/postCreationCascade";
 import { requireSubscriptionFeature } from "@/lib/subscriptionGate";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 
 
 /**
@@ -169,7 +170,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       .order("created_at", { ascending: false });
     if (quotesErr) {
       console.error("[leads/convert-to-order] quotes lookup failed:", quotesErr);
-      return res.status(500).json({ error: quotesErr.message });
+      return res.status(500).json({ error: dbErrorMessage(quotesErr) });
     }
 
     const quoteList = quotes || [];
@@ -232,7 +233,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       .eq("id", (candidate as any).id)
       .maybeSingle();
     if (fullQuoteErr || !fullQuote) {
-      return res.status(500).json({ error: fullQuoteErr?.message || "Could not load quote" });
+      return res.status(500).json({ error: dbErrorMessage(fullQuoteErr) || "Could not load quote" });
     }
     const q = fullQuote as any;
 
@@ -253,7 +254,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       } catch (resolveErr: any) {
         console.error("[leads/convert-to-order] client resolution failed:", resolveErr);
         return res.status(500).json({
-          error: resolveErr?.message || "Could not resolve a client for this lead",
+          error: dbErrorMessage(resolveErr) || "Could not resolve a client for this lead",
         });
       }
     }
@@ -313,7 +314,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     if (rpcError || !rpcOrder) {
       console.error("[leads/convert-to-order] RPC failed:", rpcError);
       return res.status(500).json({
-        error: rpcError?.message || "Could not convert the quote (transaction rolled back).",
+        error: dbErrorMessage(rpcError) || "Could not convert the quote (transaction rolled back).",
       });
     }
     const newOrder: any = Array.isArray(rpcOrder) ? rpcOrder[0] : rpcOrder;
@@ -376,7 +377,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     });
   } catch (err: any) {
     console.error("[leads/convert-to-order] crashed:", err);
-    return res.status(500).json({ error: err?.message || "Convert lead to order failed" });
+    return res.status(500).json({ error: dbErrorMessage(err) || "Convert lead to order failed" });
   }
 }
 

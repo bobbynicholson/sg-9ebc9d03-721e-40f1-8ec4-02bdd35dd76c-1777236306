@@ -20,6 +20,7 @@ import { sendCancellationEmail, sendPostponementApprovedEmail } from "@/services
 import { resolveClientUserId } from "@/services/lifecycle/resolveClientUserId";
 import { refundService } from "@/services/refundService";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 
 
 // Send a client-portal notification. Best-effort - failures are
@@ -225,7 +226,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       }
 
       const { error: orderErr } = await ssr.from("orders").update(updates).eq("id", (request as any).order_id);
-      if (orderErr) return res.status(500).json({ error: orderErr.message });
+      if (orderErr) return res.status(500).json({ error: dbErrorMessage(orderErr) });
 
       await ssr.from("cancellation_requests").update({
         status: "approved",
@@ -421,7 +422,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     const { data: snapshot, error: snapErr } = await ssr.rpc("get_refund_for_order", {
       p_order_id: (request as any).order_id,
     });
-    if (snapErr) return res.status(500).json({ error: snapErr.message });
+    if (snapErr) return res.status(500).json({ error: dbErrorMessage(snapErr) });
     const snap = (snapshot as any) || {};
     const refund_calc = Number(snap.refund_amount) || 0;
     // Wave 21 audit: refund_override used to accept any non-negative
@@ -701,7 +702,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     });
   } catch (err: any) {
     console.error("[cancellation-review] crashed:", err);
-    return res.status(500).json({ error: err?.message || "Cancellation review failed" });
+    return res.status(500).json({ error: dbErrorMessage(err) || "Cancellation review failed" });
   }
 }
 

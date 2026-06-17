@@ -15,6 +15,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@/lib/supabase/server";
 import { emailService } from "@/services/emailService";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 
 
 const ALLOWED_ROLES = new Set(["super_admin", "company_admin", "admin", "owner"]);
@@ -80,7 +81,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     return res.status(200).json({ ok: sent, retriggered: true });
   } catch (err: any) {
     console.error("[resend-email] crashed:", err);
-    return res.status(500).json({ error: err?.message || "Resend failed" });
+    return res.status(500).json({ error: dbErrorMessage(err) || "Resend failed" });
   }
 }
 

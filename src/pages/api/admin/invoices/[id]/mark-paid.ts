@@ -32,6 +32,7 @@ import { createPagesServerClient } from "@/lib/supabase/server";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { withApiLogging } from "@/lib/withApiLogging";
 import { notifyInvoicePaid } from "@/services/payments/notifyInvoicePaid";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 
 
 const ALLOWED_ROLES = new Set([
@@ -106,7 +107,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       .maybeSingle();
     if (readErr) {
       console.error("[admin/invoices/mark-paid] read failed:", readErr);
-      return res.status(500).json({ error: readErr.message });
+      return res.status(500).json({ error: dbErrorMessage(readErr) });
     }
     if (!invoice) return res.status(404).json({ error: "Invoice not found in your company" });
     if ((invoice as any).status === "paid") {
@@ -168,7 +169,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     });
     if (rpcErr) {
       console.error("[admin/invoices/mark-paid] RPC failed:", rpcErr);
-      return res.status(500).json({ error: rpcErr.message });
+      return res.status(500).json({ error: dbErrorMessage(rpcErr) });
     }
 
     // Read back the updated invoice so the client can refresh state
@@ -222,7 +223,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     });
   } catch (err: any) {
     console.error("[admin/invoices/mark-paid] crashed:", err);
-    return res.status(500).json({ error: err?.message || "Mark-paid failed" });
+    return res.status(500).json({ error: dbErrorMessage(err) || "Mark-paid failed" });
   }
 }
 

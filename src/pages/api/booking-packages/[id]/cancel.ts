@@ -11,6 +11,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@/lib/supabase/server";
 import { cancelPackage, getPackage } from "@/services/booking/bookingPackageService";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { withApiLogging } from "@/lib/withApiLogging";
 
 
@@ -58,7 +59,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     });
   } catch (err: any) {
     console.error("[booking-packages/cancel] crashed:", err);
-    return res.status(500).json({ error: err?.message || "Cancel failed" });
+    return res.status(500).json({ error: dbErrorMessage(err) || "Cancel failed" });
   }
 }
 

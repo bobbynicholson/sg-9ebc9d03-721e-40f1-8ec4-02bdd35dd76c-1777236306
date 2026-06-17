@@ -21,6 +21,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@/lib/supabase/server";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 
 
 async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -140,7 +141,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     }
     if (updErr) {
       console.error("request-edits: update failed", updErr);
-      return res.status(500).json({ error: updErr.message });
+      return res.status(500).json({ error: dbErrorMessage(updErr) });
     }
 
     // Fan out admin notifications. One row per recipient.
@@ -186,7 +187,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     return res.status(201).json({ ok: true });
   } catch (e: any) {
     console.error("request-edits crashed:", e);
-    return res.status(500).json({ error: e?.message || "Unexpected server error" });
+    return res.status(500).json({ error: dbErrorMessage(e) || "Unexpected server error" });
   }
 }
 

@@ -40,6 +40,7 @@ import { createPagesServerClient } from "@/lib/supabase/server";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { updateOrderStatus } from "@/services/order/orderWorkflow";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 
 
 const ADMIN_ROLES = new Set(["super_admin", "company_admin", "admin", "owner"]);
@@ -270,7 +271,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     });
   } catch (err: any) {
     console.error("[orders/force-close] crashed:", err);
-    return res.status(500).json({ error: err?.message || "Force close crashed" });
+    return res.status(500).json({ error: dbErrorMessage(err) || "Force close crashed" });
   }
 }
 

@@ -12,6 +12,7 @@
  */
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@/lib/supabase/server";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { withApiLogging } from "@/lib/withApiLogging";
 
 
@@ -41,13 +42,13 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     const { data, error } = await ssr.rpc("enable_comms_for_import_job", {
       p_job_id: jobId,
     });
-    if (error) return res.status(500).json({ error: error.message });
+    if (error) return res.status(500).json({ error: dbErrorMessage(error) });
 
     // RPC returns jsonb_build_object('leads', n, 'clients', n, 'orders', n, 'quotes', n).
     return res.status(200).json({ ok: true, ...(data as any) });
   } catch (err: any) {
     console.error("[imports/enable-comms] crashed:", err);
-    return res.status(500).json({ error: err?.message || "Failed to enable comms" });
+    return res.status(500).json({ error: dbErrorMessage(err) || "Failed to enable comms" });
   }
 }
 

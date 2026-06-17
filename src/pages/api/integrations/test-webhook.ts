@@ -7,6 +7,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@/lib/supabase/server";
 import crypto from "node:crypto";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { withApiLogging } from "@/lib/withApiLogging";
 
 
@@ -75,7 +76,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     status_code = r.status;
     response_body = await r.text();
   } catch (e: any) {
-    error_message = e?.message || "Network error";
+    error_message = dbErrorMessage(e) || "Network error";
   }
 
   await supabase.from("webhook_deliveries").insert({

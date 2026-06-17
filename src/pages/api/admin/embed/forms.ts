@@ -4,6 +4,7 @@ import { createPagesServerClient } from "@/lib/supabase/server";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { validateRedirectUrl } from "@/lib/embedFormApi";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 
 
 /**
@@ -120,7 +121,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         .is("deleted_at", null)
         .order("created_at", { ascending: false });
 
-      if (error) return res.status(500).json({ error: error.message });
+      if (error) return res.status(500).json({ error: dbErrorMessage(error) });
       return res.status(200).json({ ok: true, forms: data || [] });
     }
 
@@ -162,7 +163,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
             .status(409)
             .json({ error: "A form with that slug already exists" });
         }
-        return res.status(500).json({ error: error.message });
+        return res.status(500).json({ error: dbErrorMessage(error) });
       }
       return res.status(201).json({ ok: true, form: data });
     }
@@ -204,7 +205,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         .select("*")
         .single();
 
-      if (error) return res.status(500).json({ error: error.message });
+      if (error) return res.status(500).json({ error: dbErrorMessage(error) });
       return res.status(200).json({ ok: true, form: data });
     }
 
@@ -238,7 +239,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         .update({ deleted_at: new Date().toISOString(), is_active: false })
         .eq("id", id);
 
-      if (error) return res.status(500).json({ error: error.message });
+      if (error) return res.status(500).json({ error: dbErrorMessage(error) });
       return res.status(200).json({ ok: true });
     }
 
@@ -248,7 +249,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     console.error("[admin/embed/forms] handler error", err);
     return res
       .status(500)
-      .json({ error: err?.message || "Internal Server Error" });
+      .json({ error: dbErrorMessage(err) || "Internal Server Error" });
   }
 }
 

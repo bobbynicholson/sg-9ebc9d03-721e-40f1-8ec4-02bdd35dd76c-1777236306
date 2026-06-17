@@ -39,6 +39,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@/lib/supabase/server";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 
 
 const ALLOWED_ROLES = new Set(["super_admin", "company_admin", "admin", "owner"]);
@@ -170,7 +171,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     return res.status(200).send(JSON.stringify(dump, null, 2));
   } catch (e: any) {
     console.error("[export-company-data] crashed:", e);
-    return res.status(500).json({ error: e?.message || "Export failed" });
+    return res.status(500).json({ error: dbErrorMessage(e) || "Export failed" });
   }
 }
 

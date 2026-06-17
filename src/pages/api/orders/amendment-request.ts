@@ -35,6 +35,7 @@ import { createPagesServerClient } from "@/lib/supabase/server";
 // `const { UserRole }` from the dynamic import.
 import type { UserRole as UserRoleType } from "@/types/app";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 
 
 const ALLOWED_FIELDS = new Set([
@@ -173,7 +174,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       })
       .select("id")
       .single();
-    if (error) return res.status(500).json({ error: error.message });
+    if (error) return res.status(500).json({ error: dbErrorMessage(error) });
 
     // Notify the catering team. Broadcast to admin / owner roles for
     // the company so every operator who can act on the request sees
@@ -274,7 +275,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     return res.status(200).json({ ok: true, request_id: (inserted as any).id });
   } catch (err: any) {
     console.error("[amendment-request] crashed:", err);
-    return res.status(500).json({ error: err?.message || "Could not submit amendment request" });
+    return res.status(500).json({ error: dbErrorMessage(err) || "Could not submit amendment request" });
   }
 }
 

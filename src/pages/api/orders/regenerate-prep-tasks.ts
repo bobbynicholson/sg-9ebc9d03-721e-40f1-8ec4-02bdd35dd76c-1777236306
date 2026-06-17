@@ -27,6 +27,7 @@ import { createPagesServerClient } from "@/lib/supabase/server";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { kitchenPrepService } from "@/services/kitchenPrepService";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 
 
 const ALLOWED_ROLES = new Set(["super_admin", "company_admin", "admin", "owner"]);
@@ -149,7 +150,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     });
   } catch (err: any) {
     console.error("[orders/regenerate-prep-tasks] crashed:", err);
-    return res.status(500).json({ error: err?.message || "Regenerate crashed" });
+    return res.status(500).json({ error: dbErrorMessage(err) || "Regenerate crashed" });
   }
 }
 

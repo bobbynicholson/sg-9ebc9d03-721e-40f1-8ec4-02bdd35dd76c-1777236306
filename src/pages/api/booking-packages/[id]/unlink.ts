@@ -10,6 +10,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@/lib/supabase/server";
 import { unlinkOrderFromPackage, getPackage } from "@/services/booking/bookingPackageService";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { withApiLogging } from "@/lib/withApiLogging";
 
 
@@ -64,7 +65,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     return res.status(200).json({ ok: true, package: fresh });
   } catch (err: any) {
     console.error("[booking-packages/unlink] crashed:", err);
-    return res.status(500).json({ error: err?.message || "Unlink failed" });
+    return res.status(500).json({ error: dbErrorMessage(err) || "Unlink failed" });
   }
 }
 

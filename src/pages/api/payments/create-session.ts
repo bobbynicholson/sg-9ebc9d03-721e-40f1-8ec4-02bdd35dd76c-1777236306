@@ -31,6 +31,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@/lib/supabase/server";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { createPaymentSession } from "@/lib/paymentService";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { withApiLogging } from "@/lib/withApiLogging";
 
 
@@ -319,7 +320,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     });
   } catch (e: any) {
     console.error("/api/payments/create-session crashed:", e);
-    return res.status(500).json({ error: e?.message || "Could not start payment" });
+    return res.status(500).json({ error: dbErrorMessage(e) || "Could not start payment" });
   }
 }
 

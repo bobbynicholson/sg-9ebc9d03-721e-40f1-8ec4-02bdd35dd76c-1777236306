@@ -16,6 +16,7 @@ import { createPagesServerClient } from "@/lib/supabase/server";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { withApiLogging } from "@/lib/withApiLogging";
 import { sendStaffInviteEmail } from "@/lib/staffInviteEmail";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 
 const CALLER_ROLES_ALLOWED = new Set(["super_admin", "company_admin", "admin", "owner"]);
 
@@ -101,7 +102,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     return res.status(200).json({ ok: true, message: `Invite re-sent to ${t.email}` });
   } catch (e: any) {
     console.error("resend-invite crashed:", e);
-    return res.status(500).json({ error: e?.message || "Unexpected server error" });
+    return res.status(500).json({ error: dbErrorMessage(e) || "Unexpected server error" });
   }
 }
 

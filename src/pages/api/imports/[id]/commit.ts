@@ -32,6 +32,7 @@
  */
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@/lib/supabase/server";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import {
   getImportJob, listImportRows, setJobStatus, logEvent,
@@ -1333,7 +1334,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     });
   } catch (outer: any) {
     console.error("imports/[id]/commit handler crashed:", outer);
-    return res.status(500).json({ error: outer?.message || "Commit failed" });
+    return res.status(500).json({ error: dbErrorMessage(outer) || "Commit failed" });
   }
 }
 

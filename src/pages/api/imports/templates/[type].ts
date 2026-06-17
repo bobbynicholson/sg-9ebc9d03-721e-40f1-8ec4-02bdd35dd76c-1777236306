@@ -17,6 +17,7 @@
  */
 import type { NextApiRequest, NextApiResponse } from "next";
 import * as XLSX from "xlsx";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { createPagesServerClient } from "@/lib/supabase/server";
 import {
   TEMPLATE_TYPES,
@@ -112,7 +113,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     return res.status(200).send(buf);
   } catch (e: any) {
     console.error("/api/imports/templates/[type] crashed:", e);
-    return res.status(500).json({ error: e?.message || "Template generation failed" });
+    return res.status(500).json({ error: dbErrorMessage(e) || "Template generation failed" });
   }
 }
 

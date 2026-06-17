@@ -11,6 +11,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@/lib/supabase/server";
 import { createPackage, listPackages, type BookingPackageStatus } from "@/services/booking/bookingPackageService";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { withApiLogging } from "@/lib/withApiLogging";
 
 
@@ -68,7 +69,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     return res.status(405).json({ error: "Method not allowed" });
   } catch (err: any) {
     console.error("[booking-packages] crashed:", err);
-    return res.status(500).json({ error: err?.message || "Request failed" });
+    return res.status(500).json({ error: dbErrorMessage(err) || "Request failed" });
   }
 }
 

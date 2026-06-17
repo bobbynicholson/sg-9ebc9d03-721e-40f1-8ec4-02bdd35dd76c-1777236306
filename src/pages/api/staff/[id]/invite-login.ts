@@ -17,6 +17,7 @@
  * Tenant-scoped via session. Caller must be admin/owner/super_admin.
  */
 import type { NextApiRequest, NextApiResponse } from "next";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import * as React from "react";
 import { createPagesServerClient } from "@/lib/supabase/server";
 import { getServiceSupabase } from "@/lib/supabase/service";
@@ -160,7 +161,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       });
       if (linkErr || !linkData?.user || !linkData?.properties?.action_link) {
         console.error("generateLink invite failed:", linkErr);
-        return res.status(500).json({ error: linkErr?.message || "Could not create invite link" });
+        return res.status(500).json({ error: dbErrorMessage(linkErr) || "Could not create invite link" });
       }
       authUserId = linkData.user.id;
       acceptInviteUrl = linkData.properties.action_link;
@@ -174,7 +175,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       });
       if (linkErr || !linkData?.properties?.action_link) {
         console.error("generateLink magiclink failed:", linkErr);
-        return res.status(500).json({ error: linkErr?.message || "Could not create login link" });
+        return res.status(500).json({ error: dbErrorMessage(linkErr) || "Could not create login link" });
       }
       acceptInviteUrl = linkData.properties.action_link;
     }
@@ -198,7 +199,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       );
     if (profileErr) {
       console.error("Profile upsert failed:", profileErr);
-      return res.status(500).json({ error: profileErr.message });
+      return res.status(500).json({ error: dbErrorMessage(profileErr) });
     }
 
     // Stamp linked_profile_id so the staff member is now bound to the
@@ -209,7 +210,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       .eq("id", staffId);
     if (linkErr) {
       console.error("Linking staff to profile failed:", linkErr);
-      return res.status(500).json({ error: linkErr.message });
+      return res.status(500).json({ error: dbErrorMessage(linkErr) });
     }
 
     // Send the branded invite email. Don't fail the whole request if
@@ -254,7 +255,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     });
   } catch (e: any) {
     console.error("invite-login crashed:", e);
-    return res.status(500).json({ error: e?.message || "Invite failed" });
+    return res.status(500).json({ error: dbErrorMessage(e) || "Invite failed" });
   }
 }
 

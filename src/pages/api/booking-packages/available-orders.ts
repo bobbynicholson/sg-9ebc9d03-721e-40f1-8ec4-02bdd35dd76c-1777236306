@@ -17,6 +17,7 @@
  */
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@/lib/supabase/server";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { withApiLogging } from "@/lib/withApiLogging";
 
 
@@ -69,13 +70,13 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     const { data, error } = await query;
     if (error) {
       console.error("[booking-packages/available-orders] query failed:", error);
-      return res.status(500).json({ error: error.message || "Query failed" });
+      return res.status(500).json({ error: dbErrorMessage(error) || "Query failed" });
     }
 
     return res.status(200).json({ ok: true, orders: data || [] });
   } catch (err: any) {
     console.error("[booking-packages/available-orders] crashed:", err);
-    return res.status(500).json({ error: err?.message || "Request failed" });
+    return res.status(500).json({ error: dbErrorMessage(err) || "Request failed" });
   }
 }
 

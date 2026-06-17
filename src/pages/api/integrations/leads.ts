@@ -30,6 +30,7 @@ import crypto from "node:crypto";
 import { consumeApiKeyRateLimitDb } from "@/lib/apiKeyRateLimit";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { notifyAdminOfEmbedLead } from "@/lib/embed/notifyAdminOfEmbedLead";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { withApiLogging } from "@/lib/withApiLogging";
 
 
@@ -93,7 +94,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
   if (error) {
     console.error("api_create_lead failed:", error);
-    return res.status(500).json({ error: error.message });
+    return res.status(500).json({ error: dbErrorMessage(error) });
   }
 
   const result = data as any;

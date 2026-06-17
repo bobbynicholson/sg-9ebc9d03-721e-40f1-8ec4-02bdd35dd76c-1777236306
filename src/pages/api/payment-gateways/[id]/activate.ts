@@ -15,6 +15,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@/lib/supabase/server";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { paymentGatewayService } from "@/services/paymentGatewayService";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { withApiLogging } from "@/lib/withApiLogging";
 
 
@@ -75,7 +76,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     return res.status(400).json({ error: result.error });
   } catch (e: any) {
     console.error("/api/payment-gateways/[id]/activate crashed:", e);
-    return res.status(500).json({ error: e?.message || "Activate failed" });
+    return res.status(500).json({ error: dbErrorMessage(e) || "Activate failed" });
   }
 }
 

@@ -39,6 +39,7 @@ import {
 } from "@/lib/resendDomains";
 import type { NextApiRequest, NextApiResponse } from "next";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 
 
 const ALLOWED_ROLES = new Set([
@@ -154,7 +155,7 @@ async function handler(
     if (updErr) {
       console.error("[force-reverify] persist failed:", updErr);
       return res.status(500).json({
-        error: `Domain was re-created at Resend but local save failed: ${updErr.message}`,
+        error: `Domain was re-created at Resend but local save failed: ${dbErrorMessage(updErr)}`,
       });
     }
 
@@ -203,7 +204,7 @@ async function handler(
     console.error("[force-reverify] crashed:", e);
     return res
       .status(500)
-      .json({ error: e?.message || "Unexpected server error" });
+      .json({ error: dbErrorMessage(e) || "Unexpected server error" });
   }
 }
 

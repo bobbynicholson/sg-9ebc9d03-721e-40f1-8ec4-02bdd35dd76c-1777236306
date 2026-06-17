@@ -14,6 +14,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@/lib/supabase/server";
 import { lifecycleService } from "@/services/lifecycleService";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 
 
 const ADMIN_ROLES = new Set(["super_admin", "company_admin", "admin", "owner"]);
@@ -52,7 +53,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       query = query.eq("company_id", (profile as any).company_id);
     }
     const { data: orders, error } = await query;
-    if (error) return res.status(500).json({ error: error.message });
+    if (error) return res.status(500).json({ error: dbErrorMessage(error) });
 
     const summary: Array<{
       order_id: string;
@@ -143,7 +144,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     });
   } catch (err: any) {
     console.error("[backfill-lifecycle] crashed:", err);
-    return res.status(500).json({ error: err?.message || "Backfill failed" });
+    return res.status(500).json({ error: dbErrorMessage(err) || "Backfill failed" });
   }
 }
 

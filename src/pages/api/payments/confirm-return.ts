@@ -20,6 +20,7 @@
  */
 import type { NextApiRequest, NextApiResponse } from "next";
 import { getServiceSupabase } from "@/lib/supabase/service";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { withApiLogging } from "@/lib/withApiLogging";
 
 async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -108,7 +109,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     });
   } catch (e: any) {
     console.error("[confirm-return] crashed:", e);
-    return res.status(500).json({ error: e?.message || "crash" });
+    return res.status(500).json({ error: dbErrorMessage(e) || "crash" });
   }
 }
 

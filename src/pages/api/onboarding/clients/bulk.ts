@@ -19,6 +19,7 @@
  *     rejected" with reasons.
  */
 import type { NextApiRequest, NextApiResponse } from "next";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { createPagesServerClient } from "@/lib/supabase/server";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { normaliseEmail, normalisePhoneZA } from "@/lib/importNormalise";
@@ -193,7 +194,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         .single();
       if (jobErr || !job) {
         return res.status(500).json({
-          error: jobErr?.message || "Could not register import job",
+          error: dbErrorMessage(jobErr) || "Could not register import job",
           outcomes,
         });
       }
@@ -216,7 +217,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         .select("id");
       if (insertErr) {
         return res.status(500).json({
-          error: insertErr.message || "Could not insert clients",
+          error: dbErrorMessage(insertErr) || "Could not insert clients",
           outcomes,
         });
       }
@@ -238,7 +239,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     });
   } catch (e: any) {
     console.error("/api/onboarding/clients/bulk crashed:", e);
-    return res.status(500).json({ error: e?.message || "Client upload failed" });
+    return res.status(500).json({ error: dbErrorMessage(e) || "Client upload failed" });
   }
 }
 

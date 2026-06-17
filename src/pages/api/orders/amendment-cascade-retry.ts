@@ -19,6 +19,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@/lib/supabase/server";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 
 
 const ALLOWED_ROLES = new Set(["super_admin", "company_admin", "admin", "owner"]);
@@ -200,7 +201,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     });
   } catch (err: any) {
     console.error("[amendment-cascade-retry] crashed:", err);
-    return res.status(500).json({ error: err?.message || "Cascade retry failed" });
+    return res.status(500).json({ error: dbErrorMessage(err) || "Cascade retry failed" });
   }
 }
 

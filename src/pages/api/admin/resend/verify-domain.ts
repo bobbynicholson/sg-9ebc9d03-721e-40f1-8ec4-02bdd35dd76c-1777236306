@@ -23,6 +23,7 @@ import { getResendDomain, isResendError, verifyResendDomain } from "@/lib/resend
 import { emailService } from "@/services/emailService";
 import type { NextApiRequest, NextApiResponse } from "next";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 
 
 const ALLOWED_ROLES = new Set([
@@ -134,7 +135,7 @@ async function handler(
     if (updateErr) {
       console.error("[verify-domain] persist failed:", updateErr);
       return res.status(500).json({
-        error: `Could not update domain status: ${updateErr.message}`,
+        error: `Could not update domain status: ${dbErrorMessage(updateErr)}`,
       });
     }
 
@@ -163,7 +164,7 @@ async function handler(
     console.error("[verify-domain] crashed:", e);
     return res
       .status(500)
-      .json({ error: e?.message || "Unexpected server error" });
+      .json({ error: dbErrorMessage(e) || "Unexpected server error" });
   }
 }
 

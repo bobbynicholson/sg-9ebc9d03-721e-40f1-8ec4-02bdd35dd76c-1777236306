@@ -11,6 +11,7 @@ import { getServiceSupabase } from "@/lib/supabase/service";
 import { deleteResendDomain, isResendError } from "@/lib/resendDomains";
 import type { NextApiRequest, NextApiResponse } from "next";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 
 
 const ALLOWED_ROLES = new Set([
@@ -92,7 +93,7 @@ async function handler(
       console.error("[delete-domain] persist failed:", updErr);
       return res
         .status(500)
-        .json({ error: `Could not clear domain: ${updErr.message}` });
+        .json({ error: `Could not clear domain: ${dbErrorMessage(updErr)}` });
     }
 
     return res.status(200).json({ ok: true });
@@ -100,7 +101,7 @@ async function handler(
     console.error("[delete-domain] crashed:", e);
     return res
       .status(500)
-      .json({ error: e?.message || "Unexpected server error" });
+      .json({ error: dbErrorMessage(e) || "Unexpected server error" });
   }
 }
 

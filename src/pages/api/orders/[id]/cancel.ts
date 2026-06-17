@@ -43,6 +43,7 @@ import { createPagesServerClient } from "@/lib/supabase/server";
 import { cancelOrder } from "@/services/order/orderWorkflow";
 import { sendCancellationEmail } from "@/services/email/cancellationEmails";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 
 
 const ADMIN_ROLES = new Set(["super_admin", "company_admin", "admin", "owner"]);
@@ -138,7 +139,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     const { data: snapshot, error: snapErr } = await ssr.rpc("get_refund_for_order", {
       p_order_id: orderId,
     });
-    if (snapErr) return res.status(500).json({ error: snapErr.message });
+    if (snapErr) return res.status(500).json({ error: dbErrorMessage(snapErr) });
     const snap = (snapshot as any) || {};
 
     // Late-cancel gate: only owners can cancel inside the override window
@@ -501,7 +502,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     });
   } catch (err: any) {
     console.error("[orders/cancel] crashed:", err);
-    return res.status(500).json({ error: err?.message || "Cancellation failed" });
+    return res.status(500).json({ error: dbErrorMessage(err) || "Cancellation failed" });
   }
 }
 

@@ -26,6 +26,7 @@
  *     reason_category?: string }
  */
 import type { NextApiRequest, NextApiResponse } from "next";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { consumeApiKeyRateLimitDb } from "@/lib/apiKeyRateLimit";
 import crypto from "node:crypto";
@@ -244,7 +245,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       .single();
     if (insertErr) {
       console.error("[cancel-order:token] insert failed:", insertErr);
-      return res.status(500).json({ error: insertErr.message });
+      return res.status(500).json({ error: dbErrorMessage(insertErr) });
     }
 
     // Fan the operator notification chain. Same shape as the
@@ -343,7 +344,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     });
   } catch (e: any) {
     console.error("[cancel-order:token] crashed:", e);
-    return res.status(500).json({ error: e?.message || "Cancellation request failed" });
+    return res.status(500).json({ error: dbErrorMessage(e) || "Cancellation request failed" });
   }
 }
 

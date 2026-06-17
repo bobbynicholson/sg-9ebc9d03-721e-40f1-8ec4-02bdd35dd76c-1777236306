@@ -11,6 +11,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@/lib/supabase/server";
 import { resumeOrder } from "@/services/order/orderWorkflow";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 
 
 const ADMIN_ROLES = new Set(["super_admin", "company_admin", "admin", "owner"]);
@@ -66,7 +67,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     return res.status(200).json({ ok: true, order: result.data });
   } catch (e: any) {
     console.error("/api/orders/[id]/resume crashed:", e);
-    return res.status(500).json({ error: e?.message || "Resume failed" });
+    return res.status(500).json({ error: dbErrorMessage(e) || "Resume failed" });
   }
 }
 

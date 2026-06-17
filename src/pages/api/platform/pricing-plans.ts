@@ -17,6 +17,7 @@
  * the single source of truth.
  */
 import type { NextApiRequest, NextApiResponse } from "next";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { createPagesServerClient } from "@/lib/supabase/server";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { withApiLogging } from "@/lib/withApiLogging";
@@ -50,7 +51,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         .select("slug, name, sort_order, zar_price, usd_price, gbp_price, eur_price, features, active_clients_limit, orders_per_quarter_limit, is_recommended, is_active")
         .eq("is_active", true)
         .order("sort_order", { ascending: true });
-      if (error) return res.status(500).json({ error: error.message });
+      if (error) return res.status(500).json({ error: dbErrorMessage(error) });
       return res.status(200).json({ plans: (data || []) as PricingPlanRow[] });
     }
 
@@ -114,7 +115,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     return res.status(405).json({ error: "Method not allowed" });
   } catch (e: any) {
     console.error("/api/platform/pricing-plans crashed:", e);
-    return res.status(500).json({ error: e?.message || "Pricing endpoint failed" });
+    return res.status(500).json({ error: dbErrorMessage(e) || "Pricing endpoint failed" });
   }
 }
 

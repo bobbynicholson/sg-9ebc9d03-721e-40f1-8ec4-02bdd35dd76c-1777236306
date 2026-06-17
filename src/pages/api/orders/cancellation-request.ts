@@ -27,6 +27,7 @@ import { createPagesServerClient } from "@/lib/supabase/server";
 // handler. Aliased to avoid clashing with the local const below.
 import type { UserRole as UserRoleType } from "@/types/app";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 
 
 async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -111,7 +112,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     const { data: snapshot, error: snapErr } = await ssr.rpc("get_refund_for_order", {
       p_order_id: order_id,
     });
-    if (snapErr) return res.status(500).json({ error: snapErr.message });
+    if (snapErr) return res.status(500).json({ error: dbErrorMessage(snapErr) });
     const snap = (snapshot as any) || {};
 
     // Postponement gate: refuse inside the notice window unless admin.
@@ -218,7 +219,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       } as any)
       .select("id")
       .single();
-    if (error) return res.status(500).json({ error: error.message });
+    if (error) return res.status(500).json({ error: dbErrorMessage(error) });
 
     // Notify the catering team. Broadcast to admin/owner roles --
     // previous code used company_id as recipient_id which never
@@ -309,7 +310,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     });
   } catch (err: any) {
     console.error("[cancellation-request] crashed:", err);
-    return res.status(500).json({ error: err?.message || "Could not submit cancellation request" });
+    return res.status(500).json({ error: dbErrorMessage(err) || "Could not submit cancellation request" });
   }
 }
 

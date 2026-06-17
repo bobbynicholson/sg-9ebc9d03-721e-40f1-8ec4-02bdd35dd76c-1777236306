@@ -11,6 +11,7 @@
  */
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@/lib/supabase/server";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import {
   getImportJob, listImportRows, setJobStatus, logEvent,
@@ -469,7 +470,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     return res.status(200).json({ ok: true, summary });
   } catch (outer: any) {
     console.error("imports/[id]/preview handler crashed:", outer);
-    return res.status(500).json({ error: outer?.message || "Preview failed" });
+    return res.status(500).json({ error: dbErrorMessage(outer) || "Preview failed" });
   }
 }
 

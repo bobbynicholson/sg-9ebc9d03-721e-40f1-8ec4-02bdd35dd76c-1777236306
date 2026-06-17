@@ -17,6 +17,7 @@ import { getServiceSupabase } from "@/lib/supabase/service";
 import { Resolver } from "node:dns/promises";
 import type { NextApiRequest, NextApiResponse } from "next";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 
 
 const ALLOWED_ROLES = new Set([
@@ -431,7 +432,7 @@ async function handler(
     console.error("[dns-check] crashed:", e);
     return res
       .status(500)
-      .json({ error: e?.message || "Unexpected server error" });
+      .json({ error: dbErrorMessage(e) || "Unexpected server error" });
   }
 }
 

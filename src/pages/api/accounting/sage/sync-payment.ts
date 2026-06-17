@@ -30,6 +30,7 @@ import { createPagesServerClient } from "@/lib/supabase/server";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { getValidAccessToken } from "@/services/accountingIntegrationService";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 
 
 const ALLOWED_ROLES = new Set(["super_admin", "company_admin", "admin", "owner"]);
@@ -209,7 +210,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     return res.status(200).json({ ok: true, externalId: created.id });
   } catch (err: any) {
     console.error("[accounting/sage/sync-payment] crashed:", err);
-    return res.status(500).json({ error: err?.message || "Sage payment sync crashed" });
+    return res.status(500).json({ error: dbErrorMessage(err) || "Sage payment sync crashed" });
   }
 }
 

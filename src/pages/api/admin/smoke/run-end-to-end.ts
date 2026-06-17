@@ -46,6 +46,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@/lib/supabase/server";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 
 
 const OWNER_ROLES = new Set(["super_admin", "company_admin", "owner"]);
@@ -88,7 +89,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       stages.push({ name, ok: true, ms: Date.now() - tStage, detail: detail || undefined });
       return true;
     } catch (err: any) {
-      stages.push({ name, ok: false, ms: Date.now() - tStage, error: err?.message || String(err) });
+      stages.push({ name, ok: false, ms: Date.now() - tStage, error: dbErrorMessage(err) || String(err) });
       return false;
     }
   };
@@ -851,7 +852,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     });
   } catch (err: any) {
     if (!(err instanceof ShortCircuit)) {
-      stages.push({ name: "uncaught", ok: false, ms: 0, error: err?.message || String(err) });
+      stages.push({ name: "uncaught", ok: false, ms: 0, error: dbErrorMessage(err) || String(err) });
     }
   }
 
@@ -947,7 +948,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         name: "Z_cleanup_partial",
         ok: false,
         ms: 0,
-        error: cleanupErr?.message || String(cleanupErr),
+        error: dbErrorMessage(cleanupErr) || String(cleanupErr),
         detail: "Cleanup failed - some SMOKE-* rows may remain. Inspect manually.",
       });
     }

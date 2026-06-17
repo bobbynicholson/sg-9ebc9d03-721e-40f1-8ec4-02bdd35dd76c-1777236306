@@ -19,6 +19,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@/lib/supabase/server";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 
 
 const ALLOWED = new Set(["super_admin", "company_admin", "admin"]);
@@ -72,7 +73,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       return res.status(200).json({ ok: true, embed_token: row.embed_token });
     } catch (fallbackErr: any) {
       console.error("[admin/embed/rotate-token] failed", fallbackErr);
-      return res.status(500).json({ error: fallbackErr?.message || "Rotation failed" });
+      return res.status(500).json({ error: dbErrorMessage(fallbackErr) || "Rotation failed" });
     }
   }
 

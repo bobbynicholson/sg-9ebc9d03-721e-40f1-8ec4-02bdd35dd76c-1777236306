@@ -8,6 +8,7 @@
  */
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@/lib/supabase/server";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { rollbackImportJob } from "@/services/importService";
 import { withApiLogging } from "@/lib/withApiLogging";
 
@@ -41,7 +42,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     return res.status(200).json({ ok: true, ...result });
   } catch (outer: any) {
     console.error("imports/[id]/rollback handler crashed:", outer);
-    return res.status(500).json({ error: outer?.message || "Rollback failed" });
+    return res.status(500).json({ error: dbErrorMessage(outer) || "Rollback failed" });
   }
 }
 

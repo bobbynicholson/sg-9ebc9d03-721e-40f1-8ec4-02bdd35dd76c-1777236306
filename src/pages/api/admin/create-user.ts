@@ -4,6 +4,7 @@ import { getServiceSupabase } from "@/lib/supabase/service";
 import type { NextApiRequest, NextApiResponse } from "next";
 import { withApiLogging } from "@/lib/withApiLogging";
 import { sendStaffInviteEmail } from "@/lib/staffInviteEmail";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 
 
 // Map UserRole enum values to database-accepted role values.
@@ -293,7 +294,7 @@ async function handler(
           const { error: insErr } = await admin.from("profiles").insert([profilePayload]);
           if (insErr) {
             console.error("Healing orphan profile failed:", insErr);
-            return res.status(500).json({ error: `Could not finish creating user: ${insErr.message}` });
+            return res.status(500).json({ error: `Could not finish creating user: ${dbErrorMessage(insErr)}` });
           }
           // Seed the primary department so it shows on the Users page.
           await seedPrimaryDepartment(admin, match.id, dbRole, callerAuth.id);
@@ -342,7 +343,7 @@ async function handler(
     if (createErr || !created?.user) {
       console.error("admin.createUser failed:", createErr);
       return res.status(500).json({
-        error: createErr?.message || "Could not create user",
+        error: dbErrorMessage(createErr) || "Could not create user",
       });
     }
 
@@ -382,7 +383,7 @@ async function handler(
         console.error("Rollback delete failed:", rollbackErr?.message);
       }
       return res.status(500).json({
-        error: `Could not save profile: ${upsertErr.message}. Try again.`,
+        error: `Could not save profile: ${dbErrorMessage(upsertErr)}. Try again.`,
       });
     }
 
@@ -418,7 +419,7 @@ async function handler(
     // page and the client can't parse a JSON error.
     console.error("create-user handler crashed:", outer);
     return res.status(500).json({
-      error: outer?.message || "Unexpected server error",
+      error: dbErrorMessage(outer) || "Unexpected server error",
     });
   }
 }

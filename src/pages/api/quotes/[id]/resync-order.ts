@@ -37,6 +37,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@/lib/supabase/server";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 
 
 const POST_DISPATCH_STATUSES = new Set([
@@ -88,7 +89,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     .eq("id", quoteId)
     .maybeSingle();
   if (qErr || !quote) {
-    return res.status(404).json({ error: qErr?.message || "Quote not found" });
+    return res.status(404).json({ error: dbErrorMessage(qErr) || "Quote not found" });
   }
 
   // Tenant scope check.

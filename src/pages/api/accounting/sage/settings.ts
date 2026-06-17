@@ -27,6 +27,7 @@ import { createPagesServerClient } from "@/lib/supabase/server";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { getValidAccessToken } from "@/services/accountingIntegrationService";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 
 
 const ALLOWED_ROLES = new Set(["super_admin", "company_admin", "admin", "owner"]);
@@ -160,7 +161,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         .eq("company_id", companyId)
         .eq("provider", "sage");
       if (error) {
-        return res.status(500).json({ error: error.message });
+        return res.status(500).json({ error: dbErrorMessage(error) });
       }
 
       try {
@@ -182,7 +183,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     return res.status(405).json({ error: "Method not allowed" });
   } catch (err: any) {
     console.error("[accounting/sage/settings] crashed:", err);
-    return res.status(500).json({ error: err?.message || "Sage settings crashed" });
+    return res.status(500).json({ error: dbErrorMessage(err) || "Sage settings crashed" });
   }
 }
 

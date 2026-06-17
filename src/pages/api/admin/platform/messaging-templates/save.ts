@@ -18,6 +18,7 @@ import { createPagesServerClient } from "@/lib/supabase/server";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { TEMPLATE_REGISTRY } from "@/lib/messageTemplates/registry";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 
 
 async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -139,7 +140,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     return res.status(200).json({ success: true });
   } catch (err: any) {
     console.error("[platform-templates/save] crashed:", err);
-    return res.status(500).json({ error: err?.message || "Unexpected server error" });
+    return res.status(500).json({ error: dbErrorMessage(err) || "Unexpected server error" });
   }
 }
 

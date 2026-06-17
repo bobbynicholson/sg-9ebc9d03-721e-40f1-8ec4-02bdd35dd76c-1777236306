@@ -28,6 +28,7 @@ import {
   PAYMENT_GATEWAY_PROVIDERS,
   type PaymentGatewayProvider,
 } from "@/services/paymentGatewayService";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { withApiLogging } from "@/lib/withApiLogging";
 
 
@@ -123,7 +124,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     return res.status(405).json({ error: "Method not allowed" });
   } catch (e: any) {
     console.error("/api/payment-gateways crashed:", e);
-    return res.status(500).json({ error: e?.message || "Payment gateway endpoint failed" });
+    return res.status(500).json({ error: dbErrorMessage(e) || "Payment gateway endpoint failed" });
   }
 }
 

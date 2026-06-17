@@ -21,6 +21,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@/lib/supabase/server";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 
 
 const ALLOWED_ROLES = new Set(["super_admin", "company_admin", "admin", "owner"]);
@@ -83,7 +84,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
     if (readErr) {
       console.error("[quote-pdf] quote read failed:", readErr);
-      return res.status(500).json({ error: `Quote read failed: ${readErr.message}`, code: readErr.code });
+      return res.status(500).json({ error: `Quote read failed: ${dbErrorMessage(readErr)}`, code: readErr.code });
     }
     if (!q) return res.status(404).json({ error: "Quote not found" });
 
@@ -166,7 +167,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     // a generic "HTTP 500" toast. Stack only in non-prod to avoid
     // leaking internals.
     const payload: any = {
-      error: err?.message || "PDF render failed",
+      error: dbErrorMessage(err) || "PDF render failed",
       name: err?.name || undefined,
     };
     if (process.env.NODE_ENV !== "production") {

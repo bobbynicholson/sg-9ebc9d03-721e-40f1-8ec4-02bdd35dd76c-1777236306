@@ -25,6 +25,7 @@ import { emailService } from "@/services/emailService";
 import { resolveEmailTemplate } from "@/services/email/templateResolver";
 import { TEMPLATE_REGISTRY } from "@/lib/messageTemplates/registry";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 
 
 async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -149,7 +150,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     return res.status(200).json({ success: true, channel: "whatsapp", to: phone });
   } catch (err: any) {
     console.error("[send-test] crashed:", err);
-    return res.status(500).json({ error: err?.message || "Unknown error" });
+    return res.status(500).json({ error: dbErrorMessage(err) || "Unknown error" });
   }
 }
 

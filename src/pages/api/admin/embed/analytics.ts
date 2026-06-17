@@ -14,6 +14,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@/lib/supabase/server";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 
 
 const ALLOWED = new Set(["super_admin", "company_admin", "admin"]);
@@ -76,7 +77,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     .gte("created_at", since.toISOString())
     .order("created_at", { ascending: true });
 
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) return res.status(500).json({ error: dbErrorMessage(error) });
 
   const rows = (subs || []) as Array<{ created_at: string; referrer: string | null; is_spam: boolean }>;
 

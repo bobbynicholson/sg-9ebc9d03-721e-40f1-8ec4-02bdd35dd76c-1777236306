@@ -19,6 +19,7 @@
  */
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@/lib/supabase/server";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { getImportJob, listImportRows, logEvent } from "@/services/importService";
 import { normaliseFieldValue } from "@/lib/importNormalise";
@@ -168,7 +169,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     });
   } catch (e: any) {
     console.error("/api/imports/[id]/rows/[rowId]/edit crashed:", e);
-    return res.status(500).json({ error: e?.message || "Row edit failed" });
+    return res.status(500).json({ error: dbErrorMessage(e) || "Row edit failed" });
   }
 }
 

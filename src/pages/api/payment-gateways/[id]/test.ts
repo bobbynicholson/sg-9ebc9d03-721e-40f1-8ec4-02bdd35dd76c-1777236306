@@ -18,6 +18,7 @@ import { paymentGatewayService } from "@/services/paymentGatewayService";
 import { pingPayFastCredentials } from "@/lib/payfastService";
 import { pingYocoCredentials } from "@/lib/yocoService";
 import { pingStripeCredentials } from "@/lib/stripeService";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { withApiLogging } from "@/lib/withApiLogging";
 
 
@@ -96,7 +97,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     });
   } catch (e: any) {
     console.error("/api/payment-gateways/[id]/test crashed:", e);
-    return res.status(500).json({ error: e?.message || "Test connection failed" });
+    return res.status(500).json({ error: dbErrorMessage(e) || "Test connection failed" });
   }
 }
 

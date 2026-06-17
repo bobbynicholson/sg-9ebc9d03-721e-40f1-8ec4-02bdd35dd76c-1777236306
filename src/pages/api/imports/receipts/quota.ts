@@ -12,6 +12,7 @@
  */
 import type { NextApiRequest, NextApiResponse } from "next";
 import { getServiceSupabase } from "@/lib/supabase/service";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { getReceiptScanQuota } from "@/lib/receiptScanQuota";
 import { withApiLogging } from "@/lib/withApiLogging";
 
@@ -35,7 +36,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     const quota = await getReceiptScanQuota(sb, companyId);
     return res.status(200).json(quota);
   } catch (e: unknown) {
-    return res.status(500).json({ error: e instanceof Error ? e.message : "quota lookup failed" });
+    return res.status(500).json({ error: e instanceof Error ? dbErrorMessage(e) : "quota lookup failed" });
   }
 }
 

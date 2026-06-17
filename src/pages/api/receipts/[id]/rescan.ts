@@ -21,6 +21,7 @@ import { getServiceSupabase } from "@/lib/supabase/service";
 import { extractReceiptViaAI } from "@/lib/importAi";
 import { getReceiptScanQuota } from "@/lib/receiptScanQuota";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 
 
 const ALLOWED_CALLER_ROLES = new Set([
@@ -320,7 +321,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     });
   } catch (e: any) {
     console.error("/api/receipts/[id]/rescan crashed:", e);
-    return res.status(500).json({ error: e?.message || "Rescan failed" });
+    return res.status(500).json({ error: dbErrorMessage(e) || "Rescan failed" });
   }
 }
 

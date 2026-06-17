@@ -12,6 +12,7 @@
  */
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@/lib/supabase/server";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { withApiLogging } from "@/lib/withApiLogging";
 
@@ -199,7 +200,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     });
   } catch (e: any) {
     console.error("/api/imports/[id]/reconcile crashed:", e);
-    return res.status(500).json({ error: e?.message || "Reconcile failed" });
+    return res.status(500).json({ error: dbErrorMessage(e) || "Reconcile failed" });
   }
 }
 

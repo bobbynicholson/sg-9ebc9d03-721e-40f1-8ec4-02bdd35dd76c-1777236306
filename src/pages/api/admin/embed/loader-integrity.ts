@@ -24,6 +24,7 @@ import { readFileSync } from "fs";
 import path from "path";
 import { createPagesServerClient } from "@/lib/supabase/server";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 
 
 const ALLOWED = new Set(["super_admin", "company_admin", "admin"]);
@@ -72,7 +73,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     });
   } catch (err: any) {
     console.error("[admin/embed/loader-integrity] failed", err);
-    return res.status(500).json({ error: err?.message || "Could not compute integrity" });
+    return res.status(500).json({ error: dbErrorMessage(err) || "Could not compute integrity" });
   }
 }
 

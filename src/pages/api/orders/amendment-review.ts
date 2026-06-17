@@ -25,6 +25,7 @@ import { resolveClientUserId } from "@/services/lifecycle/resolveClientUserId";
 import { resolveEmailTemplate } from "@/services/email/templateResolver";
 import { emailService } from "@/services/emailService";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 
 
 /**
@@ -357,7 +358,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         .from("orders")
         .update(orderUpdate as any)
         .eq("id", (request as any).order_id);
-      if (updateErr) return res.status(500).json({ error: updateErr.message });
+      if (updateErr) return res.status(500).json({ error: dbErrorMessage(updateErr) });
     }
 
     // Rebuild order_items BEFORE the totals recompute. order_items is the
@@ -862,7 +863,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     });
   } catch (err: any) {
     console.error("[amendment-review] crashed:", err);
-    return res.status(500).json({ error: err?.message || "Amendment review failed" });
+    return res.status(500).json({ error: dbErrorMessage(err) || "Amendment review failed" });
   }
 }
 
