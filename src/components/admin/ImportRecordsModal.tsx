@@ -453,6 +453,9 @@ export function ImportRecordsModal({
       // Hard stop on the loop in case the server forgets to set
       // `more: false`. 200 batches = 50 000 rows max.
       const MAX_LOOPS = 200;
+      // Errored rows come back on the final batch's commit response - the
+      // authoritative "which rows failed + why" source.
+      let commitErroredRows: any[] = [];
       for (let i = 0; i < MAX_LOOPS; i += 1) {
         const r = await fetch(`/api/imports/${jobId}/commit`, {
           method: "POST",
@@ -475,6 +478,9 @@ export function ImportRecordsModal({
           const total = processedSoFar + Number(j.remaining ?? 0);
           setCommitProgress({ done: processedSoFar, total });
         }
+        if (Array.isArray(j.erroredRows) && j.erroredRows.length) {
+          commitErroredRows = j.erroredRows;
+        }
         if (dryRun || !j.more) break;
       }
 
@@ -484,6 +490,18 @@ export function ImportRecordsModal({
         setCommitSummary(aggregate);
         setStep("done");
         setCommitProgress(null);
+        // Seed the errored-rows panel straight from the commit response so
+        // it shows even if the post-commit refetch below returns nothing.
+        if (commitErroredRows.length) {
+          setErroredRows(commitErroredRows.map((e: any) => ({
+            id: String(e.id),
+            sheet: String(e.sheet || ""),
+            sourceRowIndex: e.source_row_index ?? null,
+            errorMessage: e.error_message || null,
+            label: e.label || "(no identifier)",
+            raw: {},
+          })));
+        }
         // Day 7: pull the post-commit reconciliation snapshot so the
         // done screen can show totals + anomalies without making the
         // operator click through to discover them.
@@ -536,7 +554,10 @@ export function ImportRecordsModal({
                   raw: m && Object.keys(m).length ? m : s,
                 };
               });
-            setErroredRows(errs);
+            // Only override the commit-response seed when the refetch
+            // actually found rows (it carries richer `raw` data for CSV);
+            // never clear a populated panel with an empty refetch.
+            if (errs.length) setErroredRows(errs);
           }
         } catch {
           // Non-fatal - the count is already shown, the breakdown is

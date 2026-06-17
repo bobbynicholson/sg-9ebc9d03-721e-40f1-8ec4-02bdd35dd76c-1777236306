@@ -48,6 +48,27 @@ export const maxDuration = 300;
 
 const ALLOWED_CALLER_ROLES = new Set(["super_admin", "company_admin", "admin", "owner"]);
 
+// Spreadsheet cells arrive as free text. Coerce to the column type so a
+// stray "R 5 000", "n/a", or "12 events" in an OPTIONAL field can't 500
+// the whole row (the historical_* columns are numeric/date). Anything
+// unparseable becomes null - the row still imports, just without that
+// non-essential value.
+function toNumOrNull(v: any): number | null {
+  if (v == null || v === "") return null;
+  if (typeof v === "number") return Number.isFinite(v) ? v : null;
+  const n = Number(String(v).replace(/[^0-9.\-]/g, ""));
+  return Number.isFinite(n) ? n : null;
+}
+function toIntOrNull(v: any): number | null {
+  const n = toNumOrNull(v);
+  return n == null ? null : Math.trunc(n);
+}
+function toDateOrNull(v: any): string | null {
+  if (v == null || v === "") return null;
+  const d = new Date(v);
+  return Number.isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);
+}
+
 interface CountTriad {
   inserted: number;
   updated: number;
@@ -423,6 +444,23 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           | "skip" | "update" | "create_new" | null;
         const stampedMatchId = (r as any).dedup_match_id as string | null;
 
+        // clients.email is NOT NULL + has a unique index, so a row with
+        // no email can't be inserted. Rather than let the insert fail with
+        // a cryptic Postgres "null value in column email" message, fail it
+        // early with a human reason the errored-rows panel can show, so the
+        // operator knows exactly what to fix / add manually.
+        const cleanEmail = String(mapped.email ?? "").trim();
+        if (!cleanEmail) {
+          summary.clients.errored += 1;
+          if (!dryRun) {
+            await supabase.from("import_rows").update({
+              status: "error",
+              error_message: "Missing email - a client needs a unique email address. Add this one manually or fill the email column and re-import.",
+            } as any).eq("id", r.id);
+          }
+          return;
+        }
+
         const existing: string | null = stampedMatchId
           ?? (decision !== "create_new" ? lookupExistingClient(dedup, mapped) : null);
 
@@ -430,7 +468,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           company_id: companyId,
           region_id: targetRegionId,
           client_name: mapped.client_name || mapped.company_name || "Imported client",
-          email: mapped.email || null,
+          email: cleanEmail,
           // Three phone columns. mobile_number is the WhatsApp
           // target; landline_number shows on the contact card; phone
           // stays as the legacy "primary" pointer so existing reads
@@ -446,9 +484,12 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           // columns the operator actually filled in get persisted;
           // rest stay null. Surfaced on the contact card so the
           // client doesn't look like a fresh signup.
-          historical_total_events: mapped.historical_total_events ?? null,
-          historical_lifetime_spend: mapped.historical_lifetime_spend ?? null,
-          historical_last_event_date: mapped.historical_last_event_date || null,
+          // Coerced so a free-text cell ("5 events", "R 12,000", "last
+          // year") in these optional columns nulls out instead of failing
+          // the numeric/date cast on insert.
+          historical_total_events: toIntOrNull(mapped.historical_total_events),
+          historical_lifetime_spend: toNumOrNull(mapped.historical_lifetime_spend),
+          historical_last_event_date: toDateOrNull(mapped.historical_last_event_date),
           historical_last_event_type: mapped.historical_last_event_type || null,
           historical_notes: mapped.historical_notes || null,
         };
@@ -1243,12 +1284,52 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       await logEvent(jobId, "dry_run", summary);
     }
 
+    // On the final batch, return the rows that failed so the modal can
+    // show "which ones + why" directly from the commit response - not only
+    // via a separate post-commit refetch that could silently come back
+    // empty. This is what the operator actually needs ("a few errored and
+    // I have no idea which").
+    let erroredRows: Array<{
+      id: string; sheet: string; source_row_index: number | null;
+      error_message: string | null; label: string;
+    }> = [];
+    if (isLastBatch && !dryRun) {
+      try {
+        const { data: errs } = await supabase
+          .from("import_rows")
+          .select("id, sheet, source_row_index, error_message, mapped_data, source_data")
+          .eq("job_id", jobId)
+          .eq("status", "error")
+          .limit(5000);
+        erroredRows = ((errs || []) as any[]).map((r) => {
+          const m = (r.mapped_data || {}) as Record<string, any>;
+          const s = (r.source_data || {}) as Record<string, any>;
+          const picked =
+            m.email || m.client_name || m.contact_name || m.name ||
+            m.invoice_number || m.quote_number || m.order_number ||
+            s.email || s.client_name || s.name ||
+            Object.values(s).find((v) => typeof v === "string" && String(v).trim()) ||
+            "(no identifier)";
+          return {
+            id: String(r.id),
+            sheet: String(r.sheet || ""),
+            source_row_index: r.source_row_index ?? null,
+            error_message: r.error_message || null,
+            label: String(picked).trim().slice(0, 80) || "(no identifier)",
+          };
+        });
+      } catch (e) {
+        console.warn("[imports/commit] errored-rows collection failed (non-fatal):", e);
+      }
+    }
+
     return res.status(200).json({
       ok: true,
       summary,
       processed: rows.length,
       remaining: remainingPending,
       more: !isLastBatch,
+      erroredRows,
     });
   } catch (outer: any) {
     console.error("imports/[id]/commit handler crashed:", outer);

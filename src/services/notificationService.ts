@@ -427,11 +427,32 @@ export const notificationService = {
     if (notification.related_entity_id) {
       insertRow.related_entity_id = notification.related_entity_id;
     }
-    const { data, error } = await sb
+    let { data, error } = await sb
       .from("notifications")
       .insert(insertRow as any)
       .select()
       .single();
+
+    // Resilience: the `metadata` column isn't present on every deploy's
+    // notifications table (it's added by migration; hand-applied DBs drift).
+    // Without this, a missing column made EVERY notification insert fail
+    // (PGRST204 "Could not find the 'metadata' column ... in the schema
+    // cache"), silently breaking in-app notifications app-wide. Retry once
+    // without metadata so notifications still get delivered; the payload in
+    // metadata is supplementary (related_entity_id/type carry the key refs).
+    if (error && isMissingMetadataColumn(error) && "metadata" in insertRow) {
+      console.warn(
+        "[createNotification] notifications.metadata column missing; " +
+          "retrying without it (run the notifications metadata migration). detail:",
+        error.message,
+      );
+      delete insertRow.metadata;
+      ({ data, error } = await sb
+        .from("notifications")
+        .insert(insertRow as any)
+        .select()
+        .single());
+    }
 
     if (error) {
       console.error("Error creating notification:", error);
