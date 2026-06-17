@@ -58,6 +58,58 @@ export function toZonedISO(d: Date, timezone: string | null | undefined): string
 }
 
 /**
+ * Parse a date-like value (a YYYY-MM-DD date column, or an ISO
+ * timestamp) into a Date pinned to LOCAL midnight of that calendar
+ * day.
+ *
+ * Why: `new Date("2026-06-17")` parses the bare date as UTC midnight,
+ * which is the PREVIOUS calendar day for any browser west of UTC -
+ * a US-based operator on an SA tenant saw every event slip back a
+ * day in the Today / This-week date buckets. Building the Date from
+ * the calendar parts instead pins it to the local day so day-bucket
+ * comparisons line up with the wall-clock date the rest of the UI
+ * shows. Pair with tenantToday() for the "today" side so both live
+ * in the same local-midnight space.
+ *
+ * Returns null for empty / unparseable input.
+ */
+export function parseLocalDay(value: string | Date | null | undefined): Date | null {
+  if (!value) return null;
+  if (value instanceof Date) {
+    return isNaN(value.getTime())
+      ? null
+      : new Date(value.getFullYear(), value.getMonth(), value.getDate());
+  }
+  const s = String(value).trim();
+  // Leading YYYY-MM-DD, ignoring any trailing time / timezone suffix.
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
+  if (m) {
+    const dt = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+    return isNaN(dt.getTime()) ? null : dt;
+  }
+  // Non-ISO shape - lean on the native parser, then pin to local day.
+  const parsed = new Date(s);
+  if (isNaN(parsed.getTime())) return null;
+  return new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate());
+}
+
+/**
+ * The tenant's current calendar day as a LOCAL-midnight Date.
+ *
+ * Use as the "today" anchor for day-bucket filters so the buckets
+ * follow the tenant's wall clock (companies.timezone) instead of the
+ * operator's browser timezone - a JHB tenant's "today" shouldn't flip
+ * just because the bookkeeper is travelling. Falls back to the
+ * browser's local day when no timezone is set.
+ */
+export function tenantToday(timezone: string | null | undefined): Date {
+  const today = parseLocalDay(toZonedISO(new Date(), timezone));
+  if (today) return today;
+  const n = new Date();
+  return new Date(n.getFullYear(), n.getMonth(), n.getDate());
+}
+
+/**
  * Common IANA timezone choices Bobby's tenants use today + the ones
  * imminent for UK/US expansion. Mounted in the company-profile
  * picker. Order is "current populations first" so the most common

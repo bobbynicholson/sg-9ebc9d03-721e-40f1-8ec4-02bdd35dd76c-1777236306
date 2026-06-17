@@ -14,6 +14,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -120,6 +121,10 @@ export function OrderDetailsModal({
 }: Props) {
   const { toast } = useToast();
   const router = useRouter();
+  // In-app confirm dialog (replaces window.confirm, which is bare OS
+  // chrome and is suppressed in some embedded webviews). confirmDialog
+  // is rendered alongside the modal at the bottom of the return.
+  const { confirm, confirmDialog } = useConfirmDialog();
   const companyId = (user as any)?.company_id || null;
   const tenantCurrency = useTenantCurrency(companyId);
   const C = tenantCurrency.symbol;
@@ -297,7 +302,13 @@ const handleAddEquipment = async () => {
         const msg = wouldShortfall
           ? `Booking ${qty} of ${eqPick.name} on ${eventDate} would put you ${(avail.reserved + qty) - avail.owned} short. Already reserved against: ${conflictNames}${more}.`
           : `${eqPick.name} is already booked on ${eventDate} against: ${conflictNames}${more}.`;
-        const proceed = window.confirm(`${msg}\n\nDouble-book anyway?`);
+        const proceed = await confirm({
+          title: wouldShortfall ? "Not enough stock" : "Already booked",
+          description: `${msg}\n\nDouble-book anyway?`,
+          confirmLabel: "Double-book",
+          cancelLabel: "Cancel",
+          destructive: true,
+        });
         if (!proceed) return;
       }
     } catch {
@@ -650,16 +661,25 @@ const persistSave = async () => {
 };
 
 return (
+  <>
   <Dialog
     open={isModalOpen}
-    onOpenChange={(o) => {
+    onOpenChange={async (o) => {
       // Wave 55 - unsaved-changes guard. Pre-Wave-55 a click
       // outside the modal in editMode silently discarded any
       // typed changes (5 minutes of internal notes lost on a
-      // misclick). Now: prompt before closing if editMode is on.
+      // misclick). Now: confirm before closing if editMode is on.
+      // The modal's open state is controlled by isModalOpen, so
+      // returning early (without calling setIsModalOpen(false))
+      // keeps it open while the confirm dialog is up.
       if (!o && editMode) {
-        const ok = typeof window !== "undefined"
-          && window.confirm("You have unsaved edits. Discard and close?");
+        const ok = await confirm({
+          title: "Discard unsaved edits?",
+          description: "You have unsaved edits on this order. Close and discard them?",
+          confirmLabel: "Discard & close",
+          cancelLabel: "Keep editing",
+          destructive: true,
+        });
         if (!ok) return;
         setEditMode(false);
       }
@@ -814,7 +834,12 @@ return (
                   {selectedOrder && (selectedOrder as any).status === "paused" && (
                     <DropdownMenuItem
                       onClick={async () => {
-                        if (!confirm("Resume this order? Pre-event reminders + kitchen prep tasks will be restored.")) return;
+                        const ok = await confirm({
+                          title: "Resume this order?",
+                          description: "Pre-event reminders and kitchen prep tasks will be restored.",
+                          confirmLabel: "Resume order",
+                        });
+                        if (!ok) return;
                         try {
                           const res = await fetch(`/api/orders/${selectedOrder.id}/resume`, { method: "POST" });
                           const json = await res.json().catch(() => ({}));
@@ -1092,9 +1117,9 @@ return (
             <FileText className="w-5 h-5" />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-[10px] uppercase tracking-wider text-blue-800 font-semibold">Editing this order</p>
+            <p className="text-[10px] uppercase tracking-wider text-blue-800 font-semibold">Where to make changes</p>
             <p className="text-sm font-medium text-blue-900 mt-0.5">
-              Field edits live on the source quote. This modal is for actions - status flip, record payment, review amendments, send messages. Open the quote to update menu / guest count / event date / venue / pricing.
+              Status, payments, amendments and messages are handled right here. To change the booking itself - menu, guest count, event date, venue or pricing - edit the source quote and the changes mirror back automatically.
             </p>
           </div>
           <Link
@@ -1904,5 +1929,7 @@ return (
       </DialogContent>
     </Dialog>
   </Dialog>
+  {confirmDialog}
+  </>
 );
 }

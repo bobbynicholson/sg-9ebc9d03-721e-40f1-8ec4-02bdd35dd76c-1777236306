@@ -67,6 +67,7 @@ import { UserRole } from "@/types/app";
 import { useToast } from "@/hooks/use-toast";
 import { ClientLinkButton } from "@/components/admin/ClientLinkButton";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
+import { usePromptDialog } from "@/components/ui/confirm-dialog";
 import { AmendmentsTab } from "@/components/admin/AmendmentsTab";
 import { CancellationRequestsTab } from "@/components/admin/CancellationRequestsTab";
 import { EquipmentTypeahead, type EquipmentPick } from "@/components/admin/EquipmentTypeahead";
@@ -78,7 +79,7 @@ import { OutsourcedFulfilmentPanel } from "@/components/admin/orders/OutsourcedF
 import { downloadOrderIcs } from "@/lib/orderToIcs";
 import { trackRecentlyViewed } from "@/components/admin/RecentlyViewedWidget";
 import { getEquipmentAvailability } from "@/services/equipmentAvailabilityService";
-import { toLocalISO } from "@/lib/localDate";
+import { toLocalISO, parseLocalDay, tenantToday } from "@/lib/localDate";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 // Wave 54 - centralised formatters. Replaces three bare
 // toLocaleDateString() call sites that defaulted to OS locale (US
@@ -94,6 +95,10 @@ function OrderProcessDashboard() {
   const { regionFilterId } = useRegionFilter();
   const { toast } = useToast();
   const router = useRouter();
+  // In-app prompt for naming a saved view (replaces window.prompt,
+  // which renders as bare OS chrome and is suppressed in some embedded
+  // webviews). promptDialog is rendered once near the page dialogs.
+  const { prompt, promptDialog } = usePromptDialog();
   // Wave 26.1: tenant-slug wrapper for the toolbar Links + the
   // router.push("/admin/order-assignments") in the Cmd+N shortcut.
   // Without this, the operator on /spit-braai-delivery/admin/orders
@@ -262,9 +267,15 @@ function OrderProcessDashboard() {
       );
     } catch { /* storage blocked */ }
   }, [savedViews]);
-  const saveCurrentView = () => {
+  const saveCurrentView = async () => {
     if (typeof window === "undefined") return;
-    const name = window.prompt("Name this view:", "");
+    const name = await prompt({
+      title: "Save this view",
+      description: "Snap the current filters into a named chip you can snap back to.",
+      label: "View name",
+      placeholder: "e.g. JHB next 7 days",
+      confirmLabel: "Save view",
+    });
     if (!name || !name.trim()) return;
     const id = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
     setSavedViews((prev) => [
@@ -686,7 +697,7 @@ function OrderProcessDashboard() {
   useEffect(() => {
     calculateStats();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [orders, dateFilter, dateFrom, dateTo, statusFilter, searchTerm]);
+  }, [orders, dateFilter, dateFrom, dateTo, statusFilter, searchTerm, tenantTimezone]);
 
   const loadOrders = async () => {
     if (!user?.company_id) return;
@@ -1044,8 +1055,9 @@ function OrderProcessDashboard() {
     let upcoming = 0;
     let inProgress = 0;
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    // Anchor "today" to the tenant wall clock so the upcoming count
+    // doesn't shift a day on a browser in a different timezone.
+    const today = tenantToday(tenantTimezone);
 
     // Booked revenue counts every order whose lifecycle has advanced
     // past pending / draft. The earlier gate required deposit_paid OR
@@ -1079,8 +1091,8 @@ function OrderProcessDashboard() {
         else pendingRevenue += orderTotal;
       }
 
-      const eventDate = new Date(order.event_date);
-      if (eventDate >= today && !["completed", "cancelled"].includes(order.status)) {
+      const eventDate = parseLocalDay(order.event_date);
+      if (eventDate && eventDate >= today && !["completed", "cancelled"].includes(order.status)) {
         upcoming++;
       }
       if (["confirmed", "preparing", "ready", "in_transit", "delivered"].includes(order.status)) {
@@ -1146,15 +1158,21 @@ function OrderProcessDashboard() {
         || statusFilter === "pending-cancellations"
         || order.status === statusFilter;
 
-      // Date filter - preset windows on the order's event_date
+      // Date filter - preset windows on the order's event_date.
+      // event_date is a date-only column; parseLocalDay pins it to
+      // local midnight (not UTC) and tenantToday anchors "today" to
+      // the tenant's wall clock, so day buckets stop slipping a day
+      // for operators whose browser tz differs from the tenant tz.
       let matchesDate = true;
       if (dateFilter !== "all") {
-        const eventDate = new Date(order.event_date);
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-
-        if (dateFilter === "today") {
-          matchesDate = eventDate.toDateString() === today.toDateString();
+        const eventDate = parseLocalDay(order.event_date);
+        const today = tenantToday(tenantTimezone);
+        // Orders with no / unparseable event_date can't match any
+        // dated window - drop them out of every preset except "all".
+        if (!eventDate) {
+          matchesDate = false;
+        } else if (dateFilter === "today") {
+          matchesDate = eventDate.getTime() === today.getTime();
         } else if (dateFilter === "week") {
           // This calendar week (Mon-Sun)
           const day = today.getDay() === 0 ? 7 : today.getDay();
@@ -1178,27 +1196,23 @@ function OrderProcessDashboard() {
           matchesDate = eventDate < today;
         } else if (dateFilter === "custom") {
           // Custom range picker. Either bound is optional - pick a
-          // single date by setting just one. event_date is a date col
-          // so we compare in local-day terms (no UTC drift).
+          // single date by setting just one. Parse both bounds as
+          // local days (parseLocalDay) so the <input type="date">
+          // YYYY-MM-DD values don't drift a day vs the local-midnight
+          // eventDate on the other side of the comparison.
           let withinFrom = true;
           let withinTo = true;
-          if (dateFrom) {
-            const from = new Date(dateFrom);
-            from.setHours(0, 0, 0, 0);
-            withinFrom = eventDate >= from;
-          }
-          if (dateTo) {
-            const to = new Date(dateTo);
-            to.setHours(23, 59, 59, 999);
-            withinTo = eventDate <= to;
-          }
+          const from = parseLocalDay(dateFrom);
+          const to = parseLocalDay(dateTo);
+          if (from) withinFrom = eventDate >= from;
+          if (to) withinTo = eventDate <= to;
           matchesDate = withinFrom && withinTo;
         }
       }
 
       return matchesStatus && matchesDate;
     });
-  }, [orders, statusFilter, dateFilter, dateFrom, dateTo, regionFilterId, clientFilterId, myOrdersOnly, pendingAmendmentOrderIds, pendingCancellationOrderIds, (user as any)?.id]);
+  }, [orders, statusFilter, dateFilter, dateFrom, dateTo, regionFilterId, clientFilterId, myOrdersOnly, pendingAmendmentOrderIds, pendingCancellationOrderIds, tenantTimezone, (user as any)?.id]);
 
   // Smart fuzzy search across client name, order id, venue and event name.
   // client name is weighted highest because that's what staff almost always
@@ -1672,6 +1686,25 @@ function OrderProcessDashboard() {
                 </CardContent>
               </Card>
             ) : viewMode === "kanban" ? (
+              // Kanban empty-state: when no order matches the current
+              // filters every column would render its own "No orders"
+              // placeholder, leaving the operator with a wall of empty
+              // columns and no way out. Mirror the timeline view's
+              // empty-state + "clear filters" CTA instead.
+              fuzzyOrders.length === 0 ? (
+                <OrdersListEmptyState
+                  searchTerm={searchTerm}
+                  statusFilter={statusFilter}
+                  dateFilter={dateFilter}
+                  myOrdersOnly={myOrdersOnly}
+                  onClearAll={() => {
+                    setSearchTerm("");
+                    setStatusFilter("all");
+                    setDateFilter("all");
+                    setMyOrdersOnly(false);
+                  }}
+                />
+              ) : (
               <div className="overflow-x-auto pb-4">
                 <div className="flex gap-6 min-w-max px-1">
                   <KanbanColumn
@@ -1737,8 +1770,40 @@ function OrderProcessDashboard() {
                     setSelectedOrder={setSelectedOrder}
                     setIsModalOpen={setIsModalOpen}
                   />
+                  {/* Paused isn't part of the linear workflow, so it
+                      had no column - a paused order silently dropped
+                      off the board entirely (it still passes the
+                      filters, there was just nowhere to render it).
+                      Show the column whenever any order is paused. */}
+                  {getOrdersByStatus("paused").length > 0 && (
+                    <KanbanColumn
+                      status="paused"
+                      title="Paused"
+                      getOrdersByStatus={getOrdersByStatus}
+                      autoEmailMap={autoEmailMap}
+                      currencySymbol={C}
+                      setSelectedOrder={setSelectedOrder}
+                      setIsModalOpen={setIsModalOpen}
+                    />
+                  )}
+                  {/* Cancelled is hidden by default (the status memo
+                      drops it unless the operator explicitly filters
+                      to "cancelled"). When they do, give it a column
+                      so the board isn't blank. */}
+                  {getOrdersByStatus("cancelled").length > 0 && (
+                    <KanbanColumn
+                      status="cancelled"
+                      title="Cancelled"
+                      getOrdersByStatus={getOrdersByStatus}
+                      autoEmailMap={autoEmailMap}
+                      currencySymbol={C}
+                      setSelectedOrder={setSelectedOrder}
+                      setIsModalOpen={setIsModalOpen}
+                    />
+                  )}
                 </div>
               </div>
+              )
             ) : (
               <div className="space-y-3">
                 <OrdersBulkActionsBar
@@ -1803,6 +1868,9 @@ function OrderProcessDashboard() {
                 })()}
               </div>
             )}
+
+            {/* In-app prompt for the "Save view" name. */}
+            {promptDialog}
 
             {/* Order Details Modal */}
             <OrderDetailsModal
