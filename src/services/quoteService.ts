@@ -906,6 +906,18 @@ export const quoteService = {
     // If the operator captured a deposit at accept time, stamp it on
     // the order so the order record matches what the bank shows. The
     // invoice gets the same treatment after generation (below).
+    //
+    // IMPORTANT: payment_method and payment_status are ENUM columns. The
+    // convert RPC casts the whole payload via jsonb_populate_record, so an
+    // enum VALUE that isn't present on the live DB (prod enum drift -
+    // e.g. 'partial'/'paid' not yet added) fails the ENTIRE order INSERT,
+    // losing the order + deposit. To keep the accept robust we DON'T put
+    // the two enum fields in the RPC payload; the safe numeric/text/bool
+    // deposit fields go in atomically, and the enum stamp is applied as a
+    // best-effort follow-up UPDATE after the order exists (same pattern as
+    // lead_source above). Worst case under drift: order + deposit amounts
+    // save, payment_status is left null instead of blocking the accept.
+    let depositEnumStamp: { payment_method: string; payment_status: string } | null = null;
     if (options?.depositPaid && options.depositPaid.amount > 0) {
       const totalAmt = Number(orderData.total_amount) || 0;
       const paid = Number(options.depositPaid.amount);
@@ -913,17 +925,14 @@ export const quoteService = {
       orderData.deposit_paid = true;
       orderData.deposit_paid_at = new Date().toISOString();
       orderData.deposit_amount = paid;
-      orderData.payment_method = options.depositPaid.method;
       orderData.payment_reference = options.depositPaid.reference || null;
-      // payment_status: 'partial' when client has paid part of the
-      // total (deposit captured), 'paid' when the deposit covers
-      // the full balance. Was previously writing 'deposit_paid'
-      // which is NOT a valid payment_status enum value - the
-      // convert_quote_to_order RPC blew up with an enum violation
-      // on every partial deposit, leaving the operator with a
-      // generic "Conversion failed" toast and no order.
-      orderData.payment_status = paid >= totalAmt - 0.01 ? "paid" : "partial";
       orderData.balance_amount = Math.max(0, totalAmt - paid);
+      depositEnumStamp = {
+        payment_method: options.depositPaid.method,
+        // 'partial' when the deposit covers part of the total, 'paid'
+        // when it settles in full.
+        payment_status: paid >= totalAmt - 0.01 ? "paid" : "partial",
+      };
     }
 
     // Atomic INSERT orders + UPDATE quotes via a Postgres function so
@@ -976,6 +985,25 @@ export const quoteService = {
           .eq("id", newOrder.id);
       } catch (sourceErr) {
         console.warn("[convertQuoteToOrder] lead_source mirror failed (non-blocking):", sourceErr);
+      }
+    }
+
+    // Stamp the deposit's enum fields (payment_method / payment_status)
+    // now that the order exists. Best-effort + isolated so a live-enum
+    // drift can't roll back the order or lose the captured deposit (the
+    // amounts already landed in the RPC payload above; the invoice +
+    // payments rows below also record the deposit independently).
+    if (depositEnumStamp) {
+      const { error: stampErr } = await db
+        .from("orders")
+        .update(depositEnumStamp)
+        .eq("id", newOrder.id);
+      if (stampErr) {
+        console.warn("[convertQuoteToOrder] deposit payment_status/method stamp failed (non-blocking):", stampErr);
+      } else {
+        // Keep the returned order object in sync for the receipt/UI.
+        (newOrder as any).payment_method = depositEnumStamp.payment_method;
+        (newOrder as any).payment_status = depositEnumStamp.payment_status;
       }
     }
 
