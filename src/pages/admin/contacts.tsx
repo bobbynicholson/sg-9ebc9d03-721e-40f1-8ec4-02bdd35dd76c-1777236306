@@ -36,6 +36,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { Search, Mail, Phone, Users, Sparkles, Flame, Clock, AlertTriangle, Snowflake, Crown, Send, Inbox, ShoppingCart, CheckCircle2, RefreshCw, Filter, Plus, Pencil, Trash2, Ban, FileText, Upload, Download, X } from "lucide-react";
 import { ImportRecordsModal } from "@/components/admin/ImportRecordsModal";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -2297,7 +2298,7 @@ function ClientFormDialog({
     }
     setSaving(false);
     if (error) {
-      toast({ title: "Couldn't save", description: error.message, variant: "destructive" });
+      toast({ title: "Couldn't save", description: dbErrorMessage(error, { entity: "contact" }), variant: "destructive" });
       return;
     }
     onSaved();
