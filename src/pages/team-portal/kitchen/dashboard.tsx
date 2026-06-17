@@ -418,7 +418,12 @@ export default function KitchenDashboard() {
         setOrders(ordersData || []);
       }
 
-      // Load low stock items - compare current_stock to minimum_stock directly
+      // Load low stock items. PostgREST can't compare two columns in a
+      // filter (the old `.filter("current_stock","lt","minimum_stock")` sent
+      // the literal string "minimum_stock" and 400'd with 22P02, so the Low
+      // Stock card was permanently broken). Fetch ordered by current_stock and
+      // filter current_stock <= minimum_stock client-side, like every other
+      // low-stock view in the app (LowStockAlerts, admin dashboard).
       // KIT3-B: region scoping. inventory_items has region_id on
       // multi-branch tenants; null on single-region. Same conditional
       // pattern as the orders query above.
@@ -426,9 +431,7 @@ export default function KitchenDashboard() {
         .from("inventory_items")
         .select("*")
         .eq("company_id", user.company_id)
-        .filter("current_stock", "lt", "minimum_stock")
-        .order("current_stock", { ascending: true })
-        .limit(5);
+        .order("current_stock", { ascending: true });
       if (regionId) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         invQuery = (invQuery as any).eq("region_id", regionId);
@@ -440,7 +443,13 @@ export default function KitchenDashboard() {
           tags: { route: "/team-portal/kitchen/dashboard", step: "load-low-stock", companyId: user.company_id },
         });
       } else {
-        setLowStockItems(inventoryData || []);
+        const lowStock = (inventoryData || []).filter(
+          (item: InventoryItem) =>
+            item.current_stock != null &&
+            item.minimum_stock != null &&
+            item.current_stock <= item.minimum_stock,
+        );
+        setLowStockItems(lowStock.slice(0, 5));
       }
 
       // Phase 1: load prep task progress per order in one shot
