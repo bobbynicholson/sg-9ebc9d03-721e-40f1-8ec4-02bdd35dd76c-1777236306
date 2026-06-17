@@ -58,7 +58,6 @@ import { BRAND_PORTAL_PALETTE, BRAND_ACCENT } from "@/lib/branding/portalPalette
 import { useCleaningLiveCounts } from "@/hooks/useCleaningLiveCounts";
 import { useCleaningPortalMode } from "@/hooks/useCleaningPortalMode";
 import { CleaningModeBadge } from "@/components/cleaning/CleaningModeBadge";
-import { CleaningLiveStateStrip } from "@/components/cleaning/CleaningLiveStateStrip";
 import { CleaningSmartQuickActions } from "@/components/cleaning/CleaningSmartQuickActions";
 import { useCleaningModeToast } from "@/hooks/useCleaningModeToast";
 
@@ -97,12 +96,10 @@ export function CleaningNav(_: CleaningNavProps = {}) {
       { href: "/team-portal/cleaning/dashboard#washing", label: "Washing",     sub: "Active jobs",           icon: Droplets,    accent: BRAND_ACCENT },
       { href: "/team-portal/cleaning/equipment",         label: "Equipment",   sub: "Verify + catalogue",    icon: Package,     accent: BRAND_ACCENT },
     ],
-    renderTopSlot: () => (
-      <div className="space-y-2">
-        <CleaningModeBadge />
-        <CleaningLiveStateStrip />
-      </div>
-    ),
+    // Keep just the compact mode badge in the sidebar; the live-state
+    // pill strip was dropped from the rail (it lives on the cleaning
+    // dashboard) to match the slimmer admin + platform nav.
+    renderTopSlot: () => <CleaningModeBadge />,
     renderMobileQuickActions: ({ onNavigate }) => (
       <CleaningSmartQuickActions onNavigate={onNavigate} />
     ),

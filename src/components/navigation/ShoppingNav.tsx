@@ -57,7 +57,6 @@ import { useShoppingLiveCounts } from "@/hooks/useShoppingLiveCounts";
 import { useShoppingPortalMode } from "@/hooks/useShoppingPortalMode";
 import { useActiveShoppingList } from "@/hooks/useActiveShoppingList";
 import { ShoppingModeBadge } from "@/components/shopping/ShoppingModeBadge";
-import { ShoppingLiveStateStrip } from "@/components/shopping/ShoppingLiveStateStrip";
 import { ShoppingSmartQuickActions } from "@/components/shopping/ShoppingSmartQuickActions";
 import { useShoppingModeToast } from "@/hooks/useShoppingModeToast";
 
@@ -104,12 +103,10 @@ export function ShoppingNav(_: ShoppingNavProps = {}) {
       { href: "/team-portal/shopping/orders",   label: "Active shop", sub: "Current list",      icon: ShoppingCart, accent: BRAND_ACCENT },
       { href: "/team-portal/shopping/receipts", label: "Receipts",    sub: "Snap a slip",       icon: Camera,       accent: BRAND_ACCENT },
     ],
-    renderTopSlot: () => (
-      <div className="space-y-2">
-        <ShoppingModeBadge />
-        <ShoppingLiveStateStrip />
-      </div>
-    ),
+    // Keep just the compact mode badge in the sidebar; the live-state
+    // pill strip was dropped from the rail (it lives on the shopping
+    // dashboard) to match the slimmer admin + platform nav.
+    renderTopSlot: () => <ShoppingModeBadge />,
     renderMobileQuickActions: ({ onNavigate }) => (
       <ShoppingSmartQuickActions onNavigate={onNavigate} />
     ),

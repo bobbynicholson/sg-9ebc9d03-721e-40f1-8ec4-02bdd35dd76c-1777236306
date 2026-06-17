@@ -40,7 +40,6 @@ import { BRAND_PORTAL_PALETTE, BRAND_ACCENT } from "@/lib/branding/portalPalette
 import { useKitchenLiveCounts } from "@/hooks/useKitchenLiveCounts";
 import { usePortalServiceMode } from "@/hooks/usePortalServiceMode";
 import { KitchenServiceModeBadge } from "@/components/kitchen/KitchenServiceModeBadge";
-import { KitchenLiveStateStrip } from "@/components/kitchen/KitchenLiveStateStrip";
 import { KitchenSmartQuickActions } from "@/components/kitchen/KitchenSmartQuickActions";
 import { useServiceModeToast } from "@/hooks/useServiceModeToast";
 
@@ -77,12 +76,10 @@ export function KitchenNav(_: KitchenNavProps = {}) {
       { href: "/team-portal/kitchen/production", label: "Production",    sub: "Mark items ready",      icon: ChefHat,       accent: BRAND_ACCENT },
       { href: "/team-portal/kitchen/stock",      label: "Stock check",   sub: "Pull from inventory",   icon: Package,       accent: BRAND_ACCENT },
     ],
-    renderTopSlot: () => (
-      <div className="space-y-2">
-        <KitchenServiceModeBadge />
-        <KitchenLiveStateStrip />
-      </div>
-    ),
+    // Keep just the compact service-mode badge in the sidebar; the live
+    // prep/production pill strip was dropped from the rail (it lives on
+    // the kitchen dashboard) to match the slimmer admin + platform nav.
+    renderTopSlot: () => <KitchenServiceModeBadge />,
     renderMobileQuickActions: ({ onNavigate }) => (
       <KitchenSmartQuickActions onNavigate={onNavigate} />
     ),
