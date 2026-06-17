@@ -239,6 +239,16 @@ const orderItemsRaw: any[] = useMemo(() => {
 // fetch them on demand when the modal opens.
 const [equipmentBookings, setEquipmentBookings] = useState<any[]>([]);
 const [equipmentLoading, setEquipmentLoading] = useState(false);
+// Equipment that's on the linked quote but has no equipment_bookings row
+// (older orders / orders whose creation cascade didn't mint bookings).
+// Shown read-only as a fallback so the tab is never blank when the quote
+// actually carried equipment.
+const [quoteEquipmentFallback, setQuoteEquipmentFallback] = useState<any[]>([]);
+// Live menu_items name -> category map. Lets the Menu Items tab show the
+// true category ("Salads") for order_items that aren't linked to a
+// menu_item (menu_item_id null) and whose stored description is the old
+// collapsed value ("appetizer"). Keyed by lowercased item_name.
+const [menuCategoryByName, setMenuCategoryByName] = useState<Map<string, string>>(new Map());
 // Inline "add equipment" form state for edit mode.
 const [eqSearch, setEqSearch] = useState("");
 const [eqPick, setEqPick] = useState<EquipmentPick | null>(null);
@@ -474,6 +484,33 @@ useEffect(() => {
   }
 }, [selectedOrder]);
 
+// Load the company's menu catalog (name -> category) so the Menu Items
+// tab can recover the real category for unlinked/legacy lines.
+useEffect(() => {
+  const companyId = (selectedOrder as any)?.company_id;
+  if (!companyId) { setMenuCategoryByName(new Map()); return; }
+  let cancelled = false;
+  (async () => {
+    try {
+      const { data, error } = await supabase
+        .from("menu_items")
+        .select("item_name, category")
+        .eq("company_id", companyId);
+      if (error) { console.warn("[orders] menu category map fetch failed:", error); return; }
+      if (cancelled) return;
+      const m = new Map<string, string>();
+      for (const r of (data || []) as Array<{ item_name: string | null; category: string | null }>) {
+        const key = String(r.item_name || "").toLowerCase().trim();
+        if (key && r.category) m.set(key, String(r.category));
+      }
+      setMenuCategoryByName(m);
+    } catch (e) {
+      console.warn("[orders] menu category map fetch crashed:", e);
+    }
+  })();
+  return () => { cancelled = true; };
+}, [(selectedOrder as any)?.company_id]);
+
 useEffect(() => {
   if (!selectedOrder?.id) return;
   let cancelled = false;
@@ -488,6 +525,32 @@ useEffect(() => {
         console.error("[admin/orders] equipment_bookings fetch failed:", error);
       }
       if (!cancelled) setEquipmentBookings(data || []);
+
+      // Fallback: when no bookings exist but the order came from a quote
+      // that carried equipment (older orders, or a creation cascade that
+      // didn't mint bookings), read the quote's equipment_items so the
+      // tab shows what was actually ordered instead of "no equipment".
+      const quoteId = (selectedOrder as any).quote_id;
+      if (!cancelled && (!data || data.length === 0) && quoteId) {
+        const { data: q } = await supabase
+          .from("quotes")
+          .select("equipment_items")
+          .eq("id", quoteId)
+          .maybeSingle();
+        const raw = (q as any)?.equipment_items;
+        const parsed = Array.isArray(raw)
+          ? raw
+          : typeof raw === "string"
+            ? (() => { try { const p = JSON.parse(raw); return Array.isArray(p) ? p : []; } catch { return []; } })()
+            : [];
+        if (!cancelled) {
+          setQuoteEquipmentFallback(
+            parsed.filter((e: any) => (e?.equipment_id || e?.id) && Number(e?.quantity || 0) > 0),
+          );
+        }
+      } else if (!cancelled) {
+        setQuoteEquipmentFallback([]);
+      }
     } catch (err) {
       console.warn("[orders] equipment bookings fetch failed", err);
     } finally {
@@ -1595,9 +1658,18 @@ return (
                       // that to order_items.description; using the
                       // joined category corrects the display without
                       // a data backfill.
+                      // Source-of-truth order: the joined menu_item
+                      // category, then a name-match against the live menu
+                      // catalog (recovers the real category for legacy
+                      // lines with no menu_item_id), then the stored
+                      // description (which may hold the old collapsed
+                      // "appetizer" value) as a last resort.
+                      const nameKey = String(it.item_name || "").toLowerCase().trim();
                       const liveCategory = it.menu_item?.category
                         ? String(it.menu_item.category).toLowerCase()
-                        : null;
+                        : (nameKey && menuCategoryByName.has(nameKey)
+                            ? String(menuCategoryByName.get(nameKey)).toLowerCase()
+                            : null);
                       const categoryLabel = liveCategory || it.description || null;
                       return (
                       <tr key={it.id} className="border-t border-slate-100">
@@ -1702,6 +1774,31 @@ return (
               <div className="text-center py-8 text-slate-400">
                 <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto mb-2" />
                 <p className="text-sm">Loading equipment...</p>
+              </div>
+            ) : equipmentBookings.length === 0 && quoteEquipmentFallback.length > 0 ? (
+              <div className="rounded-lg border border-amber-200 bg-amber-50/40 overflow-hidden">
+                <div className="px-3 py-2 text-xs text-amber-800 bg-amber-100/60 border-b border-amber-200">
+                  On the quote but not yet booked — no equipment_bookings exist for this order.
+                  {editMode ? " Re-add via search above to create bookings." : " Click Edit to book these."}
+                </div>
+                <table className="w-full text-sm">
+                  <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+                    <tr>
+                      <th className="text-left px-3 py-2">Equipment</th>
+                      <th className="text-right px-3 py-2 w-16">Qty</th>
+                      <th className="text-left px-3 py-2">Source</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {quoteEquipmentFallback.map((e: any, i: number) => (
+                      <tr key={e.equipment_id || e.id || i} className="border-t border-amber-100">
+                        <td className="px-3 py-2 font-medium text-slate-900">{e.name || "(unnamed)"}</td>
+                        <td className="px-3 py-2 text-right tabular-nums">{e.quantity ?? "-"}</td>
+                        <td className="px-3 py-2 text-xs text-slate-500">From quote</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             ) : equipmentBookings.length === 0 ? (
               <div className="text-center py-8 text-slate-400">
