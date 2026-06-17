@@ -786,7 +786,14 @@ function OrderProcessDashboard() {
             kitchenShiftsEventDayRes,
             vehiclesRes,
           ] = await Promise.all([
-            supabase.from("payments").select("order_id, payment_type, status, processed_at, amount, payment_method, receipt_sent_at").in("order_id", orderIds),
+            // The payments table has no `status` column - the status lives in
+            // `payment_status` (enum). Selecting `status` 400'd the whole batch
+            // ("column payments.status does not exist"), so every order showed
+            // a broken card and the deposit/balance_paid timeline stages never
+            // saw their payment. Alias payment_status -> status so downstream
+            // (computeOrderTimeline reads p.status === "completed") is unchanged.
+            // receipt_sent_at also doesn't exist on the row; drop it (unused).
+            supabase.from("payments").select("order_id, payment_type, status:payment_status, processed_at, amount, payment_method").in("order_id", orderIds),
             // Wave 47 fix - pre_event_cleaning_done_at column was
             // selected but never existed on the live DB. The whole
             // bookings batch was silently erroring (or returning
@@ -795,7 +802,13 @@ function OrderProcessDashboard() {
             supabase.from("equipment_bookings").select("order_id, equipment_id, status, returned_quantity").in("order_id", orderIds),
             supabase.from("equipment_hire_orders").select("order_id, supplier_name, expected_pickup_date, actual_pickup_date, expected_return_date, actual_return_date, status, created_at").in("order_id", orderIds),
             supabase.from("kitchen_prep_tasks").select("order_id, status, started_at, completed_at").in("order_id", orderIds),
-            supabase.from("driver_assignments").select("order_id, assignment_type, status, accepted_at, started_at, completed_at, created_at").in("order_id", orderIds),
+            // driver_assignments has no `started_at` column (the lifecycle
+            // timestamps are assigned_at/accepted_at/en_route_at/picked_up_at/
+            // delivered_at/completed_at). Selecting started_at 400'd this batch
+            // so no order saw its driver/collection assignment. Alias
+            // en_route_at -> started_at (when the driver set off = the natural
+            // "started" timestamp the collection_done stage renders).
+            supabase.from("driver_assignments").select("order_id, assignment_type, status, accepted_at, started_at:en_route_at, completed_at, created_at").in("order_id", orderIds),
             // Wave 67 Phase E - outsource assignments joined with
             // provider name so the timeline's outsource_pending blocker
             // can name who hasn't responded.

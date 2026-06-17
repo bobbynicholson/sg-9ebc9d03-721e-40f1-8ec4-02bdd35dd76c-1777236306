@@ -31,6 +31,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@/lib/supabase/server";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { notifyInvoicePaid } from "@/services/payments/notifyInvoicePaid";
 
 
 const ALLOWED_ROLES = new Set([
@@ -98,7 +99,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     // a cross-tenant write, but we double-check here for the message.
     const { data: invoice, error: readErr } = await ssr
       .from("invoices")
-      .select("id, company_id, client_id, total_amount, balance_due, status, currency, invoice_number")
+      .select("id, company_id, client_id, total_amount, balance_due, status, currency, invoice_number, order_id")
       .eq("company_id", companyId)
       .eq("id", invoiceId)
       .maybeSingle();
@@ -199,6 +200,18 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     } catch (auditErr) {
       console.warn("[admin/invoices/mark-paid] audit insert failed:", auditErr);
     }
+
+    // Payment-received notifications (owner + client), best-effort.
+    await notifyInvoicePaid({
+      admin,
+      companyId,
+      orderId: (invoice as any).order_id ?? null,
+      invoiceNumber: (invoice as any).invoice_number ?? null,
+      clientId: (invoice as any).client_id ?? null,
+      amount,
+      currency,
+      fullyPaid: ((updated as any)?.status ?? "") === "paid",
+    }).catch((e) => console.warn("[admin/invoices/mark-paid] notifyInvoicePaid failed:", e));
 
     return res.status(200).json({
       ok: true,

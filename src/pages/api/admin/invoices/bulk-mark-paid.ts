@@ -26,6 +26,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@/lib/supabase/server";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { notifyInvoicePaid } from "@/services/payments/notifyInvoicePaid";
 
 
 const ALLOWED_ROLES = new Set(["super_admin", "company_admin", "admin", "owner", "sales_admin", "region_admin"]);
@@ -108,6 +109,17 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     let skipped = 0;
     let failed = 0;
     const errors: Array<{ invoiceId: string; reason: string }> = [];
+    // Collect successfully-settled invoices so we can fire payment-received
+    // notifications (owner + client) AFTER the ledger writes - manual
+    // mark-paid was previously silent, unlike the PayFast webhook.
+    const toNotify: Array<{
+      orderId: string | null;
+      invoiceNumber: string | null;
+      clientId: string | null;
+      amount: number;
+      currency: string;
+      fullyPaid: boolean;
+    }> = [];
 
     const byId = new Map<string, any>();
     for (const r of (rows || []) as any[]) byId.set(r.id, r);
@@ -167,7 +179,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       // belt-and-braces idempotency block kicks in on a double-click.
       const txnId = `manual-${id}`;
       try {
-        const { error: rpcErr } = await admin.rpc("record_invoice_payment", {
+        const { data: rpcData, error: rpcErr } = await admin.rpc("record_invoice_payment", {
           p_invoice_id: id,
           p_amount: amount,
           p_payment_method: "manual",
@@ -183,10 +195,41 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           continue;
         }
         paid += 1;
+        // Skip the idempotent re-run (double-click) so we don't re-notify.
+        if (!(rpcData as any)?.idempotent) {
+          toNotify.push({
+            orderId: inv.order_id ?? null,
+            invoiceNumber: (rpcData as any)?.invoice_number ?? null,
+            clientId: inv.client_id ?? null,
+            amount,
+            currency,
+            fullyPaid: ((rpcData as any)?.invoice_status ?? inv.status) === "paid",
+          });
+        }
       } catch (e: any) {
         failed += 1;
         errors.push({ invoiceId: id, reason: e?.message || "RPC crashed" });
       }
+    }
+
+    // Payment-received notifications (owner + client), best-effort and
+    // after the ledger writes so a notification failure can't roll back a
+    // recorded payment. Run concurrently; each is internally guarded.
+    if (toNotify.length > 0) {
+      await Promise.all(
+        toNotify.map((n) =>
+          notifyInvoicePaid({
+            admin,
+            companyId,
+            orderId: n.orderId,
+            invoiceNumber: n.invoiceNumber,
+            clientId: n.clientId,
+            amount: n.amount,
+            currency: n.currency,
+            fullyPaid: n.fullyPaid,
+          }).catch((e) => console.warn("[bulk-mark-paid] notifyInvoicePaid failed:", e)),
+        ),
+      );
     }
 
     // One batch audit row - matches the bulk-remind convention so
