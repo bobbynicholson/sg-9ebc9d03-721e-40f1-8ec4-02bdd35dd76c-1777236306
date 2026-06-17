@@ -519,7 +519,9 @@ function StockPage() {
       if (supplierIdsToName.size > 0) {
         const { data: supplierNames } = await supabase
           .from("suppliers")
-          .select("id, name")
+          // suppliers has no `name` column - it's supplier_name everywhere
+          // else. Alias so the s.name consumer below stays unchanged.
+          .select("id, name:supplier_name")
           .in("id", Array.from(supplierIdsToName));
         const nameMap = new Map(
           ((supplierNames || []) as unknown as Array<{ id: string; name: string | null }>)

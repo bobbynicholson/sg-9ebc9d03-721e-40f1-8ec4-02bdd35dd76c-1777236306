@@ -198,7 +198,7 @@ function OfferingPage() {
             id,
             name,
             status,
-            orders:orders!package_id(id, event_date, event_location, deleted_at, status)
+            orders:orders!package_id(id, event_date, event_location:venue_address, deleted_at, status)
           `)
           .eq("company_id", companyId)
           .is("deleted_at", null),

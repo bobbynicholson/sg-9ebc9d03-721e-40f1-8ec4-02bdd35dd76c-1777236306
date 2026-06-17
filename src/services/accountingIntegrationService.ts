@@ -354,7 +354,9 @@ export async function getValidAccessToken(
       .eq("company_id", companyId)
       .eq("provider", provider)
       .eq("is_active", true)
-      .single();
+      // maybeSingle: a tenant with no integration is the normal case;
+      // .single() turned that into a 406 (PGRST116) error in the console.
+      .maybeSingle();
 
     if (error || !integration) {
       return { success: false, error: "Integration not found" };
@@ -1044,7 +1046,10 @@ export async function getIntegrationStatus(
       .eq("company_id", companyId)
       .eq("provider", provider)
       .eq("is_active", true)
-      .single();
+      // maybeSingle: "not connected" is the normal 0-row case; .single()
+      // raised a 406 (PGRST116) on the invoices page for every tenant
+      // without an accounting integration.
+      .maybeSingle();
 
     if (error || !data) {
       return { connected: false };
