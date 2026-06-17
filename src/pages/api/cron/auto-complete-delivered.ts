@@ -50,7 +50,10 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     // cron can't flip a soft-deleted order back to "completed".
     const { data: candidates, error: selErr } = await (sb as any)
       .from("orders")
-      .select("id, company_id, payment_status, balance_due, total_amount, balance_paid")
+      // orders has balance_amount, not balance_due (that's invoices-only) -
+      // selecting balance_due 400s the whole query so this cron has never
+      // completed a single order.
+      .select("id, company_id, payment_status, balance_amount, total_amount, balance_paid")
       .is("deleted_at", null)
       .eq("status", "delivered")
       .lte("delivered_at", cutoffIso)
@@ -70,7 +73,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       // balance_paid is the canonical truth where it exists; fall
       // back to balance_due numeric check.
       if (o.balance_paid === false) return false;
-      const bd = Number(o.balance_due ?? 0);
+      const bd = Number(o.balance_amount ?? 0);
       if (Number.isFinite(bd) && bd > 0.01) return false;
       return true;
     });

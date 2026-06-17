@@ -183,6 +183,10 @@ export default function NewLead() {
 
       await leadService.createLead({
         company_id: user.company_id,
+        // createLead gates its admin notification + client auto-reply on
+        // lead.user_id; without it, manually-added leads silently fire no
+        // notification and the auto-reply can't resolve the company name.
+        user_id: user.id,
         region_id: regionIdForInsert,
         contact_name: values.name,
         company_name: values.company || null,

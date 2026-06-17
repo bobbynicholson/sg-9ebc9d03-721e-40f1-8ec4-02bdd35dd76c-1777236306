@@ -199,7 +199,10 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
             message: `Thanks for booking with ${companyName}. We'd love to hear how it went.`,
             priority: "normal",
             link: `/client-portal/feedback?orderId=${row.order_id}`,
-            metadata: { orderId: row.order_id },
+            // notifications has no metadata column - use related_entity_*
+            // (writing metadata PGRST204s and the review prompt is lost).
+            related_entity_type: "order",
+            related_entity_id: row.order_id,
           } as any);
         } catch (e) {
           console.warn("[cron/process-pending-reviews] in-app notify failed:", e);

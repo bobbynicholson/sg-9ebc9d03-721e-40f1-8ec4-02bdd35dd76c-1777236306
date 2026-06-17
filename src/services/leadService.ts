@@ -430,9 +430,16 @@ Guests: ${lead.guest_count ?? "TBD"}`;
       total: 0,
       total_amount: 0,
       menu_items: menuItemsFromLead.length > 0 ? menuItemsFromLead : null,
-      special_instructions: (lead as any).special_requests || null,
-      internal_notes: internalNoteParts.length > 0 ? internalNoteParts.join("\n\n") : null,
-      notes: "Converted from lead.",
+      // quotes has NO special_instructions / internal_notes columns (those
+      // are orders-only) - including them made createQuote's unfiltered
+      // insert 42703 and the draft was silently never created. Fold both
+      // into `notes` (a real quotes column; convertQuoteToOrder maps
+      // quote.notes -> orders.internal_notes, so the data survives).
+      notes: [
+        "Converted from lead.",
+        internalNoteParts.length > 0 ? internalNoteParts.join("\n\n") : null,
+        (lead as any).special_requests ? `Special requests: ${(lead as any).special_requests}` : null,
+      ].filter(Boolean).join("\n\n"),
       // Wave 50 C9 - carry the fields that previously got dropped at
       // lead -> quote conversion. event_type + tags + contact_name +
       // source survive into quote analytics + downstream order rows.
@@ -494,7 +501,8 @@ Guests: ${lead.guest_count ?? "TBD"}`;
     const { data, error } = await supabase
       .from("leads")
       .select("status")
-      .eq("company_id", companyId);
+      .eq("company_id", companyId)
+      .is("deleted_at", null);
 
     if (error) throw error;
 
@@ -520,6 +528,7 @@ Guests: ${lead.guest_count ?? "TBD"}`;
       .from("leads")
       .select("*")
       .eq("company_id", companyId)
+      .is("deleted_at", null)
       .or(`client_name.ilike.%${searchTerm}%,client_email.ilike.%${searchTerm}%,client_phone.ilike.%${searchTerm}%`)
       .order("created_at", { ascending: false });
 

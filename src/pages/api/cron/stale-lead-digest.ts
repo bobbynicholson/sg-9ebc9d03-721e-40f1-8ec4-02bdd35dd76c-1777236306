@@ -33,6 +33,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     const { data: rows, error } = await sb
       .from("leads")
       .select("company_id")
+      .is("deleted_at", null)
       .in("status", ["new", "contacted"])
       .lte("created_at", sevenDaysAgo);
     if (error) {

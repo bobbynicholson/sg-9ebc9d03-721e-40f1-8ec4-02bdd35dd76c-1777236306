@@ -59,7 +59,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
       const { data: quotes, error: qErr } = await sb
         .from("quotes")
-        .select("id, status, sent_at, accepted_at, client_email, client_name, quote_number, event_name")
+        .select("id, status, sent_at, accepted_at, client_email, client_name, quote_number, quote_name")
         .eq("company_id", tenant.id)
         .not("sent_at", "is", null)
         .not("status", "in", "(accepted,rejected,expired)")
@@ -98,7 +98,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
             client_name: quote.client_name || "there",
             first_name: (quote.client_name || "there").split(" ")[0],
             quote_number: quote.quote_number || quote.id,
-            event_name: quote.event_name || "your event",
+            event_name: (quote as any).quote_name || "your event",
             position: String(state.nextPosition),
           };
 

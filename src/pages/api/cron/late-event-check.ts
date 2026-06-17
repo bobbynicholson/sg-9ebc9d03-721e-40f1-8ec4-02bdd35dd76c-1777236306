@@ -61,6 +61,22 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
   let alerted = 0;
   let skipped = 0;
+  // orders.user_id is nullable (imports / magic-link / system orders) but
+  // notifications.user_id is NOT NULL, so a null recipient 23502s and the
+  // late-event alert is silently lost - exactly the orders that most need
+  // escalating. Fall back to the company owner (cached per company).
+  const ownerCache = new Map<string, string | null>();
+  const resolveRecipient = async (order: any): Promise<string | null> => {
+    if (order.user_id) return order.user_id;
+    const cid = order.company_id;
+    if (!cid) return null;
+    if (!ownerCache.has(cid)) {
+      const { data: co } = await supabase
+        .from("companies").select("owner_id").eq("id", cid).maybeSingle();
+      ownerCache.set(cid, (co as any)?.owner_id ?? null);
+    }
+    return ownerCache.get(cid) ?? null;
+  };
   // Wave 24: collect per-row errors instead of letting one bad row
   // (RLS quirk, FK violation, transient connection blip) crash the
   // whole loop. The previous pattern was bare awaits with no
@@ -92,10 +108,15 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         : "";
       const venue = order.venue_address ? String(order.venue_address).split(",")[0] : "";
 
+      const recipientId = await resolveRecipient(order);
+      if (!recipientId) {
+        errors.push(`${order.id}: no owner/user to alert (un-owned order)`);
+        continue;
+      }
       const { error: insertErr } = await supabase.from("notifications").insert({
         company_id: order.company_id,
-        user_id: order.user_id,
-        recipient_id: order.user_id,
+        user_id: recipientId,
+        recipient_id: recipientId,
         notification_type: ALERT_TYPE,
         title: `⚠️ Order past event date: ${order.order_number || order.id.slice(0, 8)}`,
         message:

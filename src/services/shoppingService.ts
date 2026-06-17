@@ -82,9 +82,10 @@ export const shoppingService = {
   async assignShoppingList(listId: string, shopperId: string, shopperEmail?: string, shopperPhone?: string): Promise<ShoppingList | null> {
     const { data, error } = await supabase
       .from("shopping_lists")
+      // shopping_lists has no updated_at column - writing it 400s the
+      // whole update (same trap completeShopping already documents).
       .update({
         shopper_id: shopperId,
-        updated_at: new Date().toISOString()
       } as any)
       .eq("id", listId)
       .select()
@@ -133,10 +134,10 @@ export const shoppingService = {
   async startShopping(listId: string): Promise<ShoppingList | null> {
     const { data, error } = await supabase
       .from("shopping_lists")
+      // shopping_lists has no started_at / updated_at columns - either
+      // 400s the whole update. Status is the only real column here.
       .update({
         status: "in_progress",
-        started_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
       } as any)
       .eq("id", listId)
       .select()
@@ -214,7 +215,9 @@ export const shoppingService = {
       .from("shopping_list_items")
       .select("*")
       .eq("shopping_list_id", listId)
-      .order("item_name");
+      // shopping_list_items column is `name`, not `item_name` - ordering
+      // by a missing column 400s and returns [].
+      .order("name");
 
     if (error) {
       console.error("Error fetching shopping list items:", error);
@@ -263,10 +266,11 @@ export const shoppingService = {
   async uploadShoppingReceipt(listId: string, receiptUrl: string, totalCost: number): Promise<ShoppingList | null> {
     const { data, error } = await supabase
       .from("shopping_lists")
+      // shopping_lists has no total_cost / updated_at columns; the real
+      // spend column is actual_total. Writing the phantom columns 400s.
       .update({
         receipt_url: receiptUrl,
-        total_cost: totalCost,
-        updated_at: new Date().toISOString()
+        actual_total: totalCost,
       } as any)
       .eq("id", listId)
       .select()

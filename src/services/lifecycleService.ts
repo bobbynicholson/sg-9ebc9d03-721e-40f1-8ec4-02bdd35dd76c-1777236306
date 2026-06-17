@@ -25,6 +25,7 @@
  *   are people who have committed (accepted a quote)".
  */
 import { supabase } from "@/integrations/supabase/client";
+import { resolveDefaultRegionId } from "@/lib/defaultRegion";
 
 export interface PromoteLeadResult {
   clientId: string;
@@ -241,7 +242,11 @@ export const lifecycleService = {
     }
 
     const companyId = (order as any).company_id as string;
-    const regionId = ((order as any).region_id as string | null) ?? null;
+    // clients.region_id + leads.region_id are NOT NULL; an order with a
+    // null region would 23502 the backfill inserts below. Fall back to the
+    // tenant's default region so the lifecycle artifacts still land.
+    const regionId = ((order as any).region_id as string | null)
+      ?? (await resolveDefaultRegionId(companyId));
     const email = (order as any).client_email as string | null;
     const name = (order as any).client_name as string | null;
     const phone = (order as any).client_phone as string | null;
@@ -476,7 +481,9 @@ export const lifecycleService = {
       .from("leads")
       .insert({
         company_id: (client as any).company_id,
-        region_id: (client as any).region_id ?? null,
+        // leads.region_id is NOT NULL - fall back to the default region.
+        region_id: (client as any).region_id
+          ?? (await resolveDefaultRegionId((client as any).company_id)),
         contact_name: (client as any).client_name || "Customer",
         client_name: (client as any).client_name || "Customer",
         email: (client as any).email,

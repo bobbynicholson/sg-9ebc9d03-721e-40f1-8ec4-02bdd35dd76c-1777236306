@@ -140,12 +140,20 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   let failed = 0;
 
   for (const row of rows) {
-    // Flip to 'sending' so a concurrent worker skips us.
-    await supabase
+    // Atomically claim: accept BOTH 'pending' and 'sending' (a retried row
+    // sits at 'pending' with attempts>=1, so the old `attempts===0?pending
+    // :sending` guard never matched it -> attempts never incremented ->
+    // the 5-try cap never fired -> rows retried forever). Check the result
+    // so a concurrent worker that already claimed it is skipped, not
+    // double-sent.
+    const { data: claimed } = await supabase
       .from("whatsapp_messages")
       .update({ status: "sending", attempts: row.attempts + 1 })
       .eq("id", row.id)
-      .eq("status", row.attempts === 0 ? "pending" : "sending");
+      .in("status", ["pending", "sending"])
+      .select("id")
+      .maybeSingle();
+    if (!claimed) continue;
 
     let ok = false;
     let gatewayId: string | null = null;

@@ -106,7 +106,10 @@ export const supplierService = {
     // bucket per-supplier client-side. Avoids N round-trips.
     const { data: tx, error: txErr } = await (supabase as any)
       .from("inventory_transactions")
-      .select("supplier_id, quantity, unit_cost, performed_at, created_at")
+      // inventory_transactions has no performed_at column (buckets use
+      // created_at); selecting it 400s the whole query -> every supplier
+      // shows zero spend.
+      .select("supplier_id, quantity, unit_cost, created_at")
       .eq("company_id", companyId)
       .not("supplier_id", "is", null)
       .gte("created_at", isoDaysAgo(365));
