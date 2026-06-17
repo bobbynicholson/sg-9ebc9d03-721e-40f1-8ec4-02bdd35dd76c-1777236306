@@ -208,7 +208,9 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen }: Props) {
       try {
         const { data } = await (supabase as any)
           .from("shopping_list_items")
-          .select("purchased, updated_at, item_name")
+          // shopping_list_items has `name`/`created_at`, not item_name/updated_at;
+          // alias them so the downstream row shape is unchanged.
+          .select("purchased, updated_at:created_at, item_name:name")
           .eq("source_order_id", order.id)
           .is("removed_at", null);
         if (cancelled) return;
@@ -255,11 +257,13 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen }: Props) {
         const [bookingsRes, shortagesRes, hiresRes] = await Promise.all([
           (supabase as any)
             .from("equipment_bookings")
-            .select("status, updated_at")
+            // equipment_bookings has no updated_at; alias created_at to keep
+            // the readiness-stamp logic below unchanged.
+            .select("status, updated_at:created_at")
             .eq("order_id", order.id),
           (supabase as any)
-            .from("equipment_shortages")
-            .select("status, priority, updated_at")
+            .from("equipment_shortage_flags")
+            .select("status, priority, created_at, resolved_at")
             .eq("order_id", order.id),
           (supabase as any)
             .from("equipment_hire_orders")
@@ -268,7 +272,7 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen }: Props) {
         ]);
         if (cancelled) return;
         const bookings = (bookingsRes.data || []) as Array<{ status: string | null; updated_at: string | null }>;
-        const shortages = (shortagesRes.data || []) as Array<{ status: string | null; priority: string | null; updated_at: string | null }>;
+        const shortages = (shortagesRes.data || []) as Array<{ status: string | null; priority: string | null; created_at: string | null; resolved_at: string | null }>;
         const hires = (hiresRes.data || []) as Array<{ status: string | null; updated_at: string | null; supplier_name: string | null }>;
         const openShortages = shortages.filter((s) => {
           const st = String(s.status || "").toLowerCase();
@@ -291,7 +295,7 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen }: Props) {
           const stamps = [
             ...bookings.map((b) => b.updated_at),
             ...hires.map((h) => h.updated_at),
-            ...shortages.map((s) => s.updated_at),
+            ...shortages.map((s) => s.resolved_at || s.created_at),
           ].filter((s): s is string => !!s).sort();
           setEquipmentReadyAt(stamps.length > 0 ? stamps[stamps.length - 1] : null);
           setEquipmentBlockedReason(null);
@@ -316,7 +320,7 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen }: Props) {
         () => { void load(); },
       )
       .on("postgres_changes",
-        { event: "*", schema: "public", table: "equipment_shortages", filter: `order_id=eq.${order.id}` },
+        { event: "*", schema: "public", table: "equipment_shortage_flags", filter: `order_id=eq.${order.id}` },
         () => { void load(); },
       )
       .on("postgres_changes",

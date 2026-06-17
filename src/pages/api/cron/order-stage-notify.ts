@@ -67,7 +67,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     // stage = quote_accepted. Net effect: the snapshot column
     // ended up wedged at 'quote_accepted' for every order.
     .select(
-      "id, company_id, region_id, status, event_date, event_time, order_number, last_notified_stage_key, last_notified_stage_at, quote_id, deposit_paid, deposit_paid_at, deposit_amount, balance_paid, balance_paid_at, balance_amount, balance_due_date, confirmed_at, picked_up_at, delivered_at, ready_at, completed_at, prep_started_at, total_amount, assigned_driver_id, driver_name, equipment_return_method, pod_photo_url, pod_recipient_name, created_at, updated_at",
+      "id, company_id, region_id, status, event_date, event_time, order_number, last_notified_stage_key, last_notified_stage_at, quote_id, deposit_paid, deposit_paid_at, deposit_amount, balance_paid, balance_paid_at, balance_amount, balance_due_date, confirmed_at, picked_up_at, delivered_at, ready_at, completed_at, prep_started_at, total_amount, assigned_driver_id, equipment_return_method, pod_photo_url, pod_recipient_name, created_at, updated_at",
     )
     .in("status", ACTIVE_STATUSES as unknown as string[])
     .is("deleted_at", null)

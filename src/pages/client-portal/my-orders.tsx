@@ -166,7 +166,10 @@ export default function MyOrders() {
         // payment / delivery state.
         let ordersQuery = supabase
           .from("orders")
-          .select("id, event_date, event_time, order_number, event_name, venue_name, venue_address, guest_count, status, total_amount, payment_status, confirmed_at, deposit_paid, deposit_paid_at, deposit_amount, balance_paid, balance_paid_at, balance_amount, balance_due_date, delivered_at, completed_at, equipment_return_method, created_at, amount_paid, kitchen_prep_started_at, shopping_completed_at")
+          // orders has prep_started_at (aliased to kitchen_prep_started_at) but
+          // no shopping_completed_at column - dropped so the whole list query
+          // stops 400ing; shoppingDone simply won't light up in the timeline.
+          .select("id, event_date, event_time, order_number, event_name, venue_name, venue_address, guest_count, status, total_amount, payment_status, confirmed_at, deposit_paid, deposit_paid_at, deposit_amount, balance_paid, balance_paid_at, balance_amount, balance_due_date, delivered_at, completed_at, equipment_return_method, created_at, amount_paid, kitchen_prep_started_at:prep_started_at")
           .eq("company_id", tenantCompanyId)
           .is("deleted_at", null)
           .order("event_date", { ascending: false });

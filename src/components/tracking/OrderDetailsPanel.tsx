@@ -162,16 +162,19 @@ export function OrderDetailsPanel({ order, fromName, companyName, onClose }: Pro
 
       // Kitchen prep tasks
       try {
+        // Total = planned prep tasks for the order; done = completion rows
+        // logged against it. kitchen_task_completions has no status column
+        // (each row is itself a completion), so don't filter on one.
         const { count: total } = await supabase
-          .from("kitchen_task_completions")
+          .from("kitchen_prep_tasks")
           .select("*", { count: "exact", head: true })
-          .eq("order_id", order.id);
+          .eq("order_id", order.id)
+          .is("deleted_at", null);
 
         const { count: done } = await supabase
           .from("kitchen_task_completions")
           .select("*", { count: "exact", head: true })
-          .eq("order_id", order.id)
-          .eq("status", "completed");
+          .eq("order_id", order.id);
 
         if (!cancelled && total !== null) {
           setKitchenStats({ total: total || 0, done: done || 0 });

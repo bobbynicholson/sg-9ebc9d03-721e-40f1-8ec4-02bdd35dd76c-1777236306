@@ -232,8 +232,9 @@ export function AmendmentReviewDrawer({
         if (targetOrderId) {
           const { data: ord, error: ordError } = await (supabase as any)
             .from("orders")
+            // menu_items/equipment_items live on the linked quote, not orders.
             .select(
-              "id, order_number, client_name, status, guest_count, menu_items, equipment_items, special_instructions, delivery_time, venue_address",
+              "id, order_number, client_name, status, guest_count, special_instructions, delivery_time, venue_address, quote:quotes!orders_quote_id_fkey(menu_items, equipment_items)",
             )
             .eq("id", targetOrderId)
             .maybeSingle();
@@ -241,7 +242,15 @@ export function AmendmentReviewDrawer({
             console.error("[AmendmentReviewDrawer] orders fetch failed:", ordError);
           }
           if (cancelled) return;
-          setOrder(ord || null);
+          setOrder(
+            ord
+              ? {
+                  ...ord,
+                  menu_items: ord.quote?.menu_items ?? null,
+                  equipment_items: ord.quote?.equipment_items ?? null,
+                }
+              : null,
+          );
         }
 
         // Reviewer name lookup - best-effort. profiles is the canonical

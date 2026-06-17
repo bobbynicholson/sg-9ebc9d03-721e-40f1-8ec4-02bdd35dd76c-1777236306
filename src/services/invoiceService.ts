@@ -332,7 +332,7 @@ export const invoiceService = {
     // other regions may have a non-15% rate (UK 20%, etc).
     const { data: companyRow, error: companyRowErr } = await (supabase as any)
       .from("companies")
-      .select("vat_registered, tax_rate")
+      .select("vat_registered, tax_rate:vat_rate")
       .eq("id", (order as any).company_id)
       .maybeSingle();
     if (companyRowErr) {

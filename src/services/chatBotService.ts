@@ -133,7 +133,9 @@ class ChatBotService {
           // Fetch orders, revenue, staff data
           const { data: orders, error: ordersErr } = await supabase
             .from("orders")
-            .select("status, total, event_date")
+            // orders has total_amount, not total (total lives on quotes);
+            // alias so context.recentOrders keeps a `total` field.
+            .select("status, total:total_amount, event_date")
             .eq("company_id", companyId)
             .limit(10);
           if (ordersErr) console.error("[chatBotService/getCompanyContext] orders lookup failed:", ordersErr);

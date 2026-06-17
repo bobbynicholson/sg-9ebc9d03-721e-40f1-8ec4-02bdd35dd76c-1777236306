@@ -598,14 +598,13 @@ function ClientPortalDashboardInner() {
             .in("status", ["sent", "partially_paid", "overdue"])
             .gt("balance_due", 0);
           let invoicesQuery = baseInvoices;
-          if (clientIds.length > 0 && normEmail) {
-            invoicesQuery = invoicesQuery.or(
-              `client_id.in.(${clientIds.join(",")}),client_email.eq.${normEmail}`,
-            );
-          } else if (clientIds.length > 0) {
+          // invoices link to a client via client_id only (no client_email
+          // column), so scope by the resolved tenant client ids. With no
+          // client record there are no matchable invoices -> force empty.
+          if (clientIds.length > 0) {
             invoicesQuery = invoicesQuery.in("client_id", clientIds);
-          } else if (normEmail) {
-            invoicesQuery = invoicesQuery.eq("client_email", normEmail);
+          } else {
+            invoicesQuery = invoicesQuery.in("client_id", ["00000000-0000-0000-0000-000000000000"]);
           }
           const { data: invoiceRows } = await invoicesQuery;
           if (!cancelled) {
@@ -648,14 +647,11 @@ function ClientPortalDashboardInner() {
             .not("paid_at", "is", null)
             .order("paid_at", { ascending: false });
           let paidQuery = basePaid;
-          if (clientIds.length > 0 && normEmail) {
-            paidQuery = paidQuery.or(
-              `client_id.in.(${clientIds.join(",")}),client_email.eq.${normEmail}`,
-            );
-          } else if (clientIds.length > 0) {
+          // Same as above: invoices match by client_id only (no client_email).
+          if (clientIds.length > 0) {
             paidQuery = paidQuery.in("client_id", clientIds);
-          } else if (normEmail) {
-            paidQuery = paidQuery.eq("client_email", normEmail);
+          } else {
+            paidQuery = paidQuery.in("client_id", ["00000000-0000-0000-0000-000000000000"]);
           }
           const { data: paidRows } = await paidQuery;
           if (!cancelled) {

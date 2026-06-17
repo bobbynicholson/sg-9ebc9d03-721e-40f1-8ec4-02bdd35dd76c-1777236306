@@ -382,7 +382,8 @@ export const subscriptionService = {
         .from("trial_expiry_notifications")
         .select("id")
         .eq("company_id", profile.company_id)
-        .eq("dashboard_seen", false)
+        // trial_expiry_notifications has no seen/read column, so we can't
+        // filter to unread only; presence of any trial notice flags the badge.
         .limit(1)
         .maybeSingle();
       if (notificationsErr) console.error("[subscriptionService] trial_expiry_notifications unread lookup failed:", notificationsErr);

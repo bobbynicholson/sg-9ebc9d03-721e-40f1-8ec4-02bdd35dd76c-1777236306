@@ -301,7 +301,8 @@ export const shoppingService = {
       .from("purchase_history")
       .select("*")
       .eq("company_id", companyId)
-      .order("purchase_date", { ascending: false });
+      // purchase_history has no purchase_date column; order by created_at.
+      .order("created_at", { ascending: false });
 
     if (error) {
       console.error("Error fetching purchase history:", error);

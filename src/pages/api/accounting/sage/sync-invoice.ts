@@ -137,7 +137,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
     const { data: invoice } = await admin
       .from("invoices")
-      .select("id, company_id, invoice_number, invoice_date, due_date, subtotal, tax_amount, total_amount, external_id, client_id, order_id")
+      .select("id, company_id, invoice_number, invoice_date, due_date, subtotal, tax_amount, total_amount, external_id, client_id, order_id, invoice_data")
       .eq("id", invoice_id)
       .maybeSingle();
     if (!invoice) return res.status(404).json({ error: "Invoice not found" });
@@ -157,22 +157,47 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     }
     const accessToken = tokenRes.accessToken;
 
-    // Pull client + lines + integration metadata (ledger + tax ids).
-    const [clientRes, linesRes, integrationRes] = await Promise.all([
+    // Pull client + integration metadata (ledger + tax ids). Line items
+    // come from invoice_data.line_items (the snapshot taken at invoice
+    // generation), falling back to order_items below - there is no
+    // invoice_line_items table in this schema.
+    const [clientRes, integrationRes] = await Promise.all([
       // TIGHTEN I.81: drop soft-deleted clients so Sage doesn't get a
       // stale client_name on an invoice whose client row was deleted.
       invoice.client_id
         ? admin.from("clients").select("id, client_name, email").eq("id", invoice.client_id).is("deleted_at", null).maybeSingle()
         : Promise.resolve({ data: null }),
-      admin.from("invoice_line_items")
-        .select("description, quantity, unit_price, line_total")
-        .eq("invoice_id", invoice_id),
       admin.from("accounting_integrations")
         .select("metadata")
         .eq("company_id", invoice.company_id)
         .eq("provider", "sage")
         .maybeSingle(),
     ]);
+
+    // Resolve line items: prefer the invoice_data snapshot, fall back to
+    // the live order_items join for legacy invoices written before the
+    // snapshot pattern landed.
+    const invoiceData = (invoice.invoice_data || {}) as { line_items?: any[] };
+    let rawLines: Array<{ description?: string; quantity?: number; unit_price?: number; line_total?: number }> = [];
+    if (Array.isArray(invoiceData.line_items) && invoiceData.line_items.length > 0) {
+      rawLines = invoiceData.line_items.map((it: any) => ({
+        description: it.description || it.name || it.item_name || "Service",
+        quantity: Number(it.quantity ?? 1),
+        unit_price: Number(it.unit_price ?? it.unitPrice ?? it.line_total ?? it.total ?? 0),
+        line_total: Number(it.line_total ?? it.total ?? 0),
+      }));
+    } else if (invoice.order_id) {
+      const { data: oi } = await admin
+        .from("order_items")
+        .select("item_name, description, quantity, unit_price, line_total")
+        .eq("order_id", invoice.order_id);
+      rawLines = ((oi as any[]) || []).map((r) => ({
+        description: r.description || r.item_name || "Service",
+        quantity: Number(r.quantity ?? 1),
+        unit_price: Number(r.unit_price ?? r.line_total ?? 0),
+        line_total: Number(r.line_total ?? 0),
+      }));
+    }
 
     const meta = ((integrationRes.data as any)?.metadata || {}) as {
       default_ledger_account_id?: string;
@@ -192,8 +217,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     const includesTax = meta.prices_include_tax === true;
 
     // Map lines. Empty fallback to a single line for the invoice total
-    // when invoice_line_items wasn't populated (legacy invoices).
-    const rawLines = (linesRes.data || []) as Array<{ description?: string; quantity?: number; unit_price?: number; line_total?: number }>;
+    // when neither the snapshot nor order_items yielded anything.
     const sageLines: SageInvoiceLine[] = rawLines.length > 0
       ? rawLines.map((l) => ({
           description: l.description || "Service",

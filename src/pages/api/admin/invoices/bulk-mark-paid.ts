@@ -71,7 +71,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     // confusing generic RPC error).
     const { data: rows, error: readErr } = await ssr
       .from("invoices")
-      .select("id, company_id, client_id, total_amount, balance_due, status, currency, order_id, order:orders!invoices_order_id_fkey(status)")
+      // invoices has no currency column; currency is resolved from the company below.
+      .select("id, company_id, client_id, total_amount, balance_due, status, order_id, order:orders!invoices_order_id_fkey(status)")
       .eq("company_id", companyId)
       .in("id", invoiceIds);
     if (readErr) {

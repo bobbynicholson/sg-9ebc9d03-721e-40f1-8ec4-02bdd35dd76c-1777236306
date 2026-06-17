@@ -182,7 +182,7 @@ export async function loadBookingForRole(
       id, order_number, event_name, event_date, event_time, guest_count,
       client_name, client_phone, venue_address, status,
       pickup_time, setup_time, special_instructions,
-      total_amount, subtotal, tax_amount, balance_due
+      total_amount, subtotal, tax_amount, balance_due:balance_amount
     `)
     .eq("id", orderId)
     .maybeSingle();
@@ -216,10 +216,26 @@ export async function loadBookingForRole(
         .select("expected_at, total_items_expected")
         .eq("order_id", orderId)
         .maybeSingle(),
-      admin.from("order_ingredient_demand")
-        .select("inventory_item_id", { count: "exact", head: true })
-        .eq("order_id", orderId)
-        .gt("shortfall", 0),
+      // order_ingredient_demand has no per-order shortfall column. Approximate
+      // "ingredients short for this order" = the order's required inventory
+      // items that are currently projected short company-wide
+      // (inventory_demand_outlook.shortfall_next_7_days > 0).
+      (async () => {
+        const { data: demandRows } = await admin
+          .from("order_ingredient_demand")
+          .select("inventory_item_id")
+          .eq("order_id", orderId);
+        const itemIds = Array.from(
+          new Set(((demandRows as any[]) || []).map((r) => r.inventory_item_id).filter(Boolean)),
+        );
+        if (itemIds.length === 0) return { count: 0 };
+        const { count } = await admin
+          .from("inventory_demand_outlook")
+          .select("inventory_item_id", { count: "exact", head: true })
+          .in("inventory_item_id", itemIds)
+          .gt("shortfall_next_7_days", 0);
+        return { count: count || 0 };
+      })(),
       admin.from("profiles")
         .select("full_name")
         .eq("id", (order as any).assigned_driver_id || "00000000-0000-0000-0000-000000000000")

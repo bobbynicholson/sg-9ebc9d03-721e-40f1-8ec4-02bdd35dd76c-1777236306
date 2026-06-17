@@ -144,6 +144,18 @@ const ALLOWED_FIELDS = new Set([
   "venue_address",
 ]);
 
+// menu_items / equipment_items are NOT columns on orders - they live on the
+// linked quote (orders.quote_id -> quotes). Everything else is a real orders
+// column. We snapshot/update the order columns directly and route the two
+// quote-only fields to the quote (the quote-mirror block further down).
+const ORDER_COLUMN_FIELDS = new Set([
+  "guest_count",
+  "special_instructions",
+  "delivery_time",
+  "venue_address",
+]);
+const QUOTE_ONLY_FIELDS = new Set(["menu_items", "equipment_items"]);
+
 async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
@@ -294,29 +306,59 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       return res.status(400).json({ error: "No amendable keys to apply" });
     }
 
-    // Snapshot current order values for the keys we're about to change.
+    // Snapshot current values for the keys we're about to change. Order
+    // columns come from orders; menu_items/equipment_items live on the quote.
     const { data: orderBefore, error: orderBeforeErr } = await ssr
       .from("orders")
-      .select(Array.from(ALLOWED_FIELDS).join(", "))
+      .select([...Array.from(ORDER_COLUMN_FIELDS), "quote_id"].join(", "))
       .eq("id", (request as any).order_id)
       .maybeSingle();
     if (orderBeforeErr) {
       console.error("[orders/amendment-review] orders fetch failed:", orderBeforeErr);
     }
-    const snapshot: Record<string, any> = {};
-    for (const k of Object.keys(toApply)) {
-      snapshot[k] = orderBefore ? (orderBefore as any)[k] : null;
+    const linkedQuoteId = (orderBefore as any)?.quote_id || null;
+
+    // Current quote spec - used to snapshot the quote-only fields and to feed
+    // the order_items/equipment rebuilds when the amendment itself didn't
+    // change the menu/equipment (e.g. a guest_count-only change still rescales).
+    let quoteSpec: { menu_items: any; equipment_items: any } = { menu_items: null, equipment_items: null };
+    if (linkedQuoteId) {
+      const { data: q } = await ssr
+        .from("quotes")
+        .select("menu_items, equipment_items")
+        .eq("id", linkedQuoteId)
+        .maybeSingle();
+      if (q) {
+        quoteSpec = {
+          menu_items: (q as any).menu_items ?? null,
+          equipment_items: (q as any).equipment_items ?? null,
+        };
+      }
     }
 
-    // Apply the diff to the orders row.
-    const { error: updateErr } = await ssr
-      .from("orders")
-      .update({
-        ...toApply,
-        updated_at: nowIso,
-      } as any)
-      .eq("id", (request as any).order_id);
-    if (updateErr) return res.status(500).json({ error: updateErr.message });
+    const snapshot: Record<string, any> = {};
+    for (const k of Object.keys(toApply)) {
+      if (QUOTE_ONLY_FIELDS.has(k)) {
+        snapshot[k] = (quoteSpec as any)[k] ?? null;
+      } else {
+        snapshot[k] = orderBefore ? (orderBefore as any)[k] : null;
+      }
+    }
+
+    // Apply the diff. Only real order columns go to the orders row; the
+    // quote-only fields (menu_items/equipment_items) are persisted to the
+    // quote in the dedicated quote-mirror block below.
+    const orderUpdate: Record<string, any> = { updated_at: nowIso };
+    for (const k of Object.keys(toApply)) {
+      if (ORDER_COLUMN_FIELDS.has(k)) orderUpdate[k] = (toApply as any)[k];
+    }
+    if (Object.keys(orderUpdate).length > 1) {
+      const { error: updateErr } = await ssr
+        .from("orders")
+        .update(orderUpdate as any)
+        .eq("id", (request as any).order_id);
+      if (updateErr) return res.status(500).json({ error: updateErr.message });
+    }
 
     // Rebuild order_items BEFORE the totals recompute. order_items is the
     // authoritative line-item layer that totals + inventory + the demand view
@@ -324,21 +366,21 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     // rebuilt it on a menu change. So a menu_items amendment (and a guest_count
     // amendment, which must re-scale per-person line quantities) left
     // order_items frozen on the OLD spec -> stale totals, inventory and
-    // invoice. Rebuild from the freshly-applied orders.menu_items + guest_count
-    // using the same shared helper the quote path uses (kept symmetric).
+    // invoice. Rebuild from the amended menu_items (or the current quote spec
+    // when the menu itself wasn't touched) + the new guest_count, using the
+    // same shared helper the quote path uses (kept symmetric).
     if (Object.keys(toApply).some((k) => ["guest_count", "menu_items"].includes(k))) {
       try {
-        const { data: freshOrder } = await ssr
-          .from("orders")
-          .select("menu_items, guest_count")
-          .eq("id", (request as any).order_id)
-          .maybeSingle();
+        const menuForRebuild = "menu_items" in toApply ? (toApply as any).menu_items : quoteSpec.menu_items;
+        const guestForRebuild = "guest_count" in toApply
+          ? (toApply as any).guest_count
+          : (orderBefore as any)?.guest_count;
         const { rebuildOrderItemsFromMenu } = await import("@/services/order/rebuildOrderItems");
         const rebuild = await rebuildOrderItemsFromMenu(
           ssr,
           (request as any).order_id,
-          (freshOrder as any)?.menu_items,
-          Number((freshOrder as any)?.guest_count || 0),
+          menuForRebuild,
+          Number(guestForRebuild || 0),
         );
         if (!rebuild.rebuilt || rebuild.errors.length > 0) {
           console.warn("[amendment-review] order_items rebuild issues:", rebuild.errors);
@@ -524,9 +566,11 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     // helper; the amendment path had drifted. Best-effort.
     if (Object.keys(toApply).includes("equipment_items")) {
       try {
+        // equipment_items lives on the quote; this block only runs when it's
+        // in toApply, so use the amended value. event_date is a real order col.
         const { data: eqOrder } = await ssr
           .from("orders")
-          .select("equipment_items, event_date")
+          .select("event_date")
           .eq("id", (request as any).order_id)
           .maybeSingle();
         const { resyncEquipmentBookings } = await import("@/services/order/resyncEquipmentBookings");
@@ -534,7 +578,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           ssr,
           (request as any).order_id,
           (request as any).company_id,
-          (eqOrder as any)?.equipment_items,
+          (toApply as any).equipment_items,
           (eqOrder as any)?.event_date,
         );
         if (!eqResult.ok) {

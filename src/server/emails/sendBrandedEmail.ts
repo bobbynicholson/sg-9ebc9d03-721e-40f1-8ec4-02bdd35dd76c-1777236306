@@ -82,19 +82,24 @@ export async function sendBrandedEmail(args: SendBrandedEmailArgs): Promise<Send
     try {
       const { data } = await sb
         .from("email_settings")
-        .select("enabled,provider,from_name,from_email,smtp_host,smtp_port,smtp_user,smtp_password")
+        // email_settings only has smtp_port among the SMTP fields; host/user/
+        // password aren't modelled, so per-tenant SMTP creds can't be loaded
+        // here. Selecting the missing columns 400'd the whole row (losing
+        // from_name/from_email branding too), so we select only real columns.
+        .select("enabled,provider,from_name,from_email,smtp_port")
         .eq("user_id", args.companyId)
         .maybeSingle();
       if (data?.enabled) {
         tenantProvider = data.provider;
         tenantFromName = data.from_name;
         tenantFromEmail = data.from_email;
-        if (data.provider === "smtp" && data.smtp_host) {
+        const smtpHost = (data as any).smtp_host as string | undefined;
+        if (data.provider === "smtp" && smtpHost) {
           tenantSmtp = {
-            host: data.smtp_host,
+            host: smtpHost,
             port: parseInt(String(data.smtp_port), 10) || 587,
-            user: data.smtp_user || "",
-            password: data.smtp_password || "",
+            user: (data as any).smtp_user || "",
+            password: (data as any).smtp_password || "",
           };
         }
       }

@@ -107,12 +107,18 @@ export default function DriverDeliveriesPage() {
         .from("orders")
         // Pull the load list (equipment_items) + menu headline so the
         // driver sees what's on the truck, not just where they're going.
-        .select("id, order_number, event_name, event_date, event_time, venue_address, guest_count, status, delivery_status, client_name, client_phone, client_email, equipment_items, menu_items")
+        // Both live on the linked quote, not orders.
+        .select("id, order_number, event_name, event_date, event_time, venue_address, guest_count, status, delivery_status, client_name, client_phone, client_email, quote:quotes!orders_quote_id_fkey(menu_items, equipment_items)")
         .or(`assigned_driver_id.eq.${user.id},driver_id.eq.${user.id}`)
         .order("event_date", { ascending: false });
       if (!cancelled) {
         if (error) console.error("Error loading deliveries:", error);
-        setOrders((data || []) as DriverOrder[]);
+        const mapped = ((data as any[]) || []).map((o) => ({
+          ...o,
+          menu_items: o.quote?.menu_items ?? null,
+          equipment_items: o.quote?.equipment_items ?? null,
+        }));
+        setOrders(mapped as DriverOrder[]);
         setLoading(false);
       }
     })();

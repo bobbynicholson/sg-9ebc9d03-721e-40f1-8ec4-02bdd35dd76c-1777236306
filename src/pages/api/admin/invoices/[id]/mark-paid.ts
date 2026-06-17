@@ -99,7 +99,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     // a cross-tenant write, but we double-check here for the message.
     const { data: invoice, error: readErr } = await ssr
       .from("invoices")
-      .select("id, company_id, client_id, total_amount, balance_due, status, currency, invoice_number, order_id")
+      // invoices has no currency column; currency is resolved from the company below.
+      .select("id, company_id, client_id, total_amount, balance_due, status, invoice_number, order_id")
       .eq("company_id", companyId)
       .eq("id", invoiceId)
       .maybeSingle();

@@ -152,7 +152,7 @@ export const timeClockService = {
       const { data: ks, error: ksErr } = await (supabase as any)
         .from("kitchen_staff_members")
         .select("hourly_rate")
-        .eq("profile_id", staffId)
+        .eq("linked_profile_id", staffId)
         .maybeSingle();
       if (ksErr) {
         console.error("[timeClockService] kitchen_staff_members fetch failed:", ksErr);

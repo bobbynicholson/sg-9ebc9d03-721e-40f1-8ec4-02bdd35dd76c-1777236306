@@ -87,16 +87,18 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     // main amendment handler produces, not re-run cascade steps over stale
     // order_items. Best-effort.
     try {
+      // menu_items/equipment_items live on the linked quote, not orders.
       const { data: freshOrder } = await ssr
         .from("orders")
-        .select("menu_items, guest_count, equipment_items, event_date")
+        .select("guest_count, event_date, quote:quotes!orders_quote_id_fkey(menu_items, equipment_items)")
         .eq("id", orderId)
         .maybeSingle();
+      const quoteSpec = (freshOrder as any)?.quote || {};
       const { rebuildOrderItemsFromMenu } = await import("@/services/order/rebuildOrderItems");
       await rebuildOrderItemsFromMenu(
         ssr,
         orderId,
-        (freshOrder as any)?.menu_items,
+        quoteSpec.menu_items,
         Number((freshOrder as any)?.guest_count || 0),
       );
       const { resyncEquipmentBookings } = await import("@/services/order/resyncEquipmentBookings");
@@ -104,7 +106,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         ssr,
         orderId,
         companyId,
-        (freshOrder as any)?.equipment_items,
+        quoteSpec.equipment_items,
         (freshOrder as any)?.event_date,
       );
     } catch (e) {

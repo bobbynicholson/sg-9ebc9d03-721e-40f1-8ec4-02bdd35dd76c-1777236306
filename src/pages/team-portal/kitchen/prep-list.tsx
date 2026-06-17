@@ -167,10 +167,11 @@ export default function KitchenPrepListPage() {
         // array of { equipment_id, name, category, quantity, ... }.
         const { data: orders } = await supabase
           .from("orders")
-          .select("id, venue_address, event_time, client_name, equipment_items, dietary_requirements, kitchen_instructions, special_instructions")
+          // equipment_items lives on the linked quote, not orders.
+          .select("id, venue_address, event_time, client_name, dietary_requirements, kitchen_instructions, special_instructions, quote:quotes!orders_quote_id_fkey(equipment_items)")
           .in("id", orderIds);
         const map: Record<string, OrderRow> = {};
-        (orders || []).forEach((o: any) => { map[o.id] = o; });
+        (orders || []).forEach((o: any) => { map[o.id] = { ...o, equipment_items: o.quote?.equipment_items ?? null }; });
         if (!cancelled) setOrderMeta(map);
       }
 

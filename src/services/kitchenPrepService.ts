@@ -309,13 +309,16 @@ export const kitchenPrepService = {
       .from("orders")
       // Wave 66.9 trap: final_guest_count doesn't exist on orders -
       // selecting it 400s the whole query. guest_count alone.
-      .select("id, company_id, region_id, menu_items, guest_count, event_date, event_time, pickup_time, delivery_time")
+      // menu_items lives on the linked quote, not orders - embed it (the
+      // planner falls back to order_items below when the snapshot is empty).
+      .select("id, company_id, region_id, guest_count, event_date, event_time, pickup_time, delivery_time, quote:quotes!orders_quote_id_fkey(menu_items)")
       .eq("id", orderId)
       .maybeSingle();
     if (orderErr) {
       console.error("[kitchenPrepService] orders fetch failed:", orderErr);
     }
     if (!order) return [];
+    (order as any).menu_items = (order as any).quote?.menu_items ?? null;
 
     // Determine the pickup moment. Prefer pickup_time, else event_time on
     // event_date, else event_date at 12:00. Fall back to "now" defensively.

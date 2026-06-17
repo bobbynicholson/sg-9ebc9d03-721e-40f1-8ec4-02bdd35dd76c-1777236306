@@ -311,19 +311,24 @@ async function loadTomorrowChecklist(companyId: string): Promise<ChecklistRow[]>
 
     const { data: itemRows } = await (supabase as any)
       .from("cleaning_event_checklists")
-      .select("order_id, required, done")
+      // One row per order; the checklist lives in the `items` jsonb array
+      // ({ label, required, checked }). There are no required/done columns.
+      .select("order_id, items")
       .eq("company_id", companyId)
       .in("order_id", Array.from(orderById.keys()));
 
-    // Aggregate per order. required=true counts toward the total;
-    // done=true counts toward the done. Status mirrors the
+    // Aggregate per order from each row's items array. required items count
+    // toward the total; checked ones toward done. Status mirrors the
     // kitchenPrepService convention (ready / in_progress / pending).
     const byOrder = new Map<string, { total: number; done: number }>();
     for (const row of (itemRows as any[]) || []) {
-      if (!row.required) continue;
+      const items = Array.isArray(row.items) ? row.items : [];
       const cur = byOrder.get(row.order_id) || { total: 0, done: 0 };
-      cur.total += 1;
-      if (row.done) cur.done += 1;
+      for (const it of items) {
+        if (it?.required === false) continue;
+        cur.total += 1;
+        if (it?.checked) cur.done += 1;
+      }
       byOrder.set(row.order_id, cur);
     }
 

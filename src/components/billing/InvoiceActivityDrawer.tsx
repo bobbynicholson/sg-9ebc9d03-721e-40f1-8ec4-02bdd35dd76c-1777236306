@@ -119,7 +119,8 @@ export function InvoiceActivityDrawer({ open, onOpenChange, invoice }: Props) {
       try {
         const { data: payments } = await (supabase as any)
           .from("payments")
-          .select("payment_type, status, processed_at, amount, payment_method")
+          // payments has payment_status, not status; alias so p.status holds it.
+          .select("payment_type, status:payment_status, processed_at, amount, payment_method")
           .eq("order_id", invoice.order_id)
           .order("processed_at", { ascending: false });
         for (const p of (payments || []) as any[]) {
