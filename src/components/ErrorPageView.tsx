@@ -1,0 +1,75 @@
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Home, RotateCcw, ChefHat, AlertTriangle } from "lucide-react";
+
+/**
+ * Shared branded error screen used by pages/_error.tsx and pages/500.tsx.
+ * Deliberately uses only light, always-loaded primitives (no data fetching,
+ * no framer-motion) so it renders reliably even when something upstream broke.
+ */
+export function ErrorPageView({
+  statusCode,
+  title,
+  message,
+}: {
+  statusCode?: number;
+  title?: string;
+  message?: string;
+}) {
+  const heading = title || (statusCode === 500 ? "Something went wrong" : "Unexpected error");
+  const body =
+    message ||
+    "Our kitchen hit a snag preparing this page. Your data is safe — give it another try, or head back to the dashboard.";
+  return (
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-gradient-to-b from-slate-50 via-white to-violet-50 p-6 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="absolute -top-40 left-1/2 h-96 w-96 -translate-x-1/2 rounded-full bg-violet-200/40 blur-3xl dark:bg-violet-500/10" />
+        <div className="absolute bottom-0 right-1/4 h-72 w-72 rounded-full bg-fuchsia-200/30 blur-3xl dark:bg-fuchsia-500/10" />
+      </div>
+
+      <div className="relative z-10 w-full max-w-xl text-center">
+        <div className="mb-8 flex justify-center">
+          <span className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-600 to-fuchsia-600 text-white shadow-sm">
+            <ChefHat className="h-10 w-10" strokeWidth={1.75} />
+          </span>
+        </div>
+
+        <h1 className="mb-3 flex items-center justify-center gap-3 text-5xl font-bold leading-none tracking-tight text-slate-900 sm:text-6xl dark:text-white">
+          {statusCode ? statusCode : <AlertTriangle className="h-12 w-12 text-violet-500" strokeWidth={1.75} />}
+        </h1>
+
+        <h2 className="mb-4 text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl dark:text-white">
+          {heading}
+        </h2>
+
+        <div className="mb-8 rounded-2xl border border-slate-200 bg-white/80 p-8 shadow-sm backdrop-blur-sm dark:border-slate-800 dark:bg-slate-900/70">
+          <p className="mb-6 text-base leading-relaxed text-slate-600 dark:text-slate-300">{body}</p>
+
+          <div className="flex flex-col justify-center gap-3 sm:flex-row">
+            <Button
+              onClick={() => {
+                if (typeof window !== "undefined") window.location.reload();
+              }}
+              size="lg"
+              className="w-full bg-gradient-to-r from-violet-600 to-fuchsia-600 shadow-sm hover:from-violet-700 hover:to-fuchsia-700 sm:w-auto"
+            >
+              <RotateCcw className="mr-2 h-5 w-5" />
+              Try again
+            </Button>
+
+            <Link href="/">
+              <Button
+                variant="outline"
+                size="lg"
+                className="w-full border-slate-300 hover:bg-slate-50 sm:w-auto dark:border-slate-700 dark:hover:bg-slate-800"
+              >
+                <Home className="mr-2 h-5 w-5" />
+                Go home
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
