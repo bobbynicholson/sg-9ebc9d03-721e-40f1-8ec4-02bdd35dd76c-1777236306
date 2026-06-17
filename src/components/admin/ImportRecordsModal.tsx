@@ -296,6 +296,14 @@ export function ImportRecordsModal({
       const flagged = warningText.toLowerCase().includes(k.toLowerCase());
       if (populated || flagged) initial[k] = String(v ?? "");
     }
+    // Surface any field named in a field-qualified warning ("field: ...")
+    // even when its value was rejected and dropped from mapped_data (e.g.
+    // "South Africa" in a numeric column). Otherwise the operator sees the
+    // warning but has no input to fix it.
+    for (const w of (row.preview_warnings || [])) {
+      const fk = /^([a-z][a-z0-9_]*):/i.exec(w)?.[1];
+      if (fk && initial[fk] === undefined) initial[fk] = String(m[fk] ?? "");
+    }
     setEditForm(initial);
     setError(null);
   };

@@ -81,7 +81,9 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         continue;
       }
       const norm = normaliseFieldValue(key, raw);
-      if (norm.warnings.length > 0) fieldWarnings.push(...norm.warnings);
+      // Field-qualify to match preview.ts so the inline editor keeps
+      // surfacing the right field after an edit.
+      if (norm.warnings.length > 0) fieldWarnings.push(...norm.warnings.map((w) => `${key}: ${w}`));
       if (norm.value !== null && norm.value !== undefined && norm.value !== "") {
         nextMapped[key] = norm.value;
       }

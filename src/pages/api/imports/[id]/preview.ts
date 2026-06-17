@@ -206,7 +206,13 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         const decision = sheetMapping[header];
         if (!decision || !decision.target || decision.target === "skip" || decision.target === "__schema__") continue;
         const norm = normaliseFieldValue(decision.target, raw);
-        if (norm.warnings.length > 0) warnings.push(...norm.warnings);
+        if (norm.warnings.length > 0) {
+          // Field-qualify the warning ("field: <reason>"). normaliseFieldValue
+          // only names the offending VALUE (e.g. `"South Africa" is not a
+          // number`); without the field name the inline editor can't tell
+          // which field to surface for the fix, so the operator was stuck.
+          warnings.push(...norm.warnings.map((w) => `${decision.target}: ${w}`));
+        }
         if (norm.value === null || norm.value === undefined || norm.value === "") continue;
 
         // Phone-shaped fields get smart-routed:
