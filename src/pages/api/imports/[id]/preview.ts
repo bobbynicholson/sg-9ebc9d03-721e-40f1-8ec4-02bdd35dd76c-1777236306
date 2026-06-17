@@ -186,6 +186,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     const leadEmailSet = new Set<string>();
 
     for (const r of rows) {
+      try {
       const sheetMapping = (job.mapping as any)[r.sheet] || {};
       const schemaMeta = sheetMapping.__schema__;
       const declared = schemaMeta?.target as string | undefined;
@@ -385,6 +386,22 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           if (targetTable === "clients") clientEmailSet.add(email);
           else leadEmailSet.add(email);
         }
+      }
+      } catch (rowErr: any) {
+        // A single malformed row (e.g. a numeric value where the code does
+        // .trim(), or other unexpected cell shape) must NOT abort the whole
+        // preview with a 500 - mark just that row as a fixable error and
+        // carry on so the rest still preview + commit, and the operator sees
+        // exactly which row failed in the errored-rows panel.
+        console.error(`[imports/preview] row ${r.id} threw:`, rowErr?.message);
+        computed.push({
+          id: r.id,
+          mapped: {},
+          target: "clients",
+          status: "error",
+          errorMessage: `Row could not be processed: ${rowErr?.message || "unexpected value"}`,
+          warnings: [],
+        });
       }
     }
 
