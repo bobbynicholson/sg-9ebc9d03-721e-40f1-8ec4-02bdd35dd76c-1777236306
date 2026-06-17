@@ -12,6 +12,7 @@ import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { MiddlewareErrorToast } from "@/components/MiddlewareErrorToast";
 import { CommandPalette } from "@/components/CommandPalette";
 import { GlobalInternalFooter } from "@/components/GlobalInternalFooter";
+import { AppErrorBoundary } from "@/components/AppErrorBoundary";
 import "@/styles/globals.css";
 
 // Warm modern display serif for marketing headings (opt-in via Tailwind's
@@ -117,7 +118,9 @@ export default function App({ Component, pageProps }: AppProps) {
         <AuthProvider>
           <TenantBrandingApplier initialBranding={initialBranding} />
           <RegionFilterProvider>
-            <Component {...pageProps} />
+            <AppErrorBoundary>
+              <Component {...pageProps} />
+            </AppErrorBoundary>
             {/* Wave 70.26 - slim internal footer mounted globally
                 so every admin / team-portal / client-portal page
                 shows it, branded to the active tenant. Self-hides
