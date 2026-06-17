@@ -61,6 +61,17 @@ export interface BrandingLookupResult {
   debug: string | null;
 }
 
+/** True when a Postgres error is "column ... does not exist" (SQLSTATE 42703).
+ *  Used to detect a deploy where an optional column's migration hasn't run yet
+ *  so we can retry the query without that column instead of failing the page. */
+function isMissingColumnError(
+  error: { code?: string | null; message?: string | null } | null,
+): boolean {
+  if (!error) return false;
+  if (error.code === "42703") return true;
+  return /column .+ does not exist/i.test(error.message || "");
+}
+
 export async function getInitialBrandingForSlugDetailed(
   slug: string,
 ): Promise<BrandingLookupResult> {
@@ -87,11 +98,42 @@ export async function getInitialBrandingForSlugDetailed(
   }
 
   try {
-    const { data, error } = await supabase
-      .from("companies")
-      .select("id, slug, company_name, logo_url, primary_color, secondary_color, accent_color, brand_font_body, brand_font_display")
-      .eq("slug", slug)
-      .maybeSingle();
+    // Base palette columns are always present. The brand_font_* columns are
+    // added by migration 20260616120000_brand_fonts.sql; on a deploy where
+    // that migration hasn't run yet they don't exist. Selecting a missing
+    // column makes Postgres error ("column companies.brand_font_body does not
+    // exist"), which previously took the WHOLE tenant login page down with a
+    // server_error - fonts are an optional white-label nicety and must never
+    // break login. So if the font columns are missing we transparently retry
+    // without them and serve branding with null fonts (CateringMS defaults).
+    const BASE_COLS =
+      "id, slug, company_name, logo_url, primary_color, secondary_color, accent_color";
+    const FONT_COLS = "brand_font_body, brand_font_display";
+
+    // `cols` is a runtime string, so the typed client can't infer a row
+    // shape - cast to the permissive result we already consume below.
+    type RowResult = {
+      data: Record<string, string | null | undefined> | null;
+      error: { message: string; code?: string | null } | null;
+    };
+    const fetchRow = (cols: string): Promise<RowResult> =>
+      supabase
+        .from("companies")
+        .select(cols)
+        .eq("slug", slug)
+        .maybeSingle() as unknown as Promise<RowResult>;
+
+    let { data, error } = await fetchRow(`${BASE_COLS}, ${FONT_COLS}`);
+
+    if (error && isMissingColumnError(error)) {
+      // eslint-disable-next-line no-console
+      console.warn(
+        `[serverBrandingForSlug] brand_font_* columns missing for slug='${slug}' ` +
+          `(run migration 20260616120000_brand_fonts.sql); serving without fonts. ` +
+          `detail: ${error.message}`,
+      );
+      ({ data, error } = await fetchRow(BASE_COLS));
+    }
 
     if (error) {
       // eslint-disable-next-line no-console
