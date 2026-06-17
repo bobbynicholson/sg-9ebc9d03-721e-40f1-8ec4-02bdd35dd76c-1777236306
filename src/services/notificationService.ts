@@ -227,6 +227,24 @@ const NOTIFICATION_TYPE_ENUM_VALUES = new Set<string>([
   "payment_rejected",
 ]);
 
+/** True when an insert error is the notifications.metadata column being absent
+ *  on this deploy (PostgREST PGRST204 schema-cache miss, or Postgres 42703).
+ *  Lets createNotification retry without metadata instead of dropping the
+ *  notification entirely. */
+function isMissingMetadataColumn(
+  error: { code?: string | null; message?: string | null } | null,
+): boolean {
+  if (!error) return false;
+  const msg = (error.message || "").toLowerCase();
+  if (!msg.includes("metadata")) return false;
+  return (
+    error.code === "PGRST204" ||
+    error.code === "42703" ||
+    msg.includes("schema cache") ||
+    msg.includes("does not exist")
+  );
+}
+
 export const notificationService = {
   // ==================== CORE CRUD OPERATIONS ====================
   
