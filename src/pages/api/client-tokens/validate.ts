@@ -82,8 +82,17 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   });
 
   if (error) {
+    // Surface the real Postgres error (code + message) so a broken RPC -
+    // e.g. schema drift where the function body references a column the
+    // live table doesn't have - is diagnosable from the client instead
+    // of hiding behind a generic "Lookup failed". The token is the auth
+    // and these are schema diagnostics, not secrets.
     console.error("client_view_order failed:", error);
-    return res.status(500).json({ error: "Lookup failed" });
+    return res.status(500).json({
+      error: "Lookup failed",
+      detail: (error as any)?.message || null,
+      code: (error as any)?.code || null,
+    });
   }
   const result = data as any;
   if (!result?.ok) {

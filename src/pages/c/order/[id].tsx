@@ -119,7 +119,7 @@ export default function ClientOrderPage() {
             body: JSON.stringify({ order_id: orderId, token: queryToken, slug: urlSlug || undefined }),
           });
           const data = await r.json();
-          if (!r.ok) throw new Error(data?.error || "Invalid link");
+          if (!r.ok) throw new Error(data?.detail ? `${data.error}: ${data.detail}` : (data?.error || "Invalid link"));
           if (cancelled) return;
           setView(data as OrderView);
         } else {
@@ -130,7 +130,7 @@ export default function ClientOrderPage() {
             body: JSON.stringify({ order_id: orderId }),
           });
           const data = await r.json();
-          if (!r.ok) throw new Error(data?.error || "Link expired");
+          if (!r.ok) throw new Error(data?.detail ? `${data.error}: ${data.detail}` : (data?.error || "Link expired"));
           if (cancelled) return;
           setView(data as OrderView);
         }

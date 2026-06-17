@@ -47,7 +47,16 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     p_user_agent: ua,
   });
 
-  if (error) return res.status(500).json({ error: "Lookup failed" });
+  if (error) {
+    // Surface the real Postgres error so a broken RPC (schema drift) is
+    // diagnosable instead of a generic "Lookup failed". See validate.ts.
+    console.error("client_view_order (view) failed:", error);
+    return res.status(500).json({
+      error: "Lookup failed",
+      detail: (error as any)?.message || null,
+      code: (error as any)?.code || null,
+    });
+  }
   const result = data as any;
   if (!result?.ok) {
     // Clear stale cookie. Sent on BOTH paths (legacy Path=/ rows
