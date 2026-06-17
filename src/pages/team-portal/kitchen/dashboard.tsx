@@ -1516,7 +1516,7 @@ export default function KitchenDashboard() {
                           size="sm"
                           onClick={() => handleForceClose(o.id, label)}
                           disabled={forceClosingId === o.id}
-                          className="bg-emerald-600 hover:bg-emerald-700 gap-1.5 text-xs h-8 flex-shrink-0"
+                          className="bg-amber-600 hover:bg-amber-700 gap-1.5 text-xs h-8 flex-shrink-0"
                         >
                           {forceClosingId === o.id ? (
                             <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -1822,7 +1822,7 @@ export default function KitchenDashboard() {
                                     just helps the right path. */}
                                 {col.key === "preparing" && (
                                   <Button
-                                    className="w-full mt-2 min-h-11 text-sm gap-1.5 bg-emerald-600 hover:bg-emerald-700"
+                                    className="w-full mt-2 min-h-11 text-sm gap-1.5 bg-amber-600 hover:bg-amber-700"
                                     onClick={() => handleMarkReady(order.id, order.client_name || order.event_name)}
                                   >
                                     <CheckCircle className="w-4 h-4" />
@@ -2023,7 +2023,7 @@ export default function KitchenDashboard() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              className="bg-emerald-600 hover:bg-emerald-700"
+              className="bg-amber-600 hover:bg-amber-700"
               onClick={confirmForceClose}
             >
               Force-close + mark delivered

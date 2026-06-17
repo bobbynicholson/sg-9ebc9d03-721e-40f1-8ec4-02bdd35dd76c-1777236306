@@ -730,7 +730,7 @@ function CleaningDashboardInner() {
             <Button
               onClick={submitInspect}
               disabled={inspectSaving || !canComplete}
-              className={damageFound ? "bg-amber-600 hover:bg-amber-700" : "bg-emerald-600 hover:bg-emerald-700"}
+              className={damageFound ? "bg-rose-600 hover:bg-rose-700" : "bg-amber-600 hover:bg-amber-700"}
             >
               {inspectSaving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Saving</> :
                 damageFound ? "Report damage" : "Mark clean and available"}
