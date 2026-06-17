@@ -44,6 +44,9 @@ const STATUS_TONES: Record<string, string> = {
 export default function ClientAccountPage() {
   const router = useRouter();
   const queryToken = router.query.t as string | undefined;
+  // Set by the tenant rewrite (/{slug}/c/account -> /c/account?company_slug=).
+  // Passed to the API so the session cookie is scoped to the slug path.
+  const companySlug = router.query.company_slug as string | undefined;
 
   const [view, setView] = useState<AccountView | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -59,15 +62,19 @@ export default function ClientAccountPage() {
         const r = await fetch("/api/client-tokens/account", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ token: queryToken || undefined }),
+          body: JSON.stringify({ token: queryToken || undefined, slug: companySlug || undefined }),
         });
         const data = await r.json();
         if (!r.ok) throw new Error(data?.error || "Invalid link");
         if (cancelled) return;
         setView(data as AccountView);
         if (queryToken) {
-          // Strip token from URL after successful set-cookie
-          router.replace("/c/account", undefined, { shallow: true });
+          // Strip token from URL after successful set-cookie, preserving
+          // the slug so branding + the cookie path stay consistent.
+          const stripped = companySlug
+            ? `/c/account?company_slug=${encodeURIComponent(companySlug)}`
+            : "/c/account";
+          router.replace(stripped, undefined, { shallow: true });
         }
       } catch (e: any) {
         if (!cancelled) setError(e?.message || "Could not load your bookings");

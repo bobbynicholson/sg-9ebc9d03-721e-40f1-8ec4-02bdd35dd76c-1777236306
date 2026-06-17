@@ -1063,8 +1063,9 @@ export const driverPayService = {
 
   /**
    * Internal: deliveries this driver completed in the range. Uses
-   * orders.assigned_driver_id + status='delivered' (the existing
-   * source of truth). delivery_distance_km already lives on orders.
+   * orders.assigned_driver_id + status in (delivered, completed) - both
+   * terminal states, since orders auto-flip delivered->completed ~24h
+   * after delivery. delivery_distance_km already lives on orders.
    *
    * Returns shape includes optional locked snapshot from
    * driver_assignments. When `locked_total` is set, the calc layer

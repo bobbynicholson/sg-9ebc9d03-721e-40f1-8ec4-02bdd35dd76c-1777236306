@@ -19,6 +19,12 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
   const body = (typeof req.body === "string" ? JSON.parse(req.body) : req.body) || {};
   const rawToken = String(body.token || "").trim();
+  // TIGHTEN I.122 (mirrors validate.ts): the browser is on the slug-
+  // prefixed URL (/{slug}/c/account), so the cookie Path must include the
+  // slug or it won't ship on revisits. Caller passes the slug from
+  // router.query.company_slug.
+  const rawSlug = String(body.slug || "").trim().toLowerCase();
+  const cleanSlug = /^[a-z0-9][a-z0-9-]{0,63}$/.test(rawSlug) ? rawSlug : "";
 
   let tokenHash = "";
   if (rawToken) {
@@ -72,13 +78,15 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     if (rawToken) {
       // Fresh token but invalid - don't set a cookie
     } else {
-      // Cookie was bad - clear it. Send on both paths so legacy
-      // Path=/ cookies from before the narrowing migration are
-      // dropped alongside the current Path=/c scope.
-      res.setHeader("Set-Cookie", [
+      // Cookie was bad - clear it. Send on every path it could have been
+      // set under: the slug path (current prod), /c (canonical), and /
+      // (legacy pre-narrowing cookies).
+      const clearCookies = [
         `cms_client_account_token=; Max-Age=0; Path=/c`,
         `cms_client_account_token=; Max-Age=0; Path=/`,
-      ]);
+      ];
+      if (cleanSlug) clearCookies.unshift(`cms_client_account_token=; Max-Age=0; Path=/${cleanSlug}/c`);
+      res.setHeader("Set-Cookie", clearCookies);
     }
     return res.status(401).json({ error: result?.code || "invalid" });
   }
@@ -91,15 +99,23 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     // (the /c/* tree). Previously Path=/ shipped this cookie on
     // every request including /admin and /api routes that don't
     // need it, widening the exposure surface unnecessarily.
-    const cookie = [
-      `cms_client_account_token=${tokenHash}`,
-      `Max-Age=${Math.min(maxAgeSec, 60 * 60 * 24 * 180)}`,
-      "Path=/c",
-      "HttpOnly",
-      "SameSite=Lax",
-      "Secure",
-    ].join("; ");
-    res.setHeader("Set-Cookie", cookie);
+    // On slug-prefixed prod URLs we ALSO set /{slug}/c (mirrors
+    // validate.ts) so the cookie ships on subsequent visits to the
+    // branded URL, not just the canonical one.
+    const maxAge = Math.min(maxAgeSec, 60 * 60 * 24 * 180);
+    const cookiePaths: string[] = ["/c"];
+    if (cleanSlug) cookiePaths.unshift(`/${cleanSlug}/c`);
+    const cookies = cookiePaths.map((path) =>
+      [
+        `cms_client_account_token=${tokenHash}`,
+        `Max-Age=${maxAge}`,
+        `Path=${path}`,
+        "HttpOnly",
+        "SameSite=Lax",
+        "Secure",
+      ].join("; "),
+    );
+    res.setHeader("Set-Cookie", cookies);
   }
   return res.status(200).json(result);
 }

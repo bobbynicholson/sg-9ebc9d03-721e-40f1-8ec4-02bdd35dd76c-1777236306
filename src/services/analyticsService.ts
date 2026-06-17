@@ -107,7 +107,10 @@ export const analyticsService = {
         .reduce((sum, o) => sum + Number(o.total_amount || 0), 0);
 
       const totalOrders = orders?.length || 0;
-      const completedOrders = orders?.filter(o => o.status === "completed").length || 0;
+      // Count both terminal states: orders auto-flip delivered->completed
+      // ~24h after delivery, so a "completed"-only filter silently drops
+      // every order in that window (same class as driverPay/dispatch).
+      const completedOrders = orders?.filter(o => o.status === "completed" || o.status === "delivered").length || 0;
       const upcomingOrders = orders?.filter(o => {
         const eventDate = new Date(o.event_date);
         return eventDate > new Date() && o.status !== "cancelled";
