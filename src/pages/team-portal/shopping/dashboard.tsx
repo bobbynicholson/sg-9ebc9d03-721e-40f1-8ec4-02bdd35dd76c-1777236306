@@ -88,22 +88,28 @@ function ShoppingDashboardInner() {
     let cancelled = false;
     const fetchPeeks = async () => {
       try {
-        const [{ count: receiptsCount }, { count: lowCount }] = await Promise.all([
+        const [{ count: receiptsCount }, lowStockRes] = await Promise.all([
           (supabase as any)
             .from("shopping_lists")
             .select("id", { count: "exact", head: true })
             .eq("company_id", companyId)
             .eq("status", "completed")
             .is("receipt_url", null),
+          // PostgREST can't compare two columns, so the old
+          // .filter("current_stock","lt","minimum_stock") 400'd (it sent the
+          // literal "minimum_stock"). Fetch the two numbers and count
+          // current_stock <= minimum_stock client-side (same as kitchen).
           (supabase as any)
             .from("inventory_items")
-            .select("id", { count: "exact", head: true })
-            .eq("company_id", companyId)
-            .filter("current_stock", "lt", "minimum_stock"),
+            .select("current_stock, minimum_stock")
+            .eq("company_id", companyId),
         ]);
         if (cancelled) return;
+        const lowCount = ((lowStockRes?.data || []) as Array<{ current_stock: number | null; minimum_stock: number | null }>)
+          .filter((i) => i.current_stock != null && i.minimum_stock != null && i.current_stock <= i.minimum_stock)
+          .length;
         setPendingReceiptsCount(receiptsCount ?? 0);
-        setLowStockCount(lowCount ?? 0);
+        setLowStockCount(lowCount);
       } catch (e) {
         // Counts are non-critical, log + leave at 0.
         console.warn("[shopping/dashboard] peek counts failed:", e);

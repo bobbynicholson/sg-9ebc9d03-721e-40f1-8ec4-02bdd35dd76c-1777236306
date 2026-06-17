@@ -236,7 +236,10 @@ function DriverDashboardInner() {
           )
         `)
         .eq("driver_id", user.id)
-        .is("deleted_at", null)
+        // driver_assignments has no deleted_at column (the .is("deleted_at",null)
+        // here 400'd the whole assignments load -> driver saw no jobs). Soft-
+        // delete isn't modelled on this table; the status filter below already
+        // scopes to live, actionable assignments.
         .in("status", ["assigned", "accepted", "en_route", "picked_up", "at_venue"])
         .gte("orders.event_date", todayISO)
         .lte("orders.event_date", horizonISO)
