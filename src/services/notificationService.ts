@@ -423,11 +423,12 @@ export const notificationService = {
     }
     const insertRow: Record<string, any> = {
       company_id: companyId,
-      recipient_id: notification.recipient_id,
-      // notifications.user_id is NOT NULL. Many callers only pass
-      // recipient_id (the recipient's auth uid) - default user_id to it so
-      // the insert can't 23502 and silently drop the notification (this
-      // was breaking driver-assign + route-assign pings).
+      // recipient_id is what RLS + getNotifications filter reads on, so a
+      // null here writes a row NOBODY can read. user_id is NOT NULL and is
+      // the same auth uid, so default each from the other - the row is only
+      // unreadable/invalid if BOTH are missing (then the NOT NULL user_id
+      // insert fails loudly instead of silently creating an orphan).
+      recipient_id: notification.recipient_id ?? notification.user_id,
       user_id: notification.user_id ?? notification.recipient_id,
       notification_type: resolvedType,
       title: notification.title,
