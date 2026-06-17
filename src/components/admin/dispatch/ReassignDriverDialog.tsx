@@ -71,7 +71,12 @@ export function ReassignDriverDialog({
       venue_lng: order.venue_lng,
       requires_refrigeration: order.requires_refrigeration,
       region_id: order.region_id ?? null,
-    }, 5, { restrictToRegion: !lendFromOtherBranches }).then(setSuggestions).finally(() => setLoading(false));
+      // Was capped at 5, which hid the rest of the fleet - the dispatcher
+      // couldn't swap to a driver outside the top few. Return the whole
+      // scored list (best-first); the dialog scrolls. 200 is an
+      // effectively-unlimited ceiling for any catering fleet. Matches the
+      // initial-assign dialog in order-assignments.tsx.
+    }, 200, { restrictToRegion: !lendFromOtherBranches }).then(setSuggestions).finally(() => setLoading(false));
   }, [open, companyId, order.id, lendFromOtherBranches]);
 
   const handlePick = async (driverId: string, score?: number, blocked?: boolean) => {
@@ -155,7 +160,7 @@ export function ReassignDriverDialog({
             Reassign driver{order.client_name ? ` · ${order.client_name}` : ""}
           </DialogTitle>
           <p className="text-sm text-slate-500">
-            Top matches scored by distance, current load, region, on-time rate, rating.
+            Top matches scored by distance, current load, region and on-time rate.
             Capacity, vehicle and time-window gates already applied.
           </p>
         </DialogHeader>

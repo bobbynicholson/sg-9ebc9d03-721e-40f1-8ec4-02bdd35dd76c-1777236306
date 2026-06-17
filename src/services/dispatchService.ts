@@ -5,7 +5,7 @@ import { shiftService } from "./shiftService";
  *
  * Responsibilities:
  *   - score(driver, order)   weighted match score, 0-100
- *   - suggestDriversForOrder top 3 ranked candidates with reasons
+ *   - suggestDriversForOrder ranked candidates with reasons (caller sets the cap)
  *   - capacity check         driver max_jobs_per_shift on the event date
  *   - feasibility check      can the driver still arrive arrival_buffer_minutes
  *                            before event_time given current pipeline
