@@ -58,6 +58,7 @@ import { toLocalISO } from "@/lib/localDate";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { onOrderUpdated } from "@/lib/events/orderEvents";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 
 // Leaflet (used for live tracking) is SSR-hostile. Lazy-load on demand so
 // the bundle stays small and SSR doesn't crash.
@@ -1431,7 +1432,7 @@ function ClientPortalDashboardInner() {
                       if (error) {
                         toast({
                           title: "Could not save rating",
-                          description: error.message,
+                          description: dbErrorMessage(error, { entity: "rating" }),
                           variant: "destructive",
                         });
                         return;

@@ -35,6 +35,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { captureException } from "@/lib/observability";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 
 export interface KitchenSettings {
   // Production timing
@@ -113,7 +114,7 @@ export function KitchenRulesPanel({ contextNote }: Props) {
         captureException(error, {
           tags: { component: "KitchenRulesPanel", step: "load", companyId },
         });
-        toast({ title: "Couldn't load settings", description: error.message, variant: "destructive" });
+        toast({ title: "Couldn't load settings", description: dbErrorMessage(error, { entity: "kitchen rule" }), variant: "destructive" });
       }
       const raw = (data as any)?.kitchen_settings || {};
       setSettings({
@@ -187,7 +188,7 @@ export function KitchenRulesPanel({ contextNote }: Props) {
       captureException(e, {
         tags: { component: "KitchenRulesPanel", step: "save", companyId: companyId || "" },
       });
-      toast({ title: "Couldn't save", description: e?.message, variant: "destructive" });
+      toast({ title: "Couldn't save", description: dbErrorMessage(e, { entity: "kitchen rule" }), variant: "destructive" });
     } finally {
       setSaving(false);
     }

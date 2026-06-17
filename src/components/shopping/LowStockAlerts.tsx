@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AlertTriangle, Package, ShoppingCart, XCircle, CheckCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 
 interface LowStockItem {
   id: string;
@@ -141,7 +142,7 @@ export function LowStockAlerts() {
       console.error("Error adding to shopping list:", error);
       toast({
         title: "Error",
-        description: error.message,
+        description: dbErrorMessage(error, { entity: "shopping item" }),
         variant: "destructive"
       });
     }
@@ -179,7 +180,7 @@ export function LowStockAlerts() {
       console.error("Error adding to shopping list:", error);
       toast({
         title: "Error",
-        description: error.message,
+        description: dbErrorMessage(error, { entity: "shopping item" }),
         variant: "destructive"
       });
     }

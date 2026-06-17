@@ -3,6 +3,7 @@ import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { supabase } from "@/integrations/supabase/client";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { toLocalISO } from "@/lib/localDate";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { PortalShell, PortalHeader } from "@/components/portal/ui";
@@ -222,7 +223,7 @@ export default function InventoryTracking() {
       console.error("Error adding item:", error);
       toast({
         title: "Error",
-        description: error.message,
+        description: dbErrorMessage(error, { entity: "inventory item" }),
         variant: "destructive"
       });
     }
@@ -302,7 +303,7 @@ export default function InventoryTracking() {
       console.error("Error updating stock:", error);
       toast({
         title: "Error",
-        description: error.message,
+        description: dbErrorMessage(error, { entity: "inventory item" }),
         variant: "destructive"
       });
     }
@@ -329,7 +330,7 @@ export default function InventoryTracking() {
       console.error("Error deleting item:", error);
       toast({
         title: "Error",
-        description: error.message,
+        description: dbErrorMessage(error, { entity: "inventory item" }),
         variant: "destructive"
       });
     }
@@ -399,7 +400,7 @@ export default function InventoryTracking() {
       console.error("Error generating shopping list:", error);
       toast({
         title: "Error",
-        description: error.message,
+        description: dbErrorMessage(error, { entity: "shopping list" }),
         variant: "destructive"
       });
     }

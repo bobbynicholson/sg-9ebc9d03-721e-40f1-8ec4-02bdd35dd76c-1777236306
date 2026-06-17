@@ -23,6 +23,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Copy, ExternalLink, Mail, Send, Eye, Code2, RefreshCw, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { composeEmail } from "@/lib/composeEmail";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 
 interface Form {
   id: string;
@@ -159,7 +160,7 @@ export function SnippetDialog({ open, onOpenChange, form, embedToken, companyNam
         description: "Old snippets will stop working. Copy the new snippet and update your sites.",
       });
     } catch (err: any) {
-      toast({ title: "Rotation failed", description: err.message, variant: "destructive" });
+      toast({ title: "Rotation failed", description: dbErrorMessage(err, { entity: "embed token" }), variant: "destructive" });
     } finally {
       setRotating(false);
     }

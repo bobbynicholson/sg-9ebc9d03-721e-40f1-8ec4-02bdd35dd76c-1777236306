@@ -27,6 +27,7 @@ import {
   Users, Tag, MessageCircle, CheckCircle2,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { PortalShell, PortalHeader } from "@/components/portal/ui";
 import { Footer } from "@/components/Footer";
@@ -185,8 +186,7 @@ function KitchenStaffPage() {
       setStaff(list);
       setActivity(rollup);
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e);
-      toast({ title: "Could not load staff", description: msg, variant: "destructive" });
+      toast({ title: "Could not load staff", description: dbErrorMessage(e, { entity: "staff member" }), variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -455,8 +455,7 @@ function KitchenStaffPage() {
       setDialogOpen(false);
       load();
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e);
-      setError(msg || "Could not save, check your inputs.");
+      setError(dbErrorMessage(e, { entity: "staff member", fallback: "Could not save, check your inputs." }));
     } finally {
       setSaving(false);
     }
@@ -497,8 +496,7 @@ function KitchenStaffPage() {
       setDialogOpen(false);
       load();
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e);
-      setError(msg || "Could not send invite");
+      setError(dbErrorMessage(e, { entity: "invite", fallback: "Could not send invite" }));
     } finally {
       setInviting(false);
     }
@@ -513,8 +511,7 @@ function KitchenStaffPage() {
       setArchiveTarget(null);
       load();
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e);
-      toast({ title: "Could not archive", description: msg, variant: "destructive" });
+      toast({ title: "Could not archive", description: dbErrorMessage(e, { entity: "staff member" }), variant: "destructive" });
     } finally {
       setSaving(false);
     }
@@ -533,8 +530,7 @@ function KitchenStaffPage() {
       toast({ title: "Restored", description: s.full_name });
       load();
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e);
-      toast({ title: "Could not restore", description: msg, variant: "destructive" });
+      toast({ title: "Could not restore", description: dbErrorMessage(e, { entity: "staff member" }), variant: "destructive" });
     } finally {
       setSaving(false);
     }

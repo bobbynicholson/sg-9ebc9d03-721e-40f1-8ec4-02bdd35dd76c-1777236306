@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { formatLocalTime } from "@/lib/localFormat";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 
 interface DriverConfirmationPanelProps {
   orderId: string;
@@ -125,7 +126,7 @@ export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venue
     } catch (error: any) {
       toast({
         title: "Error",
-        description: error.message || "Failed to confirm status",
+        description: dbErrorMessage(error, { entity: "delivery", fallback: "Failed to confirm status" }),
         variant: "destructive",
       });
     } finally {
@@ -389,7 +390,7 @@ export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venue
                       toast({ title: "Clock-in recorded", description: "Drive safely. We'll close the shift when you mark it done." });
                       await loadCollectionAssignment();
                     } catch (e: any) {
-                      toast({ title: "Could not start collection", description: e?.message || "Try again", variant: "destructive" });
+                      toast({ title: "Could not start collection", description: dbErrorMessage(e, { entity: "collection", fallback: "Try again" }), variant: "destructive" });
                     } finally {
                       setLoading(false);
                     }
@@ -425,7 +426,7 @@ export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venue
                       toast({ title: "Collection complete", description: "Equipment returned. Cleaning queue updated." });
                       await loadCollectionAssignment();
                     } catch (e: any) {
-                      toast({ title: "Could not complete collection", description: e?.message || "Try again", variant: "destructive" });
+                      toast({ title: "Could not complete collection", description: dbErrorMessage(e, { entity: "collection", fallback: "Try again" }), variant: "destructive" });
                     } finally {
                       setLoading(false);
                     }

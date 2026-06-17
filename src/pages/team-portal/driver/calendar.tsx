@@ -32,6 +32,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { staffOrderHref } from "@/lib/orderUrls";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 
 interface OrderRow {
   id: string;
@@ -188,7 +189,7 @@ export default function DriverCalendarPage() {
     if (error) {
       toast({
         title: "Couldn't claim",
-        description: error.message,
+        description: dbErrorMessage(error, { entity: "job" }),
         variant: "destructive",
       });
       return;

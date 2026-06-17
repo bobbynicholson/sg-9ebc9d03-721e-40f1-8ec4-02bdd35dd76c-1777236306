@@ -32,6 +32,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 
 interface ShortageFlag {
   id: string;
@@ -167,7 +168,7 @@ export function ShortagesPanel() {
         },
       } as ShortageFlag)));
     } catch (error: any) {
-      toast({ title: "Could not load shortages", description: error?.message ?? "", variant: "destructive" });
+      toast({ title: "Could not load shortages", description: dbErrorMessage(error, { entity: "shortage" }), variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -186,7 +187,7 @@ export function ShortagesPanel() {
       setSelectedShortage(null);
       loadShortages();
     } catch (error: any) {
-      toast({ title: "Could not resolve", description: error?.message ?? "", variant: "destructive" });
+      toast({ title: "Could not resolve", description: dbErrorMessage(error, { entity: "shortage" }), variant: "destructive" });
     }
   };
 
@@ -196,7 +197,7 @@ export function ShortagesPanel() {
       await equipmentShortageService.updateShortageFlag(id, { status });
       loadShortages();
     } catch (error: any) {
-      toast({ title: "Could not update", description: error?.message ?? "", variant: "destructive" });
+      toast({ title: "Could not update", description: dbErrorMessage(error, { entity: "shortage" }), variant: "destructive" });
     }
   };
 

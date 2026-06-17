@@ -47,6 +47,7 @@ import { UserRole } from "@/types/app";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { useSortable, type ColumnDef } from "@/lib/useSortable";
 import { SortHeader } from "@/components/ui/sort-header";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 
 type User = {
   id: string;
@@ -171,7 +172,7 @@ export default function UserManagementPage() {
       console.error("Error loading users:", error);
       toast({
         title: "Failed to load users",
-        description: error?.message || "Unknown error",
+        description: dbErrorMessage(error, { entity: "user" }),
         variant: "destructive",
       });
     } finally {
@@ -239,7 +240,7 @@ export default function UserManagementPage() {
       console.error("Error creating user:", error);
       toast({
         title: "Error",
-        description: error.message || "Failed to create user",
+        description: dbErrorMessage(error, { entity: "user" }),
         variant: "destructive",
       });
     } finally {
@@ -261,7 +262,7 @@ export default function UserManagementPage() {
     } catch (error: any) {
       toast({
         title: "Couldn't resend invite",
-        description: error?.message || "Try again.",
+        description: dbErrorMessage(error, { entity: "invite" }),
         variant: "destructive",
       });
     } finally {
@@ -292,7 +293,7 @@ export default function UserManagementPage() {
       console.error("Error deleting user:", error);
       toast({
         title: "Error",
-        description: error.message || "Failed to delete user",
+        description: dbErrorMessage(error, { entity: "user" }),
         variant: "destructive",
       });
     }

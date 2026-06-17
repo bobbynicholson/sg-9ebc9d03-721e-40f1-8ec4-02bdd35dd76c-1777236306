@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Sparkles, Loader2, Calculator } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { EMBED_TEMPLATE_CATALOG, defaultSlugForTemplate } from "@/lib/embed/templateCatalog";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import type { EmbedTemplateId } from "@/types/embedForms";
 
 interface Props {
@@ -58,7 +59,7 @@ export function TemplateGalleryDialog({ open, onOpenChange, embedToken, companyN
       if (!resp.ok) throw new Error(json.error || "Failed to create form");
       onCreated(json.form.id);
     } catch (err: any) {
-      toast({ title: "Couldn't create form", description: err.message, variant: "destructive" });
+      toast({ title: "Couldn't create form", description: dbErrorMessage(err, { entity: "form" }), variant: "destructive" });
     } finally {
       setCreatingId(null);
     }

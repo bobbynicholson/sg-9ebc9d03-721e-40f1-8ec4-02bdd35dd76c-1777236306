@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Clock, Users, TrendingUp, CheckCircle, DollarSign, Download, AlertTriangle, ExternalLink } from "lucide-react";
 import { captureException } from "@/lib/observability";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -28,22 +29,6 @@ import { PortalShell, PortalHeader } from "@/components/portal/ui";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import {  UserRole  } from "@/types/app";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
-
-// STH-D (task #215, 2026-05-25): pull a useful message out of
-// whatever was thrown. PostgrestError isn't an instanceof Error
-// (it's a plain object), so the previous `error instanceof Error
-// ? error.message : "Try again"` always rendered "Try again" for
-// schema / RLS failures - the most useful errors to surface.
-function friendlyError(err: unknown): string {
-  if (!err) return "Try again";
-  if (typeof err === "string") return err;
-  if (err instanceof Error) return err.message || "Try again";
-  if (typeof err === "object") {
-    const e = err as { message?: string; details?: string; hint?: string; code?: string };
-    return e.message || e.details || e.hint || e.code || "Try again";
-  }
-  return "Try again";
-}
 
 export default function ProtectedStaffHoursPage() {
   return (
@@ -221,7 +206,7 @@ function StaffHoursPage() {
         });
         toast({
           title: "Couldn't load clock-ins",
-          description: friendlyError(error),
+          description: dbErrorMessage(error, { entity: "clock-in" }),
           variant: "destructive",
         });
       }
@@ -238,7 +223,7 @@ function StaffHoursPage() {
         });
         toast({
           title: "Couldn't load payment ledger",
-          description: friendlyError(error),
+          description: dbErrorMessage(error, { entity: "payment ledger" }),
           variant: "destructive",
         });
       }
@@ -309,7 +294,7 @@ function StaffHoursPage() {
       });
       toast({
         title: "Payment failed",
-        description: error instanceof Error ? error.message : "Try again",
+        description: dbErrorMessage(error, { entity: "payment" }),
         variant: "destructive",
       });
     } finally {
@@ -1074,10 +1059,9 @@ function StaffHoursPage() {
                       setManualOpen(false);
                       void loadData();
                     } catch (e: unknown) {
-                      const msg = e instanceof Error ? e.message : String(e);
                       toast({
                         title: "Couldn't record shift",
-                        description: msg,
+                        description: dbErrorMessage(e, { entity: "shift" }),
                         variant: "destructive",
                       });
                     } finally {

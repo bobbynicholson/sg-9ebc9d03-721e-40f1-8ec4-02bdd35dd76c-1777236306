@@ -99,6 +99,7 @@ import {
   type DiarySignal,
 } from "@/lib/quoteDiarySignal";
 import { supabase } from "@/integrations/supabase/client";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { cn } from "@/lib/utils";
 import { toLocalISO } from "@/lib/localDate";
 
@@ -1048,7 +1049,7 @@ function AdminQuotesInner() {
       console.error("Delete quote failed:", err);
       toast({
         title: "Delete failed",
-        description: err?.message || "Could not delete this quote.",
+        description: dbErrorMessage(err, { entity: "quote", fallback: "Could not delete this quote." }),
         variant: "destructive",
       });
     } finally {
@@ -1125,7 +1126,7 @@ function AdminQuotesInner() {
       console.error("Mark as lost failed:", err);
       toast({
         title: "Could not mark as lost",
-        description: err?.message || "Try again.",
+        description: dbErrorMessage(err, { entity: "quote" }),
         variant: "destructive",
       });
     } finally {
@@ -1177,7 +1178,7 @@ function AdminQuotesInner() {
       console.error("Mark as sent failed:", err);
       toast({
         title: "Could not mark as sent",
-        description: err?.message || "Try again.",
+        description: dbErrorMessage(err, { entity: "quote" }),
         variant: "destructive",
       });
     }
@@ -1381,7 +1382,7 @@ function AdminQuotesInner() {
       ));
     } catch (err: any) {
       console.error("Accept on behalf failed:", err);
-      toast({ title: "Accept failed", description: err?.message || "Something went wrong.", variant: "destructive" });
+      toast({ title: "Accept failed", description: dbErrorMessage(err, { entity: "quote" }), variant: "destructive" });
     } finally {
       setAcceptingId(null);
     }
@@ -2355,7 +2356,7 @@ function AdminQuotesInner() {
                                   } catch (e: any) {
                                     toast({
                                       title: "Could not download PDF",
-                                      description: e?.message || "Try again",
+                                      description: dbErrorMessage(e, { entity: "quote" }),
                                       variant: "destructive",
                                     });
                                   }
@@ -2572,7 +2573,7 @@ function AdminQuotesInner() {
               } catch (err: any) {
                 toast({
                   title: "Saved email but couldn't update quote",
-                  description: err?.message || "Apply the discount manually on the quote.",
+                  description: dbErrorMessage(err, { entity: "quote", fallback: "Apply the discount manually on the quote." }),
                   variant: "destructive",
                 });
               }

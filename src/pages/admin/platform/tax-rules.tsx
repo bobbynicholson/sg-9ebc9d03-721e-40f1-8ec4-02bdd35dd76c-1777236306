@@ -33,6 +33,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 
 interface TaxRule {
   id: string;
@@ -96,7 +97,7 @@ function TaxRulesAdmin() {
       .select("*")
       .order("display_order", { ascending: true });
     if (error) {
-      toast({ title: "Couldn't load rules", description: error.message, variant: "destructive" });
+      toast({ title: "Couldn't load rules", description: dbErrorMessage(error, { entity: "tax rule" }), variant: "destructive" });
     }
     setRules((data || []) as unknown as TaxRule[]);
     setLoading(false);
@@ -301,7 +302,7 @@ function TaxRulesAdmin() {
                   .eq("id", r.id);
                 setConfirmDelete(null);
                 if (error) {
-                  toast({ title: "Couldn't delete", description: error.message, variant: "destructive" });
+                  toast({ title: "Couldn't delete", description: dbErrorMessage(error, { entity: "tax rule" }), variant: "destructive" });
                   return;
                 }
                 toast({ title: "Rule deleted" });
@@ -393,7 +394,7 @@ function RuleFormDialog({
     }
     setSaving(false);
     if (error) {
-      toast({ title: "Couldn't save", description: error.message, variant: "destructive" });
+      toast({ title: "Couldn't save", description: dbErrorMessage(error, { entity: "tax rule" }), variant: "destructive" });
       return;
     }
     toast({ title: editing ? "Rule updated" : "Rule added" });

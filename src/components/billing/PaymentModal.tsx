@@ -36,6 +36,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { toLocalISO } from "@/lib/localDate";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 
 interface Invoice {
   id: string;
@@ -216,7 +217,7 @@ export function PaymentModal({ invoice, open, onClose, onPaymentSuccess, onShowR
       console.error("Payment error:", error);
       toast({
         title: "Payment failed",
-        description: error?.message || "There was an error starting your payment. Please try again.",
+        description: dbErrorMessage(error, { entity: "payment" }),
         variant: "destructive",
       });
     } finally {
@@ -250,7 +251,7 @@ export function PaymentModal({ invoice, open, onClose, onPaymentSuccess, onShowR
     } catch (e: any) {
       toast({
         title: "Couldn't record your claim",
-        description: e?.message || "Please try again or contact the catering team directly.",
+        description: dbErrorMessage(e, { entity: "payment" }),
         variant: "destructive",
       });
     } finally {

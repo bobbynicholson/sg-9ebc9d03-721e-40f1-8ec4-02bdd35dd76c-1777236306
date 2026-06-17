@@ -34,6 +34,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 
 interface DraftRequest {
   topic: string;
@@ -117,7 +118,7 @@ function CMSPageManagement() {
         description: "Now add alt text describing what's in the image.",
       });
     } catch (e: any) {
-      toast({ title: "Image upload failed", description: e?.message || "", variant: "destructive" });
+      toast({ title: "Image upload failed", description: dbErrorMessage(e, { entity: "image" }), variant: "destructive" });
     } finally {
       setImageBusy(false);
     }
@@ -193,7 +194,7 @@ function CMSPageManagement() {
       toast({ title: "Page saved" });
     } catch (error: any) {
       console.error("Error saving page:", error);
-      toast({ title: "Save failed", description: error?.message || "", variant: "destructive" });
+      toast({ title: "Save failed", description: dbErrorMessage(error, { entity: "page" }), variant: "destructive" });
     }
   };
 
@@ -204,7 +205,7 @@ function CMSPageManagement() {
       await loadPages();
       toast({ title: "Page deleted" });
     } catch (error: any) {
-      toast({ title: "Delete failed", description: error?.message || "", variant: "destructive" });
+      toast({ title: "Delete failed", description: dbErrorMessage(error, { entity: "page" }), variant: "destructive" });
     }
   };
 
@@ -258,7 +259,7 @@ function CMSPageManagement() {
     } catch (e: any) {
       toast({
         title: "AI draft failed",
-        description: e?.message || "Check ANTHROPIC_API_KEY on the server.",
+        description: dbErrorMessage(e, { fallback: "Check ANTHROPIC_API_KEY on the server." }),
         variant: "destructive",
       });
     } finally {

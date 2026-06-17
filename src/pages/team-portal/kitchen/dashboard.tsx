@@ -51,6 +51,7 @@ import { onEquipmentDamaged } from "@/lib/events/equipmentEvents";
 import { onCleaningReady } from "@/lib/events/cleaningEvents";
 import { useToast } from "@/hooks/use-toast";
 import { captureException } from "@/lib/observability";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 
 type Order = Database["public"]["Tables"]["orders"]["Row"];
 type InventoryItem = Database["public"]["Tables"]["inventory_items"]["Row"];
@@ -713,7 +714,7 @@ export default function KitchenDashboard() {
       }
       await finishMarkReady(orderId, clientName, "passed");
     } catch (e: any) {
-      toast({ title: "Could not mark ready", description: e?.message, variant: "destructive" });
+      toast({ title: "Could not mark ready", description: dbErrorMessage(e, { entity: "order" }), variant: "destructive" });
     }
   };
 
@@ -741,7 +742,7 @@ export default function KitchenDashboard() {
       });
       loadDashboardData();
     } catch (e: any) {
-      toast({ title: "Could not mark ready", description: e?.message, variant: "destructive" });
+      toast({ title: "Could not mark ready", description: dbErrorMessage(e, { entity: "order" }), variant: "destructive" });
     }
   };
 
@@ -865,7 +866,7 @@ export default function KitchenDashboard() {
       toast({ title: "Order closed", description: data.message });
       await loadDashboardData();
     } catch (e: any) {
-      toast({ title: "Close failed", description: e?.message, variant: "destructive" });
+      toast({ title: "Close failed", description: dbErrorMessage(e, { entity: "order" }), variant: "destructive" });
     } finally {
       setForceClosingId(null);
     }

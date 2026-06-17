@@ -35,6 +35,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Zap, Key, Webhook, Copy, Check, Trash2, Plus, ExternalLink, ArrowRight, Sparkles, Activity, AlertTriangle, Loader2, FileSpreadsheet, Bell, Hash, MessageSquare, ChefHat, Mail, Link2, Send, Receipt, Banknote, Users, XCircle, Clock } from "lucide-react";
 import { captureException } from "@/lib/observability";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { PortalShell, PortalHeader } from "@/components/portal/ui";
@@ -273,7 +274,7 @@ function IntegrationsPage() {
       captureException(error, {
         tags: { route: "/admin/integrations", step: "create-api-key", companyId },
       });
-      toast({ title: "Couldn't create key", description: error.message, variant: "destructive" });
+      toast({ title: "Couldn't create key", description: dbErrorMessage(error, { entity: "API key" }), variant: "destructive" });
       return;
     }
     setNewKeyResult({ rawKey, prefix: keyPrefix });
@@ -301,7 +302,7 @@ function IntegrationsPage() {
       captureException(error, {
         tags: { route: "/admin/integrations", step: "create-webhook", companyId },
       });
-      toast({ title: "Couldn't save webhook", description: error.message, variant: "destructive" });
+      toast({ title: "Couldn't save webhook", description: dbErrorMessage(error, { entity: "webhook" }), variant: "destructive" });
       return;
     }
     setNewSub({ label: "", event_type: "lead.created", target_url: "" });
@@ -341,7 +342,7 @@ function IntegrationsPage() {
       captureException(e, {
         tags: { route: "/admin/integrations", step: "fire-test-network", companyId, subId: sub.id },
       });
-      toast({ title: "Test failed", description: e?.message, variant: "destructive" });
+      toast({ title: "Test failed", description: dbErrorMessage(e, { entity: "webhook" }), variant: "destructive" });
     } finally {
       setFiringId(null);
       reload();
@@ -874,7 +875,7 @@ function SageCard({ companyId }: { companyId: string | null | undefined }) {
         setOptions(data.options || { ledger_accounts: [], tax_rates: [], bank_accounts: [], payment_methods: [] });
         setMetadata(data.metadata || {});
       } catch (e: any) {
-        if (!cancelled) toast({ title: "Couldn't load Sage settings", description: e?.message, variant: "destructive" });
+        if (!cancelled) toast({ title: "Couldn't load Sage settings", description: dbErrorMessage(e, { entity: "Sage settings" }), variant: "destructive" });
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -898,7 +899,7 @@ function SageCard({ companyId }: { companyId: string | null | undefined }) {
       }
       toast({ title: "Sage settings saved", description: "Invoice + payment sync will use these defaults." });
     } catch (e: any) {
-      toast({ title: "Couldn't save Sage settings", description: e?.message, variant: "destructive" });
+      toast({ title: "Couldn't save Sage settings", description: dbErrorMessage(e, { entity: "Sage settings" }), variant: "destructive" });
     } finally {
       setSaving(false);
     }

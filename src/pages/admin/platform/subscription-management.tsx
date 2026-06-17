@@ -32,6 +32,7 @@ import { useSortable, type ColumnDef } from "@/lib/useSortable";
 import { SortHeader } from "@/components/ui/sort-header";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 
 // We treat every company row as a subscription record. This works whether the
 // company is on a free trial, an active paid plan, or cancelled - the source
@@ -163,7 +164,7 @@ function PlatformSubscriptionManagement() {
       calculateStats(rows);
     } catch (err) {
       console.error("Error loading subscriptions:", err);
-      setError(err instanceof Error ? err.message : "Failed to load subscriptions");
+      setError(dbErrorMessage(err, { entity: "subscription", fallback: "Failed to load subscriptions" }));
       setSubscriptions([]);
       calculateStats([]);
     } finally {
@@ -195,7 +196,7 @@ function PlatformSubscriptionManagement() {
       })
       .eq("id", companyId);
     if (updateErr) {
-      toast({ title: "Failed to activate", description: updateErr.message, variant: "destructive" });
+      toast({ title: "Failed to activate", description: dbErrorMessage(updateErr, { entity: "subscription" }), variant: "destructive" });
       return;
     }
     toast({ title: "Subscription activated" });
@@ -209,7 +210,7 @@ function PlatformSubscriptionManagement() {
       .update({ subscription_status: "cancelled", subscription_ends_at: new Date().toISOString() })
       .eq("id", companyId);
     if (updateErr) {
-      toast({ title: "Failed to cancel", description: updateErr.message, variant: "destructive" });
+      toast({ title: "Failed to cancel", description: dbErrorMessage(updateErr, { entity: "subscription" }), variant: "destructive" });
       return;
     }
     toast({ title: "Subscription cancelled" });

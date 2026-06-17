@@ -49,6 +49,7 @@ import { AnalyticsBlock } from "@/components/admin/embed/AnalyticsBlock";
 import { getTemplateMeta } from "@/lib/embed/templateCatalog";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { captureException } from "@/lib/observability";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { getSetupChecklist, summariseReadiness, type SetupCheck, TEMPLATE_INTENT } from "@/lib/embed/setupChecks";
 import { CheckCircle2, AlertTriangle, Info } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -174,7 +175,7 @@ export default function EmbedFormCustomiser() {
       captureException(err, {
         tags: { route: "/admin/integrations/embed/[id]", step: "save-form", formId: form?.id || "", companyId: user?.company_id || "" },
       });
-      toast({ title: "Save failed", description: err.message, variant: "destructive" });
+      toast({ title: "Save failed", description: dbErrorMessage(err, { entity: "form" }), variant: "destructive" });
     } finally {
       setSaving(false);
     }
@@ -254,7 +255,7 @@ export default function EmbedFormCustomiser() {
       captureException(err, {
         tags: { route: "/admin/integrations/embed/[id]", step: "save-pricing-tiers", companyId: user?.company_id || "" },
       });
-      toast({ title: "Couldn't save tiers", description: err.message, variant: "destructive" });
+      toast({ title: "Couldn't save tiers", description: dbErrorMessage(err, { entity: "pricing tier" }), variant: "destructive" });
     }
   }
 

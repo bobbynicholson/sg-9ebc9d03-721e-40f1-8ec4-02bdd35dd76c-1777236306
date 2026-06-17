@@ -31,6 +31,7 @@ import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { Banknote, Pencil, Save, X, AlertTriangle, ArrowUpRight, Download } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { captureException } from "@/lib/observability";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { useToast } from "@/hooks/use-toast";
 import { toLocalISO } from "@/lib/localDate";
 import * as currencyUtils from "@/lib/currencyUtils";
@@ -610,7 +611,7 @@ export function CashflowForecastCard({
       if (updErr) {
         toast({
           title: "Couldn't save",
-          description: updErr.message || "Update failed",
+          description: dbErrorMessage(updErr, { entity: "cash on hand", fallback: "Update failed" }),
           variant: "destructive",
         });
         setSaving(false);

@@ -30,6 +30,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { useAuth } from "@/contexts/AuthContext";
 import { UserRole } from "@/types/app";
 import { supabase } from "@/integrations/supabase/client";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { useToast } from "@/hooks/use-toast";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { AddressAutocomplete } from "@/components/admin/AddressAutocomplete";
@@ -186,7 +187,7 @@ function CompanyProfilePage() {
         captureException(error, {
           tags: { route: "/admin/company-profile", step: "load", companyId },
         });
-        toast({ title: "Couldn't load profile", description: error.message, variant: "destructive" });
+        toast({ title: "Couldn't load profile", description: dbErrorMessage(error, { entity: "company profile" }), variant: "destructive" });
       } else {
         const r = data as CompanyRow;
         setRow(r);
@@ -321,7 +322,7 @@ function CompanyProfilePage() {
       captureException(e, {
         tags: { route: "/admin/company-profile", step: "save", companyId: row.id },
       });
-      toast({ title: "Save failed", description: e?.message, variant: "destructive" });
+      toast({ title: "Save failed", description: dbErrorMessage(e, { entity: "company profile" }), variant: "destructive" });
     } finally {
       setSaving(false);
     }
@@ -1126,7 +1127,7 @@ function DocumentNumberingCard({ companyId }: { companyId: string }) {
           order: { highest: 0, sample: null },
         });
       } catch (e: any) {
-        toast({ title: "Couldn't load numbering settings", description: e?.message, variant: "destructive" });
+        toast({ title: "Couldn't load numbering settings", description: dbErrorMessage(e, { entity: "numbering settings" }), variant: "destructive" });
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -1170,7 +1171,7 @@ function DocumentNumberingCard({ companyId }: { companyId: string }) {
       toast({ title: `${DOC_TYPE_META[t].label} numbering saved`, description: `Next number: ${previewNumber(j.after, 0)}` });
       setRows((prev) => ({ ...prev, [t]: j.after }));
     } catch (e: any) {
-      toast({ title: "Save failed", description: e?.message, variant: "destructive" });
+      toast({ title: "Save failed", description: dbErrorMessage(e, { entity: "numbering settings" }), variant: "destructive" });
     } finally {
       setSavingType(null);
     }

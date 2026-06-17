@@ -34,6 +34,7 @@ import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import { supabase } from "@/integrations/supabase/client";
 import { emitOrderUpdated, onOrderUpdated } from "@/lib/events/orderEvents";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { formatDate } from "@/lib/formatters";
 import { toLocalISO } from "@/lib/localDate";
 import { downloadOrderIcs } from "@/lib/orderToIcs";
@@ -216,7 +217,7 @@ const setQuickRating = async (rating: number) => {
     toast({ title: "Rating saved", description: `Recorded ${rating} star${rating === 1 ? "" : "s"} for this order.` });
   } catch (e: any) {
     setOrderRating(prev); // rollback
-    toast({ title: "Couldn't save rating", description: e?.message || "Try again", variant: "destructive" });
+    toast({ title: "Couldn't save rating", description: dbErrorMessage(e, { entity: "rating" }), variant: "destructive" });
   } finally {
     setRatingBusy(false);
   }
@@ -342,7 +343,7 @@ const handleAddEquipment = async () => {
     await reloadEquipment();
     await syncAndRefresh();
   } catch (e: any) {
-    toast({ title: "Could not add equipment", description: e?.message || "Try again", variant: "destructive" });
+    toast({ title: "Could not add equipment", description: dbErrorMessage(e, { entity: "equipment item" }), variant: "destructive" });
   } finally {
     setEqAdding(false);
   }
@@ -357,7 +358,7 @@ const handleRemoveEquipment = async (bookingId: string) => {
     await reloadEquipment();
     await syncAndRefresh();
   } catch (e: any) {
-    toast({ title: "Could not remove equipment", description: e?.message || "Try again", variant: "destructive" });
+    toast({ title: "Could not remove equipment", description: dbErrorMessage(e, { entity: "equipment item" }), variant: "destructive" });
   } finally {
     setEqRemoving(null);
   }
@@ -423,7 +424,7 @@ const handleAddMenuItem = async () => {
     await reloadOrderItems();
     await syncAndRefresh();
   } catch (e: any) {
-    toast({ title: "Could not add item", description: e?.message || "Try again", variant: "destructive" });
+    toast({ title: "Could not add item", description: dbErrorMessage(e, { entity: "menu item" }), variant: "destructive" });
   } finally {
     setMiAdding(false);
   }
@@ -438,7 +439,7 @@ const handleRemoveMenuItem = async (itemId: string) => {
     await reloadOrderItems();
     await syncAndRefresh();
   } catch (e: any) {
-    toast({ title: "Could not remove item", description: e?.message || "Try again", variant: "destructive" });
+    toast({ title: "Could not remove item", description: dbErrorMessage(e, { entity: "menu item" }), variant: "destructive" });
   } finally {
     setMiRemoving(null);
   }
@@ -715,7 +716,7 @@ const persistSave = async () => {
   } catch (error: any) {
     toast({
       title: "Error",
-      description: error?.message || "Failed to update order. Please try again.",
+      description: dbErrorMessage(error, { entity: "order", fallback: "Failed to update order. Please try again." }),
       variant: "destructive",
     });
   } finally {
@@ -914,7 +915,7 @@ return (
                           // Wave 70.40 - broadcast for cross-page listeners.
                           emitOrderUpdated(selectedOrder.id, "admin/orders:resume", ["status", "prep"]);
                         } catch (e: any) {
-                          toast({ title: "Resume failed", description: e?.message, variant: "destructive" });
+                          toast({ title: "Resume failed", description: dbErrorMessage(e, { entity: "order" }), variant: "destructive" });
                         }
                       }}
                     >
@@ -1062,7 +1063,7 @@ return (
                 } catch (e: any) {
                   toast({
                     title: "Couldn't open preview",
-                    description: e?.message || "Try again",
+                    description: dbErrorMessage(e, { entity: "preview link" }),
                     variant: "destructive",
                   });
                 }
@@ -1088,7 +1089,7 @@ return (
                 } catch (e: any) {
                   toast({
                     title: "Couldn't copy link",
-                    description: e?.message || "Try again",
+                    description: dbErrorMessage(e, { entity: "client link" }),
                     variant: "destructive",
                   });
                 }

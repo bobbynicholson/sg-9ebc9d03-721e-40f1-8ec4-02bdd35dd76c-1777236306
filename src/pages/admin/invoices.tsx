@@ -6,6 +6,7 @@ import { toLocalISO } from "@/lib/localDate";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { staffOrderHref } from "@/lib/orderUrls";
 import { captureException } from "@/lib/observability";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { BulkRemindDialog } from "@/components/admin/financial/BulkRemindDialog";
 import { useRegionFilter } from "@/contexts/RegionFilterContext";
 import { AdminNav } from "@/components/admin/AdminNav";
@@ -257,7 +258,7 @@ function InvoicesPageInner() {
     } catch (e: any) {
       toast({
         title: "Could not save view",
-        description: e?.message || "Try again",
+        description: dbErrorMessage(e, { entity: "saved view" }),
         variant: "destructive",
       });
     }
@@ -472,7 +473,7 @@ function InvoicesPageInner() {
     } catch (e: any) {
       toast({
         title: "Bulk mark-paid failed",
-        description: e?.message || "Try again",
+        description: dbErrorMessage(e, { entity: "invoice" }),
         variant: "destructive",
       });
     } finally {
@@ -767,7 +768,7 @@ function InvoicesPageInner() {
     } catch (error: any) {
       toast({
         title: "Error",
-        description: error.message,
+        description: dbErrorMessage(error, { entity: "invoice" }),
         variant: "destructive",
       });
     } finally {
@@ -882,7 +883,7 @@ function InvoicesPageInner() {
     } catch (error: any) {
       toast({
         title: "Error",
-        description: error.message,
+        description: dbErrorMessage(error, { entity: "invoice" }),
         variant: "destructive",
       });
     } finally {
@@ -1033,7 +1034,7 @@ function InvoicesPageInner() {
     } catch (e: any) {
       toast({
         title: "Email sent, but status didn't update",
-        description: `${invoice.invoice_number || "Invoice"} was emailed to the client. The 'sent' status did NOT save (${e?.message || "unknown error"}). Refresh the page; do NOT click Send again or the client gets a duplicate.`,
+        description: `${invoice.invoice_number || "Invoice"} was emailed to the client. The 'sent' status did NOT save (${dbErrorMessage(e, { entity: "invoice" })}). Refresh the page; do NOT click Send again or the client gets a duplicate.`,
         variant: "destructive",
       });
       loadInvoices();
@@ -1127,7 +1128,7 @@ function InvoicesPageInner() {
     } catch (error: any) {
       toast({
         title: "Sync Error",
-        description: error.message,
+        description: dbErrorMessage(error, { entity: "invoice" }),
         variant: "destructive",
       });
     } finally {

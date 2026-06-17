@@ -21,6 +21,7 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import Link from "next/link";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
@@ -246,7 +247,7 @@ function RegionsPage() {
       .order("name", { ascending: true });
 
     if (error) {
-      toast({ title: "Failed to load regions", description: error.message, variant: "destructive" });
+      toast({ title: "Failed to load regions", description: dbErrorMessage(error, { entity: "region" }), variant: "destructive" });
       setLoading(false);
       return;
     }
@@ -539,7 +540,7 @@ function RegionsPage() {
     setSubmitting(false);
 
     if (error) {
-      toast({ title: editing ? "Failed to update region" : "Failed to create region", description: error.message, variant: "destructive" });
+      toast({ title: editing ? "Failed to update region" : "Failed to create region", description: dbErrorMessage(error, { entity: "region" }), variant: "destructive" });
       return;
     }
 
@@ -596,7 +597,7 @@ function RegionsPage() {
         .update({ is_active: false } as any)
         .eq("id", region.id);
       if (error) {
-        toast({ title: "Failed to pause region", description: error.message, variant: "destructive" });
+        toast({ title: "Failed to pause region", description: dbErrorMessage(error, { entity: "region" }), variant: "destructive" });
         return;
       }
       toast({ title: "Branch paused", description: `${region.name} won't accept new work. History preserved.` });
@@ -608,7 +609,7 @@ function RegionsPage() {
     if (!confirm(`Delete branch "${region.name}"? Nothing is linked to it, this is a clean removal.`)) return;
     const { error } = await supabase.from("regions").delete().eq("id", region.id);
     if (error) {
-      toast({ title: "Failed to delete branch", description: error.message, variant: "destructive" });
+      toast({ title: "Failed to delete branch", description: dbErrorMessage(error, { entity: "region" }), variant: "destructive" });
       return;
     }
     toast({ title: "Branch deleted", description: region.name });
@@ -1513,7 +1514,7 @@ function AssignStaffDialog({
       onSaved();
       onClose();
     } catch (e: any) {
-      toast({ title: "Couldn't save assignment", description: e?.message || "Unknown error", variant: "destructive" });
+      toast({ title: "Couldn't save assignment", description: dbErrorMessage(e, { entity: "staff assignment" }), variant: "destructive" });
     } finally {
       setSaving(false);
     }

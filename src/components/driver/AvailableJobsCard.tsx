@@ -30,6 +30,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { toLocalISO } from "@/lib/localDate";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 
 interface OpenOrder {
   id: string;
@@ -168,7 +169,7 @@ export function AvailableJobsCard({ onClaimed }: Props) {
     if (error) {
       toast({
         title: "Couldn't claim",
-        description: error.message,
+        description: dbErrorMessage(error, { entity: "job" }),
         variant: "destructive",
       });
       return;

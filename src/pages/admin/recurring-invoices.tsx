@@ -44,6 +44,7 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, Pause, Play, Trash2, RefreshCw, Repeat, ArrowLeft, X } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { useToast } from "@/hooks/use-toast";
 import { formatZAR } from "@/lib/formatters";
 
@@ -116,7 +117,7 @@ export default function RecurringInvoicesPage() {
       .eq("company_id", user.company_id)
       .order("created_at", { ascending: false });
     if (error) {
-      toast({ title: "Could not load", description: error.message, variant: "destructive" });
+      toast({ title: "Could not load", description: dbErrorMessage(error, { entity: "recurring invoice" }), variant: "destructive" });
     } else {
       setRows((data || []) as Template[]);
     }
@@ -197,7 +198,7 @@ export default function RecurringInvoicesPage() {
       }]);
     setCreating(false);
     if (error) {
-      toast({ title: "Could not create", description: error.message, variant: "destructive" });
+      toast({ title: "Could not create", description: dbErrorMessage(error, { entity: "recurring invoice" }), variant: "destructive" });
       return;
     }
     toast({

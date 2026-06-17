@@ -14,6 +14,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { userManagementService } from "@/services/userManagementService";
 import { supabase } from "@/integrations/supabase/client";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { useCompanyKitchens } from "@/hooks/useCompanyKitchens";
 import { Building2 } from "lucide-react";
 
@@ -186,7 +187,7 @@ export default function StaffManagementPage() {
       console.error("Error adding staff:", error);
       toast({
         title: "Failed to Add Staff",
-        description: error.message || "An error occurred",
+        description: dbErrorMessage(error, { entity: "staff member" }),
         variant: "destructive",
       });
     } finally {
@@ -232,7 +233,7 @@ export default function StaffManagementPage() {
     } catch (error: any) {
       toast({
         title: "Couldn't resend invite",
-        description: error?.message || "Try again.",
+        description: dbErrorMessage(error, { entity: "invite" }),
         variant: "destructive",
       });
     } finally {

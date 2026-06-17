@@ -56,6 +56,7 @@ import { TemplateGalleryDialog } from "@/components/admin/embed/TemplateGalleryD
 import { SnippetDialog } from "@/components/admin/embed/SnippetDialog";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { captureException } from "@/lib/observability";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 
 interface EmbedFormRow {
   id: string;
@@ -140,7 +141,7 @@ export default function AdminEmbedFormsPage() {
       captureException(err, {
         tags: { route: "/admin/integrations/embed", step: "load-forms", companyId: user?.company_id || "" },
       });
-      toast({ title: "Couldn't load forms", description: err.message, variant: "destructive" });
+      toast({ title: "Couldn't load forms", description: dbErrorMessage(err, { entity: "form" }), variant: "destructive" });
     } finally {
       setLoading(false);
     }

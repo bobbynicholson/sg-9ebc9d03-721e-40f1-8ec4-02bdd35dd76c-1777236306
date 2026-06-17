@@ -21,6 +21,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { openNavigation as openMapsNavigation } from "@/lib/driverNavigation";
 import { useKitchenOrigin } from "@/hooks/useKitchenOrigin";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 
 interface MenuLine {
   id: string;
@@ -229,7 +230,7 @@ function DriverTrackingInner() {
 
     setUpdating(false);
     if (error) {
-      toast({ title: "Could not update", description: error.message, variant: "destructive" });
+      toast({ title: "Could not update", description: dbErrorMessage(error, { entity: "delivery" }), variant: "destructive" });
       return;
     }
     toast({ title: "Marked as arrived", description: "Status updated to at venue." });

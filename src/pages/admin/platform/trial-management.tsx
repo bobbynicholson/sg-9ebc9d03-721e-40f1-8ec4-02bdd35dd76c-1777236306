@@ -12,6 +12,7 @@ import { CheckCircle, CalendarPlus, Clock, RefreshCw, Crown, Calendar } from "lu
 import { PlatformNav } from "@/components/admin/PlatformNav";
 import { PortalShell, PortalHeader, PortalCard, PortalCardHeader, StatTile } from "@/components/portal/ui";
 import { toast } from "@/hooks/use-toast";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 
 interface CompanyTrialStatus {
   id: string;
@@ -227,7 +228,7 @@ export default function TrialManagementPage() {
     } catch (error: any) {
       toast({
         title: "Failed to extend trial",
-        description: error?.message ?? "Unknown error",
+        description: dbErrorMessage(error, { entity: "trial" }),
         variant: "destructive",
       });
     }
@@ -254,7 +255,7 @@ export default function TrialManagementPage() {
     } catch (error: any) {
       toast({
         title: "Failed to activate",
-        description: error?.message ?? "Unknown error",
+        description: dbErrorMessage(error, { entity: "subscription" }),
         variant: "destructive",
       });
     }

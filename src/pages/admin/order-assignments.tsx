@@ -27,6 +27,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { ToastAction } from "@/components/ui/toast";
 import { supabase } from "@/integrations/supabase/client";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import {
   dispatchService,
   type DispatchSettings,
@@ -394,7 +395,7 @@ function DispatchQueuePage() {
         .eq("id", orderId)
         .eq("company_id", companyId);
       if (error) {
-        toast({ title: "Could not save", description: error.message, variant: "destructive" });
+        toast({ title: "Could not save", description: dbErrorMessage(error, { entity: "order assignment" }), variant: "destructive" });
         return;
       }
       // Optimistic local update so the operator sees the saved time
@@ -648,7 +649,7 @@ function DispatchQueuePage() {
     } catch (e: any) {
       toast({
         title: "Could not remove driver",
-        description: e?.message || "Server rejected the change. Refresh and try again.",
+        description: dbErrorMessage(e, { entity: "order assignment", fallback: "Server rejected the change. Refresh and try again." }),
         variant: "destructive",
       });
     } finally {

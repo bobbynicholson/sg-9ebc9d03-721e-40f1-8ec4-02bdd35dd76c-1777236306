@@ -19,6 +19,7 @@ import type { OrderReadiness, ReadinessSignal } from "@/services/order/orderRead
 import { useTenantHref } from "@/lib/tenantUrl";
 import { useToast } from "@/hooks/use-toast";
 import { emitOrderUpdated } from "@/lib/events/orderEvents";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 
 // Wave 56 - emerald retired in favour of green per the existing
 // TimelineTrack docstring: "green-500 (not emerald-500) is the
@@ -168,7 +169,7 @@ export function OrderReadinessChip({
       emitOrderUpdated(orderId, "readiness-chip:force-close", ["status", "prep"]);
       onActionComplete?.();
     } catch (e: any) {
-      toast({ title: "Close failed", description: e?.message, variant: "destructive" });
+      toast({ title: "Close failed", description: dbErrorMessage(e, { entity: "order" }), variant: "destructive" });
     } finally {
       setClosingOut(false);
       setCloseConfirm(false);
@@ -362,7 +363,7 @@ function SignalRow({
       // Reserved for future actionTypes. regenerate_prep_tasks now
       // auto-heals silently from the parent useEffect.
     } catch (e: any) {
-      toast({ title: "Action failed", description: e?.message, variant: "destructive" });
+      toast({ title: "Action failed", description: dbErrorMessage(e), variant: "destructive" });
     } finally {
       setBusy(false);
     }

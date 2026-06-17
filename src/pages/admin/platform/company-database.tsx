@@ -29,6 +29,7 @@ import { useToast } from "@/hooks/use-toast";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { useSortable, type ColumnDef } from "@/lib/useSortable";
 import { SortHeader } from "@/components/ui/sort-header";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { AddEditCompanyDialog } from "@/components/admin/company-database/AddEditCompanyDialog";
 import { CompanyDetailsModal } from "@/components/admin/company-database/CompanyDetailsModal";
 import { CompanyStatusBadge } from "@/components/admin/company-database/CompanyStatusBadge";
@@ -263,7 +264,7 @@ export default function CompanyDatabasePage() {
       console.error("Error creating company:", error);
       toast({
         title: "Error",
-        description: error.message || "Failed to create company",
+        description: dbErrorMessage(error, { entity: "company" }),
         variant: "destructive",
       });
     }

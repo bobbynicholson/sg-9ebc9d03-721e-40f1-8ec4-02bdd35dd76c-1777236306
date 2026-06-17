@@ -17,6 +17,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { equipmentTrackingService } from "@/services/equipmentTrackingService";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 
 interface VerificationItem {
   handoverId: string;
@@ -171,7 +172,7 @@ export function EquipmentVerificationPanel() {
       console.error("Error verifying equipment:", error);
       toast({
         title: "Could not verify",
-        description: error instanceof Error ? error.message : "Try again or contact admin.",
+        description: dbErrorMessage(error, { entity: "equipment", fallback: "Try again or contact admin." }),
         variant: "destructive",
       });
     } finally {

@@ -32,6 +32,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { supabase } from "@/integrations/supabase/client";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AdminNav } from "@/components/admin/AdminNav";
@@ -454,7 +455,7 @@ function RefundsPage() {
     } catch (e: any) {
       toast({
         title: "Could not mark refund paid",
-        description: e?.message || "Network error. Check your connection and try again.",
+        description: dbErrorMessage(e, { entity: "refund", fallback: "Network error. Check your connection and try again." }),
         variant: "destructive",
       });
     } finally {
@@ -504,7 +505,7 @@ function RefundsPage() {
     } catch (e: any) {
       toast({
         title: "Retry failed",
-        description: e?.message || "Network error. Check your connection and try again.",
+        description: dbErrorMessage(e, { entity: "refund", fallback: "Network error. Check your connection and try again." }),
         variant: "destructive",
       });
     } finally {

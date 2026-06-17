@@ -14,6 +14,7 @@ import Head from "next/head";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { User, CheckCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { NotificationsTab } from "@/components/account/settings/NotificationsTab";
 import { PrivacyTab } from "@/components/account/settings/PrivacyTab";
@@ -212,7 +213,7 @@ function ProfileSettingsPage() {
       console.error("Error updating password:", error);
       toast({
         title: "Error",
-        description: error.message || "Failed to update password. Please try again.",
+        description: dbErrorMessage(error, { entity: "password" }),
         variant: "destructive",
       });
     } finally {
@@ -247,7 +248,7 @@ function ProfileSettingsPage() {
           console.error("Company rename failed:", companyErr);
           toast({
             title: "Profile saved, but company rename failed",
-            description: companyErr.message,
+            description: dbErrorMessage(companyErr, { entity: "company" }),
             variant: "destructive",
           });
         } else {
@@ -321,7 +322,7 @@ function ProfileSettingsPage() {
       console.error("Avatar upload failed:", err);
       toast({
         title: "Could not upload photo",
-        description: err?.message || "Try a smaller image or a different file.",
+        description: dbErrorMessage(err, { entity: "photo" }),
         variant: "destructive",
       });
     } finally {
