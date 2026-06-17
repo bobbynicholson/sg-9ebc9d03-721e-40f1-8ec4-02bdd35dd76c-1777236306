@@ -201,7 +201,7 @@ export default function CleaningTasksPage() {
                     </div>
                     <div className="flex gap-2 flex-shrink-0">
                       {t.status === "in_progress" ? (
-                        <Button size="sm" onClick={() => openComplete(t)} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+                        <Button size="sm" onClick={() => openComplete(t)} className="bg-amber-600 hover:bg-amber-700 text-white">
                           <Check className="h-4 w-4 mr-1" />Done
                         </Button>
                       ) : (
@@ -237,7 +237,7 @@ export default function CleaningTasksPage() {
           />
           <DialogFooter>
             <Button variant="outline" onClick={closeComplete} disabled={saving}>Cancel</Button>
-            <Button onClick={confirmComplete} disabled={saving} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+            <Button onClick={confirmComplete} disabled={saving} className="bg-amber-600 hover:bg-amber-700 text-white">
               {saving ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving</> : "Mark complete"}
             </Button>
           </DialogFooter>

@@ -317,7 +317,7 @@ function HandoverDetailInner() {
                                   size="sm"
                                   disabled={busyJobId === j.id}
                                   onClick={() => handleCompleteJob(j.id)}
-                                  className="bg-emerald-600 hover:bg-emerald-700 text-xs h-8 gap-1"
+                                  className="bg-amber-600 hover:bg-amber-700 text-xs h-8 gap-1"
                                 >
                                   {busyJobId === j.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
                                   Done
@@ -362,7 +362,7 @@ function HandoverDetailInner() {
                       <Button
                         onClick={handleCompleteHandover}
                         disabled={completing}
-                        className="bg-emerald-600 hover:bg-emerald-700 gap-1.5"
+                        className="bg-amber-600 hover:bg-amber-700 gap-1.5"
                       >
                         {completing ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
                         {completing ? "Signing off..." : "Mark handover complete"}
