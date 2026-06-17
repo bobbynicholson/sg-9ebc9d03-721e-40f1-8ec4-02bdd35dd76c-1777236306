@@ -69,8 +69,15 @@ function _resolveSentry(): any | null {
     return null;
   }
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    _sentryCache = require("@sentry/nextjs");
+    // Resolve at RUNTIME via an indirect require so webpack doesn't try to
+    // statically bundle '@sentry/nextjs' (it's an optional, uninstalled dep -
+    // a direct require() string makes the build emit "Module not found" and
+    // can cascade into page-data-collection failures). eval('require') is
+    // opaque to webpack; this branch only runs when a Sentry DSN is set, in
+    // a Node context where require exists.
+    // eslint-disable-next-line no-eval
+    const runtimeRequire: NodeRequire = eval("require");
+    _sentryCache = runtimeRequire("@sentry/nextjs");
   } catch {
     _sentryCache = null;
   }
