@@ -83,7 +83,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
     // Step 0: rebuild the line-item + equipment layer from the current order
     // row so every downstream step below (inventory, invoice, cleaning count)
-    // reads a consistent spec — a retry must converge to the same state the
+    // reads a consistent spec - a retry must converge to the same state the
     // main amendment handler produces, not re-run cascade steps over stale
     // order_items. Best-effort.
     try {
@@ -117,7 +117,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     if (force || !prior.kitchen_prep?.ok) {
       try {
         const { kitchenPrepService } = await import("@/services/kitchenPrepService");
-        // force:true — otherwise this no-ops on a confirmed order's existing tasks.
+        // force:true - otherwise this no-ops on a confirmed order's existing tasks.
         await (kitchenPrepService as any).ensurePrepTasksForOrder(
           companyId,
           orderId,

@@ -427,7 +427,7 @@ export default function KitchenDashboard() {
         invQuery = (invQuery as any).eq("region_id", regionId);
       }
 
-      // Orders and low-stock are independent reads — run them in parallel so
+      // Orders and low-stock are independent reads - run them in parallel so
       // the board load costs one round-trip instead of two.
       const [
         { data: ordersData, error: ordersError },

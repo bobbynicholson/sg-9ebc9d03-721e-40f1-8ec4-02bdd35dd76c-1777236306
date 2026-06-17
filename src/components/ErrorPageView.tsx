@@ -19,7 +19,7 @@ export function ErrorPageView({
   const heading = title || (statusCode === 500 ? "Something went wrong" : "Unexpected error");
   const body =
     message ||
-    "Our kitchen hit a snag preparing this page. Your data is safe — give it another try, or head back to the dashboard.";
+    "Our kitchen hit a snag preparing this page. Your data is safe - give it another try, or head back to the dashboard.";
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-gradient-to-b from-slate-50 via-white to-violet-50 p-6 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
       <div className="pointer-events-none absolute inset-0 overflow-hidden">

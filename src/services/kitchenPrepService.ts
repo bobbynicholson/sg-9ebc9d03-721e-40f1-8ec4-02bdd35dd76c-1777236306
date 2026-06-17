@@ -324,7 +324,7 @@ export const kitchenPrepService = {
     // event_date, else event_date at 12:00. Fall back to "now" defensively.
     const pickupAt = (() => {
       // pickup_time is `time without time zone` (migration 20260519180000),
-      // e.g. "14:30:00" — new Date("14:30:00") is Invalid Date, which used to
+      // e.g. "14:30:00" - new Date("14:30:00") is Invalid Date, which used to
       // silently fall through to event_time and backplan every prep task from
       // the event start instead of the (earlier) collection time. Combine it
       // with event_date the same way the BEO ticket does.

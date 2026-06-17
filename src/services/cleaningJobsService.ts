@@ -362,7 +362,7 @@ export async function completeJob(
       } else {
         // Booking/dispatch does NOT decrement available_quantity (it relies on
         // the live calculator), so adding the cleaned qty back must be clamped
-        // at the owned total — otherwise available creeps above quantity and
+        // at the owned total - otherwise available creeps above quantity and
         // the in-use stat (quantity - available) goes negative.
         const owned = Number(invRow.quantity || 0);
         const newAvail = Math.min(owned, Number(invRow.available_quantity || 0) + qty);

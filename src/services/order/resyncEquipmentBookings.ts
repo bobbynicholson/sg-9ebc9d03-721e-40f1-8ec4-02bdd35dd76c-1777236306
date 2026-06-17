@@ -35,7 +35,7 @@ function coerceEquipmentItems(raw: any): any[] {
 /**
  * Reconcile equipment_bookings for `orderId` against an equipment_items
  * snapshot: INSERT new lines, UPDATE quantity / window changes (and revive
- * cancelled rows), and cancel rows no longer wanted (soft — preserve history).
+ * cancelled rows), and cancel rows no longer wanted (soft - preserve history).
  * The booking window is event_date ± 1 day, matching creation.
  */
 export async function resyncEquipmentBookings(
@@ -104,7 +104,7 @@ export async function resyncEquipmentBookings(
     }
   }
 
-  // Cancel removed bookings (soft — preserve history).
+  // Cancel removed bookings (soft - preserve history).
   for (const [equipmentId, row] of existingMap.entries()) {
     if (!desired.has(equipmentId) && row.status !== "cancelled") {
       await supabase

@@ -55,7 +55,7 @@ export class AppErrorBoundary extends React.Component<Props, State> {
         <div style={{ maxWidth: "420px", textAlign: "center" }}>
           <h1 style={{ fontSize: "20px", fontWeight: 600, marginBottom: "8px" }}>Something went wrong</h1>
           <p style={{ fontSize: "14px", color: "#57534e", marginBottom: "20px", lineHeight: 1.5 }}>
-            This page hit an unexpected error. Your data is safe — try again, or head back to the dashboard.
+            This page hit an unexpected error. Your data is safe - try again, or head back to the dashboard.
           </p>
           <div style={{ display: "flex", gap: "10px", justifyContent: "center" }}>
             <button

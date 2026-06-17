@@ -484,7 +484,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
     try {
       const { kitchenPrepService } = await import("@/services/kitchenPrepService");
-      // force:true — without it ensurePrepTasksForOrder bails with
+      // force:true - without it ensurePrepTasksForOrder bails with
       // "already_has_pending_tasks" for any confirmed order, so a guest_count /
       // menu / time amendment left the chef's prep + cook tasks frozen on the
       // OLD spec. The quote-edit path already forces; the amendment path didn't.
@@ -557,7 +557,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       }
     }
 
-    // Equipment bookings re-sync — MUST run BEFORE the schedule resync below,
+    // Equipment bookings re-sync - MUST run BEFORE the schedule resync below,
     // because resyncOrderScheduleArtifacts recomputes the cleaning expected
     // item-count FROM equipment_bookings. equipment_items is editable on the
     // amendment path, but the schedule helper only re-stamps the cleaning count

@@ -1092,7 +1092,7 @@ export const driverPayService = {
       .eq("company_id", opts.companyId)
       .eq("assigned_driver_id", opts.driverId)
       .is("deleted_at", null)
-      // include completed too — delivered orders auto-complete ~24h later.
+      // include completed too - delivered orders auto-complete ~24h later.
       .in("status", ["delivered", "completed"])
       .gte("event_date", opts.range.from)
       .lte("event_date", opts.range.to);

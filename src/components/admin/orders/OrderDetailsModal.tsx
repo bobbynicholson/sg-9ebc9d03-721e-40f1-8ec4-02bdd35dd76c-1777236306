@@ -1778,7 +1778,7 @@ return (
             ) : equipmentBookings.length === 0 && quoteEquipmentFallback.length > 0 ? (
               <div className="rounded-lg border border-amber-200 bg-amber-50/40 overflow-hidden">
                 <div className="px-3 py-2 text-xs text-amber-800 bg-amber-100/60 border-b border-amber-200">
-                  On the quote but not yet booked — no equipment_bookings exist for this order.
+                  On the quote but not yet booked - no equipment_bookings exist for this order.
                   {editMode ? " Re-add via search above to create bookings." : " Click Edit to book these."}
                 </div>
                 <table className="w-full text-sm">

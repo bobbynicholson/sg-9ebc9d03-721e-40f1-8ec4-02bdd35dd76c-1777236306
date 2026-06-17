@@ -468,15 +468,15 @@ function PricingManagementPage() {
               <ul className="space-y-1.5 text-sm text-slate-600 dark:text-slate-400">
                 <li className="flex items-center gap-2">
                   <TrendingUp className="h-4 w-4 flex-shrink-0 text-amber-600 dark:text-amber-500" />
-                  <span><strong className="text-slate-700 dark:text-slate-300">/pricing</strong> — South Africa (ZAR)</span>
+                  <span><strong className="text-slate-700 dark:text-slate-300">/pricing</strong> - South Africa (ZAR)</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <TrendingUp className="h-4 w-4 flex-shrink-0 text-amber-600 dark:text-amber-500" />
-                  <span><strong className="text-slate-700 dark:text-slate-300">/us/pricing</strong> — United States (USD)</span>
+                  <span><strong className="text-slate-700 dark:text-slate-300">/us/pricing</strong> - United States (USD)</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <TrendingUp className="h-4 w-4 flex-shrink-0 text-amber-600 dark:text-amber-500" />
-                  <span><strong className="text-slate-700 dark:text-slate-300">/uk/pricing</strong> — United Kingdom (GBP)</span>
+                  <span><strong className="text-slate-700 dark:text-slate-300">/uk/pricing</strong> - United Kingdom (GBP)</span>
                 </li>
               </ul>
             </div>

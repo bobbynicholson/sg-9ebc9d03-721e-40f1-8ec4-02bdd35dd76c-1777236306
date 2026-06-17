@@ -391,7 +391,7 @@ export async function propagateQuoteEditToOrder(
     }
 
     // 9b. Tell the working staff the order changed so they re-check their tasks
-    //     against the new spec — the amendment path broadcasts this but the
+    //     against the new spec - the amendment path broadcasts this but the
     //     quote-edit path used to run the whole cascade silently, leaving
     //     kitchen / shopping / driver / cleaning working off the OLD guest
     //     count / menu / time. Best-effort + dedup'd; never blocks the edit.
