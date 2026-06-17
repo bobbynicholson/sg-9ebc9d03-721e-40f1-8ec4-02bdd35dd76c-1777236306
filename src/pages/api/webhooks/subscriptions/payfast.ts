@@ -229,17 +229,27 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     if (planFromCustom) companyPatch.subscription_plan = planFromCustom;
     await sb.from("companies").update(companyPatch).eq("id", companyId);
 
-    // billing_history row for the operator's records.
+    // billing_history row for the operator's records. NOTE: billing_history
+    // has NO company_id column and user_id is NOT NULL - it FKs to the owner
+    // via user_id. The old insert (company_id + null user_id) failed silently
+    // (unchecked await), so the ledger never populated. Resolve the owner and
+    // surface the error.
     if (paymentStatus === "COMPLETE" || paymentStatus === "FAILED") {
-      // eslint-disable-next-line no-restricted-syntax -- billing_history.company_id not on generated types regen pending
-      await sb.from("billing_history").insert({
-        company_id: companyId,
-        amount: Number(body.amount_gross || body.amount || 0),
-        currency: "ZAR",
-        status: paymentStatus === "COMPLETE" ? "completed" : "failed",
-        invoice_url: null,
-        payment_method: "payfast",
-      } as any);
+      const { data: ownerRow } = await sb
+        .from("companies").select("owner_id").eq("id", companyId).maybeSingle();
+      const ownerId = (ownerRow as any)?.owner_id;
+      if (!ownerId) {
+        console.error("[subscriptions/payfast] no owner_id for company; skipping billing_history", companyId);
+      } else {
+        const { error: bhErr } = await sb.from("billing_history").insert({
+          user_id: ownerId,
+          amount: Number(body.amount_gross || body.amount || 0),
+          currency: "ZAR",
+          status: paymentStatus === "COMPLETE" ? "completed" : "failed",
+          payment_method: "payfast",
+        } as any);
+        if (bhErr) console.error("[subscriptions/payfast] billing_history insert failed:", bhErr);
+      }
     }
 
     // Notify owner/admins about the subscription lifecycle event - the

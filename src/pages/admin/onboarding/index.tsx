@@ -493,7 +493,11 @@ function OnboardingWizard() {
                     const ok = await saveStep({
                       vat_registered: form.vat_registered,
                       vat_number: form.vat_registered ? (form.vat_number.trim() || null as any) : null as any,
-                      vat_rate: form.vat_registered ? (form.vat_rate ?? 15) : null as any,
+                      // companies.vat_rate is NOT NULL - writing null when
+                      // the caterer isn't VAT-registered threw and blocked
+                      // the whole VAT onboarding step. Keep the rate; what
+                      // gates VAT behaviour is vat_registered.
+                      vat_rate: form.vat_registered ? (form.vat_rate ?? 15) : 0,
                     }, "VAT");
                     if (ok) goNext();
                   }}

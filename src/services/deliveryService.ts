@@ -347,12 +347,31 @@ export const deliveryService = {
     };
   },
 
+  // The `deliveries` table has no delivery_photo_url / client_signature
+  // columns - the canonical proof-of-delivery store is orders.pod_photo_url
+  // / pod_signature_url (what driver/deliveryManagement.confirmDelivery
+  // uses). Resolve the delivery's order and write there, so POD capture
+  // from DeliveryStatusModal stops throwing.
   async addDeliveryPhoto(deliveryId: string, photoUrl: string) {
-    return this.updateDelivery(deliveryId, { delivery_photo_url: photoUrl });
+    const { data: d } = await supabase
+      .from("deliveries").select("order_id").eq("id", deliveryId).maybeSingle();
+    const orderId = (d as any)?.order_id;
+    if (!orderId) return false;
+    const { error } = await supabase
+      .from("orders").update({ pod_photo_url: photoUrl } as any).eq("id", orderId);
+    if (error) throw error;
+    return true;
   },
 
   async addClientSignature(deliveryId: string, signature: string) {
-    return this.updateDelivery(deliveryId, { client_signature: signature });
+    const { data: d } = await supabase
+      .from("deliveries").select("order_id").eq("id", deliveryId).maybeSingle();
+    const orderId = (d as any)?.order_id;
+    if (!orderId) return false;
+    const { error } = await supabase
+      .from("orders").update({ pod_signature_url: signature } as any).eq("id", orderId);
+    if (error) throw error;
+    return true;
   },
 
   async deleteDelivery(id: string) {

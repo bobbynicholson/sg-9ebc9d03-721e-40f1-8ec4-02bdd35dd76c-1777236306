@@ -306,7 +306,9 @@ function AdminUsersPage() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data, error } = await (supabase as any)
         .from("staff_invitations")
-        .select("id, email, full_name, role, status, invited_by, created_at, expires_at")
+        // staff_invitations has no email / full_name columns - selecting
+        // them 400'd the query and the Pending-invites tab was always empty.
+        .select("id, user_id, role, status, invited_by, created_at, expires_at")
         .eq("company_id", user.company_id)
         .eq("status", "pending")
         .order("created_at", { ascending: false });

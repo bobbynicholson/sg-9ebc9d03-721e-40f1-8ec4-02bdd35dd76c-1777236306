@@ -86,6 +86,19 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       (existing || []).map((r: any) => String(r.email || "").toLowerCase()).filter(Boolean),
     );
 
+    // clients.region_id is NOT NULL with no default - resolve the tenant's
+    // default region (oldest active) once so every inserted row carries it.
+    // Without this the whole bulk insert 500'd and zero clients imported.
+    const { data: regionRow } = await supabase
+      .from("regions")
+      .select("id")
+      .eq("company_id", companyId)
+      .eq("is_active", true)
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    const defaultRegionId = (regionRow as any)?.id ?? null;
+
     const outcomes: RowOutcome[] = [];
     const toInsert: any[] = [];
     const seenInBatch = new Set<string>();
@@ -147,6 +160,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
       toInsert.push({
         company_id: companyId,
+        region_id: defaultRegionId,
         client_name: fullName,
         email,
         phone: phoneRes.value,

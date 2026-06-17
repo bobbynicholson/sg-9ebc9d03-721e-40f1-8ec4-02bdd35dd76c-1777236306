@@ -27,19 +27,25 @@ import { withApiLogging } from "@/lib/withApiLogging";
 
 const ALLOWED_CALLER_ROLES = new Set(["super_admin", "company_admin", "admin", "owner"]);
 
+// Write the CANONICAL user_role enum value to profiles.role. The enum
+// only has the *_staff forms - mapping to "kitchen"/"cleaning"/"shopping"
+// (as this did) threw `invalid input value for enum user_role: "kitchen"`
+// and every kitchen/cleaning/shopping portal invite 500'd. Same fix
+// already applied in create-user.ts.
 const ROLE_MAP: Record<string, string> = {
-  kitchen_staff: "kitchen",
-  cleaning_staff: "cleaning",
-  shopping_staff: "shopping",
+  kitchen_staff: "kitchen_staff",
+  cleaning_staff: "cleaning_staff",
+  shopping_staff: "shopping_staff",
   driver: "driver",
   admin: "admin",
   owner: "admin",
 };
 
+// Keyed off the canonical dbRole now produced above.
 const BRANDED_ROLE_MAP: Record<string, InvitedRole> = {
-  kitchen: "kitchen",
-  cleaning: "cleaning",
-  shopping: "shopping",
+  kitchen_staff: "kitchen",
+  cleaning_staff: "cleaning",
+  shopping_staff: "shopping",
   driver: "driver",
   admin: "admin",
   company_admin: "company_admin",

@@ -132,10 +132,13 @@ export const kitchenDutyService = {
   async endDutyShift(shiftId: string, notes?: string): Promise<DutyShift> {
     const { data, error } = await supabase
       .from("kitchen_duty_shifts")
+      // kitchen_duty_shifts has no `notes` column - writing it 400s the
+      // whole update, so every kitchen clock-out (and clock-in, which
+      // closes any prior active shift via this fn) threw "Failed to
+      // toggle duty status".
       .update({
         shift_end: new Date().toISOString(),
         is_active: false,
-        notes: notes || null,
         updated_at: new Date().toISOString(),
       } as any)
       .eq("id", shiftId)
@@ -243,17 +246,26 @@ export const kitchenDutyService = {
       location?: { lat: number; lng: number };
     }
   ): Promise<TaskCompletion> {
+    // kitchen_task_completions only has: completed_by (NOT NULL), order_id
+    // (NOT NULL), task_type (NOT NULL), staff_id, user_id, notes,
+    // completed_at. The old insert wrote 5 phantom columns (duty_shift_id,
+    // task_description, photo_url, location_lat/lng) AND omitted the
+    // required completed_by, so every task-complete 500'd. Fold the extras
+    // into notes so nothing is lost.
+    const noteParts = [
+      options?.notes || null,
+      options?.taskDescription ? `Task: ${options.taskDescription}` : null,
+      dutyShiftId ? `Shift: ${dutyShiftId}` : null,
+      options?.photoUrl ? `Photo: ${options.photoUrl}` : null,
+      options?.location ? `Loc: ${options.location.lat},${options.location.lng}` : null,
+    ].filter(Boolean);
     const taskData = {
       user_id: userId,
       order_id: orderId,
       staff_id: staffId,
-      duty_shift_id: dutyShiftId || null,
+      completed_by: staffId || userId,
       task_type: taskType,
-      task_description: options?.taskDescription || null,
-      notes: options?.notes || null,
-      photo_url: options?.photoUrl || null,
-      location_lat: options?.location?.lat || null,
-      location_lng: options?.location?.lng || null,
+      notes: noteParts.length ? noteParts.join(" | ") : null,
       completed_at: new Date().toISOString(),
     } as unknown as TaskCompletionInsert;
 
@@ -338,6 +350,8 @@ export const kitchenDutyService = {
   async getOrderTaskCompletions(orderId: string): Promise<TaskCompletion[]> {
     const { data, error } = await supabase
       .from("kitchen_task_completions")
+      // No duty_shift_id column/FK on kitchen_task_completions - embedding
+      // it 400s the whole query. Drop the embed.
       .select(`
         *,
         staff:staff_id (
@@ -345,11 +359,6 @@ export const kitchenDutyService = {
           full_name,
           avatar_url,
           email
-        ),
-        duty_shift:duty_shift_id (
-          id,
-          shift_start,
-          shift_end
         )
       `)
       .eq("order_id", orderId)
