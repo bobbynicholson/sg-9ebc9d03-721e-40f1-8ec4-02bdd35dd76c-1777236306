@@ -85,7 +85,40 @@ export async function runAutoCancel(
     input.creditAmountIn !== null && input.creditAmountIn >= 0
       ? Number(input.creditAmountIn)
       : derived_credit;
-  const refund_final = refund_calc;
+  // Clamp the refund to what was actually paid, in integer cents - never
+  // refund more than the client paid. Mirrors cancel.ts /
+  // cancellation-review.ts; get_refund_for_order is trusted but this is
+  // belt-and-braces against a policy that returns a % of order total.
+  const totalPaidCents = Math.round((Number(snap.total_amount_paid) || 0) * 100);
+  const refund_final = Math.max(0, Math.min(Math.round(refund_calc * 100), totalPaidCents)) / 100;
+
+  // Idempotency guard. cancelOrder (step 1) is idempotent on the cascade,
+  // but the payout INSERT below is NOT: a retry, a double-click, or the
+  // concurrent magic-link + auth-portal cancel paths could each insert a
+  // second refund/credit_issue row and double-pay the client. If a payout
+  // row for this order already exists, treat this as already-processed and
+  // return the existing ids instead of issuing again. (A true simultaneous
+  // race still needs a DB unique constraint; this closes the common cases.)
+  const { data: priorPayouts } = await sb
+    .from("payments")
+    .select("id, payment_type")
+    .eq("order_id", input.orderId)
+    .in("payment_type", ["refund", "credit_issue"]);
+  if (Array.isArray(priorPayouts) && priorPayouts.length > 0) {
+    const existingRefund = priorPayouts.find((p: any) => p.payment_type === "refund");
+    const existingCredit = priorPayouts.find((p: any) => p.payment_type === "credit_issue");
+    console.warn(`[runAutoCancel] payout already exists for order ${input.orderId}; skipping double-issue`);
+    return {
+      ok: true,
+      auto_processed: true,
+      payout_choice: input.payoutChoice,
+      refund_amount: input.payoutChoice === "refund" ? refund_final : 0,
+      credit_amount: input.payoutChoice === "credit" ? credit_final : 0,
+      refund_payment_id: existingRefund?.id || null,
+      credit_payment_id: existingCredit?.id || null,
+      cancellation_request_id: null,
+    };
+  }
 
   // 1. Run the cascade. Idempotent on repeat - cancelOrder bails
   // early when status is already 'cancelled'.

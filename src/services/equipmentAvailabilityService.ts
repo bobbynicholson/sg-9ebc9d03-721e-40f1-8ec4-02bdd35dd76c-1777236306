@@ -22,7 +22,7 @@
  * `returned_quantity` so partial returns release stock correctly.
  */
 import { supabase } from "@/integrations/supabase/client";
-import { toLocalISO } from "@/lib/localDate";
+import { toLocalISO, parseLocalDay } from "@/lib/localDate";
 
 // Active booking statuses - anything not in this set is either
 // cancelled, fully returned, or not yet committed.
@@ -113,8 +113,14 @@ export async function getEquipmentAvailability(
   // competitor. cleaning_time_hours pads the END of the window so a
   // booking that "officially" returns at 11pm but needs 4 hours of
   // cleaning isn't considered free for an event starting at 2am.
-  const target = new Date(eventDate);
-  if (Number.isNaN(target.getTime())) return { ...empty, owned };
+  // parseLocalDay, NOT new Date(eventDate): a bare YYYY-MM-DD parses as
+  // UTC midnight, which is the previous local calendar day west of UTC.
+  // Since winStart/winEnd + toLocalISO below use LOCAL components, mixing
+  // a UTC-anchored target shifted the whole window a day and the calendar
+  // (windowDays:0) could show committed gear as available. parseLocalDay
+  // anchors to local midnight so the window lines up.
+  const target = parseLocalDay(eventDate);
+  if (!target || Number.isNaN(target.getTime())) return { ...empty, owned };
   const winStart = new Date(target);
   winStart.setDate(target.getDate() - windowDays);
   const winEnd = new Date(target);

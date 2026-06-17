@@ -158,8 +158,13 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     }
 
     const refund_calc = Number(snap.refund_amount) || 0;
-    const refund_final =
+    const refund_requested =
       refund_override !== null && refund_override >= 0 ? Number(refund_override) : refund_calc;
+    // Clamp the refund to what the client actually paid, in integer cents
+    // (never refund more than was received). The admin override path had
+    // only a >= 0 check; cancellation-review.ts already does this clamp.
+    const totalPaidCents = Math.round((Number(snap.total_amount_paid) || 0) * 100);
+    const refund_final = Math.max(0, Math.min(Math.round(refund_requested * 100), totalPaidCents)) / 100;
 
     // Wave 28.2: derive credit_final. The wizard sends credit_amount
     // already inflated by the goodwill bonus; admin-side cancels may
@@ -278,14 +283,18 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       // Audit row - separate from cancellation_requests so the
       // credit issuance shows up in the order's audit_logs timeline.
       try {
+        // audit_logs has NO order_id / metadata columns - top-level use
+        // of them PGRST204s and the best-effort catch swallows it, so the
+        // credit-issued trail was silently never written. Order id goes in
+        // entity_id is already a payment id, so nest order id in details.
         await (ssr as any).from("audit_logs").insert({
           company_id: (order as any).company_id,
-          order_id: orderId,
           user_id: user.id,
           action: "cancellation_credit_issued",
           entity_type: "payments",
           entity_id: creditPaymentId,
-          metadata: {
+          details: {
+            order_id: orderId,
             credit_amount: credit_final,
             credit_pct,
             bonus_pp,
@@ -418,14 +427,15 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       }
     } else {
       try {
+        // audit_logs has no order_id/metadata cols (see above) - entity_id
+        // already carries the order id; extra data goes in details.
         await (ssr as any).from("audit_logs").insert({
           company_id: (order as any).company_id,
-          order_id: orderId,
           user_id: user.id,
           action: "cancellation_email_suppressed",
           entity_type: "orders",
           entity_id: orderId,
-          metadata: { reason_category, requested_by },
+          details: { reason_category, requested_by },
         });
       } catch (e) {
         console.warn("[orders/cancel] suppressed-email audit row failed:", e);

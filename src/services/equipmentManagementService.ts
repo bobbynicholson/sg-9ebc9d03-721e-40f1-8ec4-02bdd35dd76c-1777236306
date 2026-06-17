@@ -175,12 +175,15 @@ export const equipmentManagementService = {
     const thresholdDate = new Date();
     thresholdDate.setDate(thresholdDate.getDate() - daysThreshold);
 
+    // equipment has no last_maintenance_date column - the real column is
+    // last_serviced_at. The old name would 42703/throw the moment this
+    // (currently uncalled) method is wired up.
     const { data, error } = await supabase
       .from("equipment")
       .select("*")
       .eq("company_id", companyId)
-      .lt("last_maintenance_date", thresholdDate.toISOString())
-      .order("last_maintenance_date", { ascending: true });
+      .lt("last_serviced_at", thresholdDate.toISOString())
+      .order("last_serviced_at", { ascending: true });
 
     if (error) throw error;
     return data as Equipment[];
@@ -295,9 +298,12 @@ export const equipmentManagementService = {
     days: number = 90,
   ): Promise<Map<string, { count: number; totalCost: number }>> {
     const sinceIso = new Date(Date.now() - days * 24 * 3600 * 1000).toISOString();
+    // equipment_damages has no total_cost column - the real cost column
+    // is repair_cost. Selecting total_cost 400'd the whole query, which
+    // the catch swallowed -> the damages chip silently always read zero.
     const { data, error } = await (supabase as any)
       .from("equipment_damages")
-      .select("equipment_id, total_cost")
+      .select("equipment_id, repair_cost")
       .eq("company_id", companyId)
       .gte("created_at", sinceIso);
     if (error) {
@@ -305,11 +311,11 @@ export const equipmentManagementService = {
       return new Map();
     }
     const map = new Map<string, { count: number; totalCost: number }>();
-    for (const r of (data || []) as Array<{ equipment_id: string; total_cost: number | null }>) {
+    for (const r of (data || []) as Array<{ equipment_id: string; repair_cost: number | null }>) {
       if (!r.equipment_id) continue;
       const cur = map.get(r.equipment_id) || { count: 0, totalCost: 0 };
       cur.count += 1;
-      cur.totalCost += Number(r.total_cost || 0);
+      cur.totalCost += Number(r.repair_cost || 0);
       map.set(r.equipment_id, cur);
     }
     return map;

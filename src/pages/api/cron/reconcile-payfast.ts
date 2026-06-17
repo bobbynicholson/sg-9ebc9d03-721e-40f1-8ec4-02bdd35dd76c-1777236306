@@ -45,12 +45,17 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
   const sb: any = getServiceSupabase();
 
-  // Find every tenant with an active PayFast configuration.
+  // Find every tenant with an active PayFast configuration. NOTE:
+  // payment_gateways has NO provider_credentials column - selecting it
+  // 400'd the whole query and the entire reconciliation safety net was
+  // inert. Credentials live in the payment_gateway_credentials sibling
+  // (keyed by gateway_id) as a camelCase JSON blob (see loadPayFastCreds).
   const { data: gateways, error: gwErr } = await sb
     .from("payment_gateways")
-    .select("company_id, provider_credentials")
+    .select("id, company_id, is_test")
     .eq("provider", "payfast")
-    .eq("is_active", true);
+    .eq("is_active", true)
+    .is("deleted_at", null);
 
   if (gwErr) {
     console.error("[reconcile-payfast] gateway lookup failed:", gwErr);
@@ -65,7 +70,19 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   }> = [];
 
   for (const gw of (gateways as any[]) || []) {
-    const result = await reconcileTenant(sb, gw.company_id, gw.provider_credentials);
+    const { data: credRow } = await sb
+      .from("payment_gateway_credentials")
+      .select("credentials")
+      .eq("gateway_id", gw.id)
+      .maybeSingle();
+    const raw = (credRow as any)?.credentials || {};
+    const credentials = {
+      merchantId: String(raw.merchantId || "").trim(),
+      merchantKey: String(raw.merchantKey || "").trim(),
+      passphrase: String(raw.passphrase || "").trim(),
+      isTest: Boolean(gw.is_test),
+    };
+    const result = await reconcileTenant(sb, gw.company_id, credentials);
     reconciled.push({ company_id: gw.company_id, ...result });
   }
 
@@ -105,7 +122,7 @@ async function reconcileTenant(
 ): Promise<{ payments_recovered: number; errors: string[] }> {
   const errors: string[] = [];
 
-  if (!credentials?.merchant_id || !credentials?.merchant_key) {
+  if (!credentials?.merchantId || !credentials?.merchantKey) {
     return { payments_recovered: 0, errors: ["payfast credentials missing"] };
   }
 
