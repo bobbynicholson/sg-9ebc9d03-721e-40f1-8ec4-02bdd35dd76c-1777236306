@@ -72,8 +72,8 @@ const COPY: Record<TeamRole, RoleCopy> = {
       "Receipt scanner that links spend back to suppliers + inventory",
     ],
     icon: ShoppingCart,
-    gradient: "from-green-500 to-emerald-500",
-    accent: "bg-green-50 border-green-200",
+    gradient: "from-amber-500 to-orange-500",
+    accent: "bg-amber-50 border-amber-200",
   },
 };
 

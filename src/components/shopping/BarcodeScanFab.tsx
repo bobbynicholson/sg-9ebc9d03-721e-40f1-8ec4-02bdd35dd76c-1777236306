@@ -179,7 +179,7 @@ export function BarcodeScanFab({ companyId, onScanMatch, visible }: Props) {
           setOpen(true);
           window.setTimeout(() => { void startScanner(); }, 50);
         }}
-        className="fixed right-4 bottom-4 sm:right-6 sm:bottom-6 z-40 inline-flex items-center justify-center w-14 h-14 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white shadow-xl ring-4 ring-emerald-100 transition focus:outline-none focus:ring-emerald-200"
+        className="fixed right-4 bottom-4 sm:right-6 sm:bottom-6 z-40 inline-flex items-center justify-center w-14 h-14 rounded-full bg-amber-600 hover:bg-amber-700 text-white shadow-xl ring-4 ring-amber-100 transition focus:outline-none focus:ring-amber-200"
         style={{ marginBottom: "env(safe-area-inset-bottom)" }}
         aria-label="Scan a barcode to tick an item bought"
         title="Scan a barcode"
@@ -191,7 +191,7 @@ export function BarcodeScanFab({ companyId, onScanMatch, visible }: Props) {
         <SheetContent side="bottom" className="h-[85vh] flex flex-col p-0">
           <SheetHeader className="px-4 pt-4 pb-2 border-b">
             <SheetTitle className="flex items-center gap-2">
-              <ScanLine className="w-5 h-5 text-emerald-600" />
+              <ScanLine className="w-5 h-5 text-amber-600" />
               Scan a barcode
             </SheetTitle>
             <SheetDescription>
@@ -204,7 +204,7 @@ export function BarcodeScanFab({ companyId, onScanMatch, visible }: Props) {
               <video ref={videoRef} className="w-full h-full object-cover" playsInline muted />
               {cameraState.kind === "scanning" && (
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                  <div className="border-2 border-emerald-400 rounded-lg w-3/4 h-1/2 shadow-[0_0_0_9999px_rgba(0,0,0,0.45)]" />
+                  <div className="border-2 border-amber-400 rounded-lg w-3/4 h-1/2 shadow-[0_0_0_9999px_rgba(0,0,0,0.45)]" />
                 </div>
               )}
               {cameraState.kind === "idle" && (
@@ -256,7 +256,7 @@ export function BarcodeScanFab({ companyId, onScanMatch, visible }: Props) {
                   type="button"
                   onClick={handleManualSubmit}
                   disabled={lookingUp || !manualBarcode.trim()}
-                  className="min-h-11 bg-emerald-600 hover:bg-emerald-700"
+                  className="min-h-11 bg-amber-600 hover:bg-amber-700"
                 >
                   Tick
                 </Button>
