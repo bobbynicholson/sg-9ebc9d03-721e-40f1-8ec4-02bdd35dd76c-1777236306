@@ -17,6 +17,17 @@ export const supportTicketService = {
     contactEmail?: string;
     contactPhone?: string;
   }) {
+    // support_tickets has no company_name/contact_email/contact_phone columns,
+    // so fold any supplied contact details into the description rather than
+    // 400ing the whole insert.
+    const contactBits = [
+      ticketData.companyName ? `Company: ${ticketData.companyName}` : null,
+      ticketData.contactEmail ? `Email: ${ticketData.contactEmail}` : null,
+      ticketData.contactPhone ? `Phone: ${ticketData.contactPhone}` : null,
+    ].filter(Boolean);
+    const description = contactBits.length
+      ? `${ticketData.description}\n\n---\n${contactBits.join("\n")}`
+      : ticketData.description;
     const { data, error } = await supabase
       .from("support_tickets")
       .insert({
@@ -24,10 +35,7 @@ export const supportTicketService = {
           subject: ticketData.subject,
           category: ticketData.category,
           priority: ticketData.priority,
-          description: ticketData.description,
-          company_name: ticketData.companyName,
-          contact_email: ticketData.contactEmail,
-          contact_phone: ticketData.contactPhone,
+          description,
           status: "open",
         } as any)
       .select()

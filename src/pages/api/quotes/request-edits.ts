@@ -128,11 +128,11 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     // Mirror to quote_change_requests so /admin/quotes/[id] sees
     // the request alongside public-path ones.
     try {
+      // quote_change_requests has no `source` column.
       await admin.from("quote_change_requests").insert([{
         company_id: quote.company_id,
         quote_id: quote.id,
         message: text,
-        source: "client_portal",
         status: "pending",
       }]);
     } catch (e) {

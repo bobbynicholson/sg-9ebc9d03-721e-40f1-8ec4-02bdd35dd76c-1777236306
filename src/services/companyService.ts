@@ -629,8 +629,10 @@ export const companyService = {
     try {
       const { error } = await supabase
         .from("companies")
+        // The column is onboarding_completed_at (timestamp), not a boolean
+        // onboarding_completed.
         .update({
-          onboarding_completed: true,
+          onboarding_completed_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         } as any)
         .eq("id", companyId);

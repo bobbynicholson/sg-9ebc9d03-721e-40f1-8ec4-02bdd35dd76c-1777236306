@@ -132,14 +132,15 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
   // 1. Stamp the audit row FIRST so the action survives the delete.
   try {
+    // audit_logs columns: entity_type/entity_id identify the row; the payload
+    // goes in `details` (there is no order_id or metadata column).
     await svc.from("audit_logs").insert({
       company_id: companyId,
-      order_id: orderId,
       user_id: user.id,
       action: "order_purged",
       entity_type: "orders",
       entity_id: orderId,
-      metadata: {
+      details: {
         order_number: (order as any).order_number,
         client_name: (order as any).client_name,
         client_email: (order as any).client_email,

@@ -61,15 +61,14 @@ export const routeStopService = {
       throw new Error("Cannot depart without arrival time");
     }
 
-    const arrivalTime = new Date(stop.arrival_time);
     const departureTime = new Date();
-    const durationMinutes = Math.round((departureTime.getTime() - arrivalTime.getTime()) / (1000 * 60));
 
     const { data, error } = await supabase
       .from("delivery_route_stops")
+      // delivery_route_stops has no duration_minutes column; arrival_time +
+      // departure_time capture the dwell, derivable on read.
       .update({
         departure_time: departureTime.toISOString(),
-        duration_minutes: durationMinutes,
       } as any)
       .eq("id", stopId)
       .select()

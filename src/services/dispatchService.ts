@@ -942,14 +942,9 @@ export const dispatchService = {
     // order kept the vehicle booked and the driver got pinged for an
     // event they were no longer working. Trigger them inline now so
     // every unassign path picks the cleanup up for free.
-    try {
-      await supabase
-        .from("equipment_bookings")
-        .update({ driver_id: null } as any)
-        .eq("order_id", payload.orderId);
-    } catch (e) {
-      console.warn("[dispatch] unassign equipment booking detach failed:", e);
-    }
+    // (equipment_bookings has no driver_id column - drivers link to orders via
+    // driver_assignments, not to equipment bookings - so there's nothing to
+    // detach here. The vehicle-release + reminder-cancel cascade follows.)
     try {
       const { vehicleService } = await import("./vehicleService");
       await vehicleService.cancelBookingsForOrder(payload.orderId);

@@ -134,10 +134,10 @@ export async function updateStopStatus(
   try {
     const { error } = await supabase
       .from("delivery_route_stops")
+      // delivery_route_stops has no updated_at column.
       .update({
         status,
         notes,
-        updated_at: new Date().toISOString(),
         ...(status === "arrived" && { actual_arrival_time: new Date().toISOString() }),
         ...(status === "completed" && { completion_time: new Date().toISOString() }),
       } as any)

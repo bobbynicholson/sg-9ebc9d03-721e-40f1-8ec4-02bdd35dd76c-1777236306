@@ -9,15 +9,17 @@ export const feedbackService = {
   async submitFeedback(feedback: FeedbackData) {
     const { data, error } = await (supabase as any)
       .from("delivery_feedback")
+      // Column names per the live schema: delivery_timeliness_rating /
+      // driver_professionalism_rating (not delivery_speed_/driver_service_).
+      // would_recommend + photo_url have no columns on delivery_feedback, so
+      // they're not persisted (the whole insert 400'd before).
       .insert({
         order_id: feedback.order_id,
         food_quality_rating: feedback.food_quality_rating,
-        delivery_speed_rating: feedback.delivery_speed_rating,
-        driver_service_rating: feedback.driver_service_rating,
+        delivery_timeliness_rating: feedback.delivery_speed_rating,
+        driver_professionalism_rating: feedback.driver_service_rating,
         overall_rating: feedback.overall_rating,
         comments: feedback.comments,
-        would_recommend: feedback.would_recommend,
-        photo_url: feedback.photo_url,
         created_at: new Date().toISOString(),
       })
       .select()

@@ -707,15 +707,16 @@ export const menuService = {
       const recipeSrc = full.recipe as any;
       const { data: recipeCreated } = await (supabase as any)
         .from("recipes")
+        // Column is recipe_name (not name); recipes has no
+        // requires_advance_notice_hours column.
         .insert({
           company_id: companyId,
           menu_item_id: newId,
-          name: recipeSrc.name,
+          recipe_name: recipeSrc.recipe_name ?? recipeSrc.name,
           base_servings: recipeSrc.base_servings,
           prep_time_minutes: recipeSrc.prep_time_minutes,
           cook_time_minutes: recipeSrc.cook_time_minutes,
           instructions: recipeSrc.instructions,
-          requires_advance_notice_hours: recipeSrc.requires_advance_notice_hours,
         })
         .select("id")
         .single();
