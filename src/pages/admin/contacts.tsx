@@ -206,12 +206,14 @@ function ClientsCRM() {
     const t = setTimeout(() => setDebouncedSearch(search), 150);
     return () => clearTimeout(t);
   }, [search]);
-  // Default to Hot leads instead of All so the first paint isn't
-  // blocked rendering thousands of cold/lost rows the operator
-  // rarely needs first thing. The All chip stays one click away.
-  // ?clientId / ?q deep-links flip back to "all" inside their own
+  // Default to All so the book shows on first load. The earlier
+  // "Hot leads" default left import-heavy tenants (thousands of
+  // imported contacts, few/no leads) staring at an empty page that
+  // read as broken. Render volume is already bounded by DISPLAY_CAP
+  // (first 500 rows) so "All" does not blow up first paint.
+  // ?clientId / ?q deep-links also resolve to "all" in their own
   // effects so a row jump still finds the target.
-  const [filter, setFilter] = useState<"all" | ClientStatus>("hot_lead");
+  const [filter, setFilter] = useState<"all" | ClientStatus>("all");
   // Wave 70.75: full URL persistence. Pre-fix only ?q= was read
   // on mount and never written back, so a refresh lost the
   // search and filter chip every time. Now: ?q + ?filter hydrate
@@ -240,7 +242,7 @@ function ClientsCRM() {
     if (!router.isReady || !hydratedRef.current) return;
     const next: Record<string, string> = {};
     if (debouncedSearch.trim()) next.q = debouncedSearch.trim();
-    if (filter !== "hot_lead") next.filter = filter;
+    if (filter !== "all") next.filter = filter;
     // Preserve ?clientId deep-links from elsewhere.
     const preserved = ["clientId"];
     for (const k of preserved) {
@@ -397,27 +399,41 @@ function ClientsCRM() {
     // Page through clients in 1000-row chunks. PostgREST silently caps a
     // single response at 1000 rows, so a customer who imports 5,000
     // contacts would otherwise only ever see the first 1000 here.
+    const CLIENT_COLS =
+      "id, client_name, email, phone, mobile_number, landline_number, client_type, is_active, outstanding_balance, created_at, historical_total_events, historical_lifetime_spend, historical_last_event_date, imported_filename, tags";
+    // Page through clients in 1000-row chunks, but fire the chunks in
+    // PARALLEL. Pre-fix this looped sequentially (await page, then next),
+    // so a 7,500-contact book paid 8 round-trips back to back before the
+    // page could even start aggregating. Now: read page 0 with an exact
+    // count, then request every remaining page at once. 50k hard cap so a
+    // runaway query can't DOS the page.
     const fetchAllClients = async () => {
-      const out: any[] = [];
       const PAGE = 1000;
-      for (let from = 0; ; from += PAGE) {
-        const to = from + PAGE - 1;
+      const HARD_CAP = 50000;
+      const pageQuery = (from: number, to: number) => {
         let q: any = supabase
           .from("clients")
-          .select("id, client_name, email, phone, mobile_number, landline_number, client_type, is_active, outstanding_balance, created_at, historical_total_events, historical_lifetime_spend, historical_last_event_date, imported_filename, tags")
+          .select(CLIENT_COLS, { count: "exact" })
           .eq("company_id", companyId)
           .is("deleted_at", null);
         // XSC-A: scope to picked region for branch managers.
         if (regionFilterId) q = q.eq("region_id", regionFilterId);
-        q = q.range(from, to);
-        const { data, error } = await q;
-        if (error) return { data: out, error };
-        const rows = data || [];
-        out.push(...rows);
-        if (rows.length < PAGE) break;
-        // Hard cap so a runaway query can't DOS the page. 50k contacts
-        // is far above any reasonable single-tenant book.
-        if (out.length >= 50000) break;
+        return q.range(from, to);
+      };
+      const first = await pageQuery(0, PAGE - 1);
+      if (first.error) return { data: [] as any[], error: first.error };
+      const out: any[] = [...(first.data || [])];
+      const total = Math.min(first.count ?? out.length, HARD_CAP);
+      if (total > PAGE) {
+        const requests: any[] = [];
+        for (let from = PAGE; from < total; from += PAGE) {
+          requests.push(pageQuery(from, Math.min(from + PAGE - 1, total - 1)));
+        }
+        const pages = await Promise.all(requests);
+        for (const p of pages) {
+          if (p.error) return { data: out, error: p.error };
+          out.push(...(p.data || []));
+        }
       }
       return { data: out, error: null };
     };
