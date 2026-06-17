@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="robots" content="noindex" />
+<title>Order Flow End-to-End Test Checklist</title>
+<style>
+  :root {
+    --amber: #d97706;
+    --amber-soft: #fef3c7;
+    --ink: #1c1917;
+    --muted: #78716c;
+    --line: #e7e5e4;
+    --done: #16a34a;
+    --bg: #faf9f7;
+    --card: #ffffff;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    line-height: 1.5;
+  }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 24px 18px 80px; }
+  header {
+    position: sticky; top: 0; z-index: 10;
+    background: rgba(250,249,247,0.92);
+    backdrop-filter: blur(8px);
+    padding: 18px 0 12px;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 8px;
+  }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin: 0; }
+  .url { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--amber-soft); color: #92400e; padding: 1px 6px; border-radius: 5px; font-size: 12px; }
+  .barwrap { margin-top: 12px; }
+  .bartrack { height: 10px; background: var(--line); border-radius: 999px; overflow: hidden; }
+  .barfill { height: 100%; width: 0%; background: var(--amber); border-radius: 999px; transition: width .25s ease; }
+  .barlabel { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); margin-top: 6px; }
+  .toolbar { margin-top: 10px; }
+  .toolbar button {
+    font: inherit; font-size: 12px; cursor: pointer;
+    background: var(--card); border: 1px solid var(--line); color: var(--muted);
+    padding: 5px 12px; border-radius: 7px;
+  }
+  .toolbar button:hover { border-color: var(--amber); color: var(--amber); }
+  .phase {
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: 12px; padding: 16px 18px; margin: 16px 0;
+  }
+  .phase h2 { font-size: 16px; margin: 0 0 2px; display: flex; align-items: center; gap: 8px; }
+  .phase .role { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--amber); font-weight: 700; }
+  .phase .lands { font-size: 12px; color: var(--muted); margin: 2px 0 12px; }
+  ul { list-style: none; margin: 0; padding: 0; }
+  li.item { display: flex; gap: 10px; align-items: flex-start; padding: 7px 0; border-top: 1px dashed var(--line); }
+  li.item:first-of-type { border-top: none; }
+  li.item input { margin-top: 3px; width: 17px; height: 17px; accent-color: var(--amber); cursor: pointer; flex: 0 0 auto; }
+  li.item label { cursor: pointer; font-size: 14.5px; }
+  li.item.checked label { color: var(--muted); text-decoration: line-through; }
+  .check { background: #ecfdf5; border-color: #bbf7d0; }
+  .check .role { color: var(--done); }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; background: #f5f5f4; padding: 1px 5px; border-radius: 4px; font-size: 12.5px; }
+  .note { background: var(--amber-soft); border-radius: 10px; padding: 14px 16px; margin-top: 20px; font-size: 13.5px; }
+  .note h3 { margin: 0 0 8px; font-size: 14px; color: #92400e; }
+  .note li { padding: 4px 0; }
+  .note ul { list-style: disc; padding-left: 18px; }
+  footer { text-align: center; color: var(--muted); font-size: 12px; margin-top: 28px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Order Flow: End-to-End Test Checklist</h1>
+    <p class="sub">One order from customer through shopper, kitchen, driver, and closure. Local dev: <span class="url">http://localhost:3001</span> &middot; admin pages need <span class="url">?company_slug=&lt;slug&gt;</span></p>
+    <div class="barwrap">
+      <div class="bartrack"><div class="barfill" id="barfill"></div></div>
+      <div class="barlabel"><span id="barcount">0 of 0 done</span><span id="barpct">0%</span></div>
+    </div>
+    <div class="toolbar"><button id="reset">Reset all checks</button></div>
+  </header>
+
+  <!-- Phases injected by JS -->
+  <div id="phases"></div>
+
+  <div class="note">
+    <h3>What to watch for (the things that usually break)</h3>
+    <ul>
+      <li><b>Notifications:</b> at every handoff (confirm &rarr; kitchen, assign &rarr; driver, delivered &rarr; admin) confirm the right role actually got pinged. Silent handoffs are the known weak spot.</li>
+      <li><b>Status guards:</b> driver delivery is blocked outside 24h of the event; confirm is blocked if the deposit is unpaid. Use a near-term event date so you don't hit these.</li>
+      <li><b>Equipment:</b> if you skip adding equipment in Phase 1, the driver collection leg won't appear. Include at least one equipment item.</li>
+      <li><b>Slug query:</b> if an admin page looks empty, you probably dropped the <code>?company_slug=</code> param.</li>
+    </ul>
+  </div>
+
+  <footer>Progress is saved in this browser only. Open the same URL on the same browser to resume.</footer>
+</div>
+
+<script>
+const DATA = [
+  {
+    role: "Setup", title: "Before you start", lands: "Create these 5 logins (or one account you switch roles on). Use an incognito window per role so you can flip between tabs and watch the order move.",
+    items: [
+      "Admin account (you, company_admin)",
+      "Shopper account (role = shopper)",
+      "Kitchen account (role = kitchen_staff)",
+      "Driver account (role = driver)",
+      "One client/customer with an email you can read",
+    ]
+  },
+  {
+    role: "Phase 1 · Customer", title: "Customer places the order", lands: "As admin you build + send the quote, then accept it as the client.",
+    items: [
+      "As admin go to /admin/quotes/new, build a quote for the test client",
+      "Add at least one MENU item AND one EQUIPMENT item (equipment is needed so the driver collection leg fires later)",
+      "Fill guest count + venue + client email (convert is gated on these)",
+      "Send the quote, grab the magic link from the email or open /quotes/[token]",
+      "In a client/incognito tab open the link, confirm it loads (status sent → viewed)",
+      "Click Accept Quote, enter acceptor name, submit",
+      "Confirm an order auto-created with status = pending, and it shows in /client-portal/my-orders",
+    ]
+  },
+  {
+    role: "Phase 2 · Admin", title: "Admin confirms and assigns", lands: "/admin/orders?company_slug=<slug>",
+    items: [
+      "Open /admin/orders, find the new order",
+      "Click it, hit Confirm. Status pending → confirmed",
+      "Verify deposit/invoice generated (check /admin/invoices)",
+      "Verify kitchen prep tasks auto-created",
+      "Verify kitchen staff got a notification",
+      "If deposit required: as client pay it via Pay Deposit link (/pay/i/[token]), confirm order shows deposit paid",
+    ]
+  },
+  {
+    role: "Phase 3 · Shopper", title: "Shopper (procurement) sees the demand", lands: "Lands on /team-portal/shopping/dashboard",
+    items: [
+      "Log in as shopper, confirm you land on /team-portal/shopping/dashboard",
+      "Go to /team-portal/shopping/orders, Upcoming tab, confirm the confirmed order shows",
+      "Go to /team-portal/shopping/buy-list, confirm the order's ingredients/shortfall appear",
+      "Tick items, click Add to list (shopping list created, status draft)",
+      "On dashboard click Start shopping. Status draft → in_progress",
+      "Tick a couple items as purchased, refresh, confirm ticks persist",
+      "Click Complete list, upload receipt photo, enter actual total. Status → completed",
+    ]
+  },
+  {
+    role: "Phase 4 · Kitchen", title: "Kitchen prepares (parallel leg)", lands: "Lands on /team-portal/kitchen/today",
+    items: [
+      "Log in as kitchen staff, confirm you land on /team-portal/kitchen/today",
+      "Confirm the order's prep tasks are listed",
+      "Click Start prep, mark each task done, watch the X/Y counter",
+      "When all tasks done, order can move to ready (kitchen marks ready or admin sets it). ready_at stamped",
+    ]
+  },
+  {
+    role: "Phase 5 · Driver", title: "Driver delivers", lands: "Assign at /admin/order-assignments, driver works /team-portal/driver/deliveries",
+    items: [
+      "As admin go to /admin/order-assignments?company_slug=<slug> (or /admin/dispatch)",
+      "Find the order, click Assign Driver, pick test driver, assign",
+      "Verify assigned_driver_id set, vehicle auto-booked, driver got notification/WhatsApp",
+      "Log in as driver, confirm you land on /team-portal/driver/deliveries",
+      "Confirm the order shows in the Active tab",
+      "Tap the order to acknowledge it, confirm driver_acknowledged_at stamps",
+      "Click Leave for kitchen. Status → in_transit, picked_up_at stamped (only works within 24h of event)",
+      "Click At venue, capture POD photo + recipient name. pod_captured_at stamps",
+      "Click Delivery complete. Status in_transit → delivered, delivered_at stamped",
+      "Verify collection assignment auto-created (because there's equipment)",
+      "Verify cleaning jobs queued and inventory deducted",
+      "Still as driver find the collection assignment, click Collect equipment. Equipment bookings flip to returned",
+    ]
+  },
+  {
+    role: "Phase 6 · Closure", title: "Closure", lands: "Final invoice + completion",
+    items: [
+      "As client pay the balance via the final invoice (/pay/i/[token])",
+      "Confirm order auto-completes: delivered → completed, completed_at stamped",
+      "Confirm thank-you notification/email fires",
+      "As client check /client-portal/my-orders shows the full timeline filled in end to end",
+    ]
+  },
+];
+
+const KEY = "orderFlowTest.v1";
+function load() { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { return {}; } }
+function save(state) { localStorage.setItem(KEY, JSON.stringify(state)); }
+let state = load();
+
+const phasesEl = document.getElementById("phases");
+let total = 0;
+DATA.forEach((phase, pi) => {
+  const card = document.createElement("div");
+  card.className = "phase";
+  card.innerHTML = '<div class="role">' + phase.role + '</div><h2>' + phase.title + '</h2><p class="lands">' + phase.lands + '</p>';
+  const ul = document.createElement("ul");
+  phase.items.forEach((text, ii) => {
+    const id = "p" + pi + "i" + ii;
+    total++;
+    const li = document.createElement("li");
+    li.className = "item";
+    const cb = document.createElement("input");
+    cb.type = "checkbox"; cb.id = id; cb.checked = !!state[id];
+    if (state[id]) li.classList.add("checked");
+    const lbl = document.createElement("label");
+    lbl.htmlFor = id; lbl.textContent = text;
+    cb.addEventListener("change", () => {
+      state[id] = cb.checked; save(state);
+      li.classList.toggle("checked", cb.checked);
+      updateBar(card);
+    });
+    li.appendChild(cb); li.appendChild(lbl); ul.appendChild(li);
+  });
+  card.appendChild(ul);
+  phasesEl.appendChild(card);
+  updateBar(card);
+});
+
+function updateBar(card) {
+  if (card) {
+    const boxes = card.querySelectorAll("input");
+    const done = card.querySelectorAll("input:checked").length;
+    card.classList.toggle("check", done === boxes.length && boxes.length > 0);
+  }
+  const allDone = document.querySelectorAll("#phases input:checked").length;
+  const pct = total ? Math.round(allDone / total * 100) : 0;
+  document.getElementById("barfill").style.width = pct + "%";
+  document.getElementById("barcount").textContent = allDone + " of " + total + " done";
+  document.getElementById("barpct").textContent = pct + "%";
+}
+
+document.getElementById("reset").addEventListener("click", () => {
+  if (!confirm("Clear all checks?")) return;
+  state = {}; save(state);
+  document.querySelectorAll("#phases input").forEach(cb => { cb.checked = false; cb.closest("li").classList.remove("checked"); });
+  document.querySelectorAll(".phase").forEach(updateBar);
+});
+updateBar();
+</script>
+</body>
+</html>
