@@ -63,9 +63,13 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     const row = rows.find((r) => r.id === rowId);
     if (!row) return res.status(404).json({ error: "Row not found on this job" });
 
-    const targetTable: "clients" | "orders" | "leads" =
-      (row.target_table as any) === "orders" ? "orders"
-      : (row.target_table as any) === "leads" ? "leads"
+    const tt = String(row.target_table || "");
+    const targetTable: "clients" | "orders" | "leads" | "quotes" | "invoices" | "payments" =
+      tt === "orders" ? "orders"
+      : tt === "leads" ? "leads"
+      : tt === "quotes" ? "quotes"
+      : tt === "invoices" ? "invoices"
+      : tt === "payments" ? "payments"
       : "clients";
 
     // Apply the overrides through the same normaliser the preview
@@ -116,7 +120,17 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         nextStatus = "error";
         nextErrorMessage = "Lead is missing an email";
       }
+    } else if (targetTable === "payments") {
+      // A payment needs a real amount; it does NOT need a client name, so
+      // it must not fall through to the clients "no name/email/phone" check.
+      if (!(Number(nextMapped.amount) > 0)) {
+        nextStatus = "error";
+        nextErrorMessage = "Payment is missing a valid amount";
+      }
     }
+    // quotes + invoices: the commit path stubs a client and synthesises any
+    // missing identity, so there's no hard required-field check here -
+    // leave the row 'pending' rather than mis-applying the clients rules.
 
     const supabase = getServiceSupabase() as any;
     await supabase
