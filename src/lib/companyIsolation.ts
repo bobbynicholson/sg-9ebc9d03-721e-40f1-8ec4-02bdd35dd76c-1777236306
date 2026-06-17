@@ -26,7 +26,7 @@ export async function getCompanyContext(): Promise<CompanyContext | null> {
       id,
       active_role,
       company_id,
-      companies!inner(
+      companies!company_id!inner(
         id,
         slug
       )

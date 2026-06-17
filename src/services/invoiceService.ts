@@ -278,9 +278,8 @@ export const invoiceService = {
       .select(`
         *,
         profiles:client_id (
-          full_name,
+          full_name:client_name,
           email,
-          company_name,
           phone
         )
       `)

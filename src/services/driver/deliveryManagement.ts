@@ -206,7 +206,7 @@ export async function getDriverDeliveries(
       .from("orders")
       .select(`
         *,
-        client:clients(client_name, email, phone, address),
+        client:clients(client_name, email, phone, address:billing_address_line1),
         items:order_items(
           quantity,
           item_name,

@@ -96,14 +96,16 @@ export function OrderClientChatPanel({
         async (payload: any) => {
           const row = payload?.new;
           if (!row) return;
-          // Re-fetch with the sender join (realtime payloads don't include it).
+          // Re-fetch the row (realtime payloads can lag the projection).
+          // sender_id is polymorphic (client or staff), so there's no FK to
+          // embed a name through - the panel keys off sender_role, not name.
           const { data } = await supabase
             .from("order_chat_messages")
-            .select("*, sender:sender_id(full_name)")
+            .select("*")
             .eq("id", row.id)
             .maybeSingle();
           if (data) {
-            const msg: OrderChatMessage = { ...(data as any), sender_name: (data as any).sender?.full_name };
+            const msg: OrderChatMessage = { ...(data as any) };
             setMessages(prev => prev.some(m => m.id === msg.id) ? prev : [...prev, msg]);
             const fromOtherSide = isStaff ? msg.sender_role === "client" : msg.sender_role !== "client";
             if (fromOtherSide && !msg.read_at) {

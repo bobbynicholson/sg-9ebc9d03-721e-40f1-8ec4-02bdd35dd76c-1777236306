@@ -20,7 +20,7 @@ export function AuditLogsViewer() {
           .select(`
             *,
             profiles:user_id (full_name, email),
-            companies:company_id (name)
+            companies:company_id (name:company_name)
           `)
           .order("created_at", { ascending: false })
           .limit(100);

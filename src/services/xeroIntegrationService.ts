@@ -100,7 +100,7 @@ export const xeroIntegrationService = {
         .from("orders")
         .select(`
           *,
-          profiles:client_id (full_name, email, company_name)
+          profiles:client_id (full_name:client_name, email)
         `)
         .eq("id", orderId)
         .single();

@@ -798,7 +798,7 @@ Your Catering Company`;
       // catering company's slug-prefixed subscription pages.
       const { data: order, error: orderError } = await supabase
         .from("orders")
-        .select("*, profiles!inner(*, companies:company_id(slug))")
+        .select("*, profiles!user_id!inner(*, companies:company_id(slug))")
         .eq("id", orderId)
         .single();
 

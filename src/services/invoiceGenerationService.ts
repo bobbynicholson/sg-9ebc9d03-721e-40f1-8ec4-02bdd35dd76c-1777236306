@@ -1033,7 +1033,6 @@ async function renderInvoicePdfAttachment(
         postal_code, country, primary_color,
         vat_registered, vat_number, vat_rate,
         registration_number, tax_number,
-        payment_terms,
         updated_at
       )
     `)
