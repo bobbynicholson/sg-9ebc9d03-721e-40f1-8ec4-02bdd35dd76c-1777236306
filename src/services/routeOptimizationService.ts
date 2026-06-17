@@ -602,14 +602,14 @@ export const routeOptimizationService = {
       // Update orders with driver and sequence. Write both `driver_id`
       // (legacy) and `assigned_driver_id` (canonical) so every consumer
       // sees the assignment regardless of which column they read.
-      for (let i = 0; i < route.stops.length; i++) {
-        const stop = route.stops[i];
+      for (const stop of route.stops) {
+        // orders has no delivery_sequence column (stop order lives on
+        // delivery_route_stops.sequence_number); only persist the driver here.
         await supabase
           .from("orders")
           .update({
             driver_id: route.driver_id,
             assigned_driver_id: route.driver_id,
-            delivery_sequence: i + 1,
           } as any)
           .eq("id", stop.order_id);
       }

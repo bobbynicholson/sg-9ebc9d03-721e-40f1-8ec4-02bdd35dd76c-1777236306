@@ -32,18 +32,27 @@ function otherSide(role: OrderChatRole): OrderChatRole[] {
 
 export const orderChatService = {
   async getMessagesForOrder(orderId: string): Promise<OrderChatMessage[]> {
+    // sender_id is polymorphic (client | staff), so there's no FK to embed a
+    // name through. Load the rows, then resolve staff names separately.
     const { data, error } = await supabase
       .from("order_chat_messages")
-      .select("*, sender:sender_id(full_name)")
+      .select("*")
       .eq("order_id", orderId)
       .order("created_at", { ascending: true });
     if (error) {
       console.error("[orderChatService/getMessagesForOrder]", error);
       return [];
     }
-    return (data || []).map((m: any) => ({
+    const rows = (data || []) as any[];
+    const staffIds = [...new Set(rows.filter((m) => m.sender_role !== "client" && m.sender_id).map((m) => m.sender_id))];
+    let nameById: Record<string, string> = {};
+    if (staffIds.length) {
+      const { data: profs } = await supabase.from("profiles").select("id, full_name").in("id", staffIds);
+      nameById = Object.fromEntries(((profs || []) as any[]).map((p) => [p.id, p.full_name]));
+    }
+    return rows.map((m) => ({
       ...m,
-      sender_name: m.sender?.full_name,
+      sender_name: nameById[m.sender_id],
     }));
   },
 
