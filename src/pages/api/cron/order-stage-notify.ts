@@ -102,11 +102,19 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     emailLogRes,
     deliveryShiftsRes,
   ] = await Promise.all([
-    supabase.from("payments").select("order_id, payment_type, status, processed_at, amount, payment_method, receipt_sent_at").in("order_id", orderIds),
-    supabase.from("equipment_bookings").select("order_id, equipment_id, status, returned_quantity, pre_event_cleaning_done_at").in("order_id", orderIds),
+    // Same live-DB schema drift fixed in admin/orders.tsx: payments has no
+    // `status` (use payment_status, aliased so downstream reads p.status) and
+    // no `receipt_sent_at` (dropped - timeline falls back to email-log signal).
+    supabase.from("payments").select("order_id, payment_type, status:payment_status, processed_at, amount, payment_method").in("order_id", orderIds),
+    // equipment_bookings has no pre_event_cleaning_done_at column on the live
+    // DB - selecting it 400'd this batch. Drop it (pre-event cleaning state is
+    // derived from cleaning_jobs elsewhere; it was never populated here).
+    supabase.from("equipment_bookings").select("order_id, equipment_id, status, returned_quantity").in("order_id", orderIds),
     supabase.from("equipment_hire_orders").select("order_id, supplier_name, expected_pickup_date, actual_pickup_date, expected_return_date, actual_return_date, status, created_at").in("order_id", orderIds),
     supabase.from("kitchen_prep_tasks").select("order_id, status, started_at, completed_at").in("order_id", orderIds),
-    supabase.from("driver_assignments").select("order_id, assignment_type, status, accepted_at, started_at, completed_at, created_at").in("order_id", orderIds),
+    // driver_assignments has no started_at; alias en_route_at -> started_at
+    // (matches admin/orders.tsx) so the collection_done stage keeps working.
+    supabase.from("driver_assignments").select("order_id, assignment_type, status, accepted_at, started_at:en_route_at, completed_at, created_at").in("order_id", orderIds),
     // TIGHTEN I.81: drop soft-deleted invoices so the cron-driven
     // stage notifications don't fire on voided invoices.
     supabase.from("invoices").select("id, order_id, invoice_number, total_amount, sent_at, paid_at, status, balance_due, created_at, invoice_date").in("order_id", orderIds).is("deleted_at", null),
