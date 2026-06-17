@@ -203,6 +203,13 @@ export interface OrderTimelineInput {
    *  appears here, surface a blocker chip ("Equipment X still being
    *  cleaned"). Empty array when not joined. */
   cleaningJobsActive?: Array<{ equipment_id: string; equipment_name?: string | null; status?: string }>;
+  /** Order-level cleaning cycle: ALL cleaning_jobs linked to this order
+   *  via triggered_by_event_id (any status). Mirrors how OrderTimelineSection
+   *  on /order/[id] derives the post-event cleaning step - the equipment-
+   *  level equipment_cleaning_status table was retired (Wave 45), so when
+   *  equipmentCleaningStatus is empty we derive post_event_cleaning from
+   *  these instead: done when every non-cancelled job is status='complete'. */
+  cleaningJobsForOrder?: Array<{ created_at?: string | null; actual_end?: string | null; actual_start?: string | null; status?: string | null }>;
   /** Wave 44 T2 - delivery shifts linked to this order via
    *  kitchen_shifts.order_id. When driver_assigned_delivery is the
    *  current stage and this is empty, surface "No driver claimed
@@ -649,6 +656,35 @@ function resolveStage(
         ? `/admin/cleaning-schedule?date=${o.event_date}`
         : `/admin/cleaning-schedule`;
       if (rows.length === 0) {
+        // equipment_cleaning_status retired (Wave 45). Derive from the
+        // order's cleaning_jobs (triggered_by_event_id) the same way
+        // OrderTimelineSection does on /order/[id], so the admin list +
+        // every other computeOrderTimeline surface shows the SAME cleaning
+        // progress as the order page (was stuck on "upcoming" forever).
+        const jobs = (input.cleaningJobsForOrder || []).filter(
+          (j) => String(j?.status || "") !== "cancelled",
+        );
+        if (jobs.length > 0) {
+          const allComplete = jobs.every((j) => String(j?.status || "") === "complete");
+          const anyInProgress = jobs.some((j) => String(j?.status || "") === "in_progress");
+          const completedAt = allComplete
+            ? jobs.map((j) => j?.actual_end).filter(Boolean).sort().reverse()[0] || null
+            : null;
+          const startedAt = jobs.map((j) => j?.actual_start || j?.created_at).filter(Boolean).sort()[0] || null;
+          return {
+            status: allComplete ? "completed" : anyInProgress ? "current" : "upcoming",
+            startedAt: allComplete ? startedAt : (anyInProgress ? startedAt : null),
+            completedAt,
+            blockedReason: null,
+            sourceLink: cleaningLink,
+            meta: {
+              progress: {
+                done: jobs.filter((j) => String(j?.status || "") === "complete").length,
+                total: jobs.length,
+              },
+            },
+          };
+        }
         return {
           status: "upcoming",
           startedAt: null,

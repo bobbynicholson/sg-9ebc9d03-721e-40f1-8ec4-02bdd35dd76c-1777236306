@@ -896,6 +896,27 @@ function OrderProcessDashboard() {
             }));
           }
 
+          // Order-level cleaning cycle (ALL statuses) keyed by
+          // triggered_by_event_id = order.id - mirrors OrderTimelineSection
+          // on /order/[id] so the post-event cleaning timeline stage shows
+          // the same progress here as on the order page (the equipment-keyed
+          // active-only fetch above can't see completed cleaning).
+          const cleaningJobsForOrderByOrder = new Map<string, any[]>();
+          {
+            const { data: cjAll, error: cjAllErr } = await (supabase as any)
+              .from("cleaning_jobs")
+              .select("triggered_by_event_id, created_at, actual_start, actual_end, status")
+              .in("triggered_by_event_id", orderIds)
+              .is("deleted_at", null);
+            if (cjAllErr) console.error("[orders] cleaning_jobs (by order) batch failed:", cjAllErr);
+            for (const r of (cjAll || []) as Array<{ triggered_by_event_id?: string | null }>) {
+              const key = String(r.triggered_by_event_id || "");
+              if (!key) continue;
+              const arr = cleaningJobsForOrderByOrder.get(key);
+              if (arr) arr.push(r); else cleaningJobsForOrderByOrder.set(key, [r]);
+            }
+          }
+
           // Bucket each row-set by order_id once, then compute
           // timeline per order with O(1) lookup. Avoids N filter
           // passes through the same array.
@@ -1014,6 +1035,7 @@ function OrderProcessDashboard() {
               invoices: invoicesByOrder.get(o.id) || [],
               emailLog: emailLogByOrder.get(o.id) || [],
               cleaningJobsActive,
+              cleaningJobsForOrder: cleaningJobsForOrderByOrder.get(o.id) || [],
               deliveryShifts: deliveryShiftsByOrder.get(o.id) || [],
               outsourceAssignments: outsourceByOrder.get(o.id) || [],
               tenantTimezone,
