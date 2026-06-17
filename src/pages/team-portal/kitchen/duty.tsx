@@ -888,7 +888,7 @@ export default function KitchenDutyRosterPage() {
                           <Square className="h-4 w-4 mr-2" />Clock out
                         </Button>
                       ) : (
-                        <Button onClick={startShift} disabled={saving} className="bg-emerald-600 hover:bg-emerald-700">
+                        <Button onClick={startShift} disabled={saving} className="bg-amber-600 hover:bg-amber-700">
                           {saving ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Clocking in</> : <><Play className="h-4 w-4 mr-2" />Clock in</>}
                         </Button>
                       )}

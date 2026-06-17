@@ -780,7 +780,7 @@ export default function KitchenStockPage() {
               onClick={saveUsage}
               disabled={saving || !usedQty}
               className={
-                action === "received" ? "bg-emerald-600 hover:bg-emerald-700 text-white" :
+                action === "received" ? "bg-amber-600 hover:bg-amber-700 text-white" :
                 action === "wasted" ? "bg-amber-600 hover:bg-amber-700 text-white" :
                 action === "count" ? "bg-slate-700 hover:bg-slate-800 text-white" :
                                      "bg-amber-600 hover:bg-amber-700 text-white"
