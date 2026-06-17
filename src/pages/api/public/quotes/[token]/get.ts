@@ -76,7 +76,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         vat_registered, vat_number, vat_rate, pricing_includes_vat,
         registration_number, tax_number,
         primary_color, secondary_color, accent_color,
-        currency
+        currency, deposit_percent
       )
     `)
     .eq("public_token", token)
@@ -91,6 +91,23 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (!data) {
     return res.status(404).json({ ok: false, error: "Not found" });
   }
+
+  // Resolve the deposit % the same way the admin accept dialog does
+  // (resolveDepositPct in admin/quotes): prefer the company's CURRENT
+  // Settings -> Financial value over the quote's stamped deposit_percentage,
+  // which is frozen at creation time (older quotes carry the old hardcoded
+  // 30). Otherwise a tenant who set 50% in settings still saw 30% on the
+  // client-facing /q page. We overwrite the returned deposit_percentage so
+  // the page binding (quote.deposit_percentage) needs no change.
+  const companyPct = Number((data as any)?.company?.deposit_percent);
+  const quotePct = Number((data as any)?.deposit_percentage);
+  const effectivePct =
+    Number.isFinite(companyPct) && companyPct > 0
+      ? companyPct
+      : Number.isFinite(quotePct) && quotePct > 0
+        ? quotePct
+        : null;
+  (data as any).deposit_percentage = effectivePct;
 
   return res.status(200).json({ ok: true, quote: data });
 }

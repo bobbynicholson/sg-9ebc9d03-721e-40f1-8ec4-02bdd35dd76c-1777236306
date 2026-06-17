@@ -13,6 +13,12 @@
 -- place, ADD COLUMN uses IF NOT EXISTS). Run the whole file in the
 -- Supabase SQL editor.
 --
+--   §0  Enum values used by the payment / convert flows  (fixes: accepting
+--       a quote with "Client has already paid the deposit" ticked errors +
+--       loses the deposit - convert_quote_to_order casts payment_status /
+--       payment_method via jsonb_populate_record, so a value missing from
+--       the live enum fails the whole order INSERT. Idempotent, no-op if
+--       already present).
 --   §1  Client-portal RPC EXECUTE grants  (fixes: "Client link" /
 --       "View as client sees it" 500 every time - the app calls
 --       client_view_order/account with the anon key, which had lost
@@ -24,6 +30,22 @@
 --   §3  equipment_damages / equipment_handovers columns  (fixes: cleaning
 --       portal "Flag damage" / handover-receipt 500s - code writes
 --       columns the live tables never had).
+
+
+-- ─────────────────────────────────────────────────────────────────────
+-- §0  Enum values used by the payment / convert flows
+-- ─────────────────────────────────────────────────────────────────────
+-- ALTER TYPE ... ADD VALUE IF NOT EXISTS is idempotent and is allowed inside
+-- a transaction on PG12+ (Supabase) AS LONG AS the new value isn't *used* in
+-- the same transaction. Nothing below uses these at runtime (the function in
+-- §2 only references them in its body, which is evaluated at call time), so
+-- this is safe in one run. If your SQL editor still objects, run these five
+-- lines on their own first, then run the rest of the file.
+ALTER TYPE public.payment_status ADD VALUE IF NOT EXISTS 'partial';
+ALTER TYPE public.payment_status ADD VALUE IF NOT EXISTS 'paid';
+ALTER TYPE public.payment_method ADD VALUE IF NOT EXISTS 'eft';
+ALTER TYPE public.payment_method ADD VALUE IF NOT EXISTS 'card';
+ALTER TYPE public.payment_method ADD VALUE IF NOT EXISTS 'other';
 
 
 -- ─────────────────────────────────────────────────────────────────────
