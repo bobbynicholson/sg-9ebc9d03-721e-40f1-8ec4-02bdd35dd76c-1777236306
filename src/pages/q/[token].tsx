@@ -437,7 +437,23 @@ export default function PublicQuotePage() {
                (screen only) - kill it in print so there's no dead band
                of whitespace that pushes content onto a second page. */
             .print-tight { padding-top: 0 !important; padding-bottom: 0 !important; }
-            @page { margin: 14mm; }
+            /* Compact the cards in print. On screen each card has roomy
+               padding + a 16px gap; for a short quote that roominess
+               dribbles the last card or two onto a near-empty page 2.
+               Trim the gaps + inner padding so a typical quote lands on
+               a single A4 page. .print-shadow-none is on every card; its
+               only direct child is the CardContent body. */
+            .print-shadow-none { margin-bottom: 6px !important; }
+            .print-shadow-none > div { padding-top: 10px !important; padding-bottom: 10px !important; }
+            /* The company footer uses a big mt-10 + pt-6 on screen to
+               breathe under the action block; in print there's no action
+               block, so collapse that gap to keep page 1 intact. */
+            .print-footer-tight { margin-top: 14px !important; padding-top: 10px !important; }
+            /* Letterhead header: trim its generous screen padding +
+               shrink the headline so it doesn't eat a third of page 1. */
+            .print-pad-sm { padding: 16px !important; }
+            .print-head-sm { font-size: 1.7rem !important; line-height: 1.15 !important; }
+            @page { margin: 12mm; }
           }
         `}</style>
       </Head>
@@ -485,7 +501,7 @@ export default function PublicQuotePage() {
                 their brand colour is. */}
             <div className="h-1.5 bg-brand-primary" />
             <div className="absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-brand-primary/10 to-transparent pointer-events-none" />
-            <div className="relative p-6 sm:p-8">
+            <div className="relative p-6 sm:p-8 print-pad-sm">
             <div className="flex items-start justify-between gap-3 flex-wrap">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-3 mb-4">
@@ -513,7 +529,7 @@ export default function PublicQuotePage() {
                     </p>
                   </div>
                 </div>
-                <h1 className="text-2xl sm:text-4xl md:text-[2.6rem] font-serif font-bold text-stone-900 leading-tight break-words">
+                <h1 className="text-2xl sm:text-4xl md:text-[2.6rem] font-serif font-bold text-stone-900 leading-tight break-words print-head-sm">
                   {quote.quote_name || `Quote for ${quote.client_name || "your event"}`}
                 </h1>
                 <p className="text-sm text-stone-600 mt-2.5">
@@ -552,7 +568,7 @@ export default function PublicQuotePage() {
                     const el = document.getElementById("quote-actions");
                     if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
                   }}
-                  className="brand-print bg-brand-primary text-white border-0 px-3 py-1.5 text-sm rounded-full font-medium hover:opacity-90 transition-opacity inline-flex items-center gap-1.5 cursor-pointer"
+                  className="no-print bg-brand-primary text-white border-0 px-3 py-1.5 text-sm rounded-full font-medium hover:opacity-90 transition-opacity inline-flex items-center gap-1.5 cursor-pointer"
                   aria-label="Jump to response options"
                 >
                   Awaiting your response
@@ -1208,7 +1224,7 @@ export default function PublicQuotePage() {
 
           {/* COMPANY FOOTER */}
           {company && (company.email || company.phone || companyAddress) && (
-            <div className="mt-10 pt-6 border-t border-stone-200 text-center text-xs text-stone-500 space-y-0.5">
+            <div className="print-footer-tight mt-10 pt-6 border-t border-stone-200 text-center text-xs text-stone-500 space-y-0.5">
               <p className="font-bold text-stone-700 text-sm">{companyName}</p>
               <p className="space-x-1.5">
                 {company.email && <span>{company.email}</span>}
