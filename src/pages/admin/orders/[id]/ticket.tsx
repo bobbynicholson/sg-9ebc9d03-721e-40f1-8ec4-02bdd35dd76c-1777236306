@@ -498,7 +498,7 @@ function KitchenTicketPage() {
                 ticket before reading anything else. Falls back to a
                 "Times pending" message when nothing is set. */}
             {(earliestPrepStart || latestCookEnd || pickupAt) && (
-              <div className="rounded-md border-2 border-orange-300 bg-orange-50 px-3 py-2.5">
+              <div className="print-keep rounded-md border-2 border-orange-300 bg-orange-50 px-3 py-2.5">
                 <p className="text-[10px] uppercase tracking-widest text-orange-700 font-bold mb-1.5 flex items-center gap-1">
                   <Clock className="w-3 h-3" />
                   Backplanned timeline
@@ -553,7 +553,7 @@ function KitchenTicketPage() {
                 know exactly who's collecting + when so they can hand
                 off cleanly. Pulled from driver_assignments + profiles. */}
             {(deliveryDriver || collectionDriver) && (
-              <div className="grid grid-cols-2 gap-4 pb-3 border-b border-slate-200">
+              <div className="print-keep grid grid-cols-2 gap-4 pb-3 border-b border-slate-200">
                 {deliveryDriver && (
                   <div>
                     <p className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold mb-1 flex items-center gap-1">
@@ -593,7 +593,7 @@ function KitchenTicketPage() {
 
             {/* Allergen watch-out band */}
             {allAllergens.length > 0 && (
-              <div className="rounded-md border border-rose-300 bg-rose-50 px-3 py-2">
+              <div className="print-keep rounded-md border border-rose-300 bg-rose-50 px-3 py-2">
                 <p className="text-[10px] uppercase tracking-wider text-rose-700 font-semibold mb-1">Watch out - allergens across this order</p>
                 <div className="flex flex-wrap gap-1.5">
                   {allAllergens.map((t) => (
@@ -647,7 +647,7 @@ function KitchenTicketPage() {
               ) : (
                 <ul className="divide-y divide-slate-200">
                   {backplanned.map((b) => (
-                    <li key={b.orderItemId} className="py-3">
+                    <li key={b.orderItemId} className="py-3 print-row">
                       <div className="flex items-start gap-3">
                         <span className="text-2xl font-bold tabular-nums text-slate-900 w-14 shrink-0">{b.qty}x</span>
                         <div className="flex-1 min-w-0">
@@ -737,7 +737,7 @@ function KitchenTicketPage() {
                 </p>
                 <div className="grid grid-cols-2 gap-3">
                   {equipmentByCategory.map(([category, rows]) => (
-                    <div key={category} className="rounded-md border border-slate-200 p-2.5">
+                    <div key={category} className="print-keep rounded-md border border-slate-200 p-2.5">
                       <p className="text-[10px] uppercase tracking-wider text-slate-600 font-semibold mb-1">{category}</p>
                       <ul className="space-y-0.5">
                         {rows.map((eb) => (

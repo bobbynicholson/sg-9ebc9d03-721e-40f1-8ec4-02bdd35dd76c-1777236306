@@ -125,9 +125,62 @@
      .print-only -> show only when printing (e.g. a small "Printed
                     on" footer that's irrelevant on screen)
    The Booking* components (Wave 70.41-70.43) use .no-print on the
-   action bar so printed pages don't carry buttons no one will tap. */
+   action bar so printed pages don't carry buttons no one will tap.
+
+   Everything below the escape hatches is global print hardening that
+   every "Save as PDF" surface gets for free. These are the defaults
+   that were missing app-wide and which produced the "PDF spills onto
+   a near-empty second page / a card is sliced in half" complaints:
+     - consistent A4-ish page margin so no surface prints edge-to-edge
+     - print-color-adjust so brand colours / tinted bands actually
+       render (Chrome/Edge default background graphics OFF on print)
+     - table rows, images and headings never split or orphan
+   PLUS the opt-in utilities (.print-keep / .print-row / .print-tight /
+   .print-avoid) so any document page can protect its own cards + line
+   rows without redefining the same CSS. Used by /q/[token] and any new
+   printable surface - reach for these instead of hand-rolling. */
 @media print {
   .no-print { display: none !important; }
+
+  /* Honour brand colours + tinted header bands in the PDF. Without
+     this Chrome/Edge strip backgrounds on print and a branded
+     letterhead comes out plain white. */
+  html, body {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+
+  /* Consistent page margin for every printable surface. Pages that
+     need a different margin can still override with their own @page. */
+  @page { margin: 14mm; }
+
+  /* Safe, universal break hygiene - none of these clip content, they
+     only stop ugly splits:
+       - a table row never breaks across a page
+       - table headers repeat on each page
+       - an image/svg is never sliced in half
+       - a heading never sits alone at the foot of a page */
+  tr, img, svg { break-inside: avoid; page-break-inside: avoid; }
+  thead { display: table-header-group; }
+  h1, h2, h3, h4 { break-after: avoid; page-break-after: avoid; }
+
+  /* Opt-in: keep a whole block (a card / panel) on one page. If it
+     doesn't fit it moves to the next page intact instead of being
+     sliced at the page boundary. Use on fixed-size cards, NOT on long
+     lists (a list taller than a page would overflow). */
+  .print-keep { break-inside: avoid; page-break-inside: avoid; }
+
+  /* Opt-in: a single line/total row never splits, so an item name on
+     one page can't leave its price stranded on the next. */
+  .print-row { break-inside: avoid; page-break-inside: avoid; }
+
+  /* Opt-in: drop screen-only padding (e.g. sticky-bar clearance) that
+     would otherwise leave a dead band of whitespace in the PDF. */
+  .print-tight { padding-top: 0 !important; padding-bottom: 0 !important; }
+
+  /* Opt-in alias kept for readability at call sites. */
+  .print-avoid { break-inside: avoid; page-break-inside: avoid; }
 }
 @media not print {
   .print-only { display: none !important; }
