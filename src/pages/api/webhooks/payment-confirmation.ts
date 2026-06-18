@@ -605,18 +605,24 @@ async function handler(
     const isDepositPayment = paymentType
       ? paymentType === "deposit"
       : !order.deposit_paid;
-    let expectedAmount = isDepositPayment
-      ? order.deposit_amount
-      : order.balance_amount;
-
-    // FIX (2026-06-12): orders.deposit_amount / balance_amount are
-    // often null (the deposit invoice amount lives on the invoice, not
-    // these columns). create-session charges the unpaid invoice's
-    // balance in that case, so the webhook MUST validate against the
-    // same figure or it rejects every such payment as "Amount
-    // mismatch". Fall back to the order's open invoice amount, then
-    // the order total, mirroring create-session's own fallback chain.
-    if (!expectedAmount || Number(expectedAmount) <= 0) {
+    // What the client can pay now is ANY amount up to the outstanding
+    // balance. Since 7b36bbf3 the public pay page lets the payer choose
+    // a custom figure (a deposit that isn't the configured %, or any
+    // partial), and create-session charges the gateway exactly that,
+    // capped to the balance. The webhook therefore can no longer expect
+    // a fixed deposit/balance amount - it must validate the gateway
+    // figure against the outstanding balance as a CEILING.
+    //
+    // The previous exact-match check (got must equal deposit_amount or
+    // the full balance, within tolerance) rejected every custom partial
+    // as "Amount mismatch": the client paid on PayFast but the order +
+    // invoice never flipped to paid. This is the exact "I paid but it
+    // still shows unpaid" incident. The deposit invoice amount also
+    // lives on the invoice, not orders.deposit_amount/balance_amount
+    // (which are routinely null), so we resolve the ceiling from the
+    // live open invoice first, then fall back to the order columns.
+    let maxPayable = 0;
+    {
       const { data: openInv } = await supabase
         .from("invoices")
         .select("total_amount, balance_due")
@@ -626,38 +632,37 @@ async function handler(
         .order("created_at", { ascending: true })
         .limit(1)
         .maybeSingle();
-      expectedAmount =
+      maxPayable =
         Number((openInv as any)?.balance_due) ||
         Number((openInv as any)?.total_amount) ||
+        Number(order.balance_amount) ||
+        Number(order.deposit_amount) ||
         Number(order.total_amount) ||
         Number(amount_gross); // last resort: trust the gateway figure
     }
 
-    // Verify amount matches.
-    //
-    // Tolerance was 1 cent (0.01) which was too tight for inc-VAT
-    // tenants - the stored deposit_amount and PayFast's amount_gross
-    // can drift by up to a few cents per R1k of order value because
-    // inc/ex rounding cascades through deposit-percent calculations.
-    // Catering orders sit in the R2k-R200k range so a 1-cent gate
-    // silently rejected real payments for the spit-braai / similar
-    // inc-VAT tenants.
-    //
-    // New tolerance: R1 absolute OR 0.5% of the expected amount,
-    // whichever is larger. Still tight enough to catch a real fraud
-    // attempt (mismatched amount by hundreds) but lets honest rounding
-    // through. Log the delta whenever it's non-zero so we can spot
-    // anything systematic in production.
-    const exp = Number(expectedAmount);
+    // Sanity-gate the gateway amount. The passphrase-keyed signature
+    // check above already authenticated the IPN, so this is a
+    // data-integrity guard, NOT an exact-match requirement:
+    //   - must be a positive figure
+    //   - must not exceed the outstanding balance by more than rounding
+    //     tolerance (catches a stale / forged overpayment)
+    // Any amount at or below the balance (full OR partial deposit) is
+    // accepted and recorded; the invoice reconcile below flips the row
+    // to partially_paid or paid accordingly. Tolerance mirrors the
+    // inc-VAT rounding drift allowance used elsewhere: R1 or 0.5%.
     const got = Number(amount_gross);
-    const delta = Math.abs(got - exp);
-    const tolerance = Math.max(1.0, exp * 0.005);
-    if (delta > tolerance) {
-      console.error("Amount mismatch:", { got, expected: exp, delta, tolerance });
-      return res.status(400).json({ error: "Amount mismatch" });
+    const tolerance = Math.max(1.0, maxPayable * 0.005);
+    if (!(got > 0)) {
+      console.error("Invalid payment amount:", { got });
+      return res.status(400).json({ error: "Invalid amount" });
     }
-    if (delta > 0.01) {
-      console.warn("Amount within tolerance but not exact:", { got, expected: exp, delta });
+    if (got > maxPayable + tolerance) {
+      console.error("Amount exceeds outstanding balance:", { got, maxPayable, tolerance });
+      return res.status(400).json({ error: "Amount exceeds balance" });
+    }
+    if (got < maxPayable - tolerance) {
+      console.warn("Partial payment below full balance - recording as partial:", { got, maxPayable });
     }
 
     // FIX (2026-06-12): record the payment via the service-role RPC
