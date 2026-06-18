@@ -426,7 +426,18 @@ export default function PublicQuotePage() {
                which doesn't honour break-inside on flex children unless
                page-break-inside is set explicitly. */
             .brand-print { page-break-inside: avoid; break-inside: avoid; }
-            @page { margin: 16mm; }
+            /* Stop the page boundary slicing a card in half (the "two
+               ugly pages" problem). Each card stays whole on a page;
+               if it doesn't fit it moves to the next page intact. */
+            .print-keep { page-break-inside: avoid; break-inside: avoid; }
+            /* Line-item / total rows never split across pages, so a
+               name on one page and its price on the next can't happen. */
+            .print-row { page-break-inside: avoid; break-inside: avoid; }
+            /* The pb-28 on the container is mobile sticky-bar clearance
+               (screen only) - kill it in print so there's no dead band
+               of whitespace that pushes content onto a second page. */
+            .print-tight { padding-top: 0 !important; padding-bottom: 0 !important; }
+            @page { margin: 14mm; }
           }
         `}</style>
       </Head>
@@ -434,7 +445,7 @@ export default function PublicQuotePage() {
       <div className="min-h-screen bg-gradient-to-b from-stone-100 via-stone-50 to-white print-bg-white">
         {/* pb-28 on mobile clears the sticky accept bar so the footer
             never hides behind it; sm+ has no sticky bar. */}
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 pt-8 pb-28 sm:pb-10">
+        <div className="print-tight max-w-3xl mx-auto px-4 sm:px-6 pt-8 pb-28 sm:pb-10">
 
           {/* Floating action bar - screen only */}
           <div className="no-print flex items-center justify-between gap-2 mb-4 flex-wrap">
@@ -554,7 +565,7 @@ export default function PublicQuotePage() {
 
           {/* EVENT DETAILS - icon tiles so the who / when / how many /
               where scan in one glance. */}
-          <Card className="mb-4 border border-stone-200 shadow-sm print-shadow-none">
+          <Card className="print-keep mb-4 border border-stone-200 shadow-sm print-shadow-none">
             <CardContent className="py-5 px-5 grid grid-cols-1 sm:grid-cols-3 gap-4">
               {quote.client_name && (
                 <div className="flex items-start gap-3">
@@ -631,7 +642,7 @@ export default function PublicQuotePage() {
                     const qty = Number(item?.quantity ?? item?.qty ?? 1);
                     const lineTotal = Number(item?.total ?? unitPrice * qty);
                     return (
-                      <div key={i} className="flex justify-between gap-3 text-sm py-2 border-b border-stone-100 last:border-b-0">
+                      <div key={i} className="print-row flex justify-between gap-3 text-sm py-2 border-b border-stone-100 last:border-b-0">
                         <div className="flex-1 min-w-0">
                           <p className="font-semibold text-stone-900">{name}</p>
                           {description && (
@@ -667,7 +678,7 @@ export default function PublicQuotePage() {
                     const qty = item?.quantity ?? item?.qty ?? 1;
                     const lineTotal = Number(item?.total ?? Number(item?.unit_price ?? 0) * qty);
                     return (
-                      <div key={i} className="flex justify-between gap-3 text-sm py-2 border-b border-stone-100 last:border-b-0">
+                      <div key={i} className="print-row flex justify-between gap-3 text-sm py-2 border-b border-stone-100 last:border-b-0">
                         <div className="flex-1 min-w-0">
                           <p className="font-semibold text-stone-900">{name}</p>
                           {qty > 1 && (
@@ -717,7 +728,7 @@ export default function PublicQuotePage() {
               ? Math.max(0, persistedTotal - deliveryFee)
               : Math.max(0, persistedSubtotal - deliveryFee);
             return (
-              <Card className="mb-4 border border-stone-200 shadow-sm print-shadow-none overflow-hidden">
+              <Card className="print-keep mb-4 border border-stone-200 shadow-sm print-shadow-none overflow-hidden">
                 <CardContent className="py-5 px-5 space-y-2 bg-gradient-to-br from-white via-white to-brand-primary/5">
                   <p className="text-xs uppercase tracking-[0.15em] text-brand-primary font-bold mb-1">
                     Your investment
