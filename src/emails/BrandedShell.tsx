@@ -104,7 +104,7 @@ const bodyStyle: React.CSSProperties = {
 };
 
 const containerStyle: React.CSSProperties = {
-  margin: "0 auto",
+  margin: 0,
   maxWidth: 560,
   width: "100%",
   backgroundColor: "#ffffff",

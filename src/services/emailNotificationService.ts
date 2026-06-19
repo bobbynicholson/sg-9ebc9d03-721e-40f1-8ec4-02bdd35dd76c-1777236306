@@ -231,7 +231,7 @@ export const emailNotificationService = {
   <meta charset="utf-8">
   <style>
     body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+    .container { max-width: 600px; margin: 0; padding: 20px; }
     .header { background: linear-gradient(135deg, #9333ea 0%, #ec4899 100%); color: white; padding: 30px; text-align: left; border-radius: 10px 10px 0 0; }
     .content { background: #f9fafb; padding: 30px; border-radius: 0 0 10px 10px; }
     .button { display: inline-block; background: #9333ea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0; }
@@ -302,7 +302,7 @@ export const emailNotificationService = {
   <meta charset="utf-8">
   <style>
     body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+    .container { max-width: 600px; margin: 0; padding: 20px; }
     .header { background: linear-gradient(135deg, #9333ea 0%, #ec4899 100%); color: white; padding: 30px; text-align: left; border-radius: 10px 10px 0 0; }
     .content { background: #f9fafb; padding: 30px; border-radius: 0 0 10px 10px; }
     .footer { text-align: center; margin-top: 30px; font-size: 12px; color: #666; }
@@ -337,7 +337,7 @@ export const emailNotificationService = {
   <meta charset="utf-8">
   <style>
     body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+    .container { max-width: 600px; margin: 0; padding: 20px; }
     .header { background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 30px; text-align: left; border-radius: 10px 10px 0 0; }
     .content { background: #f9fafb; padding: 30px; border-radius: 0 0 10px 10px; }
     .footer { text-align: center; margin-top: 30px; font-size: 12px; color: #666; }
@@ -375,7 +375,7 @@ export const emailNotificationService = {
   <meta charset="utf-8">
   <style>
     body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+    .container { max-width: 600px; margin: 0; padding: 20px; }
     .header { background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 30px; text-align: left; border-radius: 10px 10px 0 0; }
     .content { background: #f9fafb; padding: 30px; border-radius: 0 0 10px 10px; }
     .footer { text-align: center; margin-top: 30px; font-size: 12px; color: #666; }
@@ -410,7 +410,7 @@ export const emailNotificationService = {
   <meta charset="utf-8">
   <style>
     body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+    .container { max-width: 600px; margin: 0; padding: 20px; }
     .header { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: white; padding: 30px; text-align: left; border-radius: 10px 10px 0 0; }
     .content { background: #f9fafb; padding: 30px; border-radius: 0 0 10px 10px; }
     .footer { text-align: center; margin-top: 30px; font-size: 12px; color: #666; }
@@ -445,7 +445,7 @@ export const emailNotificationService = {
   <meta charset="utf-8">
   <style>
     body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+    .container { max-width: 600px; margin: 0; padding: 20px; }
     .header { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; padding: 30px; text-align: left; border-radius: 10px 10px 0 0; }
     .content { background: #f9fafb; padding: 30px; border-radius: 0 0 10px 10px; }
     .details { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; }
@@ -503,7 +503,7 @@ export const emailNotificationService = {
   <meta charset="utf-8">
   <style>
     body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+    .container { max-width: 600px; margin: 0; padding: 20px; }
     .header { background: linear-gradient(135deg, #9333ea 0%, #ec4899 100%); color: white; padding: 30px; text-align: left; border-radius: 10px 10px 0 0; }
     .content { background: #f9fafb; padding: 30px; border-radius: 0 0 10px 10px; }
     .footer { text-align: center; margin-top: 30px; font-size: 12px; color: #666; }
