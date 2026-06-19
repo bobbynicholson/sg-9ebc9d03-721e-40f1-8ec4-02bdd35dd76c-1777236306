@@ -593,7 +593,7 @@ export default function InvoicePaymentPage() {
                       them set the figure; the remaining balance updates
                       live and the gateway is charged for exactly this. */}
                   <div className="rounded-lg border border-stone-200 bg-stone-50 p-4 space-y-2">
-                    <label htmlFor="pay-amount" className="text-xs font-semibold text-stone-700">
+                    <label htmlFor="pay-amount" className="text-sm font-semibold text-stone-800">
                       Amount to pay now (R)
                     </label>
                     <input
@@ -613,28 +613,34 @@ export default function InvoicePaymentPage() {
                       }}
                       className="w-full h-11 rounded-md border border-stone-300 px-3 text-base tabular-nums focus:outline-none focus:ring-2 focus:ring-brand-primary/40"
                     />
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-stone-500">Outstanding balance</span>
-                      <span className="font-semibold text-stone-700 tabular-nums">{fmtMoney.format(invoice.balance_due)}</span>
+                    <div className="flex items-center justify-between text-base mt-1">
+                      <span className="text-stone-600">Outstanding balance</span>
+                      <span className="font-bold text-stone-900 text-lg tabular-nums">{fmtMoney.format(invoice.balance_due)}</span>
                     </div>
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-stone-500">Balance remaining after this payment</span>
-                      <span className="font-semibold text-stone-900 tabular-nums">{fmtMoney.format(remainingAfter)}</span>
+                    <div className="flex items-center justify-between text-base">
+                      <span className="text-stone-600">Balance remaining after this payment</span>
+                      <span className="font-bold text-stone-900 text-lg tabular-nums">{fmtMoney.format(remainingAfter)}</span>
                     </div>
-                    <div className="flex flex-wrap gap-2 pt-1">
-                      <button
-                        type="button"
-                        onClick={() => setPayAmount(String(Math.min(depositAmount, invoice.balance_due)))}
-                        className="text-[11px] rounded-full border border-stone-300 px-2.5 py-1 text-stone-600 hover:bg-white"
-                      >
-                        Deposit ({depositPct}%): {fmtMoney.format(Math.min(depositAmount, invoice.balance_due))}
-                      </button>
+                    <div className="flex flex-wrap gap-2 pt-2">
+                      {/* Only offer the deposit shortcut when it's actually
+                          smaller than what's still owing - once the deposit
+                          is paid it equals the full balance, so showing both
+                          (same amount) just confuses. */}
+                      {depositAmount < invoice.balance_due - 0.01 && (
+                        <button
+                          type="button"
+                          onClick={() => setPayAmount(String(Math.min(depositAmount, invoice.balance_due)))}
+                          className="text-sm font-semibold rounded-full border border-stone-300 px-4 py-2 text-stone-700 hover:bg-white"
+                        >
+                          Pay deposit ({depositPct}%): {fmtMoney.format(Math.min(depositAmount, invoice.balance_due))}
+                        </button>
+                      )}
                       <button
                         type="button"
                         onClick={() => setPayAmount(String(invoice.balance_due))}
-                        className="text-[11px] rounded-full border border-stone-300 px-2.5 py-1 text-stone-600 hover:bg-white"
+                        className="text-sm font-semibold rounded-full border border-stone-300 px-4 py-2 text-stone-700 hover:bg-white"
                       >
-                        Full balance: {fmtMoney.format(invoice.balance_due)}
+                        Pay full balance: {fmtMoney.format(invoice.balance_due)}
                       </button>
                     </div>
                   </div>
