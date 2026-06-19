@@ -605,16 +605,26 @@ export default function ClientOrderPage() {
             const paid = paidExplicit != null ? paidExplicit : depositPaidAmt + balancePaidAmt;
             const remaining = Math.max(0, total - paid);
             const ps = String(order.payment_status || "pending").toLowerCase();
-            // Show the actual deposit share the company charges (configurable
-            // per tenant via Settings -> Financial; not a fixed 50%). Derive
-            // it from what's been paid against the total so it reflects the
-            // real split, e.g. "Deposit paid (30%)".
-            const pct = total > 0 && paid > 0 && paid < total
-              ? Math.round((paid / total) * 100)
-              : null;
+            // Configured deposit share for this order. Per-tenant, set in
+            // Settings -> Financial and carried onto the order as
+            // deposit_percentage - NOT a fixed 50%. Fall back to deriving
+            // it from what's been paid if the percentage isn't stamped.
+            const depositPct = order.deposit_percentage != null
+              ? Number(order.deposit_percentage)
+              : (paid > 0 && paid < total ? Math.round((paid / total) * 100) : null);
+            // Deposit amount: explicit when stamped at accept time, else
+            // derived from the configured % so the split always shows -
+            // even before a deposit invoice has been raised.
+            const depositAmt = order.deposit_amount != null
+              ? Number(order.deposit_amount)
+              : (depositPct != null ? (total * depositPct) / 100 : null);
+            const balanceAmt = order.balance_amount != null
+              ? Number(order.balance_amount)
+              : (depositAmt != null ? Math.max(0, total - depositAmt) : null);
+            const depositSettled = !!order.deposit_paid || (depositAmt != null && paid >= depositAmt - 0.01 && paid > 0);
             const paidRowLabel = ps === "paid"
               ? "Paid in full"
-              : paid > 0 ? `Deposit paid${pct != null ? ` (${pct}%)` : ""}` : "Amount paid";
+              : paid > 0 ? `Deposit paid${depositPct != null ? ` (${depositPct}%)` : ""}` : "Amount paid";
             return (
             <Card className="border-0 shadow-lg">
               <CardHeader className="pb-3">
@@ -624,11 +634,11 @@ export default function ClientOrderPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="text-sm space-y-2">
-                {order.deposit_amount && (
-                  <Row label={`Deposit ${order.deposit_paid ? "(paid)" : "(due)"}`} value={fmtMoney.format(Number(order.deposit_amount))} paid={order.deposit_paid} />
+                {depositAmt != null && (
+                  <Row label={`Deposit${depositPct != null ? ` (${depositPct}%)` : ""} ${depositSettled ? "(paid)" : "(due)"}`} value={fmtMoney.format(depositAmt)} paid={depositSettled} />
                 )}
-                {order.balance_amount && (
-                  <Row label={`Balance ${order.balance_paid ? "(paid)" : order.balance_due_date ? `(due ${new Date(order.balance_due_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })})` : "(due)"}`} value={fmtMoney.format(Number(order.balance_amount))} paid={order.balance_paid} />
+                {balanceAmt != null && (
+                  <Row label={`Balance ${order.balance_paid ? "(paid)" : order.balance_due_date ? `(due ${new Date(order.balance_due_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })})` : "(due)"}`} value={fmtMoney.format(balanceAmt)} paid={order.balance_paid} />
                 )}
 
                 {/* Clear deposited + remaining breakdown - what the client
