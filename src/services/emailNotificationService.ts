@@ -232,7 +232,7 @@ export const emailNotificationService = {
   <style>
     body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
     .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-    .header { background: linear-gradient(135deg, #9333ea 0%, #ec4899 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+    .header { background: linear-gradient(135deg, #9333ea 0%, #ec4899 100%); color: white; padding: 30px; text-align: left; border-radius: 10px 10px 0 0; }
     .content { background: #f9fafb; padding: 30px; border-radius: 0 0 10px 10px; }
     .button { display: inline-block; background: #9333ea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0; }
     .footer { text-align: center; margin-top: 30px; font-size: 12px; color: #666; }
@@ -303,7 +303,7 @@ export const emailNotificationService = {
   <style>
     body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
     .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-    .header { background: linear-gradient(135deg, #9333ea 0%, #ec4899 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+    .header { background: linear-gradient(135deg, #9333ea 0%, #ec4899 100%); color: white; padding: 30px; text-align: left; border-radius: 10px 10px 0 0; }
     .content { background: #f9fafb; padding: 30px; border-radius: 0 0 10px 10px; }
     .footer { text-align: center; margin-top: 30px; font-size: 12px; color: #666; }
   </style>
@@ -338,7 +338,7 @@ export const emailNotificationService = {
   <style>
     body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
     .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-    .header { background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+    .header { background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 30px; text-align: left; border-radius: 10px 10px 0 0; }
     .content { background: #f9fafb; padding: 30px; border-radius: 0 0 10px 10px; }
     .footer { text-align: center; margin-top: 30px; font-size: 12px; color: #666; }
   </style>
@@ -376,7 +376,7 @@ export const emailNotificationService = {
   <style>
     body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
     .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-    .header { background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+    .header { background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 30px; text-align: left; border-radius: 10px 10px 0 0; }
     .content { background: #f9fafb; padding: 30px; border-radius: 0 0 10px 10px; }
     .footer { text-align: center; margin-top: 30px; font-size: 12px; color: #666; }
   </style>
@@ -411,7 +411,7 @@ export const emailNotificationService = {
   <style>
     body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
     .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-    .header { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+    .header { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: white; padding: 30px; text-align: left; border-radius: 10px 10px 0 0; }
     .content { background: #f9fafb; padding: 30px; border-radius: 0 0 10px 10px; }
     .footer { text-align: center; margin-top: 30px; font-size: 12px; color: #666; }
   </style>
@@ -446,7 +446,7 @@ export const emailNotificationService = {
   <style>
     body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
     .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-    .header { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+    .header { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; padding: 30px; text-align: left; border-radius: 10px 10px 0 0; }
     .content { background: #f9fafb; padding: 30px; border-radius: 0 0 10px 10px; }
     .details { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; }
     .detail-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #e5e7eb; }
@@ -504,7 +504,7 @@ export const emailNotificationService = {
   <style>
     body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
     .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-    .header { background: linear-gradient(135deg, #9333ea 0%, #ec4899 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+    .header { background: linear-gradient(135deg, #9333ea 0%, #ec4899 100%); color: white; padding: 30px; text-align: left; border-radius: 10px 10px 0 0; }
     .content { background: #f9fafb; padding: 30px; border-radius: 0 0 10px 10px; }
     .footer { text-align: center; margin-top: 30px; font-size: 12px; color: #666; }
   </style>
