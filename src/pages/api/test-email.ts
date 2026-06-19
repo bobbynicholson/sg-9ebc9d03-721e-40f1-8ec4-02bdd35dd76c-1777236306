@@ -96,7 +96,7 @@ async function handler(
   <body style="margin:0;padding:0;background:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;color:#0f172a;line-height:1.55;">
     <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#f8fafc;padding:24px 12px;">
       <tr>
-        <td align="left">
+        <td align="center">
           <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:520px;background:#ffffff;border-radius:14px;overflow:hidden;box-shadow:0 1px 3px rgba(15,23,42,0.06);">
             <tr>
               <td style="padding:24px 28px 8px 28px;">
@@ -131,7 +131,7 @@ async function handler(
               </td>
             </tr>
           </table>
-          <p style="margin:16px 0 0 0;font-size:11px;color:#94a3b8;text-align:left;">
+          <p style="margin:16px 0 0 0;font-size:11px;color:#94a3b8;text-align:center;">
             Sent from CateringMS &middot; <a href="https://cateringms.com" style="color:#94a3b8;text-decoration:underline;">cateringms.com</a>
           </p>
         </td>

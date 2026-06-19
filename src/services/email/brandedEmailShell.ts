@@ -282,10 +282,10 @@ export async function renderBrandedEmailHtml(opts: BrandedEmailOptions): Promise
 ${preheaderHtml}
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#f1f5f9;padding:24px 0;">
   <tr>
-    <td align="left" style="padding:0 12px;">
+    <td align="center" style="padding:0 12px;">
       <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" class="cms-card" style="max-width:600px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(15,23,42,0.06);border-top:3px solid ${primary};">
         <tr>
-          <td class="cms-header" style="padding:20px 24px 4px 24px;text-align:left;">
+          <td class="cms-header" style="padding:20px 24px 4px 24px;text-align:center;">
             <div class="cms-header-name" style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:13px;font-weight:600;color:${primary};letter-spacing:2px;text-transform:uppercase;line-height:1.4;mso-line-height-rule:exactly;">
               ${companyName}
             </div>
