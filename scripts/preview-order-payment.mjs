@@ -16,9 +16,15 @@ const primary = "#9333ea";
 const secondary = "#ec4899";
 const fmt = (n) => "R" + Number(n).toLocaleString("en-ZA", { maximumFractionDigits: 0 });
 
+// Real system: deposit_percent is per-company (default 30%), paid up
+// front; the balance is due balance_due_days (default 7) BEFORE the
+// event, not after. These numbers mirror that, not a flat 50/50.
 const total = 12000;
-const paid = 6000;        // 50% deposit
-const remaining = total - paid;
+const depositPercent = 30;            // companies.deposit_percent
+const paid = Math.round(total * depositPercent / 100); // R3,600 deposit
+const remaining = total - paid;       // R8,400 balance
+const eventDate = "02 Jul 2026";
+const balanceDueDate = "25 Jun 2026"; // event - balance_due_days (7)
 
 const html = `<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
@@ -54,7 +60,7 @@ const html = `<!doctype html>
     <h2>Birthday Braai</h2>
     <p class="muted">Order #ORD-1042</p>
     <div class="statgrid">
-      <div class="stat"><div class="lbl">In 12 days</div><div class="val">02 Jul 2026</div></div>
+      <div class="stat"><div class="lbl">In 12 days</div><div class="val">${eventDate}</div></div>
       <div class="stat"><div class="lbl">Event start</div><div class="val">13:00</div></div>
       <div class="stat"><div class="lbl">Guests</div><div class="val">80</div></div>
       <div class="stat"><div class="lbl">Total</div><div class="val">${fmt(total)}</div></div>
@@ -67,16 +73,16 @@ const html = `<!doctype html>
     <div class="ctitle"><span class="dot"></span> Payment</div>
     <div class="body" style="padding-top:14px;">
       <div class="row"><span class="due">Deposit (paid)</span><span class="r paid">${fmt(paid)}</span></div>
-      <div class="row"><span class="due">Balance (due 02 Jul)</span><span class="r due">${fmt(remaining)}</span></div>
+      <div class="row"><span class="due">Balance (due ${balanceDueDate})</span><span class="r due">${fmt(remaining)}</span></div>
 
       <div class="divider">
         <div class="row"><span class="due">Order total</span><span class="r due">${fmt(total)}</span></div>
-        <div class="row"><span class="due">Deposit paid</span><span class="r paid">${fmt(paid)}</span></div>
+        <div class="row"><span class="due">Deposit paid (${depositPercent}%)</span><span class="r paid">${fmt(paid)}</span></div>
         <div class="row"><span class="due">Remaining balance</span><span class="r due">${fmt(remaining)}</span></div>
       </div>
 
       <a href="#" style="margin-top:16px;display:flex;align-items:center;justify-content:center;gap:8px;width:100%;box-sizing:border-box;padding:12px;border-radius:10px;color:#fff;font-weight:600;font-size:14px;text-decoration:none;background:linear-gradient(135deg,${primary},${secondary});">Pay ${fmt(remaining)} now</a>
-      <p class="note">Updates live - when the deposit lands or the balance clears, this refreshes on its own.</p>
+      <p class="note">Deposit (${depositPercent}%) paid up front; balance due ${balanceDueDate}, ahead of the event. Updates live - when the balance clears, this refreshes on its own.</p>
     </div>
   </div>
 

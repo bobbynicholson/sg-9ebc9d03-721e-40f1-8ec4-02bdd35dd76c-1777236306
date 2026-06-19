@@ -605,9 +605,16 @@ export default function ClientOrderPage() {
             const paid = paidExplicit != null ? paidExplicit : depositPaidAmt + balancePaidAmt;
             const remaining = Math.max(0, total - paid);
             const ps = String(order.payment_status || "pending").toLowerCase();
+            // Show the actual deposit share the company charges (configurable
+            // per tenant via Settings -> Financial; not a fixed 50%). Derive
+            // it from what's been paid against the total so it reflects the
+            // real split, e.g. "Deposit paid (30%)".
+            const pct = total > 0 && paid > 0 && paid < total
+              ? Math.round((paid / total) * 100)
+              : null;
             const paidRowLabel = ps === "paid"
               ? "Paid in full"
-              : paid > 0 ? "Deposit paid" : "Amount paid";
+              : paid > 0 ? `Deposit paid${pct != null ? ` (${pct}%)` : ""}` : "Amount paid";
             return (
             <Card className="border-0 shadow-lg">
               <CardHeader className="pb-3">
