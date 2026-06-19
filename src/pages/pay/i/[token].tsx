@@ -497,25 +497,42 @@ export default function InvoicePaymentPage() {
                 </div>
               </div>
 
-              {/* Payment plan: deposit + balance split of the total.
-                  Shown so the client understands the staged structure
-                  (deposit to confirm, balance before the event) even
-                  before any payment lands. Reflects the caterer's
-                  configured deposit %. */}
-              <div className="grid grid-cols-2 gap-4 rounded-lg bg-stone-50 p-4">
-                <div>
-                  <p className="text-[10px] uppercase tracking-[0.15em] text-brand-primary font-bold">
-                    Deposit payment ({depositPct}%)
-                  </p>
-                  <p className="text-lg font-bold text-stone-900 tabular-nums">{fmtMoney.format(depositAmount)}</p>
-                  <p className="text-[11px] text-stone-500 mt-0.5">Payable to confirm your booking</p>
-                </div>
-                <div>
-                  <p className="text-[10px] uppercase tracking-[0.15em] text-brand-primary font-bold">
-                    Balance payment ({balancePct}%)
-                  </p>
-                  <p className="text-lg font-bold text-stone-900 tabular-nums">{fmtMoney.format(balanceAmount)}</p>
-                  <p className="text-[11px] text-stone-500 mt-0.5">Payable before the event</p>
+              {/* Payment plan: deposit + balance split of the total, as
+                  two clear cards with a live paid/due status pill so the
+                  client sees the staged structure (deposit to confirm,
+                  balance before the event) AND what's already settled.
+                  Stacks to one column on narrow phones. */}
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.15em] text-brand-primary font-bold mb-2">
+                  Payment plan
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {/* Deposit */}
+                  <div className={`rounded-xl border p-4 ${(invoice.amount_paid || 0) >= depositAmount - 0.01 ? "border-emerald-200 bg-emerald-50/60" : "border-stone-200 bg-white"}`}>
+                    <div className="flex items-center justify-between gap-2 mb-1.5">
+                      <p className="text-[11px] uppercase tracking-[0.12em] text-stone-500 font-semibold">
+                        Deposit · {depositPct}%
+                      </p>
+                      <span className={`text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${(invoice.amount_paid || 0) >= depositAmount - 0.01 ? "bg-emerald-600 text-white" : "bg-brand-primary/10 text-brand-primary"}`}>
+                        {(invoice.amount_paid || 0) >= depositAmount - 0.01 ? "Paid" : "Due now"}
+                      </span>
+                    </div>
+                    <p className="text-xl font-bold text-stone-900 tabular-nums">{fmtMoney.format(depositAmount)}</p>
+                    <p className="text-[11px] text-stone-500 mt-1">Payable to confirm your booking</p>
+                  </div>
+                  {/* Balance */}
+                  <div className={`rounded-xl border p-4 ${invoice.balance_due <= 0.01 ? "border-emerald-200 bg-emerald-50/60" : "border-stone-200 bg-white"}`}>
+                    <div className="flex items-center justify-between gap-2 mb-1.5">
+                      <p className="text-[11px] uppercase tracking-[0.12em] text-stone-500 font-semibold">
+                        Balance · {balancePct}%
+                      </p>
+                      <span className={`text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${invoice.balance_due <= 0.01 ? "bg-emerald-600 text-white" : "bg-stone-200 text-stone-600"}`}>
+                        {invoice.balance_due <= 0.01 ? "Paid" : "Before event"}
+                      </span>
+                    </div>
+                    <p className="text-xl font-bold text-stone-900 tabular-nums">{fmtMoney.format(balanceAmount)}</p>
+                    <p className="text-[11px] text-stone-500 mt-1">Payable before the event</p>
+                  </div>
                 </div>
               </div>
 
