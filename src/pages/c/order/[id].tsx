@@ -144,6 +144,46 @@ export default function ClientOrderPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router.isReady, orderId, queryToken]);
 
+  // Keep the page live. Whenever the order changes on the catering
+  // company's side - deposit lands, balance clears, status advances,
+  // amounts edited - the client should see it here without a manual
+  // refresh. This is a public token page on the anon client, so
+  // Supabase realtime (RLS-gated postgres_changes) can't read the
+  // order directly; instead we quietly re-pull the cookie-authed /view
+  // on a light poll and on tab focus. No spinner - we swap the data
+  // under the rendered page so the client never sees a flash.
+  useEffect(() => {
+    if (!orderId || !view) return;
+    let stopped = false;
+    const refresh = async () => {
+      try {
+        const r = await fetch("/api/client-tokens/view", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ order_id: orderId }),
+        });
+        if (!r.ok) return;
+        const data = await r.json();
+        if (!stopped && data?.ok) setView(data as OrderView);
+      } catch {
+        // Network blip - keep the last good view, try again next tick.
+      }
+    };
+    const id = setInterval(refresh, 20000);
+    const onVis = () => { if (document.visibilityState === "visible") refresh(); };
+    document.addEventListener("visibilitychange", onVis);
+    window.addEventListener("focus", refresh);
+    return () => {
+      stopped = true;
+      clearInterval(id);
+      document.removeEventListener("visibilitychange", onVis);
+      window.removeEventListener("focus", refresh);
+    };
+  // Run once the first view loads (!!view flips false->true and then
+  // stays true), not on every poll-driven setView.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orderId, !!view]);
+
   // Apply branding - company colours go on a CSS var the page reads
   const primary   = view?.company?.primary_color   || "#9333ea";
   const secondary = view?.company?.secondary_color || "#ec4899";
@@ -376,7 +416,20 @@ export default function ClientOrderPage() {
                   <Stat icon={Clock} label="Setup arrives" value={String(order.setup_time)} />
                 )}
                 <Stat icon={Users} label="Guests" value={`${order.guest_count}`} />
-                <Stat icon={Receipt} label="Payment" value={String(order.payment_status || "pending")} valueClass="capitalize" />
+                <Stat icon={Receipt} label="Payment" value={(() => {
+                  // First word the client sees on a 50% deposit must read
+                  // "Deposit", not "Paid" - a partial payment isn't paid
+                  // in full. payment_status lands as "partial" for a
+                  // deposit, "paid" only once the balance clears.
+                  const ps = String(order.payment_status || "pending").toLowerCase();
+                  if (ps === "paid") return "Paid in full";
+                  if (ps === "partial") return "Deposit paid";
+                  if (ps === "refunded") return "Refunded";
+                  if (ps === "partially_refunded") return "Partly refunded";
+                  if (ps === "failed") return "Payment failed";
+                  if (ps === "disputed") return "Disputed";
+                  return "Pending";
+                })()} />
               </div>
             </CardContent>
           </Card>
@@ -537,8 +590,25 @@ export default function ClientOrderPage() {
             );
           })()}
 
-          {/* Payment summary */}
-          {(order.deposit_amount || order.balance_amount) && (
+          {/* Payment summary. Shows for every order with a total so the
+              client can always see, clearly, how much they've put down
+              (the deposit) and what's still owing - not just the
+              scheduled deposit/balance split. */}
+          {Number(order.total_amount || 0) > 0 && (() => {
+            const total = Number(order.total_amount || 0);
+            // Prefer the ledger figure (amount_paid). Fall back to the
+            // deposit/balance flags when the RPC didn't include it so the
+            // "deposited" figure is never silently 0 after a real payment.
+            const paidExplicit = order.amount_paid != null ? Number(order.amount_paid) : null;
+            const depositPaidAmt = order.deposit_paid ? Number(order.deposit_amount || 0) : 0;
+            const balancePaidAmt = order.balance_paid ? Number(order.balance_amount || 0) : 0;
+            const paid = paidExplicit != null ? paidExplicit : depositPaidAmt + balancePaidAmt;
+            const remaining = Math.max(0, total - paid);
+            const ps = String(order.payment_status || "pending").toLowerCase();
+            const paidRowLabel = ps === "paid"
+              ? "Paid in full"
+              : paid > 0 ? "Deposit paid" : "Amount paid";
+            return (
             <Card className="border-0 shadow-lg">
               <CardHeader className="pb-3">
                 <CardTitle className="text-base flex items-center gap-2">
@@ -553,6 +623,18 @@ export default function ClientOrderPage() {
                 {order.balance_amount && (
                   <Row label={`Balance ${order.balance_paid ? "(paid)" : order.balance_due_date ? `(due ${new Date(order.balance_due_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })})` : "(due)"}`} value={fmtMoney.format(Number(order.balance_amount))} paid={order.balance_paid} />
                 )}
+
+                {/* Clear deposited + remaining breakdown - what the client
+                    has actually paid so far and what's left to settle. */}
+                <div className="mt-1 pt-3 border-t border-slate-100 space-y-2">
+                  <Row label="Order total" value={fmtMoney.format(total)} />
+                  <Row label={paidRowLabel} value={fmtMoney.format(paid)} paid={paid > 0} />
+                  <Row
+                    label={remaining > 0 ? "Remaining balance" : "Remaining"}
+                    value={fmtMoney.format(remaining)}
+                    paid={remaining === 0 && paid > 0}
+                  />
+                </div>
                 {/* Wave 19: Pay button when there's an outstanding invoice.
                     Routes through the public /pay/i/{token} flow which is
                     itself token-bearer auth - no sign-in needed. Only
@@ -592,7 +674,8 @@ export default function ClientOrderPage() {
                 )}
               </CardContent>
             </Card>
-          )}
+            );
+          })()}
 
           {/* Wave 19: live driver tracking. Token-bearer hint - when
               the order is in_transit AND we have venue coords, surface
