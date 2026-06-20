@@ -137,7 +137,7 @@ export default function PlatformSettingsPage() {
         <title>Platform settings - CateringMS</title>
       </Head>
 
-      <PortalShell width="narrow" className="min-h-0 bg-transparent dark:bg-transparent">
+      <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
         <PortalHeader
           title="Platform Settings"
           subtitle="Tunables for the SaaS itself. Changes apply immediately to every tenant."

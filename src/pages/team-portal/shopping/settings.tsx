@@ -75,7 +75,7 @@ export default function ShoppingSettingsPage() {
       {/* Nav-offset wrapper: leaves room for the fixed ShoppingNav, then the
           shared PortalShell carries the neutral ground + centred column. */}
       <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
-        <PortalShell width="narrow" className="min-h-0 bg-transparent dark:bg-transparent">
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <PortalHeader
             title="Shopping settings"
             subtitle="Procurement defaults for this catering company"

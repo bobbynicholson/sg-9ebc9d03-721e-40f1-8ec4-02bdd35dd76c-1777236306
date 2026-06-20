@@ -343,7 +343,7 @@ export default function ClientProfilePage() {
       <ClientNav />
 
       <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
-        <PortalShell width="narrow" className="min-h-0 bg-transparent dark:bg-transparent">
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <PortalHeader
             title="Your profile"
             subtitle="Update how the catering team gets in touch with you. Email is locked to the address you signed in with."
