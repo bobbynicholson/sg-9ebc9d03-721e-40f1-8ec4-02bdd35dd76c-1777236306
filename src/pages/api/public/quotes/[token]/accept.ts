@@ -412,18 +412,21 @@ async function notifyAdminOfAcceptance(supabase: any, quote: any, acceptorName: 
   }
 
   // Currency lives on companies, not quotes. Resolve from the
-  // tenant's company row with a ZAR fallback for legacy rows.
+  // tenant's company row with a ZAR fallback for legacy rows. Also pull
+  // the slug so the admin link in the email is slug-prefixed (see below).
   let currencyCode = "ZAR";
+  let companySlug: string | null = null;
   try {
     const { data: companyRow, error: companyRowErr } = await supabase
       .from("companies")
-      .select("currency")
+      .select("currency, slug")
       .eq("id", quote.company_id)
       .maybeSingle();
     if (companyRowErr) {
       console.error("[public/quotes/[token]/accept] companies fetch failed:", companyRowErr);
     }
     if ((companyRow as any)?.currency) currencyCode = (companyRow as any).currency;
+    if ((companyRow as any)?.slug) companySlug = String((companyRow as any).slug);
   } catch { /* fall back to ZAR */ }
   const totalLabel = `${currencyCode} ${Number(quote.total || 0).toLocaleString("en-ZA", { minimumFractionDigits: 2 })}`;
   const eventLabel = quote.event_date
@@ -462,7 +465,14 @@ async function notifyAdminOfAcceptance(supabase: any, quote: any, acceptorName: 
       const { emailService } = await import("@/services/emailService");
       const { resolveEmailTemplate } = await import("@/services/email/templateResolver");
 
-      const quoteLink = `${origin}/admin/quotes/${quote.id}`;
+      // Slug-prefix the admin link so it lands in the SAME tenant URL
+      // space the operator's app already runs in (/{slug}/admin/...). A
+      // bare /admin/quotes/{id} resolves to a different path with no
+      // company context, so the browser opens a fresh tab + the page has
+      // a session/tenant mismatch (Pic 65). The next.config rewrite maps
+      // the slug path back to the canonical page with ?company_slug.
+      const slugSeg = companySlug ? `/${companySlug}` : "";
+      const quoteLink = `${origin}${slugSeg}/admin/quotes/${quote.id}`;
       const fallbackSubject = `Quote accepted - ${quote.client_name || "client"}`;
       const fallbackBody =
         `{{acceptor_name}} just accepted the quote for {{client_name}}.\n\n` +

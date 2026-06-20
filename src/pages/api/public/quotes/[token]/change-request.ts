@@ -197,10 +197,11 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       let currencyCode = "ZAR";
       let companyEmail: string | null = null;
       let companyName: string | null = null;
+      let companySlug: string | null = null;
       try {
         const { data: companyRow, error: companyRowErr } = await (supabase as any)
           .from("companies")
-          .select("currency, email, company_name")
+          .select("currency, email, company_name, slug")
           .eq("id", quote.company_id)
           .maybeSingle();
         if (companyRowErr) {
@@ -209,6 +210,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         if ((companyRow as any)?.currency) currencyCode = (companyRow as any).currency;
         if ((companyRow as any)?.email) companyEmail = (companyRow as any).email;
         if ((companyRow as any)?.company_name) companyName = (companyRow as any).company_name;
+        if ((companyRow as any)?.slug) companySlug = String((companyRow as any).slug);
       } catch { /* fall back to ZAR */ }
       const totalLabel = `${currencyCode} ${Number(quote.total || 0).toLocaleString("en-ZA", { minimumFractionDigits: 0 })}`;
       const eventLabel = quote.event_date
@@ -264,7 +266,10 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         const quoteRef = (quote as any).quote_number || quote.id;
         const clientLabel = submitterName || quote.client_name || "Client";
         const appUrl = (process.env.NEXT_PUBLIC_APP_URL || "https://cateringms.com").replace(/\/$/, "");
-        const quoteLink = `${appUrl}/admin/quotes/${quote.id}#change-requests`;
+        // Slug-prefix so the admin link lands in the operator's existing
+        // tenant URL space (/{slug}/admin/...) - a bare /admin/... opens a
+        // fresh tab with no company/session context (Pic 65).
+        const quoteLink = `${appUrl}${companySlug ? `/${companySlug}` : ""}/admin/quotes/${quote.id}#change-requests`;
 
         const bodyHtml = `
           <p>Hi,</p>

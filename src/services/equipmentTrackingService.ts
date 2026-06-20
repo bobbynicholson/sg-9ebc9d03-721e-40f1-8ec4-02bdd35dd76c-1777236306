@@ -240,11 +240,12 @@ export const equipmentTrackingService = {
         if (adminProfileErr) console.error("[equipmentTrackingService/reportDamage] admin profile lookup failed:", adminProfileErr);
         const { data: companyRow, error: companyRowErr } = await supabase
           .from("companies")
-          .select("company_name")
+          .select("company_name, slug")
           .eq("id", order.company_id)
           .maybeSingle();
         if (companyRowErr) console.error("[equipmentTrackingService/reportDamage] companies lookup failed:", companyRowErr);
         const companyName = (companyRow as any)?.company_name || "CateringMS";
+        const companySlug = (companyRow as any)?.slug ? `/${(companyRow as any).slug}` : "";
 
         if (adminProfile?.email) {
           const subject = `🔧 Equipment Damage Alert - Order ${order.order_number}`;
@@ -270,7 +271,7 @@ Action Required:
 3. Update equipment inventory
 4. Contact ${params.responsibleName || "responsible party"} if needed
 
-View Details: ${typeof window !== "undefined" ? window.location.origin : (process.env.NEXT_PUBLIC_APP_URL || "https://cateringms.com")}/admin/equipment-management
+View Details: ${typeof window !== "undefined" ? window.location.origin : (process.env.NEXT_PUBLIC_APP_URL || "https://cateringms.com")}${companySlug}/admin/equipment-management
 
 This equipment has been removed from available inventory until resolved.
 
