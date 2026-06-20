@@ -119,11 +119,22 @@ export function NotificationBell() {
         { limit: 5 }
       );
       
-      // Combine and sort by date
-      const combined = [...unreadNotifs, ...readNotifs].sort(
-        (a, b) => new Date(b.created_at || "").getTime() - new Date(a.created_at || "").getTime()
-      );
-      
+      // Combine, DEDUPE, then sort by date. getNotifications(userId, false)
+      // returns ALL notifications (read + unread), not just read - so every
+      // unread row also lands in readNotifs and would render twice. Keep the
+      // first occurrence per id (unread list is first, so its copy wins).
+      const seen = new Set<string>();
+      const combined = [...unreadNotifs, ...readNotifs]
+        .filter((n) => {
+          if (!n.id) return true;
+          if (seen.has(n.id)) return false;
+          seen.add(n.id);
+          return true;
+        })
+        .sort(
+          (a, b) => new Date(b.created_at || "").getTime() - new Date(a.created_at || "").getTime()
+        );
+
       setNotifications(combined);
     } catch (error) {
       console.error("Failed to load notifications:", error);

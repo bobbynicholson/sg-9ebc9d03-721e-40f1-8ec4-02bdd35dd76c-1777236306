@@ -626,13 +626,93 @@ function NewQuotePage() {
         .eq("id", fromQuoteId)
         .maybeSingle();
       if (cancelled || error || !data) return;
+
+      // Fetch the latest PENDING change request BEFORE hydrating, so the
+      // quote-load and the request-overlay happen in ONE synchronous pass
+      // below (no await between them). Previously the overlay ran after
+      // further awaits, leaving a window where the un-overlaid quote could
+      // be the rendered state and other init effects (guest-count cascade,
+      // catalogue enrichment) could wedge in - so the operator saw the old
+      // quote, not the client's asks.
+      let cr: any = null;
+      try {
+        const { data: crData } = await supabase
+          .from("quote_change_requests")
+          .select("id, message, requested_changes, created_at, status")
+          .eq("quote_id", fromQuoteId)
+          .eq("status", "pending")
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        cr = crData;
+      } catch (e) {
+        console.warn("[quotes/new] change-request lookup failed:", e);
+      }
+      if (cancelled) return;
+
+      // 1) Hydrate from the saved quote.
       hydrateFromQuote(data);
       setQuoteId(data.id);
       setQuoteNumber(data.quote_number);
       setStatus(data.status as any);
       setIsRevisingNonDraft((data as any).status && (data as any).status !== "draft");
-      // TIGHTEN I.120: capture linked order so banner / buttons can
-      // surface "Update order" rather than "Save & Send".
+      setPersistedTotalAtLoad(
+        typeof data.total === "number"
+          ? data.total
+          : typeof data.total_amount === "number"
+            ? data.total_amount
+            : 0,
+      );
+
+      // 2) Overlay the client's requested changes (same tick, so these win).
+      if (cr) {
+        const rc = (cr.requested_changes || {}) as any;
+        if (rc.event_date) setEventDate(String(rc.event_date));
+        if (typeof rc.guest_count === "number") setGuestCount(rc.guest_count);
+        if (rc.venue_address) setVenueAddress(String(rc.venue_address));
+        if (Array.isArray(rc.menu_items)) {
+          setMenuItems(
+            rc.menu_items.map((m: any, i: number) => ({
+              id: `CR_L_${i}`,
+              menu_item_id: m.menu_item_id ?? null,
+              name: m.item_name ?? m.name ?? "",
+              description: undefined,
+              category: "main",
+              dietary_tags: null,
+              pricingMode: "per_portion" as PricingMode,
+              unitPrice: safeNum(m.unit_price ?? m.unitPrice),
+              quantity: safeNum(m.quantity),
+              discountPct: 0,
+            })),
+          );
+        }
+        if (Array.isArray(rc.equipment_items)) {
+          setEquipment(
+            rc.equipment_items.map((e: any, i: number) => ({
+              id: `CR_E_${i}`,
+              equipment_id: e.equipment_id ?? null,
+              name: e.name ?? "",
+              category: null,
+              quantity: safeNum(e.quantity),
+              unitPrice: safeNum(e.unit_price ?? e.unitPrice),
+              hireInCost: 0,
+            })),
+          );
+        }
+        const hints: string[] = [];
+        if (rc.menu_changes) hints.push(`Menu: ${rc.menu_changes}`);
+        if (rc.logistics_changes) hints.push(`Delivery/collection: ${rc.logistics_changes}`);
+        if (cr.message) hints.push(`Client note: ${cr.message}`);
+        if (hints.length > 0) {
+          setInternalNotes((prev) =>
+            [prev, "--- Client requested changes ---", ...hints].filter(Boolean).join("\n"),
+          );
+        }
+        setAppliedChangeRequest({ id: cr.id, created_at: cr.created_at });
+      }
+
+      // 3) Linked-order lookup (non-critical; after the editable state is
+      //    set so its await can't delay the overlay).
       const linkedId = (data as any).converted_to_order_id ?? null;
       setLinkedOrderId(linkedId);
       if (linkedId) {
@@ -644,77 +724,6 @@ function NewQuotePage() {
             .maybeSingle();
           if (!cancelled) setLinkedOrderNumber((ord as any)?.order_number ?? null);
         } catch { /* non-blocking */ }
-      }
-      setPersistedTotalAtLoad(
-        typeof data.total === "number"
-          ? data.total
-          : typeof data.total_amount === "number"
-            ? data.total_amount
-            : 0,
-      );
-
-      // Overlay the latest PENDING client change request (if any) on top
-      // of the loaded quote, so the operator sees + reprices the client's
-      // actual asks rather than re-typing them. Runs after hydrateFromQuote
-      // so these setState calls win for the keys they touch.
-      try {
-        const { data: cr } = await supabase
-          .from("quote_change_requests")
-          .select("id, message, requested_changes, created_at, status")
-          .eq("quote_id", fromQuoteId)
-          .eq("status", "pending")
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        if (!cancelled && cr) {
-          const rc = ((cr as any).requested_changes || {}) as any;
-          if (rc.event_date) setEventDate(String(rc.event_date));
-          if (typeof rc.guest_count === "number") setGuestCount(rc.guest_count);
-          if (rc.venue_address) setVenueAddress(String(rc.venue_address));
-          if (Array.isArray(rc.menu_items)) {
-            setMenuItems(
-              rc.menu_items.map((m: any, i: number) => ({
-                id: `CR_L_${i}`,
-                menu_item_id: m.menu_item_id ?? null,
-                name: m.item_name ?? m.name ?? "",
-                description: undefined,
-                category: "main",
-                dietary_tags: null,
-                pricingMode: "per_portion" as PricingMode,
-                unitPrice: safeNum(m.unit_price ?? m.unitPrice),
-                quantity: safeNum(m.quantity),
-                discountPct: 0,
-              })),
-            );
-          }
-          if (Array.isArray(rc.equipment_items)) {
-            setEquipment(
-              rc.equipment_items.map((e: any, i: number) => ({
-                id: `CR_E_${i}`,
-                equipment_id: e.equipment_id ?? null,
-                name: e.name ?? "",
-                category: null,
-                quantity: safeNum(e.quantity),
-                unitPrice: safeNum(e.unit_price ?? e.unitPrice),
-                hireInCost: 0,
-              })),
-            );
-          }
-          // Free-text asks (and the client's note) go into internal notes
-          // so the operator has the full context in one place.
-          const hints: string[] = [];
-          if (rc.menu_changes) hints.push(`Menu: ${rc.menu_changes}`);
-          if (rc.logistics_changes) hints.push(`Delivery/collection: ${rc.logistics_changes}`);
-          if ((cr as any).message) hints.push(`Client note: ${(cr as any).message}`);
-          if (hints.length > 0) {
-            setInternalNotes((prev) =>
-              [prev, "--- Client requested changes ---", ...hints].filter(Boolean).join("\n"),
-            );
-          }
-          setAppliedChangeRequest({ id: (cr as any).id, created_at: (cr as any).created_at });
-        }
-      } catch (e) {
-        console.warn("[quotes/new] change-request overlay failed:", e);
       }
     })();
     return () => { cancelled = true; };
