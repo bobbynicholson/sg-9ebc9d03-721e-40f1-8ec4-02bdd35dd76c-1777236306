@@ -956,7 +956,7 @@ export default function PublicQuotePage() {
                         commonly shift in the week or two after sign-off
                         (final guest count, dietary additions). Surface
                         it as a peer to "Save a copy". */}
-                    {!changesSent && (
+                    {!changesSent && !changesOpen && (
                       <Button
                         variant="outline"
                         size="sm"
@@ -970,7 +970,7 @@ export default function PublicQuotePage() {
                   </div>
                 </CardContent>
               </Card>
-            ) : (
+            ) : changesOpen ? null : (
               <Card id="quote-accept-card" className="border border-stone-200 shadow-sm scroll-mt-24">
                 <CardContent className="py-6 px-5">
                   {acceptOpen ? (
