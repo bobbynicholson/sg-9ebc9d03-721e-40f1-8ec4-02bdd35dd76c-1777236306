@@ -1,8 +1,15 @@
--- Add collection_fee / collection_distance_km / collection_rate_per_km to
--- the client_view_order RPC output so the public client order page can show
--- the Collection line (and the breakdown stays consistent with the total).
--- Identical to 20260515600000 except for the three added columns in the
--- v_order SELECT.
+-- Re-fix client_view_order: the payments subquery referenced
+-- payments.status, which does not exist (the column is payment_status).
+--
+-- History: 20260518704900 (Wave 70.49b) fixed this exact bug. Then
+-- 20260620130000 (collection_fee) was copied from the PRE-FIX body of
+-- 20260515600000 and silently reverted it, re-breaking the whole client
+-- magic-link order view + admin "View as client sees it" with
+-- "column \"status\" does not exist". Caught by the end-to-end smoke
+-- test (D2_call_client_view_order_rpc).
+--
+-- This migration re-applies the collection_fee version WITH the
+-- payment_status fix. Idempotent CREATE OR REPLACE - safe to run anytime.
 
 CREATE OR REPLACE FUNCTION public.client_view_order(
   p_token_hash text,
@@ -114,11 +121,8 @@ BEGIN
   ORDER BY created_at DESC
   LIMIT 1;
 
-  -- payments.status does NOT exist - the column is payment_status. This
-  -- was fixed in 20260518704900 (Wave 70.49b) but this migration was
-  -- copied from the pre-fix 20260515600000 body and silently reverted
-  -- it, re-breaking the whole client magic-link view. Result key stays
-  -- 'status' so the front-end reader is unchanged.
+  -- payments.status does NOT exist; the column is payment_status. The
+  -- result key stays 'status' so the front-end reader is unchanged.
   SELECT COALESCE(jsonb_agg(jsonb_build_object(
            'payment_type', payment_type,
            'status', payment_status,
