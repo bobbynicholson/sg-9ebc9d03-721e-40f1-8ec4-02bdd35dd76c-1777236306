@@ -348,6 +348,13 @@ function NewQuotePage() {
   /** True once the operator has manually overridden the auto-fee.
    *  Stops subsequent auto-recalcs from clobbering their override. */
   const [deliveryFeeOverridden, setDeliveryFeeOverridden] = useState(false);
+  // Collection fee — mirrors the delivery block exactly (distance × 2 ×
+  // per-km), for jobs where the caterer collects (equipment / dropback)
+  // or the client collects. Adds to the quote total alongside delivery.
+  const [collectionDistance, setCollectionDistance] = useState(0);
+  const [collectionCostPerKm, setCollectionCostPerKm] = useState(0);
+  const [collectionFee, setCollectionFee] = useState(0);
+  const [collectionFeeOverridden, setCollectionFeeOverridden] = useState(false);
   /** Available kitchens for this company (active branches + HQ). */
   const { kitchens } = useCompanyKitchens(companyId || null);
   /** Currently picked kitchen the delivery is leaving from. Defaults
@@ -466,7 +473,7 @@ function NewQuotePage() {
     // line sums + delivery fee + discounts are all gross numbers; we
     // derive the ex-VAT subtotal by dividing back. When ex-VAT (the
     // historic default), VAT is added on top.
-    const grossOrNet = afterDiscounts + deliveryFee;
+    const grossOrNet = afterDiscounts + deliveryFee + collectionFee;
     let subtotal: number;
     let tax: number;
     let total: number;
@@ -490,11 +497,12 @@ function NewQuotePage() {
       flatDiscount: discountFlat,
       afterDiscounts,
       deliveryFee,
+      collectionFee,
       subtotal,
       tax,
       total,
     };
-  }, [menuItems, equipment, guestCount, surgePct, discountPct, discountFlat, deliveryFee, taxRate, pricingIncludesVat]);
+  }, [menuItems, equipment, guestCount, surgePct, discountPct, discountFlat, deliveryFee, collectionFee, taxRate, pricingIncludesVat]);
 
   // ── Pre-fill: load company default delivery buffer ─────────────────
   // Wave 11 #7: this used to also pull deliveryCostPerKm from a global
@@ -675,6 +683,16 @@ function NewQuotePage() {
       const roundTrip = dist * 2 * rate;
       if (Math.abs(q.delivery_fee - roundTrip) > 0.01) setDeliveryFeeOverridden(true);
     }
+    // Collection fee mirrors the same load + override-detect as delivery.
+    if (typeof q.collection_distance_km === "number") setCollectionDistance(q.collection_distance_km);
+    if (typeof q.collection_rate_per_km === "number") setCollectionCostPerKm(q.collection_rate_per_km);
+    if (typeof q.collection_fee === "number") {
+      setCollectionFee(q.collection_fee);
+      const cDist = Number(q.collection_distance_km) || 0;
+      const cRate = Number(q.collection_rate_per_km) || 0;
+      const cRoundTrip = cDist * 2 * cRate;
+      if (Math.abs(q.collection_fee - cRoundTrip) > 0.01) setCollectionFeeOverridden(true);
+    }
     if (Array.isArray(q.menu_items)) {
       setMenuItems(
         q.menu_items.map((m: any, i: number) => ({
@@ -803,6 +821,14 @@ function NewQuotePage() {
     const calc = deliveryDistance * 2 * deliveryCostPerKm;
     setDeliveryFee(Number(Math.max(calc, minDeliveryFee).toFixed(2)));
   }, [deliveryDistance, deliveryCostPerKm, minDeliveryFee, deliveryFeeOverridden]);
+
+  // Same auto-fee math for collection (distance × 2 × per-km). No min
+  // floor — collection is optional and the operator can type a flat fee.
+  useEffect(() => {
+    if (collectionFeeOverridden) return;
+    const calc = collectionDistance * 2 * collectionCostPerKm;
+    setCollectionFee(Number(Math.max(calc, 0).toFixed(2)));
+  }, [collectionDistance, collectionCostPerKm, collectionFeeOverridden]);
 
   // ── Cascade guest count to per_person lines ───────────────────────
   // Only cascades into lines the operator hasn't overridden. A line
@@ -1161,6 +1187,9 @@ function NewQuotePage() {
       delivery_distance_km: deliveryDistance || null,
       delivery_rate_per_km: deliveryCostPerKm || null,
       delivery_fee: deliveryFee,
+      collection_distance_km: collectionDistance || null,
+      collection_rate_per_km: collectionCostPerKm || null,
+      collection_fee: collectionFee || 0,
       subtotal: computed.subtotal,
       discount_amount: computed.pctDiscount + computed.flatDiscount,
       tax_amount: computed.tax,
@@ -1181,6 +1210,7 @@ function NewQuotePage() {
     selectedKitchen, eventName, eventDate, eventTime, setupTime, suggestedSetupTime,
     venueAddress, venueLat, venueLng,
     deliveryDistance, deliveryCostPerKm, deliveryFee, depositPercent,
+    collectionDistance, collectionCostPerKm, collectionFee,
     computed.subtotal, computed.pctDiscount, computed.flatDiscount, computed.tax, computed.total,
     validUntil, internalNotes,
   ]);
@@ -1596,7 +1626,7 @@ function NewQuotePage() {
   // "no deal without email" rule here so we never persist a row the
   // pipeline can't process.
   const dirtyRef = useRef(false);
-  useEffect(() => { dirtyRef.current = true; }, [menuItems, equipment, guestCount, surgePct, discountPct, discountFlat, deliveryFee, validUntil, eventName, eventDate, venueAddress, clientName, email]);
+  useEffect(() => { dirtyRef.current = true; }, [menuItems, equipment, guestCount, surgePct, discountPct, discountFlat, deliveryFee, collectionFee, validUntil, eventName, eventDate, venueAddress, clientName, email]);
   useEffect(() => {
     if (status !== "draft") return;
     if (!clientName) return;
@@ -1607,7 +1637,7 @@ function NewQuotePage() {
       persistQuote();
     }, AUTOSAVE_DELAY_MS);
     return () => clearTimeout(handle);
-  }, [status, clientName, menuItems, equipment, guestCount, surgePct, discountPct, discountFlat, deliveryFee, validUntil, eventName, eventDate, venueAddress, email, persistQuote]);
+  }, [status, clientName, menuItems, equipment, guestCount, surgePct, discountPct, discountFlat, deliveryFee, collectionFee, validUntil, eventName, eventDate, venueAddress, email, persistQuote]);
 
   const handleSaveDraft = async () => {
     // No deal without email - the follow-up engine, invoice flow,
@@ -2155,6 +2185,79 @@ function NewQuotePage() {
                     </div>
                   )}
 
+                  {/* Collection fees — mirrors the delivery block above,
+                      for jobs where the caterer collects (equipment /
+                      drop-back) or the client collects from the kitchen.
+                      Same distance × 2 × per-km auto-calc; adds to total. */}
+                  {(venueLat || deliveryDistance > 0 || collectionDistance > 0) && (
+                    <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 space-y-2">
+                      <div className="flex items-center justify-between text-xs text-blue-900 gap-2">
+                        <span className="font-semibold flex-shrink-0">Collection Fees</span>
+                        {selectedKitchen && kitchens.length === 1 && (
+                          <span className="text-blue-700/80 text-right">
+                            From {selectedKitchen.address || selectedKitchen.name}
+                          </span>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
+                        <div>
+                          <Label className="text-[11px] text-blue-900">Distance (km)</Label>
+                          <Input
+                            type="number"
+                            min={0}
+                            step="0.1"
+                            value={collectionDistance || ""}
+                            onChange={(e) => {
+                              setCollectionDistance(safeNum(e.target.value));
+                              setCollectionFeeOverridden(false);
+                            }}
+                            className="bg-white"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-[11px] text-blue-900">R per km</Label>
+                          <Input
+                            type="number"
+                            min={0}
+                            step="0.5"
+                            value={collectionCostPerKm || ""}
+                            onChange={(e) => {
+                              setCollectionCostPerKm(safeNum(e.target.value));
+                              setCollectionFeeOverridden(false);
+                            }}
+                            className="bg-white"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-[11px] text-blue-900 flex items-center gap-1">
+                            Fee (R)
+                            {collectionFeeOverridden && (
+                              <span className="text-[10px] text-rose-700 font-normal">(flat fee)</span>
+                            )}
+                          </Label>
+                          <Input
+                            type="number"
+                            min={0}
+                            step="0.01"
+                            value={collectionFee || ""}
+                            onChange={(e) => {
+                              setCollectionFee(safeNum(e.target.value));
+                              setCollectionFeeOverridden(true);
+                            }}
+                            className="bg-white"
+                          />
+                        </div>
+                      </div>
+                      <p className="text-[11px] text-blue-700/80">
+                        {collectionFeeOverridden
+                          ? `Flat fee active. Fee = R${collectionFee.toFixed(2)}. Clear the box and re-enter distance to switch back to auto.`
+                          : collectionDistance > 0
+                            ? `Auto: ${collectionDistance.toFixed(1)}km × 2 (round-trip) × R${collectionCostPerKm}/km = R${collectionFee.toFixed(2)}`
+                            : `Type a distance to auto-calculate, or type a flat fee directly into the Fee box.`}
+                      </p>
+                    </div>
+                  )}
+
                   {/* Recent-quote templates from the picked client. */}
                   {clientSnapshot && clientSnapshot.recent_quotes.length > 0 && (
                     <div className="rounded-lg bg-slate-50 border border-slate-200 p-3">
@@ -2689,6 +2792,17 @@ function NewQuotePage() {
                             value={fmtR(deliveryFee)}
                             muted
                           />
+                          {computed.collectionFee > 0 && (
+                            <Row
+                              label={
+                                collectionFeeOverridden || collectionDistance === 0
+                                  ? "Collection"
+                                  : `Collection (${collectionDistance.toFixed(1)}km × 2 @ R${collectionCostPerKm}/km)`
+                              }
+                              value={fmtR(computed.collectionFee)}
+                              muted
+                            />
+                          )}
                           <div className="my-1 border-t border-slate-200" />
                           {incVat ? (
                             <Row label="Subtotal (incl VAT)" value={fmtR(computed.total)} />
@@ -2762,6 +2876,12 @@ function NewQuotePage() {
                             <li className="flex justify-between text-xs">
                               <span className="text-slate-700">Delivery</span>
                               <span className="text-slate-900 font-medium">{fmtR(computed.deliveryFee)}</span>
+                            </li>
+                          )}
+                          {computed.collectionFee > 0 && (
+                            <li className="flex justify-between text-xs">
+                              <span className="text-slate-700">Collection</span>
+                              <span className="text-slate-900 font-medium">{fmtR(computed.collectionFee)}</span>
                             </li>
                           )}
                         </ul>

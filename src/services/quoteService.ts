@@ -848,6 +848,12 @@ export const quoteService = {
       delivery_rate_per_km: q.delivery_rate_per_km ?? null,
       delivery_duration_minutes: null,
       delivery_route_optimized: false,
+      // Collection - same carry-forward as delivery (the quote total
+      // already includes it via total_amount above; these keep the
+      // breakdown on the order for display + later edits).
+      collection_fee: q.collection_fee ?? 0,
+      collection_distance_km: q.collection_distance_km ?? null,
+      collection_rate_per_km: q.collection_rate_per_km ?? null,
       // Notes - quote.notes maps to internal_notes on orders
       internal_notes: q.notes ?? null,
       // Lifecycle

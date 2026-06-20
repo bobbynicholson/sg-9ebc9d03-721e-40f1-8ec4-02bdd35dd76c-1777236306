@@ -47,6 +47,9 @@ const QUOTE_TO_ORDER_MAP: Array<{ quoteKey: string; orderKey: string }> = [
   { quoteKey: "delivery_fee", orderKey: "delivery_fee" },
   { quoteKey: "delivery_distance_km", orderKey: "delivery_distance_km" },
   { quoteKey: "delivery_rate_per_km", orderKey: "delivery_rate_per_km" },
+  { quoteKey: "collection_fee", orderKey: "collection_fee" },
+  { quoteKey: "collection_distance_km", orderKey: "collection_distance_km" },
+  { quoteKey: "collection_rate_per_km", orderKey: "collection_rate_per_km" },
   { quoteKey: "region_id", orderKey: "region_id" },
   // notes -> internal_notes is intentionally one-way; the operator's
   // brief on the order can diverge from the customer-facing quote
