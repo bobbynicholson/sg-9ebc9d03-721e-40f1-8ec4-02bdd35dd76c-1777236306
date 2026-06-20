@@ -346,6 +346,13 @@ export default function PublicQuotePage() {
   // ZAR fallback for legacy rows where it's NULL.
   const fmtMoney = fmtMoneyFor((company as any)?.currency || "ZAR");
 
+  // When the client has an outstanding change request the quote is "with
+  // the caterer for a fresh version" - hide Accept / Decline until the
+  // operator re-prices and re-sends. `changesSent` covers the same-session
+  // case (just submitted); `pending_change_request` (from the get
+  // endpoint) makes it survive a reload until the request is addressed.
+  const pendingApproval = !!quote.pending_change_request || changesSent;
+
   // Phase 3e client sweep: surface the deposit size on the accept
   // confirm panel + the next-steps timeline + the accept button.
   // Previously the client tapped Accept without knowing whether the
@@ -970,7 +977,22 @@ export default function PublicQuotePage() {
                   </div>
                 </CardContent>
               </Card>
-            ) : changesOpen ? null : (
+            ) : changesOpen ? null : pendingApproval ? (
+              <Card className="border border-amber-200 bg-amber-50/60 shadow-sm">
+                <CardContent className="py-6 px-5 text-center space-y-2">
+                  <div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-amber-100">
+                    <Clock className="w-5 h-5 text-amber-700" />
+                  </div>
+                  <h3 className="text-base font-semibold text-stone-900">
+                    Your change request is with {companyName}
+                  </h3>
+                  <p className="text-sm text-stone-600 max-w-md mx-auto">
+                    They're preparing an updated quote based on your requested changes. Once they send it,
+                    you'll be able to review and accept the new version here. No need to do anything for now.
+                  </p>
+                </CardContent>
+              </Card>
+            ) : (
               <Card id="quote-accept-card" className="border border-stone-200 shadow-sm scroll-mt-24">
                 <CardContent className="py-6 px-5">
                   {acceptOpen ? (
@@ -1272,7 +1294,7 @@ export default function PublicQuotePage() {
               until the client responds. Hidden once the name form is
               open (the keyboard needs the space) and after any
               terminal response. */}
-          {!accepted && !acceptOpen && !justDeclined && quote.status !== "rejected" && (
+          {!accepted && !acceptOpen && !justDeclined && !pendingApproval && !changesOpen && quote.status !== "rejected" && (
             <div className="no-print sm:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur border-t border-stone-200 px-4 py-3 flex items-center justify-between gap-3 shadow-[0_-4px_16px_rgba(0,0,0,0.08)]">
               <div className="min-w-0">
                 <p className="text-[10px] uppercase tracking-wide text-stone-500 leading-none">

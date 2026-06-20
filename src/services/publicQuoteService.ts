@@ -63,6 +63,13 @@ export interface PublicQuoteView {
    * card never could.
    */
   converted_to_order_id: string | null;
+  /**
+   * True when the client has an unaddressed change request on this quote.
+   * The public view hides Accept / Decline while this is set - the quote
+   * is awaiting the caterer's re-priced version. Cleared when the operator
+   * Save & Sends (which marks the request addressed).
+   */
+  pending_change_request?: boolean;
   company: {
     id: string;
     company_name: string | null;

@@ -100,6 +100,22 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   // 30). Otherwise a tenant who set 50% in settings still saw 30% on the
   // client-facing /q page. We overwrite the returned deposit_percentage so
   // the page binding (quote.deposit_percentage) needs no change.
+  // Pending change request? While the client has an unaddressed change
+  // request on this quote, the quote is conceptually "with the caterer for
+  // a fresh quote" - the public page hides Accept / Decline until the
+  // operator re-prices and re-sends (which marks the request addressed).
+  try {
+    const { count: pendingCount } = await supabase
+      .from("quote_change_requests")
+      .select("id", { count: "exact", head: true })
+      .eq("quote_id", (data as any).id)
+      .eq("status", "pending");
+    (data as any).pending_change_request = (pendingCount || 0) > 0;
+  } catch (e) {
+    console.warn("[public/quotes/get] pending change-request probe failed:", e);
+    (data as any).pending_change_request = false;
+  }
+
   const companyPct = Number((data as any)?.company?.deposit_percent);
   const quotePct = Number((data as any)?.deposit_percentage);
   const effectivePct =
