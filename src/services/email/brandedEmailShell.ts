@@ -215,7 +215,7 @@ export async function renderBrandedEmailHtml(opts: BrandedEmailOptions): Promise
   const ctaHtml = cta
     ? `
       <tr>
-        <td class="cms-px" style="padding:8px 24px 32px 24px;" align="center">
+        <td class="cms-px" style="padding:8px 24px 32px 24px;" align="left">
           <table role="presentation" cellpadding="0" cellspacing="0" border="0" class="cms-cta-table" style="width:auto;">
             <tr>
               <td class="cms-cta-cell" style="border-radius:8px;background:${accent};">
@@ -282,10 +282,10 @@ export async function renderBrandedEmailHtml(opts: BrandedEmailOptions): Promise
 ${preheaderHtml}
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#f1f5f9;padding:24px 0;">
   <tr>
-    <td align="center" style="padding:0 12px;">
+    <td align="left" style="padding:0 12px;">
       <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" class="cms-card" style="max-width:600px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(15,23,42,0.06);border-top:3px solid ${primary};">
         <tr>
-          <td class="cms-header" style="padding:20px 24px 4px 24px;text-align:center;">
+          <td class="cms-header" style="padding:20px 24px 4px 24px;text-align:left;">
             <div class="cms-header-name" style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:13px;font-weight:600;color:${primary};letter-spacing:2px;text-transform:uppercase;line-height:1.4;mso-line-height-rule:exactly;">
               ${companyName}
             </div>
@@ -298,7 +298,7 @@ ${preheaderHtml}
         </tr>
         ${ctaHtml}
         <tr>
-          <td class="cms-footer" style="background:#f8fafc;padding:22px 24px;text-align:center;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;border-top:1px solid #e2e8f0;">
+          <td class="cms-footer" style="background:#f8fafc;padding:22px 24px;text-align:left;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;border-top:1px solid #e2e8f0;">
             <div style="font-size:14px;color:#334155;font-weight:600;margin-bottom:6px;line-height:1.4;">${companyName}</div>
             ${contactHtml}
             ${addressHtml}
