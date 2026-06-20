@@ -68,6 +68,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       subtotal, tax_amount, discount_amount, total, total_amount, status,
       deposit_percentage,
       delivery_fee, delivery_distance_km, delivery_rate_per_km,
+      collection_fee, collection_distance_km, collection_rate_per_km,
       valid_until, sent_at, viewed_at, accepted_at,
       converted_to_order_id,
       company:company_id (

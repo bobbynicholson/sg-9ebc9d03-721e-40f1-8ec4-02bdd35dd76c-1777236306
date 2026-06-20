@@ -733,23 +733,25 @@ export default function PublicQuotePage() {
           {(() => {
             const incVat = (company as any)?.pricing_includes_vat === true;
             const deliveryFee = Number((quote as any).delivery_fee || 0);
+            const collectionFee = Number((quote as any).collection_fee || 0);
             const persistedSubtotal = Number(quote.subtotal || 0);
             const persistedTax = Number(quote.tax_amount || 0);
             const persistedTotal = total;
             const discount = Number(quote.discount_amount || 0);
             // Items figure for the totals card. Under inc-VAT we show
-            // gross (= total - delivery); under ex-VAT we show net
-            // (= subtotal - delivery).
+            // gross (= total - delivery - collection); under ex-VAT we
+            // show net (= subtotal - delivery - collection). Collection
+            // must be netted out too or it silently inflates "Items".
             const itemsLine = incVat
-              ? Math.max(0, persistedTotal - deliveryFee)
-              : Math.max(0, persistedSubtotal - deliveryFee);
+              ? Math.max(0, persistedTotal - deliveryFee - collectionFee)
+              : Math.max(0, persistedSubtotal - deliveryFee - collectionFee);
             return (
               <Card className="print-keep mb-4 border border-stone-200 shadow-sm print-shadow-none overflow-hidden">
                 <CardContent className="py-5 px-5 space-y-2 bg-gradient-to-br from-white via-white to-brand-primary/5">
                   <p className="text-xs uppercase tracking-[0.15em] text-brand-primary font-bold mb-1">
                     Your investment
                   </p>
-                  {deliveryFee > 0 ? (
+                  {deliveryFee > 0 || collectionFee > 0 ? (
                     <>
                       <div className="flex justify-between text-sm">
                         <span className="text-stone-600">Items</span>
@@ -757,12 +759,22 @@ export default function PublicQuotePage() {
                           {fmtMoney(itemsLine)}
                         </span>
                       </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-stone-600">Delivery</span>
-                        <span className="text-stone-900 tabular-nums">
-                          {fmtMoney(deliveryFee)}
-                        </span>
-                      </div>
+                      {deliveryFee > 0 && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-stone-600">Delivery</span>
+                          <span className="text-stone-900 tabular-nums">
+                            {fmtMoney(deliveryFee)}
+                          </span>
+                        </div>
+                      )}
+                      {collectionFee > 0 && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-stone-600">Collection</span>
+                          <span className="text-stone-900 tabular-nums">
+                            {fmtMoney(collectionFee)}
+                          </span>
+                        </div>
+                      )}
                     </>
                   ) : null}
 

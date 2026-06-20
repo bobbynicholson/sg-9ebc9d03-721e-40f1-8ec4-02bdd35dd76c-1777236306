@@ -247,6 +247,22 @@ export async function generateInvoiceData(
         total: deliveryFee,
       });
     }
+    // Collection charge - same presentation step as delivery. Already
+    // rolled into orders.subtotal, shown as its own line so the invoice
+    // breakdown adds up to the total (no silent inconsistency).
+    const collectionFee = Number(orderData.collection_fee || 0);
+    if (collectionFee > 0) {
+      const cDist = Number(orderData.collection_distance_km) || 0;
+      const cRate = Number(orderData.collection_rate_per_km) || 0;
+      const cRoundTrip = cDist * 2 * cRate;
+      const cIsFlat = !cDist || Math.abs(collectionFee - cRoundTrip) > 0.01;
+      items.push({
+        description: cIsFlat ? "Collection" : `Collection (${cDist.toFixed(1)} km × 2)`,
+        quantity: 1,
+        unitPrice: collectionFee,
+        total: collectionFee,
+      });
+    }
     const waiterFee = Number(orderData.waiter_total_fee || 0);
     if (waiterFee > 0) {
       items.push({
