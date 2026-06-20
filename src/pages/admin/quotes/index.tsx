@@ -1190,7 +1190,16 @@ function AdminQuotesInner() {
   const handleSend = (quoteId: string) => {
     const q = quotes.find((row) => row.id === quoteId);
     if (!q) return;
-    setSendDialogQuote(q);
+    // Flag a re-send so the dialog uses the "Revised quote" template, not
+    // "Quote just sent". In the list, sent_at reflects PRIOR sends (it's
+    // only re-stamped after this send completes), so it's a reliable
+    // "already sent before" signal. Also derive is_converted from the
+    // order backlink so a sent->accepted quote reads as a booking update.
+    setSendDialogQuote({
+      ...q,
+      already_sent: !!(q as any).sent_at || (!!(q as any).status && (q as any).status !== "draft"),
+      is_converted: !!(q as any).converted_to_order_id || !!(q as any).is_converted,
+    } as Quote);
     setSendDialogOpen(true);
   };
 

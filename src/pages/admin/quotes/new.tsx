@@ -1752,6 +1752,11 @@ function NewQuotePage() {
           guest_count: guestCount,
           event_date: eventDate || null,
           is_converted: isConvertedQuote,
+          // `status` here is still the PRE-send value (persistQuote above
+          // flips it to 'sent' but the closure keeps the old value), so a
+          // non-draft status means this quote was already sent before ->
+          // use the "Revised quote" template, not "Quote just sent".
+          already_sent: !!status && status !== "draft",
         });
       }
     } finally {

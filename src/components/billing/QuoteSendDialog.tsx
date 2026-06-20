@@ -47,6 +47,11 @@ export interface QuoteSendDialogQuote {
    *  already accepted). The body copy switches from "Here's your
    *  quote" to "I've updated your booking". */
   is_converted?: boolean;
+  /** True when this quote was already sent to the client before (status
+   *  was past 'draft' / sent_at was set on a prior send). Drives the
+   *  REVISED-quote template instead of the new-quote one, even when the
+   *  client hasn't accepted yet. */
+  already_sent?: boolean;
 }
 
 export interface QuoteSendDialogProps {
@@ -161,6 +166,12 @@ export function QuoteSendDialog({
     ? new Date(String(quote.event_date)).toLocaleDateString("en-ZA", { day: "numeric", month: "long", year: "numeric" })
     : null;
   const isConverted = !!quote?.is_converted;
+  // "Revised" = already sent before (re-send after edits) OR converted
+  // (booking update). Either way it's NOT a fresh first-time quote, so it
+  // uses the "Revised quote" template, not "Quote just sent". isConverted
+  // alone missed the common case: a sent-but-not-yet-accepted quote being
+  // re-sent (Pic 63 - it wrongly used the new-quote wording).
+  const isRevised = isConverted || !!quote?.already_sent;
 
   // Second-quote derived values (only computed when one is selected).
   const secondTotal = Number(secondQuote?.total ?? secondQuote?.total_amount ?? 0);
@@ -228,7 +239,7 @@ export function QuoteSendDialog({
       try {
         const result = await resolveEmailTemplate({
           companyId,
-          templateType: isConverted ? "email_quote_revised" : "email_quote_sent",
+          templateType: isRevised ? "email_quote_revised" : "email_quote_sent",
           variables: {
             first_name: firstName,
             client_name: quote.client_name || "there",
@@ -253,7 +264,7 @@ export function QuoteSendDialog({
           // buildFallbackBody, which has the "see the attached PDF" wording
           // the link-less registry default lacks.
           fallback: (() => {
-            const regKey = isConverted ? "email_quote_revised" : "email_quote_sent";
+            const regKey = isRevised ? "email_quote_revised" : "email_quote_sent";
             const regDef = TEMPLATE_REGISTRY.find((t) => t.key === regKey);
             if (regDef && quoteUrl) {
               return {
@@ -320,7 +331,7 @@ export function QuoteSendDialog({
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, quote?.id, companyId, tn, quoteUrl, total, guestCount, eventDateLabel, isConverted, secondQuote?.id]);
+  }, [open, quote?.id, companyId, tn, quoteUrl, total, guestCount, eventDateLabel, isConverted, isRevised, secondQuote?.id]);
 
   if (!quote) return null;
 
@@ -379,7 +390,7 @@ export function QuoteSendDialog({
       sendLabel="Send quote"
       extraTopContent={secondQuotePicker}
       templateEditHref="/admin/email-templates?tab=templates"
-      templateEditLabel={isConverted ? '"Revised quote" template' : '"Quote just sent" template'}
+      templateEditLabel={isRevised ? '"Revised quote" template' : '"Quote just sent" template'}
       onSend={async (payload) => {
         try {
           const response = await fetch("/api/send-email", {
