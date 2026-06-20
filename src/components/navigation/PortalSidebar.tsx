@@ -283,7 +283,6 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
     hideSignOut = false,
   }: { mobile?: boolean; hideSignOut?: boolean } = {}) => (
     <ScrollArea
-      ref={mobile ? undefined : desktopScrollRef}
       className="h-full py-6 px-4"
     >
       <div className="space-y-6">
@@ -456,7 +455,13 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
             )}
           </div>
 
-          <ScrollArea className="flex-1 p-4">
+          {/* desktopScrollRef MUST live on this real desktop ScrollArea.
+              It used to be wired only to NavBody's ScrollArea, which is
+              rendered for mobile (ref={mobile ? undefined : ...}) so the
+              ref always resolved to undefined and useNavScrollRestore
+              attached to nothing - the desktop menu reset to the top on
+              every navigation. */}
+          <ScrollArea ref={desktopScrollRef} className="flex-1 p-4">
             <div className="space-y-5">
               {/* Wave 70.7 - desktop top slot (service mode + live state) */}
               {config.renderTopSlot && !isCollapsed && (
