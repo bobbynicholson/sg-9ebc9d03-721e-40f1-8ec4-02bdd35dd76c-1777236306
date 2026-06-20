@@ -133,8 +133,11 @@ const COMMON_CLIENT_VARS: TemplateVariable[] = [
 const QUOTE_VARS: TemplateVariable[] = [
   ...COMMON_CLIENT_VARS,
   { name: "quote_ref",     description: "Quote reference number",                example: "Q-001" },
+  { name: "quote_number",  description: "Quote number",                         example: "QUO-000051" },
   { name: "total",         description: "Quote total (formatted as R12,345)",    example: "R12,345" },
   { name: "total_zar",     description: "Quote total in ZAR, no decimals",       example: "R 12 345" },
+  { name: "quote_url",     description: "Link for the client to view + accept the quote", example: "https://cateringms.com/.../q/abc123" },
+  { name: "guest_count",   description: "Number of guests",                      example: "30" },
 ];
 
 const STAFF_VARS: TemplateVariable[] = [
@@ -452,7 +455,8 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     defaultSubject: "{{event_name}} quote from {{tenant_name}} - {{total_zar}}",
     defaultBody:
       `Hi {{first_name}},\n\n` +
-      `Quote for your {{event_name}} on {{event_date}} is across. The total sits at {{total}} including VAT.\n\n` +
+      `Thanks for the opportunity to quote you. Your quote {{quote_number}} for {{event_name}} on {{event_date}} is ready - the total is {{total}} including VAT.\n\n` +
+      `View and accept the quote here:\n{{quote_url}}\n\n` +
       `Have a look and let me know if anything needs changing. Happy to walk through the menu options on a quick call.\n\nBest,\n{{from_name}}`,
     variables: QUOTE_VARS,
   },
@@ -466,7 +470,8 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     defaultSubject: "Revised {{event_name}} quote - {{total_zar}}",
     defaultBody:
       `Hi {{first_name}},\n\n` +
-      `I have revised the quote based on what we last spoke about. Total is now {{total}}.\n\n` +
+      `I have revised the quote based on what we last spoke about. The total is now {{total}}.\n\n` +
+      `View the updated quote here:\n{{quote_url}}\n\n` +
       `Have a quick look when you can and shout if anything still needs tweaking.\n\nBest,\n{{from_name}}`,
     variables: QUOTE_VARS,
   },

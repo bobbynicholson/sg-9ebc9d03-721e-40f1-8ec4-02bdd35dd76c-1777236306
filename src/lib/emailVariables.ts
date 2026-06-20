@@ -86,5 +86,28 @@ export function normalizeEmailVariables(
     out.orderNumber = invNo;
   }
 
+  // total <-> amount <-> total_zar. The quote/invoice senders pass the
+  // formatted money under different keys depending on the call site
+  // (the quote-send dialog passes `amount`; the registry quote templates
+  // author against `{{total}}` / `{{total_zar}}`). Without this, an
+  // operator who edits the "Quote just sent" template and keeps the
+  // shipped `{{total}}` tag would email a blank total. Fill whichever
+  // money keys are missing from whichever one was supplied.
+  const money = pick("total", "amount", "total_zar", "totalAmount");
+  if (money) {
+    for (const k of ["total", "amount", "total_zar", "totalAmount"]) {
+      if (isEmpty(k)) out[k] = money;
+    }
+  }
+
+  // from_name: the sign-off on client emails. Templates author against
+  // {{from_name}} but most call sites only pass the company/tenant name,
+  // so fall back to that (then the operator's first name) rather than
+  // leaving "Best,\n" with a blank line.
+  if (isEmpty("from_name")) {
+    const signer = pick("from_name", "sender_name", "company_name", "tenant_name", "first_name");
+    if (signer) out.from_name = signer;
+  }
+
   return out;
 }

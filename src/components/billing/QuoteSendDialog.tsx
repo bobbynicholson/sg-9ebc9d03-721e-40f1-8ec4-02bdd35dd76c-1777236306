@@ -358,6 +358,8 @@ export function QuoteSendDialog({
       }
       sendLabel="Send quote"
       extraTopContent={secondQuotePicker}
+      templateEditHref="/admin/email-templates?tab=templates"
+      templateEditLabel={isConverted ? '"Revised quote" template' : '"Quote just sent" template'}
       onSend={async (payload) => {
         try {
           const response = await fetch("/api/send-email", {

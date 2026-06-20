@@ -14,6 +14,7 @@
  */
 import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
+import Link from "next/link";
 import {
   Dialog,
   DialogContent,
@@ -73,6 +74,13 @@ export interface SendEmailDialogProps {
   /** Optional content rendered between the dialog header and the To
    *  field. Used by QuoteSendDialog to inject the second-quote picker. */
   extraTopContent?: React.ReactNode;
+
+  /** Optional deep-link to the editable template behind this email, plus
+   *  a human label for it. When set, the footer shows an "Edit this
+   *  template" link so the operator can change the default wording for
+   *  EVERY send instead of re-editing the composer each time. */
+  templateEditHref?: string;
+  templateEditLabel?: string;
 
   /**
    * Caller does the actual fetch. Returns success or a structured
@@ -231,6 +239,18 @@ export function SendEmailDialog(props: SendEmailDialogProps) {
               Merge tags have been replaced with the actual values. Edit freely - the
               client receives exactly what you see here.
             </p>
+            {props.templateEditHref && (
+              <p className="text-xs text-slate-600 bg-slate-50 border border-slate-200 rounded-md px-3 py-2">
+                Want this wording on <strong>every</strong> send? Edit the{" "}
+                <Link
+                  href={props.templateEditHref}
+                  className="text-blue-700 font-medium underline hover:text-blue-800"
+                >
+                  {props.templateEditLabel || "email template"}
+                </Link>
+                {" "}- one-off tweaks here don&apos;t change the default.
+              </p>
+            )}
           </div>
 
           {/* Attachment */}
