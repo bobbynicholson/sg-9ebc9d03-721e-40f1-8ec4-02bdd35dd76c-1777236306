@@ -15,6 +15,7 @@ import { ChefHat, Clock, CheckCircle, Calendar, Users, Package, AlertTriangle, T
 import Link from "next/link";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { staffOrderHref } from "@/lib/orderUrls";
+import { orderDisplayName } from "@/lib/orderDisplayName";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
@@ -503,7 +504,7 @@ export default function KitchenDashboard() {
         if (btRow) {
           const order = (ordersData || []).find((o: any) => o.id === btRow.order_id);
           const orderLabel = order
-            ? (order.event_name || order.client_name || order.order_number || "Order")
+            ? orderDisplayName({ event_name: order.event_name, client_name: order.client_name, order_number: order.order_number })
             : "Order";
           const startedAt = new Date(btRow.started_at);
           const minsRunning = Math.floor((Date.now() - startedAt.getTime()) / 60_000);
@@ -560,7 +561,7 @@ export default function KitchenDashboard() {
 
             const orderLabelById = new Map<string, string>();
             for (const o of (ordersData || []) as any[]) {
-              orderLabelById.set(o.id, o.event_name || o.client_name || o.order_number || "Order");
+              orderLabelById.set(o.id, orderDisplayName({ event_name: o.event_name, client_name: o.client_name, order_number: o.order_number }));
             }
 
             const blocked: Array<{ inventoryItemId: string; itemName: string; orderCount: number; orderLabels: string[] }> = [];
@@ -1109,7 +1110,7 @@ export default function KitchenDashboard() {
                             </div>
                             <div className="min-w-0 flex-1">
                               <p className="font-semibold text-xs sm:text-sm text-slate-900 dark:text-white truncate">
-                                {order.event_name || (order as any).client_name || "Event"}
+                                {orderDisplayName({ event_name: order.event_name, client_name: (order as any).client_name, order_number: (order as any).order_number })}
                               </p>
                               <p className="text-xs text-slate-600 dark:text-slate-400">
                                 {order.guest_count} guests • Eat {eventTime}
@@ -1118,7 +1119,7 @@ export default function KitchenDashboard() {
                                     · Collect {String((order as any).pickup_time).slice(0, 5)}
                                   </span>
                                 )}
-                                {(order as any).client_name && order.event_name && (
+                                {(order as any).client_name && order.event_name && !/^untitled$/i.test(String(order.event_name).trim()) && (
                                   <span> · for <span className="font-medium text-slate-700 dark:text-slate-300">{(order as any).client_name}</span></span>
                                 )}
                               </p>
@@ -1501,12 +1502,12 @@ export default function KitchenDashboard() {
                   {needsClosureOrders.map((o: any) => {
                     const dt = new Date(`${o.event_date}T${o.event_time || "12:00"}`);
                     const ago = Math.floor((now.getTime() - dt.getTime()) / 3_600_000);
-                    const label = `${o.event_name || o.client_name || "Event"}${o.order_number ? ` (${o.order_number})` : ""}`;
+                    const label = `${orderDisplayName({ event_name: o.event_name, client_name: o.client_name })}${o.order_number ? ` (${o.order_number})` : ""}`;
                     return (
                       <li key={o.id} className="flex items-center justify-between gap-2 bg-white dark:bg-slate-900 border border-amber-200 dark:border-amber-900 rounded-md px-3 py-2">
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">
-                            {o.event_name || o.client_name || "Event"}
+                            {orderDisplayName({ event_name: o.event_name, client_name: o.client_name, order_number: o.order_number })}
                           </p>
                           <p className="text-[11px] text-slate-600 dark:text-slate-400 truncate">
                             {o.order_number && <span className="tabular-nums mr-1">{o.order_number}</span>}
@@ -1573,7 +1574,7 @@ export default function KitchenDashboard() {
                           {day.items.slice(0, 4).map((it) => (
                             <li key={it.id} className="text-xs text-slate-600 dark:text-slate-400 flex items-center gap-2">
                               <span className="tabular-nums text-slate-400 dark:text-slate-500 w-10 shrink-0">{it.event_time?.slice(0, 5) || "--"}</span>
-                              <span className="font-medium text-slate-700 dark:text-slate-200 truncate flex-1 min-w-0">{it.event_name || it.client_name}</span>
+                              <span className="font-medium text-slate-700 dark:text-slate-200 truncate flex-1 min-w-0">{orderDisplayName({ event_name: it.event_name, client_name: it.client_name, order_number: (it as any).order_number })}</span>
                               <span className="text-slate-500 dark:text-slate-400 tabular-nums shrink-0">{it.guest_count} pax</span>
                             </li>
                           ))}
@@ -1699,7 +1700,7 @@ export default function KitchenDashboard() {
                                 <div className="flex items-start justify-between gap-2 mb-1">
                                   <div className="flex-1 min-w-0">
                                     <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">
-                                      {order.event_name || order.client_name || "Order"}
+                                      {orderDisplayName({ event_name: order.event_name, client_name: order.client_name, order_number: (order as any).order_number })}
                                     </p>
                                     {order.event_name && order.client_name && (
                                       <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">

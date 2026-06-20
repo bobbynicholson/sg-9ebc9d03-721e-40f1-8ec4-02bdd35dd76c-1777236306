@@ -24,6 +24,7 @@ import { kitchenPrepService, type KitchenStation } from "@/services/kitchenPrepS
 import { toLocalISO } from "@/lib/localDate";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { staffOrderHref } from "@/lib/orderUrls";
+import { orderDisplayName } from "@/lib/orderDisplayName";
 import { captureException } from "@/lib/observability";
 import { onOrderUpdated } from "@/lib/events/orderEvents";
 import { PortalShell, PortalHeader, PortalCard, StatTile } from "@/components/portal/ui";
@@ -32,6 +33,7 @@ interface Order {
   id: string;
   order_number: string | null;
   event_name: string | null;
+  client_name: string | null;
   event_date: string | null;
   event_time: string | null;
   guest_count: number | null;
@@ -206,7 +208,7 @@ export default function KitchenProductionPage() {
       // tenants (kitchen_staff sees only their branch's prep).
       let ordersQuery = supabase
         .from("orders")
-        .select("id, order_number, event_name, event_date, event_time, guest_count, status, special_instructions")
+        .select("id, order_number, event_name, client_name, event_date, event_time, guest_count, status, special_instructions")
         .eq("company_id", user.company_id)
         .gte("event_date", isoDate(from))
         .lt("event_date", isoDate(to))
@@ -807,7 +809,7 @@ export default function KitchenProductionPage() {
                             </p>
                             <p className="text-[11px] text-slate-600 truncate">
                               {ord?.order_number ? `${ord.order_number} · ` : ""}
-                              {ord?.event_name || ord?.event_date || "-"}
+                              {(ord?.event_name && !/^untitled$/i.test(String(ord.event_name).trim()) ? ord.event_name : ord?.client_name) || ord?.event_date || "-"}
                               {ord?.guest_count ? ` · ${ord.guest_count} guests` : ""}
                               {station ? ` · ${station.name}` : ""}
                             </p>
@@ -993,7 +995,7 @@ export default function KitchenProductionPage() {
                               const pos = taskPosition(t);
                               if (!pos) return null;
                               const tone = TASK_TONES[t.status] || TASK_TONES.pending;
-                              const eventName = t.order?.event_name || t.order?.client_name || "Order";
+                              const eventName = orderDisplayName({ event_name: t.order?.event_name, client_name: t.order?.client_name, order_number: t.order?.order_number });
                               return (
                                 <Link
                                   key={t.id}
@@ -1100,7 +1102,7 @@ export default function KitchenProductionPage() {
                               <div className="p-4">
                                 <div className="flex items-start justify-between gap-2 mb-2">
                                   <div className="min-w-0 flex-1">
-                                    <div className="font-medium text-slate-900 dark:text-white truncate group-hover:text-amber-700 dark:group-hover:text-amber-400 transition-colors">{o.event_name ?? o.order_number ?? "Event"}</div>
+                                    <div className="font-medium text-slate-900 dark:text-white truncate group-hover:text-amber-700 dark:group-hover:text-amber-400 transition-colors">{orderDisplayName({ event_name: o.event_name, client_name: (o as any).client_name, order_number: o.order_number })}</div>
                                     <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1">
                                       <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{fmtTime(o.event_time)}</span>
                                       {o.guest_count != null && <span className="flex items-center gap-1"><UsersIcon className="h-3 w-3" />{o.guest_count} guests</span>}

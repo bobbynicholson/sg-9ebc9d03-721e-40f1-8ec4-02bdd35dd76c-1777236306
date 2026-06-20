@@ -26,6 +26,7 @@ import Link from "next/link";
 import { toLocalISO } from "@/lib/localDate";
 import { captureException } from "@/lib/observability";
 import { onOrderUpdated } from "@/lib/events/orderEvents";
+import { orderDisplayName } from "@/lib/orderDisplayName";
 import { RefreshCw } from "lucide-react";
 
 interface DemandRow {
@@ -854,7 +855,13 @@ export default function KitchenPrepListPage() {
                             <div className="flex items-start justify-between gap-2">
                               <div className="min-w-0">
                                 <h3 className="text-base font-semibold text-slate-900 dark:text-white flex items-center gap-2 flex-wrap">
-                                  <span className="truncate">{o.event_name}</span>
+                                  {/* event_name is often the literal
+                                      "Untitled"; orderDisplayName falls back
+                                      to the client name so the chef sees a
+                                      real name. client_name lives on meta. */}
+                                  <span className="truncate">
+                                    {orderDisplayName({ event_name: o.event_name, client_name: meta?.client_name, order_number: o.order_number })}
+                                  </span>
                                   <Badge variant="outline" className="text-[10px]">{o.order_number}</Badge>
                                   {urgencyBadge && (
                                     <Badge
