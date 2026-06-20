@@ -90,6 +90,12 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (typeof rawChanges.menu_changes === "string" && rawChanges.menu_changes.trim()) {
     requestedChanges.menu_changes = rawChanges.menu_changes.trim().slice(0, 2000);
   }
+  if (typeof rawChanges.venue_address === "string" && rawChanges.venue_address.trim()) {
+    requestedChanges.venue_address = rawChanges.venue_address.trim().slice(0, 500);
+  }
+  if (typeof rawChanges.logistics_changes === "string" && rawChanges.logistics_changes.trim()) {
+    requestedChanges.logistics_changes = rawChanges.logistics_changes.trim().slice(0, 2000);
+  }
 
   const supabase = getServiceSupabase();
   const ip = getClientIp(req as any);

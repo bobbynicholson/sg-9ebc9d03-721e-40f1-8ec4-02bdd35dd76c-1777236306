@@ -199,6 +199,8 @@ export async function submitChangeRequest(args: {
     event_date?: string | null;
     guest_count?: number | null;
     menu_changes?: string | null;
+    venue_address?: string | null;
+    logistics_changes?: string | null;
   };
 }): Promise<{ ok: boolean; error?: string }> {
   if (!args.token) return { ok: false, error: "Missing token." };

@@ -153,6 +153,8 @@ export default function PublicQuotePage() {
   const [changesEventDate, setChangesEventDate] = useState("");
   const [changesGuestCount, setChangesGuestCount] = useState("");
   const [changesMenu, setChangesMenu] = useState("");
+  const [changesVenue, setChangesVenue] = useState("");
+  const [changesLogistics, setChangesLogistics] = useState("");
   const [changesSubmitting, setChangesSubmitting] = useState(false);
   const [changesError, setChangesError] = useState<string | null>(null);
   const [changesSent, setChangesSent] = useState(false);
@@ -274,6 +276,8 @@ export default function PublicQuotePage() {
           ? Number.parseInt(changesGuestCount, 10)
           : null,
         menu_changes: changesMenu.trim() || null,
+        venue_address: changesVenue.trim() || null,
+        logistics_changes: changesLogistics.trim() || null,
       },
     });
     setChangesSubmitting(false);
@@ -1160,6 +1164,32 @@ export default function PublicQuotePage() {
                           value={changesMenu}
                           onChange={(e) => setChangesMenu(e.target.value)}
                           placeholder="e.g. swap chicken for veg option"
+                          className="mt-1"
+                        />
+                      </div>
+
+                      <div>
+                        <label htmlFor="changes-venue" className="text-xs font-medium text-stone-700">
+                          New venue / address (optional)
+                        </label>
+                        <Input
+                          id="changes-venue"
+                          value={changesVenue}
+                          onChange={(e) => setChangesVenue(e.target.value)}
+                          placeholder="e.g. 12 Beach Road, Camps Bay"
+                          className="mt-1"
+                        />
+                      </div>
+
+                      <div>
+                        <label htmlFor="changes-logistics" className="text-xs font-medium text-stone-700">
+                          Delivery / collection changes (optional)
+                        </label>
+                        <Input
+                          id="changes-logistics"
+                          value={changesLogistics}
+                          onChange={(e) => setChangesLogistics(e.target.value)}
+                          placeholder="e.g. we'll collect the equipment ourselves, or please add collection"
                           className="mt-1"
                         />
                       </div>
