@@ -349,7 +349,17 @@ export default function InvoicePaymentPage() {
   const company = invoice.companies;
   const companyName = company.company_name || "Your caterer";
   const isPaid = invoice.balance_due <= 0;
+  // A deposit (or any part payment) has landed but the invoice isn't
+  // settled yet. The client should see "Deposit paid" + how much of the
+  // total is still outstanding, not a bare "Awaiting payment".
+  const isPartiallyPaid = !isPaid && Number(invoice.amount_paid) > 0;
   const isOverdue = new Date(invoice.due_date) < new Date() && !isPaid;
+  // Outstanding share of the total, as a percentage, for the "X% still
+  // remaining" line. Guard against a zero total.
+  const remainingPct =
+    Number(invoice.total_amount) > 0
+      ? Math.round((Number(invoice.balance_due) / Number(invoice.total_amount)) * 100)
+      : 0;
   const vatRegistered = !!company.vat_registered;
   const docTitle = vatRegistered ? "Tax Invoice" : "Invoice";
   const today = format(new Date(), "d MMMM yyyy");
@@ -474,6 +484,11 @@ export default function InvoicePaymentPage() {
                   <CheckCircle2 className="w-4 h-4" />
                   Paid
                 </Badge>
+              ) : isPartiallyPaid ? (
+                <Badge className="bg-emerald-600 text-white border-0 gap-1 px-3 py-1.5 text-sm">
+                  <CheckCircle2 className="w-4 h-4" />
+                  Deposit paid
+                </Badge>
               ) : isOverdue ? (
                 <Badge className="bg-rose-600 text-white border-0 px-3 py-1.5 text-sm">
                   Overdue
@@ -536,10 +551,17 @@ export default function InvoicePaymentPage() {
 
               <div className="brand-print rounded-lg bg-brand-primary/10 border-2 border-brand-primary p-5 flex items-center justify-between flex-wrap gap-3">
                 <div>
-                  <p className="text-xs uppercase tracking-[0.15em] text-brand-primary font-bold mb-1">Balance due</p>
+                  <p className="text-xs uppercase tracking-[0.15em] text-brand-primary font-bold mb-1">
+                    {isPartiallyPaid ? `Balance still to pay (${remainingPct}%)` : "Balance due"}
+                  </p>
                   <p className="text-2xl sm:text-3xl md:text-4xl font-serif font-bold text-stone-900 tabular-nums break-words">
                     {fmtMoney.format(invoice.balance_due)}
                   </p>
+                  {isPartiallyPaid && (
+                    <p className="text-sm font-semibold text-emerald-700 mt-1">
+                      Deposit received - thank you. The remaining {remainingPct}% is still to pay.
+                    </p>
+                  )}
                   {!isPaid && (
                     <div className="mt-2 flex items-center gap-2 text-xs">
                       <Calendar className="w-3 h-3 text-stone-500" />

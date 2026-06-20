@@ -47,6 +47,7 @@ import {
 // each action. Quote mode skips the payout step (no money to move).
 import { CancellationWizard } from "@/components/cancellation/CancellationWizard";
 import { QuoteItemsEditor, type MenuLine, type EquipLine } from "@/components/quote/QuoteItemsEditor";
+import { AddressAutocomplete } from "@/components/admin/AddressAutocomplete";
 
 // Phase 5 #10: per-tenant currency formatter. The Intl 'currency'
 // style honours each currency's standard symbol + grouping (so GBP
@@ -1201,11 +1202,12 @@ export default function PublicQuotePage() {
                         <label htmlFor="changes-venue" className="text-xs font-medium text-stone-700">
                           New venue / address (optional)
                         </label>
-                        <Input
+                        <AddressAutocomplete
                           id="changes-venue"
                           value={changesVenue}
-                          onChange={(e) => setChangesVenue(e.target.value)}
-                          placeholder="e.g. 12 Beach Road, Camps Bay"
+                          onChange={(pick) => setChangesVenue(pick.address)}
+                          placeholder="Start typing the venue address..."
+                          suppressNoKeyWarning
                           className="mt-1"
                         />
                       </div>

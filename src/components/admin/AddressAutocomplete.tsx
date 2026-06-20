@@ -43,11 +43,16 @@ interface Props {
   hint?: string;
   id?: string;
   className?: string;
+  /** Hide the "ask the platform owner to enable Google Maps" notice when
+   *  no key is configured. Set on client-facing surfaces (the public quote
+   *  page) where that operator-oriented message makes no sense - the field
+   *  just behaves as a plain address input there. */
+  suppressNoKeyWarning?: boolean;
 }
 
 export function AddressAutocomplete({
   value, onChange, placeholder = "Search address...", countryCode = "za",
-  disabled, hint, id, className,
+  disabled, hint, id, className, suppressNoKeyWarning,
 }: Props) {
   const [input, setInput] = useState(value || "");
   const [predictions, setPredictions] = useState<any[]>([]);
@@ -176,7 +181,7 @@ export function AddressAutocomplete({
         </div>
       )}
 
-      {keyAvailable === false && (
+      {keyAvailable === false && !suppressNoKeyWarning && (
         <div className="mt-1 flex items-center gap-1.5 text-[11px] text-amber-700">
           <ShieldAlert className="w-3 h-3 flex-shrink-0" />
           <span>Manual entry only, ask the platform owner to enable Google Maps for autocomplete + lat/lng.</span>
