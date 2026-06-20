@@ -11,6 +11,7 @@
 import { useEffect, useState } from "react";
 import { SendEmailDialog } from "./SendEmailDialog";
 import { resolveEmailTemplate } from "@/services/email/templateResolver";
+import { TEMPLATE_REGISTRY } from "@/lib/messageTemplates/registry";
 import { formatQuoteSubject, fmtMoney } from "@/lib/email/subjectFormatters";
 import { buildPublicQuoteUrl } from "@/services/publicQuoteService";
 import { supabase } from "@/integrations/supabase/client";
@@ -244,26 +245,45 @@ export function QuoteSendDialog({
             guest_count: guestCount > 0 ? String(guestCount) : "",
             event_date: eventDateLabel || "",
           },
-          fallback: {
-            subject: formatQuoteSubject({
-              eventName: cleanedEvent,
-              tenantName: tn,
-              total: total,
-              quoteNumber: quote.quote_number || quote.id,
-              currencyCode: currency,
-            }),
-            bodyHtml: buildFallbackBody({
-              firstName,
-              tenantName: tn,
-              eventName: cleanedEvent,
-              quoteNumber: quote.quote_number || quote.id,
-              amount: totalLabel,
-              quoteUrl: quoteUrl,
-              guestCount: guestCount > 0 ? guestCount : null,
-              eventDateLabel,
-              isConverted,
-            }),
-          },
+          // Fallback when no tenant override exists: use the SAME registry
+          // default the Templates tab shows for this template, so the
+          // composer's starting text matches what the operator edits there
+          // (resolveEmailTemplate substitutes the {{tags}} below). Only
+          // when the quote has no public link (no quoteUrl) do we drop to
+          // buildFallbackBody, which has the "see the attached PDF" wording
+          // the link-less registry default lacks.
+          fallback: (() => {
+            const regKey = isConverted ? "email_quote_revised" : "email_quote_sent";
+            const regDef = TEMPLATE_REGISTRY.find((t) => t.key === regKey);
+            if (regDef && quoteUrl) {
+              return {
+                subject: regDef.defaultSubject || formatQuoteSubject({
+                  eventName: cleanedEvent, tenantName: tn, total, quoteNumber: quote.quote_number || quote.id, currencyCode: currency,
+                }),
+                bodyHtml: regDef.defaultBody,
+              };
+            }
+            return {
+              subject: formatQuoteSubject({
+                eventName: cleanedEvent,
+                tenantName: tn,
+                total: total,
+                quoteNumber: quote.quote_number || quote.id,
+                currencyCode: currency,
+              }),
+              bodyHtml: buildFallbackBody({
+                firstName,
+                tenantName: tn,
+                eventName: cleanedEvent,
+                quoteNumber: quote.quote_number || quote.id,
+                amount: totalLabel,
+                quoteUrl: quoteUrl,
+                guestCount: guestCount > 0 ? guestCount : null,
+                eventDateLabel,
+                isConverted,
+              }),
+            };
+          })(),
         });
         if (!cancelled) {
           setResolved({ subject: result.subject, body: result.bodyHtml });
