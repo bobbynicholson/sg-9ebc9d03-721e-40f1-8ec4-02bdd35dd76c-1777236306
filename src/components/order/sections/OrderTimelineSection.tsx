@@ -446,14 +446,30 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen }: Props) {
     { key: "cleaning",      label: "In cleaning cycle",    Icon: Droplets,       at: cleaningAllDone || cleaningStarted,   show: hasEquipmentSignal, lane: "closeout" },
     { key: "completed",     label: "Closed",               Icon: CheckCircle2,   at: order.completed_at,        lane: "closeout" },
   ] as Step[]);
-  const steps: Step[] = allSteps.filter((s) => s.show !== false);
+  // Show the WHOLE lifecycle on every order - render every step, even
+  // the ones that don't apply to this particular order (no shopping
+  // list, no equipment, no waiter service). Non-applicable steps are
+  // drawn faint + marked "N/A" rather than removed, so the timeline is
+  // a consistent full length and the operator can see the complete
+  // pipeline at a glance. `step.show === false` = not applicable here.
+  const steps: Step[] = allSteps;
 
-  // Pick the current step: the last one with a timestamp (or first
-  // pending if none stamped yet). Used for the summary line.
+  // Pick the current step: the last APPLICABLE one with a timestamp.
+  // N/A steps never carry a timestamp so they can't be "done".
   const lastDoneIdx = (() => {
     let idx = -1;
-    steps.forEach((s, i) => { if (s.at) idx = i; });
+    steps.forEach((s, i) => { if (s.at && s.show !== false) idx = i; });
     return idx;
+  })();
+
+  // First applicable, not-yet-reached step after the last done one -
+  // this is the real "Up next". Skips N/A steps so the action cue never
+  // lands on a step that doesn't apply to this order.
+  const nextPendingIdx = (() => {
+    for (let i = lastDoneIdx + 1; i < steps.length; i++) {
+      if (steps[i].show !== false && !steps[i].at) return i;
+    }
+    return -1;
   })();
   const currentLabel = cancelled
     ? "Cancelled"
@@ -597,8 +613,9 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen }: Props) {
           {(() => null)()}
           {steps.map((step, i) => {
             const reached = !!step.at;
+            const notApplicable = step.show === false;
             const isCurrent = i === lastDoneIdx;
-            const isNextPending = !reached && i === lastDoneIdx + 1;
+            const isNextPending = i === nextPendingIdx;
             const Icon = step.Icon;
             const isLast = i === steps.length - 1;
             const owner = stepOwner(step.key);
@@ -615,29 +632,37 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen }: Props) {
                   />
                 )}
                 <div
-                  className={`w-8 h-8 rounded-full border-2 flex items-center justify-center flex-shrink-0 z-10 transition ${laneClass(step.lane, reached)} ${isCurrent ? "ring-2 ring-offset-2 ring-blue-300" : ""} ${isNextPending && !cancelled && !postponed ? "ring-2 ring-offset-2 ring-amber-300" : ""}`}
+                  className={`w-8 h-8 rounded-full border-2 flex items-center justify-center flex-shrink-0 z-10 transition ${laneClass(step.lane, reached)} ${notApplicable ? "opacity-50 border-dashed" : ""} ${isCurrent ? "ring-2 ring-offset-2 ring-blue-300" : ""} ${isNextPending && !cancelled && !postponed ? "ring-2 ring-offset-2 ring-amber-300" : ""}`}
                 >
                   {reached ? <Icon className="w-4 h-4" /> : <Circle className="w-3 h-3" />}
                 </div>
                 <div className="flex-1 min-w-0 pt-1">
                   <div className="flex items-baseline justify-between gap-2 flex-wrap">
-                    <p className={`text-sm ${reached ? "font-semibold text-slate-900" : "text-slate-500"}`}>
+                    <p className={`text-sm ${notApplicable ? "text-slate-400 italic" : reached ? "font-semibold text-slate-900" : "text-slate-500"}`}>
                       {step.label}
                       {/* ODOC H.1: whose turn badge. Always shown -
                           informational for past steps, action-cue
-                          for the next pending step (with 'Up next'). */}
-                      <span className={`ml-2 text-[10px] uppercase tracking-wider rounded px-1.5 py-0.5 border ${owner.tone}`}>
-                        {owner.role}
-                      </span>
-                      {isNextPending && !cancelled && !postponed && (
+                          for the next pending step (with 'Up next').
+                          N/A steps (not relevant to this order) carry an
+                          'N/A' chip instead of the owner + action cues. */}
+                      {notApplicable ? (
+                        <span className="ml-2 text-[10px] uppercase tracking-wider rounded px-1.5 py-0.5 border bg-slate-50 text-slate-400 border-slate-200">
+                          N/A
+                        </span>
+                      ) : (
+                        <span className={`ml-2 text-[10px] uppercase tracking-wider rounded px-1.5 py-0.5 border ${owner.tone}`}>
+                          {owner.role}
+                        </span>
+                      )}
+                      {!notApplicable && isNextPending && !cancelled && !postponed && (
                         <span className="ml-1.5 text-[10px] uppercase tracking-wider text-amber-800 bg-amber-100 border border-amber-300 rounded px-1.5 py-0.5 font-semibold">
                           Up next
                         </span>
                       )}
-                      {isCurrent && !cancelled && !isStuck && (
+                      {!notApplicable && isCurrent && !cancelled && !isStuck && (
                         <span className="ml-2 text-[10px] uppercase tracking-wider text-blue-700 bg-blue-50 border border-blue-200 rounded px-1.5 py-0.5">Now</span>
                       )}
-                      {isCurrent && isStuck && (
+                      {!notApplicable && isCurrent && isStuck && (
                         <span className="ml-2 text-[10px] uppercase tracking-wider text-amber-800 bg-amber-100 border border-amber-300 rounded px-1.5 py-0.5">Stuck</span>
                       )}
                     </p>
@@ -650,7 +675,7 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen }: Props) {
                           {fmtRelative(hoursSince(step.at)!)}
                         </span>
                       )}
-                      <span>{reached ? fmtStamp(step.at) : "-"}</span>
+                      <span>{reached ? fmtStamp(step.at) : notApplicable ? "N/A" : "-"}</span>
                     </div>
                   </div>
                 </div>
@@ -666,7 +691,7 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen }: Props) {
           <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-slate-500" />Open</span>
           <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-rose-500" />Kitchen</span>
           <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-indigo-500" />Driver</span>
-          {needsService && <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-500" />Service</span>}
+          <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-500" />Service</span>
           <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500" />Closeout</span>
         </div>
       </div>
