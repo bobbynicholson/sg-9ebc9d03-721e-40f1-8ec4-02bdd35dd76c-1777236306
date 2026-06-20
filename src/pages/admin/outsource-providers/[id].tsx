@@ -213,8 +213,9 @@ function ProviderDetail() {
       <div className="min-h-screen bg-slate-50 lg:pl-72 xl:pl-80">
         {/* Wave 70.6 - mobile pass. pt-20 clears the mobile
             AdminNav top bar (lg: nav is the left sidebar so pt-6 is
-            enough). max-w-5xl with mx-auto centres on big screens. */}
-        <div className="pt-20 lg:pt-6 px-3 sm:px-4 pb-8 max-w-5xl mx-auto">
+            enough). Full width so it matches every other portal page
+            and leaves no empty side rail on big screens. */}
+        <div className="pt-20 lg:pt-6 px-3 sm:px-4 pb-8 w-full">
           <Link
             href={withSlug("/admin/outsource-providers")}
             className="inline-flex items-center gap-1 text-sm text-slate-600 hover:text-slate-900 mb-4"

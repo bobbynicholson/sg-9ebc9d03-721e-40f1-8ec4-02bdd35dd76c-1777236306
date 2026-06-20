@@ -516,7 +516,7 @@ export default function ShoppingBuyListPage() {
             className="fixed bottom-12 left-0 right-0 z-40 border-t border-slate-200 bg-white/95 shadow-lg backdrop-blur lg:left-64 xl:left-72 dark:border-slate-800 dark:bg-slate-900/95"
             style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
           >
-            <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-3 sm:px-6">
+            <div className="flex w-full items-center gap-3 px-4 py-3 sm:px-6">
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-semibold text-slate-900 dark:text-white">
                   {selectedTotals.count} selected

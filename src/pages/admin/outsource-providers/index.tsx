@@ -498,7 +498,7 @@ function ProvidersList() {
       <Head><title>Outsource providers - CateringMS</title></Head>
       <AdminNav />
       <div className="min-h-screen bg-slate-50 lg:pl-72 xl:pl-80">
-        <div className="py-8 px-4 max-w-6xl">
+        <div className="py-8 px-4">
           <div className="flex items-end justify-between mb-6 gap-3 flex-wrap">
             <div>
               <h1 className="text-3xl font-bold text-slate-900 inline-flex items-center gap-2">

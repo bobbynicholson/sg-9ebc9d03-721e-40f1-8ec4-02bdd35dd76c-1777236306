@@ -56,6 +56,10 @@ export function Layout({
   // shell already provides - no mx-auto, otherwise the content
   // centres in the post-sidebar gap and leaves a big empty rail.
   const innerAlignment = isPortal ? "" : "mx-auto";
+  // Portal pages use the FULL desktop width (no max-w cap) so there's
+  // no empty side rail - matches PortalShell. The maxWidth prop only
+  // applies to public/marketing pages, which stay centred + capped.
+  const innerMaxWidth = isPortal ? "max-w-full" : maxWidthClasses[maxWidth];
 
   return (
     <div className={`min-h-screen flex flex-col bg-background ${portalShell}`}>
@@ -70,7 +74,7 @@ export function Layout({
 
       {/* Main Content */}
       <main className="flex-1">
-        <div className={`${innerAlignment} px-4 sm:px-6 lg:px-8 py-8 ${maxWidthClasses[maxWidth]}`}>
+        <div className={`${innerAlignment} px-4 sm:px-6 lg:px-8 py-8 ${innerMaxWidth}`}>
           {children}
         </div>
       </main>

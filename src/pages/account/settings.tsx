@@ -398,7 +398,7 @@ function ProfileSettingsPage() {
         <title>Account settings - CateringMS</title>
       </Head>
 
-      <PortalLayout maxWidth="6xl">
+      <PortalLayout maxWidth="full">
         <div className="space-y-6">
           {/* Header - matches the admin page convention: icon in a
               brand-coloured rounded square sat next to the title +

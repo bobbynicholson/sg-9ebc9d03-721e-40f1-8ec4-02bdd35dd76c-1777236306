@@ -107,7 +107,7 @@ function AchievementsContent() {
       <NoIndexMeta />
 
       <div className="min-h-screen bg-slate-50">
-        <div className="max-w-5xl mx-auto px-4 py-8 space-y-6">
+        <div className="w-full px-4 py-8 space-y-6">
           <div>
             <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-2">
               <Trophy className="w-7 h-7 text-amber-500" />
@@ -299,7 +299,7 @@ function AchievementsContent() {
 export default function AchievementsPage() {
   return (
     <ProtectedRoute>
-      <PortalLayout>
+      <PortalLayout maxWidth="full">
         <AchievementsContent />
       </PortalLayout>
     </ProtectedRoute>

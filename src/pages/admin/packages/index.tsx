@@ -193,7 +193,7 @@ function PackagesPage() {
       <NoIndexMeta />
       <AdminNav />
       <div className="min-h-screen bg-slate-50 lg:pl-72 xl:pl-80">
-        <div className="space-y-4 max-w-7xl mx-auto px-4 sm:px-6 pt-20 lg:pt-6 pb-6">
+        <div className="space-y-4 w-full px-4 sm:px-6 pt-20 lg:pt-6 pb-6">
           <div className="flex items-start justify-between gap-3 flex-wrap">
             <div>
               <h1 className="text-xl sm:text-2xl font-bold text-slate-900 flex items-center gap-2">
