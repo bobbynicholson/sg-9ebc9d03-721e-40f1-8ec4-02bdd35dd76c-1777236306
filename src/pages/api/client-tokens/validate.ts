@@ -114,7 +114,18 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   // one at /{slug}/c and one at /c - so the page works whether the
   // user lands on the slugged URL or the canonical one. Cookie name
   // is per-order so the overlap is harmless.
-  const cookiePaths: string[] = ["/c"];
+  //
+  // Wave 33 bugfix: the /c (page) paths alone are NOT enough. The
+  // amend / cancel / postpone / view actions fetch the root-absolute
+  // path /api/client-tokens/* (a relative fetch from a slugged page
+  // resolves to the site root, never the slug), and a cookie scoped to
+  // /c does NOT match /api/* - so the browser withheld the token and
+  // every "Request a change" / "Cancel this order" POST came back 401
+  // "Open the order link from your email first". Add an explicit
+  // Path=/api/client-tokens cookie so the token ships on exactly those
+  // four endpoints and nothing else (still off /admin/*, /api/orders/*,
+  // and the tenant pages - the original narrowing intent is intact).
+  const cookiePaths: string[] = ["/c", "/api/client-tokens"];
   if (cleanSlug) cookiePaths.unshift(`/${cleanSlug}/c`);
   const cookieHeaders = cookiePaths.map((path) =>
     [
