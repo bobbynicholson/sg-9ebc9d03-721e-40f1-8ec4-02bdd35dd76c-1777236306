@@ -1179,8 +1179,14 @@ function AdminQuoteDetailInner() {
 
               {/* Sticky change-request panel. Only renders if there's
                   something to show; on narrower viewports it stacks
-                  beneath the main column instead of docking. */}
-              <div className="lg:col-start-2">
+                  beneath the main column instead of docking.
+                  lg:self-stretch makes THIS column span the full row
+                  height (the grid is items-start, so without it the
+                  column is only as tall as the panel and the inner
+                  `sticky` element has no room to stick - it just scrolls
+                  away). With the column stretched, the panel stays
+                  docked while the quote scrolls. */}
+              <div className="lg:col-start-2 lg:self-stretch">
                 <ChangeRequestPanel
                   requests={changeRequests}
                   clientNameFallback={(quote as any).client_name ?? null}
