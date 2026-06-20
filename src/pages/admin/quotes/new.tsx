@@ -434,6 +434,12 @@ function NewQuotePage() {
   const [linkedOrderId, setLinkedOrderId] = useState<string | null>(null);
   const [linkedOrderNumber, setLinkedOrderNumber] = useState<string | null>(null);
   const isConvertedQuote = !!linkedOrderId;
+  // When the editor is opened on a quote that has a PENDING client change
+  // request, we overlay that request's values (date / guests / venue /
+  // items) on top of the loaded quote so the operator reviews + reprices
+  // the client's actual asks instead of re-typing them. Banner shows what
+  // was applied.
+  const [appliedChangeRequest, setAppliedChangeRequest] = useState<{ id: string; created_at: string } | null>(null);
   const [status, setStatus] = useState<"draft" | "sent" | "viewed" | "accepted" | "rejected" | "expired" | "revised" | "pending">("draft");
   const [savedAt, setSavedAt] = useState<Date | null>(null);
   const [saving, setSaving] = useState(false);
@@ -646,6 +652,70 @@ function NewQuotePage() {
             ? data.total_amount
             : 0,
       );
+
+      // Overlay the latest PENDING client change request (if any) on top
+      // of the loaded quote, so the operator sees + reprices the client's
+      // actual asks rather than re-typing them. Runs after hydrateFromQuote
+      // so these setState calls win for the keys they touch.
+      try {
+        const { data: cr } = await supabase
+          .from("quote_change_requests")
+          .select("id, message, requested_changes, created_at, status")
+          .eq("quote_id", fromQuoteId)
+          .eq("status", "pending")
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (!cancelled && cr) {
+          const rc = ((cr as any).requested_changes || {}) as any;
+          if (rc.event_date) setEventDate(String(rc.event_date));
+          if (typeof rc.guest_count === "number") setGuestCount(rc.guest_count);
+          if (rc.venue_address) setVenueAddress(String(rc.venue_address));
+          if (Array.isArray(rc.menu_items)) {
+            setMenuItems(
+              rc.menu_items.map((m: any, i: number) => ({
+                id: `CR_L_${i}`,
+                menu_item_id: m.menu_item_id ?? null,
+                name: m.item_name ?? m.name ?? "",
+                description: undefined,
+                category: "main",
+                dietary_tags: null,
+                pricingMode: "per_portion" as PricingMode,
+                unitPrice: safeNum(m.unit_price ?? m.unitPrice),
+                quantity: safeNum(m.quantity),
+                discountPct: 0,
+              })),
+            );
+          }
+          if (Array.isArray(rc.equipment_items)) {
+            setEquipment(
+              rc.equipment_items.map((e: any, i: number) => ({
+                id: `CR_E_${i}`,
+                equipment_id: e.equipment_id ?? null,
+                name: e.name ?? "",
+                category: null,
+                quantity: safeNum(e.quantity),
+                unitPrice: safeNum(e.unit_price ?? e.unitPrice),
+                hireInCost: 0,
+              })),
+            );
+          }
+          // Free-text asks (and the client's note) go into internal notes
+          // so the operator has the full context in one place.
+          const hints: string[] = [];
+          if (rc.menu_changes) hints.push(`Menu: ${rc.menu_changes}`);
+          if (rc.logistics_changes) hints.push(`Delivery/collection: ${rc.logistics_changes}`);
+          if ((cr as any).message) hints.push(`Client note: ${(cr as any).message}`);
+          if (hints.length > 0) {
+            setInternalNotes((prev) =>
+              [prev, "--- Client requested changes ---", ...hints].filter(Boolean).join("\n"),
+            );
+          }
+          setAppliedChangeRequest({ id: (cr as any).id, created_at: (cr as any).created_at });
+        }
+      } catch (e) {
+        console.warn("[quotes/new] change-request overlay failed:", e);
+      }
     })();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1845,6 +1915,12 @@ function NewQuotePage() {
                     Converted quotes (linked order live) mirror to the
                     order without re-acceptance - the client already
                     accepted and owns the order page now. */}
+                {appliedChangeRequest && (
+                  <div className="mt-2 p-2.5 rounded-md border border-emerald-300 bg-emerald-50 text-xs text-emerald-900 max-w-xl">
+                    <strong className="font-semibold">Loaded the client's requested changes.</strong>{" "}
+                    The date, guests, venue, and items below now reflect what the client asked for. Review the pricing (and re-pick the venue if the address changed, so delivery/collection recompute), then Save &amp; Send to return the updated quote. This marks the change request as addressed.
+                  </div>
+                )}
                 {isRevisingNonDraft && (
                   <div className="mt-2 p-2.5 rounded-md border border-blue-200 bg-blue-50 text-xs text-blue-900 max-w-xl">
                     {isConvertedQuote ? (

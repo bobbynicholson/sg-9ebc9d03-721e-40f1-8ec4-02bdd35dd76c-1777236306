@@ -249,21 +249,29 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         : "TBD";
       const summary = message.length > 140 ? message.slice(0, 137) + "..." : message;
 
-      const { data: recipients, error: recipientsErr } = await (supabase as any)
+      // Notify the MAIN operator only, not every admin-level account.
+      // Fanning out to company_admin + admin + sales_admin + region_admin +
+      // owner meant a tenant with two admin logins (e.g. hello@ and admin@)
+      // got two notifications for one change request, which reads as a
+      // duplicate. We resolve the company's main-operator profiles
+      // (company_admin / owner) for the email fallback, and target the
+      // single most-relevant in-app recipient: the quote owner if set,
+      // otherwise those operator profiles.
+      const { data: operators, error: operatorsErr } = await (supabase as any)
         .from("profiles")
         .select("id, role, email")
         .eq("company_id", quote.company_id)
-        .in("role", ["company_admin", "admin", "sales_admin", "region_admin", "owner"]);
-      if (recipientsErr) {
-        console.error("[public/quotes/[token]/change-request] profiles fetch failed:", recipientsErr);
+        .in("role", ["company_admin", "owner"]);
+      if (operatorsErr) {
+        console.error("[public/quotes/[token]/change-request] profiles fetch failed:", operatorsErr);
       }
+      const operatorList = ((operators as any[]) || []);
 
-      const recipientIds = ((recipients as any[]) || []).map((r) => r.id);
-      // Fall back to the quote's user_id if we found no admins - this
-      // matches the previous behaviour and avoids losing the alert.
-      if (recipientIds.length === 0 && quote.user_id) {
-        recipientIds.push(quote.user_id);
-      }
+      const recipientIds = Array.from(
+        new Set(
+          (quote.user_id ? [quote.user_id] : operatorList.map((r) => r.id)).filter(Boolean) as string[],
+        ),
+      );
       if (recipientIds.length === 0) return;
 
       const rows = recipientIds.map((rid: string) => ({
@@ -282,13 +290,13 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
       // Email the operator inbox so they don't miss it. companies.email
       // is the preferred target, but plenty of tenants never fill it in
-      // - in that case fall back to the admin profiles we already
-      // fetched so the alert isn't silently dropped.
+      // - in that case fall back to the operator profile emails so the
+      // alert isn't silently dropped.
       const emailTargets: string[] = companyEmail
         ? [companyEmail]
         : Array.from(
             new Set(
-              (((recipients as any[]) || [])
+              (operatorList
                 .map((r) => (typeof r.email === "string" ? r.email.trim() : ""))
                 .filter(Boolean)) as string[]
             )

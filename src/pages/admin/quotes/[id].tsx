@@ -15,7 +15,7 @@
  * read-only view for already-sent / accepted / rejected quotes so
  * historical context is visible.
  */
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
@@ -224,20 +224,41 @@ function AdminQuoteDetailInner() {
   // Load change requests once the quote id is known. Fetches everything
   // (pending + addressed + dismissed) so the operator has the full
   // history visible. Tiny query, no pagination needed.
+  const loadChangeRequests = useCallback(async () => {
+    if (!id || typeof id !== "string") return;
+    const { data } = await (supabase as any)
+      .from("quote_change_requests")
+      .select("id, message, requested_changes, status, submitter_name, addressed_at, created_at")
+      .eq("quote_id", id)
+      .order("created_at", { ascending: false });
+    setChangeRequests((data as ChangeReq[]) || []);
+  }, [id]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => { if (!cancelled) await loadChangeRequests(); })();
+    return () => { cancelled = true; };
+  }, [loadChangeRequests]);
+
+  // Realtime: a client change request submitted while the operator has
+  // this quote open should appear live (the "N new" badge + the panel),
+  // not on next reload. We refetch the requests list on any change to
+  // quote_change_requests for this quote - deliberately NOT the quote row
+  // itself, so a stray event can't clobber an in-progress pricing edit.
+  // Requires quote_change_requests in the supabase_realtime publication
+  // (migration 20260621140000).
   useEffect(() => {
     if (!id || typeof id !== "string") return;
-    let cancelled = false;
-    (async () => {
-      const { data } = await (supabase as any)
-        .from("quote_change_requests")
-        .select("id, message, requested_changes, status, submitter_name, addressed_at, created_at")
-        .eq("quote_id", id)
-        .order("created_at", { ascending: false });
-      if (cancelled) return;
-      setChangeRequests((data as ChangeReq[]) || []);
-    })();
-    return () => { cancelled = true; };
-  }, [id]);
+    const channel = (supabase as any)
+      .channel(`quote-cr:${id}:${Math.random().toString(36).slice(2, 8)}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "quote_change_requests", filter: `quote_id=eq.${id}` },
+        () => { loadChangeRequests(); },
+      )
+      .subscribe();
+    return () => { (supabase as any).removeChannel(channel); };
+  }, [id, loadChangeRequests]);
 
   // Deep-link capture. Runs once on mount so a subsequent setState or
   // route swap doesn't blank the highlight. We read the raw URL (not
