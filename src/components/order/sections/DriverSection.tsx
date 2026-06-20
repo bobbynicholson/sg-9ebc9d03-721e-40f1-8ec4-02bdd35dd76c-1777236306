@@ -115,6 +115,17 @@ export function DriverSection({ order, defaultOpen, forceOpen, highlight }: Prop
     return roles.includes(UserRole.DRIVER) || user?.role === UserRole.DRIVER;
   })();
   const isAssignedDriver = isDriver && (assignment?.driver_id === user?.id || order.assigned_driver_id === user?.id);
+  // Admin/ops viewer - the only ones who can reach /admin/dispatch to
+  // assign a driver. Drivers/clients viewing the order doc don't get the
+  // "Assign driver" shortcut.
+  const isAdminViewer = (() => {
+    const roles = Array.isArray(userRoles) ? userRoles : [];
+    const adminRoles = [
+      UserRole.SUPER_ADMIN, UserRole.OWNER, UserRole.COMPANY_ADMIN,
+      UserRole.REGION_ADMIN, UserRole.SALES_ADMIN, UserRole.ADMIN,
+    ];
+    return adminRoles.some((r) => roles.includes(r)) || adminRoles.includes(user?.role as any);
+  })();
 
   // Nav URL: prefer the lat/lng if available, fall back to address
   // string. Caller decides at click time which app to open in.
@@ -369,9 +380,17 @@ export function DriverSection({ order, defaultOpen, forceOpen, highlight }: Prop
               </div>
             </div>
           ) : (
-            <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded p-2.5">
-              No driver assigned yet. Dispatch will pick one closer to the collection time.
-            </p>
+            <div className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded p-2.5 flex items-center justify-between gap-3 flex-wrap">
+              <span>No driver assigned yet. Dispatch will pick one closer to the collection time.</span>
+              {isAdminViewer && (
+                <Link
+                  href={withSlug(`/admin/order-assignments?orderId=${order.id}`)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 flex-shrink-0 whitespace-nowrap"
+                >
+                  <Truck className="w-3.5 h-3.5" /> Assign driver
+                </Link>
+              )}
+            </div>
           )}
 
           {/* Secondary driver + vehicle (two-driver jobs) */}
