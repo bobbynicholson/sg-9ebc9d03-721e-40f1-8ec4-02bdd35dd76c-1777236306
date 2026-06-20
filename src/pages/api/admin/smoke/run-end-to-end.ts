@@ -133,6 +133,21 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     const runTag = `SMOKE-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
     const eventDate = new Date(Date.now() + 7 * 86400_000).toISOString().slice(0, 10); // +7 days
 
+    // region_id is NOT NULL on clients/orders/quotes/leads (migration
+    // 20260521110000). The live insert paths resolve it via
+    // resolveDefaultRegionId (oldest active region). The smoke test must
+    // do the same with its service client, or every insert below 23502s
+    // on region_id and the whole flow short-circuits at A1.
+    const { data: regionRow } = await sb
+      .from("regions")
+      .select("id")
+      .eq("company_id", companyId)
+      .eq("is_active", true)
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    const regionId = (regionRow as any)?.id ?? null;
+
     // ════════════════════════════════════════════════════════════════
     // Stage A: solo order lifecycle (enquiry -> final invoice)
     // ════════════════════════════════════════════════════════════════
@@ -146,6 +161,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         .from("clients")
         .insert({
           company_id: companyId,
+          region_id: regionId,
           client_name: `${runTag} Test Client`,
           email: `${runTag.toLowerCase()}@cateringms.test`,
           phone: "+27000000000",
@@ -167,6 +183,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         .from("orders")
         .insert({
           company_id: companyId,
+          region_id: regionId,
           order_number: orderNumber,
           client_id: clientId,
           event_name: `${runTag} Smoke Wedding`,
@@ -334,6 +351,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           .from("orders")
           .insert({
             company_id: companyId,
+            region_id: regionId,
             order_number: childNum,
             client_id: clientId,
             event_name: `${runTag} Smoke Package Day ${i}`,
@@ -431,6 +449,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         .from("orders")
         .insert({
           company_id: companyId,
+          region_id: regionId,
           order_number: `${runTag}-CASC`,
           client_id: clientId,
           event_name: `${runTag} Cascade Test`,
@@ -675,6 +694,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         .from("orders")
         .insert({
           company_id: companyId,
+          region_id: regionId,
           order_number: `${runTag}-CANCEL`,
           client_id: clientId,
           event_name: `${runTag} CancelOrder Test`,
