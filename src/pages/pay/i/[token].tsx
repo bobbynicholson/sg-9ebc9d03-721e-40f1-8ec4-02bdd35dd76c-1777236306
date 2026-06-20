@@ -49,6 +49,9 @@ interface InvoiceView {
   balance_due: number;
   status: string;
   invoice_data: any;
+  // Completed payments against this invoice (oldest first) so we can show
+  // when the deposit / each payment actually landed.
+  payments?: { amount: number; processed_at: string; payment_status: string }[];
   companies: {
     id: string;
     company_name: string;
@@ -494,6 +497,18 @@ export default function InvoicePaymentPage() {
                 <div>
                   <p className="text-[10px] uppercase tracking-[0.15em] text-brand-primary font-bold">Paid to date</p>
                   <p className="text-xl font-bold text-emerald-700 tabular-nums">{fmtMoney.format(invoice.amount_paid)}</p>
+                  {/* When the deposit / each payment actually landed, so
+                      the client sees "deposited on X" + what's left, not
+                      just a running total. */}
+                  {Array.isArray(invoice.payments) && invoice.payments.length > 0 && (
+                    <div className="mt-1 space-y-0.5">
+                      {invoice.payments.map((p, i) => (
+                        <p key={i} className="text-[11px] text-stone-500">
+                          {fmtMoney.format(Number(p.amount) || 0)} paid on {format(new Date(p.processed_at), "d MMM yyyy")}
+                        </p>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
 

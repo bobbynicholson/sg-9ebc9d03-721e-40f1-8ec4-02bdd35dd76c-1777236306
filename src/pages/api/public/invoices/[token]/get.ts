@@ -84,7 +84,17 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     return res.status(404).json({ ok: false, error: "Not found" });
   }
 
-  return res.status(200).json({ ok: true, invoice: data });
+  // Completed payments against this invoice, so the page can show WHEN
+  // the deposit (and any further payment) actually landed, not just the
+  // running total. Ordered oldest-first so the deposit reads first.
+  const { data: payments } = await supabase
+    .from("payments")
+    .select("amount, processed_at, payment_status, payment_type, gateway_provider")
+    .eq("invoice_id", (data as any).id)
+    .eq("payment_status", "completed")
+    .order("processed_at", { ascending: true });
+
+  return res.status(200).json({ ok: true, invoice: { ...data, payments: payments || [] } });
 }
 
 export default withApiLogging(handler);
