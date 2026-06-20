@@ -424,6 +424,13 @@ export async function propagateQuoteEditToOrder(
       }
     }
 
+    // 9c. Wave 33: the CLIENT "order updated" email (with a fresh magic
+    //     link to the live order) is NOT sent here - this helper runs in
+    //     the BROWSER under the anon client, where emailService has no
+    //     server-side provider secret. It's sent server-side from
+    //     /api/quotes/[id]/resync-order, which the admin save ALWAYS
+    //     fires right after this and which runs under service role.
+
     // 10. Audit row in order_amendment_requests so the change is
     //     traceable. applied_snapshot captures the orders payload + the
     //     cascade outcomes for finance / dispute resolution.

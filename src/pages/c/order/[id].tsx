@@ -36,6 +36,11 @@ import { TimelineTrack } from "@/components/admin/orders/TimelineTrack";
 // preview + payout choice; this page just opens it and POSTs the
 // payload to the existing /api/client-tokens/cancel-order endpoint.
 import { CancellationWizard } from "@/components/cancellation/CancellationWizard";
+// Wave 33: full client-facing order editor (menu / equipment / guests /
+// venue / timing). Replaces the old guest-count-only amend panel. Submits
+// the whole edit as one proposed_changes payload; the caterer approves it
+// and the existing amendment cascade does the money / quote / notify work.
+import { OrderEditDialog } from "@/components/order/OrderEditDialog";
 
 type OrderView = {
   ok: true;
@@ -167,11 +172,9 @@ export default function ClientOrderPage() {
   const [wizardOpen, setWizardOpen] = useState(false);
   const [wizardJustDone, setWizardJustDone] = useState(false);
 
-  const [amendOpen, setAmendOpen] = useState(false);
-  const [amendGuestCount, setAmendGuestCount] = useState<string>("");
-  const [amendNotes, setAmendNotes] = useState("");
-  const [amendBusy, setAmendBusy] = useState(false);
-  const [amendMsg, setAmendMsg] = useState<{ tone: "ok" | "err"; text: string } | null>(null);
+  // Wave 33: full editor dialog (replaces the old inline guest-count panel).
+  const [editOpen, setEditOpen] = useState(false);
+  const [editJustDone, setEditJustDone] = useState(false);
 
   async function submitCancel() {
     if (!view?.order?.id) return;
@@ -203,36 +206,6 @@ export default function ClientOrderPage() {
       setCancelMsg({ tone: "err", text: e?.message || "Try again" });
     } finally {
       setCancelBusy(false);
-    }
-  }
-
-  async function submitAmend() {
-    if (!view?.order?.id) return;
-    setAmendBusy(true);
-    setAmendMsg(null);
-    try {
-      const proposed: Record<string, any> = {};
-      const newGuests = Number(amendGuestCount);
-      if (Number.isFinite(newGuests) && newGuests > 0) proposed.guest_count = newGuests;
-      const r = await fetch("/api/client-tokens/amend-order", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          order_id: view.order.id,
-          proposed_changes: proposed,
-          client_notes: amendNotes.trim() || null,
-        }),
-      });
-      const data = await r.json();
-      if (!r.ok || !data?.ok) {
-        setAmendMsg({ tone: "err", text: data?.error || `Request failed (${r.status})` });
-        return;
-      }
-      setAmendMsg({ tone: "ok", text: "We've received your change request. The team will email shortly." });
-    } catch (e: any) {
-      setAmendMsg({ tone: "err", text: e?.message || "Try again" });
-    } finally {
-      setAmendBusy(false);
     }
   }
 
@@ -669,7 +642,7 @@ export default function ClientOrderPage() {
                   <Button
                     variant="outline"
                     onClick={() => {
-                      setAmendOpen((v) => !v);
+                      setEditOpen(true);
                       setCancelOpen(false);
                     }}
                     className="w-full"
@@ -680,7 +653,6 @@ export default function ClientOrderPage() {
                     variant="outline"
                     onClick={() => {
                       setCancelOpen((v) => !v);
-                      setAmendOpen(false);
                     }}
                     className="w-full text-amber-700 border-amber-200 hover:bg-amber-50"
                   >
@@ -696,56 +668,12 @@ export default function ClientOrderPage() {
                   variant="outline"
                   onClick={() => {
                     setWizardOpen(true);
-                    setAmendOpen(false);
                     setCancelOpen(false);
                   }}
                   className="w-full text-rose-700 border-rose-200 hover:bg-rose-50"
                 >
                   Cancel this order
                 </Button>
-
-                {amendOpen && (
-                  <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 space-y-3">
-                    <p className="text-sm font-semibold text-slate-900">Request a change</p>
-                    <p className="text-xs text-slate-600">
-                      Use this to bump the headcount or send a note. Bigger changes (date, menu, venue) - write the detail in notes and the team will follow up.
-                    </p>
-                    <div>
-                      <label className="text-xs font-medium text-slate-700 block mb-1">New guest count (optional)</label>
-                      <input
-                        type="number"
-                        min={1}
-                        value={amendGuestCount}
-                        onChange={(e) => setAmendGuestCount(e.target.value)}
-                        placeholder={`${order.guest_count}`}
-                        className="w-full px-3 py-2 rounded-md border border-slate-300 text-sm"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs font-medium text-slate-700 block mb-1">Notes for the team</label>
-                      <textarea
-                        rows={3}
-                        value={amendNotes}
-                        onChange={(e) => setAmendNotes(e.target.value)}
-                        placeholder="e.g. add 5 vegetarian mains, swap the dessert..."
-                        className="w-full px-3 py-2 rounded-md border border-slate-300 text-sm"
-                      />
-                    </div>
-                    {amendMsg && (
-                      <p className={`text-xs ${amendMsg.tone === "ok" ? "text-emerald-700" : "text-rose-700"}`}>
-                        {amendMsg.text}
-                      </p>
-                    )}
-                    <Button
-                      onClick={submitAmend}
-                      disabled={amendBusy || (amendMsg?.tone === "ok")}
-                      className="w-full text-white"
-                      style={{ background: `linear-gradient(135deg, ${primary} 0%, ${secondary} 100%)` }}
-                    >
-                      {amendBusy ? "Sending..." : amendMsg?.tone === "ok" ? "Sent" : "Send change request"}
-                    </Button>
-                  </div>
-                )}
 
                 {cancelOpen && (
                   <div className="rounded-lg border border-amber-200 bg-amber-50/50 p-4 space-y-3">
@@ -855,6 +783,23 @@ export default function ClientOrderPage() {
 
         <Footer />
       </div>
+
+      {/* Wave 33: full order editor. Loads the catalogue + current lines,
+          lets the client edit menu / equipment / guests / venue / timing,
+          and submits one proposed_changes payload to amend-order. */}
+      {view?.order && (
+        <OrderEditDialog
+          open={editOpen}
+          onOpenChange={(o) => {
+            setEditOpen(o);
+            if (!o && editJustDone) window.location.reload();
+          }}
+          orderId={view.order.id}
+          primary={primary}
+          secondary={secondary}
+          onSubmitted={() => setEditJustDone(true)}
+        />
+      )}
 
       {/* Wave 28.4: Cancellation Companion. Posts to the existing
           token-bearer endpoint - the wizard owns the UX, the API

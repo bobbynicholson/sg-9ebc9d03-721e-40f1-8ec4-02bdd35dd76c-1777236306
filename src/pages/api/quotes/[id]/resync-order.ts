@@ -57,6 +57,8 @@ interface ResyncReceipt {
   orderHeadlineUpdated: boolean;
   orderItemsRebuilt: number;
   equipmentBookingsResynced: number;
+  /** Wave 33: true when the client "order updated" email went out. */
+  clientEmailSent?: boolean;
   errors: string[];
 }
 
@@ -98,10 +100,11 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     return res.status(403).json({ error: "Wrong tenant" });
   }
 
-  // Find the linked order.
+  // Find the linked order. Pull the fields we compare against the quote
+  // so we can decide whether to email the client (Wave 33).
   const { data: linkedOrder } = await sb
     .from("orders")
-    .select("id, order_number, status, deleted_at")
+    .select("id, order_number, status, deleted_at, guest_count, total_amount, venue_address, event_date, event_time, client_email, client_name, currency")
     .eq("quote_id", quoteId)
     .is("deleted_at", null)
     .maybeSingle();
@@ -129,6 +132,23 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     receipt.ok = false;
     receipt.reason = "order_past_dispatch";
     return res.status(200).json(receipt);
+  }
+
+  // Wave 33: work out (BEFORE we overwrite the order) whether anything
+  // the CLIENT cares about actually moved, so we only email them on a
+  // real change - not on a no-op save. Compared against the pre-update
+  // order row we just loaded.
+  const clientChangedFields: string[] = [];
+  {
+    const qNum = (k: any) => (k == null ? null : Number(k));
+    if (qNum((quote as any).guest_count) !== qNum((linkedOrder as any).guest_count)) clientChangedFields.push("guest count");
+    if (qNum((quote as any).total) !== qNum((linkedOrder as any).total_amount)) clientChangedFields.push("price");
+    if (((quote as any).venue_address || null) !== ((linkedOrder as any).venue_address || null)) clientChangedFields.push("venue");
+    if (((quote as any).event_date || null) !== ((linkedOrder as any).event_date || null)) clientChangedFields.push("event date");
+    if (((quote as any).event_time || null) !== ((linkedOrder as any).event_time || null)) clientChangedFields.push("event time");
+    // A menu edit (add/remove/swap dish) almost always moves the total, so
+    // the "price" check above catches it; orders has no menu_items column
+    // to diff directly, and order_items is rebuilt unconditionally here.
   }
 
   // 1. Headline fields. Service-role bypasses RLS so this lands even
@@ -278,6 +298,80 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     });
   } catch (e) {
     console.warn("[quotes/resync-order] audit insert failed:", e);
+  }
+
+  // Wave 33: email the CLIENT that their order changed, with a fresh
+  // magic link to the live order. Runs here (service role, server-side)
+  // because the browser-side propagator can't reach the email provider.
+  // Only fires on a real client-relevant change, and is deduped to one
+  // mail per order per 10 minutes so a flurry of saves doesn't spam.
+  const clientEmail = (linkedOrder as any)?.client_email || (quote as any)?.client_email || null;
+  if (clientChangedFields.length > 0 && clientEmail) {
+    try {
+      const tenMinAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+      const { data: recentMail } = await sb
+        .from("audit_logs")
+        .select("id")
+        .eq("action", "order_updated_email_sent")
+        .eq("entity_id", receipt.orderId)
+        .gte("created_at", tenMinAgo)
+        .limit(1);
+      if (!Array.isArray(recentMail) || recentMail.length === 0) {
+        const orderLabel = receipt.orderNumber || String(receipt.orderId).slice(0, 8);
+        const changedLabel = Array.from(new Set(clientChangedFields)).join(", ");
+        const evtDate = (quote as any)?.event_date || (linkedOrder as any)?.event_date;
+        const evtLabel = evtDate
+          ? new Date(`${evtDate}T00:00:00`).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })
+          : "your event";
+        const firstName = String((linkedOrder as any)?.client_name || (quote as any)?.client_name || "there").split(" ")[0];
+        const newTotal = (quote as any)?.total ?? (quote as any)?.total_amount;
+        const currency = (linkedOrder as any)?.currency || "ZAR";
+        const totalLine =
+          newTotal != null && clientChangedFields.includes("price")
+            ? `\nYour updated total is ${currency} ${Number(newTotal).toFixed(2)}.\n`
+            : "";
+
+        const { mintOrderCustomerLink } = await import("@/lib/customerLinksServer");
+        const orderLink = await mintOrderCustomerLink({
+          sb,
+          companyId: (quote as any).company_id,
+          orderId: receipt.orderId!,
+          label: "order-updated-email",
+        });
+
+        const { emailService } = await import("@/services/emailService");
+        const sent = await (emailService as any).sendEmail({
+          companyId: (quote as any).company_id,
+          to: clientEmail,
+          subject: `Your order ${orderLabel} was updated`,
+          body:
+            `Hi ${firstName},\n\n` +
+            `We've updated your order ${orderLabel} for ${evtLabel}. ` +
+            `What changed: ${changedLabel}.\n` +
+            totalLine +
+            `\nView your up-to-date order here:\n${orderLink}\n\n` +
+            `If anything doesn't look right, just reply to this email.\n\n` +
+            `Thanks.`,
+          bypassQuarantine: true,
+          _client: sb,
+        });
+        receipt.clientEmailSent = sent !== false;
+        try {
+          await sb.from("audit_logs").insert({
+            company_id: (quote as any).company_id,
+            user_id: user.id,
+            action: "order_updated_email_sent",
+            entity_type: "order",
+            entity_id: receipt.orderId,
+            details: { order_number: orderLabel, changed: changedLabel, to: clientEmail, delivered: sent !== false },
+          });
+        } catch {
+          /* marker best-effort */
+        }
+      }
+    } catch (e: any) {
+      receipt.errors.push(`client_email_failed: ${e?.message || e}`);
+    }
   }
 
   return res.status(200).json(receipt);
