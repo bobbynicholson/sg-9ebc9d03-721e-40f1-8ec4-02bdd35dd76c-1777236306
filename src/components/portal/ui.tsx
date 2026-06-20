@@ -15,7 +15,7 @@ const SOFT_SHADOW =
  * amber is the accent, slate is the neutral, dark-mode aware throughout.
  */
 
-/** Page wrapper: neutral ground + centred responsive container. */
+/** Page wrapper: neutral ground + responsive container. */
 export function PortalShell({
   children,
   className,
@@ -23,15 +23,20 @@ export function PortalShell({
 }: {
   children: React.ReactNode;
   className?: string;
-  /** `default` = max-w-6xl (most pages); `narrow` = max-w-3xl (settings, single-column lists). */
+  /**
+   * `default` = full desktop width (dashboards, lists, tables) - the shell
+   * sits flush against the sidebar offset and uses the whole viewport so
+   * there's no wasted empty rail; `narrow` = max-w-3xl, centred (settings
+   * and single-column reading layouts that look wrong stretched wide).
+   */
   width?: "default" | "narrow";
 }) {
   return (
     <div className={cn("min-h-screen bg-slate-50 dark:bg-slate-950", className)}>
       <div
         className={cn(
-          "mx-auto w-full px-4 py-6 sm:px-6 sm:py-8",
-          width === "narrow" ? "max-w-3xl" : "max-w-6xl",
+          "w-full px-4 py-6 sm:px-6 sm:py-8",
+          width === "narrow" ? "mx-auto max-w-3xl" : "max-w-none",
         )}
       >
         {children}
