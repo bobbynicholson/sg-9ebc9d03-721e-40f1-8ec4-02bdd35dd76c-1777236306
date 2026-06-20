@@ -1251,12 +1251,7 @@ export default function PublicQuotePage() {
                       </Button>
                       <Button
                         onClick={handleSubmitChanges}
-                        disabled={
-                          changesSubmitting ||
-                          (changesMessage.trim().length < 10 &&
-                            changesMenuItems === null &&
-                            changesEquipItems === null)
-                        }
+                        disabled={changesSubmitting}
                         className="bg-brand-primary hover:opacity-90 gap-1.5"
                       >
                         {changesSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <MessageSquare className="w-4 h-4" />}
