@@ -224,7 +224,10 @@ function StageDot({
     if (isBlocked) return `${currentSize} bg-red-500 ring-4 ring-red-100 animate-pulse shadow-md shadow-red-200`;
     if (isCompleted) return `${baseSize} bg-green-500 shadow-sm`;
     if (isUpcoming) return `${baseSize} bg-slate-300`;
-    return "w-0 h-0 hidden";
+    // not_applicable - render a faint hollow dot (instead of hiding it)
+    // so EVERY order shows the full 22-stage pipeline at a consistent
+    // length. N/A steps are clearly de-emphasised, not missing.
+    return `${baseSize} bg-slate-100 border border-dashed border-slate-300 opacity-60`;
   })();
 
   const Icon = isCompleted ? CheckCircle2 : isBlocked ? AlertCircle : isCurrent ? Clock : null;
@@ -407,23 +410,16 @@ function ClusterBand({
   withSlug: (href: string) => string;
   hideOperatorGlossary?: boolean;
 }) {
-  const visible = stages.filter((s) => s.status !== "not_applicable");
-  if (visible.length === 0) {
-    return (
-      <div className="flex flex-col items-center gap-1 px-2 opacity-40 min-w-0">
-        <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-          {STAGE_GROUP_LABELS[group]}
-        </div>
-        <div className="text-[10px] text-slate-400">n/a</div>
-      </div>
-    );
-  }
-
-  const completed = visible.filter((s) => s.status === "completed").length;
-  const total = visible.length;
-  const allCompleted = completed === total;
-  const hasCurrent = visible.some((s) => s.status === "current");
-  const hasBlocked = visible.some((s) => s.status === "blocked");
+  // Show the FULL pipeline in every order - render a dot for EVERY
+  // stage (incl not_applicable, shown faint) so the timeline is a
+  // consistent 22-stage length across all orders. Progress counts are
+  // based on the applicable (non-n/a) stages so the maths stays honest.
+  const applicable = stages.filter((s) => s.status !== "not_applicable");
+  const completed = applicable.filter((s) => s.status === "completed").length;
+  const total = applicable.length;
+  const allCompleted = total > 0 && completed === total;
+  const hasCurrent = applicable.some((s) => s.status === "current");
+  const hasBlocked = applicable.some((s) => s.status === "blocked");
   const progressPct = total > 0 ? Math.round((completed / total) * 100) : 0;
 
   // Wave 66.4 - inline cluster context. If the cluster has the
@@ -433,11 +429,11 @@ function ClusterBand({
   // upcoming-only, surface the next pending stage's label so the
   // operator sees what this cluster is waiting on.
   const focusStage = hasBlocked
-    ? visible.find((s) => s.status === "blocked")
+    ? applicable.find((s) => s.status === "blocked")
     : hasCurrent
-      ? visible.find((s) => s.status === "current")
+      ? applicable.find((s) => s.status === "current")
       : !allCompleted
-        ? visible.find((s) => s.status === "upcoming")
+        ? applicable.find((s) => s.status === "upcoming")
         : null;
 
   const headerColor =
@@ -458,15 +454,15 @@ function ClusterBand({
       <div className={`flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide ${headerColor}`}>
         <span>{STAGE_GROUP_LABELS[group]}</span>
         <span className="tabular-nums text-[9px] opacity-80">
-          {completed}/{total}
+          {total > 0 ? `${completed}/${total}` : "n/a"}
         </span>
         {allCompleted && <CheckCircle2 className="w-3 h-3" />}
       </div>
 
       {/* Dot row */}
       <div className="flex items-center gap-1.5 flex-wrap justify-center">
-        {visible.map((s, idx) => {
-          const next = visible[idx + 1];
+        {stages.map((s, idx) => {
+          const next = stages[idx + 1];
           // Wave 66.4 - connector polish. 2px height (was 0.5),
           // brighter gradient for in-progress legs, wider for
           // breathing room.
@@ -533,11 +529,11 @@ function ClusterPill({
   group: StageGroup;
   stages: OrderTimelineStage[];
 }) {
-  const visible = stages.filter((s) => s.status !== "not_applicable");
-  const total = visible.length;
-  const done = visible.filter((s) => s.status === "completed").length;
-  const hasBlocked = visible.some((s) => s.status === "blocked");
-  const hasCurrent = visible.some((s) => s.status === "current");
+  const applicable = stages.filter((s) => s.status !== "not_applicable");
+  const total = applicable.length;
+  const done = applicable.filter((s) => s.status === "completed").length;
+  const hasBlocked = applicable.some((s) => s.status === "blocked");
+  const hasCurrent = applicable.some((s) => s.status === "current");
 
   const tone = (() => {
     if (hasBlocked) return "bg-red-100 text-red-700 border-red-300";
@@ -546,11 +542,11 @@ function ClusterPill({
     return "bg-slate-100 text-slate-500 border-slate-200";
   })();
 
-  if (total === 0) return null;
-
+  // Always render every cluster so the timeline reads the same on every
+  // order; clusters with no applicable stage for this order show "n/a".
   return (
     <div className={`text-[10px] px-2 py-0.5 rounded-full border font-medium ${tone}`}>
-      {STAGE_GROUP_LABELS[group]} {done}/{total}
+      {STAGE_GROUP_LABELS[group]} {total > 0 ? `${done}/${total}` : "n/a"}
     </div>
   );
 }
@@ -645,7 +641,6 @@ export function TimelineTrack({ timeline, compact, onStageClick, hideOperatorBan
         {expanded && (
           <ul className="space-y-1.5 mt-2">
             {timeline.stages
-              .filter((s) => s.status !== "not_applicable")
               .map((s) => (
                 <li key={s.key} className="flex items-center justify-between gap-2 text-xs">
                   <div className="flex items-center gap-2">
@@ -654,8 +649,9 @@ export function TimelineTrack({ timeline, compact, onStageClick, hideOperatorBan
                       s.status === "completed" ? "text-green-700 line-through opacity-70" :
                       s.status === "current" ? "text-orange-700 font-semibold" :
                       s.status === "blocked" ? "text-red-700 font-semibold" :
+                      s.status === "not_applicable" ? "text-slate-400 italic" :
                       "text-slate-500"
-                    }>{s.label}</span>
+                    }>{s.label}{s.status === "not_applicable" && <span className="ml-1 text-[9px] uppercase tracking-wide text-slate-300">n/a</span>}</span>
                   </div>
                   {s.completedAt && (
                     <span className="text-[10px] text-slate-400 tabular-nums">
