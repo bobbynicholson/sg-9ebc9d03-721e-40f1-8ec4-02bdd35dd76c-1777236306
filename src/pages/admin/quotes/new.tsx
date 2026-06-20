@@ -361,6 +361,12 @@ function NewQuotePage() {
    *  to the first available kitchen on load; operator switches via
    *  the picker when the company has more than one branch. */
   const [kitchenId, setKitchenId] = useState<string | null>(null);
+  // True once the operator MANUALLY switches kitchen/branch (not the
+  // auto-default selection, not the saved-quote load). Gates whether the
+  // branch-settings effect is allowed to overwrite the saved delivery
+  // rate when EDITING an existing quote - otherwise reopening a quote
+  // reset the delivery fee to the branch default (Pic 64).
+  const kitchenManualRef = useRef(false);
   const selectedKitchen: KitchenOption | null =
     kitchens.find((k) => k.id === kitchenId) || kitchens[0] || null;
 
@@ -756,7 +762,12 @@ function NewQuotePage() {
       try {
         const s = await resolveBranchSettings(companyId, regionForResolver);
         if (cancelled) return;
-        if (typeof s.deliveryCostPerKm === "number" && s.deliveryCostPerKm > 0) {
+        // When EDITING a saved quote, the delivery rate the operator
+        // agreed on is part of the quote - don't let the branch default
+        // clobber it on reopen (Pic 64). Only re-apply the branch rate
+        // when they actively switch kitchen/branch in this session.
+        const preserveSavedRate = !!fromQuoteId && !kitchenManualRef.current;
+        if (!preserveSavedRate && typeof s.deliveryCostPerKm === "number" && s.deliveryCostPerKm > 0) {
           setDeliveryCostPerKm(s.deliveryCostPerKm);
         }
         if (typeof s.minDeliveryFee === "number" && s.minDeliveryFee >= 0) {
@@ -802,13 +813,17 @@ function NewQuotePage() {
         Math.cos(toRad(venueLat)) *
         Math.sin(dLng / 2) ** 2;
     const km = 2 * R * Math.asin(Math.sqrt(a));
-    setDeliveryDistance(Number(km.toFixed(2)));
     if (havInitRef.current) {
       // Real user-driven change: switching kitchen / picking new
-      // address re-enables auto-fee.
+      // address recomputes the distance + re-enables auto-fee.
+      setDeliveryDistance(Number(km.toFixed(2)));
       setDeliveryFeeOverridden(false);
     } else {
+      // First run after mount. For a NEW quote, set the computed
+      // distance. For an EDITED quote, keep the SAVED distance so
+      // reopening doesn't reset the fee to the auto value (Pic 64).
       havInitRef.current = true;
+      if (!fromQuoteId) setDeliveryDistance(Number(km.toFixed(2)));
     }
   }, [selectedKitchen?.id, selectedKitchen?.lat, selectedKitchen?.lng, venueLat, venueLng]);
 
@@ -2086,7 +2101,7 @@ function NewQuotePage() {
                           <Label className="text-[11px] text-blue-900">From kitchen / branch</Label>
                           <select
                             value={selectedKitchen.id}
-                            onChange={(e) => setKitchenId(e.target.value)}
+                            onChange={(e) => { kitchenManualRef.current = true; setKitchenId(e.target.value); }}
                             className="w-full h-9 px-2 rounded-md border border-blue-200 bg-white text-sm"
                           >
                             {kitchens.map((k) => (
@@ -2114,7 +2129,7 @@ function NewQuotePage() {
                               return (
                                 <button
                                   type="button"
-                                  onClick={() => setKitchenId(lighterKitchen.id)}
+                                  onClick={() => { kitchenManualRef.current = true; setKitchenId(lighterKitchen.id); }}
                                   className="mt-2 w-full text-left rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-[11px] text-amber-900 hover:border-amber-400 hover:bg-amber-100"
                                   title="Switch to the lighter branch"
                                 >
