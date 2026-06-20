@@ -96,6 +96,31 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (typeof rawChanges.logistics_changes === "string" && rawChanges.logistics_changes.trim()) {
     requestedChanges.logistics_changes = rawChanges.logistics_changes.trim().slice(0, 2000);
   }
+  // Structured item picks from the in-form editor. Sanitise hard: cap the
+  // array, keep only known fields, coerce types, clamp quantities. A line
+  // with no name is dropped. Empty arrays are kept (they mean "remove
+  // everything of this kind"), but absent / non-array stays absent.
+  const MAX_LINES = 100;
+  const sanitiseMenu = (arr: any[]) =>
+    arr.slice(0, MAX_LINES).map((it) => ({
+      menu_item_id: typeof it?.menu_item_id === "string" ? it.menu_item_id.slice(0, 64) : null,
+      item_name: typeof it?.item_name === "string" ? it.item_name.trim().slice(0, 200) : "",
+      unit_price: Math.max(0, Math.min(1e7, Number(it?.unit_price) || 0)),
+      quantity: Math.max(0, Math.min(99999, Math.round(Number(it?.quantity) || 0))),
+    })).filter((l) => l.item_name);
+  const sanitiseEquip = (arr: any[]) =>
+    arr.slice(0, MAX_LINES).map((it) => ({
+      equipment_id: typeof it?.equipment_id === "string" ? it.equipment_id.slice(0, 64) : null,
+      name: typeof it?.name === "string" ? it.name.trim().slice(0, 200) : "",
+      unit_price: Math.max(0, Math.min(1e7, Number(it?.unit_price) || 0)),
+      quantity: Math.max(0, Math.min(99999, Math.round(Number(it?.quantity) || 0))),
+    })).filter((l) => l.name);
+  if (Array.isArray(rawChanges.menu_items)) {
+    requestedChanges.menu_items = sanitiseMenu(rawChanges.menu_items);
+  }
+  if (Array.isArray(rawChanges.equipment_items)) {
+    requestedChanges.equipment_items = sanitiseEquip(rawChanges.equipment_items);
+  }
 
   const supabase = getServiceSupabase();
   const ip = getClientIp(req as any);

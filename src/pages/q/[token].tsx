@@ -46,6 +46,7 @@ import {
 // client gets the "Tell us why -> Confirm" flow with a note before
 // each action. Quote mode skips the payout step (no money to move).
 import { CancellationWizard } from "@/components/cancellation/CancellationWizard";
+import { QuoteItemsEditor, type MenuLine, type EquipLine } from "@/components/quote/QuoteItemsEditor";
 
 // Phase 5 #10: per-tenant currency formatter. The Intl 'currency'
 // style honours each currency's standard symbol + grouping (so GBP
@@ -155,6 +156,11 @@ export default function PublicQuotePage() {
   const [changesMenu, setChangesMenu] = useState("");
   const [changesVenue, setChangesVenue] = useState("");
   const [changesLogistics, setChangesLogistics] = useState("");
+  // Structured item edits (prefilled from the quote in the editor). Null
+  // until the client touches the editor, so an untouched request doesn't
+  // overwrite the quote's lines with a stale snapshot.
+  const [changesMenuItems, setChangesMenuItems] = useState<MenuLine[] | null>(null);
+  const [changesEquipItems, setChangesEquipItems] = useState<EquipLine[] | null>(null);
   const [changesSubmitting, setChangesSubmitting] = useState(false);
   const [changesError, setChangesError] = useState<string | null>(null);
   const [changesSent, setChangesSent] = useState(false);
@@ -260,15 +266,32 @@ export default function PublicQuotePage() {
 
   const handleSubmitChanges = async () => {
     if (!token) return;
-    if (changesMessage.trim().length < 10) {
-      setChangesError("Please give us at least 10 characters so we know what to change.");
-      return;
+    // The client may express their change two ways: a freeform message, or
+    // by editing the item list (add/remove/qty). Either is enough - when
+    // they only edited items we synthesise a message so the caterer's
+    // notification still reads sensibly and the server's min-length holds.
+    const itemsTouched = changesMenuItems !== null || changesEquipItems !== null;
+    const menuPayload = (changesMenuItems || [])
+      .filter((l) => l.quantity > 0)
+      .map((l) => ({ menu_item_id: l.menu_item_id, item_name: l.item_name, unit_price: l.unit_price, quantity: l.quantity }));
+    const equipPayload = (changesEquipItems || [])
+      .filter((l) => l.quantity > 0)
+      .map((l) => ({ equipment_id: l.equipment_id, name: l.name, unit_price: l.unit_price, quantity: l.quantity }));
+
+    let message = changesMessage.trim();
+    if (message.length < 10) {
+      if (itemsTouched) {
+        message = "Please update my quote to the menu and equipment selections I've set below.";
+      } else {
+        setChangesError("Please give us at least 10 characters so we know what to change.");
+        return;
+      }
     }
     setChangesSubmitting(true);
     setChangesError(null);
     const res = await submitChangeRequest({
       token,
-      message: changesMessage.trim(),
+      message,
       submitterName: changesName.trim() || quote?.client_name || null,
       requestedChanges: {
         event_date: changesEventDate || null,
@@ -278,6 +301,8 @@ export default function PublicQuotePage() {
         menu_changes: changesMenu.trim() || null,
         venue_address: changesVenue.trim() || null,
         logistics_changes: changesLogistics.trim() || null,
+        menu_items: changesMenuItems !== null ? menuPayload : null,
+        equipment_items: changesEquipItems !== null ? equipPayload : null,
       },
     });
     setChangesSubmitting(false);
@@ -934,7 +959,7 @@ export default function PublicQuotePage() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => { setChangesOpen(true); setChangesError(null); }}
+                        onClick={() => { setChangesOpen(true); setChangesError(null); setAcceptOpen(false); setAcceptError(null); setChangesMenuItems(null); setChangesEquipItems(null); }}
                         className="gap-1.5 text-stone-700"
                       >
                         <MessageSquare className="w-4 h-4" />
@@ -1013,7 +1038,7 @@ export default function PublicQuotePage() {
                             "go" without depending on the tenant's
                             brand colour (which can be anything). */}
                         <Button
-                          onClick={() => setAcceptOpen(true)}
+                          onClick={() => { setAcceptOpen(true); setChangesOpen(false); setChangesError(null); }}
                           className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 px-6 shadow-sm"
                           size="lg"
                         >
@@ -1027,7 +1052,7 @@ export default function PublicQuotePage() {
                         {!changesSent && !changesOpen && (
                           <Button
                             variant="outline"
-                            onClick={() => { setChangesOpen(true); setChangesError(null); }}
+                            onClick={() => { setChangesOpen(true); setChangesError(null); setAcceptOpen(false); setAcceptError(null); setChangesMenuItems(null); setChangesEquipItems(null); }}
                             className="gap-1.5 px-6 border-stone-300 hover:bg-stone-50"
                             size="lg"
                           >
@@ -1156,15 +1181,19 @@ export default function PublicQuotePage() {
                       </div>
 
                       <div>
-                        <label htmlFor="changes-menu" className="text-xs font-medium text-stone-700">
-                          Specific menu changes (optional)
-                        </label>
-                        <Input
-                          id="changes-menu"
-                          value={changesMenu}
-                          onChange={(e) => setChangesMenu(e.target.value)}
-                          placeholder="e.g. swap chicken for veg option"
-                          className="mt-1"
+                        <p className="text-xs font-medium text-stone-700 mb-1.5">
+                          Adjust your items (optional)
+                        </p>
+                        <p className="text-[11px] text-stone-500 mb-2">
+                          These are the items currently on your quote. Change quantities, remove what you don't want, or add more. The caterer confirms the final price.
+                        </p>
+                        <QuoteItemsEditor
+                          token={token as string}
+                          menuInit={quote.menu_items}
+                          equipInit={quote.equipment_items}
+                          currencyFmt={fmtMoney}
+                          primary={company?.primary_color || "#b45309"}
+                          onChange={(menu, equip) => { setChangesMenuItems(menu); setChangesEquipItems(equip); }}
                         />
                       </div>
 
@@ -1222,7 +1251,12 @@ export default function PublicQuotePage() {
                       </Button>
                       <Button
                         onClick={handleSubmitChanges}
-                        disabled={changesSubmitting || changesMessage.trim().length < 10}
+                        disabled={
+                          changesSubmitting ||
+                          (changesMessage.trim().length < 10 &&
+                            changesMenuItems === null &&
+                            changesEquipItems === null)
+                        }
                         className="bg-brand-primary hover:opacity-90 gap-1.5"
                       >
                         {changesSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <MessageSquare className="w-4 h-4" />}
@@ -1252,6 +1286,8 @@ export default function PublicQuotePage() {
               <Button
                 onClick={() => {
                   setAcceptOpen(true);
+                  setChangesOpen(false);
+                  setChangesError(null);
                   setTimeout(() => {
                     document.getElementById("quote-accept-card")?.scrollIntoView({ behavior: "smooth", block: "center" });
                   }, 60);

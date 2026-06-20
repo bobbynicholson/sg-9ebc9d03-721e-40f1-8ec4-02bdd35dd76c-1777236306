@@ -270,6 +270,46 @@ function RequestCard({
         </div>
       )}
 
+      {(Array.isArray(rc.menu_items) || Array.isArray(rc.equipment_items)) && (
+        <div className="bg-amber-50 border border-amber-200 rounded-md p-2 mb-3 text-[11px] text-slate-700">
+          <p className="font-medium text-amber-800 mb-1">Requested item selection</p>
+          {Array.isArray(rc.menu_items) && (
+            <div className="mb-1.5">
+              <p className="text-slate-500 font-medium">Menu</p>
+              {rc.menu_items.length === 0 ? (
+                <p className="text-slate-400">All menu items removed</p>
+              ) : (
+                <ul className="space-y-0.5">
+                  {rc.menu_items.map((it: any, i: number) => (
+                    <li key={i} className="flex justify-between gap-2">
+                      <span className="truncate">{it.quantity} x {it.item_name}</span>
+                      <span className="tabular-nums text-slate-500">{Number(it.unit_price * it.quantity).toFixed(0)}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+          {Array.isArray(rc.equipment_items) && (
+            <div>
+              <p className="text-slate-500 font-medium">Equipment</p>
+              {rc.equipment_items.length === 0 ? (
+                <p className="text-slate-400">All equipment removed</p>
+              ) : (
+                <ul className="space-y-0.5">
+                  {rc.equipment_items.map((it: any, i: number) => (
+                    <li key={i} className="flex justify-between gap-2">
+                      <span className="truncate">{it.quantity} x {it.name}</span>
+                      <span className="tabular-nums text-slate-500">{Number(it.unit_price * it.quantity).toFixed(0)}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
       {isPending ? (
         <div className="flex flex-wrap gap-1.5">
           <Button

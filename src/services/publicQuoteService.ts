@@ -201,6 +201,10 @@ export async function submitChangeRequest(args: {
     menu_changes?: string | null;
     venue_address?: string | null;
     logistics_changes?: string | null;
+    /** Structured item picks from the in-form editor. null = the client
+     *  didn't touch the item editor (leave the quote's lines as-is). */
+    menu_items?: Array<{ menu_item_id: string | null; item_name: string; unit_price: number; quantity: number }> | null;
+    equipment_items?: Array<{ equipment_id: string | null; name: string; unit_price: number; quantity: number }> | null;
   };
 }): Promise<{ ok: boolean; error?: string }> {
   if (!args.token) return { ok: false, error: "Missing token." };
