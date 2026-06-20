@@ -494,6 +494,19 @@ export default function ClientOrderPage() {
                         <span className="text-slate-700 tabular-nums">{fmtMoney.format(deliveryFee)}</span>
                       </div>
                     )}
+                    {Number(order.collection_fee) > 0 && (
+                      <div className="flex items-center justify-between px-6 py-2 text-sm bg-slate-50/60">
+                        <span className="text-slate-600">
+                          Collection
+                          {Number(order.collection_distance_km) > 0 && (
+                            <span className="text-xs text-slate-500 ml-1">
+                              ({Number(order.collection_distance_km).toFixed(1)} km)
+                            </span>
+                          )}
+                        </span>
+                        <span className="text-slate-700 tabular-nums">{fmtMoney.format(Number(order.collection_fee))}</span>
+                      </div>
+                    )}
                     {taxAmount > 0 && (
                       <div className="flex items-center justify-between px-6 py-2 text-sm bg-slate-50/60">
                         <span className="text-slate-600">VAT</span>
