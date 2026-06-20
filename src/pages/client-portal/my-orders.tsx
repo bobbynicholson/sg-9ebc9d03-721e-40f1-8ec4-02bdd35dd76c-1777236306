@@ -19,6 +19,11 @@ import { TimelineTrack } from "@/components/admin/orders/TimelineTrack";
 // portal users get the identical 3-step flow so the catering company
 // only ever has to support one cancellation UX in the wild.
 import { CancellationWizard } from "@/components/cancellation/CancellationWizard";
+// Wave 33: same full order editor the magic-link surface uses, so a
+// logged-in client gets the whole form (menu / equipment / guests / venue
+// / timing) instead of the old guest-count + venue + notes stub. Submits
+// to the auth amendment-request endpoint; the catering team still approves.
+import { OrderEditDialog } from "@/components/order/OrderEditDialog";
 import Head from "next/head";
 import { useAuth } from "@/contexts/AuthContext";
 import { ChatBot } from "@/components/ChatBot";
@@ -71,10 +76,9 @@ export default function MyOrders() {
   // order, and the form is small enough that re-mounting on open
   // doesn't matter.
   const [amendingOrder, setAmendingOrder] = useState<Order | null>(null);
-  const [amendGuestCount, setAmendGuestCount] = useState<string>("");
-  const [amendVenue, setAmendVenue] = useState<string>("");
-  const [amendNotes, setAmendNotes] = useState<string>("");
-  const [amendSubmitting, setAmendSubmitting] = useState(false);
+  // Wave 33: the editor is now the shared OrderEditDialog; we only track
+  // which order is open + whether a submit happened (to refresh on close).
+  const [amendDone, setAmendDone] = useState(false);
   // Cancel/postpone request dialog state.
   // Wave 28.4: cancellation now lives in CancellationWizard (mounted
   // at the bottom of this file). The Dialog below is locked to
@@ -433,10 +437,8 @@ export default function MyOrders() {
                                 variant="outline"
                                 className="w-full sm:w-auto"
                                 onClick={() => {
+                                  setAmendDone(false);
                                   setAmendingOrder(order);
-                                  setAmendGuestCount(String(order.guest_count || ""));
-                                  setAmendVenue(order.venue_address || "");
-                                  setAmendNotes("");
                                 }}
                               >
                                 <Pencil className="w-4 h-4 mr-2" />
@@ -543,129 +545,30 @@ export default function MyOrders() {
 
       <ChatBot userRole="client" companyId={user?.user_metadata?.company_id} />
 
-      {/* Amendment request dialog. Submits to /api/orders/amendment-request
-          which sanitises the diff to allowed fields, verifies the
-          amendment window via is_order_amendable, and inserts a
-          pending row for the catering team to review. We pass only
-          fields that actually changed so the diff is clean. */}
-      <Dialog
-        open={!!amendingOrder}
-        onOpenChange={(o) => { if (!o) setAmendingOrder(null); }}
-      >
-        <DialogContent className="sm:max-w-lg">
-          {amendingOrder && (
-            <>
-              <DialogHeader>
-                <DialogTitle>Request a change to your order</DialogTitle>
-                <DialogDescription>
-                  Tell us what needs adjusting. The catering team reviews every request before applying it. Bigger changes (full menu rework, date moves) may need a chat - include a note below.
-                </DialogDescription>
-              </DialogHeader>
-
-              <div className="space-y-4">
-                <div className="space-y-1.5">
-                  <Label htmlFor="guest-count">Guest count</Label>
-                  <Input
-                    id="guest-count"
-                    type="number"
-                    value={amendGuestCount}
-                    onChange={(e) => setAmendGuestCount(e.target.value)}
-                    placeholder={String(amendingOrder.guest_count)}
-                  />
-                  <p className="text-xs text-slate-500">
-                    Currently: {amendingOrder.guest_count}
-                  </p>
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label htmlFor="venue">Venue address</Label>
-                  <Input
-                    id="venue"
-                    value={amendVenue}
-                    onChange={(e) => setAmendVenue(e.target.value)}
-                    placeholder={amendingOrder.venue_address}
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label htmlFor="notes">Notes for the team</Label>
-                  <Textarea
-                    id="notes"
-                    rows={4}
-                    value={amendNotes}
-                    onChange={(e) => setAmendNotes(e.target.value)}
-                    placeholder="Anything else they should know - dietary tweaks, drop-off time, decor, etc."
-                  />
-                </div>
-              </div>
-
-              <DialogFooter>
-                <Button
-                  variant="ghost"
-                  onClick={() => setAmendingOrder(null)}
-                  disabled={amendSubmitting}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  disabled={amendSubmitting}
-                  onClick={async () => {
-                    if (!amendingOrder) return;
-                    // Build the diff - only include keys that
-                    // actually changed from the current values.
-                    const proposed: Record<string, any> = {};
-                    const newCount = Number(amendGuestCount);
-                    if (Number.isFinite(newCount) && newCount > 0 && newCount !== amendingOrder.guest_count) {
-                      proposed.guest_count = newCount;
-                    }
-                    if (amendVenue.trim() && amendVenue.trim() !== (amendingOrder.venue_address || "").trim()) {
-                      proposed.venue_address = amendVenue.trim();
-                    }
-                    if (Object.keys(proposed).length === 0 && !amendNotes.trim()) {
-                      toast({
-                        title: "Nothing to change",
-                        description: "Adjust at least one field or add a note.",
-                        variant: "destructive",
-                      });
-                      return;
-                    }
-                    setAmendSubmitting(true);
-                    try {
-                      const resp = await fetch("/api/orders/amendment-request", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                          order_id: amendingOrder.id,
-                          proposed_changes: proposed,
-                          client_notes: amendNotes.trim() || null,
-                        }),
-                      });
-                      const j = await resp.json().catch(() => ({}));
-                      if (!resp.ok) throw new Error(j?.error || "Could not submit request");
-                      toast({
-                        title: "Request submitted",
-                        description: "The catering team will review and confirm shortly.",
-                      });
-                      setAmendingOrder(null);
-                    } catch (err: any) {
-                      toast({
-                        title: "Could not submit",
-                        description: err?.message || "Try again",
-                        variant: "destructive",
-                      });
-                    } finally {
-                      setAmendSubmitting(false);
-                    }
-                  }}
-                  className="bg-brand-primary hover:opacity-90"
-                >
-                  {amendSubmitting ? "Submitting..." : "Submit request"}
-                </Button>
-              </DialogFooter>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
+      {/* Wave 33: full order editor (same component as the magic-link
+          surface), pointed at the session-auth endpoints. Replaces the
+          old guest-count + venue + notes stub so the logged-in client
+          gets the whole form. The catering team still reviews/approves
+          via the amendment cascade. */}
+      {amendingOrder && (
+        <OrderEditDialog
+          open={!!amendingOrder}
+          onOpenChange={(o) => {
+            if (!o) {
+              const done = amendDone;
+              setAmendingOrder(null);
+              setAmendDone(false);
+              if (done) window.location.reload();
+            }
+          }}
+          orderId={amendingOrder.id}
+          primary="var(--brand-primary)"
+          secondary="var(--brand-secondary)"
+          dataUrl={`/api/orders/${amendingOrder.id}/edit-data`}
+          submitUrl="/api/orders/amendment-request"
+          onSubmitted={() => setAmendDone(true)}
+        />
+      )}
 
       {/* Cancel / postpone request dialog. Submits to
           /api/orders/cancellation-request which captures the policy

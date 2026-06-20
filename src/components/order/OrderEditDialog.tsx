@@ -50,6 +50,8 @@ export function OrderEditDialog({
   primary = "#9333ea",
   secondary = "#ec4899",
   onSubmitted,
+  dataUrl,
+  submitUrl = "/api/client-tokens/amend-order",
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
@@ -57,7 +59,15 @@ export function OrderEditDialog({
   primary?: string;
   secondary?: string;
   onSubmitted?: () => void;
+  /** Where to load catalogue + current lines. Defaults to the magic-link
+   *  (per-order cookie) endpoint; the authed portal passes the session
+   *  endpoint /api/orders/{id}/edit-data. */
+  dataUrl?: string;
+  /** Where to submit the amendment. Magic-link uses amend-order (default);
+   *  the authed portal uses /api/orders/amendment-request. */
+  submitUrl?: string;
 }) {
+  const resolvedDataUrl = dataUrl || "/api/client-tokens/order-edit-data";
   const [loading, setLoading] = useState(true);
   const [loadErr, setLoadErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -90,7 +100,7 @@ export function OrderEditDialog({
       setLoadErr(null);
       setMsg(null);
       try {
-        const r = await fetch("/api/client-tokens/order-edit-data", {
+        const r = await fetch(resolvedDataUrl, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ order_id: orderId }),
@@ -221,7 +231,7 @@ export function OrderEditDialog({
       if (deliveryTime.trim()) proposed_changes.delivery_time = deliveryTime.trim();
       if (specialInstructions.trim()) proposed_changes.special_instructions = specialInstructions.trim();
 
-      const r = await fetch("/api/client-tokens/amend-order", {
+      const r = await fetch(submitUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ order_id: orderId, proposed_changes }),

@@ -99,6 +99,32 @@ function renderValue(v: any): string {
 }
 
 /**
+ * Readable list of menu / equipment line items for the review drawer.
+ * Now that the client editor submits full menu_items / equipment_items
+ * arrays (not just a guest count), the old renderValue collapsed them to
+ * "5 items" - the operator couldn't see WHAT changed before approving.
+ * This resolves per-guest lines to the actual headcount so the Currently
+ * vs Requested columns are directly comparable ("Coleslaw x35").
+ */
+function lineItemList(v: any, guestCount: number): { name: string; qty: number }[] {
+  const arr = Array.isArray(v)
+    ? v
+    : typeof v === "string"
+      ? (() => { try { const p = JSON.parse(v); return Array.isArray(p) ? p : []; } catch { return []; } })()
+      : [];
+  return arr
+    .map((it: any) => {
+      const name = it?.item_name || it?.name || "Item";
+      const mode = String(it?.pricing_mode || it?.pricingMode || "");
+      const rawQty = Number(it?.quantity ?? 0);
+      // Per-guest dish stored as qty 0 -> show the live headcount.
+      const qty = mode === "per_person" && rawQty <= 0 ? Number(guestCount) || 0 : rawQty;
+      return { name: String(name), qty };
+    })
+    .filter((x) => x.name);
+}
+
+/**
  * Turn the amendment-review cascade receipt into a human sentence so
  * the operator sees the change actually rippled everywhere - kitchen,
  * finance, shopping, driver + cleaning - not just "saved". Mirrors
@@ -452,6 +478,54 @@ export function AmendmentReviewDrawer({
                           <p className="text-xs font-semibold text-slate-700 capitalize mb-1">
                             {label}
                           </p>
+                          {k === "menu_items" || k === "equipment_items" ? (
+                            (() => {
+                              const curGuests = Number((order as any)?.guest_count) || 0;
+                              const propGuests =
+                                request.proposed_changes?.guest_count != null
+                                  ? Number(request.proposed_changes.guest_count)
+                                  : curGuests;
+                              const cur = lineItemList(currentVal, curGuests);
+                              const prop = lineItemList(proposedVal, propGuests);
+                              const curByName = new Map(cur.map((x) => [x.name, x.qty]));
+                              const propByName = new Map(prop.map((x) => [x.name, x.qty]));
+                              return (
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+                                  <div>
+                                    <p className="text-[10px] uppercase tracking-wide text-slate-400 mb-0.5">Currently</p>
+                                    <ul className="space-y-0.5">
+                                      {cur.length === 0 && <li className="text-slate-400">(none)</li>}
+                                      {cur.map((x, i) => {
+                                        const removed = !propByName.has(x.name);
+                                        return (
+                                          <li key={i} className={removed ? "text-rose-700 line-through" : "text-slate-600"}>
+                                            {x.name} <span className="tabular-nums">×{x.qty}</span>
+                                          </li>
+                                        );
+                                      })}
+                                    </ul>
+                                  </div>
+                                  <div>
+                                    <p className="text-[10px] uppercase tracking-wide text-slate-400 mb-0.5">Requested</p>
+                                    <ul className="space-y-0.5">
+                                      {prop.length === 0 && <li className="text-slate-400">(none)</li>}
+                                      {prop.map((x, i) => {
+                                        const isNew = !curByName.has(x.name);
+                                        const changed = !isNew && curByName.get(x.name) !== x.qty;
+                                        return (
+                                          <li key={i} className={isNew ? "text-emerald-700 font-medium" : changed ? "text-amber-700" : "text-slate-700"}>
+                                            {x.name} <span className="tabular-nums">×{x.qty}</span>
+                                            {isNew && <span className="ml-1 text-[10px] uppercase">new</span>}
+                                            {changed && <span className="ml-1 text-[10px] uppercase">was ×{curByName.get(x.name)}</span>}
+                                          </li>
+                                        );
+                                      })}
+                                    </ul>
+                                  </div>
+                                </div>
+                              );
+                            })()
+                          ) : (
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
                             <div>
                               <p className="text-[10px] uppercase tracking-wide text-slate-400 mb-0.5">
@@ -470,6 +544,7 @@ export function AmendmentReviewDrawer({
                               </p>
                             </div>
                           </div>
+                          )}
                         </div>
                       </div>
                     </div>
