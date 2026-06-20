@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
-import { DollarSign } from "lucide-react";
+import { Banknote } from "lucide-react";
 import type { PricingSettings, UpdatePricingSetting } from "./types";
 
 interface Props {
@@ -75,7 +75,7 @@ export function PricingSettingsTab({ settings, onUpdate }: Props) {
     <Card className="border-0 shadow-lg">
       <CardHeader className="px-4 md:px-6">
         <CardTitle className="flex items-center gap-2 text-lg md:text-xl">
-          <DollarSign className="w-4 h-4 md:w-5 md:h-5" />
+          <Banknote className="w-4 h-4 md:w-5 md:h-5" />
           Pricing Rules
           <InfoTooltip
             content={

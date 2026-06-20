@@ -37,7 +37,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { DollarSign, Plus, Calendar, Mail, Users, FileText, Edit, Send, Copy, ExternalLink, Search, Flame, Sparkles, Crown, Snowflake, AlertTriangle, Clock, Inbox, ArrowRight, Trash2, CalendarDays, Gift, CheckCircle, List, LayoutGrid, Download, X, RefreshCw, MoreHorizontal } from "lucide-react";
+import { Banknote, Plus, Calendar, Mail, Users, FileText, Edit, Send, Copy, ExternalLink, Search, Flame, Sparkles, Crown, Snowflake, AlertTriangle, Clock, Inbox, ArrowRight, Trash2, CalendarDays, Gift, CheckCircle, List, LayoutGrid, Download, X, RefreshCw, MoreHorizontal } from "lucide-react";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import { Quote } from "@/types";
 import { Footer } from "@/components/Footer";
@@ -1412,7 +1412,7 @@ function AdminQuotesInner() {
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <PortalHeader
             title="Quotes"
-            icon={DollarSign}
+            icon={Banknote}
             subtitle="Priced proposals. Build a quote from a lead or directly off a client, send the public link, then chase with reminders until accepted or declined. Accepted quotes convert to orders."
             actions={
               <>
@@ -2068,7 +2068,7 @@ function AdminQuotesInner() {
                               <span className="text-sm">{displayGuestCount ?? "-"} guests</span>
                             </div>
                             <div className="flex items-center gap-2 text-slate-600">
-                              <DollarSign className="w-4 h-4" />
+                              <Banknote className="w-4 h-4" />
                               <span className="text-sm font-semibold text-green-600">
                                 {C}{Number(displayTotal).toFixed(2)}
                               </span>

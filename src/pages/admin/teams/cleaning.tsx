@@ -54,7 +54,7 @@ import { canAccessFinance } from "@/lib/authGuards";
 import { captureException } from "@/lib/observability";
 import {
   Sparkles, ArrowLeft, Users, Clock, ClipboardList, Loader2,
-  AlertTriangle, Wrench, DollarSign, Flame, Droplets,
+  AlertTriangle, Wrench, Banknote, Flame, Droplets,
   CheckCircle2, ArrowRight, Package, CalendarDays,
 } from "lucide-react";
 
@@ -497,7 +497,7 @@ function CleaningTeamPage() {
             {/* CLN-A: damages cost this week, finance-gated. */}
             {canSeeFinance && stats.damagesCostZar > 0 && (
               <Badge variant="outline" className="px-3 py-1.5 text-sm border-amber-300 text-amber-700 bg-amber-50 tabular-nums">
-                <DollarSign className="w-3 h-3 mr-1" />
+                <Banknote className="w-3 h-3 mr-1" />
                 {tenantCurrency.format(stats.damagesCostZar)} damages this week
               </Badge>
             )}

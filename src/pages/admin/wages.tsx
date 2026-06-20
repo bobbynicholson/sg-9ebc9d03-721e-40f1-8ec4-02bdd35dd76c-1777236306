@@ -25,7 +25,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid,
 } from "recharts";
-import { DollarSign, Calendar as CalendarIcon, Download, Loader2, Users, ChefHat, Truck, ShoppingBag, Sparkles, TrendingUp, AlertTriangle, Building2, Trophy, Clock as ClockIcon, ArrowUp, ArrowDown, Wallet } from "lucide-react";
+import { Banknote, Calendar as CalendarIcon, Download, Loader2, Users, ChefHat, Truck, ShoppingBag, Sparkles, TrendingUp, AlertTriangle, Building2, Trophy, Clock as ClockIcon, ArrowUp, ArrowDown, Wallet } from "lucide-react";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { PortalShell, PortalHeader } from "@/components/portal/ui";
 import { Footer } from "@/components/Footer";
@@ -765,7 +765,7 @@ function WageDashboardPage() {
                 <InfoTooltip content="Hours x rates roll-up across every department. Drivers run on the dispatch ledger (hourly + distance + callout); kitchen / shopping / cleaning run on the clocked-shift ledger with a BCEA Sunday + public-holiday split.\n\nThis page is the only place rand values surface, the team tablet shows hours only." />
               </span>
             }
-            icon={DollarSign}
+            icon={Banknote}
             subtitle="Hours and wages, owner-only. The kitchen and dispatch tablets never see rates."
             actions={
             <>
@@ -1031,7 +1031,7 @@ function WageDashboardPage() {
                   <Card className={`border-0 shadow-sm ${tone}`}>
                     <CardContent className="p-4">
                       <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1 inline-flex items-center gap-1">
-                        <DollarSign className="w-3 h-3" />Wage % of revenue
+                        <Banknote className="w-3 h-3" />Wage % of revenue
                       </div>
                       {wagePct == null ? (
                         <>

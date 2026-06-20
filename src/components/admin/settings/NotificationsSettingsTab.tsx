@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
-import { Bell, Mail, CheckCircle, DollarSign, Truck } from "lucide-react";
+import { Bell, Mail, CheckCircle, Banknote, Truck } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { NotificationSettings, UpdateNotificationSetting } from "./types";
 
@@ -37,7 +37,7 @@ const ROWS: Row[] = [
     field: "emailPaymentReceived",
     title: "Payment Received",
     description: "Alert when payment is processed",
-    Icon: DollarSign,
+    Icon: Banknote,
     iconClass: "text-green-600",
   },
   {

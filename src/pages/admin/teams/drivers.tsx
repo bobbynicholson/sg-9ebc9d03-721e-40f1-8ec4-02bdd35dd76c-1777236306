@@ -55,7 +55,7 @@ import { canAccessFinance } from "@/lib/authGuards";
 import { captureException } from "@/lib/observability";
 import {
   Truck, ArrowLeft, Users, Clock, ClipboardList, Loader2,
-  Receipt, Map as MapIcon, Car, AlertTriangle, DollarSign, CalendarDays,
+  Receipt, Map as MapIcon, Car, AlertTriangle, Banknote, CalendarDays,
   CheckCircle2, ArrowRight, Flame, Wrench, Snowflake,
 } from "lucide-react";
 
@@ -454,7 +454,7 @@ function DriversTeamPage() {
             )}
             {canSeeFinance && stats.burnTodayZar > 0 && (
               <Badge variant="outline" className="px-3 py-1.5 text-sm border-emerald-300 text-emerald-700 bg-emerald-50 tabular-nums">
-                <DollarSign className="w-3 h-3 mr-1" />
+                <Banknote className="w-3 h-3 mr-1" />
                 {tenantCurrency.format(stats.burnTodayZar)} pay today
               </Badge>
             )}

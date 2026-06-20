@@ -23,7 +23,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
-import { Truck, ChefHat, Users, Calendar, DollarSign } from "lucide-react";
+import { Truck, ChefHat, Users, Calendar, Banknote } from "lucide-react";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { toLocalISO } from "@/lib/localDate";
 import { shiftService } from "@/services/shiftService";
@@ -126,7 +126,7 @@ export function TodaysPulse({ companyId }: { companyId: string | null }) {
     { label: "In transit",        value: String(stats.inTransit),    icon: Truck,    href: "/admin/order-assignments", tone: "bg-indigo-50 border-indigo-200 text-indigo-900" },
     { label: "Drivers on shift",  value: String(stats.driversOnShift), icon: Users,  href: "/admin/driver-management", tone: "bg-emerald-50 border-emerald-200 text-emerald-900" },
     { label: "Kitchen prep",      value: String(stats.kitchenPrep),  icon: ChefHat,  href: "/admin/orders?status=preparing", tone: "bg-purple-50 border-purple-200 text-purple-900" },
-    { label: "Paid today",        value: tenantCurrency.format(stats.paidToday, 0), icon: DollarSign, href: "/admin/invoices", tone: "bg-amber-50 border-amber-200 text-amber-900" },
+    { label: "Paid today",        value: tenantCurrency.format(stats.paidToday, 0), icon: Banknote, href: "/admin/invoices", tone: "bg-amber-50 border-amber-200 text-amber-900" },
   ];
 
   return (

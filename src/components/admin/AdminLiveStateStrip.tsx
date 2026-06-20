@@ -26,7 +26,7 @@ import { useAdminPortalMode } from "@/hooks/useAdminPortalMode";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { useAuth } from "@/contexts/AuthContext";
 import {
-  Calendar, Truck, FileSpreadsheet, Wallet, AlertTriangle, DollarSign, Sparkles, UserPlus,
+  Calendar, Truck, FileSpreadsheet, Wallet, AlertTriangle, Banknote, Sparkles, UserPlus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -145,7 +145,7 @@ export function AdminLiveStateStrip() {
       key: "revenue",
       label: "Today",
       value: counts.loading ? "…" : fmtMoney(counts.revenueToday),
-      icon: DollarSign,
+      icon: Banknote,
       tone: counts.revenueToday > 0 ? "info" : "muted",
       href: "/admin/financial-dashboard",
       aria: `Today's revenue: ${tenantCurrency.format(counts.revenueToday)}. Tap to open the financial dashboard.`,

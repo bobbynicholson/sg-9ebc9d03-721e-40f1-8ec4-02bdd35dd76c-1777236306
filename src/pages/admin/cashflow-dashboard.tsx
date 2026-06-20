@@ -17,7 +17,7 @@ import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
-  TrendingUp, DollarSign, AlertTriangle, RefreshCw,
+  TrendingUp, Banknote, AlertTriangle, RefreshCw,
   FileText, Wallet, Receipt, ChevronRight,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -542,7 +542,7 @@ function CashflowDashboardInner() {
             <Card className="border-2">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-base">
-                  <DollarSign className="w-5 h-5 text-emerald-600" />
+                  <Banknote className="w-5 h-5 text-emerald-600" />
                   30-day cashflow summary
                   <InfoTooltip content={"The same numbers the forecast chart subtracts.\n\nReceived: cash already in the bank from paid orders.\n\nWages owed, fixed costs and supplier payables are subtracted to get Net 30d."} />
                 </CardTitle>
@@ -617,7 +617,7 @@ function CashflowDashboardInner() {
                 />
                 <NavLink
                   href={withSlug("/admin/financial-dashboard?from=cashflow")}
-                  icon={DollarSign}
+                  icon={Banknote}
                   label="Financial dashboard"
                   desc="Margin, health score, order analysis"
                 />

@@ -13,7 +13,7 @@ import {
   Settings,
   Bell,
   Mail,
-  DollarSign,
+  Banknote,
   Truck,
   ChefHat,
   Save,
@@ -514,7 +514,7 @@ function SettingsPage() {
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                   <div className="flex items-start gap-3 md:gap-4">
                     <div className="w-12 h-12 md:w-16 md:h-16 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center flex-shrink-0">
-                      <DollarSign className="w-6 h-6 md:w-8 md:h-8 text-white" />
+                      <Banknote className="w-6 h-6 md:w-8 md:h-8 text-white" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <h3 className="text-lg md:text-2xl font-bold mb-1">Payment Processing</h3>

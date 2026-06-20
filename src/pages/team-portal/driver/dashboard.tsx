@@ -8,7 +8,7 @@ import {
   CheckCircle,
   Navigation,
   TrendingUp,
-  DollarSign,
+  Banknote,
   Sparkles,
   Bell,
   Camera,
@@ -758,7 +758,7 @@ function DriverDashboardInner() {
                 hint="Still left to do today"
               />
               <StatTile
-                icon={DollarSign}
+                icon={Banknote}
                 label="This month"
                 value={tenantCurrency.format(totalEarnings)}
                 hint="Hourly + distance + callout"

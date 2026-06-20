@@ -28,7 +28,7 @@ import { canAccessFinance } from "@/lib/authGuards";
 import { captureException } from "@/lib/observability";
 import {
   ShoppingBag, ArrowLeft, Users, ClipboardList, Loader2, AlertTriangle,
-  Receipt, Truck, DollarSign, TrendingDown,
+  Receipt, Truck, Banknote, TrendingDown,
 } from "lucide-react";
 
 interface ShoppingStats {
@@ -213,7 +213,7 @@ function ShoppingTeamPage() {
             </Badge>
             {canSeeFinance && stats.spendToday > 0 && (
               <Badge variant="outline" className="px-3 py-1.5 text-sm border-emerald-300 text-emerald-700 bg-emerald-50 tabular-nums">
-                <DollarSign className="w-3 h-3 mr-1" />
+                <Banknote className="w-3 h-3 mr-1" />
                 {tenantCurrency.format(stats.spendToday)} today
               </Badge>
             )}

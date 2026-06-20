@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Clock, Users, TrendingUp, CheckCircle, DollarSign, Download, AlertTriangle, ExternalLink } from "lucide-react";
+import { Clock, Users, TrendingUp, CheckCircle, Banknote, Download, AlertTriangle, ExternalLink } from "lucide-react";
 import { captureException } from "@/lib/observability";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { useTenantHref } from "@/lib/tenantUrl";
@@ -917,7 +917,7 @@ function StaffHoursPage() {
                     ))}
                     {ledger.length === 0 && (
                       <div className="text-center py-8 text-muted-foreground">
-                        <DollarSign className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                        <Banknote className="h-12 w-12 mx-auto mb-2 opacity-50" />
                         <p>No payments recorded for this period</p>
                       </div>
                     )}
@@ -957,7 +957,7 @@ function StaffHoursPage() {
                 </Button>
                 <Button asChild variant="outline">
                   <Link href={withSlug("/admin/cashflow-dashboard")} className="justify-start gap-1.5">
-                    <DollarSign className="w-3.5 h-3.5" />
+                    <Banknote className="w-3.5 h-3.5" />
                     Cashflow forecast
                   </Link>
                 </Button>

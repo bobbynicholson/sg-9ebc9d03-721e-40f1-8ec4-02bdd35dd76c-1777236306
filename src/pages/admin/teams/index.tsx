@@ -55,7 +55,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   ChefHat, Truck, ShoppingBag, Sparkles, Users, AlertTriangle,
   Loader2, ArrowRight, MapPin, TrendingUp, Calendar, Clock,
-  MessageCircle, FileText, DollarSign,
+  MessageCircle, FileText, Banknote,
 } from "lucide-react";
 
 interface TeamRow {
@@ -952,7 +952,7 @@ function TeamsIndexPage() {
                                     ? "Driver earnings booked against today's events."
                                     : "Kitchen wage burn today: shift minutes x hourly_rate from kitchen_staff_members."}
                               >
-                                <DollarSign className="w-2.5 h-2.5 mr-0.5" />
+                                <Banknote className="w-2.5 h-2.5 mr-0.5" />
                                 {tenantCurrency.format(r.burnTodayZar)}
                               </Badge>
                             )}
@@ -1062,7 +1062,7 @@ function TeamsIndexPage() {
                               className="text-[10px] tabular-nums border-emerald-300 text-emerald-700 bg-emerald-50"
                               title="Committed spend across all open hire-in orders (draft + confirmed + picked-up). Closes when the order is marked returned + payable cleared."
                             >
-                              <DollarSign className="w-2.5 h-2.5 mr-0.5" />
+                              <Banknote className="w-2.5 h-2.5 mr-0.5" />
                               {tenantCurrency.format(hireInBurn)} open
                             </Badge>
                           )}

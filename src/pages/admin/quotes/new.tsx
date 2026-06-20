@@ -67,7 +67,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import {
-  DollarSign, ArrowLeft, Save, Send, Plus, Trash2, MapPin, Sparkles,
+  Banknote, ArrowLeft, Save, Send, Plus, Trash2, MapPin, Sparkles,
   Loader2, CheckCircle2, AlertTriangle, Eye, Calendar, Users, Mail, Phone,
   Percent, TrendingUp, Wand2, Clock,
 } from "lucide-react";
@@ -1791,7 +1791,7 @@ function NewQuotePage() {
           <div className="mb-6 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
             <div className="flex items-center gap-3 min-w-0">
               <div className="p-3 bg-gradient-to-br from-brand-primary to-brand-secondary rounded-2xl shadow-lg flex-shrink-0">
-                <DollarSign className="w-7 h-7 text-white" />
+                <Banknote className="w-7 h-7 text-white" />
               </div>
               <div className="min-w-0">
                 <h1 className="text-2xl lg:text-3xl font-bold text-slate-900">

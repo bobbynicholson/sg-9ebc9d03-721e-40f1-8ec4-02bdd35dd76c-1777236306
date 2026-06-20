@@ -59,7 +59,7 @@ import { captureException } from "@/lib/observability";
 import { ChatBot } from "@/components/ChatBot";
 import {
   Users, Clock, Calendar, TrendingUp, Award, FileText,
-  DollarSign, UserPlus, Loader2, ChefHat, Sparkles, Truck,
+  Banknote, UserPlus, Loader2, ChefHat, Sparkles, Truck,
   Flame, MailPlus, ArrowRight,
 } from "lucide-react";
 
@@ -329,7 +329,7 @@ function AdminHRSolutions() {
       id: "wages",
       title: "Wages & Payroll",
       description: "Hourly rates, week tally, kitchen + drivers + extras.",
-      Icon: DollarSign,
+      Icon: Banknote,
       link: "/admin/wages",
       status: "active",
       chip: canSeeFinance && !loading && stats.wageBurnWeekZar > 0
@@ -430,7 +430,7 @@ function AdminHRSolutions() {
             {canSeeFinance && stats.wageBurnWeekZar > 0 && (
               <Link href={withSlug("/admin/wages")}>
                 <Badge variant="outline" className="px-3 py-1.5 text-sm border-emerald-300 text-emerald-700 bg-emerald-50 tabular-nums cursor-pointer hover:bg-emerald-100">
-                  <DollarSign className="w-3 h-3 mr-1" />
+                  <Banknote className="w-3 h-3 mr-1" />
                   {tenantCurrency.format(stats.wageBurnWeekZar)} burn this week
                 </Badge>
               </Link>

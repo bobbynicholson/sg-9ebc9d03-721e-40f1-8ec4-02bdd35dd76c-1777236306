@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { TrendingUp, DollarSign, AlertTriangle, Calendar, Users, Package, CreditCard, ArrowUpRight, ArrowDownRight, Sparkles, Trophy, Download, RefreshCw } from "lucide-react";
+import { TrendingUp, Banknote, AlertTriangle, Calendar, Users, Package, CreditCard, ArrowUpRight, ArrowDownRight, Sparkles, Trophy, Download, RefreshCw } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useOrderRefreshSignal } from "@/hooks/useOrderRefreshSignal";
 import { useRegionFilter } from "@/contexts/RegionFilterContext";
@@ -602,7 +602,7 @@ function FinancialDashboardInner() {
         <AdminNav />
         <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-4 md:p-8 lg:pl-72 xl:pl-80 pt-20 lg:pt-8">
           <div className="max-w-2xl mx-auto mt-12 rounded-lg border border-emerald-200 bg-white p-8 shadow-sm text-center">
-            <DollarSign className="w-12 h-12 text-emerald-600 mx-auto mb-3" />
+            <Banknote className="w-12 h-12 text-emerald-600 mx-auto mb-3" />
             <h1 className="text-2xl font-bold text-slate-900 mb-2">Financial Dashboard</h1>
             <h2 className="text-base font-semibold text-slate-700 mb-2">No financial activity yet</h2>
             <p className="text-sm text-slate-600 max-w-md mx-auto mb-5">
@@ -639,7 +639,7 @@ function FinancialDashboardInner() {
           <div className="mb-8">
             <PortalHeader
               title="Financial Dashboard"
-              icon={DollarSign}
+              icon={Banknote}
               subtitle={
                 <>
                   {/* FIN-B: honest hero copy. The page is a rolling
@@ -857,7 +857,7 @@ function FinancialDashboardInner() {
                         real net, not the cash-minus-wages partial. */}
                     <InfoTooltip content={"Cash received less every known outflow in metrics state: wages owed, fixed costs due in the next 30 days, supplier payables due in the next 30 days, inventory COGS over the last 90 days.\n\nMatches the Net Cash Flow row on the Financial Summary card below. Status badge reads off this net, not the received-minus-wages partial."} />
                   </CardTitle>
-                  <DollarSign className="w-5 h-5 text-green-600" />
+                  <Banknote className="w-5 h-5 text-green-600" />
                 </div>
               </CardHeader>
               <CardContent>

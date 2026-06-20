@@ -9,7 +9,7 @@ import {
   CheckCircle,
   Route as RouteIcon,
   TrendingUp,
-  DollarSign,
+  Banknote,
   Fuel,
   Leaf,
   ChevronRight,
@@ -582,7 +582,7 @@ export default function DriverRoutes() {
                           <span>Delivery: {new Date(currentStop.delivery_time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
                         </div>
                         <div className="flex items-center gap-2">
-                          <DollarSign className="w-4 h-4 text-slate-400 dark:text-slate-500" />
+                          <Banknote className="w-4 h-4 text-slate-400 dark:text-slate-500" />
                           <span>Callout: {tenantCurrency.format(calloutFee, 0)} + {tenantCurrency.format(distanceRate)}/km</span>
                         </div>
                       </div>
@@ -818,7 +818,7 @@ export default function DriverRoutes() {
                                   Deliver {new Date(stop.delivery_time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                                 </span>
                                 <span className="flex items-center gap-1 tabular-nums">
-                                  <DollarSign className="w-3 h-3 text-slate-400 dark:text-slate-500" />
+                                  <Banknote className="w-3 h-3 text-slate-400 dark:text-slate-500" />
                                   {tenantCurrency.format(calloutFee, 0)} callout
                                 </span>
                               </div>

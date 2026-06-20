@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   ChefHat, UserPlus, Pencil, Archive, ArchiveRestore, Search, Phone, Mail,
-  DollarSign, Clock, AlertTriangle, ExternalLink, Download, X, RefreshCw,
+  Banknote, Clock, AlertTriangle, ExternalLink, Download, X, RefreshCw,
   Users, Tag, MessageCircle, CheckCircle2,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -1252,7 +1252,7 @@ function KitchenStaffPage() {
               <>
                 <div className="space-y-1.5">
                   <Label className="flex items-center gap-1">
-                    <DollarSign className="w-3 h-3" />Hourly rate (R)
+                    <Banknote className="w-3 h-3" />Hourly rate (R)
                   </Label>
                   <Input
                     type="number" step="0.01" min="0"
@@ -1263,7 +1263,7 @@ function KitchenStaffPage() {
                 </div>
                 <div className="space-y-1.5">
                   <Label className="flex items-center gap-1">
-                    <DollarSign className="w-3 h-3" />Overtime rate (R)
+                    <Banknote className="w-3 h-3" />Overtime rate (R)
                     <InfoTooltip content="Optional. Leave blank for the SA default of 1.5x the hourly rate (BCEA ordinary overtime)." />
                   </Label>
                   <Input
@@ -1291,7 +1291,7 @@ function KitchenStaffPage() {
             {draft.pay_type === "monthly" && (
               <div className="space-y-1.5 sm:col-span-2">
                 <Label className="flex items-center gap-1">
-                  <DollarSign className="w-3 h-3" />Monthly salary (R)
+                  <Banknote className="w-3 h-3" />Monthly salary (R)
                   <InfoTooltip content="Flat amount paid per month regardless of clocked hours. Wage dashboard prorates for partial windows." />
                 </Label>
                 <Input
@@ -1306,7 +1306,7 @@ function KitchenStaffPage() {
             {draft.pay_type === "shift" && (
               <div className="space-y-1.5 sm:col-span-2">
                 <Label className="flex items-center gap-1">
-                  <DollarSign className="w-3 h-3" />Per-shift rate (R)
+                  <Banknote className="w-3 h-3" />Per-shift rate (R)
                   <InfoTooltip content="Flat fee paid per shift completed, regardless of length. Useful for casual / piece-work staff." />
                 </Label>
                 <Input

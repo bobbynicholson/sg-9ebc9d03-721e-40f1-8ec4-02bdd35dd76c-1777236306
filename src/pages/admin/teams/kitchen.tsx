@@ -57,7 +57,7 @@ import {
 } from "@/components/ui/dialog";
 import {
   ChefHat, ArrowLeft, Users, Clock, ClipboardList, BookOpen, Loader2,
-  DollarSign, CalendarDays, Wrench, Package, Flame,
+  Banknote, CalendarDays, Wrench, Package, Flame,
   CheckCircle2, ArrowRight, MessageCircle, Printer, FileText,
   Settings as SettingsIcon, ChevronDown, ChevronUp,
 } from "lucide-react";
@@ -551,7 +551,7 @@ function KitchenTeamPage() {
             {/* KIT-A: wage burn today, finance-gated. */}
             {canSeeFinance && stats.burnTodayZar > 0 && (
               <Badge variant="outline" className="px-3 py-1.5 text-sm border-emerald-300 text-emerald-700 bg-emerald-50 tabular-nums">
-                <DollarSign className="w-3 h-3 mr-1" />
+                <Banknote className="w-3 h-3 mr-1" />
                 {tenantCurrency.format(stats.burnTodayZar)} burn today
               </Badge>
             )}

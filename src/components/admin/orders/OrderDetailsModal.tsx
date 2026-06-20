@@ -18,7 +18,7 @@ import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  ShoppingCart, Calendar, Users, DollarSign, Eye, Edit, ChevronRight,
+  ShoppingCart, Calendar, Users, Banknote, Eye, Edit, ChevronRight,
   Clock, CheckCircle2, Package, MapPin, AlertCircle, Save, X, FileText,
   Receipt, Pause, Copy, Star, RefreshCw, MoreHorizontal, Phone,
   MessageCircle, Mail, ArrowRight, Download, Trash2, Play,

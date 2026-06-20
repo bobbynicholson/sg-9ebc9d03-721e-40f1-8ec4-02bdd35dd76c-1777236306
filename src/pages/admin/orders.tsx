@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { ShoppingCart, Calendar, Users, DollarSign, Download, Eye, Edit, ChevronRight, Clock, CheckCircle2, Package, MapPin, AlertCircle, LayoutGrid, List, ArrowRight, Trash2, Save, X, FileText, Receipt, Pause, Play, Copy, Star, RefreshCw, MoreHorizontal, Phone, MessageCircle, Mail } from "lucide-react";
+import { ShoppingCart, Calendar, Users, Banknote, Download, Eye, Edit, ChevronRight, Clock, CheckCircle2, Package, MapPin, AlertCircle, LayoutGrid, List, ArrowRight, Trash2, Save, X, FileText, Receipt, Pause, Play, Copy, Star, RefreshCw, MoreHorizontal, Phone, MessageCircle, Mail } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { computeOrderTimeline, type OrderTimeline } from "@/services/order/orderTimeline";
 import { computeOrderReadiness, type OrderReadiness } from "@/services/order/orderReadiness";

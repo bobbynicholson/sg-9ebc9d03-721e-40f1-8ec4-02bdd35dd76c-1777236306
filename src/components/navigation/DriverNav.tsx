@@ -18,7 +18,7 @@ import {
   LayoutDashboard,
   Truck,
   MapPin,
-  DollarSign,
+  Banknote,
   Calendar,
   User,
   Bell,
@@ -39,7 +39,7 @@ const config: PortalSidebarConfig = {
   mobileQuickActions: [
     { href: "/team-portal/driver/routes",   label: "Today's routes", sub: "What you're driving", icon: Navigation, accent: BRAND_ACCENT },
     { href: "/team-portal/driver/tracking", label: "Live tracking",  sub: "Update status",       icon: MapPin,     accent: BRAND_ACCENT },
-    { href: "/team-portal/driver/earnings", label: "My earnings",    sub: "Hours + pay",         icon: DollarSign, accent: BRAND_ACCENT },
+    { href: "/team-portal/driver/earnings", label: "My earnings",    sub: "Hours + pay",         icon: Banknote, accent: BRAND_ACCENT },
   ],
   sections: [
     {
@@ -59,7 +59,7 @@ const config: PortalSidebarConfig = {
       defaultOpen: false,
       items: [
         { title: "All Deliveries", href: "/team-portal/driver/deliveries", icon: Truck,      description: "Past trips" },
-        { title: "Earnings",       href: "/team-portal/driver/earnings",   icon: DollarSign, description: "Hours + pay" },
+        { title: "Earnings",       href: "/team-portal/driver/earnings",   icon: Banknote, description: "Hours + pay" },
         { title: "Schedule",       href: "/team-portal/driver/schedule",   icon: Calendar,   description: "Work schedule" },
       ],
     },

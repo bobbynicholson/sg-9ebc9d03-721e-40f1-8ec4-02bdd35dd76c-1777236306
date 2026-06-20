@@ -9,7 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { DollarSign } from "lucide-react";
+import { Banknote } from "lucide-react";
 import type { FinancialSettings, UpdateFinancialSetting } from "./types";
 
 interface Props {
@@ -39,7 +39,7 @@ export function FinancialSettingsTab({ settings, onUpdate }: Props) {
     <Card className="border-0 shadow-lg">
       <CardHeader className="px-4 md:px-6">
         <CardTitle className="flex items-center gap-2 text-lg md:text-xl">
-          <DollarSign className="w-4 h-4 md:w-5 md:h-5" />
+          <Banknote className="w-4 h-4 md:w-5 md:h-5" />
           Financial Settings
           <InfoTooltip
             content={
@@ -93,7 +93,7 @@ export function FinancialSettingsTab({ settings, onUpdate }: Props) {
 
         <div className="border-t pt-4 mt-4">
           <h3 className="font-semibold text-base mb-3 flex items-center gap-2">
-            <DollarSign className="w-4 h-4" />
+            <Banknote className="w-4 h-4" />
             Deposit & Balance Payment Settings
           </h3>
           <p className="text-xs md:text-sm text-slate-600 mb-4">

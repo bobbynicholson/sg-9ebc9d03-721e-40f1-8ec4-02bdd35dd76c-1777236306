@@ -27,7 +27,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  ArrowLeft, Calendar, Mail, Users, DollarSign, MapPin, FileText,
+  ArrowLeft, Calendar, Mail, Users, Banknote, MapPin, FileText,
   Save, Send, Loader2, Sparkles, AlertTriangle, ArrowRight, Pencil,
 } from "lucide-react";
 import { AdminNav } from "@/components/admin/AdminNav";
@@ -937,7 +937,7 @@ function AdminQuoteDetailInner() {
                         <div className="flex justify-between text-lg">
                           <span className="font-semibold">Total{vatRegistered ? " incl. VAT" : ""}</span>
                           <span className="font-bold text-green-600 flex items-center gap-1">
-                            <DollarSign className="w-5 h-5" />
+                            <Banknote className="w-5 h-5" />
                             {fmtMoney(liveTotal)}
                           </span>
                         </div>

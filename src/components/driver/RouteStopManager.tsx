@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { Plus, MapPin, Clock, DollarSign } from "lucide-react";
+import { Plus, MapPin, Clock, Banknote } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -223,7 +223,7 @@ export function RouteStopManager({ orderId, driverId, isAdmin = false }: RouteSt
                   )}
                   {stop.amount_spent && (
                     <div className="flex items-center gap-1 text-muted-foreground">
-                      <DollarSign className="h-4 w-4" />
+                      <Banknote className="h-4 w-4" />
                       R {stop.amount_spent}
                     </div>
                   )}

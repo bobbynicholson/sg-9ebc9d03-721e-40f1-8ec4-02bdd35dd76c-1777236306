@@ -14,7 +14,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Plus, Search, Phone, Mail, DollarSign, TrendingUp, ArrowRight, FileText, ShoppingCart, UserCheck, Clock, Trash2, Send, MailQuestion, RefreshCw, ChevronDown, Download, X } from "lucide-react";
+import { Plus, Search, Phone, Mail, Banknote, TrendingUp, ArrowRight, FileText, ShoppingCart, UserCheck, Clock, Trash2, Send, MailQuestion, RefreshCw, ChevronDown, Download, X } from "lucide-react";
 import { ConvertLeadDialog } from "@/components/admin/leads/ConvertLeadDialog";
 import {
   DropdownMenu,
@@ -1220,7 +1220,7 @@ function AdminLeadsInner() {
                     </p>
                   </div>
                   <div className="w-12 h-12 rounded-lg bg-purple-100 flex items-center justify-center">
-                    <DollarSign className="w-6 h-6 text-purple-600" />
+                    <Banknote className="w-6 h-6 text-purple-600" />
                   </div>
                 </div>
               </CardContent>
@@ -1236,7 +1236,7 @@ function AdminLeadsInner() {
                     </p>
                   </div>
                   <div className="w-12 h-12 rounded-lg bg-green-100 flex items-center justify-center">
-                    <DollarSign className="w-6 h-6 text-green-600" />
+                    <Banknote className="w-6 h-6 text-green-600" />
                   </div>
                 </div>
               </CardContent>

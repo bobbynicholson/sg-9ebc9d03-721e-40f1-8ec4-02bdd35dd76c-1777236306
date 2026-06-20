@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
-import { Users, Clock, Loader2, Play, Square, ChefHat, TrendingUp, Target, Coffee, AlertTriangle, DollarSign, Activity, MessageSquareText, Check, Calendar as CalendarIcon, Wallet, ChevronRight, Lock, UserCheck, RefreshCw } from "lucide-react";
+import { Users, Clock, Loader2, Play, Square, ChefHat, TrendingUp, Target, Coffee, AlertTriangle, Banknote, Activity, MessageSquareText, Check, Calendar as CalendarIcon, Wallet, ChevronRight, Lock, UserCheck, RefreshCw } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { KitchenNav } from "@/components/navigation/KitchenNav";
@@ -928,7 +928,7 @@ export default function KitchenDutyRosterPage() {
                       </div>
                       <div className="rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 p-2 sm:p-3">
                         <div className="text-[10px] uppercase tracking-wider text-slate-500 flex items-center gap-1">
-                          <DollarSign className="h-2.5 w-2.5" />Earnings
+                          <Banknote className="h-2.5 w-2.5" />Earnings
                         </div>
                         <div className="text-sm sm:text-base font-bold text-slate-900 dark:text-white tabular-nums">
                           {earnings.earnings != null ? `R ${earnings.earnings.toFixed(2)}` : "Set rate"}
@@ -975,7 +975,7 @@ export default function KitchenDutyRosterPage() {
               <div className="p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="flex items-center gap-3 min-w-0">
                   <div className="w-9 h-9 rounded-full bg-amber-100 dark:bg-amber-500/20 flex items-center justify-center flex-shrink-0">
-                    <DollarSign className="w-4 h-4 text-amber-700 dark:text-amber-400" />
+                    <Banknote className="w-4 h-4 text-amber-700 dark:text-amber-400" />
                   </div>
                   <div className="min-w-0">
                     <div className="text-[10px] uppercase tracking-wider text-amber-800 dark:text-amber-400 flex items-center gap-1">

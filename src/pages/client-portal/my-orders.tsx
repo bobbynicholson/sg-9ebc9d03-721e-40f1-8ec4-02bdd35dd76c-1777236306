@@ -3,7 +3,7 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { MapPin, Users, DollarSign, Package, Truck, Pencil, CalendarX, Receipt, AlertCircle, RotateCcw } from "lucide-react";
+import { MapPin, Users, Banknote, Package, Truck, Pencil, CalendarX, Receipt, AlertCircle, RotateCcw } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -377,7 +377,7 @@ export default function MyOrders() {
                               <span>{order.guest_count} guests</span>
                             </div>
                             <div className="flex items-center gap-2">
-                              <DollarSign className="w-4 h-4 text-slate-400 dark:text-slate-500" />
+                              <Banknote className="w-4 h-4 text-slate-400 dark:text-slate-500" />
                               <span className="tabular-nums">R{Number(order.total_amount || 0).toLocaleString()}</span>
                             </div>
                           </div>

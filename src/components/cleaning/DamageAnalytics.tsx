@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { AlertTriangle, Package, DollarSign, Calendar as CalendarIcon, BellRing, CheckCircle2 } from "lucide-react";
+import { AlertTriangle, Package, Banknote, Calendar as CalendarIcon, BellRing, CheckCircle2 } from "lucide-react";
 import { equipmentTrackingService, type DamageType } from "@/services/equipmentTrackingService";
 import { notificationService } from "@/services/notificationService";
 import { UserRole } from "@/types/app";
@@ -231,7 +231,7 @@ export function DamageAnalytics() {
             <CardContent className="pt-6">
               <div className="flex items-center gap-4">
                 <div className="p-3 bg-red-100 rounded-lg">
-                  <DollarSign className="h-6 w-6 text-red-600" />
+                  <Banknote className="h-6 w-6 text-red-600" />
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Total Cost</p>
