@@ -501,6 +501,8 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
         <KitchenSection
           orderId={order.id}
           companyId={order.company_id}
+          orderNumber={order.order_number}
+          orderStatus={order.status}
           collectionTime={order.collection_time}
           eventDate={order.event_date}
           eventTime={order.event_time}

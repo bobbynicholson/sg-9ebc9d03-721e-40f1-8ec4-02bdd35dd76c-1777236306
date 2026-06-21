@@ -31,6 +31,7 @@ import { UserRole } from "@/types/app";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { RecipeDialog } from "./RecipeDialog";
 import { SectionSkeleton } from "./SectionSkeleton";
+import { HandoverToDriverPanel } from "@/components/kitchen/HandoverToDriverPanel";
 import {
   ChefHat, Loader2, CheckCircle2, Clock, AlertTriangle, Play,
   Utensils, BookOpen, Box, Sparkles, ExternalLink,
@@ -39,6 +40,8 @@ import {
 interface Props {
   orderId: string;
   companyId: string;
+  orderNumber?: string | null;
+  orderStatus?: string | null;
   collectionTime: string | null;
   eventDate: string;
   eventTime: string | null;
@@ -111,7 +114,7 @@ const TASK_STATUS_TONES: Record<string, string> = {
 };
 
 export function KitchenSection({
-  orderId, companyId, collectionTime, eventDate, eventTime,
+  orderId, companyId, orderNumber, orderStatus, collectionTime, eventDate, eventTime,
   defaultOpen, forceOpen, highlight,
 }: Props) {
   const { user, userRoles } = useAuth();
@@ -615,6 +618,18 @@ export function KitchenSection({
               </ul>
             )}
           </div>
+        </div>
+      )}
+
+      {/* Kitchen -> driver handover. Same "Sign over to driver" control
+          that's on the kitchen dashboard, surfaced here so the kitchen can
+          do the handover straight from the open order. Only for kitchen /
+          admin actors, and only once the order is ready / in prep (nothing
+          to hand over earlier). The panel renders its own signed state. */}
+      {canAct && (orderStatus === "ready" || orderStatus === "preparing") && (
+        <div className="mt-3 pt-3 border-t border-slate-200">
+          <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Hand over to driver</p>
+          <HandoverToDriverPanel orderId={orderId} orderNumber={orderNumber || orderId} />
         </div>
       )}
 
