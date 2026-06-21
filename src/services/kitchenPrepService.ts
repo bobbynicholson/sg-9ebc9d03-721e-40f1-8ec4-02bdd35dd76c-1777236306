@@ -707,32 +707,33 @@ export const kitchenPrepService = {
     const orderId = (updated as any)?.order_id as string | undefined;
     if (orderId) {
       try {
-        const { data: ord } = await supabase
+        // Atomic first-start detection: only the call that flips
+        // prep_started_at from null wins the .is(null) update, so exactly
+        // ONE task-start counts as "kicked off prep". Before this the
+        // kitchen ping fired per task, so starting all 4 tasks blasted the
+        // kitchen 4x "Time to prep". Now it's once per order.
+        const { data: stamped } = await supabase
           .from("orders")
-          .select("company_id, order_number, prep_started_at")
+          .update({ prep_started_at: nowIso })
           .eq("id", orderId)
-          .maybeSingle();
-        // Stamp prep_started_at the first time (guarded on null).
-        if (ord && !(ord as any).prep_started_at) {
-          await supabase
-            .from("orders")
-            .update({ prep_started_at: nowIso })
-            .eq("id", orderId)
-            .is("prep_started_at", null);
-        }
+          .is("prep_started_at", null)
+          .select("id, company_id, order_number");
+        const ord = Array.isArray(stamped) && stamped.length > 0 ? stamped[0] : null;
+        const wasFirstStart = !!ord;
         // Cross-role hand-off: when a NON-kitchen user (an admin/owner)
         // kicks off prep, ping the kitchen team to actually cook it -
-        // "admin can start but the kitchen must be told". When the
-        // kitchen started it themselves we skip (they already know).
-        // The reverse leg (kitchen done -> admins) rides the
-        // all-tasks-done -> order 'ready' -> sendStatusNotifications path.
+        // "admin can start but the kitchen must be told". Only on the FIRST
+        // start (wasFirstStart) so it fires once. When the kitchen started
+        // it themselves we skip (they already know). The reverse leg
+        // (kitchen done -> admins) rides the all-tasks-done -> order 'ready'
+        // -> sendStatusNotifications path.
         const { data: actor } = await supabase
           .from("profiles")
           .select("role")
           .eq("id", performedBy)
           .maybeSingle();
         const actorRole = String((actor as any)?.role || "");
-        if ((ord as any)?.company_id && actorRole && actorRole !== "kitchen_staff") {
+        if (wasFirstStart && (ord as any)?.company_id && actorRole && actorRole !== "kitchen_staff") {
           const { notificationService } = await import("@/services/notificationService");
           const { UserRole } = await import("@/types/app");
           await notificationService.broadcastNotification({
