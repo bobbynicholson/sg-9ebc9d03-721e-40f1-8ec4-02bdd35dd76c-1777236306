@@ -637,7 +637,13 @@ export async function updateOrderStatus(
                   assignment_type: "collection",
                   scheduled_for: scheduledFor.toISOString(),
                   parent_assignment_id: (deliveryAssignment as any)?.id || null,
-                  status: "pending",
+                  // 'assigned' is the valid enum entry point (the
+                  // assignment_status enum has NO 'pending' - inserting it
+                  // 22P02'd and the whole collection trip silently never got
+                  // created, so the driver never saw a collection step).
+                  // The driver's "Start" tap moves it to 'en_route', then
+                  // 'completed' on Mark complete.
+                  status: "assigned",
                   notes:
                     "Collection trip: return to venue, pick up equipment, deliver to kitchen for cleaning.",
                 });
