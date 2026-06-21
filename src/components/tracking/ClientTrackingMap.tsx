@@ -61,14 +61,31 @@ const venueIcon = new L.DivIcon({
   iconAnchor: [20, 50],
 });
 
-// Map updater component to handle center changes
-function MapUpdater({ center, zoom }: { center: [number, number]; zoom: number }) {
+// Keep BOTH the driver and the destination framed at all times. When only
+// the venue is known we centre on it; once the driver pin lands we fit a
+// bounding box around the two (with padding) so the customer always sees
+// where the driver is AND where it's heading - and it re-fits as the driver
+// moves. Replaces the old avg-centre + zoom-guess which often pushed the
+// driver off-screen.
+function FitBounds({
+  driver,
+  venue,
+}: {
+  driver: { lat: number; lng: number } | null;
+  venue: { lat: number; lng: number } | null;
+}) {
   const map = useMap();
   useEffect(() => {
-    if (center[0] !== 0 && center[1] !== 0) {
-      map.setView(center, zoom);
+    if (driver && venue) {
+      const bounds = L.latLngBounds([
+        [driver.lat, driver.lng],
+        [venue.lat, venue.lng],
+      ]);
+      map.fitBounds(bounds, { padding: [60, 60], maxZoom: 16 });
+    } else if (venue) {
+      map.setView([venue.lat, venue.lng], 14);
     }
-  }, [center, zoom, map]);
+  }, [driver?.lat, driver?.lng, venue?.lat, venue?.lng, map]);
   return null;
 }
 
@@ -187,10 +204,11 @@ export function ClientTrackingMap({
   // we still pull driver_locations every 15s to keep the pin warm.
   useEffect(() => {
     if (!driverId) return;
+    let active = true;
 
-    const interval = setInterval(async () => {
-      // Pin + name in parallel; driver_locations.driver_id is the PK
-      // so maybeSingle keeps the no-row case quiet.
+    // Pin + name in parallel; driver_locations.driver_id is the PK
+    // so maybeSingle keeps the no-row case quiet.
+    const pollOnce = async () => {
       const [{ data: pin }, { data: profile }] = await Promise.all([
         (supabase as any)
           .from("driver_locations")
@@ -203,7 +221,7 @@ export function ClientTrackingMap({
           .eq("id", driverId)
           .maybeSingle(),
       ]);
-
+      if (!active) return;
       if (pin && pin.latitude != null && pin.longitude != null) {
         const lat = Number(pin.latitude);
         const lng = Number(pin.longitude);
@@ -218,9 +236,14 @@ export function ClientTrackingMap({
         setLiveDriverLocation(newLocation);
         onLocationUpdate?.({ lat, lng });
       }
-    }, 15000);
+    };
 
-    return () => clearInterval(interval);
+    // Fetch the driver's pin IMMEDIATELY so the dot shows on open instead
+    // of staying blank until the first 15s tick, then keep it warm.
+    void pollOnce();
+    const interval = setInterval(pollOnce, 15000);
+
+    return () => { active = false; clearInterval(interval); };
   }, [driverId, onLocationUpdate]);
 
   // Coord guard. Leaflet's projection blows up on null / undefined / NaN
@@ -291,7 +314,10 @@ export function ClientTrackingMap({
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
-      <MapUpdater center={mapCenter} zoom={mapZoom} />
+      <FitBounds
+        driver={driverOk && liveDriverLocation ? { lat: Number(liveDriverLocation.lat), lng: Number(liveDriverLocation.lng) } : null}
+        venue={venueOk ? { lat: Number(venueLocation.lat), lng: Number(venueLocation.lng) } : null}
+      />
       
       {/* Venue marker (destination) */}
       <Marker
