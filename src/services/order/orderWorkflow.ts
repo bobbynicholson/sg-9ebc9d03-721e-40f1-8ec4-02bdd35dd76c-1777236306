@@ -1515,6 +1515,11 @@ async function sendStatusNotifications(order: any) {
     notification_type: string;
     notification_kind: "admin" | "driver" | "client";
     priority?: string;
+    /** Optional per-push deep-link override. When unset, the link is
+     *  derived from notification_kind (admin/driver/client). Used e.g.
+     *  to send the "Driver on the way" client push straight to the live
+     *  tracking map instead of the generic order doc. */
+    link?: string;
   };
   const inApp: InAppPush[] = [];
   const adminLink = `/order/${order.id}?role=admin`;
@@ -1721,10 +1726,13 @@ async function sendStatusNotifications(order: any) {
         inApp.push({
           recipient_id: clientAuthUid,
           title: "Driver on the way",
-          message: `Your order ${orderNumber} is on its way${venueShort ? ` to ${venueShort}` : ""}.`,
+          message: `Your order ${orderNumber} is on its way${venueShort ? ` to ${venueShort}` : ""}. Tap to watch your driver live.`,
           notification_type: "out_for_delivery",
           notification_kind: "client",
           priority: "high",
+          // Deep-link straight to the live tracking map (driver dot + ETA)
+          // rather than the generic order doc.
+          link: `/client-portal/tracking?orderId=${order.id}`,
         });
       }
       break;
@@ -1814,11 +1822,12 @@ async function sendStatusNotifications(order: any) {
   for (const n of inApp) {
     try {
       const link =
-        n.notification_kind === "driver"
+        n.link ??
+        (n.notification_kind === "driver"
           ? driverLink
           : n.notification_kind === "client"
           ? clientLink
-          : adminLink;
+          : adminLink);
       // Wave 24: dedup with a SHORT 5-min window. Status flips have
       // a real misfire surface: the auto-complete cron, the dispatch
       // service, the kitchen-task completion handler, and a manual
