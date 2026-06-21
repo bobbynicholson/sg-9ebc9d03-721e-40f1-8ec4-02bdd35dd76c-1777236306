@@ -73,6 +73,7 @@ const CLUSTER_ORDER: StageGroup[] = [
   "booking",
   "logistics",
   "dispatch",
+  "on_site",
   "post_event",
   "closure",
 ];
@@ -116,6 +117,10 @@ const STAGE_GLOSSARY: Record<StageKey, { trigger: string; owner: string }> = {
     trigger: "All owned equipment has pre_event_cleaning_done_at stamped.",
     owner: "Cleaning team",
   },
+  pre_event_shopping: {
+    trigger: "The shopping run for this event's ingredients is complete.",
+    owner: "Shopping team",
+  },
   kitchen_prep_in_progress: {
     trigger: "All kitchen_prep_tasks marked done. Backplanned from pickup time.",
     owner: "Head chef",
@@ -134,6 +139,26 @@ const STAGE_GLOSSARY: Record<StageKey, { trigger: string; owner: string }> = {
   },
   delivered: {
     trigger: "delivered_at stamped via driver portal or status moves to 'delivered'.",
+    owner: "Driver",
+  },
+  setup_started: {
+    trigger: "Driver/waiter tapped 'Setup started' at the venue (setup_started_at).",
+    owner: "Driver / waiter",
+  },
+  service_started: {
+    trigger: "Driver/waiter tapped 'Service started' - food service to guests began.",
+    owner: "Driver / waiter",
+  },
+  service_ended: {
+    trigger: "Waiter marked service ended on the attendance sheet.",
+    owner: "Waiter",
+  },
+  event_complete: {
+    trigger: "Waiter marked the event complete on the attendance sheet.",
+    owner: "Waiter",
+  },
+  departed_venue: {
+    trigger: "Driver tapped 'Departed venue' - the crew left after the event (departed_venue_at).",
     owner: "Driver",
   },
   collection_scheduled: {

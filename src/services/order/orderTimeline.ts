@@ -56,6 +56,7 @@ export type StageGroup =
   | "booking"
   | "logistics"
   | "dispatch"
+  | "on_site"
   | "post_event"
   | "closure";
 
@@ -68,11 +69,17 @@ export type StageKey =
   | "equipment_hire_booked"
   | "equipment_hire_collected"
   | "pre_event_cleaning"
+  | "pre_event_shopping"
   | "kitchen_prep_in_progress"
   | "ready_for_dispatch"
   | "driver_assigned_delivery"
   | "in_transit"
   | "delivered"
+  | "setup_started"
+  | "service_started"
+  | "service_ended"
+  | "event_complete"
+  | "departed_venue"
   | "collection_scheduled"
   | "collection_done"
   | "post_event_cleaning"
@@ -231,6 +238,19 @@ export interface OrderTimelineInput {
    *  collapse to "today" just because the event is <24h away.
    *  Defaults to Africa/Johannesburg if missing. */
   tenantTimezone?: string | null;
+  /** On-site service flag (waiter/setup/service phase applies). When false
+   *  and no on-site timestamp exists, the setup/service/event/departed
+   *  stages are not_applicable (delivery-only orders don't show them).
+   *  Derived from requires_waiter / waiter_service_required / attendance. */
+  hasOnSiteService?: boolean;
+  /** service_ended_at / event_complete_at - sourced from event_attendance
+   *  (the waiter panel), which the order row doesn't carry. */
+  serviceEndedAt?: string | null;
+  eventCompleteAt?: string | null;
+  /** Pre-event shopping: whether a shopping run applies + when it finished.
+   *  not_applicable when no shopping signal at all. */
+  hasShopping?: boolean;
+  shoppingReadyAt?: string | null;
 }
 
 // --- Cluster + label table -------------------------------------------------
@@ -248,11 +268,17 @@ const STAGE_DEFS: Array<{
   { key: "equipment_hire_booked",     label: "Hire booked",        group: "logistics" },
   { key: "equipment_hire_collected",  label: "Hire collected",     group: "logistics" },
   { key: "pre_event_cleaning",        label: "Pre-event cleaning", group: "logistics" },
+  { key: "pre_event_shopping",        label: "Shopping done",      group: "logistics" },
   { key: "kitchen_prep_in_progress",  label: "Kitchen prep",       group: "logistics" },
   { key: "ready_for_dispatch",        label: "Ready",              group: "logistics" },
   { key: "driver_assigned_delivery",  label: "Driver assigned",    group: "dispatch" },
   { key: "in_transit",                label: "On the road",        group: "dispatch" },
   { key: "delivered",                 label: "Delivered",          group: "dispatch" },
+  { key: "setup_started",             label: "Setup started",      group: "on_site" },
+  { key: "service_started",           label: "Service started",    group: "on_site" },
+  { key: "service_ended",             label: "Service ended",      group: "on_site" },
+  { key: "event_complete",            label: "Event complete",     group: "on_site" },
+  { key: "departed_venue",            label: "Departed venue",     group: "on_site" },
   { key: "collection_scheduled",      label: "Collection scheduled", group: "post_event" },
   { key: "collection_done",           label: "Equipment back",     group: "post_event" },
   { key: "post_event_cleaning",       label: "Post-event cleaning", group: "post_event" },
@@ -268,6 +294,7 @@ export const STAGE_GROUP_LABELS: Record<StageGroup, string> = {
   booking:    "Booking",
   logistics:  "Logistics",
   dispatch:   "Dispatch",
+  on_site:    "On site",
   post_event: "Post-event",
   closure:    "Closure",
 };
@@ -607,6 +634,54 @@ function resolveStage(
         blockedReason: null,
         sourceLink: o.pod_photo_url ? `/admin/orders?orderId=${orderId}&pod=1` : adminLink,
         meta: o.pod_recipient_name ? { actor: o.pod_recipient_name } : undefined,
+      };
+    }
+
+    case "pre_event_shopping": {
+      // Only applies when there's a shopping signal (run exists / finished).
+      if (!input.hasShopping && !input.shoppingReadyAt) return notApplicable();
+      const completedAt = firstTs(input.shoppingReadyAt);
+      return {
+        status: completedAt ? "completed" : "upcoming",
+        startedAt: null,
+        completedAt,
+        blockedReason: null,
+        sourceLink: o.event_date ? `/admin/shopping?date=${o.event_date}` : `/admin/shopping`,
+      };
+    }
+
+    // --- On-site service phase (setup -> service -> event end -> depart).
+    // Applies when the order needs on-site service (waiter / setup), or once
+    // any on-site timestamp has been stamped. Delivery-only orders leave the
+    // whole phase not_applicable so it never shows phantom upcoming steps.
+    case "setup_started":
+    case "service_started":
+    case "service_ended":
+    case "event_complete":
+    case "departed_venue": {
+      const onSite = !!(
+        input.hasOnSiteService ||
+        o.requires_waiter ||
+        o.waiter_service_required ||
+        o.setup_started_at ||
+        o.service_started_at ||
+        o.departed_venue_at ||
+        input.serviceEndedAt ||
+        input.eventCompleteAt
+      );
+      if (!onSite) return notApplicable();
+      const at =
+        key === "setup_started"   ? firstTs(o.setup_started_at) :
+        key === "service_started" ? firstTs(o.service_started_at) :
+        key === "service_ended"   ? firstTs(input.serviceEndedAt) :
+        key === "event_complete"  ? firstTs(input.eventCompleteAt) :
+                                    firstTs(o.departed_venue_at);
+      return {
+        status: at ? "completed" : "upcoming",
+        startedAt: null,
+        completedAt: at,
+        blockedReason: null,
+        sourceLink: adminLink,
       };
     }
 
