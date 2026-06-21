@@ -81,11 +81,16 @@ export function KitchenPrepTasksCard({ orderId }: { orderId: string }) {
   const onStart = async (id: string) => {
     if (!user?.id) return;
     setActing(id);
+    // Optimistic: flip the row instantly so it doesn't sit there until
+    // the realtime refetch lands (that round-trip is what felt laggy).
+    const nowIso = new Date().toISOString();
+    setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, status: "in_progress", started_at: t.started_at ?? nowIso } : t)));
     try {
       await kitchenPrepService.startTask(id, user.id);
       toast({ title: "Started", description: "Task in progress." });
     } catch (e: any) {
       toast({ title: "Could not start", description: e?.message, variant: "destructive" });
+      void load(); // rollback to server truth
     } finally {
       setActing(null);
     }
@@ -94,11 +99,15 @@ export function KitchenPrepTasksCard({ orderId }: { orderId: string }) {
   const onDone = async (id: string) => {
     if (!user?.id) return;
     setActing(id);
+    // Optimistic: show "done" immediately (name fills in on the refetch).
+    const nowIso = new Date().toISOString();
+    setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, status: "done", completed_at: nowIso, completed_by: user.id } : t)));
     try {
       await kitchenPrepService.completeTask(id, user.id);
       toast({ title: "Done", description: "Task marked complete." });
     } catch (e: any) {
       toast({ title: "Could not complete", description: e?.message, variant: "destructive" });
+      void load(); // rollback to server truth
     } finally {
       setActing(null);
     }

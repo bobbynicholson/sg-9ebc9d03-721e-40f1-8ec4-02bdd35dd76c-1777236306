@@ -155,10 +155,16 @@ export function KitchenSection({
   const handleStart = async (taskId: string) => {
     if (!user?.id) return;
     setActing(taskId);
+    // Optimistic: flip the row now instead of waiting for the realtime
+    // refetch round-trip (that wait is what felt laggy). Revert on error.
+    const prev = tasks.find((t) => t.id === taskId);
+    const nowIso = new Date().toISOString();
+    setTasks((ts) => ts.map((t) => (t.id === taskId ? { ...t, status: "in_progress", started_at: t.started_at ?? nowIso } : t)));
     try {
       await kitchenPrepService.startTask(taskId, user.id);
       toast({ title: "Started", description: "Task in progress" });
     } catch (e: any) {
+      if (prev) setTasks((ts) => ts.map((t) => (t.id === taskId ? prev : t)));
       captureException(e, { tags: { route: "/order/[id]", step: "startPrepTask", taskId, orderId, companyId } });
       toast({ title: "Could not start", description: e?.message, variant: "destructive" });
     } finally {
@@ -169,10 +175,14 @@ export function KitchenSection({
   const handleComplete = async (taskId: string) => {
     if (!user?.id) return;
     setActing(taskId);
+    const prev = tasks.find((t) => t.id === taskId);
+    const nowIso = new Date().toISOString();
+    setTasks((ts) => ts.map((t) => (t.id === taskId ? { ...t, status: "done", completed_at: nowIso, completed_by: user.id } : t)));
     try {
       await kitchenPrepService.completeTask(taskId, user.id);
       toast({ title: "Done", description: "Task marked complete" });
     } catch (e: any) {
+      if (prev) setTasks((ts) => ts.map((t) => (t.id === taskId ? prev : t)));
       captureException(e, { tags: { route: "/order/[id]", step: "completePrepTask", taskId, orderId, companyId } });
       toast({ title: "Could not complete", description: e?.message, variant: "destructive" });
     } finally {
