@@ -153,6 +153,55 @@ export const driverConfirmationService = {
       console.warn("[confirmDepartedKitchen] order status flip failed (non-blocking):", statusErr);
     }
 
+    // Guarantee the client gets "Driver on the way" + the live tracking link
+    // on departure. The status-transition fan-out normally fires this, but if
+    // the order was already in_transit (re-confirm / out-of-order taps) that
+    // flip is a no-op and the client got nothing. Fire it directly, deduped
+    // against the transition path so it never doubles up. Non-blocking.
+    try {
+      const { data: ord } = await supabase
+        .from("orders")
+        .select("company_id, order_number, client_id")
+        .eq("id", orderId)
+        .maybeSingle();
+      const clientId = (ord as any)?.client_id;
+      if (clientId && (ord as any)?.company_id) {
+        const { data: cl } = await supabase
+          .from("clients")
+          .select("user_id")
+          .eq("id", clientId)
+          .maybeSingle();
+        const clientUid = (cl as any)?.user_id;
+        if (clientUid) {
+          const tenMinAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+          const { data: existing } = await supabase
+            .from("notifications")
+            .select("id")
+            .eq("recipient_id", clientUid)
+            .eq("related_entity_id", orderId)
+            .eq("notification_type", "out_for_delivery")
+            .gte("created_at", tenMinAgo)
+            .limit(1);
+          if (!existing || existing.length === 0) {
+            await supabase.from("notifications").insert({
+              company_id: (ord as any).company_id,
+              user_id: clientUid,
+              recipient_id: clientUid,
+              notification_type: "out_for_delivery",
+              title: "Driver on the way",
+              message: `Your order ${(ord as any).order_number || ""} is on its way. Tap to watch your driver live.`,
+              priority: "high",
+              link: `/client-portal/tracking?orderId=${orderId}`,
+              related_entity_type: "order",
+              related_entity_id: orderId,
+            } as any);
+          }
+        }
+      }
+    } catch (clientErr) {
+      console.warn("[confirmDepartedKitchen] client on-the-way notify failed (non-blocking):", clientErr);
+    }
+
     return data as DriverConfirmation;
   },
 
