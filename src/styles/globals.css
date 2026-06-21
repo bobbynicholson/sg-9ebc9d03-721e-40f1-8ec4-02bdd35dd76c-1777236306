@@ -379,3 +379,17 @@
   from { transform: scaleY(0); }
   to   { transform: scaleY(1); }
 }
+
+/* Leaflet (tracking map) z-index containment.
+   Leaflet renders its panes (z 200-700) and zoom/attribution controls
+   (z 800-1000) with high z-index values that otherwise float ABOVE the
+   app's sticky nav (z-50), dropdowns, dialogs and toasts - the map and
+   its buttons bled over the chrome. Establishing a stacking context on
+   the map container (position + z-index:0) confines all of Leaflet's
+   internal layering inside the map box, so the map never escapes over
+   the surrounding UI while its own markers/popups still layer correctly
+   relative to each other. */
+.leaflet-container {
+  position: relative;
+  z-index: 0;
+}
