@@ -309,17 +309,32 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     (process.env.NEXT_PUBLIC_VERCEL_URL
       ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}`
       : "");
-  void notifyAdminOfEmbedLead(supabase, {
-    companyId: company.id,
-    ownerUserId: company.owner_id || null,
-    regionId: form.region_id || null,
-    leadId: leadRow.id,
-    leadInsert,
-    formName: form.name || null,
-    formId: form.id,
-    formNotifyAdminEmail: form.notify_admin_email !== false, // default true
-    appOrigin,
-  });
+  // MUST be awaited, not fire-and-forget. On Vercel the serverless
+  // function is frozen the moment the response is returned, so a
+  // `void notifyAdminOfEmbedLead(...)` promise left pending after
+  // res.json() never completes - the admin in-portal notification,
+  // email and WhatsApp were all silently dropped (verified: a real
+  // submission produced a lead row but zero notifications). Every
+  // channel inside the helper is its own try/catch, so awaiting the
+  // whole fan-out can't throw and won't fail the submission; it just
+  // guarantees the work runs before we respond.
+  try {
+    await notifyAdminOfEmbedLead(supabase, {
+      companyId: company.id,
+      ownerUserId: company.owner_id || null,
+      regionId: form.region_id || null,
+      leadId: leadRow.id,
+      leadInsert,
+      formName: form.name || null,
+      formId: form.id,
+      formNotifyAdminEmail: form.notify_admin_email !== false, // default true
+      appOrigin,
+    });
+  } catch (err) {
+    // Lead is already saved - never fail the submission over a
+    // notification problem. Log and move on.
+    console.warn("[embed/submit] admin notify fan-out failed", err);
+  }
 
   // 9) Optional auto-reply to client. Per-form `auto_reply_enabled`
   //    overrides the company-wide `auto_reply_to_embed_submissions`
@@ -332,7 +347,11 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       ? form.auto_reply_enabled
       : company.auto_reply_to_embed_submissions === true;
   if (autoReplyResolved && (mapped.client_email || mapped.email)) {
-    void (async () => {
+    // Awaited for the same serverless-freeze reason as the admin
+    // fan-out above: a fire-and-forget auto-reply after res.json()
+    // never sends on Vercel. Wrapped so a send failure can't break
+    // the submission.
+    await (async () => {
       try {
         const { emailService } = await import("@/services/emailService");
         const { resolveEmailTemplate } = await import("@/services/email/templateResolver");
@@ -380,6 +399,9 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         await (emailService as any).sendEmail({
           companyId: company.id,
           to: mapped.client_email || mapped.email,
+          // Let the visitor thank-you go out via the platform shared
+          // sender when the tenant hasn't configured their own domain.
+          allowPlatformFallback: true,
           subject: resolved.subject,
           body: resolved.bodyHtml,
           variables: vars,

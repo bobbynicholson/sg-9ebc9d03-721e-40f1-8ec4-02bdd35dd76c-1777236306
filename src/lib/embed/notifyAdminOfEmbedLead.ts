@@ -219,6 +219,12 @@ export async function notifyAdminOfEmbedLead(
         await (emailService as any).sendEmail({
           companyId,
           to: adminTo,
+          // This is an internal transactional alert to the operator's
+          // own inbox. Allow the platform shared sender so a tenant who
+          // hasn't set up their own email domain still gets lead
+          // alerts (sends from noreply@send.cateringms.com when the
+          // platform Resend key exists; no-op otherwise).
+          allowPlatformFallback: true,
           subject: resolved.subject,
           body: resolved.bodyHtml,
           variables: {
