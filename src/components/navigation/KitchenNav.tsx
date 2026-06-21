@@ -34,6 +34,7 @@ import {
   Bell,
   BookOpen,
   Flame,
+  Clock,
 } from "lucide-react";
 import { PortalSidebar, type PortalSidebarConfig } from "./PortalSidebar";
 import { BRAND_PORTAL_PALETTE, BRAND_ACCENT } from "@/lib/branding/portalPalette";
@@ -97,6 +98,15 @@ export function KitchenNav(_: KitchenNavProps = {}) {
             liveDescription: () => serviceMode.todayEventCount === 0
               ? "No events today"
               : `${serviceMode.todayEventCount} event${serviceMode.todayEventCount === 1 ? "" : "s"}`,
+          },
+          {
+            // Clock in / out lives on the duty page. Surfaced here in
+            // "Live now" (always open) so staff can find it fast at the
+            // start + end of a shift instead of hunting in Kitchen ops.
+            title: "Clock",
+            href: "/team-portal/kitchen/duty",
+            icon: Clock,
+            description: "Clock in / out",
           },
           {
             title: "Production",

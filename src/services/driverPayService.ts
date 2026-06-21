@@ -1055,6 +1055,38 @@ export const driverPayService = {
         console.warn("[autoClockOut] snapshot failed (non-fatal):", snapshotErr);
       }
 
+      // Tell the driver their shift was closed FOR them. A driver who
+      // forgot to clock out after the last drop shouldn't keep accruing
+      // hours; this confirms the shift ended and their pay is locked.
+      // Only reached when an open shift actually existed and closed above.
+      try {
+        const { notificationService } = await import("@/services/notificationService");
+        let orderNumber: string | null = null;
+        try {
+          const { data: ord } = await (client as any)
+            .from("orders")
+            .select("order_number")
+            .eq("id", opts.orderId)
+            .maybeSingle();
+          orderNumber = (ord as any)?.order_number || null;
+        } catch { /* best-effort label only */ }
+        const legLabel = (opts.assignmentType || "delivery") === "collection" ? "collection" : "delivery";
+        await notificationService.createNotification({
+          company_id: opts.companyId,
+          recipient_id: opts.driverId,
+          user_id: opts.driverId,
+          notification_type: "driver_clock_out",
+          title: "You've been clocked out",
+          message: `Your shift was closed automatically now that the ${legLabel}${orderNumber ? ` for ${orderNumber}` : ""} is complete.`,
+          priority: "normal",
+          link: "/team-portal/driver/earnings",
+          related_entity_type: "order",
+          related_entity_id: opts.orderId,
+        }, client);
+      } catch (notifyErr) {
+        console.warn("[autoClockOut] driver notify failed (non-fatal):", notifyErr);
+      }
+
       return { ok: true };
     } catch (e: any) {
       return { ok: false, error: e?.message || "autoClockOut failed" };

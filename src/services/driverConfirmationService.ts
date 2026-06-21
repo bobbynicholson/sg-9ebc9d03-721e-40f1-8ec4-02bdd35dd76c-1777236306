@@ -99,11 +99,42 @@ export const driverConfirmationService = {
       const { kitchenDutyService } = await import("@/services/kitchenDutyService");
       const { data: shifts } = await supabase
         .from("kitchen_duty_shifts")
-        .select("id")
+        .select("id, staff_id, user_id, company_id")
         .eq("order_id", orderId)
         .eq("is_active", true);
-      for (const s of shifts || []) {
-        await kitchenDutyService.endDutyShift((s as any).id, "Auto clock-out: driver arrived to collect");
+      if (shifts && shifts.length) {
+        // One lookup for a clearer message + a company_id fallback.
+        const { data: ord } = await supabase
+          .from("orders")
+          .select("company_id, order_number")
+          .eq("id", orderId)
+          .maybeSingle();
+        const { notificationService } = await import("@/services/notificationService");
+        for (const s of shifts as any[]) {
+          await kitchenDutyService.endDutyShift(s.id, "Auto clock-out: driver arrived to collect");
+          // Tell the kitchen staffer their shift was closed FOR them, so a
+          // chef who forgot to clock out isn't left "on shift" indefinitely
+          // (hours stop accruing at the right moment) and knows it happened.
+          const recipientId = s.staff_id || s.user_id;
+          if (recipientId) {
+            try {
+              await notificationService.createNotification({
+                company_id: s.company_id || (ord as any)?.company_id || null,
+                recipient_id: recipientId,
+                user_id: recipientId,
+                notification_type: "kitchen_clock_out",
+                title: "You've been clocked out",
+                message: `Your kitchen shift for ${(ord as any)?.order_number || "this order"} was closed automatically when the driver arrived to collect.`,
+                priority: "normal",
+                link: "/team-portal/kitchen/duty",
+                related_entity_type: "order",
+                related_entity_id: orderId,
+              });
+            } catch (notifyErr) {
+              console.warn("[confirmAtKitchen] kitchen staff notify failed (non-blocking):", notifyErr);
+            }
+          }
+        }
       }
     } catch (dutyErr) {
       console.warn("[confirmAtKitchen] kitchen auto clock-out failed (non-blocking):", dutyErr);
