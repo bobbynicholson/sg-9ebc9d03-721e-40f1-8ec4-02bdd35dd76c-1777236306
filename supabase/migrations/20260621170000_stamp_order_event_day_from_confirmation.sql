@@ -26,7 +26,15 @@ BEGIN
     RETURN NEW;
   END IF;
 
-  IF NEW.confirmation_type = 'setup_started' THEN
+  IF NEW.confirmation_type = 'at_venue' THEN
+    -- The driver's "Arrived at venue" tap previously only set delivered_at
+    -- (via updateOrderStatus), leaving arrived_at_venue_at null - so the
+    -- timeline showed "Arrived at venue" blank while "Delivered" (a LATER
+    -- stage) was done. Stamp the arrival moment too.
+    UPDATE public.orders
+       SET arrived_at_venue_at = COALESCE(arrived_at_venue_at, NEW.confirmed_at)
+     WHERE id = NEW.order_id AND arrived_at_venue_at IS NULL;
+  ELSIF NEW.confirmation_type = 'setup_started' THEN
     UPDATE public.orders
        SET setup_started_at = COALESCE(setup_started_at, NEW.confirmed_at)
      WHERE id = NEW.order_id AND setup_started_at IS NULL;
@@ -51,6 +59,16 @@ CREATE TRIGGER tg_stamp_order_event_day
 
 -- Backfill: stamp any orders whose driver_confirmations already recorded
 -- these moments but whose orders columns are still null (e.g. ORD-003849).
+UPDATE public.orders o
+   SET arrived_at_venue_at = c.ts
+  FROM (
+    SELECT order_id, MIN(confirmed_at) AS ts
+    FROM public.driver_confirmations
+    WHERE confirmation_type = 'at_venue'
+    GROUP BY order_id
+  ) c
+ WHERE o.id = c.order_id AND o.arrived_at_venue_at IS NULL;
+
 UPDATE public.orders o
    SET setup_started_at = c.ts
   FROM (

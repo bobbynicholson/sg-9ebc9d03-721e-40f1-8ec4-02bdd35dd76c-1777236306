@@ -377,6 +377,11 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen }: Props) {
   const hasEquipmentSignal = !!(
     equipmentReturned ||
     hasCleaningJobs ||
+    // Equipment is BOOKED on this order - there's gear to bring back, so
+    // the collection + cleaning closeout steps are applicable (pending),
+    // not N/A. Without this the "Up next" marker skipped them and jumped
+    // straight to "Closed" even though 108 items were still out.
+    equipmentSignals.bookings > 0 ||
     (order.equipment_return_method && order.equipment_return_method !== "none" && order.equipment_return_method !== "client_keeps")
   );
 
