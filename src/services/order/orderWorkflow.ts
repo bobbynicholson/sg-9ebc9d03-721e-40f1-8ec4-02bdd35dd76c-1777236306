@@ -1620,6 +1620,12 @@ async function sendStatusNotifications(order: any) {
       }
       break;
     case "ready":
+      // Dynamic dispatch hand-off. At prep-done there's usually NO driver
+      // yet (assignment is the next step), so branch on it instead of
+      // always claiming "driver has been pinged":
+      //   - driver assigned -> ping that driver + tell admin it's handled
+      //   - no driver       -> tell the admin to assign one (actionable)
+      //                        AND offer the job to drivers to claim
       if (order.assigned_driver_id) {
         inApp.push({
           recipient_id: order.assigned_driver_id,
@@ -1629,15 +1635,42 @@ async function sendStatusNotifications(order: any) {
           notification_kind: "driver",
           priority: "high",
         });
-      }
-      if (order.user_id) {
-        inApp.push({
-          recipient_id: order.user_id,
-          title: "Order ready - driver alerted",
-          message: `Order ${orderNumber} ready, driver has been pinged.`,
-          notification_type: "order_ready",
-          notification_kind: "admin",
-        });
+        if (order.user_id) {
+          inApp.push({
+            recipient_id: order.user_id,
+            title: "Order ready - driver alerted",
+            message: `Order ${orderNumber} ready, the assigned driver has been pinged.`,
+            notification_type: "order_ready",
+            notification_kind: "admin",
+          });
+        }
+      } else {
+        if (order.user_id) {
+          inApp.push({
+            recipient_id: order.user_id,
+            title: "Order ready - assign a driver",
+            message: `Order ${orderNumber} is prepped and ready, but no driver is assigned yet. Open dispatch to assign one.`,
+            notification_type: "order_ready",
+            notification_kind: "admin",
+            priority: "high",
+          });
+        }
+        if (order.company_id) {
+          void notificationService.broadcastNotification({
+            companyId: order.company_id,
+            regionId: (order as any).region_id || null,
+            targetRoles: ["driver" as any],
+            title: "Job ready to claim",
+            message: `Order ${orderNumber}${eventDateLabel ? ` on ${eventDateLabel}` : ""}${venueShort ? ` to ${venueShort}` : ""} is prepped and ready for pickup. Tap to claim.`,
+            type: "new_job_available",
+            priority: "high",
+            link: "/team-portal/driver/dashboard",
+            relatedEntityType: "order",
+            relatedEntityId: order.id,
+            dedup: true,
+            dedupWindowMinutes: 60 * 24,
+          }).catch((e) => console.warn("[sendStatusNotifications] ready job-available broadcast failed:", e));
+        }
       }
       // Client-facing push so they know prep is done and dispatch is
       // next - closes the second silent moment before in_transit.
