@@ -147,6 +147,12 @@ export const ROLE_ROUTES: Record<UserRole, string[]> = {
   ],
   [UserRole.CLIENT]: [
     "/client-portal/*",
+    // The client "View details" (my-orders) opens the unified order doc at
+    // /order/[id]?role=client, which renders a client-appropriate view.
+    // Without this the middleware denied it ("role does not have permission
+    // to view that page"). RLS still scopes which order rows the client can
+    // read. /c/* is already public for token magic-links.
+    "/order/*",
   ],
 };
 
