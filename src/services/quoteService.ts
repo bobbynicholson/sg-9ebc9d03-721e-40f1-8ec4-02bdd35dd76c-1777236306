@@ -854,6 +854,10 @@ export const quoteService = {
       collection_fee: q.collection_fee ?? 0,
       collection_distance_km: q.collection_distance_km ?? null,
       collection_rate_per_km: q.collection_rate_per_km ?? null,
+      // Next-day collection flag carries to the order so the auto-schedule
+      // (orderWorkflow, on 'delivered') books the collection trip for the
+      // next morning instead of the same evening.
+      collection_next_day: (q as any).collection_next_day ?? false,
       // Notes - quote.notes maps to internal_notes on orders
       internal_notes: q.notes ?? null,
       // Lifecycle

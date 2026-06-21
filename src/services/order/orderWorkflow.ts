@@ -593,12 +593,32 @@ export async function updateOrderStatus(
             const deliveryDriverId =
               (deliveryAssignment as any)?.driver_id || order.assigned_driver_id || null;
             if (deliveryDriverId) {
-              // Default collection time: event_date + 22:00 + 1hr (i.e.
-              // 23:00). When event_time is set, use event_time + a 4hr
-              // assumed event duration + 1hr buffer instead.
+              // Next-day collection flag. Read off the order if present;
+              // otherwise fetch it (the caller's select may be partial) so
+              // the schedule is always correct.
+              let collectNextDay = (order as any).collection_next_day;
+              if (collectNextDay === undefined || collectNextDay === null) {
+                try {
+                  const { data: ord } = await (supabase as any)
+                    .from("orders")
+                    .select("collection_next_day")
+                    .eq("id", order.id)
+                    .maybeSingle();
+                  collectNextDay = !!(ord as any)?.collection_next_day;
+                } catch { collectNextDay = false; }
+              }
+
+              // Collection time:
+              //   - next-day: the MORNING AFTER the event, 09:00.
+              //   - same-day + event_time: event start + 4hr duration + 1hr buffer.
+              //   - same-day, no event_time: 23:00 that night.
               let scheduledFor: Date;
               const evDate = order.event_date ? new Date(order.event_date) : new Date();
-              if (order.event_time) {
+              if (collectNextDay) {
+                evDate.setDate(evDate.getDate() + 1);
+                evDate.setHours(9, 0, 0, 0);
+                scheduledFor = evDate;
+              } else if (order.event_time) {
                 const [h, m] = String(order.event_time).split(":").map(Number);
                 evDate.setHours(h || 0, m || 0, 0, 0);
                 // Event start + 4hr assumed duration + 1hr collection buffer.

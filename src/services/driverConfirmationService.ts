@@ -9,8 +9,12 @@ import { toLocalISO } from "@/lib/localDate";
 // were routing to orders.user_id - which on this codebase is the
 // CLIENT, not the admin. Pings landed in client inboxes with
 // admin-style copy and /admin/* deep links.
+// Driver status updates go to the CATERING company's own dispatch/admin
+// roles - NOT super_admin. super_admin is the SaaS platform owner, who has
+// no reason to receive a tenant's per-trip driver movements (it's noise and
+// cross-tenant). The company_admin (the business owner) + admin +
+// region_admin are the people who actually run the day's logistics.
 const ADMIN_DISPATCH_ROLES: UserRole[] = [
-  UserRole.SUPER_ADMIN,
   UserRole.COMPANY_ADMIN,
   UserRole.ADMIN,
   UserRole.REGION_ADMIN,

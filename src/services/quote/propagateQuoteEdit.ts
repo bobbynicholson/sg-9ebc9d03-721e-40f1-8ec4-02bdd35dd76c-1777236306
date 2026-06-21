@@ -50,6 +50,7 @@ const QUOTE_TO_ORDER_MAP: Array<{ quoteKey: string; orderKey: string }> = [
   { quoteKey: "collection_fee", orderKey: "collection_fee" },
   { quoteKey: "collection_distance_km", orderKey: "collection_distance_km" },
   { quoteKey: "collection_rate_per_km", orderKey: "collection_rate_per_km" },
+  { quoteKey: "collection_next_day", orderKey: "collection_next_day" },
   { quoteKey: "region_id", orderKey: "region_id" },
   // notes -> internal_notes is intentionally one-way; the operator's
   // brief on the order can diverge from the customer-facing quote
@@ -486,8 +487,9 @@ async function _resyncEquipmentBookings(
   );
 }
 
-/** Re-stamp collection driver_assignment.scheduled_for using the
- *  formula from orderWorkflow.ts:518-528 (event_time + 5h or 23:00). */
+/** Re-stamp collection driver_assignment.scheduled_for using the same
+ *  formula as orderWorkflow's auto-scheduler: next-day -> next morning
+ *  09:00; else event_time + 5h, or 23:00 that night. */
 async function _restampCollectionAssignment(orderId: string, quote: any): Promise<void> {
   if (!quote.event_date) return;
   const { data: rows } = await (supabase as any)
@@ -498,7 +500,10 @@ async function _restampCollectionAssignment(orderId: string, quote: any): Promis
   if (!rows || rows.length === 0) return;
 
   const eventDt = new Date(`${quote.event_date}T00:00:00`);
-  if (quote.event_time) {
+  if (quote.collection_next_day) {
+    eventDt.setDate(eventDt.getDate() + 1);
+    eventDt.setHours(9, 0, 0, 0);
+  } else if (quote.event_time) {
     const [h, m] = String(quote.event_time).split(":").map(Number);
     eventDt.setHours((h || 0) + 5, m || 0, 0, 0);
   } else {

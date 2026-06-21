@@ -355,6 +355,9 @@ function NewQuotePage() {
   const [collectionCostPerKm, setCollectionCostPerKm] = useState(0);
   const [collectionFee, setCollectionFee] = useState(0);
   const [collectionFeeOverridden, setCollectionFeeOverridden] = useState(false);
+  // Next-day collection: when on, the auto-scheduled collection trip is
+  // booked for the morning after the event instead of the same evening.
+  const [collectionNextDay, setCollectionNextDay] = useState(false);
   /** Available kitchens for this company (active branches + HQ). */
   const { kitchens } = useCompanyKitchens(companyId || null);
   /** Currently picked kitchen the delivery is leaving from. Defaults
@@ -778,6 +781,7 @@ function NewQuotePage() {
       const cRoundTrip = cDist * 2 * cRate;
       if (Math.abs(q.collection_fee - cRoundTrip) > 0.01) setCollectionFeeOverridden(true);
     }
+    if (typeof q.collection_next_day === "boolean") setCollectionNextDay(q.collection_next_day);
     if (Array.isArray(q.menu_items)) {
       setMenuItems(
         q.menu_items.map((m: any, i: number) => ({
@@ -1284,6 +1288,7 @@ function NewQuotePage() {
       collection_distance_km: collectionDistance || null,
       collection_rate_per_km: collectionCostPerKm || null,
       collection_fee: collectionFee || 0,
+      collection_next_day: collectionNextDay,
       subtotal: computed.subtotal,
       discount_amount: computed.pctDiscount + computed.flatDiscount,
       tax_amount: computed.tax,
@@ -1304,7 +1309,7 @@ function NewQuotePage() {
     selectedKitchen, eventName, eventDate, eventTime, setupTime, suggestedSetupTime,
     venueAddress, venueLat, venueLng,
     deliveryDistance, deliveryCostPerKm, deliveryFee, depositPercent,
-    collectionDistance, collectionCostPerKm, collectionFee,
+    collectionDistance, collectionCostPerKm, collectionFee, collectionNextDay,
     computed.subtotal, computed.pctDiscount, computed.flatDiscount, computed.tax, computed.total,
     validUntil, internalNotes,
   ]);
@@ -2360,6 +2365,23 @@ function NewQuotePage() {
                             ? `Auto: ${collectionDistance.toFixed(1)}km × 2 (round-trip) × R${collectionCostPerKm}/km = R${collectionFee.toFixed(2)}`
                             : `Type a distance to auto-calculate, or type a flat fee directly into the Fee box.`}
                       </p>
+                      {/* Next-day collection. When on, the collection trip
+                          auto-schedules for the morning after the event
+                          (09:00) instead of the same evening. */}
+                      <label className="mt-2 flex items-start gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={collectionNextDay}
+                          onChange={(e) => setCollectionNextDay(e.target.checked)}
+                          className="mt-0.5"
+                        />
+                        <span className="text-xs text-blue-900">
+                          Collect equipment the <strong>next day</strong>
+                          <span className="block text-[11px] text-blue-700/80">
+                            Books the collection trip for the morning after the event (09:00), not the same night.
+                          </span>
+                        </span>
+                      </label>
                     </div>
                   )}
 

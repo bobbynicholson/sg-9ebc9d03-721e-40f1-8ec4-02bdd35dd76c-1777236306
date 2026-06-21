@@ -77,7 +77,7 @@ export async function resyncOrderScheduleArtifacts(
     // 1. Load the freshly-amended order row.
     const { data: order, error: oErr } = await (sb as any)
       .from("orders")
-      .select("id, event_date, event_time, delivery_time")
+      .select("id, event_date, event_time, delivery_time, collection_next_day")
       .eq("id", orderId)
       .maybeSingle();
     if (oErr || !order) {
@@ -117,7 +117,11 @@ export async function resyncOrderScheduleArtifacts(
           .eq("assignment_type", "collection");
         if (rows && rows.length > 0) {
           const dt = new Date(`${eventDate}T00:00:00`);
-          if (effectiveTime) {
+          if ((order as any).collection_next_day) {
+            // Next-day collection: morning after the event, 09:00.
+            dt.setDate(dt.getDate() + 1);
+            dt.setHours(9, 0, 0, 0);
+          } else if (effectiveTime) {
             const [h, m] = effectiveTime.split(":").map(Number);
             dt.setHours((h || 0) + 5, m || 0, 0, 0);
           } else {
