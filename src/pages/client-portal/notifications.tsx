@@ -76,9 +76,14 @@ export default function ClientNotificationsPage() {
     return () => { cancelled = true; };
   }, [user?.id, activeRole, tab, toast]);
 
-  const unreadCount = useMemo(
-    () => notifications.filter((n) => !n.is_read).length,
+  // Render-level dedupe by id (matches the admin bell + page guarantee).
+  const visible = useMemo(
+    () => Array.from(new Map(notifications.map((n) => [n.id, n])).values()),
     [notifications],
+  );
+  const unreadCount = useMemo(
+    () => visible.filter((n) => !n.is_read).length,
+    [visible],
   );
 
   const resolvedSlug =
@@ -223,7 +228,7 @@ export default function ClientNotificationsPage() {
                   />
                 ))}
               </div>
-            ) : notifications.length === 0 ? (
+            ) : visible.length === 0 ? (
               <PortalCard padded={false}>
                 <div className="py-16 px-6 text-center">
                   <div className="w-12 h-12 mx-auto mb-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 flex items-center justify-center">
@@ -241,7 +246,7 @@ export default function ClientNotificationsPage() {
               </PortalCard>
             ) : (
               <ul className="space-y-2">
-                {notifications.map((n) => {
+                {visible.map((n) => {
                   const created = n.created_at ? new Date(n.created_at) : null;
                   const ago = created ? formatDistanceToNow(created, { addSuffix: true }) : "";
                   const tone = PRIORITY_TONE[(n.priority as string) || "normal"] || PRIORITY_TONE.normal;

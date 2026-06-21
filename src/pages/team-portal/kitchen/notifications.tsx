@@ -12,6 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { formatDistanceToNow } from "date-fns";
 import { effectivePriority, isStaleNotification, STALE_NOTIFICATION_DAYS } from "@/lib/notificationDisplay";
 import { PortalShell, PortalHeader, PortalCard } from "@/components/portal/ui";
+import { useTenantHref } from "@/lib/tenantUrl";
 
 interface Notification {
   id: string;
@@ -47,6 +48,17 @@ const priorityTone = (p?: string | null) => {
 export default function KitchenNotificationsPage() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { withSlug } = useTenantHref();
+  // Tenant-slug aware link opener. Notification links are stored without
+  // the slug (e.g. "/team-portal/kitchen/prep-list"); a bare href lands on
+  // a non-tenant path that 404s. Marks the row read on the way out.
+  const openLink = (n: Notification) => {
+    const raw = n.link ?? n.action_url;
+    if (!raw) return;
+    if (!n.is_read) void markRead(n.id);
+    const href = /^https?:\/\//i.test(raw) ? raw : withSlug(raw);
+    window.location.href = href;
+  };
 
   const [notifs, setNotifs] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
@@ -117,7 +129,15 @@ export default function KitchenNotificationsPage() {
     }
   };
 
-  const unreadCount = useMemo(() => notifs.filter((n) => !n.is_read).length, [notifs]);
+  // Render-level dedupe by id (same guarantee the admin bell + page use):
+  // the .or(recipient_id, user_id, target_role) query can surface the same
+  // row twice on some PostgREST paths, and a realtime re-fire can prepend a
+  // copy. Collapse to one row per id so a single alert never shows twice.
+  const visible = useMemo(
+    () => Array.from(new Map(notifs.map((n) => [n.id, n])).values()),
+    [notifs],
+  );
+  const unreadCount = useMemo(() => visible.filter((n) => !n.is_read).length, [visible]);
 
   // Wave 24: bulk-clear stale notifications (older than the shared
   // STALE_NOTIFICATION_DAYS threshold). Same pattern as the driver
@@ -197,7 +217,7 @@ export default function KitchenNotificationsPage() {
                     </li>
                   ))}
                 </ul>
-              ) : notifs.length === 0 ? (
+              ) : visible.length === 0 ? (
                 <div className="text-center py-16 px-6">
                   <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800">
                     <Bell className="h-6 w-6 text-slate-400 dark:text-slate-500" />
@@ -207,7 +227,7 @@ export default function KitchenNotificationsPage() {
                 </div>
               ) : (
                 <ul className="divide-y divide-slate-100 dark:divide-slate-800">
-                  {notifs.map((n) => {
+                  {visible.map((n) => {
                     // Wave 24: degrade displayed priority on stale rows.
                     const displayedPriority = effectivePriority(n.priority, n.created_at);
                     const Icon = priorityIcon(displayedPriority);
@@ -235,9 +255,13 @@ export default function KitchenNotificationsPage() {
                               </Button>
                             )}
                             {(n.link || n.action_url) && (
-                              <a href={n.link ?? n.action_url ?? "#"} className="text-[11px] text-amber-700 dark:text-amber-400 hover:underline underline-offset-2">
+                              <button
+                                type="button"
+                                onClick={() => openLink(n)}
+                                className="text-[11px] text-amber-700 dark:text-amber-400 hover:underline underline-offset-2"
+                              >
                                 Open
-                              </a>
+                              </button>
                             )}
                           </div>
                         </div>

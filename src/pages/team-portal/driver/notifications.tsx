@@ -22,6 +22,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { notificationService, Notification } from "@/services/notificationService";
 import { useToast } from "@/hooks/use-toast";
 import { DriverPageShell } from "@/components/driver/DriverPageShell";
+import { useTenantHref } from "@/lib/tenantUrl";
 
 const PRIORITY_TONE: Record<string, string> = {
   urgent: "bg-rose-100 text-rose-800 border-rose-200 dark:bg-rose-500/10 dark:text-rose-300 dark:border-rose-500/20",
@@ -34,6 +35,7 @@ export default function DriverNotificationsPage() {
   const router = useRouter();
   const { user, activeRole } = useAuth() as any;
   const { toast } = useToast();
+  const { withSlug } = useTenantHref();
 
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
@@ -82,9 +84,14 @@ export default function DriverNotificationsPage() {
     return unsub;
   }, [user?.id, activeRole]);
 
-  const unreadCount = useMemo(
-    () => notifications.filter((n) => !n.is_read).length,
+  // Render-level dedupe by id (matches the admin bell + page guarantee).
+  const visible = useMemo(
+    () => Array.from(new Map(notifications.map((n) => [n.id, n])).values()),
     [notifications],
+  );
+  const unreadCount = useMemo(
+    () => visible.filter((n) => !n.is_read).length,
+    [visible],
   );
 
   const onClickRow = async (n: Notification) => {
@@ -96,7 +103,7 @@ export default function DriverNotificationsPage() {
         );
       } catch { /* non-fatal */ }
     }
-    if (n.link) router.push(n.link);
+    if (n.link) router.push(/^https?:\/\//i.test(n.link) ? n.link : withSlug(n.link));
   };
 
   const onMarkRead = async (id: string) => {
@@ -226,7 +233,7 @@ export default function DriverNotificationsPage() {
               <Loader2 className="w-6 h-6 mx-auto text-slate-400 dark:text-slate-500 animate-spin" />
               <p className="text-sm text-slate-500 dark:text-slate-400 mt-3">Loading...</p>
             </PortalCard>
-          ) : notifications.length === 0 ? (
+          ) : visible.length === 0 ? (
             <PortalCard className="py-12 text-center">
               <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-500">
                 <Bell className="w-6 h-6" />
@@ -242,7 +249,7 @@ export default function DriverNotificationsPage() {
             </PortalCard>
           ) : (
             <ul className="space-y-2">
-              {notifications.map((n) => {
+              {visible.map((n) => {
                 const created = n.created_at ? new Date(n.created_at) : null;
                 const ago = created ? formatDistanceToNow(created, { addSuffix: true }) : "";
                 // Wave 24: degrade displayed priority on stale rows so

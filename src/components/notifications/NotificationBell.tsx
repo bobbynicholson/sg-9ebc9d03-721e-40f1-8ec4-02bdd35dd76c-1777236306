@@ -190,7 +190,14 @@ export function NotificationBell() {
     
     if (notification.link) {
       setOpen(false);
-      router.push(notification.link);
+      // Links are stored WITHOUT the tenant slug (e.g.
+      // "/team-portal/kitchen/prep-list", "/admin/quotes/{id}"). On a
+      // slug-routed tenant a bare push lands on a non-tenant path that
+      // 404s / bounces, so the click appeared to "do nothing". Route
+      // through withSlug (no-op for absolute http links / already-slugged
+      // paths) so every notification opens its target page.
+      const href = notification.link;
+      router.push(/^https?:\/\//i.test(href) ? href : withSlug(href));
     }
   };
 

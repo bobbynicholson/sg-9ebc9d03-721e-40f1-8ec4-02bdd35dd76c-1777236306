@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { formatDistanceToNow } from "date-fns";
 import { effectivePriority, isStaleNotification, STALE_NOTIFICATION_DAYS } from "@/lib/notificationDisplay";
+import { useTenantHref } from "@/lib/tenantUrl";
 
 interface Notification {
   id: string;
@@ -44,6 +45,15 @@ const priorityTone = (p?: string | null) => {
 export default function CleaningNotificationsPage() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { withSlug } = useTenantHref();
+  // Slug-aware open: notification links are stored without the tenant slug,
+  // so a bare href 404s. Marks the row read on the way out.
+  const openLink = (n: Notification) => {
+    const raw = n.link ?? n.action_url;
+    if (!raw) return;
+    if (!n.is_read) void markRead(n.id);
+    window.location.href = /^https?:\/\//i.test(raw) ? raw : withSlug(raw);
+  };
 
   const [notifs, setNotifs] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
@@ -111,7 +121,12 @@ export default function CleaningNotificationsPage() {
     }
   };
 
-  const unread = useMemo(() => notifs.filter((n) => !n.is_read).length, [notifs]);
+  // Render-level dedupe by id (matches the admin bell + page guarantee).
+  const visible = useMemo(
+    () => Array.from(new Map(notifs.map((n) => [n.id, n])).values()),
+    [notifs],
+  );
+  const unread = useMemo(() => visible.filter((n) => !n.is_read).length, [visible]);
 
   // Wave 24: stale notification cleanup - mirrors the driver +
   // kitchen pattern. One-tap delete of anything older than the
@@ -183,14 +198,14 @@ export default function CleaningNotificationsPage() {
                   </div>
                 ))}
               </div>
-            ) : notifs.length === 0 ? (
+            ) : visible.length === 0 ? (
               <div className="text-center py-16 text-slate-500 dark:text-slate-400">
                 <Bell className="h-10 w-10 mx-auto mb-3 text-slate-300 dark:text-slate-600" />
                 <p className="font-medium">{tab === "unread" ? "No unread" : "No notifications yet"}</p>
               </div>
             ) : (
               <ul className="divide-y divide-slate-100 dark:divide-slate-800">
-                {notifs.map((n) => {
+                {visible.map((n) => {
                   // Wave 24: degrade displayed priority on stale rows.
                   const displayedPriority = effectivePriority(n.priority, n.created_at);
                   const Icon = priorityIcon(displayedPriority);
@@ -214,7 +229,7 @@ export default function CleaningNotificationsPage() {
                             </Button>
                           )}
                           {(n.link || n.action_url) && (
-                            <a href={n.link ?? n.action_url ?? "#"} className="text-[11px] text-amber-700 dark:text-amber-400 hover:underline">Open</a>
+                            <button type="button" onClick={() => openLink(n)} className="text-[11px] text-amber-700 dark:text-amber-400 hover:underline">Open</button>
                           )}
                         </div>
                       </div>

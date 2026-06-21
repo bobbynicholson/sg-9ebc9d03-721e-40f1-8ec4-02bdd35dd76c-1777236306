@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { formatDistanceToNow } from "date-fns";
 import { effectivePriority, isStaleNotification, STALE_NOTIFICATION_DAYS } from "@/lib/notificationDisplay";
+import { useTenantHref } from "@/lib/tenantUrl";
 
 interface Notification {
   id: string; user_id: string | null; recipient_id: string | null; target_role: string | null;
@@ -34,6 +35,15 @@ const priorityTone = (p?: string | null) => {
 export default function ShoppingNotificationsPage() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { withSlug } = useTenantHref();
+  // Slug-aware open: links are stored without the tenant slug, so a bare
+  // href 404s. Marks the row read on the way out.
+  const openLink = (n: Notification) => {
+    const raw = n.link ?? n.action_url;
+    if (!raw) return;
+    if (!n.is_read) void markRead(n.id);
+    window.location.href = /^https?:\/\//i.test(raw) ? raw : withSlug(raw);
+  };
 
   const [notifs, setNotifs] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
@@ -94,7 +104,12 @@ export default function ShoppingNotificationsPage() {
     } catch { toast({ title: "Could not mark all read", variant: "destructive" }); }
   };
 
-  const unread = useMemo(() => notifs.filter((n) => !n.is_read).length, [notifs]);
+  // Render-level dedupe by id (matches the admin bell + page guarantee).
+  const visible = useMemo(
+    () => Array.from(new Map(notifs.map((n) => [n.id, n])).values()),
+    [notifs],
+  );
+  const unread = useMemo(() => visible.filter((n) => !n.is_read).length, [visible]);
 
   // Wave 24: stale notification cleanup - mirrors the driver,
   // kitchen and cleaning portals.
@@ -208,7 +223,7 @@ export default function ShoppingNotificationsPage() {
                   </li>
                 ))}
               </ul>
-            ) : notifs.length === 0 ? (
+            ) : visible.length === 0 ? (
               <div className="text-center px-6 py-16">
                 <div className="w-12 h-12 mx-auto mb-4 rounded-full border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 flex items-center justify-center">
                   <CheckCircle2 className="h-6 w-6 text-slate-400 dark:text-slate-500" />
@@ -224,7 +239,7 @@ export default function ShoppingNotificationsPage() {
               </div>
             ) : (
               <ul className="divide-y divide-slate-100 dark:divide-slate-800">
-                {notifs.map((n) => {
+                {visible.map((n) => {
                   // Wave 24: degrade displayed priority on stale rows.
                   const displayedPriority = effectivePriority(n.priority, n.created_at);
                   const dot = priorityTone(displayedPriority);
@@ -272,7 +287,7 @@ export default function ShoppingNotificationsPage() {
                             </button>
                           )}
                           {(n.link || n.action_url) && (
-                            <a href={n.link ?? n.action_url ?? "#"} className="text-[11px] font-medium text-amber-700 dark:text-amber-500 hover:text-amber-800 dark:hover:text-amber-400 transition-colors duration-150">Open</a>
+                            <button type="button" onClick={() => openLink(n)} className="text-[11px] font-medium text-amber-700 dark:text-amber-500 hover:text-amber-800 dark:hover:text-amber-400 transition-colors duration-150">Open</button>
                           )}
                         </div>
                       </div>
