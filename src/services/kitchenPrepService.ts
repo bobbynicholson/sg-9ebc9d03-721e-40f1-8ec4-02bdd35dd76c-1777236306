@@ -1303,16 +1303,26 @@ export const kitchenPrepService = {
         : !seenNames.has(String(s.name || "").trim().toLowerCase()),
     );
 
-    const rows = fresh.map(s => ({
-      shopping_list_id: list!.id,
-      user_id: userId,
-      item_id: s.inventory_item_id ?? null,
-      name: s.name,
-      quantity: Math.ceil(s.shortfall * 100) / 100,
-      unit: s.unit,
-      purchased: false,
-      notes: `Need ${s.total_quantity} ${s.unit}, have ${s.on_hand}`,
-    }));
+    const rows = fresh.map(s => {
+      // Tag the line back to its order when exactly ONE order needs it,
+      // so the order's status timeline ("Stock & shopping") can see the
+      // shopping and stop showing N/A. Ambiguous (multi-order) lines stay
+      // unlinked - we can't attribute them to a single order.
+      const orderIds = Array.from(
+        new Set((s.used_by || []).map((u) => u.order_id).filter(Boolean)),
+      );
+      return {
+        shopping_list_id: list!.id,
+        user_id: userId,
+        item_id: s.inventory_item_id ?? null,
+        name: s.name,
+        quantity: Math.ceil(s.shortfall * 100) / 100,
+        unit: s.unit,
+        purchased: false,
+        source_order_id: orderIds.length === 1 ? orderIds[0] : null,
+        notes: `Need ${s.total_quantity} ${s.unit}, have ${s.on_hand}`,
+      };
+    });
 
     if (rows.length > 0) {
       const { error: iErr } = await supabase.from("shopping_list_items").insert(rows);
