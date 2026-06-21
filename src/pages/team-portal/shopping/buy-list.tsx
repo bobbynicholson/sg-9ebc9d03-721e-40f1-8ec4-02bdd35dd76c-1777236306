@@ -245,11 +245,19 @@ export default function ShoppingBuyListPage() {
         notes: `Need ${qty} ${r.unit_of_measure || "unit"}, have ${r.current_stock}`,
       });
       if (result) {
-        toast({ title: "Added to list", description: `${r.item_name} (${qty} ${r.unit_of_measure || ""})` });
+        toast({ title: "Added to list", description: `${r.item_name} (${qty} ${r.unit_of_measure || ""}) added. Open your list to tick it off as you buy.` });
         setSelected(prev => {
           const next = new Set(prev);
           next.delete(r.inventory_item_id);
           return next;
+        });
+      } else {
+        // addItem returns null on failure (e.g. list create blocked).
+        // Without an else the click looked dead - no toast at all.
+        toast({
+          title: "Could not add",
+          description: activeList.error || "Something went wrong adding that item. Try again.",
+          variant: "destructive",
         });
       }
     } finally {
@@ -284,6 +292,12 @@ export default function ShoppingBuyListPage() {
           description: "Open the dashboard to start ticking them off as you buy.",
         });
         setSelected(new Set());
+      } else {
+        toast({
+          title: "Could not add",
+          description: activeList.error || "Something went wrong adding those items. Try again.",
+          variant: "destructive",
+        });
       }
     } finally {
       setAdding(false);
@@ -485,17 +499,30 @@ export default function ShoppingBuyListPage() {
                             </div>
                           )}
                         </div>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleAddOne(r)}
-                          disabled={adding || qty <= 0}
-                          className="flex-shrink-0 gap-1"
-                          title={`Add ${qty} ${r.unit_of_measure || ""} to your list`}
-                        >
-                          <Plus className="h-3.5 w-3.5" />
-                          Add
-                        </Button>
+                        {alreadyOnList ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled
+                            className="flex-shrink-0 gap-1 border-emerald-200 text-emerald-700 dark:border-emerald-900 dark:text-emerald-300"
+                            title="Already on your active list"
+                          >
+                            <CheckCircle2 className="h-3.5 w-3.5" />
+                            On list
+                          </Button>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleAddOne(r)}
+                            disabled={adding || qty <= 0}
+                            className="flex-shrink-0 gap-1"
+                            title={`Add ${qty} ${r.unit_of_measure || ""} to your list`}
+                          >
+                            <Plus className="h-3.5 w-3.5" />
+                            Add
+                          </Button>
+                        )}
                       </li>
                     );
                   })}
