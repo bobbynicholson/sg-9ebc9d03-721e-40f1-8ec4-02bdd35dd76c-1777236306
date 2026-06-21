@@ -69,27 +69,11 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       return res.status(500).json({ error: dbErrorMessage(updErr) || "Could not assign secondary driver" });
     }
 
-    // Notify the secondary driver. DIRECT service-role insert (the proven
-    // path) rather than going through createNotification - keeps this
-    // self-contained and guarantees the row lands.
-    try {
-      const { error: notifyErr } = await admin.from("notifications").insert({
-        company_id: (order as any).company_id,
-        user_id: driverId,
-        recipient_id: driverId,
-        notification_type: "driver_assigned",
-        title: "Secondary delivery assignment",
-        message: `You're the second driver on order ${(order as any).order_number || orderId.slice(0, 8)}. Open Deliveries for the details.`,
-        priority: "high",
-        link: "/team-portal/driver/deliveries",
-        related_entity_type: "order",
-        related_entity_id: orderId,
-        target_role: "driver",
-      });
-      if (notifyErr) console.warn("[assign-secondary-driver] notify insert failed:", notifyErr.message);
-    } catch (notifyErr) {
-      console.warn("[assign-secondary-driver] notify threw:", notifyErr);
-    }
+    // NOTE: the secondary-driver notification is sent by the DB trigger
+    // trg_notify_secondary_driver (fires on secondary_driver_id change),
+    // so we deliberately DON'T insert it here - doing both produced two
+    // identical "Secondary delivery assignment" rows in the driver's bell.
+    // The trigger is the single source of truth for this ping.
 
     return res.status(200).json({
       ok: true,
