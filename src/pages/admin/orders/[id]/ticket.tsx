@@ -43,6 +43,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { staffOrderHref } from "@/lib/orderUrls";
+import { KitchenPrepTasksCard } from "@/components/kitchen/KitchenPrepTasksCard";
 
 interface OrderRow {
   id: string;
@@ -492,6 +493,13 @@ function KitchenTicketPage() {
                 </div>
               ) : undefined}
             />
+
+            {/* Interactive prep tasks - Start/Done right on the ticket
+                (the page chefs work from) so they don't have to bounce to
+                the order doc. Screen-only; routes through kitchenPrepService
+                so prep_started_at + order-ready + dispatch notifications all
+                fire. */}
+            <KitchenPrepTasksCard orderId={order.id} />
 
             {/* Wave 66.9 - backplanned timeline ribbon. Single line so
                 the chef sees the day's choreography at the top of the
