@@ -174,6 +174,15 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
   // ODOC: finance gate. Client mode + staff roles never see Finance,
   // ever, regardless of toggle state. Data isn't even fetched.
   const canSeeFinance = mode !== "client" && canSeeOtherStaffPay(role);
+  // ODOC: client read-only view. A client opening their own order
+  // (/order/[id]?role=client) should see a tight, read-only summary -
+  // their event details, status timeline, the menu they ordered, and
+  // post-event feedback - NOT the internal operational sections
+  // (shopping list, driver dispatch, waiter staffing, cleaning, audit
+  // history) which carry staff actions and internal noise. Those staff
+  // sections already hide their action buttons for non-matching roles,
+  // but a client shouldn't see the sections at all.
+  const isClient = primary === "client" || role === UserRole.CLIENT;
 
   const load = useCallback(async () => {
     if (!orderId) return;
@@ -510,33 +519,40 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
           defaultOpen={true}
           highlight={primary === "kitchen"}
         />
-        <ShoppingSection
-          orderId={order.id}
-          companyId={order.company_id}
-          forceOpen={forceAll}
-          defaultOpen={primary === "shopping"}
-          highlight={primary === "shopping"}
-        />
-        <DriverSection
-          order={order}
-          forceOpen={forceAll}
-          defaultOpen={primary === "driver"}
-          highlight={primary === "driver"}
-        />
-        <WaiterSection
-          orderId={order.id}
-          companyId={order.company_id}
-          forceOpen={forceAll}
-          defaultOpen={primary === "waiter"}
-          highlight={primary === "waiter"}
-        />
-        <CleaningSection
-          orderId={order.id}
-          companyId={order.company_id}
-          forceOpen={forceAll}
-          defaultOpen={primary === "cleaning"}
-          highlight={primary === "cleaning"}
-        />
+        {/* Internal operational sections - staff only. A client never
+            sees the shopping list, driver dispatch, waiter staffing or
+            cleaning handover (internal workflow + actions). */}
+        {!isClient && (
+          <>
+            <ShoppingSection
+              orderId={order.id}
+              companyId={order.company_id}
+              forceOpen={forceAll}
+              defaultOpen={primary === "shopping"}
+              highlight={primary === "shopping"}
+            />
+            <DriverSection
+              order={order}
+              forceOpen={forceAll}
+              defaultOpen={primary === "driver"}
+              highlight={primary === "driver"}
+            />
+            <WaiterSection
+              orderId={order.id}
+              companyId={order.company_id}
+              forceOpen={forceAll}
+              defaultOpen={primary === "waiter"}
+              highlight={primary === "waiter"}
+            />
+            <CleaningSection
+              orderId={order.id}
+              companyId={order.company_id}
+              forceOpen={forceAll}
+              defaultOpen={primary === "cleaning"}
+              highlight={primary === "cleaning"}
+            />
+          </>
+        )}
         {/* ODOC: Finance section is permission-gated at render time.
             Staff roles + magic-link client mode never see it - data
             never fetched, component never mounted. */}
@@ -571,18 +587,22 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
         )}
         {/* ODOC Wave F: file attachments - contracts, dietary forms,
             venue maps, etc. Visible to all staff (RLS handles scope). */}
-        <AttachmentsSection
-          orderId={order.id}
-          companyId={order.company_id}
-          forceOpen={forceAll}
-          defaultOpen={false}
-        />
-        <HistorySection
-          orderId={order.id}
-          companyId={order.company_id}
-          forceOpen={forceAll}
-          defaultOpen={false}
-        />
+        {!isClient && (
+          <>
+            <AttachmentsSection
+              orderId={order.id}
+              companyId={order.company_id}
+              forceOpen={forceAll}
+              defaultOpen={false}
+            />
+            <HistorySection
+              orderId={order.id}
+              companyId={order.company_id}
+              forceOpen={forceAll}
+              defaultOpen={false}
+            />
+          </>
+        )}
       </div>
     </div>
   );
