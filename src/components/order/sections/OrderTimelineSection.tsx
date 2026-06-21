@@ -446,6 +446,29 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen }: Props) {
     { key: "cleaning",      label: "In cleaning cycle",    Icon: Droplets,       at: cleaningAllDone || cleaningStarted,   show: hasEquipmentSignal, lane: "closeout" },
     { key: "completed",     label: "Closed",               Icon: CheckCircle2,   at: order.completed_at,        lane: "closeout" },
   ] as Step[]);
+  // "Stock & shopping" and "Equipment ready" are PARALLEL prereqs -
+  // neither depends on the other, and they can complete in either order
+  // (equipment-ready is inferred from the booking's creation time, which
+  // is usually order-creation; shopping finishes whenever the buy run
+  // does). A fixed list order therefore reads backwards in time when
+  // shopping (e.g. 06:51) lands above equipment-ready (06:05). Order this
+  // adjacent pair by completion time so the timeline never shows a later
+  // step above an earlier one. Every other step is genuinely sequential,
+  // so their stamps are naturally monotonic and we leave them put.
+  const prereqPositions = allSteps
+    .map((s, i) => (s.key === "shopping" || s.key === "equipment_ready" ? i : -1))
+    .filter((i) => i >= 0);
+  if (prereqPositions.length === 2) {
+    const [a, b] = prereqPositions;
+    const ta = allSteps[a].at ? new Date(allSteps[a].at as string).getTime() : Infinity;
+    const tb = allSteps[b].at ? new Date(allSteps[b].at as string).getTime() : Infinity;
+    if (ta > tb) {
+      const tmp = allSteps[a];
+      allSteps[a] = allSteps[b];
+      allSteps[b] = tmp;
+    }
+  }
+
   // Show the WHOLE lifecycle on every order - render every step, even
   // the ones that don't apply to this particular order (no shopping
   // list, no equipment, no waiter service). Non-applicable steps are
