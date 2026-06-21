@@ -153,6 +153,24 @@ export const driverConfirmationService = {
       console.warn("[confirmDepartedKitchen] order status flip failed (non-blocking):", statusErr);
     }
 
+    // Keep the driver_assignments row in sync. The driver run sheet
+    // (this service) and the driver tracking page update different tables -
+    // the tracking page reads driver_assignments.status and only shows the
+    // delivery for assigned/accepted/en_route/picked_up/at_venue. Without
+    // this the assignment stayed at its old status (or 'delivered' on a
+    // re-run) so departing made the order vanish from the driver's map.
+    // Best-effort, non-blocking.
+    try {
+      await supabase
+        .from("driver_assignments")
+        .update({ status: "en_route", picked_up_at: new Date().toISOString() })
+        .eq("order_id", orderId)
+        .eq("driver_id", driverId)
+        .eq("assignment_type", "delivery");
+    } catch (asgErr) {
+      console.warn("[confirmDepartedKitchen] assignment sync failed (non-blocking):", asgErr);
+    }
+
     // Guarantee the client gets "Driver on the way" + the live tracking link
     // on departure. The status-transition fan-out normally fires this, but if
     // the order was already in_transit (re-confirm / out-of-order taps) that
