@@ -436,12 +436,25 @@ export default function KitchenPrepListPage() {
         [d],
         { from: fromStr, to: toStr },
       );
-      toast({
-        title: result ? "Added to shopping list" : "Nothing to add",
-        description: result
-          ? `${d.shortfall} ${d.unit} ${d.name} - procurement will see this on the shopping page.`
-          : `${d.name} doesn't have a shortfall right now.`,
-      });
+      // Three outcomes, each with its own toast so the chef knows exactly
+      // what happened: result null = no shortfall (in stock); itemCount 0 =
+      // already on the list (not added again); itemCount > 0 = newly added.
+      if (!result) {
+        toast({
+          title: "Already in stock",
+          description: `${d.name} has no shortfall right now - nothing to add.`,
+        });
+      } else if (result.itemCount > 0) {
+        toast({
+          title: "Added to shopping list",
+          description: `${d.shortfall} ${d.unit} ${d.name} added. The shopping team has been notified.`,
+        });
+      } else {
+        toast({
+          title: "Already on the list",
+          description: `${d.name} is already on the shopping list - not added again.`,
+        });
+      }
     } catch (e: unknown) {
       const err = e as { message?: string };
       captureException(e, {
@@ -472,13 +485,18 @@ export default function KitchenPrepListPage() {
         aggregated,
         { from: fromStr, to: toStr },
       );
-      if (result) {
+      if (!result) {
+        toast({ title: "Nothing to buy", description: "No shortfalls in the current window." });
+      } else if (result.itemCount > 0) {
         toast({
-          title: "Shopping list created",
-          description: `${result.itemCount} item${result.itemCount === 1 ? "" : "s"} added. Procurement can pick it up now.`,
+          title: "Shopping list updated",
+          description: `${result.itemCount} item${result.itemCount === 1 ? "" : "s"} added. The shopping team has been notified.`,
         });
       } else {
-        toast({ title: "Nothing to buy", description: "No shortfalls in the current window." });
+        toast({
+          title: "Already on the list",
+          description: "Every short ingredient is already on the shopping list - nothing new added.",
+        });
       }
     } catch (e: any) {
       toast({ title: "Could not create list", description: e?.message, variant: "destructive" });

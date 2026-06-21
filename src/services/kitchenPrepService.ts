@@ -1262,30 +1262,36 @@ export const kitchenPrepService = {
       }
     }
 
-    // Tell the shopping team a shortfall list is waiting. Without this the
-    // chef clicks "Create shopping list", gets a toast, and the shopper
-    // never knows - "nothing happened". Best-effort + dedup so a burst of
-    // per-ingredient adds doesn't spam one ping per item.
-    try {
-      const { notificationService } = await import("@/services/notificationService");
-      const { UserRole } = await import("@/types/app");
-      await notificationService.broadcastNotification({
-        companyId,
-        type: "shopping_list_created",
-        title: "Kitchen shortfall - shopping needed",
-        message: "The kitchen flagged ingredients short for upcoming events. Open the Buy list to see what to buy.",
-        targetRoles: [UserRole.SHOPPING_STAFF],
-        priority: "normal",
-        link: "/team-portal/shopping/dashboard",
-        relatedEntityType: "shopping_list",
-        relatedEntityId: list.id,
-        dedup: true,
-        dedupWindowMinutes: 30,
-      });
-    } catch (notifyErr) {
-      console.warn("[createShoppingListFromShortfall] shopper notification failed:", notifyErr);
+    // Tell the shopping team a shortfall list is waiting - ONLY when we
+    // actually added something new. Re-clicking an item that's already on
+    // the list (rows.length === 0) shouldn't re-ping the shopper. Without
+    // this the chef clicks "Create shopping list", gets a toast, and the
+    // shopper never knows - "nothing happened". Best-effort + dedup so a
+    // burst of per-ingredient adds doesn't spam one ping per item.
+    if (rows.length > 0) {
+      try {
+        const { notificationService } = await import("@/services/notificationService");
+        const { UserRole } = await import("@/types/app");
+        await notificationService.broadcastNotification({
+          companyId,
+          type: "shopping_list_created",
+          title: "Kitchen shortfall - shopping needed",
+          message: "The kitchen flagged ingredients short for upcoming events. Open the Buy list to see what to buy.",
+          targetRoles: [UserRole.SHOPPING_STAFF],
+          priority: "normal",
+          link: "/team-portal/shopping/dashboard",
+          relatedEntityType: "shopping_list",
+          relatedEntityId: list.id,
+          dedup: true,
+          dedupWindowMinutes: 30,
+        });
+      } catch (notifyErr) {
+        console.warn("[createShoppingListFromShortfall] shopper notification failed:", notifyErr);
+      }
     }
 
+    // itemCount = how many NEW rows were added (0 = everything was already
+    // on the list). The caller uses this to show the right toast.
     return { id: list.id, itemCount: rows.length };
   },
 
