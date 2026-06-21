@@ -70,7 +70,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     // verify it matches when used as the auth gate.
     const { data: invoice, error: invErr } = await admin
       .from("invoices")
-      .select("id, company_id, client_id, order_id, invoice_number, balance_due, total_amount, deleted_at, status, public_token")
+      .select("id, company_id, client_id, order_id, invoice_number, balance_due, total_amount, deleted_at, status, public_token, invoice_data")
       .eq("id", invoice_id)
       .maybeSingle();
     if (invErr || !invoice || invoice.deleted_at) {
@@ -254,6 +254,36 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         creditPaymentId,
         message: "Invoice settled with store credit - no card payment needed.",
       });
+    }
+
+    // Persist the EXACT gateway charge for this attempt so the test-mode
+    // return backstop (/api/payments/confirm-return) records the amount
+    // the client actually chose to pay now (e.g. a 50% deposit), not the
+    // full outstanding balance. Before this, confirm-return blindly
+    // recorded invoice.balance_due, so a deposit payment flipped the
+    // invoice to fully "paid" and the order to payment_status='paid'.
+    // A fresh nonce per attempt makes the backstop's transaction id
+    // unique, so a later balance payment records as its own row instead
+    // of being deduped against the deposit. (Live mode is unaffected -
+    // the signed ITN carries the real amount.)
+    const paySessionNonce =
+      typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+        ? crypto.randomUUID()
+        : `${invoice.id}-${grossAmount}-${Math.round(Math.random() * 1e9)}`;
+    try {
+      const prevData =
+        (invoice as any).invoice_data && typeof (invoice as any).invoice_data === "object"
+          ? (invoice as any).invoice_data
+          : {};
+      await admin
+        .from("invoices")
+        .update({
+          invoice_data: { ...prevData, pendingGatewayAmount: amount, paySessionNonce },
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", invoice.id);
+    } catch (e) {
+      console.warn("[create-session] pending-amount persist failed (non-blocking):", e);
     }
 
     const baseUrl =

@@ -38,7 +38,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
     const { data: invoice } = await sb
       .from("invoices")
-      .select("id, company_id, order_id, balance_due, total_amount, status, client_id, deleted_at")
+      .select("id, company_id, order_id, balance_due, total_amount, status, client_id, deleted_at, invoice_data")
       .eq("public_token", token)
       .maybeSingle();
     if (!invoice || invoice.deleted_at) {
@@ -64,16 +64,62 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       return res.status(200).json({ ok: true, paid: false, pending: true });
     }
 
-    const amount = Number(invoice.balance_due) || Number(invoice.total_amount) || 0;
+    const balance = Number(invoice.balance_due) || 0;
+
+    // Record the amount the client ACTUALLY chose to pay now, not the
+    // whole outstanding balance. create-session persists the exact gateway
+    // charge (e.g. a 50% deposit) + a per-attempt nonce on invoice_data;
+    // read it back here so a deposit payment records as a deposit and the
+    // invoice/order land in 'partially_paid' / 'partial' rather than fully
+    // "paid". Without this the backstop recorded the full balance and the
+    // booking looked settled after a deposit (the reported bug).
+    const data =
+      invoice.invoice_data && typeof invoice.invoice_data === "object"
+        ? invoice.invoice_data
+        : {};
+    const pending = Number((data as any).pendingGatewayAmount);
+    const nonce =
+      typeof (data as any).paySessionNonce === "string" ? (data as any).paySessionNonce : null;
+
+    let amount =
+      Number.isFinite(pending) && pending > 0 ? Math.min(pending, balance) : 0;
+
+    // Fallback for a payment started before this field existed: prefer the
+    // order's unpaid deposit over the full balance so we never silently
+    // over-record a part-payment.
+    if (amount <= 0) {
+      let depositDefault = 0;
+      if (invoice.order_id) {
+        try {
+          const { data: ord } = await sb
+            .from("orders")
+            .select("deposit_paid, deposit_amount")
+            .eq("id", invoice.order_id)
+            .maybeSingle();
+          if (ord && !(ord as any).deposit_paid && Number((ord as any).deposit_amount) > 0) {
+            depositDefault = Math.min(Number((ord as any).deposit_amount), balance);
+          }
+        } catch { /* fall through to balance */ }
+      }
+      amount = depositDefault > 0 ? depositDefault : (balance || Number(invoice.total_amount) || 0);
+    }
+
     if (amount <= 0) {
       return res.status(200).json({ ok: true, paid: true });
     }
+
+    // Per-attempt transaction id (nonce) so a later balance payment is not
+    // deduped against the earlier deposit. Repeated returns for the SAME
+    // attempt keep the same id and stay idempotent.
+    const transactionId = nonce
+      ? `return-confirm-${invoice.id}-${nonce}`
+      : `return-confirm-${invoice.id}`;
 
     const { data: rpcResult, error: rpcErr } = await sb.rpc("record_invoice_payment", {
       p_invoice_id: invoice.id,
       p_amount: amount,
       p_payment_method: "payfast",
-      p_transaction_id: `return-confirm-${invoice.id}`,
+      p_transaction_id: transactionId,
       p_company_id: invoice.company_id,
       p_client_id: invoice.client_id,
       p_currency: "ZAR",
