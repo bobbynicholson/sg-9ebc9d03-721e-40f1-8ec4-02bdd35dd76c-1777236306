@@ -1181,28 +1181,70 @@ export const kitchenPrepService = {
     const shortfalls = demand.filter(d => d.shortfall > 0);
     if (shortfalls.length === 0) return null;
 
-    const { data: list, error: lErr } = await supabase
+    // REUSE the open kitchen-shortfall list instead of spawning a fresh
+    // one on every "Add to list" / "Create shopping list" click. Before
+    // this, each click inserted a brand-new shopping_lists row, so the
+    // chef ended up with a pile of single-item lists and the shopper's
+    // dashboard (which resolves ONE active list) showed only a fragment.
+    // Append to today's open list when one exists; create it only the
+    // first time. shopper_id stays NULL so the shopper picks it up via
+    // the "team list" fallback in useActiveShoppingList.
+    let list: { id: string } | null = null;
+    const { data: existingList } = await supabase
       .from("shopping_lists")
-      .insert([{
-        company_id: companyId,
-        user_id: userId,
-        list_date: new Date().toISOString().slice(0, 10),
-        status: "open",
-        source: "kitchen_shortfall",
-        source_period_start: period.from,
-        source_period_end: period.to,
-        title: title || `Kitchen shortfall ${period.from} -> ${period.to}`,
-        notes: `Auto-generated from aggregated kitchen demand on ${new Date().toLocaleString()}`,
-      }])
-      .select()
-      .single();
-    if (lErr || !list) {
-      console.error("Error creating shopping list:", lErr);
-      return null;
+      .select("id")
+      .eq("company_id", companyId)
+      .eq("status", "open")
+      .eq("source", "kitchen_shortfall")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (existingList?.id) {
+      list = existingList as { id: string };
+    } else {
+      const { data: created, error: lErr } = await supabase
+        .from("shopping_lists")
+        .insert([{
+          company_id: companyId,
+          user_id: userId,
+          list_date: new Date().toISOString().slice(0, 10),
+          status: "open",
+          source: "kitchen_shortfall",
+          source_period_start: period.from,
+          source_period_end: period.to,
+          title: title || `Kitchen shortfall ${period.from} -> ${period.to}`,
+          notes: `Auto-generated from aggregated kitchen demand on ${new Date().toLocaleString()}`,
+        }])
+        .select("id")
+        .single();
+      if (lErr || !created) {
+        console.error("Error creating shopping list:", lErr);
+        return null;
+      }
+      list = created as { id: string };
     }
 
-    const rows = shortfalls.map(s => ({
-      shopping_list_id: list.id,
+    // Skip items already on the list (by inventory item_id, else by name)
+    // so re-adding the same shortfall doesn't pile up duplicate rows.
+    const { data: existingItems } = await supabase
+      .from("shopping_list_items")
+      .select("item_id, name")
+      .eq("shopping_list_id", list.id)
+      .is("removed_at", null);
+    const seenIds = new Set(
+      (existingItems || []).map((r: any) => r.item_id).filter(Boolean) as string[],
+    );
+    const seenNames = new Set(
+      (existingItems || []).map((r: any) => String(r.name || "").trim().toLowerCase()),
+    );
+    const fresh = shortfalls.filter((s) =>
+      s.inventory_item_id
+        ? !seenIds.has(s.inventory_item_id)
+        : !seenNames.has(String(s.name || "").trim().toLowerCase()),
+    );
+
+    const rows = fresh.map(s => ({
+      shopping_list_id: list!.id,
       user_id: userId,
       item_id: s.inventory_item_id ?? null,
       name: s.name,
@@ -1212,8 +1254,37 @@ export const kitchenPrepService = {
       notes: `Need ${s.total_quantity} ${s.unit}, have ${s.on_hand}`,
     }));
 
-    const { error: iErr } = await supabase.from("shopping_list_items").insert(rows);
-    if (iErr) console.error("Error creating shopping list items:", iErr);
+    if (rows.length > 0) {
+      const { error: iErr } = await supabase.from("shopping_list_items").insert(rows);
+      if (iErr) {
+        console.error("Error creating shopping list items:", iErr);
+        return null;
+      }
+    }
+
+    // Tell the shopping team a shortfall list is waiting. Without this the
+    // chef clicks "Create shopping list", gets a toast, and the shopper
+    // never knows - "nothing happened". Best-effort + dedup so a burst of
+    // per-ingredient adds doesn't spam one ping per item.
+    try {
+      const { notificationService } = await import("@/services/notificationService");
+      const { UserRole } = await import("@/types/app");
+      await notificationService.broadcastNotification({
+        companyId,
+        type: "shopping_list_created",
+        title: "Kitchen shortfall - shopping needed",
+        message: "The kitchen flagged ingredients short for upcoming events. Open the Buy list to see what to buy.",
+        targetRoles: [UserRole.SHOPPING_STAFF],
+        priority: "normal",
+        link: "/team-portal/shopping/dashboard",
+        relatedEntityType: "shopping_list",
+        relatedEntityId: list.id,
+        dedup: true,
+        dedupWindowMinutes: 30,
+      });
+    } catch (notifyErr) {
+      console.warn("[createShoppingListFromShortfall] shopper notification failed:", notifyErr);
+    }
 
     return { id: list.id, itemCount: rows.length };
   },
