@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -9,6 +9,25 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { formatLocalTime } from "@/lib/localFormat";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
+
+// Auto-arrival fires when the driver is within this many metres of the
+// venue. 200m is forgiving enough for GPS drift + large venues/parking
+// while still meaning "they're effectively here".
+const GEOFENCE_RADIUS_M = 200;
+
+/** Great-circle distance between two lat/lng points, in metres. */
+function haversineMeters(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
+  const R = 6_371_000;
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(b.lat - a.lat);
+  const dLng = toRad(b.lng - a.lng);
+  const lat1 = toRad(a.lat);
+  const lat2 = toRad(b.lat);
+  const h =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.min(1, Math.sqrt(h)));
+}
 
 interface DriverConfirmationPanelProps {
   orderId: string;
@@ -30,12 +49,37 @@ export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venue
   // (returns equipment + autoClockOut). Only renders when there's an
   // active collection assignment for this driver on this order.
   const [collectionAssignment, setCollectionAssignment] = useState<any | null>(null);
+  // Geofence auto-arrival: once the driver has left the kitchen, we watch
+  // their GPS and auto-stamp "Arrived at venue" when they come within
+  // GEOFENCE_RADIUS_M of the venue coords. Manual tap still works (and is
+  // the fallback when coords/GPS are unavailable).
+  const [venueCoords, setVenueCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [autoArrivalDist, setAutoArrivalDist] = useState<number | null>(null);
+  const autoFiredRef = useRef(false);
 
   useEffect(() => {
     loadConfirmations();
     getCurrentLocation();
     loadCollectionAssignment();
+    loadVenueCoords();
   }, [orderId]);
+
+  const loadVenueCoords = async () => {
+    try {
+      const { data } = await (supabase as any)
+        .from("orders")
+        .select("venue_lat, venue_lng")
+        .eq("id", orderId)
+        .maybeSingle();
+      const lat = Number((data as any)?.venue_lat);
+      const lng = Number((data as any)?.venue_lng);
+      if (Number.isFinite(lat) && Number.isFinite(lng) && (lat !== 0 || lng !== 0)) {
+        setVenueCoords({ lat, lng });
+      }
+    } catch (e) {
+      console.warn("[DriverConfirmationPanel] venue coords lookup failed:", e);
+    }
+  };
 
   const loadCollectionAssignment = async () => {
     if (!user?.id) return;
@@ -77,6 +121,34 @@ export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venue
       );
     }
   };
+
+  // Geofence watcher. Arms only when the driver has departed the kitchen
+  // and hasn't yet been marked at the venue, and we have venue coords +
+  // browser geolocation. Re-evaluates whenever confirmations change so it
+  // stops itself the moment "Arrived at venue" lands (auto OR manual).
+  useEffect(() => {
+    if (!venueCoords) return;
+    if (!navigator?.geolocation) return;
+    if (!isConfirmed("departed_kitchen")) return; // not on the road yet
+    if (isConfirmed("at_venue")) return; // already there
+    const watchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        const here = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        setGeoLocation(here);
+        const dist = haversineMeters(here, venueCoords);
+        setAutoArrivalDist(dist);
+        if (dist <= GEOFENCE_RADIUS_M && !autoFiredRef.current && !isConfirmed("at_venue")) {
+          autoFiredRef.current = true;
+          toast({ title: "📍 Arrived at venue", description: "Auto-detected by GPS." });
+          handleConfirm("at_venue");
+        }
+      },
+      (err) => console.warn("[DriverConfirmationPanel] geofence watch error:", err?.message),
+      { enableHighAccuracy: true, maximumAge: 10_000, timeout: 25_000 },
+    );
+    return () => navigator.geolocation.clearWatch(watchId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [venueCoords, confirmations]);
 
   const handleConfirm = async (
     type:
@@ -256,6 +328,16 @@ export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venue
               <p className="font-medium">Arrived at Venue</p>
               {isConfirmed('at_venue') && (
                 <p className="text-sm text-muted-foreground">Confirmed at {getConfirmationTime('at_venue')}</p>
+              )}
+              {/* Geofence status - only while armed (departed kitchen, not
+                  yet at venue, coords known). Tells the driver it'll stamp
+                  itself, and shows live distance so they trust it. */}
+              {!isConfirmed('at_venue') && isConfirmed('departed_kitchen') && venueCoords && (
+                <p className="text-xs text-blue-600 mt-0.5">
+                  {autoArrivalDist != null
+                    ? `Auto check-in on · ${Math.round(autoArrivalDist)}m away`
+                    : "Auto check-in on · locating you..."}
+                </p>
               )}
             </div>
           </div>
