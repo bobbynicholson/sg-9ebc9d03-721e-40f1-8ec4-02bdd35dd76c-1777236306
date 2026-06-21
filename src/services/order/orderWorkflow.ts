@@ -826,6 +826,29 @@ export async function assignDriver(orderId: string, driverId: string) {
       related_entity_id: orderId,
     });
 
+    // Also tell the CLIENT a driver's assigned, so they know dispatch is
+    // underway before the "on the way" ping. Best-effort - links to their
+    // tracking page (where the live driver dot appears once en route).
+    try {
+      const clientUid = await resolveClientUserId(supabase, (data as any).client_id);
+      if (clientUid) {
+        await notificationService.createNotification({
+          company_id: (data as any).company_id,
+          user_id: clientUid,
+          recipient_id: clientUid,
+          title: "Your driver is assigned",
+          message: `A driver has been assigned to deliver order ${data.order_number}. You'll get a live tracking link once they head out.`,
+          notification_type: "driver_assigned",
+          priority: "normal",
+          link: `/client-portal/tracking?orderId=${orderId}`,
+          related_entity_type: "order",
+          related_entity_id: orderId,
+        } as any);
+      }
+    } catch (e) {
+      console.warn("[assignDriver] client notify failed:", e);
+    }
+
     // WhatsApp the driver too. Closes the audit gap "kitchen ready ->
     // driver only gets in-app notification (none if driving)" + "driver
     // never sees order flags". Sends the headline + the special
