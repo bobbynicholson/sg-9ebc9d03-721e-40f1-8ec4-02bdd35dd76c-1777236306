@@ -264,6 +264,7 @@ export function AdminNav(_: AdminNavProps = {}) {
             ? { text: "overdue", tone: "critical" as const }
             : null,
         },
+        { title: "Outstanding balances", href: "/admin/outstanding-balances", icon: Wallet, description: "Clients who still owe a balance (deposit paid, balance due)" },
         { title: "Payables",        href: "/admin/payables",      icon: FileText,   description: "Supplier invoices owed - feeds cashflow forecast" },
         { title: "Fixed costs",     href: "/admin/fixed-costs",   icon: Wallet,     description: "Recurring rent, software, vehicles - feeds cashflow forecast" },
         { title: "Refunds",         href: "/admin/refunds",       icon: CreditCard, description: "Cancellation refunds" },
