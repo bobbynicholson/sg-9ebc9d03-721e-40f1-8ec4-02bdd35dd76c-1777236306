@@ -589,6 +589,31 @@ export function useActiveShoppingList(): UseActiveShoppingList {
       } catch (notifyErr) {
         console.warn("[useActiveShoppingList] completion notification failed:", notifyErr);
       }
+
+      // Communication (the OTHER direction): when a kitchen-shortfall
+      // list is done, tell the KITCHEN their ingredients are in so they
+      // can start prep. The kitchen pings shopping when short, but
+      // nothing closed the loop back - the chef never knew the buy was
+      // done. Only fires for kitchen_shortfall lists (a generic ad-hoc
+      // shop doesn't concern the kitchen). Best-effort + dedup.
+      if (list.source === "kitchen_shortfall") {
+        try {
+          await notificationService.broadcastNotification({
+            companyId,
+            type: "shopping_completed",
+            title: "Ingredients are in - ready to prep",
+            message: "The shopping run for your kitchen shortfall is done. The ingredients are now in stock - you're clear to start prep.",
+            targetRoles: [UserRole.KITCHEN_STAFF],
+            priority: "normal",
+            link: "/team-portal/kitchen/prep-list",
+            relatedEntityType: "shopping_list",
+            relatedEntityId: list.id,
+            dedup: true,
+          });
+        } catch (notifyErr) {
+          console.warn("[useActiveShoppingList] kitchen ready notification failed:", notifyErr);
+        }
+      }
     }
     await load();
   }, [list, load, userId, companyId]);

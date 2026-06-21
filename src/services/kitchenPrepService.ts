@@ -681,14 +681,37 @@ export const kitchenPrepService = {
   // ── Tick-off ──────────────────────────────────────────────────────────────
 
   async startTask(taskId: string, performedBy: string): Promise<boolean> {
-    const { error } = await supabase
+    const nowIso = new Date().toISOString();
+    const { data: updated, error } = await supabase
       .from("kitchen_prep_tasks")
       .update({
         status: "in_progress",
-        started_at: new Date().toISOString(),
+        started_at: nowIso,
       })
-      .eq("id", taskId);
+      .eq("id", taskId)
+      .select("order_id")
+      .single();
     if (error) throw error;
+
+    // Stamp the ORDER's prep_started_at the first time any task on it is
+    // started, so the order timeline ("Prep started") + the client/admin
+    // status views actually light up. Without this nothing ever wrote
+    // orders.prep_started_at, so the step stayed pending forever even
+    // while the kitchen was cooking (only ready_at got stamped, on
+    // completion). Best-effort + guarded on null so a later task start
+    // doesn't overwrite the original timestamp.
+    const orderId = (updated as any)?.order_id as string | undefined;
+    if (orderId) {
+      try {
+        await supabase
+          .from("orders")
+          .update({ prep_started_at: nowIso })
+          .eq("id", orderId)
+          .is("prep_started_at", null);
+      } catch (e) {
+        console.warn("[kitchenPrepService] order prep_started_at stamp failed:", e);
+      }
+    }
     return true;
   },
 
