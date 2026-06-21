@@ -252,31 +252,22 @@ export function DriverSection({ order, defaultOpen, forceOpen, highlight }: Prop
     if (!driverId) return;
     setSavingSecondary(true);
     try {
-      const { error } = await (supabase as any)
-        .from("orders")
-        .update({ secondary_driver_id: driverId, updated_at: new Date().toISOString() })
-        .eq("id", order.id);
-      if (error) throw error;
+      // Server-side route: runs under service role so the orders update +
+      // the cross-user driver notification both land reliably (a
+      // browser-side insert for another user doesn't always stick under
+      // RLS - which is why the earlier client-side notify silently failed).
+      const resp = await fetch(`/api/orders/${order.id}/assign-secondary-driver`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ driverId }),
+      });
+      const json = await resp.json().catch(() => ({}));
+      if (!resp.ok || !json?.ok) {
+        throw new Error(json?.error || `Could not assign (${resp.status})`);
+      }
       const picked = companyDrivers.find((d) => d.id === driverId) || null;
       if (picked) setSecondaryDriver({ full_name: picked.full_name, phone: picked.phone });
-      toast({ title: "Secondary driver assigned", description: picked?.full_name || "Driver added as second on this job." });
-      try {
-        const { notificationService } = await import("@/services/notificationService");
-        await notificationService.createNotification({
-          company_id: order.company_id,
-          recipient_id: driverId,
-          user_id: driverId,
-          notification_type: "driver_assigned",
-          title: "Secondary delivery assignment",
-          message: `You're the second driver on order ${order.order_number || order.id}. Open Deliveries for the details.`,
-          priority: "high",
-          link: "/team-portal/driver/deliveries",
-          related_entity_type: "order",
-          related_entity_id: order.id,
-        } as any);
-      } catch (notifyErr) {
-        console.warn("[DriverSection] secondary driver notify failed:", notifyErr);
-      }
+      toast({ title: "Secondary driver assigned", description: `${picked?.full_name || "Driver"} added + notified.` });
     } catch (e: any) {
       toast({ title: "Could not assign", description: e?.message || "Try again.", variant: "destructive" });
     } finally {
