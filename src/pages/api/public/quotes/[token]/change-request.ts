@@ -210,6 +210,117 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     return res.status(500).json({ ok: false, error: "Could not send your message, please try again." });
   }
 
+  // ---- Auto-apply the requested changes onto the quote ----
+  // The operator should open the quote and see the CLIENT'S numbers, not
+  // the old ones. We write the requested date / guests / venue / items
+  // straight onto the quote, recompute the total so the figure stays
+  // internally consistent (lines + fees - discount = total), and flip the
+  // quote to 'draft' so the operator reprices + re-sends. The client can't
+  // accept in the meantime: the public page hides Accept/Decline whenever a
+  // pending change request exists. The operator's Save & Send finalises the
+  // exact price and marks the request addressed. Best-effort: a failure
+  // here must not break the client's 200 (the request row is already saved).
+  try {
+    const { data: full } = await (supabase as any)
+      .from("quotes")
+      .select("menu_items, equipment_items, delivery_fee, collection_fee, discount_amount")
+      .eq("id", quote.id)
+      .maybeSingle();
+
+    const quoteUpdate: Record<string, any> = {};
+    if (requestedChanges.event_date) quoteUpdate.event_date = requestedChanges.event_date;
+    if (typeof requestedChanges.guest_count === "number") quoteUpdate.guest_count = requestedChanges.guest_count;
+    if (requestedChanges.venue_address) quoteUpdate.venue_address = requestedChanges.venue_address;
+
+    let newMenu: any[] | null = null;
+    let newEquip: any[] | null = null;
+    if (Array.isArray(requestedChanges.menu_items)) {
+      newMenu = requestedChanges.menu_items.map((m: any) => ({
+        menu_item_id: m.menu_item_id ?? null,
+        item_name: m.item_name,
+        name: m.item_name,
+        quantity: Number(m.quantity) || 0,
+        unit_price: Number(m.unit_price) || 0,
+        line_total: Math.round((Number(m.quantity) || 0) * (Number(m.unit_price) || 0) * 100) / 100,
+        pricing_mode: "per_portion",
+      }));
+      quoteUpdate.menu_items = newMenu;
+    }
+    if (Array.isArray(requestedChanges.equipment_items)) {
+      newEquip = requestedChanges.equipment_items.map((e: any) => ({
+        equipment_id: e.equipment_id ?? null,
+        name: e.name,
+        quantity: Number(e.quantity) || 0,
+        unit_price: Number(e.unit_price) || 0,
+        line_total: Math.round((Number(e.quantity) || 0) * (Number(e.unit_price) || 0) * 100) / 100,
+      }));
+      quoteUpdate.equipment_items = newEquip;
+    }
+
+    // Recompute totals only when the item set actually changed.
+    if (newMenu || newEquip) {
+      const menuArr = newMenu || (Array.isArray((full as any)?.menu_items) ? (full as any).menu_items : []);
+      const equipArr = newEquip || (Array.isArray((full as any)?.equipment_items) ? (full as any).equipment_items : []);
+      const lineSum = (arr: any[], priceKeys: string[]) =>
+        arr.reduce((s, x) => {
+          const qty = Number(x.quantity) || 0;
+          const price = priceKeys.map((k) => Number(x[k])).find((n) => Number.isFinite(n) && n > 0) || 0;
+          return s + qty * price;
+        }, 0);
+      const menuSum = lineSum(menuArr, ["unit_price", "pricePerPerson", "base_price"]);
+      const equipSum = lineSum(equipArr, ["unit_price", "rentalPrice", "rental_price"]);
+      const delivery = Number((full as any)?.delivery_fee) || 0;
+      const collection = Number((full as any)?.collection_fee) || 0;
+      const discount = Number((full as any)?.discount_amount) || 0;
+      const itemsAndFees = Math.max(0, menuSum + equipSum + delivery + collection - discount);
+
+      // Resolve the tenant's VAT convention so the stored subtotal/tax/total
+      // agree with how the public quote renders them.
+      let incVat = false;
+      let vatReg = false;
+      let rate = 0.15;
+      try {
+        const { data: co } = await (supabase as any)
+          .from("companies")
+          .select("vat_registered, vat_rate, pricing_includes_vat")
+          .eq("id", quote.company_id)
+          .maybeSingle();
+        incVat = (co as any)?.pricing_includes_vat === true;
+        vatReg = !!(co as any)?.vat_registered;
+        const r = Number((co as any)?.vat_rate);
+        if (Number.isFinite(r) && r > 0) rate = r > 1 ? r / 100 : r;
+      } catch { /* defaults */ }
+
+      const round2 = (n: number) => Math.round(n * 100) / 100;
+      if (incVat) {
+        // Prices are gross. total == items+fees; VAT is the embedded portion.
+        quoteUpdate.total = round2(itemsAndFees);
+        quoteUpdate.total_amount = round2(itemsAndFees);
+        quoteUpdate.subtotal = round2(itemsAndFees);
+        quoteUpdate.tax_amount = vatReg ? round2(itemsAndFees - itemsAndFees / (1 + rate)) : 0;
+      } else {
+        // Prices are net. VAT adds on top.
+        const tax = vatReg ? round2(itemsAndFees * rate) : 0;
+        quoteUpdate.subtotal = round2(itemsAndFees);
+        quoteUpdate.tax_amount = tax;
+        quoteUpdate.total = round2(itemsAndFees + tax);
+        quoteUpdate.total_amount = round2(itemsAndFees + tax);
+      }
+    }
+
+    if (Object.keys(quoteUpdate).length > 0) {
+      const { error: applyErr } = await (supabase as any)
+        .from("quotes")
+        .update(quoteUpdate)
+        .eq("id", quote.id);
+      if (applyErr) {
+        console.error("[public/quotes/change-request] auto-apply failed:", applyErr);
+      }
+    }
+  } catch (e) {
+    console.warn("[public/quotes/change-request] auto-apply threw:", e);
+  }
+
   // Notify admin (best-effort). Fan out to every operator who can
   // act on the change request - the previous single-row insert only
   // hit quote.user_id, which often doesn't match the actual sales
