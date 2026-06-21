@@ -102,7 +102,11 @@ export default function DriverCalendarPage() {
           "id, order_number, client_name, event_date, event_time, pickup_time, venue_address, guest_count, status, assigned_driver_id, driver_id",
         )
         .eq("company_id", user.company_id)
-        .in("status", ["confirmed", "preparing", "ready", "in_transit"])
+        // Show every real delivery job on the calendar - upcoming (confirmed
+        // -> in_transit) AND already finished (delivered/completed) so the
+        // driver sees their full schedule + history, not just the live ones.
+        // Only quote/pending/cancelled (not yet a real job) are left off.
+        .in("status", ["confirmed", "preparing", "ready", "in_transit", "delivered", "completed"])
         .gte("event_date", toIso(start))
         .lte("event_date", toIso(end));
 

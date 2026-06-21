@@ -296,7 +296,7 @@ export function NotificationBell() {
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="end"
-        className="w-[380px] sm:w-[420px] p-0"
+        className="w-[calc(100vw-1.5rem)] max-w-[420px] sm:w-[420px] p-0"
         sideOffset={8}
       >
         {/* Header */}
