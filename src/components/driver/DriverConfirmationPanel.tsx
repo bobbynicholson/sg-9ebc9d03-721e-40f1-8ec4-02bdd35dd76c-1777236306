@@ -91,6 +91,16 @@ export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venue
     if (!user) return;
 
     setLoading(true);
+    // Optimistic: flip the step to "Confirmed" instantly instead of waiting
+    // for the round-trip + reload (that wait is what made each tap feel
+    // laggy). loadConfirmations() reconciles with the server right after;
+    // the catch reloads to roll back if the write failed.
+    const nowIso = new Date().toISOString();
+    setConfirmations((prev: any[]) =>
+      prev.some((c) => c.confirmation_type === type)
+        ? prev
+        : [...prev, { confirmation_type: type, confirmed_at: nowIso }],
+    );
     try {
       let result;
       switch (type) {
@@ -124,6 +134,8 @@ export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venue
 
       await loadConfirmations();
     } catch (error: any) {
+      // Roll back the optimistic confirm to the server truth.
+      await loadConfirmations();
       toast({
         title: "Error",
         description: dbErrorMessage(error, { entity: "delivery", fallback: "Failed to confirm status" }),
