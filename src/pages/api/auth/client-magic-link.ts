@@ -81,7 +81,7 @@ function buildEmailHtml(args: {
   const html = `<!doctype html>
 <html><body style="margin:0;background:#f8fafc;font-family:Helvetica,Arial,sans-serif;color:#0f172a">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;padding:32px 16px">
-    <tr><td align="center">
+    <tr><td align="left">
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:16px;box-shadow:0 4px 16px rgba(15,23,42,0.06);overflow:hidden">
         <tr><td style="padding:24px 28px;border-bottom:1px solid #e2e8f0">
           ${headerLogo}
@@ -91,7 +91,7 @@ function buildEmailHtml(args: {
           <p style="margin:0 0 24px;font-size:15px;line-height:1.6;color:#475569">
             Tap the button below to sign in to your portal. The link expires in 1 hour and only works once.
           </p>
-          <table role="presentation" cellpadding="0" cellspacing="0" style="margin:8px 0 24px"><tr><td align="center" style="border-radius:10px;background:linear-gradient(135deg,${accent} 0%,${accent2} 100%)">
+          <table role="presentation" cellpadding="0" cellspacing="0" style="margin:8px 0 24px"><tr><td align="left" style="border-radius:10px;background:linear-gradient(135deg,${accent} 0%,${accent2} 100%)">
             <a href="${args.magicLink}" style="display:inline-block;padding:14px 28px;font-weight:600;font-size:15px;color:#ffffff;text-decoration:none">Sign in to your portal</a>
           </td></tr></table>
           <p style="margin:0 0 8px;font-size:13px;color:#94a3b8">If the button doesn't work, paste this URL in your browser:</p>
