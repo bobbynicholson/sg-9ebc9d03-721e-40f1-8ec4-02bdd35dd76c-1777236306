@@ -109,7 +109,11 @@ export default function DriverDeliveriesPage() {
         // driver sees what's on the truck, not just where they're going.
         // Both live on the linked quote, not orders.
         .select("id, order_number, event_name, event_date, event_time, venue_address, guest_count, status, delivery_status, client_name, client_phone, client_email, quote:quotes!orders_quote_id_fkey(menu_items, equipment_items)")
-        .or(`assigned_driver_id.eq.${user.id},driver_id.eq.${user.id}`)
+        // Include orders where this user is the PRIMARY (assigned_driver_id /
+        // legacy driver_id) OR the SECONDARY (secondary_driver_id) - a
+        // second driver on a two-driver job was getting an empty list
+        // because secondary_driver_id wasn't in the filter.
+        .or(`assigned_driver_id.eq.${user.id},driver_id.eq.${user.id},secondary_driver_id.eq.${user.id}`)
         .order("event_date", { ascending: false });
       if (!cancelled) {
         if (error) console.error("Error loading deliveries:", error);
