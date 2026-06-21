@@ -237,6 +237,14 @@ export default function ClientOrderPage() {
   // invoice's paid/balance figures; fall back to the order's deposit flag.
   const paidToDate = Number((invoice as any)?.amount_paid ?? 0);
   const balanceDue = Number((invoice as any)?.balance_due ?? 0);
+  // Payment history (deposits / balance). Populated by client_view_order,
+  // which now also pulls payments tied to the order's invoice (not just
+  // order_id), so a recorded deposit actually shows here.
+  const paymentsArr: Array<{ payment_type: string | null; status: string | null; processed_at: string | null; amount: number | null }> =
+    Array.isArray((view as any)?.payments) ? (view as any).payments : [];
+  const settledPayments = paymentsArr.filter(
+    (p) => String(p?.status || "").toLowerCase() === "completed" && Number(p?.amount) > 0,
+  );
   const paymentLabel = invoice
     ? balanceDue <= 0 && paidToDate > 0
       ? "Paid"
@@ -548,7 +556,7 @@ export default function ClientOrderPage() {
           })()}
 
           {/* Payment summary */}
-          {(order.deposit_amount || order.balance_amount) && (
+          {(order.deposit_amount || order.balance_amount || settledPayments.length > 0) && (
             <Card className="border-0 shadow-lg">
               <CardHeader className="pb-3">
                 <CardTitle className="text-base flex items-center gap-2">
@@ -562,6 +570,26 @@ export default function ClientOrderPage() {
                 )}
                 {order.balance_amount && (
                   <Row label={`Balance ${order.balance_paid ? "(paid)" : order.balance_due_date ? `(due ${new Date(order.balance_due_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })})` : "(due)"}`} value={fmtMoney.format(Number(order.balance_amount))} paid={order.balance_paid} />
+                )}
+                {/* Itemised payment history - what landed and when. Each
+                    line is one settled payment (deposit / balance), pulled
+                    via the order's invoice so a recorded deposit shows. */}
+                {settledPayments.length > 0 && (
+                  <div className="pt-2 mt-1 border-t border-slate-100 space-y-1">
+                    <p className="text-[11px] uppercase tracking-wide text-slate-400 font-semibold">Payments received</p>
+                    {settledPayments.map((p, i) => {
+                      const kind = String(p.payment_type || "").toLowerCase();
+                      const label = kind === "deposit" ? "Deposit" : kind === "balance" || kind === "order" ? "Balance" : "Payment";
+                      return (
+                        <div key={i} className="flex items-center justify-between text-xs">
+                          <span className="text-slate-600">
+                            {label}{p.processed_at ? ` · ${new Date(p.processed_at).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}` : ""}
+                          </span>
+                          <span className="font-semibold text-emerald-700 tabular-nums">{fmtMoney.format(Number(p.amount) || 0)}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
                 )}
                 {/* Wave 19: Pay button when there's an outstanding invoice.
                     Routes through the public /pay/i/{token} flow which is
