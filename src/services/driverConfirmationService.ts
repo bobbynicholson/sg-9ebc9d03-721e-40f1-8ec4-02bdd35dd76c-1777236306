@@ -91,6 +91,24 @@ export const driverConfirmationService = {
 
     await this.notifyAdminOfConfirmation(orderId, driverId, 'at_kitchen');
 
+    // Kitchen auto clock-out: once the driver is at the kitchen to collect,
+    // the kitchen's cooking for THIS order is done, so close any open
+    // kitchen duty shift tied to this order. The shift is order-scoped, so
+    // this won't touch a chef's shift for a different order. Best-effort.
+    try {
+      const { kitchenDutyService } = await import("@/services/kitchenDutyService");
+      const { data: shifts } = await supabase
+        .from("kitchen_duty_shifts")
+        .select("id")
+        .eq("order_id", orderId)
+        .eq("is_active", true);
+      for (const s of shifts || []) {
+        await kitchenDutyService.endDutyShift((s as any).id, "Auto clock-out: driver arrived to collect");
+      }
+    } catch (dutyErr) {
+      console.warn("[confirmAtKitchen] kitchen auto clock-out failed (non-blocking):", dutyErr);
+    }
+
     return data as DriverConfirmation;
   },
 

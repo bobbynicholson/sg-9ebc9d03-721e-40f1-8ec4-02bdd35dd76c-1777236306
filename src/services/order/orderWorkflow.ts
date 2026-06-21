@@ -401,6 +401,41 @@ export async function updateOrderStatus(
     // When the driver hit "at_venue" via the geofence / status tap and
     // skipped the POD capture dialog, the order is marked delivered
     // with pod_captured_at = NULL. Broadcast a notification to admin so
+    // Driver auto clock-out: once their delivery is done they should stop
+    // accruing hours - BUT only if they have no OTHER active deliveries
+    // (a driver mid-route on another order stays on the clock). Closes the
+    // open driver_shifts row (actual_end + status=completed). Best-effort.
+    if (newStatus === "delivered" && order.company_id) {
+      try {
+        const { data: delRow } = await (supabase as any)
+          .from("orders")
+          .select("assigned_driver_id")
+          .eq("id", order.id)
+          .maybeSingle();
+        const driverToClock = (delRow as any)?.assigned_driver_id;
+        if (driverToClock) {
+          const { data: otherActive } = await (supabase as any)
+            .from("driver_assignments")
+            .select("id")
+            .eq("driver_id", driverToClock)
+            .neq("order_id", order.id)
+            .in("status", ["assigned", "accepted", "en_route", "picked_up", "at_venue"])
+            .limit(1);
+          if (!otherActive || otherActive.length === 0) {
+            await (supabase as any)
+              .from("driver_shifts")
+              .update({ actual_end: new Date().toISOString(), status: "completed" })
+              .eq("driver_id", driverToClock)
+              .eq("company_id", order.company_id)
+              .eq("status", "active")
+              .is("actual_end", null);
+          }
+        }
+      } catch (e) {
+        console.warn("[updateOrderStatus] driver auto clock-out failed (non-blocking):", e);
+      }
+    }
+
     // they can chase the driver for proof before the client phones
     // disputing the delivery. Non-blocking. Skipped on retries (the
     // delivered transition is idempotent and we don't want to spam the
