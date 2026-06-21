@@ -498,7 +498,22 @@ function DriverTrackingInner() {
                       mobile pops the dialer. */}
                   {delivery.clientPhone && (
                     <a
-                      href={`tel:${delivery.clientPhone}`}
+                      href={`tel:${String(delivery.clientPhone).replace(/[^+\d]/g, "")}`}
+                      onClick={() => {
+                        // Desktop has no dialer, so a tel: click is a dead
+                        // no-op there. Copy the number + toast as a fallback
+                        // so "Call" always does something; mobile still dials.
+                        try {
+                          navigator.clipboard
+                            ?.writeText(String(delivery.clientPhone))
+                            .then(() =>
+                              toast({ title: "Number copied", description: String(delivery.clientPhone) }),
+                            )
+                            .catch(() => {});
+                        } catch {
+                          /* clipboard unavailable - tel: still fires on mobile */
+                        }
+                      }}
                       className="flex items-center gap-3 p-5 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
                     >
                       <div className="w-10 h-10 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-400 dark:text-slate-500 flex items-center justify-center shrink-0">
@@ -512,7 +527,7 @@ function DriverTrackingInner() {
                           {delivery.clientPhone}
                         </p>
                       </div>
-                      <span className="text-xs text-amber-600 dark:text-amber-400 font-medium shrink-0">Tap to call</span>
+                      <span className="text-xs text-amber-600 dark:text-amber-400 font-medium shrink-0">Tap to call / click to copy</span>
                     </a>
                   )}
 
