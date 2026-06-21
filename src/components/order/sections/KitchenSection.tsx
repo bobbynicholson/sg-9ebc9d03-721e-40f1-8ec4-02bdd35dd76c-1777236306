@@ -59,6 +59,7 @@ interface PrepTask {
   notes: string | null;
   menu_item_name: string | null;
   assigned_chef_id: string | null;
+  completed_by: string | null;
   station?: { name: string | null } | null;
 }
 
@@ -119,6 +120,10 @@ export function KitchenSection({
   const [tasks, setTasks] = useState<PrepTask[]>([]);
   const [items, setItems] = useState<OrderItemRow[]>([]);
   const [recipeIds, setRecipeIds] = useState<Set<string>>(new Set());
+  // Who actually marked each task done (completed_by) -> display name,
+  // so the operator can see the KITCHEN did the work (and when), not
+  // just that someone flipped a status. Resolved from profiles.
+  const [actorNames, setActorNames] = useState<Map<string, string>>(new Map());
   const [equipment, setEquipment] = useState<EquipmentBookingRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState<string | null>(null);
@@ -187,7 +192,7 @@ export function KitchenSection({
         const [tasksRes, itemsRes, eqRes] = await Promise.all([
           (supabase as any)
             .from("kitchen_prep_tasks")
-            .select("id, task_type, status, start_at, started_at, completed_at, station_id, duration_min, notes, menu_item_name, assigned_chef_id, station:station_id(name)")
+            .select("id, task_type, status, start_at, started_at, completed_at, station_id, duration_min, notes, menu_item_name, assigned_chef_id, completed_by, station:station_id(name)")
             .eq("order_id", orderId)
             .is("deleted_at", null)
             .order("start_at", { ascending: true, nullsFirst: false }),
@@ -208,6 +213,26 @@ export function KitchenSection({
         setTasks(tasksRows);
         setItems(itemRows);
         setEquipment(eqRows);
+        // Resolve "done by" names so completed tasks show who actually
+        // did the work (kitchen chef vs an admin override) + when.
+        const actorIds = Array.from(new Set(
+          tasksRows.map((t) => t.completed_by).filter((x): x is string => !!x),
+        ));
+        if (actorIds.length > 0) {
+          const { data: profRows } = await (supabase as any)
+            .from("profiles")
+            .select("id, full_name")
+            .in("id", actorIds);
+          if (!cancelled) {
+            const m = new Map<string, string>();
+            for (const p of (profRows || []) as Array<{ id: string; full_name: string | null }>) {
+              if (p.full_name) m.set(p.id, p.full_name);
+            }
+            setActorNames(m);
+          }
+        } else {
+          setActorNames(new Map());
+        }
         // Second hop: which menu_items have a recipe row? Avoids
         // false-positive "Recipe" links on items that have a
         // recipe_name typed but no actual recipe stored.
@@ -244,7 +269,7 @@ export function KitchenSection({
         async () => {
           const { data } = await (supabase as any)
             .from("kitchen_prep_tasks")
-            .select("id, task_type, status, start_at, started_at, completed_at, station_id, duration_min, notes, menu_item_name, assigned_chef_id, station:station_id(name)")
+            .select("id, task_type, status, start_at, started_at, completed_at, station_id, duration_min, notes, menu_item_name, assigned_chef_id, completed_by, station:station_id(name)")
             .eq("order_id", orderId)
             .is("deleted_at", null)
             .order("start_at", { ascending: true, nullsFirst: false });
@@ -531,6 +556,22 @@ export function KitchenSection({
                           )}
                           {t.duration_min && <span> · {t.duration_min}min</span>}
                         </p>
+                        {/* Accountability: who actually marked this done +
+                            when, so an admin can see the KITCHEN did the
+                            work (or that it was an admin override) rather
+                            than just a status flip. */}
+                        {doneish && t.completed_at && (
+                          <p className="text-[11px] text-emerald-700 mt-0.5">
+                            Done{t.completed_by && actorNames.get(t.completed_by) ? ` by ${actorNames.get(t.completed_by)}` : ""}
+                            {" · "}
+                            {new Date(t.completed_at).toLocaleString("en-ZA", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+                          </p>
+                        )}
+                        {inProgress && t.started_at && (
+                          <p className="text-[11px] text-orange-700 mt-0.5">
+                            Started · {new Date(t.started_at).toLocaleString("en-ZA", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+                          </p>
+                        )}
                       </div>
                       {canAct && !doneish && (
                         <div className="flex items-center gap-1">

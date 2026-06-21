@@ -703,13 +703,50 @@ export const kitchenPrepService = {
     const orderId = (updated as any)?.order_id as string | undefined;
     if (orderId) {
       try {
-        await supabase
+        const { data: ord } = await supabase
           .from("orders")
-          .update({ prep_started_at: nowIso })
+          .select("company_id, order_number, prep_started_at")
           .eq("id", orderId)
-          .is("prep_started_at", null);
+          .maybeSingle();
+        // Stamp prep_started_at the first time (guarded on null).
+        if (ord && !(ord as any).prep_started_at) {
+          await supabase
+            .from("orders")
+            .update({ prep_started_at: nowIso })
+            .eq("id", orderId)
+            .is("prep_started_at", null);
+        }
+        // Cross-role hand-off: when a NON-kitchen user (an admin/owner)
+        // kicks off prep, ping the kitchen team to actually cook it -
+        // "admin can start but the kitchen must be told". When the
+        // kitchen started it themselves we skip (they already know).
+        // The reverse leg (kitchen done -> admins) rides the
+        // all-tasks-done -> order 'ready' -> sendStatusNotifications path.
+        const { data: actor } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", performedBy)
+          .maybeSingle();
+        const actorRole = String((actor as any)?.role || "");
+        if ((ord as any)?.company_id && actorRole && actorRole !== "kitchen_staff") {
+          const { notificationService } = await import("@/services/notificationService");
+          const { UserRole } = await import("@/types/app");
+          await notificationService.broadcastNotification({
+            companyId: (ord as any).company_id,
+            type: "kitchen_prep_start_requested",
+            title: "Time to prep",
+            message: `Prep has been kicked off for order ${(ord as any).order_number || ""}. Open the prep list and start cooking, then mark each task done.`,
+            targetRoles: [UserRole.KITCHEN_STAFF],
+            priority: "high",
+            link: "/team-portal/kitchen/prep-list",
+            relatedEntityType: "order",
+            relatedEntityId: orderId,
+            dedup: true,
+            dedupWindowMinutes: 120,
+          });
+        }
       } catch (e) {
-        console.warn("[kitchenPrepService] order prep_started_at stamp failed:", e);
+        console.warn("[kitchenPrepService] startTask order stamp / kitchen notify failed:", e);
       }
     }
     return true;
