@@ -1553,7 +1553,9 @@ async function sendStatusNotifications(order: any) {
           message: `Order ${orderNumber} confirmed${eventDateLabel ? ` for ${eventDateLabel}` : ""}. Prep tasks have been scheduled.`,
           type: "order_confirmed",
           priority: "normal",
-          link: `/team-portal/kitchen/prep-list?orderId=${order.id}`,
+          // Order's kitchen view (Start/Done live there), not the
+          // ingredient pull list which has no prep tasks to action.
+          link: `/order/${order.id}?role=kitchen`,
           relatedEntityType: "order",
           relatedEntityId: order.id,
         }).catch((e) => {
