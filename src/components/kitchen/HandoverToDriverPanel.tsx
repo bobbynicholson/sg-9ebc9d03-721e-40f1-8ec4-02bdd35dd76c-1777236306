@@ -113,10 +113,22 @@ export function HandoverToDriverPanel({ orderId, orderNumber }: HandoverToDriver
     }
     setState((s) => ({ ...s, loading: true }));
     try {
+      // Tag company_id so the row is correct for company-scoped reads +
+      // the RLS check. Prefer the user's company; fall back to the order's.
+      let companyId = (user as { company_id?: string } | null)?.company_id ?? null;
+      if (!companyId) {
+        const { data: ord } = await (supabase as any)
+          .from("orders")
+          .select("company_id")
+          .eq("id", orderId)
+          .maybeSingle();
+        companyId = (ord as any)?.company_id ?? null;
+      }
       const { error } = await (supabase as any)
         .from("equipment_handovers")
         .insert([{
           order_id: orderId,
+          company_id: companyId,
           from_stage: "kitchen",
           to_stage: "driver",
           handed_over_by: user.id,
