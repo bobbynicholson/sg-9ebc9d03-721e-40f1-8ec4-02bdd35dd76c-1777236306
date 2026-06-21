@@ -128,12 +128,23 @@ export function KitchenSection({
 
   // ODOC Phase 2: kitchen action gate. Kitchen staff + admins
   // can mark tasks. Other roles see read-only state.
+  //
+  // FIX: this used to read ONLY the `userRoles` array, which is often
+  // empty/late-loading for admins viewing an order doc - so the Start/
+  // Complete buttons silently never rendered and the chef/operator saw
+  // tasks stuck on "pending" with nothing to click. Build the role set
+  // from every signal we have (single role + active_role + the array)
+  // so the gate works regardless of which one is populated.
   const canAct = (() => {
-    const roles = Array.isArray(userRoles) ? userRoles : [];
     const role = user?.role as UserRole | undefined;
-    if (role === UserRole.KITCHEN_STAFF) return true;
-    if (roles.includes(UserRole.KITCHEN_STAFF)) return true;
-    return canAccessDriverWidgets(roles); // admin / owner / super_admin pass through
+    const activeRole = (user as { active_role?: UserRole } | null)?.active_role;
+    const combined = [
+      role,
+      activeRole,
+      ...(Array.isArray(userRoles) ? userRoles : []),
+    ].filter(Boolean) as UserRole[];
+    if (combined.includes(UserRole.KITCHEN_STAFF)) return true;
+    return canAccessDriverWidgets(combined); // admin / owner / super_admin pass through
   })();
 
   const handleStart = async (taskId: string) => {
