@@ -13,7 +13,7 @@
  * colours read from companies row). The catering company's name/email/
  * phone show up at the top so the client knows exactly who's catering.
  */
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import Head from "next/head";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -93,61 +93,69 @@ export default function ClientOrderPage() {
 
   // Step 1: if there's a ?t= param, validate it and set the cookie,
   // then strip the token from the URL.
+  // Load the order view. `silent` = background refresh (no spinner, don't
+  // clobber the page with an error if a poll blips) so the page can
+  // auto-update without flicker.
+  const loadView = useCallback(async (opts?: { silent?: boolean }) => {
+    if (!orderId) return;
+    if (!opts?.silent) { setLoading(true); setError(null); }
+    try {
+      let r: Response;
+      if (queryToken) {
+        // TIGHTEN I.126 (2026-06-03): token is bound to one order with a
+        // 24h TTL, so we keep it in the URL (survives refresh/share) and
+        // validate server-side.
+        let urlSlug = "";
+        if (typeof window !== "undefined") {
+          const parts = window.location.pathname.split("/").filter(Boolean);
+          if (parts.length >= 4 && parts[1] === "c" && parts[2] === "order") {
+            urlSlug = parts[0];
+          }
+        }
+        r = await fetch("/api/client-tokens/validate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ order_id: orderId, token: queryToken, slug: urlSlug || undefined }),
+        });
+      } else {
+        // No token in URL - try the cookie.
+        r = await fetch("/api/client-tokens/view", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ order_id: orderId }),
+        });
+      }
+      const data = await r.json();
+      if (!r.ok) throw new Error(data?.detail ? `${data.error}: ${data.detail}` : (data?.error || (queryToken ? "Invalid link" : "Link expired")));
+      setView(data as OrderView);
+      if (opts?.silent) setError(null);
+    } catch (e: any) {
+      // A background poll failing (transient) shouldn't blank the page the
+      // client is reading - only surface errors on the foreground load.
+      if (!opts?.silent) setError(e?.message || "Could not load this booking");
+    } finally {
+      if (!opts?.silent) setLoading(false);
+    }
+  }, [orderId, queryToken]);
+
+  useEffect(() => {
+    if (!router.isReady) return;
+    void loadView();
+  }, [router.isReady, loadView]);
+
+  // Live updates without a manual refresh: poll the order every 20s and
+  // on tab focus. This page is a token/magic-link surface (no Supabase
+  // session), so realtime postgres_changes is blocked by RLS - polling is
+  // the reliable way to keep the status + timeline current as the kitchen
+  // / driver advance the order. Silent so it never flickers or shows a
+  // spinner over what the client is reading.
   useEffect(() => {
     if (!router.isReady || !orderId) return;
-    let cancelled = false;
-    (async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        if (queryToken) {
-          // TIGHTEN I.126 (2026-06-03): no more URL strip. The token is
-          // bound to one order and has a 24-hour TTL, so the leak
-          // surface is tiny; in return, the URL stays canonical and
-          // the page survives every refresh / share / re-open within
-          // the 24-hour window without depending on a cookie that has
-          // historically been fiddly to ship through tenant rewrites.
-          // Bobby saw this fire one minute after sending an email -
-          // validate succeeded server-side but the post-strip rerun
-          // hit /view without a cookie and bounced to the recovery
-          // card.
-          let urlSlug = "";
-          if (typeof window !== "undefined") {
-            const parts = window.location.pathname.split("/").filter(Boolean);
-            if (parts.length >= 4 && parts[1] === "c" && parts[2] === "order") {
-              urlSlug = parts[0];
-            }
-          }
-          const r = await fetch("/api/client-tokens/validate", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ order_id: orderId, token: queryToken, slug: urlSlug || undefined }),
-          });
-          const data = await r.json();
-          if (!r.ok) throw new Error(data?.detail ? `${data.error}: ${data.detail}` : (data?.error || "Invalid link"));
-          if (cancelled) return;
-          setView(data as OrderView);
-        } else {
-          // No token in URL - try the cookie
-          const r = await fetch("/api/client-tokens/view", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ order_id: orderId }),
-          });
-          const data = await r.json();
-          if (!r.ok) throw new Error(data?.detail ? `${data.error}: ${data.detail}` : (data?.error || "Link expired"));
-          if (cancelled) return;
-          setView(data as OrderView);
-        }
-      } catch (e: any) {
-        if (!cancelled) setError(e?.message || "Could not load this booking");
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [router.isReady, orderId, queryToken]);
+    const t = setInterval(() => { void loadView({ silent: true }); }, 20000);
+    const onFocus = () => { void loadView({ silent: true }); };
+    window.addEventListener("focus", onFocus);
+    return () => { clearInterval(t); window.removeEventListener("focus", onFocus); };
+  }, [router.isReady, orderId, loadView]);
 
   // Apply branding - company colours go on a CSS var the page reads
   const primary   = view?.company?.primary_color   || "#9333ea";
