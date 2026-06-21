@@ -749,6 +749,24 @@ export const kitchenPrepService = {
             dedupWindowMinutes: 120,
           });
         }
+        // Auto clock-in: when a CHEF starts a prep task and isn't already
+        // on a duty shift, open one so their time is tracked from the
+        // moment they actually start cooking - no separate "Start duty"
+        // step. Without this the duty/time view stayed empty even though
+        // the kitchen was working. Admins starting on behalf don't clock
+        // in (they aren't kitchen staff); the chef clocks in when they
+        // pick up the task. Best-effort - never block the task start.
+        if (actorRole === "kitchen_staff") {
+          try {
+            const { kitchenDutyService } = await import("@/services/kitchenDutyService");
+            const active = await kitchenDutyService.getCurrentDutyShift(performedBy);
+            if (!active) {
+              await kitchenDutyService.startDutyShift(performedBy, performedBy, orderId);
+            }
+          } catch (dutyErr) {
+            console.warn("[kitchenPrepService] auto clock-in on task start failed:", dutyErr);
+          }
+        }
       } catch (e) {
         console.warn("[kitchenPrepService] startTask order stamp / kitchen notify failed:", e);
       }
