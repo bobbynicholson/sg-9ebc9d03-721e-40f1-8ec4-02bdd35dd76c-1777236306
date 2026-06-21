@@ -632,15 +632,18 @@ export default function PublicQuotePage() {
                 </div>
               )}
               {eventDate && (
-                <div className="flex items-start gap-3">
-                  <div className="w-9 h-9 rounded-lg bg-brand-primary/10 flex items-center justify-center shrink-0">
-                    <Calendar className="w-4 h-4 text-brand-primary" />
+                <div className="flex items-start gap-3 sm:col-span-3 rounded-xl bg-brand-primary/5 border border-brand-primary/15 p-3">
+                  <div className="w-11 h-11 rounded-lg bg-brand-primary/10 flex items-center justify-center shrink-0">
+                    <Calendar className="w-5 h-5 text-brand-primary" />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-[10px] uppercase tracking-[0.15em] text-stone-500 font-bold">Event date</p>
-                    <p className="text-sm font-semibold text-stone-900 mt-0.5">
-                      {eventDate}{eventTime ? ` - ${eventTime} start` : ""}
+                    <p className="text-[10px] uppercase tracking-[0.15em] text-brand-primary font-bold">Event date</p>
+                    <p className="text-2xl sm:text-3xl font-serif font-bold text-stone-900 leading-tight mt-0.5">
+                      {eventDate}
                     </p>
+                    {eventTime && (
+                      <p className="text-sm font-semibold text-stone-700 mt-0.5">{eventTime} start</p>
+                    )}
                     {setupTime && setupTime !== eventTime && (
                       <p className="text-xs text-stone-600 mt-0.5 flex items-center gap-1">
                         <Clock className="w-3 h-3 text-stone-400" />
