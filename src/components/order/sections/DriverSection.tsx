@@ -28,6 +28,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { captureException } from "@/lib/observability";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTenantHref } from "@/lib/tenantUrl";
+import { useToast } from "@/hooks/use-toast";
 import { UserRole } from "@/types/app";
 import {
   Truck, MapPin, Clock, CheckCircle2, Loader2, Camera, User, Navigation,
@@ -37,6 +38,7 @@ import {
 interface Props {
   order: {
     id: string;
+    order_number: string | null;
     company_id: string;
     event_date: string;
     event_time: string | null;
@@ -103,12 +105,17 @@ interface ProfileRow {
 export function DriverSection({ order, defaultOpen, forceOpen, highlight }: Props) {
   const { user, userRoles } = useAuth();
   const { withSlug } = useTenantHref();
+  const { toast } = useToast();
   const [assignment, setAssignment] = useState<Assignment | null>(null);
   const [driverProfile, setDriverProfile] = useState<ProfileRow | null>(null);
   const [vehicle, setVehicle] = useState<VehicleRow | null>(null);
   const [secondaryDriver, setSecondaryDriver] = useState<ProfileRow | null>(null);
   const [secondaryVehicle, setSecondaryVehicle] = useState<VehicleRow | null>(null);
   const [loading, setLoading] = useState(true);
+  // Secondary-driver picker (admin only). companyDrivers feeds the
+  // dropdown; savingSecondary disables it mid-write.
+  const [companyDrivers, setCompanyDrivers] = useState<Array<{ id: string; full_name: string | null; phone: string | null }>>([]);
+  const [savingSecondary, setSavingSecondary] = useState(false);
 
   const isDriver = (() => {
     const roles = Array.isArray(userRoles) ? userRoles : [];
@@ -219,6 +226,63 @@ export function DriverSection({ order, defaultOpen, forceOpen, highlight }: Prop
       .subscribe();
     return () => { supabase.removeChannel(ch); };
   }, [order.id]);
+
+  // Load the company's drivers for the secondary-driver picker - admins
+  // only, and only when a second driver is actually needed + not yet set.
+  useEffect(() => {
+    if (!isAdminViewer || !order.requires_two_drivers || order.secondary_driver_id) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await (supabase as any)
+        .from("profiles")
+        .select("id, full_name, phone")
+        .eq("company_id", order.company_id)
+        .eq("role", "driver")
+        .order("full_name", { ascending: true });
+      if (!cancelled) setCompanyDrivers((data as any[]) || []);
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAdminViewer, order.requires_two_drivers, order.secondary_driver_id, order.company_id]);
+
+  // Assign a secondary driver: write orders.secondary_driver_id, reflect
+  // it locally, and ping that driver so they know they're the second on
+  // this job. Best-effort notify - never blocks the assignment.
+  const assignSecondaryDriver = async (driverId: string) => {
+    if (!driverId) return;
+    setSavingSecondary(true);
+    try {
+      const { error } = await (supabase as any)
+        .from("orders")
+        .update({ secondary_driver_id: driverId, updated_at: new Date().toISOString() })
+        .eq("id", order.id);
+      if (error) throw error;
+      const picked = companyDrivers.find((d) => d.id === driverId) || null;
+      if (picked) setSecondaryDriver({ full_name: picked.full_name, phone: picked.phone });
+      toast({ title: "Secondary driver assigned", description: picked?.full_name || "Driver added as second on this job." });
+      try {
+        const { notificationService } = await import("@/services/notificationService");
+        await notificationService.createNotification({
+          company_id: order.company_id,
+          recipient_id: driverId,
+          user_id: driverId,
+          notification_type: "driver_assigned",
+          title: "Secondary delivery assignment",
+          message: `You're the second driver on order ${order.order_number || order.id}. Open Deliveries for the details.`,
+          priority: "high",
+          link: "/team-portal/driver/deliveries",
+          related_entity_type: "order",
+          related_entity_id: order.id,
+        } as any);
+      } catch (notifyErr) {
+        console.warn("[DriverSection] secondary driver notify failed:", notifyErr);
+      }
+    } catch (e: any) {
+      toast({ title: "Could not assign", description: e?.message || "Try again.", variant: "destructive" });
+    } finally {
+      setSavingSecondary(false);
+    }
+  };
 
   const driver = assignment?.driver || driverProfile;
   const podCaptured = !!order.pod_captured_at;
@@ -409,7 +473,30 @@ export function DriverSection({ order, defaultOpen, forceOpen, highlight }: Prop
                     )}
                   </>
                 ) : (
-                  <p className="text-xs text-amber-700">No secondary driver assigned (required for this job).</p>
+                  <>
+                    <p className="text-xs text-amber-700">No secondary driver assigned (required for this job).</p>
+                    {isAdminViewer && (
+                      <div className="mt-1.5 flex items-center gap-2 flex-wrap">
+                        <select
+                          aria-label="Assign secondary driver"
+                          disabled={savingSecondary}
+                          defaultValue=""
+                          onChange={(e) => { if (e.target.value) void assignSecondaryDriver(e.target.value); }}
+                          className="h-8 rounded-md border border-slate-300 bg-white px-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-400 disabled:opacity-60"
+                        >
+                          <option value="" disabled>
+                            {companyDrivers.length ? "Pick a secondary driver..." : "No other drivers found"}
+                          </option>
+                          {companyDrivers
+                            .filter((d) => d.id !== order.assigned_driver_id)
+                            .map((d) => (
+                              <option key={d.id} value={d.id}>{d.full_name || "Driver"}</option>
+                            ))}
+                        </select>
+                        {savingSecondary && <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-600" />}
+                      </div>
+                    )}
+                  </>
                 )}
                 {secondaryVehicle && (
                   <div className="mt-1">
