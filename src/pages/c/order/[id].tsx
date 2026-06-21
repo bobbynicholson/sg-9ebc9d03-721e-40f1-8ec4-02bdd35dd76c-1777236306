@@ -232,6 +232,22 @@ export default function ClientOrderPage() {
   const { order, items, company, invoice } = view;
   const status = String(order.status || "").toLowerCase();
   const statusTone = STATUS_TONES[status] || STATUS_TONES.confirmed;
+  // Friendly payment label that AGREES with the pay page (/pay/i/[token])
+  // and the deposit flags, instead of the raw enum ("partial"). Prefer the
+  // invoice's paid/balance figures; fall back to the order's deposit flag.
+  const paidToDate = Number((invoice as any)?.amount_paid ?? 0);
+  const balanceDue = Number((invoice as any)?.balance_due ?? 0);
+  const paymentLabel = invoice
+    ? balanceDue <= 0 && paidToDate > 0
+      ? "Paid"
+      : paidToDate > 0
+        ? "Deposit paid"
+        : "Awaiting payment"
+    : order.deposit_paid
+      ? "Deposit paid"
+      : String(order.payment_status || "").toLowerCase() === "paid"
+        ? "Paid"
+        : "Awaiting payment";
   const eventDate = new Date(order.event_date);
   const daysOut = Math.ceil((eventDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
   const fmtMoney = new Intl.NumberFormat("en-ZA", {
@@ -357,7 +373,7 @@ export default function ClientOrderPage() {
                   <Stat icon={Clock} label="Setup arrives" value={String(order.setup_time)} />
                 )}
                 <Stat icon={Users} label="Guests" value={`${order.guest_count}`} />
-                <Stat icon={Receipt} label="Payment" value={String(order.payment_status || "pending")} valueClass="capitalize" />
+                <Stat icon={Receipt} label="Payment" value={paymentLabel} />
               </div>
             </CardContent>
           </Card>
