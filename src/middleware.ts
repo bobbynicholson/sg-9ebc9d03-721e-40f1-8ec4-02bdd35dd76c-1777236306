@@ -66,10 +66,12 @@ const ROUTE_GUARDS: Record<string, string[]> = {
   "/subscription": ADMIN_PORTAL_ROLES,
   "/account": ALL_AUTHENTICATED_ROLES,
   // ODOC: unified OrderDocument at /order/[id]. Every internal role
-  // can view (waiter included). Clients use the magic-link path
-  // /c/order/[token] which has its own auth and is not behind this
-  // guard.
-  "/order": [...ADMIN_PORTAL_ROLES, "kitchen_staff", "shopping_staff", "driver", "waiter", "cleaning_staff"],
+  // can view (waiter included). Clients are admitted too: the client
+  // portal "View details" links to /order/[id]?role=client (the doc
+  // renders a client-appropriate view), and RLS still scopes which
+  // order rows a client can read. (Magic-link visitors keep using the
+  // token path /c/order/[token].)
+  "/order": [...ADMIN_PORTAL_ROLES, "kitchen_staff", "shopping_staff", "driver", "waiter", "cleaning_staff", "client"],
 };
 
 // Check if user role has access to a specific route.
