@@ -175,7 +175,23 @@ function ShoppingDashboardInner() {
   const yourList = activeList.list?.isYours ?? false;
 
   const handleToggle = async (itemId: string, currentValue: boolean) => {
-    await activeList.togglePurchased(itemId, !currentValue);
+    const next = !currentValue;
+    const name = activeList.items.find((i) => i.id === itemId)?.name || "Item";
+    const ok = await activeList.togglePurchased(itemId, next);
+    if (!ok) {
+      toast({
+        title: "Could not update",
+        description: activeList.error || "That didn't save. Try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+    toast({
+      title: next ? "Marked as bought" : "Back on the to-buy list",
+      description: next
+        ? `${name} ticked off${activeList.items.find((i) => i.id === itemId)?.item_id ? " and stock updated" : ""}.`
+        : `${name} moved back to to-buy.`,
+    });
   };
 
   // SHP2-I (SHP2-33): parses the [OOS@Supplier] tag back out of the
@@ -218,6 +234,11 @@ function ShoppingDashboardInner() {
     e.stopPropagation();
     e.preventDefault();
     await activeList.claimItem(itemId, claim);
+    const name = activeList.items.find((i) => i.id === itemId)?.name || "Item";
+    toast({
+      title: claim ? "Claimed" : "Released",
+      description: claim ? `You're buying ${name}.` : `${name} is back up for anyone to grab.`,
+    });
   };
 
   // Resolve the current user's id once. Used by the claim chips to

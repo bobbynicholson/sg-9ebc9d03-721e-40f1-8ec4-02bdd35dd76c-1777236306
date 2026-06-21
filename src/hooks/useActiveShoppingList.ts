@@ -76,8 +76,9 @@ export interface UseActiveShoppingList {
   /** Reload list + items from the server. */
   refresh: () => void;
   /** Toggle the purchased flag on a single item. Optimistic update,
-   *  rolls back on failure. */
-  togglePurchased: (itemId: string, nextValue: boolean) => Promise<void>;
+   *  rolls back on failure. Resolves true when the write stuck, false
+   *  when it failed (so callers can toast accurately). */
+  togglePurchased: (itemId: string, nextValue: boolean) => Promise<boolean>;
   /** Add an item to the current list, or start a new list if there
    *  isn't one. Returns the created/updated item. */
   addItem: (input: {
@@ -334,7 +335,7 @@ export function useActiveShoppingList(): UseActiveShoppingList {
       // Rollback on failure.
       setItems(prev => prev.map(i => i.id === itemId ? { ...i, purchased: !nextValue } : i));
       setError(updErr.message || "Could not save");
-      return;
+      return false;
     }
 
     // Inventory bump - non-blocking on the user-visible toggle. If
@@ -377,6 +378,7 @@ export function useActiveShoppingList(): UseActiveShoppingList {
         }));
       } catch { /* old browsers without CustomEvent polyfill */ }
     }
+    return true;
   }, [items]);
 
   // Create a fresh list.
