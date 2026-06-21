@@ -163,7 +163,10 @@ function NotificationsPage() {
   };
 
   const preFilteredNotifications = useMemo(() => {
-    return notifications.filter((n) => {
+    // Dedupe by id first so a row can never render twice, whatever the
+    // fetch/realtime path produced.
+    const unique = Array.from(new Map(notifications.map((n) => [n.id, n])).values());
+    return unique.filter((n) => {
       const matchesPriority = priorityFilter === "all" || n.priority === priorityFilter;
       const matchesType = typeFilter === "all" || n.notification_type === typeFilter;
       return matchesPriority && matchesType;

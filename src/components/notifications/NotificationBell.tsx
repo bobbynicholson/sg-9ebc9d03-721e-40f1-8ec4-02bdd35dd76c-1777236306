@@ -44,6 +44,22 @@ function chime() {
   }
 }
 
+// Module-level guard shared across every mounted NotificationBell. The
+// responsive layout (PortalSidebar) mounts the bell up to THREE times
+// (desktop / collapsed / mobile slots); each instance independently
+// subscribes to realtime and would fire its own toast + chime for the
+// same row, so one notification looked like it arrived two or three
+// times. First instance to see an id toasts and records it here; the
+// others skip. Short TTL so a genuinely re-sent id can alert again later.
+const recentlyToasted = new Map<string, number>();
+function claimToast(id: string): boolean {
+  const now = Date.now();
+  for (const [k, t] of recentlyToasted) if (now - t > 30000) recentlyToasted.delete(k);
+  if (recentlyToasted.has(id)) return false;
+  recentlyToasted.set(id, now);
+  return true;
+}
+
 export function NotificationBell() {
   const router = useRouter();
   // Wave 27.3: tenant-slug wrapper for internal navigations.
@@ -75,7 +91,7 @@ export function NotificationBell() {
         // item land. Medium / low stay quiet - the bell badge is
         // enough for those.
         const priority = (notification.priority || "").toLowerCase();
-        if (priority === "urgent" || priority === "high") {
+        if ((priority === "urgent" || priority === "high") && claimToast(notification.id)) {
           chime();
           toast({
             title: notification.title || "New notification",
@@ -241,7 +257,13 @@ export function NotificationBell() {
     }
   };
 
-  const unreadCount = notifications.filter((n) => !n.is_read).length;
+  // Final safety net: render each id at most once, no matter how the
+  // list got built (stale cached bundle, double fetch, realtime re-fire).
+  // This is what actually guarantees the dropdown never shows a row twice.
+  const visibleNotifications = Array.from(
+    new Map(notifications.map((n) => [n.id, n])).values(),
+  );
+  const unreadCount = visibleNotifications.filter((n) => !n.is_read).length;
 
   if (!user) return null;
 
@@ -307,7 +329,7 @@ export function NotificationBell() {
                 <p className="text-sm">Loading notifications...</p>
               </div>
             </div>
-          ) : notifications.length === 0 ? (
+          ) : visibleNotifications.length === 0 ? (
             <div className="flex items-center justify-center py-12 text-slate-600">
               <div className="text-center">
                 <Bell className="h-12 w-12 mx-auto mb-3 text-slate-300" />
@@ -317,7 +339,7 @@ export function NotificationBell() {
             </div>
           ) : (
             <div className="divide-y divide-slate-200 dark:divide-slate-700">
-              {notifications.map((notification) => {
+              {visibleNotifications.map((notification) => {
                 // Wave 24: degrade displayed priority on stale rows so a
                 // 19-day-old "URGENT" doesn't keep glowing red in the
                 // dropdown header. Same shared helper the per-portal
@@ -411,7 +433,7 @@ export function NotificationBell() {
         </ScrollArea>
 
         {/* Footer */}
-        {notifications.length > 0 && (
+        {visibleNotifications.length > 0 && (
           <div className="border-t p-2 bg-slate-50 dark:bg-slate-900">
             <Button
               variant="ghost"
