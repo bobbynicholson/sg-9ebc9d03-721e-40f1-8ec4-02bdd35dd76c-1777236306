@@ -60,16 +60,6 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       ? (req.headers["user-agent"] as string).slice(0, 500)
       : null;
 
-  // Tight-ish rate limit on accepts. Legit usage is 1; >5/hr per IP per
-  // token is almost certainly a script.
-  const rl = await checkAndIncrementRateLimit(token, ipHash, supabase, {
-    limit: 5,
-    bucket: "hour",
-  });
-  if (!rl.allowed) {
-    return res.status(429).json({ ok: false, error: "Too many attempts, try again later." });
-  }
-
   // Audit (May 2026, Wave 3): the endpoint previously stamped
   // accepted_at + status='accepted' on ANY quote matching the token,
   // even if it was already rejected, expired or past valid_until.
@@ -89,6 +79,12 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (existing.converted_to_order_id) {
     return res.status(409).json({ ok: false, error: "This quote has already been accepted and converted to an order." });
   }
+  if (existing.status === "accepted") {
+    // Already accepted (not yet converted) - idempotent success. Return
+    // here BEFORE the rate-limit so a client re-clicking, or re-opening
+    // the link, never burns budget on a no-op re-accept.
+    return res.status(200).json({ ok: true, alreadyAccepted: true, quoteId: existing.id });
+  }
   if (existing.status === "rejected") {
     return res.status(409).json({ ok: false, error: "This quote was previously declined. Please request a new one." });
   }
@@ -106,6 +102,23 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         .eq("id", existing.id);
       return res.status(409).json({ ok: false, error: "This quote has expired. Please request a new one." });
     }
+  }
+
+  // Rate limit - applied ONLY to genuine accept attempts on a still-live
+  // (draft / sent) quote. Deliberately placed AFTER the status pre-check:
+  // the limiter used to be the first thing the handler did, so every
+  // idempotent re-accept, already-converted / rejected / expired hit and
+  // every transient-failure retry consumed the budget. With a tight cap
+  // that locked the genuine acceptor out with "Too many attempts" the
+  // moment they tried twice. Now only a real draft/sent->accepted attempt
+  // counts; 30/hr/IP/token still blocks a script while leaving humans
+  // ample headroom to retry.
+  const rl = await checkAndIncrementRateLimit(token, ipHash, supabase, {
+    limit: 30,
+    bucket: "hour",
+  });
+  if (!rl.allowed) {
+    return res.status(429).json({ ok: false, error: "Too many attempts, try again later." });
   }
 
   // Resolve quote + stamp acceptance.
