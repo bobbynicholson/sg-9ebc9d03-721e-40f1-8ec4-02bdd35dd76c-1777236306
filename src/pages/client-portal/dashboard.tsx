@@ -84,6 +84,10 @@ interface Order {
   payment_status: string | null;
   total_amount: number | null;
   driver_id: string | null;
+  // The dispatch flow assigns delivery to assigned_driver_id; driver_id is
+  // a legacy/secondary field. The driver who actually sends GPS is the
+  // assigned one, so the live-pin lookup must prefer it.
+  assigned_driver_id: string | null;
   // Star rating from delivery_feedback (1-5). null = the client hasn't
   // rated this event yet. Populated client-side from a separate query
   // because the orders table doesn't carry it.
@@ -484,7 +488,7 @@ function ClientPortalDashboardInner() {
         let q = supabase
           .from("orders")
           .select(
-            "id, order_number, event_name, event_date, event_time, guest_count, venue_name, venue_address, venue_lat, venue_lng, status, payment_status, total_amount, driver_id",
+            "id, order_number, event_name, event_date, event_time, guest_count, venue_name, venue_address, venue_lat, venue_lng, status, payment_status, total_amount, driver_id, assigned_driver_id",
           )
           // Tenant-scope to the URL-slug company, same as the quotes and
           // invoices queries below. Without this the client_email branch
@@ -887,8 +891,14 @@ function ClientPortalDashboardInner() {
   const headlineIsLive =
     headline && headline.status === "in_transit";
 
+  // The delivering driver is assigned_driver_id (dispatch flow); driver_id
+  // is legacy/secondary. The GPS pings land under the assigned driver, so
+  // resolve that first - using driver_id alone left the map with no pin
+  // (the assigned driver's location was never looked up).
+  const liveDriverId = headline?.assigned_driver_id || headline?.driver_id || null;
+
   useEffect(() => {
-    if (!headline || !headlineIsLive || !headline.driver_id) {
+    if (!headline || !headlineIsLive || !liveDriverId) {
       setDriverPin(null);
       return;
     }
@@ -901,7 +911,7 @@ function ClientPortalDashboardInner() {
         const { data: pin, error: pinError } = await (supabase as any)
           .from("driver_locations")
           .select("latitude, longitude, updated_at")
-          .eq("driver_id", headline.driver_id)
+          .eq("driver_id", liveDriverId)
           .maybeSingle();
         if (pinError) {
           console.error("[client-portal/dashboard] driver_locations fetch failed:", pinError);
@@ -913,7 +923,7 @@ function ClientPortalDashboardInner() {
         const { data: driverProfile, error: driverProfileError } = await supabase
           .from("profiles")
           .select("full_name, phone, phone_number")
-          .eq("id", headline.driver_id)
+          .eq("id", liveDriverId)
           .maybeSingle();
         if (driverProfileError) {
           console.error("[client-portal/dashboard] profiles fetch failed:", driverProfileError);
@@ -940,12 +950,12 @@ function ClientPortalDashboardInner() {
       }
     };
     poll();
-    const t = setInterval(poll, 30_000);
+    const t = setInterval(poll, 12_000);
     return () => {
       cancelled = true;
       clearInterval(t);
     };
-  }, [headline?.id, headline?.driver_id, headlineIsLive]);
+  }, [headline?.id, liveDriverId, headlineIsLive]);
 
   // ── Past events strip ───────────────────────────────────────────────
   const pastOrders = useMemo(
