@@ -701,6 +701,28 @@ export const driverConfirmationService = {
       relatedEntityType: "order",
       relatedEntityId: orderId,
     });
+
+    // Also tell the KITCHEN on the pickup legs - they're the ones who must
+    // have the load ready and tap "Sign over to driver" (the handover gate
+    // that blocks the driver from departing). Admin-only pings left the
+    // kitchen blind to an arriving driver. Post-handover legs
+    // (departed/at_venue/completed) don't concern the kitchen, so skip them.
+    if (confirmationType === "en_route_to_kitchen" || confirmationType === "at_kitchen") {
+      const atKitchen = confirmationType === "at_kitchen";
+      await notificationService.broadcastNotification({
+        companyId: order.company_id,
+        type: "driver_status_update",
+        title: atKitchen ? "Driver at the kitchen - sign over" : "Driver heading to the kitchen",
+        message: atKitchen
+          ? `${driver.full_name} is AT the kitchen for Order #${order.order_number}. Hand the food + equipment over and tap "Sign over to driver".`
+          : `${driver.full_name} is on the way to collect Order #${order.order_number}. Get it ready and sign it over when they arrive.`,
+        targetRoles: ["kitchen_staff" as any],
+        priority: atKitchen ? "high" : "medium",
+        link: "/team-portal/kitchen/dashboard",
+        relatedEntityType: "order",
+        relatedEntityId: orderId,
+      });
+    }
   },
 
   /**
