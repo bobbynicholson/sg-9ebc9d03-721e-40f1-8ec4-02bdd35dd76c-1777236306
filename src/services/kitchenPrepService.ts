@@ -826,6 +826,39 @@ export const kitchenPrepService = {
     const allDone = active.length > 0 && active.every((t: any) => String(t?.status || "") === "done");
     if (!allDone) return { promoted: false };
 
+    // Reliable "kitchen prep complete" ping to the admins/owners - fired
+    // here at the source the moment the kitchen finishes, with its OWN
+    // notification type so it can never be deduped away by the order_ready
+    // in-app push (which is role-blind and was getting swallowed). This is
+    // the "kitchen marked done -> tell admin" leg the operator needs.
+    // Dedup'd so re-completing a task on an already-done order won't spam.
+    try {
+      const { data: od } = await supabase
+        .from("orders")
+        .select("company_id, order_number")
+        .eq("id", orderId)
+        .maybeSingle();
+      if ((od as any)?.company_id) {
+        const { notificationService } = await import("@/services/notificationService");
+        const { UserRole } = await import("@/types/app");
+        await notificationService.broadcastNotification({
+          companyId: (od as any).company_id,
+          type: "kitchen_prep_complete",
+          title: "Kitchen prep complete",
+          message: `All prep for order ${(od as any).order_number || ""} is done - the order is ready. Assign a driver / dispatch.`,
+          targetRoles: [UserRole.COMPANY_ADMIN, UserRole.OWNER, UserRole.ADMIN],
+          priority: "high",
+          link: `/order/${orderId}`,
+          relatedEntityType: "order",
+          relatedEntityId: orderId,
+          dedup: true,
+          dedupWindowMinutes: 240,
+        });
+      }
+    } catch (notifyErr) {
+      console.warn("[kitchenPrepService] prep-complete admin notify failed:", notifyErr);
+    }
+
     const { data: order, error: orderErr2 } = await supabase
       .from("orders")
       .select("id, status, ready_at")
