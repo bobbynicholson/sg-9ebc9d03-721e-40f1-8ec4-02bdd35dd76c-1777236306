@@ -602,7 +602,13 @@ export function useActiveShoppingList(): UseActiveShoppingList {
         try {
           await notificationService.broadcastNotification({
             companyId,
-            type: "shopping_completed",
+            // Distinct type from the admin "shopping_completed" above:
+            // broadcast dedup is keyed on (company, type, entity) and is
+            // role-blind, so reusing "shopping_completed" for the same
+            // list id meant the admin fan-out (which runs first) deduped
+            // this kitchen alert away entirely. A separate type lets it
+            // through and still dedups against its own repeats.
+            type: "ingredients_ready",
             title: "Ingredients are in - ready to prep",
             message: "The shopping run for your kitchen shortfall is done. The ingredients are now in stock - you're clear to start prep.",
             targetRoles: [UserRole.KITCHEN_STAFF],
