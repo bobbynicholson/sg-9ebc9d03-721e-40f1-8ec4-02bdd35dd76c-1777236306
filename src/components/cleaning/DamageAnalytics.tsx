@@ -14,10 +14,8 @@ import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { AlertTriangle, Package, Banknote, Calendar as CalendarIcon, BellRing, CheckCircle2, Receipt, Download } from "lucide-react";
+import { AlertTriangle, Package, Banknote, Calendar as CalendarIcon, CheckCircle2, Receipt, Download } from "lucide-react";
 import { equipmentTrackingService, type DamageType } from "@/services/equipmentTrackingService";
-import { notificationService } from "@/services/notificationService";
-import { UserRole } from "@/types/app";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { onEquipmentDamaged } from "@/lib/events/equipmentEvents";
@@ -46,12 +44,6 @@ export function DamageAnalytics() {
   // while their broadcast or update is mid-air. Avoids the cleaner
   // tapping twice and firing two admin pings for the same damage.
   const [pendingDamageId, setPendingDamageId] = useState<string | null>(null);
-  // Local "we already notified admin" set, keyed by damage id. The
-  // broadcastNotification call uses dedup so the DB side is safe, but
-  // this stops the button changing label back to "Notify admin" after
-  // the row reloads from getDamages (which doesn't return the
-  // notification record).
-  const [notifiedSet, setNotifiedSet] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     loadDamages();
@@ -200,50 +192,6 @@ export function DamageAnalytics() {
     lost: "Lost",
     stolen: "Stolen",
     damaged: "Damaged",
-  };
-
-  // CLN2-G (cleaning deep audit, CLN2-31 / CLN2-72): broken-equipment
-  // escalation flow. Lets the cleaner ping company admins about a
-  // damage so the procurement / replacement can start without the
-  // admin discovering it from a weekly losses report. Uses
-  // broadcastNotification with dedup so a double-tap doesn't spam.
-  const handleEscalate = async (damage: any) => {
-    if (!user?.company_id) return;
-    if (pendingDamageId) return;
-    setPendingDamageId(damage.id);
-    try {
-      const itemName = damage.equipment?.name || "Equipment";
-      const orderNumber = damage.order?.order_number ? ` (order ${damage.order.order_number})` : "";
-      const dmgLabel = damageTypeLabels[damage.damage_type as DamageType] || damage.damage_type || "damaged";
-      await notificationService.broadcastNotification({
-        companyId: user.company_id,
-        type: "system_alert",
-        title: `${itemName} - ${dmgLabel}`,
-        message: `Cleaning team flagged ${itemName}${orderNumber} for admin review. Replacement / repair needed.`,
-        priority: "high",
-        targetRoles: [UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.REGION_ADMIN],
-        link: "/team-portal/cleaning",
-        relatedEntityType: "equipment_damage",
-        relatedEntityId: damage.id,
-        dedup: true,
-        dedupWindowMinutes: 1440,
-      });
-      setNotifiedSet((prev) => {
-        const next = new Set(prev);
-        next.add(damage.id);
-        return next;
-      });
-      toast({ title: "Admin notified", description: `${itemName} flagged for replacement.` });
-    } catch (err) {
-      console.error("[DamageAnalytics] escalate failed:", err);
-      toast({
-        title: "Could not notify admin",
-        description: err instanceof Error ? err.message : "Please retry.",
-        variant: "destructive",
-      });
-    } finally {
-      setPendingDamageId(null);
-    }
   };
 
   // CLN2-G companion: mark a damage resolved once admin acts. Uses
@@ -744,25 +692,14 @@ export function DamageAnalytics() {
                           type="button"
                           variant="outline"
                           size="sm"
-                          className="gap-1.5 min-h-11"
-                          onClick={() => handleEscalate(damage)}
-                          disabled={pendingDamageId === damage.id || notifiedSet.has(damage.id)}
-                          aria-label={`Notify admin about ${damage.equipment?.name || "this equipment"}`}
-                        >
-                          <BellRing className="w-3.5 h-3.5" />
-                          {notifiedSet.has(damage.id) ? "Admin notified" : "Notify admin"}
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
                           className="gap-1.5 min-h-11 text-emerald-700 border-emerald-300 hover:bg-emerald-50"
                           onClick={() => handleResolve(damage)}
                           disabled={pendingDamageId === damage.id}
                           aria-label={`Mark ${damage.equipment?.name || "this damage"} as resolved`}
+                          title="Close this off without billing - e.g. written off or repaired in-house"
                         >
                           <CheckCircle2 className="w-3.5 h-3.5" />
-                          Mark resolved
+                          Mark resolved (write-off)
                         </Button>
                       </div>
                     )}
