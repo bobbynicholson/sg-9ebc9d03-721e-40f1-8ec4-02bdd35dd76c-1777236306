@@ -23,7 +23,7 @@
  */
 import type { NextApiRequest, NextApiResponse } from "next";
 import { getServiceSupabase } from "@/lib/supabase/service";
-import { emailService } from "@/services/emailService";
+import { drainEmailQueue } from "@/lib/email/drainQueue";
 import { requireCronAuth } from "@/lib/cronAuth";
 import { recordCronHeartbeat } from "@/lib/cronHeartbeat";
 import { withApiLogging } from "@/lib/withApiLogging";
@@ -70,112 +70,36 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     });
   }
 
-  // Pessimistic claim via SECURITY DEFINER RPC. SELECT + UPDATE happen
-  // in one transaction with FOR UPDATE SKIP LOCKED so two concurrent
-  // workers walk away with non-overlapping batches and never race on
-  // the same row [P1-09]. The previous pattern was an optimistic
-  // SELECT-then-UPDATE loop which functionally worked but at scale
-  // wasted traffic as every concurrent worker re-fetched the same
-  // pending rows.
-  const { data: due, error: readErr } = await (supabase as any).rpc(
-    "claim_email_batch",
-    {
-      p_allow_list: allowList,
-      p_batch_size: BATCH_SIZE,
-      p_max_attempts: MAX_ATTEMPTS,
-    }
-  );
+  // Single shared drain path (also used by the on-demand admin "send now"
+  // endpoint) so the send + retry + status lifecycle lives in one place.
   // nowIso retained for legacy callers but the RPC uses now() server-side.
   void nowIso;
 
-  if (readErr) {
-    console.error("[cron/process-email-queue] claim failed:", readErr);
-    await recordCronHeartbeat(supabase, CRON_NAME, "error", {
-      source: auth.source, error_message: readErr.message,
+  let result;
+  try {
+    result = await drainEmailQueue(supabase, allowList, {
+      batchSize: BATCH_SIZE,
+      maxAttempts: MAX_ATTEMPTS,
     });
-    return res.status(500).json({ error: readErr.message });
-  }
-
-  let sent = 0;
-  let failed = 0;
-  const skipped = 0;
-
-  for (const row of (due as any[]) || []) {
-    // Already claimed by the RPC; row is owned by this worker.
-
-    let dispatchOk = false;
-    let errorMessage: string | null = null;
-    try {
-      // Wave 24: pass the service-role client so getEmailConfig can
-      // read email_provider_settings under RLS. Without _client the
-      // helper falls back to browser anon supabase (no session on the
-      // server) - the SELECT silently returns nothing, the dispatch
-      // returns false, every queued email gets retried until it hits
-      // MAX_ATTEMPTS and lands in 'failed'. The bug was hiding behind
-      // the legitimate "transient outage" retry loop.
-      dispatchOk = await emailService.sendEmail({
-        companyId: row.company_id,
-        to: row.to_email,
-        subject: row.subject,
-        body: row.body,
-        variables: row.variables || { clientName: row.to_name },
-        // Quote / order tags help the dashboard group sends.
-        orderId: row.trigger_event === "order" ? row.trigger_ref_id : undefined,
-        quoteId: row.trigger_event === "quote" ? row.trigger_ref_id : undefined,
-        _client: supabase,
-      } as any);
-    } catch (e: any) {
-      errorMessage = e?.message || String(e);
-    }
-
-    if (dispatchOk) {
-      const { error: sentUpdErr } = await supabase
-        .from("outgoing_email_queue")
-        .update({ status: "sent", sent_at: new Date().toISOString(), error_message: null })
-        .eq("id", row.id);
-      if (sentUpdErr) {
-        console.error("[cron/process-email-queue] sent-status update failed:", row.id, sentUpdErr);
-      }
-      sent += 1;
-    } else {
-      // Hit the cap -> mark failed permanently. Otherwise return to
-      // 'queued' so the next cron tick retries. Prior code wrote
-      // 'pending' here, which isn't in the CHECK constraint - every
-      // retry-eligible failure silently failed the UPDATE and the
-      // row stayed at 'in_progress' forever, blocking subsequent
-      // cron runs from re-claiming it (the RPC filters on 'queued').
-      const newAttempts = row.attempts; // already incremented by claim_email_batch
-      const finalStatus = newAttempts >= MAX_ATTEMPTS ? "failed" : "queued";
-      const captured = errorMessage || `Dispatch returned false (attempt ${newAttempts}/${MAX_ATTEMPTS})`;
-      const { error: failUpdErr } = await supabase
-        .from("outgoing_email_queue")
-        .update({
-          status: finalStatus,
-          error_message: captured,
-        })
-        .eq("id", row.id);
-      if (failUpdErr) {
-        // The row is now orphaned at 'in_progress'. Log loudly - a
-        // CHECK violation here means the lifecycle and the schema
-        // have drifted again. Heartbeat will record the error count
-        // so the operator sees the trend.
-        console.error("[cron/process-email-queue] fail-status update failed:", row.id, failUpdErr, "tried:", finalStatus);
-      }
-      failed += 1;
-    }
+  } catch (e: any) {
+    console.error("[cron/process-email-queue] drain failed:", e);
+    await recordCronHeartbeat(supabase, CRON_NAME, "error", {
+      source: auth.source, error_message: e?.message || String(e),
+    });
+    return res.status(500).json({ error: e?.message || "drain failed" });
   }
 
   await recordCronHeartbeat(supabase, CRON_NAME, "ok", {
     source: auth.source,
-    processed: (due || []).length,
-    sent, failed, skipped,
+    processed: result.processed,
+    sent: result.sent, failed: result.failed, skipped: 0,
   });
   return res.status(200).json({
     ok: true,
-    processed: (due || []).length,
-    sent,
-    failed,
-    skipped,
+    processed: result.processed,
+    sent: result.sent,
+    failed: result.failed,
+    skipped: 0,
   });
 }
 

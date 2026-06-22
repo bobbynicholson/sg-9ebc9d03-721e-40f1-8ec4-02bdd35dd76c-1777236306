@@ -270,6 +270,7 @@ export function AdminNav(_: AdminNavProps = {}) {
         { title: "Fixed costs",     href: "/admin/fixed-costs",   icon: Wallet,     description: "Recurring rent, software, vehicles - feeds cashflow forecast" },
         { title: "Refunds",         href: "/admin/refunds",       icon: CreditCard, description: "Cancellation refunds" },
         { title: "Tax & purchases", href: "/admin/tax-purchases", icon: FileText,   description: "VAT exposure + deductible export" },
+        { title: "Money & email health", href: "/admin/money-health", icon: Activity, description: "Reconcile order/invoice/payment drift + email queue status" },
       ],
     } as PortalSidebarSection] : []),
     {
