@@ -193,23 +193,52 @@ export const equipmentTrackingService = {
 
     const { data: equipment, error: equipmentErr } = await supabase
       .from("equipment")
-      .select("name, category")
+      .select("name, category, quantity, available_quantity")
       .eq("id", params.equipmentId)
       .single();
     if (equipmentErr) console.error("[equipmentTrackingService/reportDamage] equipment lookup failed:", equipmentErr);
-      
+
     const equipmentName = equipment?.name || "Unknown Equipment";
+
+    // Deduct the damaged quantity from inventory so availability reflects
+    // reality (the alert emails have always CLAIMED the gear was "removed
+    // from inventory" - until now nothing actually did it). broken / lost /
+    // stolen are permanent losses and drop the owned total too; "damaged"
+    // (repairable) only drops what's available. Clamped at 0, and available
+    // never exceeds owned. Best-effort - a deduction miss must never block
+    // the damage record. Admin can correct via the inventory adjustment flow.
+    try {
+      const owned = Number((equipment as any)?.quantity || 0);
+      const avail = Number((equipment as any)?.available_quantity || 0);
+      const dmg = Math.max(0, Number(params.quantityDamaged || 0));
+      if (dmg > 0) {
+        const permanent = ["broken", "lost", "stolen"].includes(String(params.damageType));
+        const newOwned = permanent ? Math.max(0, owned - dmg) : owned;
+        const newAvail = Math.max(0, Math.min(newOwned, avail - dmg));
+        const { error: invErr } = await supabase
+          .from("equipment")
+          .update({ quantity: newOwned, available_quantity: newAvail, updated_at: new Date().toISOString() } as any)
+          .eq("id", params.equipmentId);
+        if (invErr) {
+          console.warn("[equipmentTrackingService/reportDamage] inventory deduction failed (non-blocking):", invErr);
+        }
+      }
+    } catch (invE) {
+      console.warn("[equipmentTrackingService/reportDamage] inventory deduction threw (non-blocking):", invE);
+    }
 
     if (order) {
       // 1. In-portal notification. Audit (May 2026): old code wrote
       // recipient_id = order.user_id (the CLIENT). Damage alerts
       // belong to the catering company's admin / dispatch team.
       // Broadcast to admin roles within the tenant.
+      // Admin / dispatch get the cost-focused alert with the deep-link to
+      // the shortages tab where they action repair vs replace.
       await notificationService.broadcastNotification({
         companyId: order.company_id,
         type: "equipment_damage",
         title: "🔧 Equipment Damage Reported",
-        message: `${params.quantityDamaged}x ${params.damageType} at ${params.damageStage} stage. Order: ${order.order_number}. Cost: R${totalCost.toFixed(2)}`,
+        message: `${params.quantityDamaged}x ${equipmentName} reported ${params.damageType} at ${params.damageStage} stage - removed from inventory. Order: ${order.order_number}. Cost: R${totalCost.toFixed(2)}`,
         targetRoles: [
           UserRole.SUPER_ADMIN,
           UserRole.COMPANY_ADMIN,
@@ -221,6 +250,28 @@ export const equipmentTrackingService = {
         relatedEntityType: "equipment",
         relatedEntityId: params.equipmentId,
       });
+
+      // Kitchen + cleaning teams also need to know stock just dropped - the
+      // kitchen plans availability for upcoming events, and cleaning shouldn't
+      // keep chasing an item that's been written off. Operational framing (no
+      // cost figure), best-effort + dedup so a re-flag doesn't spam the floor.
+      try {
+        await notificationService.broadcastNotification({
+          companyId: order.company_id,
+          type: "equipment_damage",
+          title: "Equipment short - item damaged",
+          message: `${params.quantityDamaged}x ${equipmentName} marked ${params.damageType} on order ${order.order_number} and pulled from stock. Check availability for upcoming events.`,
+          targetRoles: ["kitchen_staff" as any, "cleaning_staff" as any],
+          priority: "normal",
+          link: `/team-portal/cleaning`,
+          relatedEntityType: "equipment",
+          relatedEntityId: params.equipmentId,
+          dedup: true,
+          dedupWindowMinutes: 60,
+        } as any);
+      } catch (floorNotifyErr) {
+        console.warn("[equipmentTrackingService/reportDamage] floor notify failed (non-blocking):", floorNotifyErr);
+      }
 
       // Lookup the tenant's owner / first admin to address the email
       // to. Audit (May 2026): the previous lookup used .eq("id",
