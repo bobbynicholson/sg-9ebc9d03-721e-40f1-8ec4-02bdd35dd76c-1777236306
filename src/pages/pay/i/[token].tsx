@@ -575,6 +575,59 @@ export default function InvoicePaymentPage() {
                 <FileText className="w-10 h-10 text-brand-primary opacity-30" />
               </div>
 
+              {/* Itemised breakdown - what makes up the total, so the client
+                  sees WHAT they're paying for (catering lines + any damage
+                  charge) instead of a bare "pay R X". Driven by
+                  invoice_data.items; hidden when the invoice carries no
+                  line detail (legacy rows). */}
+              {Array.isArray(invoice.invoice_data?.items) && invoice.invoice_data.items.length > 0 && (
+                <div className="rounded-lg border border-stone-200 overflow-hidden">
+                  <p className="text-xs uppercase tracking-[0.15em] text-brand-primary font-bold px-4 pt-3 pb-2">
+                    What this is for
+                  </p>
+                  <ul className="divide-y divide-stone-100">
+                    {invoice.invoice_data.items.map((it: any, i: number) => {
+                      const isDamage = /damage/i.test(String(it?.description || ""));
+                      return (
+                        <li key={i} className="flex items-start justify-between gap-3 px-4 py-2.5 text-sm">
+                          <div className="min-w-0">
+                            <p className={isDamage ? "text-rose-700 font-medium" : "text-stone-800"}>
+                              {it?.description || "Item"}
+                            </p>
+                            {Number(it?.quantity) > 0 && Number(it?.unitPrice) > 0 && (
+                              <p className="text-[11px] text-stone-500">
+                                {it.quantity} × {fmtMoney.format(Number(it.unitPrice) || 0)}
+                              </p>
+                            )}
+                          </div>
+                          <p className="text-stone-900 tabular-nums font-medium whitespace-nowrap">
+                            {fmtMoney.format(Number(it?.total) || 0)}
+                          </p>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                  <div className="border-t border-stone-200 bg-stone-50 px-4 py-2.5 space-y-1 text-sm">
+                    {Number(invoice.invoice_data?.taxAmount) > 0 && (
+                      <>
+                        <div className="flex items-center justify-between text-stone-600">
+                          <span>Subtotal</span>
+                          <span className="tabular-nums">{fmtMoney.format(Number(invoice.invoice_data?.subtotal) || 0)}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-stone-600">
+                          <span>VAT</span>
+                          <span className="tabular-nums">{fmtMoney.format(Number(invoice.invoice_data?.taxAmount) || 0)}</span>
+                        </div>
+                      </>
+                    )}
+                    <div className="flex items-center justify-between font-semibold text-stone-900">
+                      <span>Total</span>
+                      <span className="tabular-nums">{fmtMoney.format(invoice.total_amount)}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Event details inherited from quote (when present) */}
               {invoice.invoice_data?.eventDate && (
                 <div className="rounded-lg bg-stone-50 p-4 text-sm text-stone-700 space-y-1">

@@ -563,7 +563,7 @@ ${companyName}`;
       // with an outstanding balance). Most-recent first.
       const { data: invs } = await supabase
         .from("invoices")
-        .select("id, subtotal, tax_amount, total_amount, amount_paid, balance_due, status, invoice_number, notes, invoice_data")
+        .select("id, subtotal, tax_amount, total_amount, amount_paid, balance_due, status, invoice_number, notes, invoice_data, public_token")
         .eq("order_id", d.order_id)
         .order("created_at", { ascending: false });
       const usable = ((invs || []) as any[]).filter(
@@ -574,6 +574,7 @@ ${companyName}`;
       let mode: "added" | "new_invoice";
       let invoiceNumber: string;
       let outstandingAfter = cost; // what the client owes after this charge
+      let payToken: string | null = null; // public_token for the /pay/i link
 
       if (openInv) {
         const newSubtotal = round2(Number(openInv.subtotal || 0) + cost);
@@ -606,6 +607,7 @@ ${companyName}`;
         mode = "added";
         invoiceNumber = openInv.invoice_number;
         outstandingAfter = newBalance;
+        payToken = openInv.public_token || null;
       } else {
         // Client is square - raise a fresh invoice for just the damage.
         invoiceNumber = `INV-${Date.now().toString().slice(-6)}`;
@@ -634,24 +636,29 @@ ${companyName}`;
         } catch (e) {
           console.warn("[billDamageToClient] generateInvoiceData failed (non-blocking):", e);
         }
-        await supabase.from("invoices").insert({
-          company_id: companyId,
-          order_id: d.order_id,
-          client_id: ord?.client_id || null,
-          invoice_number: invoiceNumber,
-          invoice_date: todayIso,
-          due_date: dueIso,
-          subtotal: cost,
-          tax_amount: 0,
-          total_amount: cost,
-          amount_paid: 0,
-          balance_due: cost,
-          status: "sent",
-          notes: `Equipment damage charge: ${lineDesc} (order ${ord?.order_number || ""})`,
-          invoice_data: idata,
-        } as any);
+        const { data: newInv } = await supabase
+          .from("invoices")
+          .insert({
+            company_id: companyId,
+            order_id: d.order_id,
+            client_id: ord?.client_id || null,
+            invoice_number: invoiceNumber,
+            invoice_date: todayIso,
+            due_date: dueIso,
+            subtotal: cost,
+            tax_amount: 0,
+            total_amount: cost,
+            amount_paid: 0,
+            balance_due: cost,
+            status: "sent",
+            notes: `Equipment damage charge: ${lineDesc} (order ${ord?.order_number || ""})`,
+            invoice_data: idata,
+          } as any)
+          .select("public_token")
+          .single();
         mode = "new_invoice";
         outstandingAfter = cost;
+        payToken = (newInv as any)?.public_token || null;
       }
 
       // Close the damage out with a billed note (also stops double-billing).
@@ -715,9 +722,14 @@ ${companyName}`;
             typeof window !== "undefined" && window.location?.origin
               ? window.location.origin
               : "https://cateringms.com";
-          const portalLink = slug
-            ? `${origin}/${slug}/client-portal/dashboard`
-            : `${origin}/client-portal/dashboard`;
+          // Prefer the PUBLIC invoice page (/pay/i/{token}) so the client
+          // sees the full itemised invoice + can pay WITHOUT logging into the
+          // portal. Fall back to the portal dashboard only if no token.
+          const portalLink = payToken
+            ? `${origin}/pay/i/${payToken}`
+            : slug
+              ? `${origin}/${slug}/client-portal/dashboard`
+              : `${origin}/client-portal/dashboard`;
           const firstName = String(ord.client_name || "there").trim().split(/\s+/)[0] || "there";
           const fmtR = (n: number) => `R ${Number(n || 0).toFixed(2)}`;
           await emailService.sendEmail({
