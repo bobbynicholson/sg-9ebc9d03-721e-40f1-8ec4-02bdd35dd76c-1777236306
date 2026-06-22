@@ -573,8 +573,7 @@ ${companyName}`;
 
       let mode: "added" | "new_invoice";
       let invoiceNumber: string;
-      let billedInvoiceId: string | null = null;
-      let invoiceDataForEmail: any = null;
+      let outstandingAfter = cost; // what the client owes after this charge
 
       if (openInv) {
         const newSubtotal = round2(Number(openInv.subtotal || 0) + cost);
@@ -606,8 +605,7 @@ ${companyName}`;
           .eq("id", openInv.id);
         mode = "added";
         invoiceNumber = openInv.invoice_number;
-        billedInvoiceId = openInv.id;
-        invoiceDataForEmail = idata;
+        outstandingAfter = newBalance;
       } else {
         // Client is square - raise a fresh invoice for just the damage.
         invoiceNumber = `INV-${Date.now().toString().slice(-6)}`;
@@ -636,41 +634,24 @@ ${companyName}`;
         } catch (e) {
           console.warn("[billDamageToClient] generateInvoiceData failed (non-blocking):", e);
         }
-        const { data: insertedInv } = await supabase
-          .from("invoices")
-          .insert({
-            company_id: companyId,
-            order_id: d.order_id,
-            client_id: ord?.client_id || null,
-            invoice_number: invoiceNumber,
-            invoice_date: todayIso,
-            due_date: dueIso,
-            subtotal: cost,
-            tax_amount: 0,
-            total_amount: cost,
-            amount_paid: 0,
-            balance_due: cost,
-            status: "sent",
-            notes: `Equipment damage charge: ${lineDesc} (order ${ord?.order_number || ""})`,
-            invoice_data: idata,
-          } as any)
-          .select("id")
-          .single();
-        mode = "new_invoice";
-        billedInvoiceId = (insertedInv as any)?.id || null;
-        invoiceDataForEmail = idata || {
-          clientName: ord?.client_name || "there",
-          clientEmail: ord?.client_email || "",
-          invoiceNumber,
-          orderNumber: ord?.order_number || "",
-          items: [{ description: lineDesc, quantity: qty, unitPrice: unitCost, total: cost }],
+        await supabase.from("invoices").insert({
+          company_id: companyId,
+          order_id: d.order_id,
+          client_id: ord?.client_id || null,
+          invoice_number: invoiceNumber,
+          invoice_date: todayIso,
+          due_date: dueIso,
           subtotal: cost,
-          taxRate: 0,
-          taxAmount: 0,
-          total: cost,
-          depositPaid: 0,
-          balanceDue: cost,
-        };
+          tax_amount: 0,
+          total_amount: cost,
+          amount_paid: 0,
+          balance_due: cost,
+          status: "sent",
+          notes: `Equipment damage charge: ${lineDesc} (order ${ord?.order_number || ""})`,
+          invoice_data: idata,
+        } as any);
+        mode = "new_invoice";
+        outstandingAfter = cost;
       }
 
       // Close the damage out with a billed note (also stops double-billing).
@@ -714,27 +695,61 @@ ${companyName}`;
         console.warn("[billDamageToClient] client notify failed (non-blocking):", notifyErr);
       }
 
-      // Email the client the invoice itself (best-effort - no-ops cleanly
-      // when no email provider key is configured). Mirrors the deposit /
-      // balance invoice email so a damage charge reaches the client the same
-      // way a normal invoice does, not just as an in-app ping.
+      // Email the client a CORRECT, purpose-built damage-charge note. We do
+      // NOT reuse the deposit/balance invoice email - that template framed the
+      // charge as a fresh "deposit invoice", showed the whole invoice total
+      // instead of the new balance, and carried a broken pay link. This says
+      // exactly what happened: the charge amount, the new outstanding balance,
+      // and a working portal link. Best-effort - no-ops without an email key.
       try {
-        if (ord?.client_email && billedInvoiceId) {
-          const { sendInvoiceEmail } = await import("./invoiceGenerationService");
-          await sendInvoiceEmail(
-            {
-              ...(invoiceDataForEmail || {}),
-              clientName: invoiceDataForEmail?.clientName || ord?.client_name || "there",
-              clientEmail: ord.client_email,
-              invoiceNumber,
-              orderNumber: invoiceDataForEmail?.orderNumber || ord?.order_number || "",
-            } as any,
-            ord.client_email,
-            { invoiceId: billedInvoiceId, companyId },
-          );
+        if (ord?.client_email) {
+          const { emailService } = await import("@/services/emailService");
+          const { data: comp } = await supabase
+            .from("companies")
+            .select("company_name, slug")
+            .eq("id", companyId)
+            .maybeSingle();
+          const companyName = (comp as any)?.company_name || "Our team";
+          const slug = (comp as any)?.slug || "";
+          const origin =
+            typeof window !== "undefined" && window.location?.origin
+              ? window.location.origin
+              : "https://cateringms.com";
+          const portalLink = slug
+            ? `${origin}/${slug}/client-portal/dashboard`
+            : `${origin}/client-portal/dashboard`;
+          const firstName = String(ord.client_name || "there").trim().split(/\s+/)[0] || "there";
+          const fmtR = (n: number) => `R ${Number(n || 0).toFixed(2)}`;
+          await emailService.sendEmail({
+            companyId,
+            to: ord.client_email,
+            template: "equipment_damage_charge",
+            subject: `Charge added to your invoice ${invoiceNumber} - ${companyName}`,
+            body:
+              `Hi {{first_name}},\n\n` +
+              `A charge of {{charge}} for {{qty}}x {{equipment}} damaged at your event has been ` +
+              (mode === "added"
+                ? `added to your invoice {{invoice_number}}.`
+                : `issued as invoice {{invoice_number}}.`) +
+              `\n\n` +
+              `Your outstanding balance is now {{balance}}.\n\n` +
+              `You can view and settle it in your portal:\n{{portal_link}}\n\n` +
+              `Thanks,\n{{company_name}}`,
+            variables: {
+              first_name: firstName,
+              charge: fmtR(cost),
+              qty: String(qty),
+              equipment: eqName,
+              invoice_number: invoiceNumber,
+              balance: fmtR(outstandingAfter),
+              portal_link: portalLink,
+              company_name: companyName,
+            },
+            orderId: d.order_id,
+          } as any);
         }
       } catch (emailErr) {
-        console.warn("[billDamageToClient] invoice email failed (non-blocking):", emailErr);
+        console.warn("[billDamageToClient] damage charge email failed (non-blocking):", emailErr);
       }
 
       return { ok: true, mode, invoiceNumber, amount: cost };
