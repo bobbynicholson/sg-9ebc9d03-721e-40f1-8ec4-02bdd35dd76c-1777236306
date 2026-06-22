@@ -40,6 +40,7 @@ import {
 } from "@/services/cleaningHandoverService";
 import { completeJob, startJob } from "@/services/cleaningJobsService";
 import { equipmentTrackingService } from "@/services/equipmentTrackingService";
+import { JobDamageButton } from "@/components/cleaning/JobDamageButton";
 
 function fmtDateTime(iso: string | null): string {
   if (!iso) return "--";
@@ -324,6 +325,16 @@ function HandoverDetailInner() {
                               )}
                             </div>
                             <div className="flex items-center gap-1.5 flex-shrink-0">
+                              {(j.status === "queued" || j.status === "in_progress") && j.equipment_id && (
+                                <JobDamageButton
+                                  equipmentId={j.equipment_id}
+                                  equipmentName={itemName}
+                                  orderId={handover.order_id}
+                                  maxQuantity={Number(j.quantity || 1)}
+                                  handoverId={handover.id}
+                                  onFlagged={load}
+                                />
+                              )}
                               {j.status === "queued" && (
                                 <Button
                                   size="sm"

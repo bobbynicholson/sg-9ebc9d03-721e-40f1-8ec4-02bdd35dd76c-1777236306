@@ -34,6 +34,7 @@ import {
 } from "@/services/cleaningJobsService";
 import { LogCleaningJobModal } from "./LogCleaningJobModal";
 import { equipmentTrackingService } from "@/services/equipmentTrackingService";
+import { JobDamageButton } from "./JobDamageButton";
 
 const METHOD_META: Record<CleaningMethod, { label: string; icon: any; chip: string }> = {
   dishwasher: {
@@ -249,6 +250,15 @@ export function CleaningJobsQueue() {
                         Apple HIG / WCAG min-tappable surface keeps
                         mis-taps on Complete (irreversible) low. */}
                     <div className="flex items-center gap-2 shrink-0">
+                      {r.equipment_id && r.triggered_by_event_id && (
+                        <JobDamageButton
+                          equipmentId={r.equipment_id}
+                          equipmentName={r.equipment_name || "equipment"}
+                          orderId={r.triggered_by_event_id}
+                          maxQuantity={Number(r.quantity || 1)}
+                          onFlagged={refresh}
+                        />
+                      )}
                       {r.status === "queued" && (
                         <Button
                           variant="outline"
