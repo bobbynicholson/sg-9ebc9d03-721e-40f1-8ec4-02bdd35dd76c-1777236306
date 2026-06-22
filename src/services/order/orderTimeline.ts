@@ -937,6 +937,39 @@ export function computeOrderTimeline(input: OrderTimelineInput): OrderTimeline {
     return { ...def, ...r };
   });
 
+  // Monotonic operational completion. Each stage resolves from its OWN
+  // sub-data (prep tasks, shopping list, hire rows), so a DELIVERED order
+  // could still show an earlier operational stage as 'current' just
+  // because that sub-data was never fully ticked off (e.g. prep tasks left
+  // at 4/8). On the client portal this surfaced as "Preparing your food"
+  // being the next step on an order that had already been delivered. If
+  // the order has operationally reached delivery, every operational stage
+  // up to and including delivery is complete by definition. Payment /
+  // closure stages are deliberately NOT touched - they complete on their
+  // own schedule (a client can prepay or pay late, independent of the
+  // operational flow).
+  const ord = input.order || {};
+  const deliveredReached =
+    ["delivered", "completed"].includes(String(ord.status || "")) ||
+    !!ord.delivered_at || !!ord.completed_at;
+  if (deliveredReached) {
+    const OP_UP_TO_DELIVERY = new Set<StageKey>([
+      "quote_accepted", "order_created", "confirmed",
+      "equipment_hire_booked", "equipment_hire_collected",
+      "pre_event_cleaning", "pre_event_shopping",
+      "kitchen_prep_in_progress", "ready_for_dispatch",
+      "driver_assigned_delivery", "in_transit", "delivered",
+    ]);
+    const opCompletedAt =
+      (ord.delivered_at as string) || (ord.completed_at as string) || (ord.updated_at as string) || null;
+    for (const stage of resolved) {
+      if (!OP_UP_TO_DELIVERY.has(stage.key)) continue;
+      if (stage.status === "not_applicable" || stage.status === "skipped" || stage.status === "completed") continue;
+      stage.status = "completed";
+      if (!stage.completedAt) stage.completedAt = opCompletedAt;
+    }
+  }
+
   // Apply the "exactly one current" rule. Walk in order; the first
   // stage that isn't completed/skipped/not_applicable becomes current
   // (unless it's already blocked, in which case its own resolver set
