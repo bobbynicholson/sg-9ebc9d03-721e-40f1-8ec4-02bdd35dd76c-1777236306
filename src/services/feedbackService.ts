@@ -134,11 +134,13 @@ export const feedbackService = {
    * Check if feedback exists for an order
    */
   async checkFeedbackExists(orderId: string): Promise<boolean> {
+    // maybeSingle, not single: 'no feedback yet' is the normal case and
+    // must not throw a 406 (PGRST116 '0 rows') in the console.
     const { data, error } = await (supabase as any)
       .from("delivery_feedback")
       .select("id")
       .eq("order_id", orderId)
-      .single();
+      .maybeSingle();
 
     return !!data && !error;
   },
@@ -151,7 +153,7 @@ export const feedbackService = {
       .from("delivery_feedback")
       .select("*")
       .eq("order_id", orderId)
-      .single();
+      .maybeSingle();
 
     if (error) {
       console.error("Error fetching order feedback:", error);
