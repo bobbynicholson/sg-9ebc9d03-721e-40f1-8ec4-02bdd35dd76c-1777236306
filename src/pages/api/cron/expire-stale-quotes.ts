@@ -68,14 +68,13 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     // Filter per-tenant. A quote is stale only when its valid_until
     // is strictly before the tenant's local today. The UTC upper
     // bound above is a coarse pre-filter; this is the precise check.
-    const ids = ((stale as any[]) || [])
-      .filter((r) => {
-        if (!r.valid_until) return false;
-        const tz = r.company?.timezone || DEFAULT_TENANT_TIMEZONE;
-        const tenantTodayIso = toZonedISO(now, tz);
-        return r.valid_until < tenantTodayIso;
-      })
-      .map((r) => r.id);
+    const staleRows = ((stale as any[]) || []).filter((r) => {
+      if (!r.valid_until) return false;
+      const tz = r.company?.timezone || DEFAULT_TENANT_TIMEZONE;
+      const tenantTodayIso = toZonedISO(now, tz);
+      return r.valid_until < tenantTodayIso;
+    });
+    const ids = staleRows.map((r) => r.id);
     if (ids.length === 0) {
       await recordCronHeartbeat(sb, CRON_NAME, "ok", { source: auth.source, expired: 0 });
       return res.status(200).json({ ok: true, expired: 0 });
@@ -91,8 +90,46 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       return res.status(500).json({ error: updErr.message });
     }
 
-    await recordCronHeartbeat(sb, CRON_NAME, "ok", { source: auth.source, expired: ids.length });
-    return res.status(200).json({ ok: true, expired: ids.length });
+    // The flip to 'expired' was silent. Tell each tenant's admins how many
+    // quotes died today so live ones get re-sent instead of quietly lost.
+    // One digest per company (this cron runs once nightly).
+    let notified = 0;
+    try {
+      const byCo = new Map<string, number>();
+      for (const r of staleRows) {
+        if (!r.company_id) continue;
+        byCo.set(r.company_id, (byCo.get(r.company_id) || 0) + 1);
+      }
+      const { notificationService } = await import("@/services/notificationService");
+      for (const [companyId, count] of byCo.entries()) {
+        try {
+          const sent = await notificationService.broadcastNotification(
+            {
+              companyId,
+              targetRoles: ["company_admin" as any, "admin" as any, "owner" as any],
+              title: `📄 ${count} quote${count === 1 ? "" : "s"} expired`,
+              message: `${count} quote${count === 1 ? "" : "s"} passed ${count === 1 ? "its" : "their"} valid-until date without being accepted. Review and re-send any that are still live.`,
+              type: "quotes_expired_digest",
+              priority: "normal",
+              link: "/admin/quotes?status=expired",
+              relatedEntityType: "company",
+              relatedEntityId: companyId,
+              dedup: true,
+              dedupWindowMinutes: 20 * 60,
+            },
+            sb,
+          );
+          if ((sent || 0) > 0) notified += 1;
+        } catch (e: any) {
+          console.warn("[expire-stale-quotes] notify failed for company", companyId, e?.message || e);
+        }
+      }
+    } catch (notifyErr: any) {
+      console.warn("[expire-stale-quotes] digest pass failed (non-blocking):", notifyErr?.message || notifyErr);
+    }
+
+    await recordCronHeartbeat(sb, CRON_NAME, "ok", { source: auth.source, expired: ids.length, notified });
+    return res.status(200).json({ ok: true, expired: ids.length, notified });
   } catch (e: any) {
     console.error("[expire-stale-quotes] crashed:", e);
     await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, error_message: e?.message || "crash" });

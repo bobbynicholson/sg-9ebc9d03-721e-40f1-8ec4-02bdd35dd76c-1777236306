@@ -176,11 +176,60 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       }
     }
 
+    // Past-event unpaid-deposit escalation. The client nudges above stop
+    // once the event date passes (gte event_date filter), so an event that
+    // came and went with the deposit never paid would go silent. That's an
+    // admin problem now, not a client nudge - escalate in-app so it gets
+    // chased or the order cleaned up. Deduped daily per order.
+    let escalated = 0;
+    try {
+      const { data: pastDue } = await sb
+        .from("orders")
+        .select("id, company_id, region_id, order_number, event_name, event_date, deposit_amount")
+        .eq("deposit_paid", false)
+        .lt("event_date", today)
+        .in("status", ["pending", "confirmed"])
+        .is("deleted_at", null)
+        .limit(300);
+      if (pastDue && pastDue.length) {
+        const { notificationService } = await import("@/services/notificationService");
+        for (const o of pastDue as any[]) {
+          try {
+            const amt = Number(o.deposit_amount || 0);
+            const amtLabel = amt > 0 ? ` of R${amt.toLocaleString("en-ZA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "";
+            const sent = await notificationService.broadcastNotification(
+              {
+                companyId: o.company_id,
+                regionId: o.region_id || null,
+                targetRoles: ["company_admin" as any, "admin" as any, "owner" as any],
+                title: `⚠️ Deposit never paid: ${o.order_number || String(o.id).slice(0, 8)}`,
+                message: `${o.event_name && o.event_name !== "Untitled" ? o.event_name : "An event"} (${o.event_date}) has passed but its deposit${amtLabel} was never paid. Chase payment or cancel / clean up the order.`,
+                type: "deposit_overdue_past_event",
+                priority: "high",
+                link: `/admin/orders?orderId=${o.id}`,
+                relatedEntityType: "order",
+                relatedEntityId: o.id,
+                dedup: true,
+                dedupWindowMinutes: 20 * 60,
+              },
+              sb,
+            );
+            if ((sent || 0) > 0) escalated += 1;
+          } catch (e: any) {
+            errors.push(`past-event ${o.id}: ${e?.message || e}`);
+          }
+        }
+      }
+    } catch (escErr: any) {
+      console.warn("[deposit-reminder] past-event escalation failed (non-blocking):", escErr?.message || escErr);
+    }
+
     await recordCronHeartbeat(sb, CRON_NAME, errors.length > 0 ? "error" : "ok", {
       source: auth.source,
       considered: orders.length,
       queued,
       skipped,
+      escalated,
       errors_count: errors.length,
     });
     return res.status(200).json({
@@ -188,6 +237,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       considered: orders.length,
       queued,
       skipped,
+      escalated,
       errors: errors.length > 0 ? errors : undefined,
     });
   } catch (e: any) {
