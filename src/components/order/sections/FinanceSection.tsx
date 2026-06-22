@@ -77,31 +77,38 @@ export function FinanceSection({ orderId, companyId, defaultOpen, forceOpen, hig
     return () => { cancelled = true; };
   }, [orderId, companyId]);
 
-  // ODOC: realtime sub on payments scoped to this order. When a
-  // deposit/balance/refund lands the totals + payment list should
-  // flip live without manual refresh - parity with client portal.
+  // ODOC: realtime sub scoped to this order. When a deposit/balance/refund
+  // lands (payments) OR the order totals move (e.g. a billed equipment damage
+  // folds a charge into total/balance) the figures should flip live without a
+  // manual refresh - parity with the client portal. Listens to BOTH payments
+  // and the orders row so any money change reflects in real time.
   useEffect(() => {
     if (!orderId) return;
+    const refetch = async () => {
+      const [{ data: oData }, { data: pData }] = await Promise.all([
+        (supabase as any)
+          .from("orders")
+          .select("subtotal, tax_amount, total_amount, deposit_amount, amount_paid, payment_status, balance_amount, balance_paid, deposit_paid")
+          .eq("id", orderId)
+          .maybeSingle(),
+        (supabase as any)
+          .from("payments")
+          .select("id, amount, payment_method, payment_status, payment_date, payment_reference, payment_type")
+          .eq("order_id", orderId)
+          .order("payment_date", { ascending: false }),
+      ]);
+      if (oData) setMoney(oData as OrderMoney);
+      setPayments((pData || []) as Payment[]);
+    };
     const ch = supabase
       .channel(`order-doc-finance:${orderId}`)
       .on("postgres_changes",
         { event: "*", schema: "public", table: "payments", filter: `order_id=eq.${orderId}` },
-        async () => {
-          const [{ data: oData }, { data: pData }] = await Promise.all([
-            (supabase as any)
-              .from("orders")
-              .select("subtotal, tax_amount, total_amount, deposit_amount, amount_paid, payment_status, balance_amount, balance_paid, deposit_paid")
-              .eq("id", orderId)
-              .maybeSingle(),
-            (supabase as any)
-              .from("payments")
-              .select("id, amount, payment_method, payment_status, payment_date, payment_reference, payment_type")
-              .eq("order_id", orderId)
-              .order("payment_date", { ascending: false }),
-          ]);
-          if (oData) setMoney(oData as OrderMoney);
-          setPayments((pData || []) as Payment[]);
-        },
+        () => { void refetch(); },
+      )
+      .on("postgres_changes",
+        { event: "UPDATE", schema: "public", table: "orders", filter: `id=eq.${orderId}` },
+        () => { void refetch(); },
       )
       .subscribe();
     return () => { supabase.removeChannel(ch); };
