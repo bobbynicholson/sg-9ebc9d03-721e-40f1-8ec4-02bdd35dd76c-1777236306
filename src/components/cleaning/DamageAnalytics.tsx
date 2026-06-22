@@ -7,7 +7,7 @@
  * daily dashboard. The cleaner sees DamageFlagForm + a recent
  * strip; this component is the admin-side cost view.
  */
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -94,6 +94,48 @@ export function DamageAnalytics() {
   };
 
   const formatCurrency = (amount: number) => tenantCurrency.format(amount, 2);
+
+  // Roll the raw damage rows up into the accountability + recovery views the
+  // admin needs to actually act: how much money is still open (recoverable),
+  // how much is already resolved, average per incident, and breakdowns by
+  // client (who to bill), by responsible person (staff accountability), and
+  // by event (which function cost us the most).
+  const analytics = useMemo(() => {
+    const rows = (damages || []) as any[];
+    let totalUnits = 0, openCount = 0, resolvedCount = 0, openCost = 0, resolvedCost = 0;
+    const byClient = new Map<string, { cost: number; count: number; units: number }>();
+    const byPerson = new Map<string, { cost: number; count: number; units: number }>();
+    const byEvent = new Map<string, { cost: number; count: number; units: number; eventName: string | null; client: string | null; date: string | null }>();
+    for (const d of rows) {
+      const units = Number(d.quantity_damaged || 0);
+      const cost = Number(d.total_cost || 0);
+      totalUnits += units;
+      if (d.resolved) { resolvedCount += 1; resolvedCost += cost; }
+      else { openCount += 1; openCost += cost; }
+
+      const client = d.order?.client_name || "Unknown client";
+      const c = byClient.get(client) || { cost: 0, count: 0, units: 0 };
+      c.cost += cost; c.count += 1; c.units += units; byClient.set(client, c);
+
+      const person = d.responsible_name || "Unassigned";
+      const p = byPerson.get(person) || { cost: 0, count: 0, units: 0 };
+      p.cost += cost; p.count += 1; p.units += units; byPerson.set(person, p);
+
+      const evKey = d.order?.order_number || "No linked order";
+      const e = byEvent.get(evKey) || { cost: 0, count: 0, units: 0, eventName: d.order?.event_name ?? null, client: d.order?.client_name ?? null, date: d.order?.event_date ?? null };
+      e.cost += cost; e.count += 1; e.units += units; byEvent.set(evKey, e);
+    }
+    const total = rows.length;
+    const totalCost = openCost + resolvedCost;
+    return {
+      total, totalUnits, openCount, resolvedCount, openCost, resolvedCost, totalCost,
+      avg: total ? totalCost / total : 0,
+      resolvedPct: total ? Math.round((resolvedCount / total) * 100) : 0,
+      byClient: Array.from(byClient.entries()).map(([name, v]) => ({ name, ...v })).sort((a, b) => b.cost - a.cost),
+      byPerson: Array.from(byPerson.entries()).map(([name, v]) => ({ name, ...v })).sort((a, b) => b.cost - a.cost),
+      byEvent: Array.from(byEvent.entries()).map(([order, v]) => ({ order, ...v })).sort((a, b) => b.cost - a.cost),
+    };
+  }, [damages]);
 
   const damageTypeColours: Record<DamageType, string> = {
     broken: "bg-red-500",
@@ -259,9 +301,43 @@ export function DamageAnalytics() {
         </div>
       )}
 
+      {/* Accountability + recovery KPIs - the numbers an admin needs to act:
+          how many incidents, units lost, money still open (recoverable) vs
+          already resolved, and the average hit per incident. */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+        <Card><CardContent className="pt-4 pb-4">
+          <p className="text-xs text-muted-foreground">Incidents</p>
+          <p className="text-xl font-bold">{analytics.total}</p>
+        </CardContent></Card>
+        <Card><CardContent className="pt-4 pb-4">
+          <p className="text-xs text-muted-foreground">Units lost/damaged</p>
+          <p className="text-xl font-bold">{analytics.totalUnits}</p>
+        </CardContent></Card>
+        <Card><CardContent className="pt-4 pb-4">
+          <p className="text-xs text-muted-foreground">Open (recoverable)</p>
+          <p className="text-xl font-bold text-rose-600">{formatCurrency(analytics.openCost)}</p>
+          <p className="text-[11px] text-muted-foreground">{analytics.openCount} open</p>
+        </CardContent></Card>
+        <Card><CardContent className="pt-4 pb-4">
+          <p className="text-xs text-muted-foreground">Resolved</p>
+          <p className="text-xl font-bold text-emerald-600">{formatCurrency(analytics.resolvedCost)}</p>
+          <p className="text-[11px] text-muted-foreground">{analytics.resolvedCount} closed · {analytics.resolvedPct}%</p>
+        </CardContent></Card>
+        <Card><CardContent className="pt-4 pb-4">
+          <p className="text-xs text-muted-foreground">Avg / incident</p>
+          <p className="text-xl font-bold">{formatCurrency(analytics.avg)}</p>
+        </CardContent></Card>
+        <Card><CardContent className="pt-4 pb-4">
+          <p className="text-xs text-muted-foreground">Total cost</p>
+          <p className="text-xl font-bold">{formatCurrency(analytics.totalCost)}</p>
+        </CardContent></Card>
+      </div>
+
       <Tabs defaultValue="items" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-3 md:grid-cols-6">
           <TabsTrigger value="items">By Item</TabsTrigger>
+          <TabsTrigger value="client">By Client</TabsTrigger>
+          <TabsTrigger value="person">By Person</TabsTrigger>
           <TabsTrigger value="stage">By Stage</TabsTrigger>
           <TabsTrigger value="trend">Trend</TabsTrigger>
           <TabsTrigger value="recent">Recent</TabsTrigger>
@@ -308,6 +384,58 @@ export function DamageAnalytics() {
                       </div>
                     );
                   })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="client" className="space-y-4 mt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Cost by Client</CardTitle>
+              <p className="text-sm text-muted-foreground">Who the damage happened to - the basis for billing the responsible client.</p>
+            </CardHeader>
+            <CardContent>
+              {analytics.byClient.length === 0 ? (
+                <p className="text-center text-muted-foreground py-8">No damages in this period</p>
+              ) : (
+                <div className="space-y-3">
+                  {analytics.byClient.map((c) => (
+                    <div key={c.name} className="flex items-center justify-between p-4 bg-muted rounded-lg">
+                      <div>
+                        <p className="font-medium">{c.name}</p>
+                        <p className="text-sm text-muted-foreground">{c.count} incident{c.count === 1 ? "" : "s"} · {c.units} unit{c.units === 1 ? "" : "s"}</p>
+                      </div>
+                      <p className="font-bold text-lg text-rose-600">{formatCurrency(c.cost)}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="person" className="space-y-4 mt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Cost by Responsible Person</CardTitle>
+              <p className="text-sm text-muted-foreground">Which staff member was on the hook - spot repeat causes and training gaps.</p>
+            </CardHeader>
+            <CardContent>
+              {analytics.byPerson.length === 0 ? (
+                <p className="text-center text-muted-foreground py-8">No damages in this period</p>
+              ) : (
+                <div className="space-y-3">
+                  {analytics.byPerson.map((p) => (
+                    <div key={p.name} className="flex items-center justify-between p-4 bg-muted rounded-lg">
+                      <div>
+                        <p className="font-medium">{p.name}</p>
+                        <p className="text-sm text-muted-foreground">{p.count} incident{p.count === 1 ? "" : "s"} · {p.units} unit{p.units === 1 ? "" : "s"}</p>
+                      </div>
+                      <p className="font-bold text-lg">{formatCurrency(p.cost)}</p>
+                    </div>
+                  ))}
                 </div>
               )}
             </CardContent>
@@ -434,12 +562,18 @@ export function DamageAnalytics() {
                             <p>Client: {damage.order.client_name}</p>
                           )}
                           <p>Stage: {damage.damage_stage}</p>
-                          <p>Quantity: {damage.quantity_damaged} items</p>
+                          <p>
+                            Quantity: {damage.quantity_damaged} items
+                            {Number(damage.unit_cost) > 0 ? ` · ${formatCurrency(Number(damage.unit_cost))} each` : ""}
+                          </p>
                           {damage.responsible_name && (
                             <p>Responsible: {damage.responsible_name}</p>
                           )}
                           {damage.description && (
                             <p className="mt-2 text-foreground">{damage.description}</p>
+                          )}
+                          {damage.resolved && damage.resolution_notes && (
+                            <p className="mt-1 text-emerald-700 dark:text-emerald-400">Resolution: {damage.resolution_notes}</p>
                           )}
                           {damage.photo_url && (
                             <a href={damage.photo_url} target="_blank" rel="noopener noreferrer" className="inline-block text-cyan-700 hover:underline">
