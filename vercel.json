@@ -113,7 +113,11 @@
     },
     {
       "path": "/api/cron/equipment-collection-reminder",
-      "schedule": "0 7 * * *"
+      "schedule": "0 7,18 * * *"
+    },
+    {
+      "path": "/api/cron/event-approaching-reminder",
+      "schedule": "*/15 * * * *"
     },
     {
       "path": "/api/cron/deposit-paid-sweeper",
