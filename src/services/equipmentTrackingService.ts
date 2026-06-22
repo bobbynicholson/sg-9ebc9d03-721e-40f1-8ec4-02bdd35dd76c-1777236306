@@ -536,7 +536,7 @@ ${companyName}`;
     try {
       const { data: dmgRow } = await supabase
         .from("equipment_damages")
-        .select("id, order_id, company_id, equipment_id, quantity_damaged, unit_cost, total_cost, damage_type, resolved")
+        .select("id, order_id, company_id, equipment_id, quantity_damaged, unit_cost, total_cost, damage_type, description, resolved")
         .eq("id", params.damageId)
         .maybeSingle();
       if (!dmgRow) return { ok: false, error: "Damage not found." };
@@ -557,7 +557,12 @@ ${companyName}`;
         .maybeSingle();
       const ord = ordRow as any;
       const companyId = d.company_id || ord?.company_id;
-      const lineDesc = `Equipment damage: ${qty}x ${eqName} (${d.damage_type || "damaged"})`;
+      // Spell out WHAT + WHY on the line so the client understands the charge:
+      // "Damaged equipment charge - 1x Bowl (porcelain) (broken: cracked rim)".
+      const reason = String(d.description || "").trim();
+      const lineDesc =
+        `Damaged equipment charge - ${qty}x ${eqName} ` +
+        `(${d.damage_type || "damaged"}${reason ? `: ${reason}` : ""})`;
 
       // Find a usable open invoice for the order (not voided/written-off,
       // with an outstanding balance). Most-recent first.
