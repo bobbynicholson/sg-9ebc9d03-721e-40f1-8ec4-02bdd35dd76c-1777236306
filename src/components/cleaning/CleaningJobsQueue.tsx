@@ -33,6 +33,7 @@ import {
   type CleaningMethod,
 } from "@/services/cleaningJobsService";
 import { LogCleaningJobModal } from "./LogCleaningJobModal";
+import { equipmentTrackingService } from "@/services/equipmentTrackingService";
 
 const METHOD_META: Record<CleaningMethod, { label: string; icon: any; chip: string }> = {
   dishwasher: {
@@ -117,6 +118,26 @@ export function CleaningJobsQueue() {
       return;
     }
     toast({ title: "Cleaning job complete", description: "Equipment back in inventory." });
+    // Dynamic clock-out: closing the last active job in the queue closes
+    // this cleaner's open duty session automatically (mirror of the driver
+    // autoClockOut). Best-effort, scoped to the actor so a co-cleaner still
+    // working isn't pulled off duty.
+    if (companyId && user?.id) {
+      try {
+        const { ended } = await equipmentTrackingService.autoEndCleaningDutyIfClear({
+          companyId,
+          userId: user.id,
+        });
+        if (ended > 0) {
+          toast({
+            title: "All cleaning done - clocked out",
+            description: "The queue is clear, so your shift was closed automatically.",
+          });
+        }
+      } catch (e) {
+        console.warn("[CleaningJobsQueue] auto clock-out failed (non-blocking):", e);
+      }
+    }
     await refresh();
   };
 

@@ -518,6 +518,95 @@ ${companyName}`;
   },
 
   /**
+   * Dynamic clock-out for cleaning. Mirrors the driver's autoClockOut
+   * (driverPayService) but for the cleaning queue: a cleaner clocks in,
+   * works the cleaning_jobs, and the moment the LAST active job for the
+   * company is done, their open cleaning_duty_logs session closes itself
+   * - no manual "Clock out" tap needed.
+   *
+   * Scope is deliberately the ACTOR only (when userId is passed): if two
+   * cleaners are on the floor and one finishes the queue, we don't yank
+   * the other off duty - we close the session of whoever ticked the last
+   * job. Pass userId from the page's auth context. When userId is omitted
+   * we fall back to closing every open session for the company (used by
+   * server/cron paths with no single actor).
+   *
+   * Returns { ended, remaining } so the caller can toast "all done,
+   * clocked out" vs stay quiet. Best-effort: never throws - a clock-out
+   * miss must not block the job completing.
+   */
+  async autoEndCleaningDutyIfClear(params: {
+    companyId: string;
+    userId?: string | null;
+  }): Promise<{ ended: number; remaining: number }> {
+    try {
+      // Any cleaning jobs still queued / in_progress for this company?
+      const { data: active, error: activeErr } = await (supabase as any)
+        .from("cleaning_jobs")
+        .select("id")
+        .eq("company_id", params.companyId)
+        .is("deleted_at", null)
+        .in("status", ["queued", "in_progress"]);
+      if (activeErr) {
+        console.warn("[autoEndCleaningDutyIfClear] active-jobs read failed:", activeErr);
+        return { ended: 0, remaining: -1 };
+      }
+      const remaining = (active || []).length;
+      if (remaining > 0) return { ended: 0, remaining };
+
+      // Queue is clear. Close the relevant open duty session(s).
+      let q = (supabase as any)
+        .from("cleaning_duty_logs")
+        .select("id, user_id")
+        .eq("company_id", params.companyId)
+        .eq("on_duty", true);
+      if (params.userId) q = q.eq("user_id", params.userId);
+      const { data: openLogs, error: openErr } = await q;
+      if (openErr) {
+        console.warn("[autoEndCleaningDutyIfClear] open-duty read failed:", openErr);
+        return { ended: 0, remaining: 0 };
+      }
+      const targets = (openLogs || []) as Array<{ id: string; user_id: string }>;
+      if (targets.length === 0) return { ended: 0, remaining: 0 };
+
+      const nowIso = new Date().toISOString();
+      let ended = 0;
+      for (const log of targets) {
+        const { error: updErr } = await (supabase as any)
+          .from("cleaning_duty_logs")
+          .update({ on_duty: false, duty_ended_at: nowIso } as any)
+          .eq("id", log.id);
+        if (updErr) {
+          console.warn("[autoEndCleaningDutyIfClear] duty close failed:", updErr);
+          continue;
+        }
+        ended += 1;
+        // Tell the cleaner their shift auto-closed because the queue is
+        // clear (best-effort, mirrors the driver kitchen_clock_out ping).
+        try {
+          const { notificationService } = await import("@/services/notificationService");
+          await notificationService.createNotification({
+            company_id: params.companyId,
+            recipient_id: log.user_id,
+            user_id: log.user_id,
+            notification_type: "cleaning_clock_out",
+            title: "Clocked out - all cleaning done",
+            message: "Every cleaning job in the queue is finished, so your shift was closed automatically. Nice work!",
+            priority: "low",
+            link: "/team-portal/cleaning",
+          } as any);
+        } catch (notifyErr) {
+          console.warn("[autoEndCleaningDutyIfClear] cleaner notify failed:", notifyErr);
+        }
+      }
+      return { ended, remaining: 0 };
+    } catch (e) {
+      console.warn("[autoEndCleaningDutyIfClear] crashed (non-blocking):", e);
+      return { ended: 0, remaining: -1 };
+    }
+  },
+
+  /**
    * Get current on-duty cleaning staff
    */
   async getOnDutyCleaningStaff(companyId: string): Promise<Array<CleaningDutyLog & { profile: any }>> {

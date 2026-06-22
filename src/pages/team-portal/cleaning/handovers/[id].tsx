@@ -39,6 +39,7 @@ import {
   type HandoverWithOrderMeta,
 } from "@/services/cleaningHandoverService";
 import { completeJob, startJob } from "@/services/cleaningJobsService";
+import { equipmentTrackingService } from "@/services/equipmentTrackingService";
 
 function fmtDateTime(iso: string | null): string {
   if (!iso) return "--";
@@ -108,6 +109,28 @@ function HandoverDetailInner() {
     if (!r.ok) {
       toast({ title: "Couldn't complete", description: r.error, variant: "destructive" });
       return;
+    }
+    // Dynamic clock-out: if that was the last active cleaning job for the
+    // company, close this cleaner's open duty session automatically (mirror
+    // of the driver autoClockOut). Best-effort - a clock-out miss must never
+    // block the job tick. Scoped to the actor (userId) so a co-cleaner still
+    // on the floor isn't pulled off duty.
+    const companyId = (user as any)?.company_id || null;
+    if (companyId && user?.id) {
+      try {
+        const { ended } = await equipmentTrackingService.autoEndCleaningDutyIfClear({
+          companyId,
+          userId: user.id,
+        });
+        if (ended > 0) {
+          toast({
+            title: "All cleaning done - clocked out",
+            description: "The queue is clear, so your shift was closed automatically.",
+          });
+        }
+      } catch (e) {
+        console.warn("[handovers/[id]] auto clock-out failed (non-blocking):", e);
+      }
     }
     void load();
   };
