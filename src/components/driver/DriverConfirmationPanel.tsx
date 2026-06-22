@@ -9,6 +9,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { formatLocalTime } from "@/lib/localFormat";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
+import { PodCaptureDialog } from "@/components/driver/PodCaptureDialog";
 
 // Auto-arrival fires when the driver is within this many metres of the
 // venue. 200m is forgiving enough for GPS drift + large venues/parking
@@ -56,6 +57,12 @@ export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venue
   const [venueCoords, setVenueCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [autoArrivalDist, setAutoArrivalDist] = useState<number | null>(null);
   const autoFiredRef = useRef(false);
+  // POD-on-arrival: the "Arrived at venue" tap now requires proof of
+  // delivery. Opening this dialog (manual tap OR geofence auto-detect)
+  // captures photo + signature + recipient, then routes the write
+  // through confirmAtVenue() so arrival is stamped, POD recorded, and
+  // status flipped to delivered in one path.
+  const [podOpen, setPodOpen] = useState(false);
 
   useEffect(() => {
     loadConfirmations();
@@ -139,8 +146,10 @@ export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venue
         setAutoArrivalDist(dist);
         if (dist <= GEOFENCE_RADIUS_M && !autoFiredRef.current && !isConfirmed("at_venue")) {
           autoFiredRef.current = true;
-          toast({ title: "📍 Arrived at venue", description: "Auto-detected by GPS." });
-          handleConfirm("at_venue");
+          // POD is required to confirm arrival, so GPS can't silently
+          // stamp it - prompt the driver to capture proof instead.
+          toast({ title: "📍 You're at the venue", description: "Capture proof of delivery to confirm arrival." });
+          setPodOpen(true);
         }
       },
       (err) => console.warn("[DriverConfirmationPanel] geofence watch error:", err?.message),
@@ -348,11 +357,11 @@ export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venue
             </Badge>
           ) : (
             <Button
-              onClick={() => handleConfirm('at_venue')}
+              onClick={() => setPodOpen(true)}
               disabled={loading || !isConfirmed('departed_kitchen')}
               size="sm"
             >
-              Confirm
+              Capture POD
             </Button>
           )}
         </div>
@@ -539,6 +548,31 @@ export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venue
           </p>
         )}
       </CardContent>
+
+      {/* POD-on-arrival: capturing proof IS how arrival is confirmed.
+          The write routes through confirmAtVenue so the at_venue
+          confirmation (which stamps arrived_at_venue_at), the POD, and
+          the delivered flip all happen together. */}
+      {user && (
+        <PodCaptureDialog
+          open={podOpen}
+          onOpenChange={setPodOpen}
+          orderId={orderId}
+          title="Arrived at venue"
+          onCapture={async (pod) => {
+            await driverConfirmationService.confirmAtVenue(
+              orderId,
+              user.id,
+              geoLocation || undefined,
+              pod,
+            );
+          }}
+          onSaved={async () => {
+            toast({ title: "✅ Arrived + POD captured", description: "Delivery confirmed with proof." });
+            await loadConfirmations();
+          }}
+        />
+      )}
     </Card>
   );
 }

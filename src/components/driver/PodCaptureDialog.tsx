@@ -16,6 +16,19 @@ interface Props {
   orderId: string;
   clientName?: string;
   onSaved?: () => void;
+  /**
+   * Optional capture handler. When supplied, the dialog uploads the
+   * photo + signature and hands the URLs back to the caller instead of
+   * doing its own orders update + delivered flip. Used by the driver
+   * "Arrived at venue" flow, where the write must route through
+   * confirmAtVenue() so the at_venue driver_confirmation is inserted
+   * (that's what stamps arrived_at_venue_at) AND the POD is recorded AND
+   * the status flips to delivered - all in one consistent path. Without
+   * this prop the dialog keeps its original self-contained behaviour.
+   */
+  onCapture?: (pod: { photoUrl: string; signatureUrl: string | null; recipientName: string }) => Promise<void>;
+  /** Header verb override - e.g. "Arrived at venue" vs "Confirm delivery". */
+  title?: string;
 }
 
 /**
@@ -24,7 +37,7 @@ interface Props {
  * pod_signature_url + pod_recipient_name + pod_captured_at on the order
  * row plus marks status delivered.
  */
-export function PodCaptureDialog({ open, onOpenChange, orderId, clientName, onSaved }: Props) {
+export function PodCaptureDialog({ open, onOpenChange, orderId, clientName, onSaved, onCapture, title }: Props) {
   const { toast } = useToast();
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
@@ -156,29 +169,41 @@ export function PodCaptureDialog({ open, onOpenChange, orderId, clientName, onSa
         sigPublicUrl = sigUrl.publicUrl;
       }
 
-      // Wave 45 D2 - two-step write so the status flip routes
-      // through orderWorkflow.updateOrderStatus and triggers the
-      // full side-effect cascade (status_history, audit_logs,
-      // sendStatusNotifications, POD-missing alert, inventory
-      // deduction, equipment cleaning rows, pending_reviews,
-      // after-sales scheduler, transition validation). The
-      // previous shape wrote status='delivered' raw and silently
-      // skipped all of it - same bug class Wave 5 fixed in
-      // confirmDelivery (deliveryManagement.ts:38-52).
-      const { error: podErr } = await supabase
-        .from("orders")
-        .update({
-          pod_photo_url: photoUrl.publicUrl,
-          pod_signature_url: sigPublicUrl,
-          pod_recipient_name: recipientName.trim(),
-          pod_captured_at: new Date().toISOString(),
-        })
-        .eq("id", orderId);
-      if (podErr) throw podErr;
-      const { updateOrderStatus } = await import("@/services/order/orderWorkflow");
-      const flipResult = await (updateOrderStatus as any)(orderId, "delivered");
-      if (flipResult && flipResult.ok === false) {
-        throw new Error(flipResult.error || "Status flip to delivered failed");
+      if (onCapture) {
+        // Caller-owned write path (driver "Arrived at venue" flow). We've
+        // uploaded the artefacts; confirmAtVenue() inserts the at_venue
+        // confirmation (stamps arrived_at_venue_at), records the POD and
+        // flips to delivered in one consistent cascade.
+        await onCapture({
+          photoUrl: photoUrl.publicUrl,
+          signatureUrl: sigPublicUrl,
+          recipientName: recipientName.trim(),
+        });
+      } else {
+        // Wave 45 D2 - two-step write so the status flip routes
+        // through orderWorkflow.updateOrderStatus and triggers the
+        // full side-effect cascade (status_history, audit_logs,
+        // sendStatusNotifications, POD-missing alert, inventory
+        // deduction, equipment cleaning rows, pending_reviews,
+        // after-sales scheduler, transition validation). The
+        // previous shape wrote status='delivered' raw and silently
+        // skipped all of it - same bug class Wave 5 fixed in
+        // confirmDelivery (deliveryManagement.ts:38-52).
+        const { error: podErr } = await supabase
+          .from("orders")
+          .update({
+            pod_photo_url: photoUrl.publicUrl,
+            pod_signature_url: sigPublicUrl,
+            pod_recipient_name: recipientName.trim(),
+            pod_captured_at: new Date().toISOString(),
+          })
+          .eq("id", orderId);
+        if (podErr) throw podErr;
+        const { updateOrderStatus } = await import("@/services/order/orderWorkflow");
+        const flipResult = await (updateOrderStatus as any)(orderId, "delivered");
+        if (flipResult && flipResult.ok === false) {
+          throw new Error(flipResult.error || "Status flip to delivered failed");
+        }
       }
 
       toast({ title: "Delivery confirmed", description: clientName ? `${clientName} marked delivered.` : "Order marked delivered." });
@@ -202,7 +227,7 @@ export function PodCaptureDialog({ open, onOpenChange, orderId, clientName, onSa
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Camera className="w-5 h-5 text-emerald-600" />
-            Confirm delivery{clientName ? ` · ${clientName}` : ""}
+            {title || "Confirm delivery"}{clientName ? ` · ${clientName}` : ""}
           </DialogTitle>
           <p className="text-sm text-slate-500">
             Snap a photo of the drop, get the recipient to sign, then save. Marks the order as delivered.

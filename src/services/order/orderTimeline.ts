@@ -667,14 +667,18 @@ function resolveStage(
         o.service_started_at ||
         o.departed_venue_at ||
         input.serviceEndedAt ||
-        input.eventCompleteAt
+        input.eventCompleteAt ||
+        // Order-column fallback (departed_venue trigger mirrors these
+        // onto orders for driver-run jobs with no waiter attendance).
+        o.service_ended_at ||
+        o.event_complete_at
       );
       if (!onSite) return notApplicable();
       const at =
         key === "setup_started"   ? firstTs(o.setup_started_at) :
         key === "service_started" ? firstTs(o.service_started_at) :
-        key === "service_ended"   ? firstTs(input.serviceEndedAt) :
-        key === "event_complete"  ? firstTs(input.eventCompleteAt) :
+        key === "service_ended"   ? firstTs(input.serviceEndedAt, o.service_ended_at) :
+        key === "event_complete"  ? firstTs(input.eventCompleteAt, o.event_complete_at) :
                                     firstTs(o.departed_venue_at);
       return {
         status: at ? "completed" : "upcoming",

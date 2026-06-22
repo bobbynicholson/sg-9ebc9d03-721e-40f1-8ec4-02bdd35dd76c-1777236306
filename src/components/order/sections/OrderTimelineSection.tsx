@@ -40,6 +40,10 @@ interface OrderForTimeline {
   setup_started_at: string | null;
   service_started_at: string | null;
   departed_venue_at: string | null;
+  // Wave 70.x - on-site service tail, mirrored onto orders by the
+  // departed_venue trigger. Optional: older callers may not select them.
+  service_ended_at?: string | null;
+  event_complete_at?: string | null;
   completed_at: string | null;
   cancelled_at: string | null;
   postponed_at: string | null;
@@ -75,6 +79,14 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen }: Props) {
   const [eventComplete, setEventComplete] = useState<string | null>(null);
   const [equipmentReturned, setEquipmentReturned] = useState<string | null>(null);
   const [hasAttendance, setHasAttendance] = useState(false);
+  // service_ended_at / event_complete_at are also mirrored onto the
+  // orders row by the departed_venue trigger (for driver-run orders with
+  // no waiter event_attendance). Fetched separately + defensively so the
+  // section keeps working before the migration that adds the columns
+  // (a select on a missing column returns an error we simply ignore,
+  // falling back to the inferred-time view).
+  const [orderServiceEnded, setOrderServiceEnded] = useState<string | null>(null);
+  const [orderEventComplete, setOrderEventComplete] = useState<string | null>(null);
   // ODOC H.11: the cleaning cycle is its own step in the lifecycle.
   // cleaning_jobs.triggered_by_event_id ties cleaning rows to orders;
   // when the first job exists for this order, the cleaning cycle has
@@ -130,6 +142,29 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen }: Props) {
     })();
     return () => { cancelled = true; };
   }, [order.id]);
+
+  // Order-level service tail (driver-run orders with no waiter rows).
+  // Prefer values already on the order prop; otherwise fetch them.
+  // Silent on error so a pre-migration order page never breaks.
+  useEffect(() => {
+    if (order.service_ended_at || order.event_complete_at) {
+      setOrderServiceEnded(order.service_ended_at || null);
+      setOrderEventComplete(order.event_complete_at || null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await (supabase as any)
+        .from("orders")
+        .select("service_ended_at, event_complete_at")
+        .eq("id", order.id)
+        .maybeSingle();
+      if (cancelled || error || !data) return; // column missing pre-migration -> ignore
+      setOrderServiceEnded((data as any).service_ended_at || null);
+      setOrderEventComplete((data as any).event_complete_at || null);
+    })();
+    return () => { cancelled = true; };
+  }, [order.id, order.service_ended_at, order.event_complete_at]);
 
   // ODOC H.11: cleaning cycle signal. Pulls cleaning_jobs linked to
   // this order via triggered_by_event_id. cleaningStarted = earliest
@@ -364,6 +399,13 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen }: Props) {
     return () => { supabase.removeChannel(ch); };
   }, [order.id]);
 
+  // Effective service-tail stamps: prefer the precise waiter-panel value
+  // (event_attendance), fall back to the order column stamped by the
+  // departed_venue trigger. Keeps the timeline complete for driver-run
+  // orders that never had a waiter tap service-ended / event-complete.
+  const effServiceEnded = serviceEnded || orderServiceEnded;
+  const effEventComplete = eventComplete || orderEventComplete;
+
   const cancelled = !!order.cancelled_at;
   const postponed = !!order.postponed_at;
   // Service-phase steps are relevant if the order needs waiters, any
@@ -383,8 +425,8 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen }: Props) {
     order.setup_started_at ||
     order.service_started_at ||
     order.departed_venue_at ||
-    serviceEnded ||
-    eventComplete
+    effServiceEnded ||
+    effEventComplete
   );
   // Equipment-return step shows if there's any equipment-return
   // signal (a method on the order, an attendance stamp, the
@@ -454,8 +496,8 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen }: Props) {
     { key: "delivered",     label: "Delivered",            Icon: PackageOpen,    at: order.delivered_at,        lane: "driver" },
     { key: "setup",         label: "Setup started",        Icon: Sparkles,       at: order.setup_started_at,    show: needsService, lane: "service" },
     { key: "service_start", label: "Service started",     Icon: Users,          at: order.service_started_at,  show: needsService, lane: "service" },
-    { key: "service_end",   label: "Service ended",        Icon: Clock,          at: serviceEnded,              show: needsService, lane: "service" },
-    { key: "event_done",    label: "Event complete",       Icon: PartyPopper,    at: eventComplete,             show: needsService, lane: "service" },
+    { key: "service_end",   label: "Service ended",        Icon: Clock,          at: effServiceEnded,           show: needsService, lane: "service" },
+    { key: "event_done",    label: "Event complete",       Icon: PartyPopper,    at: effEventComplete,          show: needsService, lane: "service" },
     { key: "departed",      label: "Departed venue",       Icon: ArrowLeftRight, at: order.departed_venue_at,   lane: "closeout" },
     // ODOC H.11: equipment closeout now spans two steps. First the
     // driver / waiter brings the gear back from the venue (uses the
