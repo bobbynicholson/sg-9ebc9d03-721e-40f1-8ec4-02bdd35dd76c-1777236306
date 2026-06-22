@@ -146,6 +146,35 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       } catch (e) {
         console.warn("[confirm-return] deposit flag update failed:", e);
       }
+
+      // Mirror the invoice's fresh paid state onto the ORDER so every
+      // order-based surface (Finance section, timeline closeout, order list)
+      // reflects the payment in real time - not just the invoice/billing
+      // surfaces. Previously only deposit_paid was stamped, so a fully-paid
+      // balance still read "outstanding / partial" on every order page.
+      try {
+        const { data: freshInv } = await sb
+          .from("invoices")
+          .select("amount_paid, balance_due")
+          .eq("id", invoice.id)
+          .maybeSingle();
+        if (freshInv) {
+          const paidToDate = Number((freshInv as any).amount_paid || 0);
+          const bal = Math.max(0, Number((freshInv as any).balance_due ?? 0));
+          const fullyPaid = bal <= 0.009;
+          const patch: any = {
+            amount_paid: paidToDate,
+            balance_amount: bal,
+            balance_paid: fullyPaid,
+            payment_status: fullyPaid ? "paid" : paidToDate > 0 ? "partial" : "pending",
+            updated_at: new Date().toISOString(),
+          };
+          if (fullyPaid) patch.balance_paid_at = new Date().toISOString();
+          await sb.from("orders").update(patch).eq("id", invoice.order_id);
+        }
+      } catch (e) {
+        console.warn("[confirm-return] order payment reconcile failed:", e);
+      }
     }
 
     return res.status(200).json({
