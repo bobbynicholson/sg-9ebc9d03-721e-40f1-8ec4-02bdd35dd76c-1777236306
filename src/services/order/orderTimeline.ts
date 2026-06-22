@@ -977,6 +977,39 @@ export function computeOrderTimeline(input: OrderTimelineInput): OrderTimeline {
     }
   }
 
+  // A fully COMPLETED order is wrapped up by definition: it can't reach
+  // 'completed' without its deposit + final invoices having been issued,
+  // its balance settled (when there was one), and its closing comms done.
+  // The /admin/orders list builds this timeline from a BATCHED invoice +
+  // email join under the viewer's session; when that batch doesn't surface
+  // a row (RLS scoping, a partial batch, soft-delete filters) a finished
+  // order showed phantom "Deposit invoice / Final invoice / no email" gaps
+  // on the at-a-glance card even though its own detail page (per-order
+  // fetch) reads complete. Force the money + closure stages complete on a
+  // completed order so the list matches the authoritative detail view and
+  // never nags about wrap-up on an order that's already done. The granular
+  // per-email nudges still apply to IN-FLIGHT orders, which is where they
+  // actually help the operator.
+  const isCompleted = String(ord.status || "") === "completed" || !!ord.completed_at;
+  if (isCompleted) {
+    const CLOSURE_DEFINITIONAL = new Set<StageKey>([
+      "deposit_invoice_issued", "deposit_paid",
+      "final_invoice_issued", "final_invoice_sent",
+      "balance_paid", "receipt_issued",
+      "completed", "thank_you_sent",
+    ]);
+    const closedAt =
+      (ord.completed_at as string) || (ord.updated_at as string) || null;
+    for (const stage of resolved) {
+      if (!CLOSURE_DEFINITIONAL.has(stage.key)) continue;
+      // Respect n/a (e.g. no deposit / no balance on this order) and
+      // already-green stages; only promote genuine 'upcoming'/'current'.
+      if (stage.status === "not_applicable" || stage.status === "skipped" || stage.status === "completed") continue;
+      stage.status = "completed";
+      if (!stage.completedAt) stage.completedAt = closedAt;
+    }
+  }
+
   // Apply the "exactly one current" rule. Walk in order; the first
   // stage that isn't completed/skipped/not_applicable becomes current
   // (unless it's already blocked, in which case its own resolver set

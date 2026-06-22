@@ -306,7 +306,13 @@ export function computeOrderReadiness(
   // has been sent or delivered. If they've heard from us, they
   // know about the booking.
   const emailLog = input.emailLog || [];
-  const confirmationSent = emailLog.some(
+  // A finished order (delivered / completed / cancelled) doesn't need a
+  // "send a confirmation" nudge - the booking has already run its course,
+  // and the batched email join can under-report on the at-a-glance card
+  // (RLS scoping / partial batch). Treat the signal as satisfied so the
+  // list never flags a wrapped-up order as "client never heard from us".
+  const orderFinished = ["delivered", "completed", "cancelled"].includes(orderStatus);
+  const confirmationSent = orderFinished || emailLog.some(
     (r: any) => ["sent", "delivered"].includes(String(r?.status || "")),
   );
   signals.push({

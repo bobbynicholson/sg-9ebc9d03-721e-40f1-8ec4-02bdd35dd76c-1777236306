@@ -145,6 +145,10 @@ export function AssignedShiftsPanel({
             s.status === "missed" ||
             (s.shift_date && s.shift_date < todayIso && !s.actual_start && s.status === "scheduled");
           const hasActual = !!s.actual_start;
+          // Clocked OUT once the shift has an end stamp or is marked
+          // completed - otherwise a finished shift kept reading "Clocked in"
+          // forever (the label only looked at actual_start).
+          const clockedOut = !!s.actual_end || s.status === "completed";
           return (
             <div
               key={s.id}
@@ -164,7 +168,9 @@ export function AssignedShiftsPanel({
                 </span>
               )}
               {hasActual && !isMissed && (
-                <span className="text-emerald-700 text-[10px]">Clocked in</span>
+                clockedOut
+                  ? <span className="text-slate-500 text-[10px]">Clocked out</span>
+                  : <span className="text-emerald-700 text-[10px]">Clocked in</span>
               )}
               {isMissed && (
                 <span className="text-red-700 text-[10px] inline-flex items-center gap-0.5 font-medium">
