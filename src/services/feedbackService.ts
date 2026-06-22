@@ -4,9 +4,18 @@ import { FeedbackData } from "@/components/DeliveryFeedbackModal";
 
 export const feedbackService = {
   /**
-   * Submit delivery feedback
+   * Submit delivery feedback.
+   *
+   * client_id + company_id are REQUIRED: both are NOT NULL on
+   * delivery_feedback, and the RLS INSERT policy (client_submit_feedback)
+   * checks `client_id IN (SELECT id FROM clients WHERE user_id = auth.uid())`.
+   * Omitting them is what produced the 403 on submit - the caller must
+   * resolve the logged-in user's client row and pass it through.
    */
-  async submitFeedback(feedback: FeedbackData) {
+  async submitFeedback(
+    feedback: FeedbackData,
+    ctx: { client_id: string; company_id: string },
+  ) {
     const { data, error } = await (supabase as any)
       .from("delivery_feedback")
       // Column names per the live schema: delivery_timeliness_rating /
@@ -15,6 +24,8 @@ export const feedbackService = {
       // they're not persisted (the whole insert 400'd before).
       .insert({
         order_id: feedback.order_id,
+        client_id: ctx.client_id,
+        company_id: ctx.company_id,
         food_quality_rating: feedback.food_quality_rating,
         delivery_timeliness_rating: feedback.delivery_speed_rating,
         driver_professionalism_rating: feedback.driver_service_rating,
