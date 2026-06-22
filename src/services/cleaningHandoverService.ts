@@ -241,7 +241,7 @@ export async function generateJobsForHandover(
           message: `${created} item type${created === 1 ? "" : "s"} queued for cleaning from a returned event.`,
           targetRoles: ["cleaning_staff" as any],
           priority: "normal",
-          link: "/team-portal/cleaning",
+          link: "/team-portal/cleaning/dashboard",
           relatedEntityType: "cleaning_handover",
           relatedEntityId: args.handoverId,
           dedup: true,

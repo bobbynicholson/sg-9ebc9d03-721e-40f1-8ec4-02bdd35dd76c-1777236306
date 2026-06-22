@@ -263,7 +263,7 @@ export const equipmentTrackingService = {
           message: `${params.quantityDamaged}x ${equipmentName} marked ${params.damageType} on order ${order.order_number} and pulled from stock. Check availability for upcoming events.`,
           targetRoles: ["kitchen_staff" as any, "cleaning_staff" as any],
           priority: "normal",
-          link: `/team-portal/cleaning`,
+          link: `/team-portal/cleaning/dashboard`,
           relatedEntityType: "equipment",
           relatedEntityId: params.equipmentId,
           dedup: true,
@@ -644,7 +644,7 @@ ${companyName}`;
             title: "Clocked out - all cleaning done",
             message: "Every cleaning job in the queue is finished, so your shift was closed automatically. Nice work!",
             priority: "low",
-            link: "/team-portal/cleaning",
+            link: "/team-portal/cleaning/dashboard",
           } as any);
         } catch (notifyErr) {
           console.warn("[autoEndCleaningDutyIfClear] cleaner notify failed:", notifyErr);
