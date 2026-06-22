@@ -120,6 +120,10 @@
       "schedule": "*/15 * * * *"
     },
     {
+      "path": "/api/cron/cleaning-overdue-check",
+      "schedule": "0 */6 * * *"
+    },
+    {
       "path": "/api/cron/deposit-paid-sweeper",
       "schedule": "30 * * * *"
     },
