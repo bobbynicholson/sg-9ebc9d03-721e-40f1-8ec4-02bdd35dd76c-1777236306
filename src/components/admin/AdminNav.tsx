@@ -68,6 +68,7 @@ import {
   Shield,
   CookingPot,
   FlaskConical,
+  AlertTriangle,
 } from "lucide-react";
 import { useRouter } from "next/router";
 import { Badge } from "@/components/ui/badge";
@@ -281,6 +282,7 @@ export function AdminNav(_: AdminNavProps = {}) {
         { title: "Stock overview",      href: "/admin/stock",               icon: BarChart3,   description: "Pressure feed: low + commitments + hire-in" },
         { title: "Inventory",           href: "/admin/inventory",           icon: Package,     description: "Pantry + chiller outlook" },
         { title: "Equipment",           href: "/admin/equipment",           icon: Layers,      description: "Catalog, availability, shortages, hire-in" },
+        { title: "Equipment damages",   href: "/admin/equipment-damages",   icon: AlertTriangle, description: "Broken/lost gear by event + client, with cost to bill" },
         { title: "Suppliers",           href: "/admin/suppliers",           icon: Building2,   description: "Contacts, products, spend" },
         { title: "Outsource providers", href: "/admin/outsource-providers", icon: HardHat,     description: "Per-event chefs, florists, photographers" },
         { title: "Shopping",            href: "/admin/shopping",            icon: ShoppingBag, description: "Procurement: buy now, plan, slips" },
