@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { AlertTriangle, Package, Banknote, Calendar as CalendarIcon, BellRing, CheckCircle2, Receipt } from "lucide-react";
+import { AlertTriangle, Package, Banknote, Calendar as CalendarIcon, BellRing, CheckCircle2, Receipt, Download } from "lucide-react";
 import { equipmentTrackingService, type DamageType } from "@/services/equipmentTrackingService";
 import { notificationService } from "@/services/notificationService";
 import { UserRole } from "@/types/app";
@@ -103,6 +103,48 @@ export function DamageAnalytics() {
   // note (written by billDamageToClient). Distinguishes a charged damage from
   // one resolved another way (write-off, repaired in-house).
   const isBilled = (d: any): boolean => !!d?.resolved && /billed/i.test(String(d?.resolution_notes || ""));
+
+  // Export the loaded register (respects the active date range + type filter)
+  // to CSV so the operator can hand it to finance or reconcile against
+  // invoices. Builds the file client-side and triggers a download - no server
+  // round-trip. RFC-4180 quoting so commas / quotes / newlines in notes are safe.
+  const exportCsv = () => {
+    const headers = [
+      "Date", "Order", "Event", "Client", "Equipment", "Type", "Stage",
+      "Quantity", "Unit cost", "Total cost", "Responsible", "Status",
+      "Resolution", "Description",
+    ];
+    const esc = (v: any) => {
+      const s = v == null ? "" : String(v);
+      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const rows = (damages || []).map((d: any) => [
+      d.created_at ? new Date(d.created_at).toISOString().slice(0, 10) : "",
+      d.order?.order_number || "",
+      d.order?.event_name && d.order.event_name !== "Untitled" ? d.order.event_name : "",
+      d.order?.client_name || "",
+      d.equipment?.name || "",
+      d.damage_type || "",
+      d.damage_stage || "",
+      d.quantity_damaged ?? "",
+      Number(d.unit_cost || 0).toFixed(2),
+      Number(d.total_cost || 0).toFixed(2),
+      d.responsible_name || "",
+      isBilled(d) ? "Billed" : d.resolved ? "Resolved" : "Open",
+      d.resolution_notes || "",
+      d.description || "",
+    ].map(esc).join(","));
+    const csv = [headers.join(","), ...rows].join("\r\n");
+    const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `equipment-damages-${format(dateRange.from, "yyyyMMdd")}-${format(dateRange.to, "yyyyMMdd")}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
 
   // Roll the raw damage rows up into the accountability + recovery views the
   // admin needs to actually act: how much money is still open (recoverable),
@@ -281,6 +323,16 @@ export function DamageAnalytics() {
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold">Equipment Losses & Damages</h2>
         <div className="flex gap-2">
+          <Button
+            variant="outline"
+            className="gap-2"
+            onClick={exportCsv}
+            disabled={(damages || []).length === 0}
+            title="Export the current register to CSV"
+          >
+            <Download className="h-4 w-4" />
+            Export CSV
+          </Button>
           <Popover>
             <PopoverTrigger asChild>
               <Button variant="outline" className="gap-2">
