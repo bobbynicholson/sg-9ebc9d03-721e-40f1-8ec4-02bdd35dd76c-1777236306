@@ -366,9 +366,26 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen }: Props) {
 
   const cancelled = !!order.cancelled_at;
   const postponed = !!order.postponed_at;
-  // Service-phase steps are relevant if the order needs waiters or
-  // any waiter has actually checked in. Otherwise they're noise.
-  const needsService = !!(order.requires_waiter || order.waiter_service_required || hasAttendance);
+  // Service-phase steps are relevant if the order needs waiters, any
+  // waiter has actually checked in (event_attendance), OR any on-site
+  // timestamp has actually been stamped on the order row. The driver's
+  // setup/service/depart taps in DriverConfirmationPanel fire the
+  // tg_stamp_order_event_day trigger which fills orders.setup_started_at
+  // / service_started_at / departed_venue_at - so those stamps can exist
+  // even when requires_waiter is false. Without the timestamp clauses the
+  // step rendered a real time AND an "N/A" chip at once. This mirrors the
+  // `onSite` derivation in computeOrderTimeline() (orderTimeline.ts) so
+  // the /order/[id] stepper and the admin/client timelines stay in sync.
+  const needsService = !!(
+    order.requires_waiter ||
+    order.waiter_service_required ||
+    hasAttendance ||
+    order.setup_started_at ||
+    order.service_started_at ||
+    order.departed_venue_at ||
+    serviceEnded ||
+    eventComplete
+  );
   // Equipment-return step shows if there's any equipment-return
   // signal (a method on the order, an attendance stamp, the
   // departed_venue_at field, or a cleaning_job exists for the order).
@@ -641,7 +658,22 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen }: Props) {
           {(() => null)()}
           {steps.map((step, i) => {
             const reached = !!step.at;
-            const notApplicable = step.show === false;
+            // A step that was actually reached (has a real timestamp) can
+            // never be "not applicable" - guard against the show-flag and a
+            // real stamp disagreeing (e.g. a driver-stamped service step on
+            // an order we hadn't flagged as needing service). Without this a
+            // row showed its timestamp AND a faint "N/A" chip at once.
+            const notApplicable = step.show === false && !step.at;
+            // An applicable step that sits BEFORE the last completed step but
+            // carries no stamp of its own has still been passed - the
+            // lifecycle has provably moved beyond it (a later milestone is
+            // stamped). Render it as done so the spine reads cleanly top to
+            // bottom (everything up to the current point green, only genuine
+            // future steps pending at the end) instead of showing a grey
+            // "hole" mid-spine. We don't invent a timestamp - the time cell
+            // shows "not recorded" so the missing stamp is still visible.
+            const passed = !step.at && !notApplicable && lastDoneIdx >= 0 && i < lastDoneIdx;
+            const done = reached || passed;
             const isCurrent = i === lastDoneIdx;
             const isNextPending = i === nextPendingIdx;
             const Icon = step.Icon;
@@ -656,17 +688,17 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen }: Props) {
                 {!isLast && (
                   <span
                     aria-hidden
-                    className={`absolute left-[15px] top-7 bottom-0 w-px ${reached ? "bg-emerald-400" : "bg-slate-200"}`}
+                    className={`absolute left-[15px] top-7 bottom-0 w-px ${done ? "bg-emerald-400" : "bg-slate-200"}`}
                   />
                 )}
                 <div
-                  className={`w-8 h-8 rounded-full border-2 flex items-center justify-center flex-shrink-0 z-10 transition ${laneClass(step.lane, reached)} ${notApplicable ? "opacity-50 border-dashed" : ""} ${isCurrent ? "ring-2 ring-offset-2 ring-blue-300" : ""} ${isNextPending && !cancelled && !postponed ? "ring-2 ring-offset-2 ring-amber-300" : ""}`}
+                  className={`w-8 h-8 rounded-full border-2 flex items-center justify-center flex-shrink-0 z-10 transition ${laneClass(step.lane, done)} ${notApplicable ? "opacity-50 border-dashed" : ""} ${isCurrent ? "ring-2 ring-offset-2 ring-blue-300" : ""} ${isNextPending && !cancelled && !postponed ? "ring-2 ring-offset-2 ring-amber-300" : ""}`}
                 >
-                  {reached ? <Icon className="w-4 h-4" /> : <Circle className="w-3 h-3" />}
+                  {done ? <Icon className="w-4 h-4" /> : <Circle className="w-3 h-3" />}
                 </div>
                 <div className="flex-1 min-w-0 pt-1">
                   <div className="flex items-baseline justify-between gap-2 flex-wrap">
-                    <p className={`text-sm ${notApplicable ? "text-slate-400 italic" : reached ? "font-semibold text-slate-900" : "text-slate-500"}`}>
+                    <p className={`text-sm ${notApplicable ? "text-slate-400 italic" : done ? "font-semibold text-slate-900" : "text-slate-500"}`}>
                       {step.label}
                       {/* ODOC H.1: whose turn badge. Always shown -
                           informational for past steps, action-cue
@@ -703,7 +735,9 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen }: Props) {
                           {fmtRelative(hoursSince(step.at)!)}
                         </span>
                       )}
-                      <span>{reached ? fmtStamp(step.at) : notApplicable ? "N/A" : "-"}</span>
+                      <span className={passed ? "text-slate-400 italic" : undefined}>
+                        {reached ? fmtStamp(step.at) : passed ? "not recorded" : notApplicable ? "N/A" : "-"}
+                      </span>
                     </div>
                   </div>
                 </div>
