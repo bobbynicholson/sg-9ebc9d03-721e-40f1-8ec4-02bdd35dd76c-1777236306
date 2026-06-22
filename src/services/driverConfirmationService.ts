@@ -639,6 +639,79 @@ export const driverConfirmationService = {
         .eq("order_id", orderId)
         .eq("assignment_type", "collection")
         .in("status", ["assigned", "accepted"]);
+
+      // Tell the client the team is on the way to collect, mirroring the
+      // "driver on the way" ping sent on delivery departure. In-app +
+      // email, both best-effort so a notify failure never blocks the
+      // driver starting the trip.
+      try {
+        const { data: ord } = await supabase
+          .from("orders")
+          .select("company_id, order_number, client_id, client_email, client_name, venue_address, venue_name, event_name")
+          .eq("id", orderId)
+          .maybeSingle();
+        if (ord) {
+          const o = ord as any;
+          const venue = o.venue_name || (o.venue_address ? String(o.venue_address).split(",")[0] : "the venue");
+          const eventName = o.event_name && o.event_name !== "Untitled" ? o.event_name : "your event";
+          // In-app to the client (resolve the client's auth user id).
+          if (o.client_id && o.company_id) {
+            const { data: cl } = await supabase
+              .from("clients")
+              .select("user_id")
+              .eq("id", o.client_id)
+              .maybeSingle();
+            const clientUid = (cl as any)?.user_id;
+            if (clientUid) {
+              await notificationService.createNotification({
+                company_id: o.company_id,
+                recipient_id: clientUid,
+                user_id: clientUid,
+                notification_type: "collection_en_route",
+                title: "We're on the way to collect",
+                message: `Our team is heading to ${venue} to collect the catering equipment. Please have it ready to hand over.`,
+                priority: "normal",
+                link: `/client-portal/tracking?orderId=${orderId}`,
+                related_entity_type: "order",
+                related_entity_id: orderId,
+                dedup: true,
+                dedupWindowMinutes: 30,
+              } as any);
+            }
+          }
+          // Email the client (best-effort; no-ops cleanly if no provider key).
+          if (o.client_email) {
+            try {
+              const { emailService } = await import("@/services/emailService");
+              const firstName = String(o.client_name || "there").trim().split(/\s+/)[0] || "there";
+              await emailService.sendEmail({
+                companyId: o.company_id,
+                to: o.client_email,
+                template: "collection_en_route",
+                subject: `We're on our way to collect - ${eventName}`,
+                body:
+                  `Hi {{first_name}},\n\n` +
+                  `Just letting you know our team is on the way to {{venue}} to collect the catering equipment from {{event_name}}. ` +
+                  `Please make sure it's accessible and ready to hand over.\n\n` +
+                  `Thanks!`,
+                variables: {
+                  first_name: firstName,
+                  client_name: o.client_name || "",
+                  event_name: eventName,
+                  venue,
+                  order_number: o.order_number || "",
+                },
+                orderId,
+              } as any);
+            } catch (emailErr) {
+              console.warn("[startCollection] client email failed (non-blocking):", emailErr);
+            }
+          }
+        }
+      } catch (notifyErr) {
+        console.warn("[startCollection] client notify failed (non-blocking):", notifyErr);
+      }
+
       return shift;
     } catch (e) {
       console.warn("[startCollection] failed:", e);
