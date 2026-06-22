@@ -21,6 +21,14 @@ interface Invoice {
   paid_at?: string;
   event_date: string;
   event_location: string;
+  /** Line-item breakdown so the client sees WHAT the amount is for (catering
+   *  lines + any damage charge), the full total, and a public link to view /
+   *  pay the invoice without logging in. */
+  items?: Array<{ description?: string; quantity?: number; unitPrice?: number; total?: number }>;
+  total?: number;
+  subtotal?: number;
+  tax_amount?: number;
+  public_token?: string | null;
 }
 
 interface InvoiceDetailModalProps {
@@ -109,6 +117,57 @@ export function InvoiceDetailModal({ invoice, open, onClose }: InvoiceDetailModa
 
           <Separator />
 
+          {/* Itemised breakdown - what the amount is for. Mirrors the public
+              pay page so the client sees catering lines + any damage charge
+              (highlighted) summing to the total, instead of a bare amount. */}
+          {Array.isArray(invoice.items) && invoice.items.length > 0 && (
+            <div>
+              <h4 className="font-semibold text-slate-900 mb-3">What this is for</h4>
+              <div className="rounded-lg border border-slate-200 overflow-hidden">
+                <ul className="divide-y divide-slate-100">
+                  {invoice.items.map((it, i) => {
+                    const isDamage = /damage/i.test(String(it?.description || ""));
+                    return (
+                      <li key={i} className="flex items-start justify-between gap-3 px-3 py-2 text-sm">
+                        <div className="min-w-0">
+                          <p className={isDamage ? "text-rose-700 font-medium" : "text-slate-800"}>
+                            {it?.description || "Item"}
+                          </p>
+                          {Number(it?.quantity) > 0 && Number(it?.unitPrice) > 0 && (
+                            <p className="text-[11px] text-slate-500">
+                              {it.quantity} × {invoice.currency}{Number(it.unitPrice).toLocaleString()}
+                            </p>
+                          )}
+                        </div>
+                        <p className="text-slate-900 tabular-nums font-medium whitespace-nowrap">
+                          {invoice.currency}{Number(it?.total || 0).toLocaleString()}
+                        </p>
+                      </li>
+                    );
+                  })}
+                </ul>
+                <div className="border-t border-slate-200 bg-slate-50 px-3 py-2 space-y-1 text-sm">
+                  {Number(invoice.tax_amount) > 0 && (
+                    <>
+                      <div className="flex justify-between text-slate-600">
+                        <span>Subtotal</span>
+                        <span className="tabular-nums">{invoice.currency}{Number(invoice.subtotal || 0).toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between text-slate-600">
+                        <span>VAT</span>
+                        <span className="tabular-nums">{invoice.currency}{Number(invoice.tax_amount || 0).toLocaleString()}</span>
+                      </div>
+                    </>
+                  )}
+                  <div className="flex justify-between font-semibold text-slate-900">
+                    <span>Total</span>
+                    <span className="tabular-nums">{invoice.currency}{Number(invoice.total || 0).toLocaleString()}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Payment Details */}
           <div>
             <h4 className="font-semibold text-slate-900 mb-3">Payment Details</h4>
@@ -165,6 +224,16 @@ export function InvoiceDetailModal({ invoice, open, onClose }: InvoiceDetailModa
               <Printer className="w-4 h-4 mr-2" />
               Print
             </Button>
+            {invoice.public_token && (
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => window.open(`/pay/i/${invoice.public_token}`, "_blank", "noopener")}
+              >
+                <FileText className="w-4 h-4 mr-2" />
+                View full invoice
+              </Button>
+            )}
           </div>
         </div>
       </DialogContent>

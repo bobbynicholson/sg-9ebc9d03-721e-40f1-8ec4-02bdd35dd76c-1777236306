@@ -37,6 +37,14 @@ interface Invoice {
    *  of whether the balance is fully cleared. Drives the row-level
    *  "Download receipt" affordance. */
   has_completed_payment: boolean;
+  /** Line-item breakdown (catering lines + any damage charge), the full
+   *  total, and the public token so the detail modal can itemise what the
+   *  amount is for and link to the public pay page. */
+  items?: Array<{ description?: string; quantity?: number; unitPrice?: number; total?: number }>;
+  total?: number;
+  subtotal?: number;
+  tax_amount?: number;
+  public_token?: string | null;
 }
 
 // Wave 23: tenant-aware currency symbol. The billing list renders
@@ -195,7 +203,7 @@ export default function ClientBillingPage() {
       const { data: rows, error } = await supabase
         .from("invoices")
         .select(
-          "id, invoice_number, order_id, invoice_date, due_date, total_amount, amount_paid, balance_due, status, paid_at, orders:order_id ( order_number, event_date, venue_name, venue_address )",
+          "id, invoice_number, order_id, invoice_date, due_date, total_amount, amount_paid, balance_due, status, paid_at, invoice_data, public_token, orders:order_id ( order_number, event_date, venue_name, venue_address )",
         )
         .eq("company_id", tenantCompanyId)
         .in("client_id", clientIds)
@@ -279,6 +287,11 @@ export default function ClientBillingPage() {
             orderEmbed.venue_name || orderEmbed.venue_address || "",
           has_completed_payment:
             paidInvoiceIds.has(r.id) || (Number(r.amount_paid || 0) > 0 && r.status === "paid"),
+          items: Array.isArray(r.invoice_data?.items) ? r.invoice_data.items : undefined,
+          total: totalAmount,
+          subtotal: Number(r.invoice_data?.subtotal ?? totalAmount),
+          tax_amount: Number(r.invoice_data?.taxAmount ?? 0),
+          public_token: r.public_token || null,
         };
       });
 
