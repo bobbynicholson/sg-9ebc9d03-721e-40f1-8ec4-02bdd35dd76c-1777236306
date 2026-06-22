@@ -573,6 +573,8 @@ ${companyName}`;
 
       let mode: "added" | "new_invoice";
       let invoiceNumber: string;
+      let billedInvoiceId: string | null = null;
+      let invoiceDataForEmail: any = null;
 
       if (openInv) {
         const newSubtotal = round2(Number(openInv.subtotal || 0) + cost);
@@ -604,6 +606,8 @@ ${companyName}`;
           .eq("id", openInv.id);
         mode = "added";
         invoiceNumber = openInv.invoice_number;
+        billedInvoiceId = openInv.id;
+        invoiceDataForEmail = idata;
       } else {
         // Client is square - raise a fresh invoice for just the damage.
         invoiceNumber = `INV-${Date.now().toString().slice(-6)}`;
@@ -632,23 +636,41 @@ ${companyName}`;
         } catch (e) {
           console.warn("[billDamageToClient] generateInvoiceData failed (non-blocking):", e);
         }
-        await supabase.from("invoices").insert({
-          company_id: companyId,
-          order_id: d.order_id,
-          client_id: ord?.client_id || null,
-          invoice_number: invoiceNumber,
-          invoice_date: todayIso,
-          due_date: dueIso,
-          subtotal: cost,
-          tax_amount: 0,
-          total_amount: cost,
-          amount_paid: 0,
-          balance_due: cost,
-          status: "sent",
-          notes: `Equipment damage charge: ${lineDesc} (order ${ord?.order_number || ""})`,
-          invoice_data: idata,
-        } as any);
+        const { data: insertedInv } = await supabase
+          .from("invoices")
+          .insert({
+            company_id: companyId,
+            order_id: d.order_id,
+            client_id: ord?.client_id || null,
+            invoice_number: invoiceNumber,
+            invoice_date: todayIso,
+            due_date: dueIso,
+            subtotal: cost,
+            tax_amount: 0,
+            total_amount: cost,
+            amount_paid: 0,
+            balance_due: cost,
+            status: "sent",
+            notes: `Equipment damage charge: ${lineDesc} (order ${ord?.order_number || ""})`,
+            invoice_data: idata,
+          } as any)
+          .select("id")
+          .single();
         mode = "new_invoice";
+        billedInvoiceId = (insertedInv as any)?.id || null;
+        invoiceDataForEmail = idata || {
+          clientName: ord?.client_name || "there",
+          clientEmail: ord?.client_email || "",
+          invoiceNumber,
+          orderNumber: ord?.order_number || "",
+          items: [{ description: lineDesc, quantity: qty, unitPrice: unitCost, total: cost }],
+          subtotal: cost,
+          taxRate: 0,
+          taxAmount: 0,
+          total: cost,
+          depositPaid: 0,
+          balanceDue: cost,
+        };
       }
 
       // Close the damage out with a billed note (also stops double-billing).
@@ -690,6 +712,29 @@ ${companyName}`;
         }
       } catch (notifyErr) {
         console.warn("[billDamageToClient] client notify failed (non-blocking):", notifyErr);
+      }
+
+      // Email the client the invoice itself (best-effort - no-ops cleanly
+      // when no email provider key is configured). Mirrors the deposit /
+      // balance invoice email so a damage charge reaches the client the same
+      // way a normal invoice does, not just as an in-app ping.
+      try {
+        if (ord?.client_email && billedInvoiceId) {
+          const { sendInvoiceEmail } = await import("./invoiceGenerationService");
+          await sendInvoiceEmail(
+            {
+              ...(invoiceDataForEmail || {}),
+              clientName: invoiceDataForEmail?.clientName || ord?.client_name || "there",
+              clientEmail: ord.client_email,
+              invoiceNumber,
+              orderNumber: invoiceDataForEmail?.orderNumber || ord?.order_number || "",
+            } as any,
+            ord.client_email,
+            { invoiceId: billedInvoiceId, companyId },
+          );
+        }
+      } catch (emailErr) {
+        console.warn("[billDamageToClient] invoice email failed (non-blocking):", emailErr);
       }
 
       return { ok: true, mode, invoiceNumber, amount: cost };

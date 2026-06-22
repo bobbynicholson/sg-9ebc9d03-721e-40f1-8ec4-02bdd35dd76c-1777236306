@@ -38,6 +38,10 @@ export function DamageAnalytics() {
     to: new Date(),
   });
   const [selectedType, setSelectedType] = useState<DamageType | "all">("all");
+  // Recent-tab status filter: separate open work from already-billed vs
+  // otherwise-resolved (write-off / repaired) so the admin can see at a
+  // glance what's been charged to clients.
+  const [statusFilter, setStatusFilter] = useState<"all" | "open" | "billed" | "resolved">("all");
   // CLN2-G: in-flight set so the escalate / resolve buttons disable
   // while their broadcast or update is mid-air. Avoids the cleaner
   // tapping twice and firing two admin pings for the same damage.
@@ -94,6 +98,11 @@ export function DamageAnalytics() {
   };
 
   const formatCurrency = (amount: number) => tenantCurrency.format(amount, 2);
+
+  // A damage was billed to the client when it's resolved with a "Billed..."
+  // note (written by billDamageToClient). Distinguishes a charged damage from
+  // one resolved another way (write-off, repaired in-house).
+  const isBilled = (d: any): boolean => !!d?.resolved && /billed/i.test(String(d?.resolution_notes || ""));
 
   // Roll the raw damage rows up into the accountability + recovery views the
   // admin needs to actually act: how much money is still open (recoverable),
@@ -545,7 +554,7 @@ export function DamageAnalytics() {
         </TabsContent>
 
         <TabsContent value="recent" className="space-y-4 mt-4">
-          <div className="flex gap-2 mb-4">
+          <div className="flex flex-wrap gap-2 mb-2">
             <Button
               variant={selectedType === "all" ? "default" : "outline"}
               onClick={() => setSelectedType("all")}
@@ -564,8 +573,33 @@ export function DamageAnalytics() {
               </Button>
             ))}
           </div>
+          {/* Status filter: open vs billed-to-client vs otherwise-resolved. */}
+          <div className="flex flex-wrap gap-2 mb-4">
+            {([
+              { key: "all", label: "Any status" },
+              { key: "open", label: "Open" },
+              { key: "billed", label: "Billed" },
+              { key: "resolved", label: "Resolved (not billed)" },
+            ] as const).map((s) => (
+              <Button
+                key={s.key}
+                variant={statusFilter === s.key ? "default" : "outline"}
+                onClick={() => setStatusFilter(s.key)}
+                size="sm"
+                className={statusFilter === s.key && s.key === "billed" ? "bg-emerald-600 hover:bg-emerald-700" : ""}
+              >
+                {s.label}
+              </Button>
+            ))}
+          </div>
 
-          {damages.length === 0 ? (
+          {(() => { const recentRows = damages.filter((d: any) => {
+            if (statusFilter === "open") return !d.resolved;
+            if (statusFilter === "billed") return isBilled(d);
+            if (statusFilter === "resolved") return d.resolved && !isBilled(d);
+            return true;
+          }); return (
+          recentRows.length === 0 ? (
             <Card>
               <CardContent className="py-12 text-center text-muted-foreground">
                 <AlertTriangle className="h-12 w-12 mx-auto mb-3 opacity-50" />
@@ -575,7 +609,7 @@ export function DamageAnalytics() {
             </Card>
           ) : (
             <div className="space-y-3">
-              {damages.map((damage) => (
+              {recentRows.map((damage) => (
                 <Card key={damage.id}>
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between">
@@ -585,6 +619,11 @@ export function DamageAnalytics() {
                           <Badge className={damageTypeColours[damage.damage_type as DamageType]}>
                             {damageTypeLabels[damage.damage_type as DamageType]}
                           </Badge>
+                          {isBilled(damage) && (
+                            <Badge variant="outline" className="border-emerald-400 text-emerald-700 dark:text-emerald-400">
+                              Billed
+                            </Badge>
+                          )}
                         </div>
                         <div className="space-y-1 text-sm text-muted-foreground">
                           {/* Event + client so this reads as a billable line -
@@ -679,7 +718,7 @@ export function DamageAnalytics() {
                 </Card>
               ))}
             </div>
-          )}
+          ) ); })()}
         </TabsContent>
       </Tabs>
     </div>
