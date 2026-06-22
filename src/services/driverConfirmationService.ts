@@ -550,6 +550,79 @@ export const driverConfirmationService = {
       console.warn("[completeCollection] cleaning handover notification failed (non-blocking):", notifyErr);
     }
 
+    // Close the loop with the client. startCollection pings them "we're on
+    // the way to collect" but nothing told them it actually happened, so
+    // the client's last signal was an open-ended "on the way". Mirror the
+    // start ping with a completion ping: in-app + email, both best-effort
+    // so a notify failure never blocks the driver finishing the trip.
+    try {
+      const { data: ord } = await supabase
+        .from("orders")
+        .select("company_id, order_number, client_id, client_email, client_name, venue_name, venue_address, event_name")
+        .eq("id", orderId)
+        .maybeSingle();
+      if (ord) {
+        const o = ord as any;
+        const venue = o.venue_name || (o.venue_address ? String(o.venue_address).split(",")[0] : "the venue");
+        const eventName = o.event_name && o.event_name !== "Untitled" ? o.event_name : "your event";
+        // In-app to the client (resolve the client's auth user id).
+        if (o.client_id && o.company_id) {
+          const { data: cl } = await supabase
+            .from("clients")
+            .select("user_id")
+            .eq("id", o.client_id)
+            .maybeSingle();
+          const clientUid = (cl as any)?.user_id;
+          if (clientUid) {
+            await notificationService.createNotification({
+              company_id: o.company_id,
+              recipient_id: clientUid,
+              user_id: clientUid,
+              notification_type: "collection_complete",
+              title: "Equipment collected, all done",
+              message: `Our team has collected the catering equipment from ${venue}. Thanks, and we hope ${eventName} went brilliantly!`,
+              priority: "normal",
+              link: `/client-portal/tracking?orderId=${orderId}`,
+              related_entity_type: "order",
+              related_entity_id: orderId,
+              dedup: true,
+              dedupWindowMinutes: 60,
+            } as any);
+          }
+        }
+        // Email the client (best-effort; no-ops cleanly if no provider key).
+        if (o.client_email) {
+          try {
+            const { emailService } = await import("@/services/emailService");
+            const firstName = String(o.client_name || "there").trim().split(/\s+/)[0] || "there";
+            await emailService.sendEmail({
+              companyId: o.company_id,
+              to: o.client_email,
+              template: "collection_complete",
+              subject: `Equipment collected - ${eventName}`,
+              body:
+                `Hi {{first_name}},\n\n` +
+                `Our team has now collected all the catering equipment from {{venue}}, so {{event_name}} is fully wrapped up on our side. ` +
+                `Thank you for choosing us, and we hope it was a great event!\n\n` +
+                `Thanks!`,
+              variables: {
+                first_name: firstName,
+                client_name: o.client_name || "",
+                event_name: eventName,
+                venue,
+                order_number: o.order_number || "",
+              },
+              orderId,
+            } as any);
+          } catch (emailErr) {
+            console.warn("[completeCollection] client email failed (non-blocking):", emailErr);
+          }
+        }
+      }
+    } catch (notifyErr) {
+      console.warn("[completeCollection] client completion notify failed (non-blocking):", notifyErr);
+    }
+
     // autoClockOut to close the collection shift. Same pattern as
     // confirmAtVenue so single-driver days end cleanly.
     try {
