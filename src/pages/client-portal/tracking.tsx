@@ -170,9 +170,12 @@ export default function ClientTracking() {
       }));
 
       // Live collection trip: a delivered order whose equipment-collection
-      // assignment has actually started (en_route / picked_up / at_venue)
-      // is shown as a live trip, not a static "Delivered". 'assigned' /
-      // 'accepted' don't count - the driver hasn't rolled yet.
+      // assignment is en route to collect (en_route / at_venue) is shown as
+      // a live trip, not a static "Delivered". 'assigned' / 'accepted'
+      // don't count - the driver hasn't rolled yet. 'picked_up' is no
+      // longer live either: once the gear is collected the client's part is
+      // finished (they've had the "all done" ping), so the order settles
+      // back to a static state rather than tracking the driver's return.
       const activeIds = activeOrders.map((o: any) => o.id);
       if (activeIds.length > 0) {
         const { data: collRows } = await supabase
@@ -180,7 +183,7 @@ export default function ClientTracking() {
           .select("order_id, driver_id, status")
           .eq("assignment_type", "collection")
           .in("order_id", activeIds)
-          .in("status", ["en_route", "picked_up", "at_venue"]);
+          .in("status", ["en_route", "at_venue"]);
         const collByOrder = new Map<string, string | null>();
         for (const c of (collRows as any[]) || []) collByOrder.set(c.order_id, c.driver_id || null);
         activeOrders = activeOrders.map((o: any) =>
@@ -269,7 +272,32 @@ export default function ClientTracking() {
 
   const handleFeedbackSubmit = async (feedback: FeedbackData) => {
     try {
-      await feedbackService.submitFeedback(feedback);
+      // delivery_feedback needs client_id + company_id (both NOT NULL) and
+      // the RLS INSERT policy requires the client_id to belong to this
+      // logged-in user. The order's own client_id can be NULL (orphan rows
+      // linked by email), so resolve the *user's* client row for the order's
+      // company instead - that's what RLS checks against.
+      const companyId: string | null =
+        (feedbackOrder as any)?.company_id ?? company?.id ?? null;
+      if (!user?.id || !companyId) {
+        throw new Error("Missing account context for feedback.");
+      }
+      const { data: clientRow } = await supabase
+        .from("clients")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("company_id", companyId)
+        .limit(1)
+        .maybeSingle();
+      const clientId = (clientRow as any)?.id;
+      if (!clientId) {
+        throw new Error("Couldn't find your client profile for this order.");
+      }
+
+      await feedbackService.submitFeedback(feedback, {
+        client_id: clientId,
+        company_id: companyId,
+      });
       toast({
         title: "Feedback Submitted! 🎉",
         description: "Thank you for helping us improve our service.",

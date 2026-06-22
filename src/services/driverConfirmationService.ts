@@ -409,6 +409,113 @@ export const driverConfirmationService = {
   },
 
   /**
+   * Driver marks the equipment as physically collected at the venue
+   * (status en_route -> picked_up). This is the moment the CLIENT'S part
+   * of the collection is finished: their gear is handed over and gone.
+   *
+   * The client used to only hear "all done" when the driver later got
+   * back to base (completeCollection), forcing them to wait through the
+   * whole return drive before the trip read as finished and feedback felt
+   * appropriate. This step closes the client loop immediately - the
+   * "equipment collected, all done" ping fires here - while the driver
+   * still has the back-at-base step to run for the internal close-out
+   * (equipment returned, cleaning intake, shift clock-out).
+   *
+   * Best-effort on every sub-step; a notify failure never blocks the
+   * driver advancing the trip.
+   */
+  async markEquipmentCollected(orderId: string, driverId: string) {
+    // Flip the collection assignment en_route -> picked_up and stamp the
+    // collected time. Only advances a live trip; a no-op if it isn't
+    // en_route (e.g. already collected or completed).
+    try {
+      await (supabase as any)
+        .from("driver_assignments")
+        .update({ status: "picked_up", picked_up_at: new Date().toISOString() })
+        .eq("order_id", orderId)
+        .eq("assignment_type", "collection")
+        .eq("status", "en_route");
+    } catch (e) {
+      console.warn("[markEquipmentCollected] assignment flip failed (non-blocking):", e);
+    }
+
+    // Tell the client the gear is collected and their event is wrapped up
+    // on our side - they no longer wait for the driver to reach base.
+    // In-app + email, both best-effort. Dedup (type collection_complete +
+    // this order) guarantees a single ping even if completeCollection's
+    // fallback also fires.
+    try {
+      const { data: ord } = await supabase
+        .from("orders")
+        .select("company_id, order_number, client_id, client_email, client_name, venue_name, venue_address, event_name")
+        .eq("id", orderId)
+        .maybeSingle();
+      if (ord) {
+        const o = ord as any;
+        const venue = o.venue_name || (o.venue_address ? String(o.venue_address).split(",")[0] : "the venue");
+        const eventName = o.event_name && o.event_name !== "Untitled" ? o.event_name : "your event";
+        // In-app to the client (resolve the client's auth user id).
+        if (o.client_id && o.company_id) {
+          const { data: cl } = await supabase
+            .from("clients")
+            .select("user_id")
+            .eq("id", o.client_id)
+            .maybeSingle();
+          const clientUid = (cl as any)?.user_id;
+          if (clientUid) {
+            await notificationService.createNotification({
+              company_id: o.company_id,
+              recipient_id: clientUid,
+              user_id: clientUid,
+              notification_type: "collection_complete",
+              title: "Equipment collected, all done",
+              message: `Our team has collected the catering equipment from ${venue}. That's ${eventName} fully wrapped up on our side. We'd love to hear how it went!`,
+              priority: "normal",
+              link: `/client-portal/tracking?orderId=${orderId}`,
+              related_entity_type: "order",
+              related_entity_id: orderId,
+              dedup: true,
+              dedupWindowMinutes: 60,
+            } as any);
+          }
+        }
+        // Email the client (best-effort; no-ops cleanly if no provider key).
+        if (o.client_email) {
+          try {
+            const { emailService } = await import("@/services/emailService");
+            const firstName = String(o.client_name || "there").trim().split(/\s+/)[0] || "there";
+            await emailService.sendEmail({
+              companyId: o.company_id,
+              to: o.client_email,
+              template: "collection_complete",
+              subject: `Equipment collected - ${eventName}`,
+              body:
+                `Hi {{first_name}},\n\n` +
+                `Our team has now collected all the catering equipment from {{venue}}, so {{event_name}} is fully wrapped up on our side. ` +
+                `Thank you for choosing us, and we hope it was a great event!\n\n` +
+                `Thanks!`,
+              variables: {
+                first_name: firstName,
+                client_name: o.client_name || "",
+                event_name: eventName,
+                venue,
+                order_number: o.order_number || "",
+              },
+              orderId,
+            } as any);
+          } catch (emailErr) {
+            console.warn("[markEquipmentCollected] client email failed (non-blocking):", emailErr);
+          }
+        }
+      }
+    } catch (notifyErr) {
+      console.warn("[markEquipmentCollected] client notify failed (non-blocking):", notifyErr);
+    }
+
+    return true;
+  },
+
+  /**
    * Driver completes the collection trip (event over, equipment back
    * at base).
    *
@@ -454,6 +561,27 @@ export const driverConfirmationService = {
       .select()
       .single();
     if (error) throw error;
+
+    // Did the trip already pass through the 'picked_up' (equipment
+    // collected) step? If so, the client was ALREADY told "all done" at
+    // collection time and must not be pinged again now that the driver is
+    // back at base - that wait is exactly what we're removing. Only when a
+    // driver jumps straight from en_route -> completed (skipping the
+    // collected step) do we send the client completion ping here as a
+    // fallback. Read this BEFORE we flip the row to 'completed'.
+    let alreadyToldClient = false;
+    try {
+      const { data: priorAssign } = await (supabase as any)
+        .from("driver_assignments")
+        .select("status, picked_up_at")
+        .eq("order_id", orderId)
+        .eq("assignment_type", "collection")
+        .maybeSingle();
+      const pa = priorAssign as any;
+      alreadyToldClient = !!pa && (pa.status === "picked_up" || !!pa.picked_up_at);
+    } catch (e) {
+      console.warn("[completeCollection] prior-status read failed (non-blocking):", e);
+    }
 
     // Flip the collection driver_assignment to completed so dispatch
     // stops surfacing it as outstanding.
@@ -555,7 +683,15 @@ export const driverConfirmationService = {
     // the client's last signal was an open-ended "on the way". Mirror the
     // start ping with a completion ping: in-app + email, both best-effort
     // so a notify failure never blocks the driver finishing the trip.
+    //
+    // Skip when the client was already told at the 'equipment collected'
+    // step (markEquipmentCollected) - the whole point of that step is that
+    // the client's part finishes when the gear is collected, not when the
+    // driver later gets back to base.
     try {
+      if (alreadyToldClient) {
+        throw { __skip: true };
+      }
       const { data: ord } = await supabase
         .from("orders")
         .select("company_id, order_number, client_id, client_email, client_name, venue_name, venue_address, event_name")
@@ -620,7 +756,9 @@ export const driverConfirmationService = {
         }
       }
     } catch (notifyErr) {
-      console.warn("[completeCollection] client completion notify failed (non-blocking):", notifyErr);
+      if (!(notifyErr as any)?.__skip) {
+        console.warn("[completeCollection] client completion notify failed (non-blocking):", notifyErr);
+      }
     }
 
     // autoClockOut to close the collection shift. Same pattern as

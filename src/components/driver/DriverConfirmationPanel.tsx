@@ -503,6 +503,49 @@ export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venue
                 </Button>
               )}
             </div>
+            {/* Step 2: equipment physically collected at the venue. This
+                is where the CLIENT'S collection finishes - they're pinged
+                "all done" now and no longer wait for the driver to drive
+                back to base. */}
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium">Equipment collected</p>
+                {collectionAssignment.picked_up_at && (
+                  <p className="text-xs text-muted-foreground">
+                    Collected: {new Date(collectionAssignment.picked_up_at).toLocaleTimeString("en-ZA")}
+                  </p>
+                )}
+              </div>
+              {collectionAssignment.status === "picked_up" || collectionAssignment.status === "completed" ? (
+                <Badge variant="default" className="bg-emerald-500">
+                  <CheckCircle className="h-3 w-3 mr-1" />
+                  Collected
+                </Badge>
+              ) : (
+                <Button
+                  size="sm"
+                  disabled={loading || collectionAssignment.status !== "en_route"}
+                  onClick={async () => {
+                    if (!user) return;
+                    setLoading(true);
+                    try {
+                      await (driverConfirmationService as any).markEquipmentCollected(orderId, user.id);
+                      toast({ title: "Equipment collected", description: "Client notified it's all done. Head back to base and mark it returned there." });
+                      await loadCollectionAssignment();
+                    } catch (e: any) {
+                      toast({ title: "Could not mark collected", description: dbErrorMessage(e, { entity: "collection", fallback: "Try again" }), variant: "destructive" });
+                    } finally {
+                      setLoading(false);
+                    }
+                  }}
+                >
+                  Mark collected
+                </Button>
+              )}
+            </div>
+            {/* Step 3: gear back at base - internal close-out only
+                (equipment returned, cleaning intake, shift clock-out).
+                The client has already been told it's done in step 2. */}
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium">Equipment back at base</p>
@@ -520,7 +563,7 @@ export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venue
               ) : (
                 <Button
                   size="sm"
-                  disabled={loading || (!collectionAssignment.en_route_at && collectionAssignment.status !== "in_progress")}
+                  disabled={loading || collectionAssignment.status !== "picked_up"}
                   onClick={async () => {
                     if (!user) return;
                     setLoading(true);
@@ -535,7 +578,7 @@ export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venue
                     }
                   }}
                 >
-                  Mark complete
+                  Mark back at base
                 </Button>
               )}
             </div>

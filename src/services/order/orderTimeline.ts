@@ -714,11 +714,18 @@ function resolveStage(
       const collection = (input.driverAssignments || []).find(
         (a) => String(a?.assignment_type || "") === "collection",
       );
-      const done = collection && String(collection.status || "") === "completed";
+      // From the client's side the collection is done the moment the gear
+      // is physically collected ('picked_up'); they no longer wait for the
+      // driver's return drive to base ('completed'). Treat either as done,
+      // and prefer the picked_up time as the completion stamp when present.
+      const cstatus = collection ? String(collection.status || "") : "";
+      const done = cstatus === "picked_up" || cstatus === "completed";
       return {
         status: done ? "completed" : "upcoming",
         startedAt: collection ? firstTs(collection.started_at) : null,
-        completedAt: done ? firstTs(collection.completed_at) : null,
+        completedAt: done
+          ? firstTs(collection.picked_up_at || collection.completed_at)
+          : null,
         blockedReason: null,
         // Wave 66.6 - same destination as collection_scheduled.
         sourceLink: `/admin/order-assignments?orderId=${orderId}`,
