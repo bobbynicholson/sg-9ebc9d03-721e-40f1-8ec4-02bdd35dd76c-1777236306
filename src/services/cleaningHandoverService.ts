@@ -22,6 +22,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { estimateJobMinutes } from "./cleaningJobsService";
 
 export type HandoverStatus = "expected" | "in_progress" | "complete" | "cancelled";
 
@@ -146,6 +147,118 @@ export async function createExpectedHandover(
 }
 
 /**
+ * Materialise per-equipment cleaning_jobs for a handover.
+ *
+ * The handover row only carries a `total_items_expected` COUNT - it does
+ * not, on its own, give the cleaning team a worklist. Without this the
+ * handover detail page renders the event header with zero rows to
+ * Start/Complete, so cleaning can never progress and the order can't close.
+ *
+ * Creates one queued cleaning_job per cleanable equipment_booking
+ * (requires_cleaning=true, and not a supplier-cleaned hire-in), linked to
+ * the handover via event_handover_id AND to the order via
+ * triggered_by_event_id (so both the handover detail and the order timeline
+ * see them). Method defaults to dishwasher when the item is dishwasher_safe,
+ * else manual. Idempotent: skips any equipment that already has a job on
+ * this handover, so a re-run (delivered fired twice, manual backfill) never
+ * duplicates. Best-effort; returns how many it created.
+ */
+export async function generateJobsForHandover(
+  sb: SupabaseClient,
+  args: { handoverId: string; companyId: string; orderId: string },
+): Promise<{ ok: boolean; created: number; error?: string }> {
+  try {
+    const { data: bookings, error: bErr } = await (sb as any)
+      .from("equipment_bookings")
+      .select(`
+        equipment_id,
+        quantity,
+        equipment:equipment_id (
+          name, requires_cleaning, is_hire_in, supplier_cleans, dishwasher_safe,
+          cleaning_time_manual_minutes, cleaning_time_dishwasher_minutes, cleaning_time_hours
+        )
+      `)
+      .eq("order_id", args.orderId);
+    if (bErr) return { ok: false, created: 0, error: bErr.message };
+
+    const cleanable = ((bookings || []) as any[]).filter((b) => {
+      const e = b.equipment;
+      if (!e?.requires_cleaning) return false;
+      if (e.is_hire_in && e.supplier_cleans) return false;
+      return !!b.equipment_id && Number(b.quantity || 0) > 0;
+    });
+    if (cleanable.length === 0) return { ok: true, created: 0 };
+
+    // Idempotency: which equipment already has a job on this handover?
+    const { data: existing } = await (sb as any)
+      .from("cleaning_jobs")
+      .select("equipment_id")
+      .eq("event_handover_id", args.handoverId)
+      .is("deleted_at", null);
+    const have = new Set(((existing || []) as any[]).map((j) => j.equipment_id));
+
+    let created = 0;
+    for (const b of cleanable) {
+      if (have.has(b.equipment_id)) continue;
+      const e = b.equipment;
+      const method: "dishwasher" | "manual" = e.dishwasher_safe ? "dishwasher" : "manual";
+      const minutes = estimateJobMinutes({
+        method,
+        equipment: e,
+        quantity: Number(b.quantity),
+        machine: null,
+      });
+      const start = new Date();
+      const end = new Date(start.getTime() + minutes * 60 * 1000);
+      const { error: insErr } = await (sb as any)
+        .from("cleaning_jobs")
+        .insert({
+          company_id: args.companyId,
+          equipment_id: b.equipment_id,
+          quantity: Number(b.quantity),
+          method,
+          event_handover_id: args.handoverId,
+          triggered_by_event_id: args.orderId,
+          planned_start: start.toISOString(),
+          planned_end: end.toISOString(),
+          status: "queued",
+        });
+      if (insErr) {
+        console.warn("[generateJobsForHandover] insert failed:", insErr);
+        continue;
+      }
+      created += 1;
+    }
+
+    // One ping to the cleaning team if we actually created work.
+    if (created > 0) {
+      try {
+        const { notificationService } = await import("@/services/notificationService");
+        await notificationService.broadcastNotification({
+          companyId: args.companyId,
+          type: "cleaning_job_assigned",
+          title: "Cleaning worklist ready",
+          message: `${created} item type${created === 1 ? "" : "s"} queued for cleaning from a returned event.`,
+          targetRoles: ["cleaning_staff" as any],
+          priority: "normal",
+          link: "/team-portal/cleaning",
+          relatedEntityType: "cleaning_handover",
+          relatedEntityId: args.handoverId,
+          dedup: true,
+          dedupWindowMinutes: 60,
+        } as any, sb);
+      } catch (notifyErr) {
+        console.warn("[generateJobsForHandover] notify failed:", notifyErr);
+      }
+    }
+
+    return { ok: true, created };
+  } catch (e: any) {
+    return { ok: false, created: 0, error: e?.message || "generateJobsForHandover crashed" };
+  }
+}
+
+/**
  * Flip the handover from 'expected' to 'in_progress'. Called when
  * the order transitions to 'delivered'. Looks up the existing
  * handover; creates one if missing (defence for orders that
@@ -181,6 +294,20 @@ export async function markHandoverReturned(
       .eq("id", ensured.handoverId)
       .neq("status", "cancelled"); // don't resurrect a cancelled handover
     if (error) return { ok: false, error: error.message };
+
+    // Materialise the per-equipment cleaning_jobs so the cleaning team has
+    // an actual worklist (Start/Complete rows), not just an item count.
+    // Best-effort + idempotent - a generation miss never blocks the flip.
+    try {
+      await generateJobsForHandover(sb, {
+        handoverId: ensured.handoverId,
+        companyId: args.companyId,
+        orderId: args.orderId,
+      });
+    } catch (genErr) {
+      console.warn("[markHandoverReturned] job generation failed (non-blocking):", genErr);
+    }
+
     return { ok: true, handoverId: ensured.handoverId };
   } catch (e: any) {
     return { ok: false, error: e?.message || "markHandoverReturned crashed" };
