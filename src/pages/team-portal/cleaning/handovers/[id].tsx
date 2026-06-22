@@ -76,6 +76,9 @@ function HandoverDetailInner() {
   const [completing, setCompleting] = useState(false);
   const [busyJobId, setBusyJobId] = useState<string | null>(null);
   const [notes, setNotes] = useState("");
+  // Damage flagged on this order, keyed by equipment_id, so each job row
+  // can show "which item isn't fine" at a glance (count + types).
+  const [damageByEq, setDamageByEq] = useState<Record<string, { qty: number; types: string[] }>>({});
 
   const load = async () => {
     if (!handoverId) return;
@@ -85,6 +88,24 @@ function HandoverDetailInner() {
       setHandover(h);
       setJobs(j);
       if (h?.notes) setNotes(h.notes);
+      // Pull any damage flagged on this order so the rows can surface it.
+      if (h?.order_id) {
+        try {
+          const dmgs = await equipmentTrackingService.getDamages({ orderId: h.order_id });
+          const map: Record<string, { qty: number; types: string[] }> = {};
+          for (const d of (dmgs || []) as any[]) {
+            const eid = d.equipment_id;
+            if (!eid) continue;
+            if (!map[eid]) map[eid] = { qty: 0, types: [] };
+            map[eid].qty += Number(d.quantity_damaged || 0);
+            const t = String(d.damage_type || "");
+            if (t && !map[eid].types.includes(t)) map[eid].types.push(t);
+          }
+          setDamageByEq(map);
+        } catch (dErr) {
+          console.warn("[handovers/[id]] damage load failed (non-blocking):", dErr);
+        }
+      }
     } finally {
       setLoading(false);
     }
@@ -319,13 +340,22 @@ function HandoverDetailInner() {
                                 <Badge variant="outline" className={`text-[10px] ${statusMeta.tone}`}>
                                   {statusMeta.label}
                                 </Badge>
+                                {damageByEq[j.equipment_id] && (
+                                  <Badge variant="outline" className="text-[10px] bg-red-50 text-red-700 border-red-200 gap-1">
+                                    <AlertTriangle className="w-2.5 h-2.5" />
+                                    {damageByEq[j.equipment_id].qty} flagged ({damageByEq[j.equipment_id].types.join("/")})
+                                  </Badge>
+                                )}
                               </div>
                               {j.notes && (
                                 <p className="text-[11px] text-slate-500 italic mt-1">{j.notes}</p>
                               )}
                             </div>
                             <div className="flex items-center gap-1.5 flex-shrink-0">
-                              {(j.status === "queued" || j.status === "in_progress") && j.equipment_id && (
+                              {/* Flag stays available on done jobs too - damage
+                                  is usually found WHILE washing, i.e. right as
+                                  the cleaner marks the item complete. */}
+                              {j.equipment_id && (
                                 <JobDamageButton
                                   equipmentId={j.equipment_id}
                                   equipmentName={itemName}
