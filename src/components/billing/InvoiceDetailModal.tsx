@@ -66,6 +66,24 @@ export function InvoiceDetailModal({ invoice, open, onClose }: InvoiceDetailModa
     window.print();
   };
 
+  // Reconciling breakdown - same rule as the public pay page: show the stored
+  // line items only when they sum to the total; otherwise collapse to
+  // "Catering & services" + any damage lines so the displayed rows always add
+  // up to the total (never expose stale line data).
+  const r2 = (n: number) => Math.round(n * 100) / 100;
+  const rawItems = Array.isArray(invoice.items) ? invoice.items : [];
+  const invTotal = r2(Number(invoice.total || 0));
+  const itemsSum = r2(rawItems.reduce((s, it) => s + Number(it?.total || 0), 0));
+  const itemsReconcile = rawItems.length > 0 && Math.abs(itemsSum - invTotal) <= 0.01;
+  const damageItems = rawItems.filter((it) => /damage/i.test(String(it?.description || "")));
+  const damageSum = r2(damageItems.reduce((s, it) => s + Number(it?.total || 0), 0));
+  const breakdownLines: Array<{ description?: string; quantity?: number; unitPrice?: number; total?: number }> =
+    itemsReconcile
+      ? rawItems
+      : rawItems.length > 0
+        ? [{ description: `Catering & services (${invoice.order_number})`, total: r2(invTotal - damageSum) }, ...damageItems]
+        : [];
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -120,12 +138,12 @@ export function InvoiceDetailModal({ invoice, open, onClose }: InvoiceDetailModa
           {/* Itemised breakdown - what the amount is for. Mirrors the public
               pay page so the client sees catering lines + any damage charge
               (highlighted) summing to the total, instead of a bare amount. */}
-          {Array.isArray(invoice.items) && invoice.items.length > 0 && (
+          {breakdownLines.length > 0 && (
             <div>
               <h4 className="font-semibold text-slate-900 mb-3">What this is for</h4>
               <div className="rounded-lg border border-slate-200 overflow-hidden">
                 <ul className="divide-y divide-slate-100">
-                  {invoice.items.map((it, i) => {
+                  {breakdownLines.map((it, i) => {
                     const isDamage = /damage/i.test(String(it?.description || ""));
                     return (
                       <li key={i} className="flex items-start justify-between gap-3 px-3 py-2 text-sm">
@@ -147,7 +165,7 @@ export function InvoiceDetailModal({ invoice, open, onClose }: InvoiceDetailModa
                   })}
                 </ul>
                 <div className="border-t border-slate-200 bg-slate-50 px-3 py-2 space-y-1 text-sm">
-                  {Number(invoice.tax_amount) > 0 && (
+                  {itemsReconcile && Number(invoice.tax_amount) > 0 && (
                     <>
                       <div className="flex justify-between text-slate-600">
                         <span>Subtotal</span>
