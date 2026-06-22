@@ -39,20 +39,27 @@ import { withApiLogging } from "@/lib/withApiLogging";
 const CRON_NAME = "event-approaching-reminder";
 
 // Notification types (distinct per layer/role so dedup fires each once).
+const TYPE_SHOPPING_LEAD = "event_shopping_lead";
 const TYPE_TOMORROW_ADMIN = "event_tomorrow_admin";
 const TYPE_TOMORROW_KITCHEN = "event_tomorrow_kitchen";
 const TYPE_DAY_KITCHEN = "event_day_kitchen_start";
 const TYPE_DAY_DRIVER = "event_day_driver_ready";
 
-// Lead-time windows (hours before the event start) for the same-day cues.
+// Different tasks need different lead times - that's the whole point:
+//   SHOPPING needs the longest runway. Buying stock means a market /
+//     supplier trip that can't be done last-minute, so we start nudging
+//     SHOPPING_LEAD_DAYS out and repeat daily until the list is bought.
+//   PREP is day-before ("prep tomorrow") + same-day ("start prep now").
+//   DRIVER is same-day only ("get ready to roll").
+const SHOPPING_LEAD_DAYS = 3;  // begin shopping nudges 3 days out
 const KITCHEN_PREP_LEAD_H = 6; // start prep ~6h out if not begun
 const DRIVER_LEAD_H = 3;       // driver get-ready ~3h before pickup/event
 
 // Active = not terminal, not paused. Mirrors order-sla-monitor.
 const ACTIVE_STATUSES = ["pending", "confirmed", "preparing", "ready", "in_transit"];
 
-// Dedup windows. A day's worth so each cue lands once even though the
-// cron ticks every 15 min.
+// Dedup windows. A day's worth so each cue lands once per day even though
+// the cron ticks every 15 min (shopping then repeats the next day until done).
 const DEDUP_MIN = 18 * 60;
 
 async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -65,7 +72,11 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   const sb: any = getServiceSupabase();
   const now = new Date();
   const todayIso = now.toISOString().slice(0, 10);
-  const tomorrowIso = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  // Horizon covers the longest lead (shopping). Same-day + day-before
+  // layers just look at how many days out each order actually is.
+  const horizonIso = new Date(now.getTime() + SHOPPING_LEAD_DAYS * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 10);
 
   const { data: orders, error } = await sb
     .from("orders")
@@ -74,7 +85,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         "delivery_time, pickup_time, setup_time, prep_started_at, picked_up_at, " +
         "assigned_driver_id, comms_paused_until, venue_name, venue_address, event_name",
     )
-    .in("event_date", [todayIso, tomorrowIso])
+    .gte("event_date", todayIso)
+    .lte("event_date", horizonIso)
     .in("status", ACTIVE_STATUSES)
     .is("deleted_at", null)
     .limit(1000);
@@ -87,6 +99,31 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
   const { notificationService } = await import("@/services/notificationService");
 
+  // Shopping completeness per order so we never nag the kitchen about
+  // shopping that's already done (or that doesn't exist for this order).
+  // "Manually handled" shows up here too: whoever ticked the items off
+  // (or whoever stamped prep_started_at) flips the order out of the
+  // pending state, so the reminder self-suppresses.
+  const orderIds = (orders || []).map((o: any) => o.id);
+  const shoppingByOrder = new Map<string, { total: number; purchased: number }>();
+  if (orderIds.length > 0) {
+    const { data: slRows, error: slErr } = await sb
+      .from("shopping_list_items")
+      .select("source_order_id, purchased")
+      .in("source_order_id", orderIds)
+      .is("removed_at", null);
+    if (slErr) console.warn("[cron/event-approaching-reminder] shopping fetch failed:", slErr.message);
+    for (const r of (slRows || []) as any[]) {
+      const k = r.source_order_id;
+      if (!k) continue;
+      const e = shoppingByOrder.get(k) || { total: 0, purchased: 0 };
+      e.total += 1;
+      if (r.purchased === true) e.purchased += 1;
+      shoppingByOrder.set(k, e);
+    }
+  }
+
+  let shoppingPings = 0;
   let tomorrowPings = 0;
   let kitchenPings = 0;
   let driverPings = 0;
@@ -106,8 +143,55 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       const eventName = o.event_name && o.event_name !== "Untitled" ? o.event_name : "the event";
       const link = `/admin/orders?orderId=${o.id}`;
 
-      // ---------- DAY BEFORE ----------
-      if (o.event_date === tomorrowIso) {
+      // Has the kitchen already handled (or manually started) its work?
+      // prep_started_at OR a status past confirmed = prep underway/done.
+      const prepBegun = !!o.prep_started_at
+        || ["preparing", "ready", "in_transit", "delivered", "completed"].includes(String(o.status));
+      // Shopping: pending only when a list exists and isn't fully bought.
+      const shop = shoppingByOrder.get(o.id) || { total: 0, purchased: 0 };
+      const shoppingPending = shop.total > 0 && shop.purchased < shop.total;
+
+      // Whole calendar days until the event - both parsed as UTC midnight
+      // so this is an exact integer, not a clock-time delta.
+      const daysUntil = Math.round(
+        (new Date(`${o.event_date}T00:00:00Z`).getTime() - new Date(`${todayIso}T00:00:00Z`).getTime())
+        / 86_400_000,
+      );
+
+      // ---------- SHOPPING LEAD (longest runway) ----------
+      // Procurement can't be last-minute, so nudge from SHOPPING_LEAD_DAYS
+      // out and repeat daily (18h dedup) until the list is bought. Skips
+      // entirely when there's no list, or it's already done / manually
+      // ticked off. Targets the shopping crew, falling through to kitchen
+      // for tenants without a dedicated shopper.
+      if (shoppingPending && daysUntil >= 0 && daysUntil <= SHOPPING_LEAD_DAYS) {
+        const dayLabel = daysUntil === 0 ? "today" : daysUntil === 1 ? "tomorrow" : `in ${daysUntil} days`;
+        const sent = await notificationService.broadcastNotification(
+          {
+            companyId: o.company_id,
+            regionId: o.region_id || null,
+            targetRoles: ["shopping_staff" as any, "kitchen_staff" as any],
+            title: `🛒 Shop for ${orderLabel}`,
+            message: `${eventName}${venue ? ` at ${venue}` : ""} is ${dayLabel} and shopping isn't done (${shop.purchased}/${shop.total} bought). Get to the market so stock's in before prep.`,
+            type: TYPE_SHOPPING_LEAD,
+            priority: daysUntil <= 1 ? "high" : "normal",
+            link: o.event_date ? `/admin/shopping?date=${o.event_date}` : "/admin/shopping",
+            relatedEntityType: "order",
+            relatedEntityId: o.id,
+            dedup: true,
+            dedupWindowMinutes: DEDUP_MIN,
+          },
+          sb,
+        );
+        if ((sent || 0) > 0) shoppingPings += 1;
+      }
+
+      // Beyond the day-before, only the shopping lead applies - prep and
+      // dispatch cues would be premature this far out.
+      if (daysUntil >= 2) continue;
+
+      // ---------- DAY BEFORE (daysUntil === 1) ----------
+      if (daysUntil === 1) {
         const adminSent = await notificationService.broadcastNotification(
           {
             companyId: o.company_id,
@@ -125,37 +209,42 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           },
           sb,
         );
-        const kitchenSent = await notificationService.broadcastNotification(
-          {
-            companyId: o.company_id,
-            regionId: o.region_id || null,
-            targetRoles: ["kitchen_staff" as any],
-            title: `👩‍🍳 Prep for tomorrow: ${orderLabel}`,
-            message: `${eventName} is tomorrow. Get the shopping + prep started so it's ready in time.`,
-            type: TYPE_TOMORROW_KITCHEN,
-            priority: "normal",
-            link: "/team-portal/kitchen/dashboard",
-            relatedEntityType: "order",
-            relatedEntityId: o.id,
-            dedup: true,
-            dedupWindowMinutes: DEDUP_MIN,
-          },
-          sb,
-        );
+        // Kitchen prep heads-up - only if prep hasn't started. Shopping has
+        // its own reminder above, so this is purely about cooking.
+        let kitchenSent = 0;
+        if (!prepBegun) {
+          kitchenSent = await notificationService.broadcastNotification(
+            {
+              companyId: o.company_id,
+              regionId: o.region_id || null,
+              targetRoles: ["kitchen_staff" as any],
+              title: `👩‍🍳 Prep for tomorrow: ${orderLabel}`,
+              message: `${eventName} is tomorrow. Get prep started so it's ready in time.`,
+              type: TYPE_TOMORROW_KITCHEN,
+              priority: "normal",
+              link: "/team-portal/kitchen/dashboard",
+              relatedEntityType: "order",
+              relatedEntityId: o.id,
+              dedup: true,
+              dedupWindowMinutes: DEDUP_MIN,
+            },
+            sb,
+          );
+        }
         if ((adminSent || 0) > 0 || (kitchenSent || 0) > 0) tomorrowPings += 1;
         else skipped += 1;
         continue;
       }
 
-      // ---------- SAME DAY ----------
+      // ---------- SAME DAY (daysUntil === 0) ----------
       // Effective event start (mirror order-sla-monitor's fallbacks).
       const timeStr = o.event_time || o.delivery_time || o.pickup_time || o.setup_time || "12:00:00";
       const eventStart = new Date(`${o.event_date}T${timeStr}`);
       if (Number.isNaN(eventStart.getTime())) { skipped += 1; continue; }
       const minsUntilEvent = (eventStart.getTime() - now.getTime()) / 60000;
 
-      // Kitchen: start prep now (within lead, prep not begun).
-      const prepBegun = !!o.prep_started_at || ["preparing", "ready", "in_transit", "delivered", "completed"].includes(String(o.status));
+      // Kitchen: start prep now (within lead, prep not begun). prepBegun
+      // was computed once at the top of the loop.
       if (!prepBegun && minsUntilEvent <= KITCHEN_PREP_LEAD_H * 60 && minsUntilEvent > -120) {
         const sent = await notificationService.broadcastNotification(
           {
@@ -215,6 +304,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   await recordCronHeartbeat(sb, CRON_NAME, errors.length > 0 ? "error" : "ok", {
     source: auth.source,
     checked: (orders || []).length,
+    shoppingPings,
     tomorrowPings,
     kitchenPings,
     driverPings,
@@ -225,6 +315,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   return res.status(200).json({
     ok: true,
     checked: (orders || []).length,
+    shoppingPings,
     tomorrowPings,
     kitchenPings,
     driverPings,
