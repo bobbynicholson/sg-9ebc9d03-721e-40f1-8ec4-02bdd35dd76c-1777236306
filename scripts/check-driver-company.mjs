@@ -1,0 +1,11 @@
+import { readFileSync } from "node:fs";
+import { createClient } from "@supabase/supabase-js";
+const env = Object.fromEntries(readFileSync(".env.local","utf8").split(/\r?\n/).filter(l=>l&&!l.startsWith("#")&&l.includes("=")).map(l=>{const i=l.indexOf("=");return [l.slice(0,i).trim(),l.slice(i+1).trim().replace(/^["']|["']$/g,"")];}));
+const sb = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, { auth:{persistSession:false} });
+const driverId = "4485d56a-babc-4d4d-b1d4-02a3f8485a54";
+const OID = "5b0bc5a4-a33f-417f-bbfc-c046aa1de14a";
+const { data: o } = await sb.from('orders').select('company_id').eq('id',OID).maybeSingle();
+const { data: p } = await sb.from('profiles').select('id, company_id, role, full_name').eq('id',driverId).maybeSingle();
+console.log('order.company_id  :', o?.company_id);
+console.log('driver.profile    :', JSON.stringify(p));
+console.log('MATCH?            :', o?.company_id && p?.company_id && o.company_id===p.company_id);

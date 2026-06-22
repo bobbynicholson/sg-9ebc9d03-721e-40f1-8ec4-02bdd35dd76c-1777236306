@@ -1,0 +1,12 @@
+import { readFileSync } from "node:fs";
+import { createClient } from "@supabase/supabase-js";
+const env = Object.fromEntries(readFileSync(".env.local","utf8").split(/\r?\n/).filter(l=>l&&!l.startsWith("#")&&l.includes("=")).map(l=>{const i=l.indexOf("=");return [l.slice(0,i).trim(),l.slice(i+1).trim().replace(/^["']|["']$/g,"")];}));
+const sb = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, { auth:{persistSession:false} });
+const COMPANY="0e139a19-6526-4e1f-9bf7-87d6adbee5f8";
+const { data: all } = await sb.from("email_automation_log").select("template_type, status, sent_at, error_message, created_at").eq("company_id",COMPANY).order("created_at",{ascending:false}).limit(15);
+console.log("Recent emails (company), latest 15:");
+for (const r of (all||[])) console.log(`  ${(r.status||"?").padEnd(8)} ${r.template_type} | sent_at=${r.sent_at?r.sent_at.slice(0,16):"-"} | err=${r.error_message?r.error_message.slice(0,40):"-"}`);
+const counts = {};
+const { data: c2 } = await sb.from("email_automation_log").select("status").eq("company_id",COMPANY);
+for (const r of (c2||[])) counts[r.status||"null"]=(counts[r.status||"null"]||0)+1;
+console.log("\nStatus breakdown (all-time):", JSON.stringify(counts));

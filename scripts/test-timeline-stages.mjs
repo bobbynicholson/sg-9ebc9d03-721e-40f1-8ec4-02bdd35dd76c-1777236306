@@ -1,0 +1,22 @@
+import { readFileSync } from "node:fs";
+import { createClient } from "@supabase/supabase-js";
+const env = Object.fromEntries(readFileSync(".env.local","utf8").split(/\r?\n/).filter(l=>l&&!l.startsWith("#")&&l.includes("=")).map(l=>{const i=l.indexOf("=");return [l.slice(0,i).trim(),l.slice(i+1).trim().replace(/^["']|["']$/g,"")];}));
+const sb = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, { auth:{persistSession:false} });
+const OID="5b0bc5a4-a33f-417f-bbfc-c046aa1de14a";
+const { data: o } = await sb.from("orders").select("deposit_amount, total_amount, balance_amount, status, completed_at, deposit_paid, balance_paid").eq("id",OID).maybeSingle();
+const { data: invs } = await sb.from("invoices").select("id, total_amount, created_at, invoice_date, sent_at, status").eq("order_id",OID).is("deleted_at",null);
+const { data: emails } = await sb.from("email_automation_log").select("template_type, status, sent_at").eq("order_id",OID);
+console.log("ORDER deposit_amount", o.deposit_amount, "total", o.total_amount, "balance_amount", o.balance_amount, "status", o.status);
+console.log("INVOICES:", (invs||[]).length, (invs||[]).map(i=>`total=${i.total_amount} sent_at=${i.sent_at||"NULL"} created=${!!i.created_at}`).join(" | "));
+console.log("EMAIL LOG entries:", (emails||[]).length, (emails||[]).map(e=>`${e.template_type}:${e.status}`).join(", ")||"(none)");
+// Replicate stage logic:
+const hasDeposit = Number(o.deposit_amount||0)>0;
+const depInv = (invs||[]).find(i=>Number(i.total_amount||0)>0 && i.created_at);
+console.log("\ndeposit_invoice_issued:", hasDeposit ? (depInv?"COMPLETE":"upcoming(no invoice found)") : "n/a");
+const orderTotal = Number(o.total_amount||0);
+const finalInv = (invs||[]).find(i=>{const t=Number(i.total_amount||0); return orderTotal===0?t>0:Math.abs(t-orderTotal)<=Math.max(1,orderTotal*0.05);}) || (invs||[])[0];
+console.log("final_invoice_issued:", finalInv?"COMPLETE":"upcoming");
+const finalSent = (invs||[]).find(i=>!!i.sent_at);
+console.log("final_invoice_sent:", finalSent?"COMPLETE":"upcoming(invoice never emailed -> sent_at NULL)");
+const ty = (emails||[]).find(e=>/thank|order_completed|review/i.test(e.template_type||""));
+console.log("thank_you_sent:", ty?"COMPLETE":"upcoming(no thank-you email)");

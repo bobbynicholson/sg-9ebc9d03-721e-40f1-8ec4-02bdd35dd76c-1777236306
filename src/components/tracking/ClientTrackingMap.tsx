@@ -29,6 +29,11 @@ interface ClientTrackingMapProps {
   orderStatus: string;
   estimatedArrival?: string;
   onLocationUpdate?: (location: { lat: number; lng: number }) => void;
+  // When false, the map stops following the driver entirely: no GPS
+  // subscription/polling, no driver pin, and no driver->venue route line
+  // (the "distance"). Used once the trip is finished so a delivered +
+  // collected order settles to just the venue pin. Defaults to true.
+  trackDriver?: boolean;
 }
 
 // Custom driver icon - a clean filled car badge with a soft live "pulse"
@@ -100,6 +105,7 @@ export function ClientTrackingMap({
   orderStatus,
   estimatedArrival,
   onLocationUpdate,
+  trackDriver = true,
 }: ClientTrackingMapProps) {
   const [liveDriverLocation, setLiveDriverLocation] = useState(driverLocation);
   const [mapCenter, setMapCenter] = useState<[number, number]>([0, 0]);
@@ -162,8 +168,15 @@ export function ClientTrackingMap({
   //   - 15s polling fallback reads driver_locations (single-row PK
   //     lookup) plus a parallel profiles read for name/phone, which
   //     gps_tracking doesn't carry.
+  // Trip finished: drop the driver pin and stop following. Clears the
+  // marker + route line so the map shows only the venue once everything's
+  // done, and the subscription/polling effects below bail out.
   useEffect(() => {
-    if (!driverId) return;
+    if (!trackDriver) setLiveDriverLocation(undefined);
+  }, [trackDriver]);
+
+  useEffect(() => {
+    if (!driverId || !trackDriver) return;
 
     setLiveDriverLocation(driverLocation);
 
@@ -202,12 +215,12 @@ export function ClientTrackingMap({
         supabase.removeChannel(subscriptionRef.current);
       }
     };
-  }, [orderId, driverId, driverLocation, onLocationUpdate]);
+  }, [orderId, driverId, driverLocation, onLocationUpdate, trackDriver]);
 
   // Fallback polling. Realtime drops on backgrounded mobile tabs, so
   // we still pull driver_locations every 15s to keep the pin warm.
   useEffect(() => {
-    if (!driverId) return;
+    if (!driverId || !trackDriver) return;
     let active = true;
 
     // Pin + name in parallel; driver_locations.driver_id is the PK
@@ -248,7 +261,7 @@ export function ClientTrackingMap({
     const interval = setInterval(pollOnce, 15000);
 
     return () => { active = false; clearInterval(interval); };
-  }, [driverId, onLocationUpdate]);
+  }, [driverId, onLocationUpdate, trackDriver]);
 
   // Coord guard. Leaflet's projection blows up on null / undefined / NaN
   // and we've seen orders without a geocoded venue reach this component.

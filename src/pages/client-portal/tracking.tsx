@@ -339,6 +339,13 @@ export default function ClientTracking() {
     }
   };
 
+  // Is there a driver actively on the road for this order right now?
+  // True only for the live delivery leg (in_transit) or a live equipment
+  // collection trip (collecting). A delivered order that's no longer being
+  // collected is finished - we stop showing the driver + distance.
+  const isLiveTrip = (order: OrderDetails) =>
+    order.status === "in_transit" || !!order.collecting;
+
   // Haversine distance in kilometres between two lat/lng pairs.
   // Good enough for the in-city drive-time estimate; the client just
   // needs "10 mins" vs "an hour" granularity, not turn-by-turn.
@@ -573,7 +580,7 @@ export default function ClientTracking() {
                   <div className="h-[500px] relative">
                     <ClientTrackingMap
                       orderId={selectedOrder.id}
-                      driverLocation={driverLocation || undefined}
+                      driverLocation={isLiveTrip(selectedOrder) ? (driverLocation || undefined) : undefined}
                       venueLocation={{
                         lat: selectedOrder.venue_lat,
                         lng: selectedOrder.venue_lng,
@@ -582,6 +589,10 @@ export default function ClientTracking() {
                       orderStatus={selectedOrder.status}
                       estimatedArrival={selectedOrder.estimated_arrival}
                       onLocationUpdate={handleLocationUpdate}
+                      // Once the trip is over (delivered and not actively
+                      // collecting) stop following the driver - the map drops
+                      // the driver pin + distance line and shows just the venue.
+                      trackDriver={isLiveTrip(selectedOrder)}
                     />
 
                     {/* Live indicator - emerald pulse signals "live". Shows
