@@ -96,6 +96,15 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen }: Props) {
   const [cleaningStarted, setCleaningStarted] = useState<string | null>(null);
   const [cleaningAllDone, setCleaningAllDone] = useState<string | null>(null);
   const [hasCleaningJobs, setHasCleaningJobs] = useState(false);
+  // The driver's "Equipment collected" tap (markEquipmentCollected) flips
+  // the collection driver_assignment to status='picked_up' and stamps
+  // picked_up_at - it does NOT touch event_attendance.equipment_returned_at
+  // (no waiter on a driver-run collection) nor create a cleaning_job yet. So
+  // the closeout "Equipment collected" step never lit from those two signals
+  // alone. Read the collection assignment directly: collectionPickedUpAt =
+  // picked_up_at (or completed_at as a fallback if the trip was completed in
+  // one go) so the step ticks the moment the driver collects the gear.
+  const [collectionPickedUpAt, setCollectionPickedUpAt] = useState<string | null>(null);
   // ODOC H.12: prereq readiness gates.
   //
   // shopping = shopping_list_items linked to the order via
@@ -399,6 +408,45 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen }: Props) {
     return () => { supabase.removeChannel(ch); };
   }, [order.id]);
 
+  // Collection driver_assignment signal. The "Equipment collected"
+  // closeout step lights from this the moment the driver taps it on the
+  // trip (markEquipmentCollected flips the row to picked_up + stamps
+  // picked_up_at). Load + realtime so the step ticks live without a refresh.
+  useEffect(() => {
+    if (!order.id) return;
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const { data } = await (supabase as any)
+          .from("driver_assignments")
+          .select("status, picked_up_at, completed_at")
+          .eq("order_id", order.id)
+          .eq("assignment_type", "collection");
+        if (cancelled) return;
+        const rows = (data || []) as Array<{ status: string | null; picked_up_at: string | null; completed_at: string | null }>;
+        // Done = collection physically picked up (or the whole trip
+        // completed). Take the earliest such stamp across any collection
+        // rows on the order.
+        const stamps = rows
+          .filter((r) => r.status === "picked_up" || r.status === "completed")
+          .map((r) => r.picked_up_at || r.completed_at)
+          .filter((s): s is string => !!s);
+        setCollectionPickedUpAt(earliest(...stamps));
+      } catch (e: any) {
+        captureException(e, { tags: { route: "/order/[id]", step: "loadTimelineCollection", orderId: order.id } });
+      }
+    };
+    void load();
+    const ch = supabase
+      .channel(`order-timeline-collection:${order.id}`)
+      .on("postgres_changes",
+        { event: "*", schema: "public", table: "driver_assignments", filter: `order_id=eq.${order.id}` },
+        () => { void load(); },
+      )
+      .subscribe();
+    return () => { cancelled = true; supabase.removeChannel(ch); };
+  }, [order.id]);
+
   // Effective service-tail stamps: prefer the precise waiter-panel value
   // (event_attendance), fall back to the order column stamped by the
   // departed_venue trigger. Keeps the timeline complete for driver-run
@@ -435,6 +483,7 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen }: Props) {
   // is conservative.
   const hasEquipmentSignal = !!(
     equipmentReturned ||
+    collectionPickedUpAt ||
     hasCleaningJobs ||
     // Equipment is BOOKED on this order - there's gear to bring back, so
     // the collection + cleaning closeout steps are applicable (pending),
@@ -506,7 +555,7 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen }: Props) {
     // proof that gear arrived back at base). Then the cleaning team
     // takes over and the order can't close until every cleaning job
     // for it lands on status='complete'.
-    { key: "equipment",     label: "Equipment collected",  Icon: PackageCheck,   at: equipmentReturned || cleaningStarted, show: hasEquipmentSignal, lane: "closeout" },
+    { key: "equipment",     label: "Equipment collected",  Icon: PackageCheck,   at: equipmentReturned || collectionPickedUpAt || cleaningStarted, show: hasEquipmentSignal, lane: "closeout" },
     { key: "cleaning",      label: "In cleaning cycle",    Icon: Droplets,       at: cleaningAllDone || cleaningStarted,   show: hasEquipmentSignal, lane: "closeout" },
     { key: "completed",     label: "Closed",               Icon: CheckCircle2,   at: order.completed_at,        lane: "closeout" },
   ] as Step[]);
