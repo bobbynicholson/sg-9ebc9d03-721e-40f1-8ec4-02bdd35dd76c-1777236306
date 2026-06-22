@@ -45,6 +45,13 @@ interface OrderDetails {
   driver_phone?: string;
   estimated_arrival?: string;
   items?: any[];
+  // Wave 70.x - live collection trip. When the post-event equipment
+  // collection is en-route, the order is still status='delivered' but we
+  // surface it as a live trip (pin + ETA + "Collecting" state) the same
+  // way the delivery leg is shown. collection_driver_id is the driver on
+  // the collection assignment (may differ from the delivery driver).
+  collecting?: boolean;
+  collection_driver_id?: string | null;
 }
 
 interface DriverLocation {
@@ -153,7 +160,7 @@ export default function ClientTracking() {
       // We expose driver_id on the mapped order so that loadDriverLocation
       // can look up the driver's GPS row - the join produces
       // `assigned_driver.id` but the rest of this page reads `driver_id`.
-      const activeOrders = (fetchedOrders || []).filter((o: any) =>
+      let activeOrders = (fetchedOrders || []).filter((o: any) =>
         ["preparing", "ready", "in_transit", "delivered"].includes(o.status)
       ).map((o: any) => ({
         ...o,
@@ -161,7 +168,28 @@ export default function ClientTracking() {
         driver_name: o.assigned_driver?.full_name,
         driver_phone: o.assigned_driver?.phone
       }));
-      
+
+      // Live collection trip: a delivered order whose equipment-collection
+      // assignment has actually started (en_route / picked_up / at_venue)
+      // is shown as a live trip, not a static "Delivered". 'assigned' /
+      // 'accepted' don't count - the driver hasn't rolled yet.
+      const activeIds = activeOrders.map((o: any) => o.id);
+      if (activeIds.length > 0) {
+        const { data: collRows } = await supabase
+          .from("driver_assignments")
+          .select("order_id, driver_id, status")
+          .eq("assignment_type", "collection")
+          .in("order_id", activeIds)
+          .in("status", ["en_route", "picked_up", "at_venue"]);
+        const collByOrder = new Map<string, string | null>();
+        for (const c of (collRows as any[]) || []) collByOrder.set(c.order_id, c.driver_id || null);
+        activeOrders = activeOrders.map((o: any) =>
+          collByOrder.has(o.id)
+            ? { ...o, collecting: true, collection_driver_id: collByOrder.get(o.id) }
+            : o,
+        );
+      }
+
       setOrders(activeOrders as any);
       
       // Auto-select first order if none selected
@@ -183,8 +211,13 @@ export default function ClientTracking() {
   };
 
   const loadDriverLocation = async (order: OrderDetails) => {
-    if (!order.driver_id) return;
-    
+    // During a live collection trip track the collection driver (who may
+    // differ from the delivery driver); otherwise the delivery driver.
+    const trackDriverId = order.collecting && order.collection_driver_id
+      ? order.collection_driver_id
+      : order.driver_id;
+    if (!trackDriverId) return;
+
     try {
       // Single-row-per-driver lookup off driver_locations (P1-23 split).
       // maybeSingle so the 'no row yet' case isn't an error (the driver
@@ -192,7 +225,7 @@ export default function ClientTracking() {
       const { data: driver } = await (supabase as any)
         .from("driver_locations")
         .select("latitude, longitude")
-        .eq("driver_id", order.driver_id)
+        .eq("driver_id", trackDriverId)
         .maybeSingle();
 
       if (driver && driver.latitude && driver.longitude) {
@@ -258,6 +291,7 @@ export default function ClientTracking() {
   // preparing + ready warm to amber; delivered settles to neutral slate.
   const getStatusColor = (status: string) => {
     switch (status) {
+      case "collecting": return "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900";
       case "in_transit": return "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900";
       case "ready": return "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900";
       case "preparing": return "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900";
@@ -268,6 +302,7 @@ export default function ClientTracking() {
 
   const getStatusLabel = (status: string) => {
     switch (status) {
+      case "collecting": return "Collecting equipment";
       case "in_transit": return "On the way!";
       case "ready": return "Ready for pickup";
       case "preparing": return "Being prepared";
@@ -295,7 +330,10 @@ export default function ClientTracking() {
   // `estimated_arrival` if we don't have a live driver location yet.
   // P1-37 from the 2026-05 audit.
   const calculateETA = (order: OrderDetails) => {
-    if (order.status === "delivered") return "Delivered";
+    // A delivered order that's NOT being collected is done. When a
+    // collection trip is live, fall through to the live driver->venue ETA
+    // (the driver is heading back to the venue to pick the gear up).
+    if (order.status === "delivered" && !order.collecting) return "Delivered";
 
     if (driverLocation && order.venue_lat && order.venue_lng) {
       const km = haversineKm(driverLocation, { lat: order.venue_lat, lng: order.venue_lng });
@@ -498,8 +536,8 @@ export default function ClientTracking() {
                     Live Tracking
                   </h2>
                   {selectedOrder && (
-                    <Badge variant="outline" className={getStatusColor(selectedOrder.status)}>
-                      {getStatusLabel(selectedOrder.status)}
+                    <Badge variant="outline" className={getStatusColor(selectedOrder.collecting ? "collecting" : selectedOrder.status)}>
+                      {getStatusLabel(selectedOrder.collecting ? "collecting" : selectedOrder.status)}
                     </Badge>
                   )}
                 </div>
@@ -518,12 +556,14 @@ export default function ClientTracking() {
                       onLocationUpdate={handleLocationUpdate}
                     />
 
-                    {/* Live indicator - emerald pulse signals "live". */}
-                    {selectedOrder.status === "in_transit" && driverLocation && (
+                    {/* Live indicator - emerald pulse signals "live". Shows
+                        for the delivery leg (in_transit) and for a live
+                        equipment-collection trip. */}
+                    {(selectedOrder.status === "in_transit" || selectedOrder.collecting) && driverLocation && (
                       <div className="absolute top-4 right-4 bg-white dark:bg-slate-900 rounded-lg shadow-lg px-4 py-2 border-2 border-emerald-500 dark:border-emerald-600">
                         <div className="flex items-center gap-2">
                           <div className="w-3 h-3 bg-emerald-500 rounded-full animate-pulse"></div>
-                          <span className="text-sm font-medium text-slate-900 dark:text-white">Live Tracking</span>
+                          <span className="text-sm font-medium text-slate-900 dark:text-white">{selectedOrder.collecting ? "Collecting - Live" : "Live Tracking"}</span>
                         </div>
                       </div>
                     )}
@@ -619,8 +659,8 @@ export default function ClientTracking() {
                           <p className="font-semibold text-slate-900 dark:text-white truncate">{order.client_name}</p>
                           <p className="text-sm text-slate-600 dark:text-slate-400">{order.venue_address}</p>
                         </div>
-                        <Badge variant="outline" className={`${getStatusColor(order.status)} text-xs shrink-0`}>
-                          {getStatusLabel(order.status)}
+                        <Badge variant="outline" className={`${getStatusColor(order.collecting ? "collecting" : order.status)} text-xs shrink-0`}>
+                          {getStatusLabel(order.collecting ? "collecting" : order.status)}
                         </Badge>
                       </div>
 
@@ -629,10 +669,10 @@ export default function ClientTracking() {
                           <Clock className="w-4 h-4" />
                           <span className="tabular-nums">{formatLocalTime(order.delivery_time)}</span>
                         </div>
-                        {order.status === "in_transit" && (
+                        {(order.status === "in_transit" || order.collecting) && (
                           <div className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-medium">
                             <Navigation className="w-4 h-4" />
-                            <span>En route</span>
+                            <span>{order.collecting ? "Collecting" : "En route"}</span>
                           </div>
                         )}
                       </div>

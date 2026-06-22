@@ -207,6 +207,16 @@ function DriverDashboardInner() {
       const horizonDate = new Date();
       horizonDate.setDate(horizonDate.getDate() + 14);
       const horizonISO = toLocalISO(horizonDate);
+      // Collections happen AFTER the event (often the next day), so an
+      // event_date >= today lower bound would drop a pending collection
+      // trip off the driver's active list the morning after - which also
+      // silently stops the GPS pinger mid-collection (no active job ->
+      // no ping -> client live map goes stale). Reach back a week for the
+      // assignment query so post-event collection assignments stay live.
+      // The active-status filter already keeps this to live assignments.
+      const collectionGraceDate = new Date();
+      collectionGraceDate.setDate(collectionGraceDate.getDate() - 7);
+      const collectionGraceISO = toLocalISO(collectionGraceDate);
 
       // Get driver's assignments
       // Wave 46 T5 - pull client_phone + special_instructions so the
@@ -241,7 +251,7 @@ function DriverDashboardInner() {
         // delete isn't modelled on this table; the status filter below already
         // scopes to live, actionable assignments.
         .in("status", ["assigned", "accepted", "en_route", "picked_up", "at_venue"])
-        .gte("orders.event_date", todayISO)
+        .gte("orders.event_date", collectionGraceISO)
         .lte("orders.event_date", horizonISO)
         .order("assigned_at", { ascending: false });
 
