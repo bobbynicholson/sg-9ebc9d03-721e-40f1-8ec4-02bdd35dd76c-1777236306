@@ -18,11 +18,18 @@ import { useEffect, useState } from "react";
 import { CollapsibleSection } from "./CollapsibleSection";
 import { supabase } from "@/integrations/supabase/client";
 import { captureException } from "@/lib/observability";
+import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
+import { isAdmin } from "@/lib/authGuards";
+import { UserRole } from "@/types/app";
+import { Button } from "@/components/ui/button";
 import {
   CheckCircle2, Circle, Clock, ChefHat, PackageCheck, Truck, MapPin,
   Sparkles, Users, PartyPopper, ArrowLeftRight, PackageOpen, Flag, Ban, Pause, FileSignature, Droplets,
-  ShoppingCart, Wrench,
+  ShoppingCart, Wrench, AlertCircle, Loader2, Lock,
 } from "lucide-react";
+
+const fmtZAR = new Intl.NumberFormat("en-ZA", { style: "currency", currency: "ZAR" });
 
 interface OrderForTimeline {
   id: string;
@@ -72,6 +79,56 @@ function fmtStamp(iso: string | null): string {
 }
 
 export function OrderTimelineSection({ order, defaultOpen, forceOpen }: Props) {
+  const { profile } = useAuth() as any;
+  const { toast } = useToast();
+  const canForceClose = !!profile?.role && isAdmin(profile.role as UserRole);
+  // Closeout money - the order prop doesn't carry the balance, so fetch what
+  // we need to tell the admin "still R X to pay before this auto-closes".
+  const [closeMoney, setCloseMoney] = useState<{ balance_amount: number | null; balance_paid: boolean | null; payment_status: string | null } | null>(null);
+  const [forcingClose, setForcingClose] = useState(false);
+
+  useEffect(() => {
+    if (!order.id) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await (supabase as any)
+        .from("orders")
+        .select("balance_amount, balance_paid, payment_status")
+        .eq("id", order.id)
+        .maybeSingle();
+      if (!cancelled && data) setCloseMoney(data as any);
+    })();
+    return () => { cancelled = true; };
+  }, [order.id, order.status, order.completed_at]);
+
+  const handleForceClose = async () => {
+    if (forcingClose) return;
+    const reason = window.prompt(
+      "Force-close this order (mark completed)?\n\nUse this only when the order is genuinely done. The balance may still be unpaid - that's tracked separately on the invoice. Optional reason:",
+      "",
+    );
+    if (reason === null) return; // cancelled
+    setForcingClose(true);
+    try {
+      const res = await fetch(`/api/orders/${order.id}/force-close`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ target_status: "completed", reason: reason || "Force-closed from order timeline" }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast({ title: "Could not close", description: json?.error || "Try again.", variant: "destructive" });
+        return;
+      }
+      toast({ title: "Order closed", description: "Marked completed." });
+      if (typeof window !== "undefined") window.location.reload();
+    } catch (e: any) {
+      toast({ title: "Could not close", description: e?.message || "Try again.", variant: "destructive" });
+    } finally {
+      setForcingClose(false);
+    }
+  };
+
   // Service-phase tail timestamps live on event_attendance (one row
   // per waiter). Take the earliest stamp across all waiters for each
   // phase to represent when the order moved through that step.
@@ -863,6 +920,57 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen }: Props) {
             );
           })}
         </ol>
+
+        {/* Closeout box - shown when the order is operationally delivered but
+            not yet closed. Surfaces the outstanding balance (so the admin
+            KNOWS payment is still due) + a force-close action. The order
+            normally auto-closes once the balance is paid; force-close is the
+            admin override. */}
+        {order.status !== "completed" && order.status !== "cancelled" && !cancelled && (
+          (() => {
+            const outstanding = Number(closeMoney?.balance_amount ?? 0);
+            const balanceUnpaid = !closeMoney?.balance_paid && outstanding > 0;
+            const delivered = order.status === "delivered" || !!order.delivered_at;
+            if (!delivered && !balanceUnpaid) return null;
+            return (
+              <div className={`rounded-lg border p-3 ${balanceUnpaid ? "border-amber-300 bg-amber-50" : "border-emerald-300 bg-emerald-50"}`}>
+                <div className="flex items-start gap-2">
+                  {balanceUnpaid
+                    ? <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                    : <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" />}
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold text-slate-900">
+                      {balanceUnpaid ? "Payment still outstanding" : "Ready to close"}
+                    </p>
+                    <p className="text-xs text-slate-600 mt-0.5">
+                      {balanceUnpaid
+                        ? <>Balance <strong className="text-amber-800">{fmtZAR.format(outstanding)}</strong> still to pay. The order closes automatically once it's paid in full, or an admin can force-close it now.</>
+                        : <>Balance settled. This order will auto-close shortly, or close it now.</>}
+                    </p>
+                    <div className="mt-2">
+                      {canForceClose ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={handleForceClose}
+                          disabled={forcingClose}
+                          className="text-xs h-8 gap-1.5 border-slate-300"
+                        >
+                          {forcingClose ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Lock className="w-3.5 h-3.5" />}
+                          Force-close order
+                        </Button>
+                      ) : (
+                        <p className="text-[11px] text-slate-500 inline-flex items-center gap-1">
+                          <Lock className="w-3 h-3" /> Only an admin / owner can force-close.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })()
+        )}
 
         {/* Lane legend - small helper so the dot colours mean
             something at a glance. Hidden when there's nothing
