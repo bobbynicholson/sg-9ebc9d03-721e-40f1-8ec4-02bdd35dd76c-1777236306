@@ -84,9 +84,18 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         const hoursUntil = a.scheduled_for
           ? (new Date(a.scheduled_for).getTime() - now.getTime()) / 3_600_000
           : 0;
-        const phase: "day" | "eve" | null =
-          hoursUntil <= 14 && hoursUntil > -6 ? "day"
-          : hoursUntil > 14 && hoursUntil <= 38 ? "eve"
+        // Phase by hours-until, tz-robust:
+        //   eve     - collection is tomorrow
+        //   day     - collection is today / imminent
+        //   overdue - scheduled time has passed (>6h) and it's still not
+        //             done. The query has no lower bound on scheduled_for,
+        //             so these slipped runs are in scope; without this
+        //             phase they fell to null and went completely silent
+        //             (equipment left out, nobody chased).
+        const phase: "day" | "eve" | "overdue" | null =
+          hoursUntil > 14 && hoursUntil <= 38 ? "eve"
+          : hoursUntil <= 14 && hoursUntil > -6 ? "day"
+          : hoursUntil <= -6 ? "overdue"
           : null;
         const whenLabel = a.scheduled_for
           ? new Date(a.scheduled_for).toLocaleString("en-ZA", {
@@ -100,7 +109,17 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           const adminType = `collection_reminder_admin_${phase}`;
           const headline = phase === "eve"
             ? `Collection run tomorrow: ${orderLabel}`
-            : `Today's collection run: ${orderLabel}`;
+            : phase === "overdue"
+              ? `Collection overdue: ${orderLabel}`
+              : `Today's collection run: ${orderLabel}`;
+          const icon = phase === "overdue" ? "⚠️" : "📦";
+          const prio = phase === "overdue" ? "urgent" : phase === "day" ? "high" : "normal";
+          const driverMsg = phase === "overdue"
+            ? `The equipment from ${venue || "the venue"} was due ${whenLabel} and is still out - please collect it ASAP.`
+            : `Pick up the equipment from ${venue || "the venue"} - scheduled ${whenLabel}.`;
+          const adminMsg = phase === "overdue"
+            ? `Equipment collection${venue ? ` from ${venue}` : ""} was due ${whenLabel} and hasn't been done${a.driver_id ? "" : " - no driver assigned"}.`
+            : `Equipment collection${venue ? ` from ${venue}` : ""} is scheduled ${whenLabel}${a.driver_id ? "" : " - no driver assigned yet"}.`;
           // Assigned driver (per-user, deduped per phase).
           if (a.driver_id) {
             try {
@@ -110,9 +129,9 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
                   recipient_id: a.driver_id,
                   user_id: a.driver_id,
                   notification_type: driverType,
-                  title: `📦 ${headline}`,
-                  message: `Pick up the equipment from ${venue || "the venue"} - scheduled ${whenLabel}.`,
-                  priority: phase === "day" ? "high" : "normal",
+                  title: `${icon} ${headline}`,
+                  message: driverMsg,
+                  priority: prio,
                   link: "/team-portal/driver/dashboard",
                   related_entity_type: "order",
                   related_entity_id: a.order_id,
@@ -133,10 +152,10 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
                 companyId: (order as any).company_id || a.company_id,
                 regionId: (order as any).region_id || null,
                 targetRoles: ["company_admin" as any, "admin" as any, "owner" as any],
-                title: `📦 ${headline}`,
-                message: `Equipment collection${venue ? ` from ${venue}` : ""} is scheduled ${whenLabel}${a.driver_id ? "" : " - no driver assigned yet"}.`,
+                title: `${icon} ${headline}`,
+                message: adminMsg,
                 type: adminType,
-                priority: phase === "day" ? "high" : "normal",
+                priority: prio,
                 link: `/admin/orders?orderId=${a.order_id}`,
                 relatedEntityType: "order",
                 relatedEntityId: a.order_id,
@@ -150,6 +169,12 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
             errors.push(`assignment ${a.id} admin ping: ${e?.message || e}`);
           }
         }
+
+        // Client email only makes sense ahead of the run. For an already
+        // overdue collection a "we'll arrive at <past time>" note reads
+        // wrong, so skip it - the driver/admin overdue pings above still
+        // fire to get it chased.
+        if (phase === "overdue") continue;
 
         // ---- Client email (unchanged) ----
         if (!(order as any).client_email) continue;
