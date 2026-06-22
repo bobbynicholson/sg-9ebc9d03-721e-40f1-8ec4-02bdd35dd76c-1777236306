@@ -785,7 +785,7 @@ export const kitchenPrepService = {
         ...(notes ? { notes } : {}),
       })
       .eq("id", taskId)
-      .select("order_id")
+      .select("order_id, company_id")
       .single();
     if (error) throw error;
 
@@ -802,6 +802,23 @@ export const kitchenPrepService = {
         await this.checkPrepCompleteForOrder(orderId, performedBy);
       } catch (e) {
         console.warn("[kitchenPrepService] checkPrepCompleteForOrder failed:", e);
+      }
+    }
+
+    // Dynamic clock-out: if the kitchen queue is now clear, close this
+    // chef's open duty shift automatically (mirror of the driver/cleaning
+    // auto clock-out). Best-effort, scoped to the actor - a clock-out miss
+    // must never undo the task completion.
+    const taskCompanyId = (updated as any)?.company_id as string | undefined;
+    if (taskCompanyId && performedBy) {
+      try {
+        const { kitchenDutyService } = await import("./kitchenDutyService");
+        await kitchenDutyService.autoEndKitchenDutyIfClear({
+          companyId: taskCompanyId,
+          staffId: performedBy,
+        });
+      } catch (e) {
+        console.warn("[kitchenPrepService] autoEndKitchenDutyIfClear failed:", e);
       }
     }
     return true;

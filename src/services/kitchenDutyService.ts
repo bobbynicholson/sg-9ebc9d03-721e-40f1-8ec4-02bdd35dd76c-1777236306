@@ -4,6 +4,7 @@ import type { Database } from "@/integrations/supabase/types";
 import { notificationService } from "./notificationService";
 import { billingEmailService } from "./billingEmailService";
 import { UserRole } from "@/types/app";
+import { toLocalISO } from "@/lib/localDate";
 
 // Admin-side roles that should receive kitchen-duty pings. Audit (May
 // 2026): every kitchen notification in this service was routed back to
@@ -126,6 +127,120 @@ export const kitchenDutyService = {
     }
 
     return data;
+  },
+
+  /**
+   * Dynamic clock-out for the kitchen. Mirrors the driver autoClockOut
+   * and the cleaning autoEndCleaningDutyIfClear: a chef clocks in, works
+   * the prep tasks, and the moment there's no prep left in the kitchen
+   * their open kitchen_duty_shifts session closes itself - no manual
+   * "Clock out" tap.
+   *
+   * "No prep left" = no kitchen_prep_tasks in pending/in_progress for any
+   * order that's actively in the kitchen. An order counts as active-prep
+   * when prep has started (orders.prep_started_at) OR its event is today
+   * or earlier, AND it hasn't moved past prep (status not ready/in_transit/
+   * delivered/completed/cancelled). That scoping keeps a chef clocked in
+   * while next week's pre-generated tasks sit waiting, and clocks them out
+   * once today's board is clear.
+   *
+   * Scoped to the ACTOR (staffId) so a co-chef still on the line isn't
+   * pulled off duty. Best-effort: never throws.
+   */
+  async autoEndKitchenDutyIfClear(params: {
+    companyId: string;
+    staffId: string;
+  }): Promise<{ ended: number; remaining: number }> {
+    try {
+      const { data: pending, error: pErr } = await supabase
+        .from("kitchen_prep_tasks")
+        .select("order_id, status")
+        .eq("company_id", params.companyId)
+        .in("status", ["pending", "in_progress"]);
+      if (pErr) {
+        console.warn("[autoEndKitchenDutyIfClear] pending-tasks read failed:", pErr);
+        return { ended: 0, remaining: -1 };
+      }
+      const rows = (pending || []) as Array<{ order_id: string; status: string }>;
+      let remaining = 0;
+      if (rows.length > 0) {
+        const orderIds = Array.from(new Set(rows.map((r) => r.order_id).filter(Boolean)));
+        const { data: orders } = await supabase
+          .from("orders")
+          .select("id, status, prep_started_at, event_date")
+          .in("id", orderIds);
+        const today = toLocalISO(new Date());
+        const terminal = new Set(["ready", "in_transit", "delivered", "completed", "cancelled"]);
+        const activeOrderIds = new Set(
+          ((orders || []) as any[])
+            .filter((o) => {
+              const st = String(o.status || "").toLowerCase();
+              if (terminal.has(st)) return false;
+              return !!o.prep_started_at || (!!o.event_date && String(o.event_date) <= today);
+            })
+            .map((o) => o.id as string),
+        );
+        remaining = rows.filter((r) => activeOrderIds.has(r.order_id)).length;
+      }
+      if (remaining > 0) return { ended: 0, remaining };
+
+      // Kitchen queue is clear - close this chef's open duty shift(s).
+      const { data: openShifts, error: sErr } = await supabase
+        .from("kitchen_duty_shifts")
+        .select("id")
+        .eq("company_id", params.companyId)
+        .eq("staff_id", params.staffId)
+        .eq("is_active", true);
+      if (sErr) {
+        console.warn("[autoEndKitchenDutyIfClear] open-shift read failed:", sErr);
+        return { ended: 0, remaining: 0 };
+      }
+      const shifts = (openShifts || []) as Array<{ id: string }>;
+      if (shifts.length === 0) return { ended: 0, remaining: 0 };
+
+      const nowIso = new Date().toISOString();
+      let ended = 0;
+      for (const sh of shifts) {
+        const { error: updErr } = await supabase
+          .from("kitchen_duty_shifts")
+          .update({ is_active: false, shift_end: nowIso, updated_at: nowIso } as any)
+          .eq("id", sh.id);
+        if (updErr) {
+          console.warn("[autoEndKitchenDutyIfClear] shift close failed:", updErr);
+          continue;
+        }
+        ended += 1;
+        // Mirror the manual clock-out: stamp the linked roster row so
+        // /admin/kitchen-schedule and payroll see the shift as completed.
+        try {
+          await (supabase as any)
+            .from("kitchen_shifts")
+            .update({ actual_end: nowIso, status: "completed" } as any)
+            .eq("duty_shift_id", sh.id);
+        } catch (rosterErr) {
+          console.warn("[autoEndKitchenDutyIfClear] roster stamp failed:", rosterErr);
+        }
+        // Tell the chef their shift auto-closed (best-effort).
+        try {
+          await notificationService.createNotification({
+            company_id: params.companyId,
+            recipient_id: params.staffId,
+            user_id: params.staffId,
+            notification_type: "kitchen_clock_out",
+            title: "Clocked out - all prep done",
+            message: "All kitchen prep in the queue is finished, so your shift was closed automatically. Nice work!",
+            priority: "low",
+            link: "/team-portal/kitchen/duty",
+          } as any);
+        } catch (notifyErr) {
+          console.warn("[autoEndKitchenDutyIfClear] chef notify failed:", notifyErr);
+        }
+      }
+      return { ended, remaining: 0 };
+    } catch (e) {
+      console.warn("[autoEndKitchenDutyIfClear] crashed (non-blocking):", e);
+      return { ended: 0, remaining: -1 };
+    }
   },
 
   // End a duty shift
