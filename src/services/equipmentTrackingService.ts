@@ -513,6 +513,192 @@ ${companyName}`;
   },
 
   /**
+   * Bill a damage to the client, dynamically choosing the right path:
+   *
+   *   - If the order still has an OPEN invoice (balance_due > 0 - e.g. the
+   *     client paid a 50% deposit and the balance is outstanding), the damage
+   *     cost is ADDED to that invoice: subtotal/total/balance_due grow, a line
+   *     item is appended, and the client simply owes more on the same bill.
+   *   - If every invoice on the order is fully paid (or there's no invoice),
+   *     a NEW invoice is raised for just the damage amount.
+   *
+   * Either way the damage is marked resolved with a "Billed..." note so it
+   * leaves the open list and can't be double-billed (the UI only shows the
+   * action on unresolved rows). Money fields AND the invoice_data line items
+   * are kept in lock-step so every surface sums correctly. The client is
+   * pinged best-effort.
+   */
+  async billDamageToClient(params: {
+    damageId: string;
+    actorUserId: string;
+  }): Promise<{ ok: boolean; mode?: "added" | "new_invoice"; invoiceNumber?: string; amount?: number; error?: string }> {
+    const round2 = (n: number) => Math.round(n * 100) / 100;
+    try {
+      const { data: dmgRow } = await supabase
+        .from("equipment_damages")
+        .select("id, order_id, company_id, equipment_id, quantity_damaged, unit_cost, total_cost, damage_type, resolved")
+        .eq("id", params.damageId)
+        .maybeSingle();
+      if (!dmgRow) return { ok: false, error: "Damage not found." };
+      const d = dmgRow as any;
+      if (d.resolved) return { ok: false, error: "This damage is already resolved/billed." };
+      const cost = round2(Number(d.total_cost || 0));
+      if (cost <= 0) return { ok: false, error: "No cost on this damage to bill - set a replacement cost first." };
+      if (!d.order_id) return { ok: false, error: "This damage isn't linked to an order, so there's no client to bill." };
+      const qty = Number(d.quantity_damaged || 1);
+      const unitCost = round2(Number(d.unit_cost || cost / Math.max(1, qty)));
+
+      const { data: eqRow } = await supabase.from("equipment").select("name").eq("id", d.equipment_id).maybeSingle();
+      const eqName = (eqRow as any)?.name || "equipment";
+      const { data: ordRow } = await supabase
+        .from("orders")
+        .select("order_number, company_id, client_id, client_email, client_name")
+        .eq("id", d.order_id)
+        .maybeSingle();
+      const ord = ordRow as any;
+      const companyId = d.company_id || ord?.company_id;
+      const lineDesc = `Equipment damage: ${qty}x ${eqName} (${d.damage_type || "damaged"})`;
+
+      // Find a usable open invoice for the order (not voided/written-off,
+      // with an outstanding balance). Most-recent first.
+      const { data: invs } = await supabase
+        .from("invoices")
+        .select("id, subtotal, tax_amount, total_amount, amount_paid, balance_due, status, invoice_number, notes, invoice_data")
+        .eq("order_id", d.order_id)
+        .order("created_at", { ascending: false });
+      const usable = ((invs || []) as any[]).filter(
+        (i) => !["voided", "written_off"].includes(String(i.status || "")),
+      );
+      const openInv = usable.find((i) => Number(i.balance_due || 0) > 0.009);
+
+      let mode: "added" | "new_invoice";
+      let invoiceNumber: string;
+
+      if (openInv) {
+        const newSubtotal = round2(Number(openInv.subtotal || 0) + cost);
+        const newTotal = round2(Number(openInv.total_amount || 0) + cost);
+        const newBalance = round2(Number(openInv.balance_due || 0) + cost);
+        const paid = Number(openInv.amount_paid || 0);
+        const newStatus = paid > 0 ? "partially_paid" : "sent";
+        // Keep invoice_data line items in step with the column money fields.
+        const idata: any = openInv.invoice_data && typeof openInv.invoice_data === "object" ? { ...openInv.invoice_data } : {};
+        const items = Array.isArray(idata.items) ? [...idata.items] : [];
+        items.push({ description: lineDesc, quantity: qty, unitPrice: unitCost, total: cost });
+        idata.items = items;
+        idata.subtotal = round2(Number(idata.subtotal || 0) + cost);
+        idata.total = round2(Number(idata.total || 0) + cost);
+        idata.balanceDue = round2(Number(idata.balanceDue || 0) + cost);
+        const noteLine = `${lineDesc} +R${cost.toFixed(2)} (damage charge)`;
+        await supabase
+          .from("invoices")
+          .update({
+            subtotal: newSubtotal,
+            total_amount: newTotal,
+            balance_due: newBalance,
+            status: newStatus,
+            paid_at: null,
+            notes: openInv.notes ? `${openInv.notes}\n${noteLine}` : noteLine,
+            invoice_data: idata,
+            updated_at: new Date().toISOString(),
+          } as any)
+          .eq("id", openInv.id);
+        mode = "added";
+        invoiceNumber = openInv.invoice_number;
+      } else {
+        // Client is square - raise a fresh invoice for just the damage.
+        invoiceNumber = `INV-${Date.now().toString().slice(-6)}`;
+        const todayIso = new Date().toISOString().slice(0, 10);
+        const dueIso = new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10);
+        let idata: any = null;
+        try {
+          const { generateInvoiceData } = await import("./invoiceGenerationService");
+          const built = await generateInvoiceData(d.order_id, companyId);
+          if (built.success && built.data) {
+            idata = {
+              ...built.data,
+              invoiceNumber,
+              invoiceDate: todayIso,
+              dueDate: dueIso,
+              items: [{ description: lineDesc, quantity: qty, unitPrice: unitCost, total: cost }],
+              subtotal: cost,
+              taxRate: 0,
+              taxAmount: 0,
+              total: cost,
+              depositPaid: 0,
+              balanceDue: cost,
+              notes: `Equipment damage charge for order ${ord?.order_number || ""}.`,
+            };
+          }
+        } catch (e) {
+          console.warn("[billDamageToClient] generateInvoiceData failed (non-blocking):", e);
+        }
+        await supabase.from("invoices").insert({
+          company_id: companyId,
+          order_id: d.order_id,
+          client_id: ord?.client_id || null,
+          invoice_number: invoiceNumber,
+          invoice_date: todayIso,
+          due_date: dueIso,
+          subtotal: cost,
+          tax_amount: 0,
+          total_amount: cost,
+          amount_paid: 0,
+          balance_due: cost,
+          status: "sent",
+          notes: `Equipment damage charge: ${lineDesc} (order ${ord?.order_number || ""})`,
+          invoice_data: idata,
+        } as any);
+        mode = "new_invoice";
+      }
+
+      // Close the damage out with a billed note (also stops double-billing).
+      await supabase
+        .from("equipment_damages")
+        .update({
+          resolved: true,
+          resolution_notes:
+            mode === "added"
+              ? `Billed to client - added R${cost.toFixed(2)} to outstanding invoice ${invoiceNumber}.`
+              : `Billed to client - new invoice ${invoiceNumber} for R${cost.toFixed(2)}.`,
+          resolved_at: new Date().toISOString(),
+          resolved_by_user_id: params.actorUserId,
+        } as any)
+        .eq("id", params.damageId);
+
+      // Tell the client a charge landed (best-effort).
+      try {
+        if (ord?.client_id && companyId) {
+          const { data: cl } = await supabase.from("clients").select("user_id").eq("id", ord.client_id).maybeSingle();
+          const clientUid = (cl as any)?.user_id;
+          if (clientUid) {
+            await notificationService.createNotification({
+              company_id: companyId,
+              recipient_id: clientUid,
+              user_id: clientUid,
+              notification_type: "invoice_updated",
+              title: "Damage charge added to your bill",
+              message:
+                mode === "added"
+                  ? `A charge of R${cost.toFixed(2)} for ${qty}x ${eqName} was added to invoice ${invoiceNumber}.`
+                  : `Invoice ${invoiceNumber} for R${cost.toFixed(2)} was raised for ${qty}x ${eqName} damaged at your event.`,
+              priority: "normal",
+              link: "/client-portal/dashboard",
+              related_entity_type: "order",
+              related_entity_id: d.order_id,
+            } as any);
+          }
+        }
+      } catch (notifyErr) {
+        console.warn("[billDamageToClient] client notify failed (non-blocking):", notifyErr);
+      }
+
+      return { ok: true, mode, invoiceNumber, amount: cost };
+    } catch (e: any) {
+      return { ok: false, error: e?.message || "billDamageToClient crashed" };
+    }
+  },
+
+  /**
    * Start cleaning duty shift
    */
   async startCleaningDuty(params: {

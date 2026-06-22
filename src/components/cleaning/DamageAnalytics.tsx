@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { AlertTriangle, Package, Banknote, Calendar as CalendarIcon, BellRing, CheckCircle2 } from "lucide-react";
+import { AlertTriangle, Package, Banknote, Calendar as CalendarIcon, BellRing, CheckCircle2, Receipt } from "lucide-react";
 import { equipmentTrackingService, type DamageType } from "@/services/equipmentTrackingService";
 import { notificationService } from "@/services/notificationService";
 import { UserRole } from "@/types/app";
@@ -219,6 +219,42 @@ export function DamageAnalytics() {
         description: err instanceof Error ? err.message : "Please retry.",
         variant: "destructive",
       });
+    } finally {
+      setPendingDamageId(null);
+    }
+  };
+
+  // Bill the client for a damage. The service decides dynamically whether to
+  // add it to an outstanding invoice (client still owes a balance) or raise a
+  // new one (already paid in full). Marks the damage resolved on success.
+  const handleBillClient = async (damage: any) => {
+    if (!user?.id) return;
+    if (pendingDamageId) return;
+    const cost = Number(damage.total_cost || 0);
+    if (cost <= 0) {
+      toast({ title: "No cost set", description: "Set a replacement cost on this item before billing.", variant: "destructive" });
+      return;
+    }
+    if (!damage.order_id) {
+      toast({ title: "No order linked", description: "This damage isn't tied to an order, so there's no client to bill.", variant: "destructive" });
+      return;
+    }
+    if (!window.confirm(`Bill the client ${formatCurrency(cost)} for this damage?\n\nIf they still owe a balance it's added to that invoice, otherwise a new invoice is raised.`)) return;
+    setPendingDamageId(damage.id);
+    try {
+      const res = await equipmentTrackingService.billDamageToClient({ damageId: damage.id, actorUserId: user.id });
+      if (!res.ok) {
+        toast({ title: "Could not bill", description: res.error || "Try again.", variant: "destructive" });
+        return;
+      }
+      toast({
+        title: res.mode === "added" ? "Added to outstanding invoice" : "New invoice raised",
+        description: `${res.invoiceNumber} · ${formatCurrency(Number(res.amount || 0))}`,
+      });
+      await loadDamages();
+    } catch (err) {
+      console.error("[DamageAnalytics] bill failed:", err);
+      toast({ title: "Could not bill", description: err instanceof Error ? err.message : "Please retry.", variant: "destructive" });
     } finally {
       setPendingDamageId(null);
     }
@@ -601,6 +637,18 @@ export function DamageAnalytics() {
                         back to read-only once admin closes the loop. */}
                     {!damage.resolved && (
                       <div className="flex flex-wrap gap-2 mt-4 pt-3 border-t">
+                        <Button
+                          type="button"
+                          size="sm"
+                          className="gap-1.5 min-h-11 bg-emerald-600 hover:bg-emerald-700"
+                          onClick={() => handleBillClient(damage)}
+                          disabled={pendingDamageId === damage.id || Number(damage.total_cost || 0) <= 0 || !damage.order_id}
+                          aria-label={`Bill client for ${damage.equipment?.name || "this damage"}`}
+                          title={Number(damage.total_cost || 0) <= 0 ? "Set a replacement cost first" : !damage.order_id ? "No order linked" : "Charge this to the client"}
+                        >
+                          <Receipt className="w-3.5 h-3.5" />
+                          Bill client {Number(damage.total_cost || 0) > 0 ? formatCurrency(Number(damage.total_cost)) : ""}
+                        </Button>
                         <Button
                           type="button"
                           variant="outline"
