@@ -670,9 +670,23 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen }: Props) {
             // stamped). Render it as done so the spine reads cleanly top to
             // bottom (everything up to the current point green, only genuine
             // future steps pending at the end) instead of showing a grey
-            // "hole" mid-spine. We don't invent a timestamp - the time cell
-            // shows "not recorded" so the missing stamp is still visible.
+            // "hole" mid-spine. The step has no stamp of its own (e.g. POD
+            // skipped because delivery was confirmed via the "Arrived at
+            // venue" tap, or service-ended/event-complete never tapped on the
+            // waiter panel), so we infer an APPROXIMATE time from the next
+            // recorded step - the step must have completed no later than the
+            // milestone that follows it. Shown with a "~" prefix + tooltip so
+            // it reads as a complete, chronological timeline without claiming
+            // an exact stamp that was never captured.
             const passed = !step.at && !notApplicable && lastDoneIdx >= 0 && i < lastDoneIdx;
+            const inferredAt = passed
+              ? (() => {
+                  for (let j = i + 1; j < steps.length; j++) {
+                    if (steps[j].at) return steps[j].at as string;
+                  }
+                  return null;
+                })()
+              : null;
             const done = reached || passed;
             const isCurrent = i === lastDoneIdx;
             const isNextPending = i === nextPendingIdx;
@@ -727,16 +741,29 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen }: Props) {
                       )}
                     </p>
                     <div className="flex items-baseline gap-1.5 text-xs tabular-nums text-slate-500">
-                      {reached && (
+                      {(reached || (passed && inferredAt)) && (
                         <span
                           className="text-[10px] text-slate-400"
-                          title={`Stamped: ${fmtStamp(step.at)}`}
+                          title={reached
+                            ? `Stamped: ${fmtStamp(step.at)}`
+                            : "Approximate - inferred from the next recorded step (not separately stamped)"}
                         >
-                          {fmtRelative(hoursSince(step.at)!)}
+                          {fmtRelative(hoursSince((reached ? step.at : inferredAt) as string)!)}
                         </span>
                       )}
-                      <span className={passed ? "text-slate-400 italic" : undefined}>
-                        {reached ? fmtStamp(step.at) : passed ? "not recorded" : notApplicable ? "N/A" : "-"}
+                      <span
+                        className={passed ? "text-slate-400 italic" : undefined}
+                        title={passed && inferredAt
+                          ? "Approximate - inferred from the next recorded step (not separately stamped)"
+                          : undefined}
+                      >
+                        {reached
+                          ? fmtStamp(step.at)
+                          : passed && inferredAt
+                            ? `~${fmtStamp(inferredAt)}`
+                            : notApplicable
+                              ? "N/A"
+                              : "-"}
                       </span>
                     </div>
                   </div>
