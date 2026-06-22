@@ -1,0 +1,13 @@
+import { readFileSync } from "node:fs";
+import { createClient } from "@supabase/supabase-js";
+const env = Object.fromEntries(readFileSync(".env.local","utf8").split(/\r?\n/).filter(l=>l&&!l.startsWith("#")&&l.includes("=")).map(l=>{const i=l.indexOf("=");return [l.slice(0,i).trim(),l.slice(i+1).trim().replace(/^["']|["']$/g,"")];}));
+const sb = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, { auth:{persistSession:false} });
+const OID="5b0bc5a4-a33f-417f-bbfc-c046aa1de14a";
+const { data: invs } = await sb.from("invoices").select("invoice_number, sent_at").eq("order_id",OID);
+console.log("INVOICE sent_at:", (invs||[]).map(i=>`${i.invoice_number}=${i.sent_at||"NULL"}`).join(", "));
+const { data: e } = await sb.from("email_automation_log").select("template_type, status").eq("order_id",OID);
+const types = {}; for (const r of (e||[])) types[r.template_type+":"+r.status]=(types[r.template_type+":"+r.status]||0)+1;
+console.log("email_automation_log:", JSON.stringify(types));
+const hasThankYou = (e||[]).some(r=>/thank|order_completed|review/i.test(r.template_type||""));
+const hasConfirmation = (e||[]).some(r=>/confirm|booking/i.test(r.template_type||""));
+console.log("has thank-you/review entry:", hasThankYou, "| has confirmation entry:", hasConfirmation);
