@@ -615,21 +615,30 @@ export const driverConfirmationService = {
       // collection trip is live. en_route_at is the equivalent of a
       // "started" timestamp on this table.
       //
+      // Flip the driver_assignment to en_route so dispatch sees the
+      // collection trip is live. en_route_at is the equivalent of a
+      // "started" timestamp on this table.
+      //
       // Prior code wrote `"in_progress"` and filtered on
       // `.eq("status", "pending")`, but neither value is in the
       // assignment_status enum (assigned / accepted / en_route /
       // picked_up / at_venue / delivered / completed / cancelled).
       // The .eq filter never matched a row, so the entire flip was a
       // no-op in production - drivers tapped "start collection" and
-      // nothing happened at the DB layer. The accepted state is what
-      // a driver sits in after self-claim or admin push (Wave 64.4
-      // auto-accept), so we filter on that.
+      // nothing happened at the DB layer.
+      //
+      // A collection assignment auto-scheduled on delivery sits at
+      // 'assigned' (it was never put through the self-claim / auto-accept
+      // path that produces 'accepted'). Filtering on 'accepted' alone
+      // left those stuck: tapping Start clocked the driver in but never
+      // set en_route_at, so "Mark complete" stayed disabled and the
+      // collection could never be closed. Accept BOTH pre-trip states.
       await (supabase as any)
         .from("driver_assignments")
         .update({ status: "en_route", en_route_at: new Date().toISOString() })
         .eq("order_id", orderId)
         .eq("assignment_type", "collection")
-        .eq("status", "accepted");
+        .in("status", ["assigned", "accepted"]);
       return shift;
     } catch (e) {
       console.warn("[startCollection] failed:", e);
