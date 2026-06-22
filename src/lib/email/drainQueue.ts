@@ -105,10 +105,7 @@ export async function getEmailQueueHealth(
   supabase: any,
   companyId?: string,
 ): Promise<QueueHealth> {
-  const base = () => {
-    let q = supabase.from("outgoing_email_queue");
-    return q;
-  };
+  const base = () => supabase.from("outgoing_email_queue");
   const scoped = (status: string) => {
     let q = base().select("id", { count: "exact", head: true }).eq("status", status);
     if (companyId) q = q.eq("company_id", companyId);
