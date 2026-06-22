@@ -495,8 +495,16 @@ export function computeOrderReadiness(
     });
   }
 
-  // M3. Invoice has been sent to the client.
-  const invoiceSent = (input.invoices || []).some((inv: any) => !!inv?.sent_at);
+  // M3. Invoice has been sent to the client. A fully PAID order has, by
+  // definition, had its invoice reach the client (you can't pay an invoice
+  // you never received) - so pass the signal on paid orders even when the
+  // batched invoice join didn't surface the sent_at stamp for this card.
+  // Unpaid past orders still nag "send the invoice" so chase-the-client
+  // workflows stay visible.
+  const orderPaid = orderStatus === "completed"
+    ? true
+    : (o.payment_status || "").toString().toLowerCase() === "paid";
+  const invoiceSent = orderPaid || (input.invoices || []).some((inv: any) => !!inv?.sent_at);
   signals.push({
     key: "invoice_sent",
     severity: "medium",
