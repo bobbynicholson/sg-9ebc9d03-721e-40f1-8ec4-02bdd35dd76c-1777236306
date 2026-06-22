@@ -596,7 +596,7 @@ ${companyName}`;
         idata.total = round2(Number(idata.total || 0) + cost);
         idata.balanceDue = round2(Number(idata.balanceDue || 0) + cost);
         const noteLine = `${lineDesc} +R${cost.toFixed(2)} (damage charge)`;
-        await supabase
+        const { error: updErr } = await supabase
           .from("invoices")
           .update({
             subtotal: newSubtotal,
@@ -609,6 +609,11 @@ ${companyName}`;
             updated_at: new Date().toISOString(),
           } as any)
           .eq("id", openInv.id);
+        // Abort on failure - don't bump the order / mark billed without the
+        // invoice actually carrying the charge.
+        if (updErr) {
+          return { ok: false, error: `Could not add the charge to invoice ${openInv.invoice_number}: ${updErr.message}` };
+        }
         mode = "added";
         invoiceNumber = openInv.invoice_number;
         outstandingAfter = newBalance;
@@ -641,7 +646,7 @@ ${companyName}`;
         } catch (e) {
           console.warn("[billDamageToClient] generateInvoiceData failed (non-blocking):", e);
         }
-        const { data: newInv } = await supabase
+        const { data: newInv, error: insErr } = await supabase
           .from("invoices")
           .insert({
             company_id: companyId,
@@ -661,6 +666,11 @@ ${companyName}`;
           } as any)
           .select("public_token")
           .single();
+        // Abort on a failed insert - otherwise we'd bump the order + mark the
+        // damage billed with NO invoice behind it (a phantom charge).
+        if (insErr) {
+          return { ok: false, error: `Could not raise the damage invoice: ${insErr.message}` };
+        }
         mode = "new_invoice";
         outstandingAfter = cost;
         payToken = (newInv as any)?.public_token || null;
@@ -680,13 +690,20 @@ ${companyName}`;
         const rate = oSub > 0 && oTax > 0 ? oTax / oSub : 0;
         const net = rate > 0 ? round2(cost / (1 + rate)) : cost;
         const vat = round2(cost - net);
+        const newBal = round2(oBal + cost);
+        // The new charge creates outstanding balance, so the order is no longer
+        // "paid in full" - flip the flags too, otherwise it reads balance_paid
+        // true with a non-zero balance (the inconsistency this bug caused).
+        const nowFullyPaid = newBal <= 0.009;
         await supabase
           .from("orders")
           .update({
             subtotal: round2(oSub + net),
             tax_amount: round2(oTax + vat),
             total_amount: round2(oTotal + cost),
-            balance_amount: round2(oBal + cost),
+            balance_amount: newBal,
+            balance_paid: nowFullyPaid,
+            payment_status: nowFullyPaid ? "paid" : "partial",
             updated_at: new Date().toISOString(),
           } as any)
           .eq("id", d.order_id);
