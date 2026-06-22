@@ -423,7 +423,16 @@ export function DamageAnalytics() {
                           </Badge>
                         </div>
                         <div className="space-y-1 text-sm text-muted-foreground">
-                          <p>Order: {damage.order?.order_number}</p>
+                          {/* Event + client so this reads as a billable line -
+                              which event it happened on and who to charge. */}
+                          <p>
+                            Event: {damage.order?.order_number || "-"}
+                            {damage.order?.event_name && damage.order.event_name !== "Untitled" ? ` - ${damage.order.event_name}` : ""}
+                            {damage.order?.event_date ? ` (${damage.order.event_date})` : ""}
+                          </p>
+                          {damage.order?.client_name && (
+                            <p>Client: {damage.order.client_name}</p>
+                          )}
                           <p>Stage: {damage.damage_stage}</p>
                           <p>Quantity: {damage.quantity_damaged} items</p>
                           {damage.responsible_name && (
@@ -431,6 +440,11 @@ export function DamageAnalytics() {
                           )}
                           {damage.description && (
                             <p className="mt-2 text-foreground">{damage.description}</p>
+                          )}
+                          {damage.photo_url && (
+                            <a href={damage.photo_url} target="_blank" rel="noopener noreferrer" className="inline-block text-cyan-700 hover:underline">
+                              View photo
+                            </a>
                           )}
                         </div>
                       </div>

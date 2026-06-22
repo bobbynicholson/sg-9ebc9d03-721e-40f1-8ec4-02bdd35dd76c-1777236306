@@ -200,31 +200,31 @@ export const equipmentTrackingService = {
 
     const equipmentName = equipment?.name || "Unknown Equipment";
 
-    // Deduct the damaged quantity from inventory so availability reflects
-    // reality (the alert emails have always CLAIMED the gear was "removed
-    // from inventory" - until now nothing actually did it). broken / lost /
-    // stolen are permanent losses and drop the owned total too; "damaged"
-    // (repairable) only drops what's available. Clamped at 0, and available
-    // never exceeds owned. Best-effort - a deduction miss must never block
-    // the damage record. Admin can correct via the inventory adjustment flow.
+    // Pull the damaged units OUT OF CIRCULATION but do NOT change the owned
+    // total. The owner still owns the gear until they formally write it off
+    // (admin write-off flow) or bill the client for it - that decision lives
+    // in the damage register, not here. So we only drop available_quantity;
+    // the damaged count is tracked in equipment_damages and surfaces in the
+    // damage report. Display stays "available / owned" (e.g. 49/50), and the
+    // damaged/out figure is derivable as owned - available - in_use.
+    // Clamped at 0; available never exceeds owned. Best-effort - a deduction
+    // miss must never block the damage record.
     try {
       const owned = Number((equipment as any)?.quantity || 0);
       const avail = Number((equipment as any)?.available_quantity || 0);
       const dmg = Math.max(0, Number(params.quantityDamaged || 0));
       if (dmg > 0) {
-        const permanent = ["broken", "lost", "stolen"].includes(String(params.damageType));
-        const newOwned = permanent ? Math.max(0, owned - dmg) : owned;
-        const newAvail = Math.max(0, Math.min(newOwned, avail - dmg));
+        const newAvail = Math.max(0, Math.min(owned, avail - dmg));
         const { error: invErr } = await supabase
           .from("equipment")
-          .update({ quantity: newOwned, available_quantity: newAvail, updated_at: new Date().toISOString() } as any)
+          .update({ available_quantity: newAvail, updated_at: new Date().toISOString() } as any)
           .eq("id", params.equipmentId);
         if (invErr) {
-          console.warn("[equipmentTrackingService/reportDamage] inventory deduction failed (non-blocking):", invErr);
+          console.warn("[equipmentTrackingService/reportDamage] availability deduction failed (non-blocking):", invErr);
         }
       }
     } catch (invE) {
-      console.warn("[equipmentTrackingService/reportDamage] inventory deduction threw (non-blocking):", invE);
+      console.warn("[equipmentTrackingService/reportDamage] availability deduction threw (non-blocking):", invE);
     }
 
     if (order) {
@@ -393,7 +393,9 @@ ${companyName}`;
         ),
         order:order_id (
           order_number,
-          event_date
+          event_date,
+          event_name,
+          client_name
         )
       `)
       .order("created_at", { ascending: false });

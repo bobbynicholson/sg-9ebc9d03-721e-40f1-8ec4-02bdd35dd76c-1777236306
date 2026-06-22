@@ -12,7 +12,7 @@ import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { AlertTriangle, Plus, Loader2, Search, Check, FileWarning } from "lucide-react";
+import { AlertTriangle, Plus, Loader2, Search, Check, FileWarning, Package, Calendar as CalendarIcon, User, Image as ImageIcon } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { CleaningNav } from "@/components/navigation/CleaningNav";
 import { PortalShell, PortalHeader, PortalCard, StatTile } from "@/components/portal/ui";
@@ -32,7 +32,31 @@ interface Damage {
   order_id: string | null;
   equipment_id: string | null;
   created_at: string | null;
+  // Richer fields written by the Flag-damaged flow (reportDamage). The
+  // legacy create dialog on this page writes notes/repair_cost; the cleaner
+  // Flag button writes description/total_cost/quantity_damaged/photo. We read
+  // both so every damage shows fully regardless of which path created it.
+  description: string | null;
+  total_cost: number | null;
+  unit_cost: number | null;
+  quantity_damaged: number | null;
+  photo_url: string | null;
+  responsible_name: string | null;
+  // Event + client context (joined) so a damage reads as a billable line:
+  // "broken bowl on ORD-003849, Smith Wedding, client Jane - charge R10".
+  order: {
+    order_number: string | null;
+    event_name: string | null;
+    client_name: string | null;
+    event_date: string | null;
+  } | null;
 }
+
+// Unified accessors so legacy (notes/repair_cost) and new (description/
+// total_cost) damage rows render identically.
+const damageDescription = (d: Damage): string => (d.description || d.notes || "").trim();
+const damageCost = (d: Damage): number => Number(d.total_cost ?? d.repair_cost ?? 0);
+const damageQty = (d: Damage): number => Number(d.quantity_damaged ?? 1);
 
 interface Equipment { id: string; name: string | null; replacement_cost: number | null; }
 
@@ -72,7 +96,7 @@ export default function CleaningDamagePage() {
     try {
       let q = supabase
         .from("equipment_damages")
-        .select("*")
+        .select("*, order:order_id(order_number, event_name, client_name, event_date)")
         .eq("company_id", user.company_id)
         .order("created_at", { ascending: false })
         .limit(100);
@@ -109,7 +133,7 @@ export default function CleaningDamagePage() {
   const stats = useMemo(() => {
     const open = items.filter((d) => !d.resolved).length;
     const resolved = items.filter((d) => d.resolved).length;
-    const cost = items.filter((d) => !d.resolved).reduce((s, d) => s + Number(d.repair_cost || 0), 0);
+    const cost = items.filter((d) => !d.resolved).reduce((s, d) => s + damageCost(d), 0);
     return { open, resolved, cost };
   }, [items]);
 
@@ -272,7 +296,7 @@ export default function CleaningDamagePage() {
                         <Badge variant="outline" className={`${typeTone[d.damage_type ?? ""] ?? "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700"} text-xs capitalize`}>{d.damage_type ?? "damage"}</Badge>
                         {eq?.name && (
                           <Badge variant="outline" className="bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 text-xs font-medium">
-                            {eq.name}
+                            {eq.name}{damageQty(d) > 1 ? ` x${damageQty(d)}` : ""}
                           </Badge>
                         )}
                         {d.resolved ? (
@@ -280,14 +304,42 @@ export default function CleaningDamagePage() {
                         ) : (
                           <Badge variant="outline" className="bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-950 dark:text-rose-300 dark:border-rose-900 text-xs">Open</Badge>
                         )}
-                        {d.repair_cost != null && (
-                          <span className="text-xs tabular-nums text-slate-700 dark:text-slate-300">R {Number(d.repair_cost).toFixed(2)}</span>
+                        {damageCost(d) > 0 && (
+                          <span className="text-xs tabular-nums font-semibold text-rose-700 dark:text-rose-300">R {damageCost(d).toFixed(2)}</span>
                         )}
                         {d.created_at && (
                           <span className="text-[11px] text-slate-500 dark:text-slate-400">{formatDistanceToNow(new Date(d.created_at), { addSuffix: true })}</span>
                         )}
                       </div>
-                      {d.notes && <p className="text-sm text-slate-700 dark:text-slate-300">{d.notes}</p>}
+                      {/* Event + client context so this reads as a billable line:
+                          which event it happened on + who to charge. */}
+                      {(d.order?.order_number || d.order?.event_name || d.order?.client_name) && (
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-slate-600 dark:text-slate-400 mb-1">
+                          {d.order?.order_number && (
+                            <span className="inline-flex items-center gap-1"><Package className="w-3 h-3" />{d.order.order_number}</span>
+                          )}
+                          {d.order?.event_name && d.order.event_name !== "Untitled" && (
+                            <span>{d.order.event_name}</span>
+                          )}
+                          {d.order?.event_date && (
+                            <span className="inline-flex items-center gap-1"><CalendarIcon className="w-3 h-3" />{d.order.event_date}</span>
+                          )}
+                          {d.order?.client_name && (
+                            <span className="inline-flex items-center gap-1"><User className="w-3 h-3" />{d.order.client_name}</span>
+                          )}
+                        </div>
+                      )}
+                      {damageDescription(d) && <p className="text-sm text-slate-700 dark:text-slate-300">{damageDescription(d)}</p>}
+                      <div className="flex flex-wrap items-center gap-3 mt-1">
+                        {d.responsible_name && (
+                          <span className="text-[11px] text-slate-500 dark:text-slate-400">Reported by {d.responsible_name}</span>
+                        )}
+                        {d.photo_url && (
+                          <a href={d.photo_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[11px] text-cyan-700 hover:underline dark:text-cyan-400">
+                            <ImageIcon className="w-3 h-3" /> View photo
+                          </a>
+                        )}
+                      </div>
                     </div>
                     {!d.resolved && (
                       <Button size="sm" variant="ghost" onClick={() => markResolved(d.id)}>
