@@ -552,7 +552,7 @@ ${companyName}`;
       const eqName = (eqRow as any)?.name || "equipment";
       const { data: ordRow } = await supabase
         .from("orders")
-        .select("order_number, company_id, client_id, client_email, client_name")
+        .select("order_number, company_id, client_id, client_email, client_name, subtotal, tax_amount, total_amount, balance_amount")
         .eq("id", d.order_id)
         .maybeSingle();
       const ord = ordRow as any;
@@ -664,6 +664,34 @@ ${companyName}`;
         mode = "new_invoice";
         outstandingAfter = cost;
         payToken = (newInv as any)?.public_token || null;
+      }
+
+      // Keep the admin order Finance "real": fold the charge into the ORDER
+      // totals too (that section reads orders.*, not the invoice). Split the
+      // VAT the same way the order is taxed so Total = Subtotal + VAT still
+      // holds, and grow the outstanding balance. A payment sweeper that later
+      // recomputes balance as (total - paid) stays consistent because we bump
+      // total_amount by the same amount. Best-effort - never blocks the bill.
+      try {
+        const oSub = Number(ord?.subtotal || 0);
+        const oTax = Number(ord?.tax_amount || 0);
+        const oTotal = Number(ord?.total_amount || 0);
+        const oBal = ord?.balance_amount != null ? Number(ord.balance_amount) : Math.max(0, oTotal);
+        const rate = oSub > 0 && oTax > 0 ? oTax / oSub : 0;
+        const net = rate > 0 ? round2(cost / (1 + rate)) : cost;
+        const vat = round2(cost - net);
+        await supabase
+          .from("orders")
+          .update({
+            subtotal: round2(oSub + net),
+            tax_amount: round2(oTax + vat),
+            total_amount: round2(oTotal + cost),
+            balance_amount: round2(oBal + cost),
+            updated_at: new Date().toISOString(),
+          } as any)
+          .eq("id", d.order_id);
+      } catch (orderErr) {
+        console.warn("[billDamageToClient] order total update failed (non-blocking):", orderErr);
       }
 
       // Close the damage out with a billed note (also stops double-billing).
