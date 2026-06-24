@@ -957,9 +957,9 @@ export default function KitchenDashboard() {
     }
     const hoursUntil = (eventDateTime.getTime() - now.getTime()) / (1000 * 60 * 60);
     
-    if (hoursUntil < 4) return { level: "high", color: "border-l-rose-500 bg-rose-50 dark:bg-rose-950/40" };
-    if (hoursUntil < 8) return { level: "medium", color: "border-l-amber-500 bg-amber-50 dark:bg-amber-950/40" };
-    return { level: "low", color: "border-l-emerald-500 bg-emerald-50 dark:bg-emerald-950/40" };
+    if (hoursUntil < 4) return { level: "high", color: "border-rose-200 bg-rose-50/70 dark:border-rose-900 dark:bg-rose-950/30", dot: "bg-rose-500" };
+    if (hoursUntil < 8) return { level: "medium", color: "border-amber-200 bg-amber-50/70 dark:border-amber-900 dark:bg-amber-950/30", dot: "bg-amber-500" };
+    return { level: "low", color: "border-emerald-200 bg-emerald-50/70 dark:border-emerald-900 dark:bg-emerald-950/30", dot: "bg-emerald-500" };
   };
 
   return (
@@ -1094,7 +1094,7 @@ export default function KitchenDashboard() {
                     const eventTime = order.event_time || "TBC";
 
                     return (
-                      <div key={order.id} className={`p-2 sm:p-3 rounded-lg border-l-4 ${urgency.color}`}>
+                      <div key={order.id} className={`p-2 sm:p-3 rounded-lg border ${urgency.color}`}>
                         {/* Wave 70.20 - restructured row. Right column
                             now stacks status badge + action buttons
                             inline with the title block, matching the
@@ -1239,7 +1239,7 @@ export default function KitchenDashboard() {
               before Low Stock recomputes and quietly drops the row.
               Teal accent to distinguish from the amber Low Stock card. */}
           {Object.keys(restockDeltas).length > 0 && (
-            <PortalCard className="mb-6 sm:mb-8 border-l-4 border-l-emerald-500">
+            <PortalCard className="mb-6 sm:mb-8 border-emerald-200 bg-emerald-50/30 dark:border-emerald-900 dark:bg-emerald-950/20">
               <PortalCardHeader
                 title={
                   <span className="flex items-center gap-2 text-base sm:text-lg text-emerald-700 dark:text-emerald-400">
@@ -1286,7 +1286,7 @@ export default function KitchenDashboard() {
             const noStaff = onDutyCount === 0 && todayOrders.length > 0;
             if (!understaffed && !noStaff) return null;
             return (
-              <PortalCard padded={false} className="mb-4 border-l-4 border-l-rose-500 bg-rose-50/60 dark:bg-rose-950/30">
+              <PortalCard padded={false} className="mb-4 border-rose-200 bg-rose-50/60 dark:border-rose-900 dark:bg-rose-950/30">
                 <div className="px-4 py-3 flex items-start gap-3">
                   <Users className="w-5 h-5 text-rose-600 dark:text-rose-400 mt-0.5 shrink-0" />
                   <div className="flex-1 text-sm">
@@ -1310,7 +1310,7 @@ export default function KitchenDashboard() {
               holding us up". One task at a time so it stays a
               decision-prompt not a backlog dump. */}
           {bottleneckTask && (
-            <PortalCard padded={false} className="mb-4 border-l-4 border-l-amber-500 bg-amber-50/60 dark:bg-amber-950/30">
+            <PortalCard padded={false} className="mb-4 border-amber-200 bg-amber-50/60 dark:border-amber-900 dark:bg-amber-950/30">
               <div className="px-4 py-3 flex items-start gap-3">
                 <Clock className="w-5 h-5 text-amber-600 dark:text-amber-500 mt-0.5 shrink-0" />
                 <div className="flex-1 text-sm">
@@ -1335,7 +1335,7 @@ export default function KitchenDashboard() {
 
           {/* Low Stock Alerts */}
           {lowStockItems.length > 0 && (
-            <PortalCard className="mb-6 sm:mb-8 border-l-4 border-l-amber-500">
+            <PortalCard className="mb-6 sm:mb-8 border-amber-200 bg-amber-50/30 dark:border-amber-900 dark:bg-amber-950/20">
               <PortalCardHeader
                 title={
                   <span className="flex items-center gap-2 text-base sm:text-lg text-amber-700 dark:text-amber-400">
@@ -1400,7 +1400,7 @@ export default function KitchenDashboard() {
               space where the headline used to be - "did it crash?".
               Now they see a clear "no live pickups" reassurance. */}
           {!loading && !nextPickup && orders.length === 0 && needsClosureOrders.length === 0 && (
-            <PortalCard padded={false} className="mb-4 sm:mb-6 border-l-4 border-l-slate-300 dark:border-l-slate-600 bg-slate-50/60 dark:bg-slate-800/40">
+            <PortalCard padded={false} className="mb-4 sm:mb-6 border-slate-200 bg-slate-50/60 dark:border-slate-700 dark:bg-slate-800/40">
               <div className="p-4 sm:p-5 flex items-center justify-between gap-4">
                 <div className="flex-1">
                   <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400 font-semibold">Next pickup</p>
@@ -1441,9 +1441,9 @@ export default function KitchenDashboard() {
               isSoon ? "Starts soon" :
                        "Plenty of time";
             const tone =
-              isLate ? "bg-gradient-to-br from-rose-50 to-white dark:from-rose-950/40 dark:to-slate-900 border-l-rose-500" :
-              isSoon ? "bg-gradient-to-br from-amber-50 to-white dark:from-amber-950/40 dark:to-slate-900 border-l-amber-500" :
-                       "bg-gradient-to-br from-emerald-50 to-white dark:from-emerald-950/40 dark:to-slate-900 border-l-emerald-500";
+              isLate ? "bg-gradient-to-br from-rose-50 to-white dark:from-rose-950/40 dark:to-slate-900 border-rose-200 dark:border-rose-900" :
+              isSoon ? "bg-gradient-to-br from-amber-50 to-white dark:from-amber-950/40 dark:to-slate-900 border-amber-200 dark:border-amber-900" :
+                       "bg-gradient-to-br from-emerald-50 to-white dark:from-emerald-950/40 dark:to-slate-900 border-emerald-200 dark:border-emerald-900";
             const statusTone =
               isLate ? "bg-rose-600 text-white" :
               isSoon ? "bg-amber-600 text-white" :
@@ -1457,7 +1457,7 @@ export default function KitchenDashboard() {
               isSoon ? "bg-amber-100/80 dark:bg-amber-500/15" :
                        "bg-emerald-100/80 dark:bg-emerald-500/15";
             return (
-              <PortalCard padded={false} className={`mb-4 sm:mb-6 overflow-hidden border-l-4 ${tone}`}>
+              <PortalCard padded={false} className={`mb-4 sm:mb-6 overflow-hidden ${tone}`}>
                 <div className="p-4 sm:p-6 flex items-center justify-between gap-4">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 mb-2">
@@ -1490,7 +1490,7 @@ export default function KitchenDashboard() {
               row has a single Close out button that cascades through
               prep + ready + collect + delivery + audit in one call. */}
           {canSeeAdminOrderDetail && needsClosureOrders.length > 0 && (
-            <PortalCard className="mb-4 sm:mb-6 border-l-4 border-l-amber-500 bg-amber-50/40 dark:bg-amber-950/20">
+            <PortalCard className="mb-4 sm:mb-6 border-amber-200 bg-amber-50/40 dark:border-amber-900 dark:bg-amber-950/20">
               <PortalCardHeader
                 title={
                   <span className="text-sm sm:text-base flex items-center gap-2 text-amber-900 dark:text-amber-200">
@@ -1640,14 +1640,15 @@ export default function KitchenDashboard() {
                   label: string;
                   empty: string;
                   tone: string;
+                  dot: string;
                 }> = [
                   // KIT3-A: standardised empty-state copy across the
                   // three lanes. Was three different voices ("Nothing
                   // confirmed yet" / "No prep in flight" / "Nothing
                   // ready yet").
-                  { key: "confirmed", label: "Confirmed",  empty: "No confirmed orders waiting",  tone: "border-l-blue-400 bg-blue-50/50" },
-                  { key: "preparing", label: "In prep",    empty: "No orders in prep right now",  tone: "border-l-amber-400 bg-amber-50/50" },
-                  { key: "ready",     label: "Ready",      empty: "No orders ready to collect",   tone: "border-l-emerald-400 bg-emerald-50/50" },
+                  { key: "confirmed", label: "Confirmed",  empty: "No confirmed orders waiting",  tone: "border-blue-200 bg-blue-50/60 dark:border-blue-900 dark:bg-blue-950/30",       dot: "bg-blue-400" },
+                  { key: "preparing", label: "In prep",    empty: "No orders in prep right now",  tone: "border-amber-200 bg-amber-50/60 dark:border-amber-900 dark:bg-amber-950/30",   dot: "bg-amber-400" },
+                  { key: "ready",     label: "Ready",      empty: "No orders ready to collect",   tone: "border-emerald-200 bg-emerald-50/60 dark:border-emerald-900 dark:bg-emerald-950/30", dot: "bg-emerald-500" },
                 ];
 
                 return (
@@ -1686,10 +1687,16 @@ export default function KitchenDashboard() {
                             const minsToEvent = isNaN(eventDt.getTime())
                               ? null
                               : (eventDt.getTime() - now.getTime()) / 60_000;
+                            const isLateCard = minsToEvent != null && minsToEvent < 0;
+                            const isSoonCard = minsToEvent != null && minsToEvent >= 0 && minsToEvent < 120;
                             const tone =
-                              minsToEvent != null && minsToEvent < 0     ? "border-l-rose-500 bg-rose-50/50 dark:bg-rose-950/30" :
-                              minsToEvent != null && minsToEvent < 120   ? "border-l-amber-500 bg-amber-50/50 dark:bg-amber-950/30" :
-                                                                            col.tone;
+                              isLateCard ? "border-rose-200 bg-rose-50/60 dark:border-rose-900 dark:bg-rose-950/30" :
+                              isSoonCard ? "border-amber-200 bg-amber-50/60 dark:border-amber-900 dark:bg-amber-950/30" :
+                                           col.tone;
+                            const dotTone =
+                              isLateCard ? "bg-rose-500" :
+                              isSoonCard ? "bg-amber-500" :
+                                           col.dot;
 
                             const prog = progressByOrder[order.id] || { total: 0, done: 0 };
                             const pct = prog.total > 0 ? Math.round((prog.done / prog.total) * 100) : 0;
@@ -1697,7 +1704,7 @@ export default function KitchenDashboard() {
                             return (
                               <div
                                 key={order.id}
-                                className={`p-3 rounded-lg border-l-4 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:-translate-y-0.5 hover:shadow-md hover:border-slate-300 dark:hover:border-slate-600 transition-[box-shadow,transform,border-color] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] ${tone}`}
+                                className={`p-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:-translate-y-0.5 hover:shadow-md hover:border-slate-300 dark:hover:border-slate-600 transition-[box-shadow,transform,border-color] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] ${tone}`}
                               >
                                 {/* Wave 70.18 - card title block + order
                                     number. No longer a tiny link --
@@ -1705,11 +1712,14 @@ export default function KitchenDashboard() {
                                     (View ticket + View order). */}
                                 <div className="flex items-start justify-between gap-2 mb-1">
                                   <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">
-                                      {orderDisplayName({ event_name: order.event_name, client_name: order.client_name, order_number: (order as any).order_number })}
-                                    </p>
+                                    <div className="flex items-center gap-1.5 min-w-0">
+                                      <span className={`inline-block h-2 w-2 rounded-full shrink-0 ${dotTone}`} aria-hidden="true" />
+                                      <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">
+                                        {orderDisplayName({ event_name: order.event_name, client_name: order.client_name, order_number: (order as any).order_number })}
+                                      </p>
+                                    </div>
                                     {order.event_name && order.client_name && (
-                                      <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                                      <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate pl-3.5">
                                         for {order.client_name}
                                       </p>
                                     )}
