@@ -502,7 +502,7 @@ function KitchenTeamPage() {
                   <ChefHat className="w-6 h-6 text-white" />
                 </div>
                 <div>
-                  <h1 className="text-2xl sm:text-3xl xl:text-4xl font-serif text-white">Kitchen</h1>
+                  <h1 className="text-2xl sm:text-3xl xl:text-4xl font-bold text-white">Kitchen</h1>
                   <p className="text-sm text-white/90 mt-0.5">Prep, plating and pass-through.</p>
                 </div>
               </div>

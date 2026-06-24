@@ -433,7 +433,7 @@ function CleaningTeamPage() {
                   <Sparkles className="w-6 h-6 text-white" />
                 </div>
                 <div>
-                  <h1 className="text-2xl sm:text-3xl xl:text-4xl font-serif text-white">Cleaning</h1>
+                  <h1 className="text-2xl sm:text-3xl xl:text-4xl font-bold text-white">Cleaning</h1>
                   <p className="text-sm text-white/90 mt-0.5">Wash-up, kit return and venue strike.</p>
                 </div>
               </div>

@@ -399,7 +399,7 @@ function DriversTeamPage() {
                   <Truck className="w-6 h-6 text-white" />
                 </div>
                 <div>
-                  <h1 className="text-2xl sm:text-3xl xl:text-4xl font-serif text-white">Drivers</h1>
+                  <h1 className="text-2xl sm:text-3xl xl:text-4xl font-bold text-white">Drivers</h1>
                   <p className="text-sm text-white/90 mt-0.5">Logistics, deliveries and on-site setup.</p>
                 </div>
               </div>
