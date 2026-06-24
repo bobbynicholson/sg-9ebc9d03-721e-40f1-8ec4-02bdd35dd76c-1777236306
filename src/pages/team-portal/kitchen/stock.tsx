@@ -419,8 +419,8 @@ export default function KitchenStockPage() {
   const tone = (i: Inventory) => {
     const s = Number(i.current_stock || 0);
     const m = Number(i.minimum_stock || 0);
-    if (s <= 0) return "bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-900";
-    if (s <= m) return "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900";
+    if (s <= 0) return "bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-950/50 dark:text-rose-200 dark:border-rose-800";
+    if (s <= m) return "bg-rose-50 text-rose-600 border-rose-200 dark:bg-rose-950/20 dark:text-rose-300 dark:border-rose-900";
     return "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900";
   };
   const label = (i: Inventory) => {
@@ -466,16 +466,16 @@ export default function KitchenStockPage() {
               something to push. Surfaces the gap + offers the
               one-tap action to convert it into a shopping list. */}
           {belowParItems.length > 0 && (
-            <PortalCard className="mb-6 border-amber-300 bg-amber-50/70 dark:border-amber-900 dark:bg-amber-950/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <PortalCard className="mb-6 border-rose-200 bg-rose-50/70 dark:border-rose-900 dark:bg-rose-950/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="flex items-center gap-3 min-w-0">
-                <div className="w-10 h-10 rounded-xl bg-amber-200 dark:bg-amber-900/60 flex items-center justify-center flex-shrink-0">
-                  <ShoppingCart className="h-5 w-5 text-amber-800 dark:text-amber-300" />
+                <div className="w-10 h-10 rounded-xl bg-rose-100 dark:bg-rose-900/50 flex items-center justify-center flex-shrink-0">
+                  <ShoppingCart className="h-5 w-5 text-rose-700 dark:text-rose-300" />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-sm font-semibold text-amber-900 dark:text-amber-200">
+                  <p className="text-sm font-semibold text-rose-900 dark:text-rose-200">
                     {belowParItems.length} item{belowParItems.length === 1 ? "" : "s"} below par
                   </p>
-                  <p className="text-xs text-amber-800 dark:text-amber-300/90 mt-0.5">
+                  <p className="text-xs text-rose-800 dark:text-rose-300/90 mt-0.5">
                     Push the lot to shopping in one tap. Quantities default to your re-order amounts.
                   </p>
                 </div>
@@ -502,7 +502,7 @@ export default function KitchenStockPage() {
             />
             <StatTile
               label={<span className="flex items-center gap-1">Below par<InfoTooltip content="Items running low and due for a re-order.\n\nStock is at or below the minimum you've set." /></span>}
-              value={<span className="text-amber-600 dark:text-amber-500">{stats.below}</span>}
+              value={<span className="text-rose-600 dark:text-rose-500">{stats.below}</span>}
             />
             <StatTile
               label={<span className="flex items-center gap-1">Out of stock<InfoTooltip content="Items you've run out of completely.\n\nAny order needing these can't be fulfilled until you restock." /></span>}
@@ -643,7 +643,7 @@ export default function KitchenStockPage() {
                               items. Helps the chef call shopping with
                               an exact ask instead of "we need more". */}
                           {suggestion > 0 && (
-                            <div className="text-[11px] text-amber-700 dark:text-amber-400 mt-1 inline-flex items-center gap-1">
+                            <div className="text-[11px] text-rose-600 dark:text-rose-400 mt-1 inline-flex items-center gap-1">
                               <AlertTriangle className="w-2.5 h-2.5" />
                               Suggest ordering <strong>{suggestion} {i.unit_of_measure}</strong>
                               {reorderQty > 0 ? " (preferred re-order qty)" : max > 0 ? " (to hit max)" : " (to clear par)"}
@@ -705,7 +705,7 @@ export default function KitchenStockPage() {
             <button
               type="button"
               onClick={() => setAction("wasted")}
-              className={`flex flex-col items-center gap-1 px-2 py-2 rounded-md text-xs font-medium transition-colors ${action === "wasted" ? "bg-white dark:bg-slate-900 shadow-sm text-amber-700 dark:text-amber-300" : "text-slate-600 dark:text-slate-300 hover:bg-white/50 dark:hover:bg-slate-900/50"}`}
+              className={`flex flex-col items-center gap-1 px-2 py-2 rounded-md text-xs font-medium transition-colors ${action === "wasted" ? "bg-white dark:bg-slate-900 shadow-sm text-rose-700 dark:text-rose-300" : "text-slate-600 dark:text-slate-300 hover:bg-white/50 dark:hover:bg-slate-900/50"}`}
             >
               <Trash2 className="w-4 h-4" />
               Wasted
@@ -769,7 +769,7 @@ export default function KitchenStockPage() {
               />
             </div>
             {action === "wasted" && (
-              <p className="text-[11px] text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 rounded p-2">
+              <p className="text-[11px] text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900 rounded p-2">
                 Waste shows up on the admin wastage tab so the office can spot trends - what's going off, what's over-prepped.
               </p>
             )}
@@ -854,7 +854,7 @@ export default function KitchenStockPage() {
                         <div className="text-xs text-slate-500 dark:text-slate-400">have {stock} {i.unit_of_measure}, par {min}</div>
                       </div>
                       <div className="text-right tabular-nums flex-shrink-0">
-                        <div className="font-semibold text-amber-700 dark:text-amber-400">+{need} {i.unit_of_measure}</div>
+                        <div className="font-semibold text-rose-600 dark:text-rose-400">+{need} {i.unit_of_measure}</div>
                       </div>
                     </div>
                   );
