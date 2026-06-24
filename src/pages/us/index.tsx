@@ -101,7 +101,7 @@ export default function USHomePage() {
                   </Badge>
                 </div>
                 
-                <h1 className="text-4xl md:text-6xl font-bold mb-6 leading-tight">
+                <h1 className="text-4xl md:text-6xl font-display font-bold mb-6 leading-tight">
                   The Ultimate Catering Management Solution
                 </h1>
                 
@@ -186,7 +186,7 @@ export default function USHomePage() {
                     <Calendar className="w-4 h-4 mr-2 inline" />
                     Strategic Q1 2026 Launch
                   </Badge>
-                  <h2 className="text-3xl md:text-4xl font-bold mb-4">
+                  <h2 className="text-3xl md:text-4xl font-display font-bold mb-4">
                     Why Launch in February?
                   </h2>
                   <p className="text-xl text-gray-600">
@@ -233,7 +233,7 @@ export default function USHomePage() {
           <section className="py-20 bg-gray-50">
             <div className="container mx-auto px-4">
               <div className="max-w-4xl mx-auto text-center mb-16">
-                <h2 className="text-3xl md:text-4xl font-bold mb-4">
+                <h2 className="text-3xl md:text-4xl font-display font-bold mb-4">
                   We Understand US Catering Challenges
                 </h2>
                 <p className="text-xl text-gray-600">
@@ -281,7 +281,7 @@ export default function USHomePage() {
 
           <section className="py-20 bg-purple-600 text-white pb-0">
             <div className="container mx-auto px-4 text-center pb-20">
-              <h2 className="text-3xl md:text-4xl font-bold mb-6">
+              <h2 className="text-3xl md:text-4xl font-display font-bold mb-6">
                 Join America's Beta Caterers
               </h2>
               <p className="text-xl mb-8 max-w-2xl mx-auto text-purple-100">
