@@ -294,8 +294,10 @@ export function NotificationBell() {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent
+        side="right"
         align="start"
         collisionPadding={12}
+        avoidCollisions
         className="w-[calc(100vw-1.5rem)] max-w-[420px] sm:w-[420px] p-0"
         sideOffset={8}
       >

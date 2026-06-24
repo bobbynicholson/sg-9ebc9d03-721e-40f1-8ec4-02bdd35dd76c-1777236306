@@ -129,7 +129,10 @@ export function ChatBot({ userRole = "admin", companyId }: ChatBotProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
 
-  const config = ROLE_CONFIGS[userRole] || ROLE_CONFIGS.admin;
+  // Theme-driven: every role's chat chrome (FAB, header, bubbles, avatar,
+  // send button) uses the tenant brand gradient instead of the old
+  // per-role purple/blue/cyan/orange palette.
+  const config = { ...(ROLE_CONFIGS[userRole] || ROLE_CONFIGS.admin), color: "from-brand-primary to-brand-secondary" };
 
   useEffect(() => {
     if (isOpen && messages.length === 0) {
@@ -264,7 +267,7 @@ export function ChatBot({ userRole = "admin", companyId }: ChatBotProps) {
                       className={cn(
                         "w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0",
                         message.role === "user"
-                          ? "bg-gradient-to-r from-blue-500 to-blue-600"
+                          ? "bg-brand-primary"
                           : `bg-gradient-to-r ${config.color}`
                       )}
                     >
@@ -278,7 +281,7 @@ export function ChatBot({ userRole = "admin", companyId }: ChatBotProps) {
                       className={cn(
                         "rounded-2xl px-4 py-3 max-w-[75%]",
                         message.role === "user"
-                          ? "bg-blue-500 text-white"
+                          ? "bg-brand-primary text-white"
                           : "bg-slate-100 text-slate-900"
                       )}
                     >

@@ -51,8 +51,8 @@ const COPY: Record<TeamRole, RoleCopy> = {
       "Earnings dashboard so you always know where you stand",
     ],
     icon: Truck,
-    gradient: "from-blue-500 to-indigo-500",
-    accent: "bg-blue-50 border-blue-200",
+    gradient: "from-brand-primary to-brand-secondary",
+    accent: "bg-brand-primary/5 border-brand-primary/20",
   },
   cleaning: {
     title: "Welcome to the cleaning portal",
@@ -63,8 +63,8 @@ const COPY: Record<TeamRole, RoleCopy> = {
       "On-duty board: tap in, tap out, fair pay with no admin chasing",
     ],
     icon: Sparkles,
-    gradient: "from-cyan-500 to-blue-500",
-    accent: "bg-cyan-50 border-cyan-200",
+    gradient: "from-brand-primary to-brand-secondary",
+    accent: "bg-brand-primary/5 border-brand-primary/20",
   },
   shopping: {
     title: "Welcome to the shopping portal",
@@ -75,8 +75,8 @@ const COPY: Record<TeamRole, RoleCopy> = {
       "Receipt scanner that links spend back to suppliers + inventory",
     ],
     icon: ShoppingCart,
-    gradient: "from-amber-500 to-orange-500",
-    accent: "bg-amber-50 border-amber-200",
+    gradient: "from-brand-primary to-brand-secondary",
+    accent: "bg-brand-primary/5 border-brand-primary/20",
   },
 };
 
