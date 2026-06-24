@@ -111,6 +111,13 @@ export function QuoteSendDialog({
   // production link goes to the apex domain which doesn't serve the
   // app cleanly. Self-fetch alongside the tenant name.
   const [fetchedSlug, setFetchedSlug] = useState<string | null>(null);
+  // Operator template override. "auto" lets the dialog decide between
+  // the first-time and revised wording from isRevised below; the
+  // operator can force either template instead (e.g. send the
+  // first-time wording again, or use the revised wording on a quote
+  // that was technically never sent). Resets to "auto" on close.
+  const [templateChoice, setTemplateChoice] =
+    useState<"auto" | "email_quote_sent" | "email_quote_revised">("auto");
 
   const total = Number(quote?.total ?? quote?.total_amount ?? 0);
   // Strip placeholder defaults from the event label so the body doesn't
@@ -172,6 +179,12 @@ export function QuoteSendDialog({
   // alone missed the common case: a sent-but-not-yet-accepted quote being
   // re-sent (Pic 63 - it wrongly used the new-quote wording).
   const isRevised = isConverted || !!quote?.already_sent;
+  // The template the dialog would pick on its own...
+  const autoTemplateType = isRevised ? "email_quote_revised" : "email_quote_sent";
+  // ...and the one actually used: the operator's override wins over auto.
+  const effectiveTemplateType =
+    templateChoice === "auto" ? autoTemplateType : templateChoice;
+  const effectiveIsRevised = effectiveTemplateType === "email_quote_revised";
 
   // Second-quote derived values (only computed when one is selected).
   const secondTotal = Number(secondQuote?.total ?? secondQuote?.total_amount ?? 0);
@@ -239,7 +252,7 @@ export function QuoteSendDialog({
       try {
         const result = await resolveEmailTemplate({
           companyId,
-          templateType: isRevised ? "email_quote_revised" : "email_quote_sent",
+          templateType: effectiveTemplateType,
           variables: {
             first_name: firstName,
             client_name: quote.client_name || "there",
@@ -264,7 +277,7 @@ export function QuoteSendDialog({
           // buildFallbackBody, which has the "see the attached PDF" wording
           // the link-less registry default lacks.
           fallback: (() => {
-            const regKey = isRevised ? "email_quote_revised" : "email_quote_sent";
+            const regKey = effectiveTemplateType;
             const regDef = TEMPLATE_REGISTRY.find((t) => t.key === regKey);
             if (regDef && quoteUrl) {
               return {
@@ -331,9 +344,47 @@ export function QuoteSendDialog({
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, quote?.id, companyId, tn, quoteUrl, total, guestCount, eventDateLabel, isConverted, isRevised, secondQuote?.id]);
+  }, [open, quote?.id, companyId, tn, quoteUrl, total, guestCount, eventDateLabel, isConverted, effectiveTemplateType, secondQuote?.id]);
 
   if (!quote) return null;
+
+  // Operator-facing template picker. Lets them choose which wording goes
+  // out instead of being locked to the auto choice. Editing the actual
+  // template content is a separate admin screen (link below the body).
+  const templateOptions: Array<{ key: "auto" | "email_quote_sent" | "email_quote_revised"; label: string }> = [
+    { key: "auto", label: `Auto (${autoTemplateType === "email_quote_revised" ? "Revised" : "First-time"})` },
+    { key: "email_quote_sent", label: "First-time send" },
+    { key: "email_quote_revised", label: "Revised quote" },
+  ];
+  const templatePicker = (
+    <div className="border rounded-md p-3 bg-slate-50 space-y-1.5">
+      <p className="text-sm font-medium text-slate-700">Email template</p>
+      <p className="text-xs text-slate-500">
+        Which wording to send. Auto picks for you based on whether this quote went out before.
+        Edit the wording itself in Settings (link under the message).
+      </p>
+      <div className="flex flex-wrap gap-2">
+        {templateOptions.map((opt) => {
+          const active = templateChoice === opt.key;
+          return (
+            <button
+              key={opt.key}
+              type="button"
+              onClick={() => setTemplateChoice(opt.key)}
+              className={
+                "px-3 py-1.5 rounded-md text-sm border transition " +
+                (active
+                  ? "bg-brand-primary text-white border-brand-primary"
+                  : "bg-white text-slate-700 border-slate-300 hover:bg-slate-100")
+              }
+            >
+              {opt.label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
 
   const secondQuotePicker =
     availableQuotes && availableQuotes.length > 0 ? (
@@ -372,7 +423,10 @@ export function QuoteSendDialog({
     <SendEmailDialog
       open={open}
       onOpenChange={(o) => {
-        if (!o) setSecondQuote(null);
+        if (!o) {
+          setSecondQuote(null);
+          setTemplateChoice("auto");
+        }
         onOpenChange(o);
       }}
       title="Send quote to client"
@@ -388,9 +442,9 @@ export function QuoteSendDialog({
           : "Quote.pdf"
       }
       sendLabel="Send quote"
-      extraTopContent={secondQuotePicker}
+      extraTopContent={<>{templatePicker}{secondQuotePicker}</>}
       templateEditHref="/admin/email-templates?tab=templates"
-      templateEditLabel={isRevised ? '"Revised quote" template' : '"Quote just sent" template'}
+      templateEditLabel={effectiveIsRevised ? '"Revised quote" template' : '"Quote just sent" template'}
       onSend={async (payload) => {
         try {
           const response = await fetch("/api/send-email", {
