@@ -69,7 +69,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   Banknote, ArrowLeft, Save, Send, Plus, Trash2, MapPin, Sparkles,
   Loader2, CheckCircle2, AlertTriangle, Eye, Calendar, Users, Mail, Phone,
-  Percent, TrendingUp, Wand2, Clock,
+  Percent, TrendingUp, Wand2, Clock, ChevronUp, ChevronDown,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Footer } from "@/components/Footer";
@@ -450,6 +450,11 @@ function NewQuotePage() {
   const [allergenGateOpen, setAllergenGateOpen] = useState(false);
   const [sending, setSending] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
+  // Sticky-bar price breakdown: tapping the live total in the sticky
+  // action bar expands the same line-by-line breakdown shown in the
+  // Running total card, so the operator can see WHY the price is what
+  // it is without scrolling up to the summary column.
+  const [breakdownOpen, setBreakdownOpen] = useState(false);
 
   // ── Computed totals ───────────────────────────────────────────────
   const computed = useMemo(() => {
@@ -1953,6 +1958,73 @@ function NewQuotePage() {
 
   const dirty = !savedAt || dirtyRef.current;
 
+  // Shared price breakdown - rendered identically in the Running total
+  // card AND the sticky action bar popover so the two surfaces can never
+  // disagree (money must sum + agree everywhere). Pure render helper.
+  const renderTotalsBreakdown = () => {
+    const incVat = pricingIncludesVat;
+    const hasLineDiscounts = computed.lineDiscounts > 0;
+    const itemsLabel = incVat ? "Items (incl VAT)" : "Items";
+    return (
+      <>
+        {hasLineDiscounts ? (
+          <>
+            <Row label={`${itemsLabel} (gross)`} value={fmtR(computed.itemsGross)} />
+            <Row label="Line discounts" value={`- ${fmtR(computed.lineDiscounts)}`} tone="discount" />
+            <Row label={`${itemsLabel} (net of line discount)`} value={fmtR(computed.itemsNet)} muted />
+          </>
+        ) : (
+          <Row label={itemsLabel} value={fmtR(computed.itemsNet)} />
+        )}
+        {computed.surge !== 0 && (
+          <Row label={`Surge (+${surgePct}%)`} value={`+ ${fmtR(computed.surge)}`} tone="warm" />
+        )}
+        {computed.pctDiscount > 0 && (
+          <Row label={`Discount (-${discountPct}%)`} value={`- ${fmtR(computed.pctDiscount)}`} tone="discount" />
+        )}
+        {computed.flatDiscount > 0 && (
+          <Row label="Flat discount" value={`- ${fmtR(computed.flatDiscount)}`} tone="discount" />
+        )}
+        <Row
+          label={
+            deliveryFeeOverridden || deliveryDistance === 0
+              ? "Delivery"
+              : `Delivery (${deliveryDistance.toFixed(1)}km × 2 @ R${deliveryCostPerKm}/km)`
+          }
+          value={fmtR(deliveryFee)}
+          muted
+        />
+        {computed.collectionFee > 0 && (
+          <Row
+            label={
+              collectionFeeOverridden || collectionDistance === 0
+                ? "Collection"
+                : `Collection (${collectionDistance.toFixed(1)}km × 2 @ R${collectionCostPerKm}/km)`
+            }
+            value={fmtR(computed.collectionFee)}
+            muted
+          />
+        )}
+        <div className="my-1 border-t border-slate-200" />
+        {incVat ? (
+          <Row label="Subtotal (incl VAT)" value={fmtR(computed.total)} />
+        ) : (
+          <>
+            <Row label="Subtotal" value={fmtR(computed.subtotal)} />
+            <Row label={`VAT (${(taxRate * 100).toFixed(0)}%)`} value={fmtR(computed.tax)} muted />
+          </>
+        )}
+        <div className="my-1 border-t border-slate-200" />
+        <Row label={`Total${pricingIncludesVat || taxRate > 0 ? " incl. VAT" : ""}`} value={fmtR(computed.total)} tone="bold" />
+        {incVat && computed.tax > 0 && (
+          <p className="text-[11px] text-slate-500 text-right pt-1">
+            Includes VAT ({(taxRate * 100).toFixed(0)}%) of {fmtR(computed.tax)}
+          </p>
+        )}
+      </>
+    );
+  };
+
   // ── Render ────────────────────────────────────────────────────────
   return (
     <>
@@ -1964,7 +2036,7 @@ function NewQuotePage() {
       <AdminNav />
 
       <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
-        <div className="px-4 py-8 max-w-full">
+        <div className="px-4 py-8 pb-28 max-w-full">
           <Link href={withSlug("/admin/quotes")}>
             <Button variant="ghost" className="mb-4 text-sm">
               <ArrowLeft className="w-4 h-4 mr-2" />
@@ -3018,69 +3090,7 @@ function NewQuotePage() {
                       discounts (the typical case) - two identical
                       R-figures one under the other was visual noise. */}
                   <CardContent className="space-y-1.5 text-sm">
-                    {(() => {
-                      const incVat = pricingIncludesVat;
-                      const hasLineDiscounts = computed.lineDiscounts > 0;
-                      const itemsLabel = incVat ? "Items (incl VAT)" : "Items";
-                      return (
-                        <>
-                          {hasLineDiscounts ? (
-                            <>
-                              <Row label={`${itemsLabel} (gross)`} value={fmtR(computed.itemsGross)} />
-                              <Row label="Line discounts" value={`- ${fmtR(computed.lineDiscounts)}`} tone="discount" />
-                              <Row label={`${itemsLabel} (net of line discount)`} value={fmtR(computed.itemsNet)} muted />
-                            </>
-                          ) : (
-                            <Row label={itemsLabel} value={fmtR(computed.itemsNet)} />
-                          )}
-                          {computed.surge !== 0 && (
-                            <Row label={`Surge (+${surgePct}%)`} value={`+ ${fmtR(computed.surge)}`} tone="warm" />
-                          )}
-                          {computed.pctDiscount > 0 && (
-                            <Row label={`Discount (-${discountPct}%)`} value={`- ${fmtR(computed.pctDiscount)}`} tone="discount" />
-                          )}
-                          {computed.flatDiscount > 0 && (
-                            <Row label="Flat discount" value={`- ${fmtR(computed.flatDiscount)}`} tone="discount" />
-                          )}
-                          <Row
-                            label={
-                              deliveryFeeOverridden || deliveryDistance === 0
-                                ? "Delivery"
-                                : `Delivery (${deliveryDistance.toFixed(1)}km × 2 @ R${deliveryCostPerKm}/km)`
-                            }
-                            value={fmtR(deliveryFee)}
-                            muted
-                          />
-                          {computed.collectionFee > 0 && (
-                            <Row
-                              label={
-                                collectionFeeOverridden || collectionDistance === 0
-                                  ? "Collection"
-                                  : `Collection (${collectionDistance.toFixed(1)}km × 2 @ R${collectionCostPerKm}/km)`
-                              }
-                              value={fmtR(computed.collectionFee)}
-                              muted
-                            />
-                          )}
-                          <div className="my-1 border-t border-slate-200" />
-                          {incVat ? (
-                            <Row label="Subtotal (incl VAT)" value={fmtR(computed.total)} />
-                          ) : (
-                            <>
-                              <Row label="Subtotal" value={fmtR(computed.subtotal)} />
-                              <Row label={`VAT (${(taxRate * 100).toFixed(0)}%)`} value={fmtR(computed.tax)} muted />
-                            </>
-                          )}
-                          <div className="my-1 border-t border-slate-200" />
-                          <Row label={`Total${pricingIncludesVat || taxRate > 0 ? " incl. VAT" : ""}`} value={fmtR(computed.total)} tone="bold" />
-                          {incVat && computed.tax > 0 && (
-                            <p className="text-[11px] text-slate-500 text-right pt-1">
-                              Includes VAT ({(taxRate * 100).toFixed(0)}%) of {fmtR(computed.tax)}
-                            </p>
-                          )}
-                        </>
-                      );
-                    })()}
+                    {renderTotalsBreakdown()}
                   </CardContent>
                 </Card>
 
@@ -3173,6 +3183,79 @@ function NewQuotePage() {
         </div>
 
         <Footer />
+      </div>
+
+      {/* Sticky action bar (Raj, 2026-06-25): the live quote total +
+          Save buttons follow the operator down the page so they never
+          have to scroll back to the top toolbar while building a long
+          quote. The total updates dynamically as items are added, and
+          tapping it expands the same price breakdown as the Running
+          total card (shared renderTotalsBreakdown - the two can't
+          disagree). Outer layer is pointer-events-none so the empty
+          strip doesn't block clicks on the content behind it. */}
+      <div className="fixed bottom-0 left-0 right-0 z-40 lg:pl-72 xl:pl-80 pointer-events-none">
+        <div className="px-4 pb-4">
+          <div className="pointer-events-auto">
+            {breakdownOpen && (
+              <div className="mb-2 ml-auto max-w-sm rounded-xl border border-slate-200 bg-white/95 backdrop-blur shadow-2xl p-4 space-y-1.5 text-sm max-h-[55vh] overflow-y-auto">
+                <div className="flex items-center justify-between mb-1">
+                  <p className="font-semibold text-slate-900">Why this price</p>
+                  <button
+                    type="button"
+                    onClick={() => setBreakdownOpen(false)}
+                    className="text-slate-400 hover:text-slate-600"
+                    aria-label="Close breakdown"
+                  >
+                    <ChevronDown className="w-4 h-4" />
+                  </button>
+                </div>
+                {renderTotalsBreakdown()}
+              </div>
+            )}
+            <div className="rounded-xl border border-slate-200 bg-white/95 backdrop-blur shadow-2xl px-4 py-3 flex items-center justify-between gap-3">
+              <button
+                type="button"
+                onClick={() => setBreakdownOpen((v) => !v)}
+                className="flex items-center gap-2 min-w-0 text-left"
+              >
+                <span className="p-2 rounded-lg bg-gradient-to-br from-brand-primary to-brand-secondary flex-shrink-0">
+                  <Banknote className="w-4 h-4 text-white" />
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-[11px] text-slate-500 leading-tight">
+                    Quote total{pricingIncludesVat || taxRate > 0 ? " incl. VAT" : ""} · tap for breakdown
+                  </span>
+                  <span className="flex items-center gap-1 font-bold text-lg text-slate-900 leading-tight">
+                    {fmtR(computed.total)}
+                    {breakdownOpen ? <ChevronDown className="w-4 h-4 text-slate-400" /> : <ChevronUp className="w-4 h-4 text-slate-400" />}
+                  </span>
+                </span>
+              </button>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleSaveDraft}
+                  disabled={saving || !clientName || !!setupTimeError}
+                >
+                  {saving ? <Loader2 className="w-4 h-4 sm:mr-2 animate-spin" /> : <Save className="w-4 h-4 sm:mr-2" />}
+                  <span className="hidden sm:inline">
+                    {isConvertedQuote || status === "accepted" ? "Save" : "Save draft"}
+                  </span>
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => handleSend()}
+                  disabled={sending || saving || computed.total <= 0 || !email || !!setupTimeError}
+                  className="bg-gradient-to-r from-brand-primary to-brand-secondary"
+                >
+                  {sending ? <Loader2 className="w-4 h-4 sm:mr-2 animate-spin" /> : <Send className="w-4 h-4 sm:mr-2" />}
+                  <span className="hidden sm:inline">{isConvertedQuote ? "Save & Notify" : "Save & Send"}</span>
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <ChatBot userRole="admin" companyId={companyId || undefined} />
