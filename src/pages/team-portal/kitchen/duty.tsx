@@ -817,7 +817,7 @@ export default function KitchenDutyRosterPage() {
                 <div className="p-4 sm:p-6 flex flex-col gap-4">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-full bg-amber-600 flex items-center justify-center flex-shrink-0">
+                      <div className="w-12 h-12 rounded-full bg-brand-primary flex items-center justify-center flex-shrink-0">
                         <ChefHat className="h-6 w-6 text-white" />
                       </div>
                       <div>
@@ -888,7 +888,7 @@ export default function KitchenDutyRosterPage() {
                           <Square className="h-4 w-4 mr-2" />Clock out
                         </Button>
                       ) : (
-                        <Button onClick={startShift} disabled={saving} className="bg-amber-600 hover:bg-amber-700">
+                        <Button onClick={startShift} disabled={saving} className="bg-brand-primary hover:opacity-90">
                           {saving ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Clocking in</> : <><Play className="h-4 w-4 mr-2" />Clock in</>}
                         </Button>
                       )}
@@ -908,7 +908,7 @@ export default function KitchenDutyRosterPage() {
                     <button
                       type="button"
                       onClick={() => setPayslipsOpen(true)}
-                      className="self-start inline-flex items-center gap-1.5 text-xs text-amber-700 hover:text-amber-800 dark:text-amber-500 dark:hover:text-amber-400 font-medium hover:underline"
+                      className="self-start inline-flex items-center gap-1.5 text-xs text-brand-primary hover:opacity-80 font-medium hover:underline"
                     >
                       <Wallet className="w-3 h-3" />
                       View payslips ({myPayslips.length})
@@ -971,7 +971,7 @@ export default function KitchenDutyRosterPage() {
               still stays in /admin/wages / /admin/kitchen-settlement.
               Only renders for canSeeOtherStaffPay roles. */}
           {payrollBurn && (
-            <PortalCard padded={false} className="mb-4 border-amber-200 bg-amber-50 dark:border-amber-500/30 dark:bg-amber-500/10">
+            <PortalCard padded={false} className="mb-6 border-amber-200 bg-amber-50 dark:border-amber-500/30 dark:bg-amber-500/10">
               <div className="p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="flex items-center gap-3 min-w-0">
                   <div className="w-9 h-9 rounded-full bg-amber-100 dark:bg-amber-500/20 flex items-center justify-center flex-shrink-0">
@@ -1053,7 +1053,7 @@ export default function KitchenDutyRosterPage() {
                       {canSeeOthers && (
                         <a
                           href={user?.company_slug ? `/${user.company_slug}/admin/kitchen-schedule` : "/admin/kitchen-schedule"}
-                          className="inline-flex items-center gap-1 text-xs text-amber-700 hover:text-amber-800 dark:text-amber-500 dark:hover:text-amber-400 font-medium mt-2 hover:underline"
+                          className="inline-flex items-center gap-1 text-xs text-brand-primary hover:opacity-80 font-medium mt-2 hover:underline"
                         >
                           <CalendarIcon className="w-3 h-3" />
                           Open kitchen schedule
@@ -1080,7 +1080,7 @@ export default function KitchenDutyRosterPage() {
                       <li
                         key={s.id}
                         className={`p-4 flex items-center gap-3 transition-colors ${
-                          isMe ? "bg-amber-50/60 hover:bg-amber-50/80 dark:bg-amber-950/30 dark:hover:bg-amber-950/40" : "hover:bg-slate-50/50 dark:hover:bg-slate-800/50"
+                          isMe ? "bg-brand-primary/5 hover:bg-brand-primary/10 dark:bg-brand-primary/10 dark:hover:bg-brand-primary/15" : "hover:bg-slate-50/50 dark:hover:bg-slate-800/50"
                         }`}
                       >
                         <div className="relative flex-shrink-0">
@@ -1096,7 +1096,7 @@ export default function KitchenDutyRosterPage() {
                                 themselves in a busy kitchen list at
                                 a glance. Pay still never appears here. */}
                             {isMe && (
-                              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300 text-[10px] font-semibold">
+                              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-brand-primary/10 text-brand-primary dark:bg-brand-primary/20 text-[10px] font-semibold">
                                 <UserCheck className="w-2.5 h-2.5" />
                                 You
                               </span>
@@ -1126,10 +1126,10 @@ export default function KitchenDutyRosterPage() {
               treatment on already-acked notes. */}
           <div className="flex items-center justify-between mb-3 px-0.5">
             <h2 className="text-base sm:text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">
-              <MessageSquareText className="w-4 h-4 text-amber-600 dark:text-amber-500" />
+              <MessageSquareText className="w-4 h-4 text-slate-400 dark:text-slate-500" />
               Hand-off notes
               {handoffs.filter((h) => !h.acknowledged_at).length > 0 && (
-                <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100 dark:bg-amber-500/15 dark:text-amber-300 text-[10px] uppercase tracking-wider">
+                <Badge className="bg-brand-primary/10 text-brand-primary hover:bg-brand-primary/10 dark:bg-brand-primary/20 text-[10px] uppercase tracking-wider">
                   {handoffs.filter((h) => !h.acknowledged_at).length} new
                 </Badge>
               )}
@@ -1158,7 +1158,7 @@ export default function KitchenDutyRosterPage() {
                     return (
                       <li key={h.id} className={`p-4 flex items-start gap-3 ${acked ? "opacity-60" : ""}`}>
                         <div className={`w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-semibold flex-shrink-0 ${
-                          acked ? "bg-slate-400 dark:bg-slate-600" : "bg-amber-500 shadow-sm"
+                          acked ? "bg-slate-400 dark:bg-slate-600" : "bg-brand-primary shadow-sm"
                         }`}>
                           {initials}
                         </div>
@@ -1185,7 +1185,7 @@ export default function KitchenDutyRosterPage() {
                               <Button
                                 size="sm"
                                 variant="outline"
-                                className="h-7 text-xs border-amber-300 text-amber-800 hover:bg-amber-50 dark:border-amber-500/40 dark:text-amber-300 dark:hover:bg-amber-500/10"
+                                className="h-7 text-xs border-brand-primary/30 text-brand-primary hover:bg-brand-primary/5"
                                 onClick={() => handleAcknowledgeHandoff(h.id)}
                                 disabled={acking === h.id}
                               >
@@ -1208,7 +1208,7 @@ export default function KitchenDutyRosterPage() {
               avatar with rank pill. */}
           <div className="flex items-center justify-between mb-3 px-0.5">
             <h2 className="text-base sm:text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">
-              <Target className="w-4 h-4 text-amber-600 dark:text-amber-500" />
+              <Target className="w-4 h-4 text-slate-400 dark:text-slate-500" />
               This week's chefs
               <InfoTooltip content="Rolling 7-day rollup of completed prep tasks by chef.\n\nOn-time = task completed within 5 minutes of its planned end (start_at + duration).\n\nYield variance = average % difference between planned and actual yield, only shows if your team logs actuals." />
             </h2>
@@ -1230,7 +1230,7 @@ export default function KitchenDutyRosterPage() {
                       .split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase();
                     const onTimeTone =
                       p.on_time_rate >= 90 ? "from-emerald-400 to-emerald-600" :
-                      p.on_time_rate >= 70 ? "from-amber-400 to-orange-500" :
+                      p.on_time_rate >= 70 ? "from-amber-400 to-amber-500" :
                                               "from-rose-400 to-red-600";
                     return (
                       <li key={p.chef_id} className="p-4 flex items-center gap-4 hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors">
@@ -1240,7 +1240,7 @@ export default function KitchenDutyRosterPage() {
                           </div>
                           {idx < 3 && (
                             <span className={`absolute -top-1 -right-1 w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center border-2 border-white dark:border-slate-900 shadow-sm ${
-                              idx === 0 ? "bg-yellow-400 text-yellow-900" :
+                              idx === 0 ? "bg-brand-accent text-white" :
                               idx === 1 ? "bg-slate-300 text-slate-800" :
                                           "bg-amber-700 text-amber-100"
                             }`}>
@@ -1360,7 +1360,7 @@ export default function KitchenDutyRosterPage() {
         <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Wallet className="w-5 h-5 text-orange-600" />
+              <Wallet className="w-5 h-5 text-brand-primary" />
               Your payslips
             </DialogTitle>
             <DialogDescription>
@@ -1377,7 +1377,7 @@ export default function KitchenDutyRosterPage() {
                 const periodLabel = `${new Date(ps.period_start).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })} - ${new Date(ps.period_end).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}`;
                 const tone =
                   ps.status === "paid" ? "bg-emerald-100 text-emerald-800 border-emerald-200" :
-                  ps.status === "issued" ? "bg-blue-100 text-blue-800 border-blue-200" :
+                  ps.status === "issued" ? "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700" :
                                            "bg-slate-100 text-slate-700 border-slate-200";
                 return (
                   <li key={ps.id} className="py-3 flex items-center justify-between gap-3">
@@ -1388,7 +1388,7 @@ export default function KitchenDutyRosterPage() {
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="text-base font-bold tabular-nums text-orange-700">
+                      <div className="text-base font-bold tabular-nums text-slate-900 dark:text-white">
                         {ps.currency} {Number(ps.total_pay).toFixed(2)}
                       </div>
                       <Badge variant="outline" className={`${tone} text-[10px] mt-0.5`}>
