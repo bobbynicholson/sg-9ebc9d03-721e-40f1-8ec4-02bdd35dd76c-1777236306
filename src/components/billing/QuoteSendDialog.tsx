@@ -111,13 +111,12 @@ export function QuoteSendDialog({
   // production link goes to the apex domain which doesn't serve the
   // app cleanly. Self-fetch alongside the tenant name.
   const [fetchedSlug, setFetchedSlug] = useState<string | null>(null);
-  // Operator template override. "auto" lets the dialog decide between
-  // the first-time and revised wording from isRevised below; the
-  // operator can force either template instead (e.g. send the
-  // first-time wording again, or use the revised wording on a quote
-  // that was technically never sent). Resets to "auto" on close.
+  // Operator template choice. null = follow the auto detection below
+  // (the correct one is pre-selected); the operator can switch to the
+  // other. Two concrete choices only: first-time vs revised wording.
+  // Resets to null on close.
   const [templateChoice, setTemplateChoice] =
-    useState<"auto" | "email_quote_sent" | "email_quote_revised">("auto");
+    useState<"email_quote_sent" | "email_quote_revised" | null>(null);
 
   const total = Number(quote?.total ?? quote?.total_amount ?? 0);
   // Strip placeholder defaults from the event label so the body doesn't
@@ -181,9 +180,8 @@ export function QuoteSendDialog({
   const isRevised = isConverted || !!quote?.already_sent;
   // The template the dialog would pick on its own...
   const autoTemplateType = isRevised ? "email_quote_revised" : "email_quote_sent";
-  // ...and the one actually used: the operator's override wins over auto.
-  const effectiveTemplateType =
-    templateChoice === "auto" ? autoTemplateType : templateChoice;
+  // ...and the one actually used: the operator's choice wins, else auto.
+  const effectiveTemplateType = templateChoice ?? autoTemplateType;
   const effectiveIsRevised = effectiveTemplateType === "email_quote_revised";
 
   // Second-quote derived values (only computed when one is selected).
@@ -351,21 +349,20 @@ export function QuoteSendDialog({
   // Operator-facing template picker. Lets them choose which wording goes
   // out instead of being locked to the auto choice. Editing the actual
   // template content is a separate admin screen (link below the body).
-  const templateOptions: Array<{ key: "auto" | "email_quote_sent" | "email_quote_revised"; label: string }> = [
-    { key: "auto", label: `Auto (${autoTemplateType === "email_quote_revised" ? "Revised" : "First-time"})` },
+  const templateOptions: Array<{ key: "email_quote_sent" | "email_quote_revised"; label: string }> = [
     { key: "email_quote_sent", label: "First-time send" },
     { key: "email_quote_revised", label: "Revised quote" },
   ];
   const templatePicker = (
     <div className="border rounded-md p-3 bg-slate-50 space-y-1.5">
-      <p className="text-sm font-medium text-slate-700">Email template</p>
+      <p className="text-sm font-medium text-slate-700">Which email to send</p>
       <p className="text-xs text-slate-500">
-        Which wording to send. Auto picks for you based on whether this quote went out before.
-        Edit the wording itself in Settings (link under the message).
+        The right one is pre-selected ({autoTemplateType === "email_quote_revised" ? "Revised quote" : "First-time send"}).
+        Tap the other to switch. Edit the wording itself in Settings (link under the message).
       </p>
       <div className="flex flex-wrap gap-2">
         {templateOptions.map((opt) => {
-          const active = templateChoice === opt.key;
+          const active = effectiveTemplateType === opt.key;
           return (
             <button
               key={opt.key}
@@ -425,7 +422,7 @@ export function QuoteSendDialog({
       onOpenChange={(o) => {
         if (!o) {
           setSecondQuote(null);
-          setTemplateChoice("auto");
+          setTemplateChoice(null);
         }
         onOpenChange(o);
       }}
