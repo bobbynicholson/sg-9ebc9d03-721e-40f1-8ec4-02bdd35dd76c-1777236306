@@ -398,7 +398,7 @@ export function KitchenStaffTileBoard({
       <CardHeader className="pb-3">
         <CardTitle className="text-base sm:text-lg flex items-center justify-between">
           <span className="flex items-center gap-2">
-            <Users className="w-5 h-5 text-orange-600" />
+            <Users className="w-5 h-5 text-brand-primary" />
             {deptLabel}
             <Badge variant="outline" className={`tabular-nums ${onDutyCount > 0 ? "bg-emerald-50 text-emerald-700 border-emerald-200" : ""}`}>
               {onDutyCount} on duty
@@ -408,7 +408,7 @@ export function KitchenStaffTileBoard({
           {staff.length > 0 && (
             <Link
               href={manageHref}
-              className="text-xs font-normal text-slate-500 hover:text-orange-600 inline-flex items-center gap-1"
+              className="text-xs font-normal text-slate-500 hover:text-brand-primary inline-flex items-center gap-1"
             >
               Manage <ChevronRight className="w-3 h-3" />
             </Link>
@@ -430,7 +430,7 @@ export function KitchenStaffTileBoard({
             </p>
             <Link
               href={manageHref}
-              className="inline-flex items-center gap-1 text-sm font-medium text-orange-600 hover:text-orange-700 mt-3"
+              className="inline-flex items-center gap-1 text-sm font-medium text-brand-primary hover:opacity-80 mt-3"
             >
               Open Staff settings <ChevronRight className="w-3 h-3" />
             </Link>
@@ -699,7 +699,7 @@ export function KitchenStaffTileBoard({
             <Button variant="outline" onClick={() => setOverrideTarget(null)} disabled={overrideSaving}>
               Cancel
             </Button>
-            <Button onClick={handleSaveOverride} disabled={overrideSaving} className="bg-orange-600 hover:bg-orange-700">
+            <Button onClick={handleSaveOverride} disabled={overrideSaving} className="bg-brand-primary hover:opacity-90">
               {overrideSaving ? "Saving..." : "Save"}
             </Button>
           </DialogFooter>
