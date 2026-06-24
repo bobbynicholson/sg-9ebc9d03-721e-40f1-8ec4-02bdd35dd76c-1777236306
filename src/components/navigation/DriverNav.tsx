@@ -26,7 +26,10 @@ import {
   Clock,
 } from "lucide-react";
 import { PortalSidebar, type PortalSidebarConfig } from "./PortalSidebar";
-import { BRAND_PORTAL_PALETTE, BRAND_ACCENT } from "@/lib/branding/portalPalette";
+// Wave 71 - driver gets its own theme combination (secondary -> accent)
+// so the portal is visually distinct from kitchen/shopping/cleaning while
+// still drawing only from the tenant's brand tokens. See portalPalette.ts.
+import { DRIVER_PORTAL_PALETTE as BRAND_PORTAL_PALETTE, DRIVER_ACCENT as BRAND_ACCENT } from "@/lib/branding/portalPalette";
 
 const config: PortalSidebarConfig = {
   role: "driver",
