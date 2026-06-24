@@ -2036,16 +2036,18 @@ function NewQuotePage() {
       <AdminNav />
 
       <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
-        <div className="px-4 py-8 max-w-full">
-          {/* Sticky action bar (Raj, 2026-06-25): pinned to the TOP so
-              the live quote total + Save buttons stay in view as the
-              operator scrolls down a long quote. In-flow `sticky` (not
-              fixed) so it never overlaps content and clears the mobile
-              nav header (top-14) while sitting flush on desktop. The
-              total updates dynamically; tapping it drops the same price
-              breakdown as the Running total card (shared
-              renderTotalsBreakdown - they can't disagree). */}
-          <div className="sticky top-14 lg:top-4 z-30 mb-4">
+        <div className="px-4 pt-32 pb-8 lg:pt-24 max-w-full">
+          {/* Pinned action bar (Raj, 2026-06-25): the live quote total +
+              Save buttons stay in view as the operator scrolls a long
+              quote. MUST be `fixed` not `sticky` - the page wrapper's
+              overflow-x-hidden makes it a scroll container, which breaks
+              position:sticky (the bar just scrolled away). Fixed pins to
+              the viewport regardless. Sits below the mobile nav (top-14)
+              and flush at the top on desktop (lg:top-0, aligned to the
+              content via lg:pl-72). Content above has pt-32/lg:pt-24 to
+              clear it. Tapping the total drops the same price breakdown
+              as the Running total card (shared renderTotalsBreakdown). */}
+          <div className="fixed left-0 right-0 top-14 lg:top-0 z-30 lg:pl-72 xl:pl-80 px-4 pt-2">
             <div className="relative">
               <div className="rounded-xl border border-slate-200 bg-white/95 backdrop-blur shadow-lg px-4 py-2.5 flex items-center justify-between gap-3">
                 <button
