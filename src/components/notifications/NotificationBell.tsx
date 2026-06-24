@@ -241,26 +241,26 @@ export function NotificationBell() {
   const getPriorityIcon = (priority: string | null) => {
     switch (priority) {
       case "urgent":
-        return <AlertCircle className="h-4 w-4 text-red-500" />;
+        return <AlertCircle className="h-4 w-4 text-rose-500" />;
       case "high":
-        return <AlertCircle className="h-4 w-4 text-orange-500" />;
+        return <AlertCircle className="h-4 w-4 text-rose-500" />;
       case "medium":
-        return <Bell className="h-4 w-4 text-blue-500" />;
+        return <Bell className="h-4 w-4 text-slate-400" />;
       default:
-        return <Bell className="h-4 w-4 text-gray-500" />;
+        return <Bell className="h-4 w-4 text-slate-400" />;
     }
   };
 
   const getPriorityColor = (priority: string | null) => {
     switch (priority) {
       case "urgent":
-        return "border-l-red-500";
+        return "border-l-rose-500";
       case "high":
-        return "border-l-orange-500";
+        return "border-l-rose-400";
       case "medium":
-        return "border-l-blue-500";
+        return "border-l-slate-300";
       default:
-        return "border-l-gray-300";
+        return "border-l-slate-200 dark:border-l-slate-700";
     }
   };
 
@@ -286,8 +286,7 @@ export function NotificationBell() {
           <Bell className="h-5 w-5" />
           {unreadCount > 0 && (
             <Badge
-              className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 bg-red-500 text-white text-xs"
-              variant="destructive"
+              className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 bg-brand-primary text-white text-xs border-transparent"
             >
               {unreadCount > 9 ? "9+" : unreadCount}
             </Badge>
@@ -295,7 +294,8 @@ export function NotificationBell() {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent
-        align="end"
+        align="start"
+        collisionPadding={12}
         className="w-[calc(100vw-1.5rem)] max-w-[420px] sm:w-[420px] p-0"
         sideOffset={8}
       >
@@ -307,7 +307,7 @@ export function NotificationBell() {
               Notifications
             </h3>
             {unreadCount > 0 && (
-              <Badge variant="destructive" className="text-xs">
+              <Badge className="text-xs bg-brand-primary text-white border-transparent">
                 {unreadCount} new
               </Badge>
             )}
@@ -362,7 +362,7 @@ export function NotificationBell() {
                   className={cn(
                     "relative px-4 py-3 transition-colors border-l-4 cursor-pointer",
                     !notification.is_read
-                      ? "bg-blue-50 dark:bg-blue-950 hover:bg-blue-100 dark:hover:bg-blue-900"
+                      ? "bg-brand-primary/5 dark:bg-brand-primary/10 hover:bg-brand-primary/10 dark:hover:bg-brand-primary/20"
                       : "hover:bg-slate-50 dark:hover:bg-slate-800",
                     getPriorityColor(displayedPriority)
                   )}
@@ -389,7 +389,7 @@ export function NotificationBell() {
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-6 w-6 hover:bg-blue-200 dark:hover:bg-blue-800"
+                              className="h-6 w-6 hover:bg-brand-primary/10 dark:hover:bg-brand-primary/20"
                               onClick={(e) => handleMarkAsRead(notification.id, e)}
                             >
                               <Check className="h-3 w-3" />
@@ -398,7 +398,7 @@ export function NotificationBell() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-6 w-6 text-red-600 hover:bg-red-100 dark:hover:bg-red-900"
+                            className="h-6 w-6 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:text-slate-500 dark:hover:bg-rose-950/40"
                             onClick={(e) => handleDelete(notification.id, e)}
                           >
                             <X className="h-3 w-3" />
@@ -428,7 +428,7 @@ export function NotificationBell() {
                       </div>
                       
                       {!notification.is_read && (
-                        <div className="absolute top-3 right-3 w-2 h-2 bg-blue-500 rounded-full" />
+                        <div className="absolute top-3 right-3 w-2 h-2 bg-brand-primary rounded-full" />
                       )}
                     </div>
                   </div>
@@ -444,7 +444,7 @@ export function NotificationBell() {
           <div className="border-t p-2 bg-slate-50 dark:bg-slate-900">
             <Button
               variant="ghost"
-              className="w-full text-sm text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950"
+              className="w-full text-sm text-brand-primary hover:opacity-80 hover:bg-brand-primary/5 dark:hover:bg-brand-primary/10"
               onClick={handleViewAll}
             >
               View all notifications
