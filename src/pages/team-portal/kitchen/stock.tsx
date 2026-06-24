@@ -534,10 +534,10 @@ export default function KitchenStockPage() {
                 </Select>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <Button size="sm" variant={recipeLinkedOnly ? "default" : "outline"} onClick={() => setRecipeLinkedOnly((v) => !v)} className={recipeLinkedOnly ? "bg-brand-primary hover:opacity-90 text-white" : ""}>
+                <Button size="sm" variant={recipeLinkedOnly ? "default" : "outline"} onClick={() => setRecipeLinkedOnly((v) => !v)} className={`h-10 ${recipeLinkedOnly ? "bg-brand-primary hover:opacity-90 text-white" : ""}`}>
                   <ChefHat className="h-4 w-4 mr-2" />In recipes
                 </Button>
-                <Button size="sm" variant={belowParOnly ? "default" : "outline"} onClick={() => setBelowParOnly((v) => !v)} className={belowParOnly ? "bg-brand-primary hover:opacity-90 text-white" : ""}>
+                <Button size="sm" variant={belowParOnly ? "default" : "outline"} onClick={() => setBelowParOnly((v) => !v)} className={`h-10 ${belowParOnly ? "bg-brand-primary hover:opacity-90 text-white" : ""}`}>
                   <AlertTriangle className="h-4 w-4 mr-2" />Below par
                 </Button>
                 {/* KS-A: sort selector. Default is alphabetical
@@ -547,7 +547,7 @@ export default function KitchenStockPage() {
                 <div className="ml-auto inline-flex items-center gap-1.5">
                   <ArrowUpDown className="w-3.5 h-3.5 text-slate-400" />
                   <Select value={sortKey} onValueChange={(v) => setSortKey(v as SortKey)}>
-                    <SelectTrigger className="h-9 w-[150px]"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="h-10 w-[160px]"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="name">A-Z</SelectItem>
                       <SelectItem value="status">Status (low first)</SelectItem>
@@ -624,7 +624,7 @@ export default function KitchenStockPage() {
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-medium text-slate-900 dark:text-white truncate">{i.item_name}</span>
                             {recipeLinkedIds.has(i.id) && (
-                              <Badge variant="outline" className="text-[10px] bg-brand-primary/10 text-brand-primary border-brand-primary/20 dark:bg-brand-primary/20 dark:text-brand-primary inline-flex items-center gap-1">
+                              <Badge variant="outline" className="text-[10px] bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700 inline-flex items-center gap-1">
                                 <ChefHat className="w-2.5 h-2.5" />in recipes
                               </Badge>
                             )}
@@ -650,9 +650,9 @@ export default function KitchenStockPage() {
                             </div>
                           )}
                         </div>
-                        <div className="flex items-center gap-3 flex-shrink-0">
-                          <Badge variant="outline" className={tone(i)}>{label(i)}</Badge>
-                          <span className="text-right tabular-nums">
+                        <div className="flex items-center gap-4 flex-shrink-0">
+                          <Badge variant="outline" className={`${tone(i)} justify-center min-w-[76px]`}>{label(i)}</Badge>
+                          <span className="text-right tabular-nums min-w-[72px]">
                             <span className="font-semibold text-base text-slate-900 dark:text-white">{stock}</span>
                             <span className="text-xs text-slate-500 dark:text-slate-400"> {i.unit_of_measure}</span>
                             <div className="text-[11px] text-slate-400 dark:text-slate-500">par {min}</div>
