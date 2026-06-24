@@ -789,7 +789,12 @@ function NewQuotePage() {
     // type="time"> only accepts HH:MM so trim seconds if present.
     if (q.event_time) setEventTime(String(q.event_time).slice(0, 5));
     if (q.setup_time) setSetupTime(String(q.setup_time).slice(0, 5));
-    if (q.quote_name) setEventName(q.quote_name);
+    // "Untitled" is the placeholder we persist when the operator left
+    // the event name blank (see buildPayload). Never load that literal
+    // back into the input - it would show as a value the operator has
+    // to delete before they can type. Treat it as empty so the field
+    // stays clean with just its placeholder.
+    if (q.quote_name && q.quote_name !== "Untitled") setEventName(q.quote_name);
     if (typeof q.guest_count === "number") setGuestCount(q.guest_count);
     if (q.venue_address) setVenueAddress(q.venue_address);
     if (q.venue_lat) setVenueLat(safeNum(q.venue_lat));
@@ -2318,7 +2323,7 @@ function NewQuotePage() {
                       <Input
                         value={eventName}
                         onChange={(e) => setEventName(e.target.value)}
-                        placeholder="e.g. Bobby's 40th braai, Q2 strategy lunch, Sarah & James wedding"
+                        placeholder="Untitled - e.g. Bobby's 40th braai, Sarah & James wedding"
                       />
                     </div>
                     <div>
