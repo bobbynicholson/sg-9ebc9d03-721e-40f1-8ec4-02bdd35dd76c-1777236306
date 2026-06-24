@@ -575,17 +575,26 @@ function NewQuotePage() {
   /** Validation: setup / delivery time must land at least this many
    *  minutes BEFORE the event start time. Setup is when the team
    *  ARRIVES; with less than a 30 min gap (or a setup at/after the
-   *  start) the food can't possibly be ready when guests arrive. */
+   *  start) the food can't possibly be ready when guests arrive.
+   *
+   *  Raj (2026-06-25): the manual Setup / delivery time field is now
+   *  HIDDEN - setup auto-derives from the start time minus the delivery
+   *  buffer (always a safe gap), so there is no bad value to enter. We
+   *  therefore only validate an EXPLICITLY-typed setupTime (which can no
+   *  longer happen from the UI), so this never blocks a save. Kept as a
+   *  guard in case manual entry is re-enabled. */
   const MIN_SETUP_GAP_MINS = 30;
   const setupTimeError = useMemo<string | null>(() => {
-    if (!eventTime || !effectiveSetupTime) return null;
+    // Only an operator-typed setupTime is validated, NOT the auto
+    // suggested fallback - the field is hidden so this stays null.
+    if (!eventTime || !setupTime) return null;
     const toMin = (t: string): number | null => {
       const [h, m] = t.slice(0, 5).split(":").map(Number);
       if (!Number.isFinite(h) || !Number.isFinite(m)) return null;
       return h * 60 + m;
     };
     const startM = toMin(eventTime);
-    const setupM = toMin(effectiveSetupTime);
+    const setupM = toMin(setupTime);
     if (startM === null || setupM === null) return null;
     const gap = startM - setupM;
     if (gap < MIN_SETUP_GAP_MINS) {
@@ -593,10 +602,10 @@ function NewQuotePage() {
         gap <= 0
           ? "Right now setup is at or after the start."
           : `Right now there's only a ${gap} min gap.`;
-      return `Setup / delivery time (${effectiveSetupTime}) must be at least ${MIN_SETUP_GAP_MINS} minutes before the start time (${eventTime}). ${detail} The team has to arrive and set up before guests do.`;
+      return `Setup / delivery time (${setupTime}) must be at least ${MIN_SETUP_GAP_MINS} minutes before the start time (${eventTime}). ${detail} The team has to arrive and set up before guests do.`;
     }
     return null;
-  }, [eventTime, effectiveSetupTime]);
+  }, [eventTime, setupTime]);
 
   // ── Pre-fill: load lead when ?leadId=... ──────────────────────────
   // Deps include user.id so the effect re-runs once auth settles.
@@ -2319,41 +2328,15 @@ function NewQuotePage() {
                     <div>
                       <Label className="text-xs flex items-center gap-1">
                         Start time (optional)
-                        <InfoTooltip content={"Time the event begins for guests, e.g. 17:00 for an evening function.\n\nThis is the moment the food + service has to be ready. Setup time below is when the team arrives to set up. Different from start time so morning setup of an evening event is supported."} />
+                        <InfoTooltip content={"Time the event begins for guests, e.g. 17:00 for an evening function.\n\nThis is the moment the food + service has to be ready. The team's setup / arrival time is worked out automatically from this (start time minus your delivery buffer)."} />
                       </Label>
                       <Input type="time" value={eventTime} onChange={(e) => setEventTime(e.target.value)} />
                     </div>
-                    <div>
-                      <Label className="text-xs flex items-center gap-1">
-                        Setup / delivery time
-                        <InfoTooltip content={"When the team arrives at the venue to set up. Defaults to the event start time minus your delivery buffer (settings > Operations > Delivery Buffer, currently " + deliveryBufferMins + " min).\n\nOverride for big events that need a morning setup, or when the venue requires an earlier arrival."} />
-                      </Label>
-                      <Input
-                        type="time"
-                        value={setupTime}
-                        onChange={(e) => setSetupTime(e.target.value)}
-                        placeholder={suggestedSetupTime || "--:--"}
-                      />
-                      {!setupTime && suggestedSetupTime && (
-                        <button
-                          type="button"
-                          onClick={() => setSetupTime(suggestedSetupTime)}
-                          className="text-[11px] text-emerald-700 hover:text-emerald-800 underline mt-1"
-                        >
-                          Use suggested {suggestedSetupTime} ({deliveryBufferMins} min before start)
-                        </button>
-                      )}
-                      {!setupTimeError && setupTime && eventTime && setupTime !== suggestedSetupTime && (
-                        <p className="text-[11px] text-slate-500 mt-1">
-                          Custom setup time · {setupTime} arrival for {eventTime} start
-                        </p>
-                      )}
-                      {setupTimeError && (
-                        <p className="text-[11px] text-red-600 font-medium mt-1">
-                          {setupTimeError}
-                        </p>
-                      )}
-                    </div>
+                    {/* Setup / delivery time field hidden (Raj,
+                        2026-06-25): no manual selection, no error. The
+                        setup time auto-derives from the start time minus
+                        the delivery buffer in buildPayload (setup_time:
+                        setupTime || suggestedSetupTime). */}
                     <div>
                       <Label className="text-xs flex items-center gap-1"><Users className="w-3 h-3" /> Guest count</Label>
                       <Input
