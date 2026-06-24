@@ -1335,11 +1335,11 @@ export default function KitchenDashboard() {
 
           {/* Low Stock Alerts */}
           {lowStockItems.length > 0 && (
-            <PortalCard className="mb-6 sm:mb-8 border-amber-200 bg-amber-50/30 dark:border-amber-900 dark:bg-amber-950/20">
+            <PortalCard className="mb-6 sm:mb-8 border-amber-200 dark:border-amber-900">
               <PortalCardHeader
                 title={
-                  <span className="flex items-center gap-2 text-base sm:text-lg text-amber-700 dark:text-amber-400">
-                    <AlertTriangle className="w-5 h-5" />
+                  <span className="flex items-center gap-2 text-base sm:text-lg text-slate-900 dark:text-white">
+                    <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-500" />
                     Low stock alerts
                     {/* KIT3-B: aggregate "blocks N orders" badge so the
                         chef sees the cascade impact at the header level
@@ -1361,7 +1361,7 @@ export default function KitchenDashboard() {
                     // blocks.
                     const blocked = blockedOrdersByItem.find((b) => b.inventoryItemId === item.id);
                     return (
-                      <div key={item.id} className="flex items-center justify-between gap-2 p-3 bg-amber-50 dark:bg-amber-950 rounded-lg flex-wrap">
+                      <div key={item.id} className="flex items-center justify-between gap-2 p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg flex-wrap">
                         <div className="flex items-center gap-3 min-w-0 flex-1">
                           <Package className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0" />
                           <div className="min-w-0">
