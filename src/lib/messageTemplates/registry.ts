@@ -485,7 +485,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     defaultSubject: "{{first_name}}, you're booked in for {{event_name}} with {{tenant_name}}",
     defaultBody:
       `Hi {{first_name}},\n\n` +
-      `Thanks for confirming the quote{{quote_ref}}. Now that we are locked in for {{event_date}}, here is what happens next:\n\n` +
+      `Thanks for confirming your quote. Now that we are locked in for {{event_date}}, here is what happens next:\n\n` +
       `1. Deposit invoice on its way\n` +
       `2. Final guest numbers and dietary requirements 7 days before\n` +
       `3. Final walk-through call a week out\n\n` +
@@ -779,7 +779,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     label: "Running late",
     description: "Heads-up message when there's a delay.",
     defaultBody:
-      `Hi {{first_name}}, quick heads up, running a few minutes behind. Driver is on the way and I will message again as soon as we are pulling in.\n\n{{from_name}}`,
+      `Hi {{first_name}}, quick heads-up: we are running a few minutes behind. The driver is on the way and I will message again as soon as we are pulling in.\n\n{{from_name}}`,
     variables: COMMON_CLIENT_VARS,
   },
 
@@ -937,8 +937,8 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     defaultSubject: "Delivered - {{order_number}}",
     defaultBody:
       `Hi {{first_name}},\n\n` +
-      `Your order {{order_number}} has been delivered. We hope it lands the way you hoped!\n\n` +
-      `If anything wasn't quite right, please reply, we read every email and we'd rather hear it.`,
+      `Your order {{order_number}} has been delivered. We hope everything landed just the way you wanted.\n\n` +
+      `If anything wasn't quite right, please reply. We read every email and we would rather hear about it.`,
     variables: ORDER_LIFECYCLE_VARS,
   },
   {
@@ -1088,7 +1088,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
       `Quick reminder that the balance for {{event_name}} on {{event_date}} is due by {{due_date}}. ` +
       `Outstanding amount: {{amount_due}}.\n\n` +
       `Pay link: {{pay_link}}\n\n` +
-      `Reply here if you'd like a different payment method or a corrected invoice.\n\n` +
+      `Reply here if you would prefer a different payment method or have any questions about the invoice.\n\n` +
       `Thanks,\n{{tenant_name}}`,
     variables: REMINDER_VARS,
   },
@@ -1460,7 +1460,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
       `- {{quotes_created}} quotes\n` +
       `- {{orders_created}} orders\n\n` +
       `To keep using CateringMS without interruption, please select a plan: {{pricing_url}}\n\n` +
-      `If your trial ends without selecting a plan, your account will be paused but your data is safely stored for 30 days.\n\n` +
+      `If your trial ends without a plan selected, your account will be paused, and your data will be safely stored for 30 days.\n\n` +
       `Questions? support@cateringms.com\n\n` +
       `Best regards,\nThe CateringMS Team`,
     variables: SUBSCRIPTION_VARS,
@@ -1539,7 +1539,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     defaultSubject: "Welcome back! Your subscription is reactivated",
     defaultBody:
       `Hi {{user_name}},\n\n` +
-      `Great news, your subscription has been successfully reactivated. We're excited to have you back.\n\n` +
+      `Great news: your subscription has been reactivated. We're excited to have you back.\n\n` +
       `Plan: {{plan_name}}\n` +
       `Amount: {{amount}}\n` +
       `Next billing date: {{next_billing_date}}\n\n` +
