@@ -1335,11 +1335,11 @@ export default function KitchenDashboard() {
 
           {/* Low Stock Alerts */}
           {lowStockItems.length > 0 && (
-            <PortalCard className="mb-6 sm:mb-8 border-amber-200 dark:border-amber-900">
+            <PortalCard className="mb-6 sm:mb-8 border-rose-200 dark:border-rose-900">
               <PortalCardHeader
                 title={
                   <span className="flex items-center gap-2 text-base sm:text-lg text-slate-900 dark:text-white">
-                    <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-500" />
+                    <AlertTriangle className="w-5 h-5 text-rose-600 dark:text-rose-500" />
                     Low stock alerts
                     {/* KIT3-B: aggregate "blocks N orders" badge so the
                         chef sees the cascade impact at the header level
@@ -1363,7 +1363,7 @@ export default function KitchenDashboard() {
                     return (
                       <div key={item.id} className="flex items-center justify-between gap-2 p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg flex-wrap">
                         <div className="flex items-center gap-3 min-w-0 flex-1">
-                          <Package className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0" />
+                          <Package className="w-5 h-5 text-rose-500 dark:text-rose-400 shrink-0" />
                           <div className="min-w-0">
                             <p className="font-medium text-sm text-slate-900 dark:text-white truncate">{item.item_name}</p>
                             <p className="text-xs text-slate-600 dark:text-slate-400">
@@ -1381,7 +1381,7 @@ export default function KitchenDashboard() {
                           className={`shrink-0 ${
                             blocked
                               ? "bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-950 dark:text-rose-300 dark:border-rose-900"
-                              : "bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-700"
+                              : "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/50 dark:text-rose-300 dark:border-rose-900"
                           }`}
                         >
                           {blocked ? "Blocking prep" : "Low stock"}
