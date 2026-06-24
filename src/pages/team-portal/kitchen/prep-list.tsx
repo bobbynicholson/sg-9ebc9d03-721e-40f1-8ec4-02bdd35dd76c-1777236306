@@ -533,7 +533,7 @@ export default function KitchenPrepListPage() {
                       onClick={() => setHorizonDays(d)}
                       className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
                         horizonDays === d
-                          ? "bg-white text-slate-900 shadow-sm dark:bg-slate-900 dark:text-white"
+                          ? "bg-brand-primary text-white shadow-sm"
                           : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
                       }`}
                     >
@@ -609,7 +609,7 @@ export default function KitchenPrepListPage() {
                     size="sm"
                     onClick={handleCreateShoppingList}
                     disabled={creatingList}
-                    className="bg-amber-600 hover:bg-amber-700 text-white"
+                    className="bg-brand-primary hover:opacity-90 text-white"
                   >
                     {creatingList ? "Creating..." : "Create shopping list"}
                   </Button>
@@ -622,34 +622,34 @@ export default function KitchenPrepListPage() {
               with text-xs that felt like an afterthought; now a single
               tinted container with two equally-weighted segments and
               tap-target-friendly padding for kitchen tablets. */}
-          <div className="mb-5 inline-flex p-1 bg-slate-100 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
+          <div className="mb-5 flex w-full gap-1 p-1 bg-slate-100 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 overflow-x-auto">
             <button
               type="button"
               onClick={() => setView("by_order")}
-              className={`px-4 py-2 text-sm font-medium rounded-md transition-all inline-flex items-center gap-2 ${
+              className={`flex-1 justify-center min-w-[140px] whitespace-nowrap px-4 py-2 text-sm font-medium rounded-md transition-all inline-flex items-center gap-2 ${
                 view === "by_order"
-                  ? "bg-white text-slate-900 shadow-sm dark:bg-slate-900 dark:text-white"
+                  ? "bg-brand-primary text-white shadow-sm"
                   : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
               }`}
             >
               <Layers className="w-3.5 h-3.5" />
               By order
-              <span className={`text-xs tabular-nums ${view === "by_order" ? "text-slate-500 dark:text-slate-400" : "text-slate-400 dark:text-slate-500"}`}>
+              <span className={`text-xs tabular-nums ${view === "by_order" ? "text-white/70" : "text-slate-400 dark:text-slate-500"}`}>
                 {orders.length}
               </span>
             </button>
             <button
               type="button"
               onClick={() => setView("by_ingredient")}
-              className={`px-4 py-2 text-sm font-medium rounded-md transition-all inline-flex items-center gap-2 ${
+              className={`flex-1 justify-center min-w-[140px] whitespace-nowrap px-4 py-2 text-sm font-medium rounded-md transition-all inline-flex items-center gap-2 ${
                 view === "by_ingredient"
-                  ? "bg-white text-slate-900 shadow-sm dark:bg-slate-900 dark:text-white"
+                  ? "bg-brand-primary text-white shadow-sm"
                   : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
               }`}
             >
               <Package className="w-3.5 h-3.5" />
               By ingredient
-              <span className={`text-xs tabular-nums ${view === "by_ingredient" ? "text-slate-500 dark:text-slate-400" : "text-slate-400 dark:text-slate-500"}`}>
+              <span className={`text-xs tabular-nums ${view === "by_ingredient" ? "text-white/70" : "text-slate-400 dark:text-slate-500"}`}>
                 {aggregated.length}
               </span>
             </button>
@@ -690,7 +690,7 @@ export default function KitchenPrepListPage() {
                         view-switched into the kitchen portal still
                         see it so they can fix recipes inline. */}
                     {canEditMenu && (
-                      <Link href="/admin/menu" className="inline-flex items-center gap-1 text-xs text-amber-700 dark:text-amber-400 hover:underline mt-3 font-semibold">
+                      <Link href="/admin/menu" className="inline-flex items-center gap-1 text-xs text-brand-primary hover:opacity-80 hover:underline mt-3 font-semibold">
                         Open menu editor <ExternalLink className="w-3 h-3" />
                       </Link>
                     )}
@@ -758,7 +758,7 @@ export default function KitchenPrepListPage() {
                                   <Button
                                     size="sm"
                                     variant="outline"
-                                    className="h-7 text-[11px] gap-1 border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-900 dark:text-amber-400 dark:hover:bg-amber-950/40"
+                                    className="h-7 text-[11px] gap-1 border-brand-primary/30 text-brand-primary hover:bg-brand-primary/5"
                                     onClick={() => handleAddToShoppingList(d)}
                                   >
                                     <ShoppingCart className="w-3 h-3" />
@@ -794,7 +794,7 @@ export default function KitchenPrepListPage() {
                     The menu items on these orders don&apos;t have recipes attached, so the prep list can&apos;t show ingredients. Open the Production grid to see prep tasks (which use simpler timing fields), or ask admin to add recipes in <span className="font-mono text-xs">Menu &rarr; edit item &rarr; Recipe</span>.
                   </p>
                   <div className="inline-flex items-center gap-3 mt-3">
-                    <Link href="/team-portal/kitchen/production" className="inline-flex items-center gap-1 text-xs text-amber-700 dark:text-amber-400 hover:underline font-semibold">
+                    <Link href="/team-portal/kitchen/production" className="inline-flex items-center gap-1 text-xs text-brand-primary hover:opacity-80 hover:underline font-semibold">
                       Open production <ExternalLink className="w-3 h-3" />
                     </Link>
                     {/* Wave 70.44b - role-gated; see comment above. */}

@@ -600,7 +600,7 @@ export default function KitchenProductionPage() {
                     onClick={() => setView("day")}
                     className={`px-3 py-1.5 text-xs font-medium inline-flex items-center gap-1.5 rounded-l-md ${
                       view === "day"
-                        ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900"
+                        ? "bg-brand-primary text-white"
                         : "text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800"
                     }`}
                   >
@@ -612,7 +612,7 @@ export default function KitchenProductionPage() {
                     onClick={() => setView("week")}
                     className={`px-3 py-1.5 text-xs font-medium inline-flex items-center gap-1.5 rounded-r-md border-l border-slate-200 dark:border-slate-700 ${
                       view === "week"
-                        ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900"
+                        ? "bg-brand-primary text-white"
                         : "text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800"
                     }`}
                   >
@@ -772,7 +772,7 @@ export default function KitchenProductionPage() {
             return (
               <PortalCard className="mb-4">
                 <div className="flex items-center gap-2 mb-2">
-                    <Clock className="w-4 h-4 text-amber-600 dark:text-amber-500" />
+                    <Clock className="w-4 h-4 text-slate-400 dark:text-slate-500" />
                     <p className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-200">
                       Start cooking next
                     </p>
@@ -804,7 +804,7 @@ export default function KitchenProductionPage() {
                           </span>
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">
-                              <span className="text-amber-700 dark:text-amber-400 mr-1.5">{taskTypeLabel}</span>
+                              <span className="text-brand-primary mr-1.5">{taskTypeLabel}</span>
                               {task.menu_item_name || "Item"}
                             </p>
                             <p className="text-[11px] text-slate-600 truncate">
@@ -835,7 +835,7 @@ export default function KitchenProductionPage() {
             // ── DAY VIEW: time-grid with stations as rows ──
             tasksOnAnchor.length === 0 && (ordersByDate[isoDate(anchor)] || []).length === 0 ? (
               <PortalCard className="p-10 text-center">
-                <span className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl border border-slate-200 bg-white text-amber-600 dark:border-slate-700 dark:bg-slate-900 dark:text-amber-500">
+                <span className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl border border-slate-200 bg-white text-brand-primary dark:border-slate-700 dark:bg-slate-900">
                   <ChefHat className="h-6 w-6" />
                 </span>
                 <p className="text-sm font-semibold text-slate-900 dark:text-white">Quiet day</p>
@@ -854,8 +854,8 @@ export default function KitchenProductionPage() {
                     dayDiff < 7 ? nextDate.toLocaleDateString("en-ZA", { weekday: "long" }) :
                                   fmtDay(nextDate);
                   return (
-                    <div className="mt-4 inline-flex items-center gap-2 text-xs text-slate-700 bg-amber-50 border border-amber-200 rounded-full px-3 py-1.5 dark:bg-amber-950/30 dark:border-amber-900/50 dark:text-slate-300">
-                      <Calendar className="w-3.5 h-3.5 text-amber-600 dark:text-amber-500" />
+                    <div className="mt-4 inline-flex items-center gap-2 text-xs rounded-full px-3 py-1.5 bg-brand-primary/10 text-brand-primary dark:bg-brand-primary/20">
+                      <Calendar className="w-3.5 h-3.5 text-brand-primary" />
                       <span>
                         Next event: <strong>{whenLabel}</strong>
                         {nextUpcoming.eventTime ? ` at ${fmtTime(nextUpcoming.eventTime)}` : ""}
@@ -864,7 +864,7 @@ export default function KitchenProductionPage() {
                       <button
                         type="button"
                         onClick={() => setAnchor(startOfDay(nextDate))}
-                        className="ml-1 underline text-amber-700 hover:text-amber-900 dark:text-amber-400 dark:hover:text-amber-300"
+                        className="ml-1 underline text-brand-primary hover:opacity-80"
                       >
                         Jump to it
                       </button>
@@ -896,7 +896,7 @@ export default function KitchenProductionPage() {
                       <Button
                         onClick={() => generatePrepPlan(ordersWithoutPrep.map((o) => o.id))}
                         disabled={generatingPlan}
-                        className="bg-amber-600 hover:bg-amber-700 shrink-0 gap-1.5"
+                        className="bg-brand-primary hover:opacity-90 text-white shrink-0 gap-1.5"
                       >
                         {generatingPlan ? <Loader2 className="w-4 h-4 animate-spin" /> : <ChefHat className="w-4 h-4" />}
                         Generate prep plan
@@ -1000,7 +1000,7 @@ export default function KitchenProductionPage() {
                                 <Link
                                   key={t.id}
                                   href={withSlug(staffOrderHref(t.order_id, "kitchen_staff")) + "#section-kitchen"}
-                                  className={`absolute top-2 h-12 rounded-md border-l-4 px-1.5 py-1 text-[11px] cursor-pointer transition-colors block hover:shadow-md hover:ring-2 hover:ring-amber-300 ${tone}`}
+                                  className={`absolute top-2 h-12 rounded-md border-l-4 px-1.5 py-1 text-[11px] cursor-pointer transition-colors block hover:shadow-md hover:ring-2 hover:ring-brand-primary/40 ${tone}`}
                                   style={{
                                     left: `${pos.leftPct}%`,
                                     width: `${pos.widthPct}%`,
@@ -1054,9 +1054,9 @@ export default function KitchenProductionPage() {
                 return (
                   <div key={key}>
                     <div className="flex items-center gap-2 mb-2 px-1 flex-wrap">
-                      <h2 className={`text-sm font-semibold ${isToday ? "text-amber-600 dark:text-amber-500" : "text-slate-700 dark:text-slate-300"}`}>
+                      <h2 className={`text-sm font-semibold ${isToday ? "text-brand-primary" : "text-slate-700 dark:text-slate-300"}`}>
                         {fmtDay(d)}
-                        {isToday && <span className="ml-2 text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded dark:bg-amber-950/40 dark:text-amber-400">Today</span>}
+                        {isToday && <span className="ml-2 text-xs bg-brand-primary/10 text-brand-primary px-2 py-0.5 rounded dark:bg-brand-primary/20">Today</span>}
                       </h2>
                       <span className="text-xs text-slate-500 dark:text-slate-400">{list.length} event{list.length === 1 ? "" : "s"}</span>
                       {dayHours > 0 && (
@@ -1098,11 +1098,11 @@ export default function KitchenProductionPage() {
                               className="block group"
                               title="Open the full order document"
                             >
-                            <PortalCard padded={false} className={`${isToday ? "border-amber-200 dark:border-amber-900/50" : ""} group-hover:border-amber-400 group-hover:shadow-md transition-all cursor-pointer dark:group-hover:border-amber-600`}>
+                            <PortalCard padded={false} className={`${isToday ? "border-brand-primary/30" : ""} group-hover:border-brand-primary group-hover:shadow-md transition-all cursor-pointer`}>
                               <div className="p-4">
                                 <div className="flex items-start justify-between gap-2 mb-2">
                                   <div className="min-w-0 flex-1">
-                                    <div className="font-medium text-slate-900 dark:text-white truncate group-hover:text-amber-700 dark:group-hover:text-amber-400 transition-colors">{orderDisplayName({ event_name: o.event_name, client_name: (o as any).client_name, order_number: o.order_number })}</div>
+                                    <div className="font-medium text-slate-900 dark:text-white truncate group-hover:text-brand-primary transition-colors">{orderDisplayName({ event_name: o.event_name, client_name: (o as any).client_name, order_number: o.order_number })}</div>
                                     <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1">
                                       <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{fmtTime(o.event_time)}</span>
                                       {o.guest_count != null && <span className="flex items-center gap-1"><UsersIcon className="h-3 w-3" />{o.guest_count} guests</span>}
@@ -1148,7 +1148,7 @@ export default function KitchenProductionPage() {
                                     {o.special_instructions}
                                   </p>
                                 )}
-                                <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-800 text-[10px] text-amber-600 dark:text-amber-500 font-medium opacity-0 group-hover:opacity-100 transition-opacity">
+                                <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-800 text-[10px] text-brand-primary font-medium opacity-0 group-hover:opacity-100 transition-opacity">
                                   Open kitchen ticket →
                                 </div>
                               </div>
