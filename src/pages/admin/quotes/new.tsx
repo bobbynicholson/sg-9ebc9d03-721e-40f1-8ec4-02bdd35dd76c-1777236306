@@ -68,7 +68,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import {
   Banknote, ArrowLeft, Save, Send, Plus, Trash2, MapPin, Sparkles,
-  Loader2, CheckCircle2, AlertTriangle, Eye, EyeOff, Calendar, Users, Mail, Phone,
+  Loader2, CheckCircle2, AlertTriangle, Eye, Calendar, Users, Mail, Phone,
   Percent, TrendingUp, Wand2, Clock,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -2059,13 +2059,10 @@ function NewQuotePage() {
             </div>
 
             <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1">
-                <Button variant="outline" onClick={() => setPreviewOpen((v) => !v)}>
-                  {previewOpen ? <EyeOff className="w-4 h-4 mr-2" /> : <Eye className="w-4 h-4 mr-2" />}
-                  {previewOpen ? "Hide preview" : "Preview"}
-                </Button>
-                <InfoTooltip content={"Toggle the live preview of what the client will see: the public quote page, with your branding, totals and setup time.\n\nDoesn't save or send anything. Use this to sanity-check before hitting Save & Send."} />
-              </div>
+              {/* Client preview hidden for now (Raj, 2026-06-25): no
+                  toggle button, the preview card below never renders
+                  because previewOpen stays false. Kept in place so it
+                  can be switched back on later without rebuilding it. */}
               {/* TIGHTEN I.120: when the quote already has a linked
                   order, the operator's intent is "update the order".
                   Save = mirror without notifying; Save & Notify =
@@ -3041,28 +3038,10 @@ function NewQuotePage() {
                 {previewOpen && (
                   <Card className="border-0 shadow-xl">
                     <CardHeader>
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <CardTitle className="text-base flex items-center gap-2">
-                            <Eye className="w-4 h-4" /> Client preview
-                          </CardTitle>
-                          <CardDescription>What goes out in the quote email.</CardDescription>
-                        </div>
-                        {/* Co-located hide control: the preview renders
-                            below the whole form, so without this the
-                            operator has to scroll back up to the toolbar
-                            toggle to collapse it. Same action as that
-                            toggle - just within reach of the preview. */}
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setPreviewOpen(false)}
-                          className="flex-shrink-0"
-                        >
-                          <EyeOff className="w-4 h-4 mr-2" />
-                          Hide preview
-                        </Button>
-                      </div>
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <Eye className="w-4 h-4" /> Client preview
+                      </CardTitle>
+                      <CardDescription>What goes out in the quote email.</CardDescription>
                     </CardHeader>
                     <CardContent className="text-sm space-y-2">
                       <div className="rounded-lg border border-slate-200 p-3 bg-white">
