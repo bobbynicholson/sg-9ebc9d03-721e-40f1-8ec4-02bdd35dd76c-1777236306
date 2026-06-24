@@ -36,8 +36,11 @@ const COPY: Record<TeamRole, RoleCopy> = {
       "Your shifts and BCEA-fair overtime, tracked automatically",
     ],
     icon: ChefHat,
-    gradient: "from-orange-500 to-red-500",
-    accent: "bg-orange-50 border-orange-200",
+    // Theme-driven: pulls the tenant's brand colours (companies row)
+    // via the brand-* CSS vars instead of a hardcoded orange/red, so
+    // the banner always matches the company's chosen palette.
+    gradient: "from-brand-primary to-brand-secondary",
+    accent: "bg-brand-primary/5 border-brand-primary/20",
   },
   driver: {
     title: "Welcome to the driver portal",

@@ -939,7 +939,7 @@ export default function KitchenDashboard() {
 
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
-      confirmed: "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-900",
+      confirmed: "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700",
       preparing: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-900",
       prep: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-900",
       ready: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-900",
@@ -1286,7 +1286,7 @@ export default function KitchenDashboard() {
             const noStaff = onDutyCount === 0 && todayOrders.length > 0;
             if (!understaffed && !noStaff) return null;
             return (
-              <PortalCard padded={false} className="mb-4 border-rose-200 bg-rose-50/60 dark:border-rose-900 dark:bg-rose-950/30">
+              <PortalCard padded={false} className="mb-6 border-rose-200 bg-rose-50/60 dark:border-rose-900 dark:bg-rose-950/30">
                 <div className="px-4 py-3 flex items-start gap-3">
                   <Users className="w-5 h-5 text-rose-600 dark:text-rose-400 mt-0.5 shrink-0" />
                   <div className="flex-1 text-sm">
@@ -1310,7 +1310,7 @@ export default function KitchenDashboard() {
               holding us up". One task at a time so it stays a
               decision-prompt not a backlog dump. */}
           {bottleneckTask && (
-            <PortalCard padded={false} className="mb-4 border-amber-200 bg-amber-50/60 dark:border-amber-900 dark:bg-amber-950/30">
+            <PortalCard padded={false} className="mb-6 border-amber-200 bg-amber-50/60 dark:border-amber-900 dark:bg-amber-950/30">
               <div className="px-4 py-3 flex items-start gap-3">
                 <Clock className="w-5 h-5 text-amber-600 dark:text-amber-500 mt-0.5 shrink-0" />
                 <div className="flex-1 text-sm">
@@ -1548,7 +1548,7 @@ export default function KitchenDashboard() {
               kitchen sees what's brewing before it lands as "Active orders".
               Hidden when nothing's coming up to keep the page calm. */}
           {upcoming.length > 0 && (
-            <PortalCard className="mb-4">
+            <PortalCard className="mb-6">
               <PortalCardHeader
                 title={
                   <span className="text-sm sm:text-base flex items-center gap-2 text-slate-700 dark:text-slate-200">
@@ -1646,7 +1646,7 @@ export default function KitchenDashboard() {
                   // three lanes. Was three different voices ("Nothing
                   // confirmed yet" / "No prep in flight" / "Nothing
                   // ready yet").
-                  { key: "confirmed", label: "Confirmed",  empty: "No confirmed orders waiting",  tone: "border-blue-200 bg-blue-50/60 dark:border-blue-900 dark:bg-blue-950/30",       dot: "bg-blue-400" },
+                  { key: "confirmed", label: "Confirmed",  empty: "No confirmed orders waiting",  tone: "border-slate-200 bg-slate-50/70 dark:border-slate-700 dark:bg-slate-800/30",   dot: "bg-slate-400" },
                   { key: "preparing", label: "In prep",    empty: "No orders in prep right now",  tone: "border-amber-200 bg-amber-50/60 dark:border-amber-900 dark:bg-amber-950/30",   dot: "bg-amber-400" },
                   { key: "ready",     label: "Ready",      empty: "No orders ready to collect",   tone: "border-emerald-200 bg-emerald-50/60 dark:border-emerald-900 dark:bg-emerald-950/30", dot: "bg-emerald-500" },
                 ];
@@ -1662,7 +1662,7 @@ export default function KitchenDashboard() {
                       // container so the visual separation survives
                       // the mobile collapse.
                       const headerTone =
-                        col.key === "confirmed" ? "bg-blue-50 border-blue-200 text-blue-800 dark:bg-blue-950 dark:border-blue-900 dark:text-blue-300" :
+                        col.key === "confirmed" ? "bg-slate-100 border-slate-200 text-slate-700 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300" :
                         col.key === "preparing" ? "bg-amber-50 border-amber-200 text-amber-800 dark:bg-amber-950 dark:border-amber-900 dark:text-amber-300" :
                                                   "bg-emerald-50 border-emerald-200 text-emerald-800 dark:bg-emerald-950 dark:border-emerald-900 dark:text-emerald-300";
                       return (
@@ -1788,7 +1788,7 @@ export default function KitchenDashboard() {
 
                                 {/* Kitchen instructions inline (compact) */}
                                 {order.kitchen_instructions && (
-                                  <p className="mt-2 text-[11px] text-blue-800 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900 rounded px-2 py-1 line-clamp-2">
+                                  <p className="mt-2 text-[11px] text-slate-700 dark:text-slate-300 bg-brand-primary/5 dark:bg-brand-primary/10 border border-brand-primary/20 rounded px-2 py-1 line-clamp-2">
                                     {order.kitchen_instructions}
                                   </p>
                                 )}
