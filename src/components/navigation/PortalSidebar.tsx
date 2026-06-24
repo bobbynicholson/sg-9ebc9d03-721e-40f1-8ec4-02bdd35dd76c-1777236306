@@ -111,6 +111,12 @@ export interface PortalSidebarConfig {
    *  rotating by service mode). Receives `onNavigate` so the
    *  custom component can close the drawer after a tap. */
   renderMobileQuickActions?: (ctx: { onNavigate: () => void }) => React.ReactNode;
+  /** Wave 71 - which brand token this portal LEADS with. Drives the
+   *  shared `--portal-accent-rgb` var so portal chrome that isn't in
+   *  the nav (PortalHeader icon tile, etc.) matches the nav colour.
+   *  kitchen/shopping lead "primary" (teal); driver/cleaning lead
+   *  "accent" (gold). Defaults to "primary". */
+  leadToken?: "primary" | "accent" | "secondary";
 }
 
 interface PortalSidebarProps {
@@ -136,6 +142,24 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
     window.addEventListener(eventName, handler);
     return () => window.removeEventListener(eventName, handler);
   }, [config.role]);
+
+  // Wave 71 - publish this portal's lead accent to a shared CSS var so
+  // portal chrome rendered outside the nav (PortalHeader icon tile, page
+  // accents that opt into `portal-accent`) matches the nav colour. The
+  // value points at the existing brand-*-rgb triplet, so it tracks
+  // white-label re-theming live. Reset to primary on unmount so leaving a
+  // gold portal for a teal one doesn't leave gold chrome behind.
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const root = document.documentElement;
+    const token = config.leadToken ?? "primary";
+    const ref =
+      token === "accent" ? "var(--brand-accent-rgb)" :
+      token === "secondary" ? "var(--brand-secondary-rgb)" :
+      "var(--brand-primary-rgb)";
+    root.style.setProperty("--portal-accent-rgb", ref);
+    return () => { root.style.setProperty("--portal-accent-rgb", "var(--brand-primary-rgb)"); };
+  }, [config.leadToken]);
 
   const collapseKey = `${config.role}Nav-collapsed`;
 

@@ -63,7 +63,7 @@ export function PortalHeader({
     <header className={cn("mb-6 flex flex-wrap items-start justify-between gap-4", className)}>
       <div className="flex min-w-0 items-start gap-3">
         {Icon && (
-          <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-brand-primary dark:border-slate-700 dark:bg-slate-900 dark:text-brand-primary">
+          <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-portal-accent dark:border-slate-700 dark:bg-slate-900 dark:text-portal-accent">
             <Icon className="h-5 w-5" />
           </span>
         )}

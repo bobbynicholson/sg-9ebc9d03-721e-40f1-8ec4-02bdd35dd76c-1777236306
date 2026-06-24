@@ -38,6 +38,9 @@ const config: PortalSidebarConfig = {
   brandIcon: Truck,
   // Tenant brand accent via brand-* CSS vars (amber default). See portalPalette.ts.
   ...BRAND_PORTAL_PALETTE,
+  // Wave 71 - driver leads with the GOLD accent; publishes it to
+  // --portal-accent-rgb so PortalHeader icon tiles match the nav.
+  leadToken: "accent",
   searchHint: "Search routes, deliveries...",
   dashboardHref: "/team-portal/driver/dashboard",
   mobileQuickActions: [

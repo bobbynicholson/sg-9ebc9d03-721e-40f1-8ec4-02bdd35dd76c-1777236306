@@ -90,6 +90,9 @@ export function CleaningNav(_: CleaningNavProps = {}) {
     brandIcon: Sparkles,
     // Tenant brand accent via brand-* CSS vars (amber default). See portalPalette.ts.
     ...BRAND_PORTAL_PALETTE,
+    // Wave 71 - cleaning leads with the GOLD accent; publishes it to
+    // --portal-accent-rgb so PortalHeader icon tiles match the nav.
+    leadToken: "accent",
     searchHint: "Search handovers, equipment, supplies...",
     dashboardHref: "/team-portal/cleaning/dashboard",
     // Static fallback mobile quick actions - only used if the smart
