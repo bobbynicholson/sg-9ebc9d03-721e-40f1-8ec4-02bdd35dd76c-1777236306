@@ -113,6 +113,20 @@
   .dark body {
     background-color: rgb(15 23 42);    /* slate-900 -- dark-mode equivalent */
   }
+
+  /* White-label heading font, applied site-wide. When a tenant picks a
+     Heading font in Settings > Branding, applyBranding sets
+     --brand-font-display and EVERY heading on EVERY page (admin, team
+     portals, client portal) switches to it in one click - not just the
+     few that opt into the `font-display` utility. When unset, the var
+     is absent so headings inherit the body font, leaving non-white-label
+     tenants visually unchanged. This is @layer base, so any explicit
+     font utility wins on specificity and keeps its intentional face:
+     `font-display` (marketing Fraunces), `font-serif` (public
+     quote/invoice documents), `font-mono` (codes / IDs). */
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--brand-font-display, inherit);
+  }
 }
 
 /* Wave 70.44 -- shared print utilities.
