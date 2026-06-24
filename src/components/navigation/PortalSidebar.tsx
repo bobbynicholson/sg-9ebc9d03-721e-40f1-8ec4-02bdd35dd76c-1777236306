@@ -285,7 +285,7 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
     <ScrollArea
       className="h-full py-6 px-4"
     >
-      <div className="space-y-6">
+      <div className="space-y-5">
         {mobile && (
           <div className="space-y-3">
             <MobileSearchTrigger accent={config.searchAccent} hint={config.searchHint} />
@@ -351,7 +351,7 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
           main wrapper. */}
       <a
         href="#main-content"
-        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[60] focus:bg-orange-600 focus:text-white focus:px-3 focus:py-2 focus:rounded-md focus:shadow-lg focus:outline-none"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[60] focus:bg-brand-primary focus:text-white focus:px-3 focus:py-2 focus:rounded-md focus:shadow-lg focus:outline-none"
       >
         Skip to content
       </a>
