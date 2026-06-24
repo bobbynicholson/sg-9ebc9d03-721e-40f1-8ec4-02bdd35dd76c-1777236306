@@ -23,10 +23,11 @@ import { notificationService, Notification } from "@/services/notificationServic
 import { useToast } from "@/hooks/use-toast";
 import { DriverPageShell } from "@/components/driver/DriverPageShell";
 import { useTenantHref } from "@/lib/tenantUrl";
+import { cn } from "@/lib/utils";
 
 const PRIORITY_TONE: Record<string, string> = {
   urgent: "bg-rose-100 text-rose-800 border-rose-200 dark:bg-rose-500/10 dark:text-rose-300 dark:border-rose-500/20",
-  high: "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/20",
+  high: "bg-rose-100 text-rose-800 border-rose-200 dark:bg-rose-500/10 dark:text-rose-300 dark:border-rose-500/20",
   normal: "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700",
   low: "bg-slate-50 text-slate-600 border-slate-100 dark:bg-slate-800/60 dark:text-slate-400 dark:border-slate-800",
 };
@@ -196,36 +197,24 @@ export default function DriverNotificationsPage() {
       headerAction={headerActions}
     >
       <div className="space-y-4">
-          <div className="inline-flex rounded-lg border border-slate-200 bg-white p-1 dark:border-slate-800 dark:bg-slate-900">
-            <button
-              type="button"
+          <div className="flex w-full gap-1 overflow-x-auto mb-4">
+            <Button
+              variant={tab === "all" ? "default" : "outline"}
+              size="sm"
               onClick={() => setTab("all")}
-              className={`px-4 py-1.5 text-sm font-medium rounded-md transition ${
-                tab === "all"
-                  ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900"
-                  : "text-slate-600 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800"
-              }`}
+              className={cn("flex-1 justify-center min-w-[120px] whitespace-nowrap", tab === "all" && "bg-brand-primary hover:opacity-90 text-white")}
             >
               All
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
+              variant={tab === "unread" ? "default" : "outline"}
+              size="sm"
               onClick={() => setTab("unread")}
-              className={`px-4 py-1.5 text-sm font-medium rounded-md transition inline-flex items-center gap-2 ${
-                tab === "unread"
-                  ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900"
-                  : "text-slate-600 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800"
-              }`}
+              className={cn("flex-1 justify-center min-w-[120px] whitespace-nowrap", tab === "unread" && "bg-brand-primary hover:opacity-90 text-white")}
             >
               Unread
-              {unreadCount > 0 && (
-                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded tabular-nums ${
-                  tab === "unread"
-                    ? "bg-white/20 text-white dark:bg-slate-900/10 dark:text-slate-900"
-                    : "bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300"
-                }`}>{unreadCount}</span>
-              )}
-            </button>
+              {unreadCount > 0 && <span className="ml-1.5 bg-white/20 px-1.5 rounded text-[10px] tabular-nums">{unreadCount}</span>}
+            </Button>
           </div>
 
           {loading ? (
@@ -264,12 +253,12 @@ export default function DriverNotificationsPage() {
                       className={`w-full p-4 ${
                         n.is_read
                           ? ""
-                          : "border-amber-300/70 dark:border-amber-500/30"
+                          : "border-brand-primary/40 bg-brand-primary/5 dark:bg-brand-primary/10"
                       }`}
                     >
                         <div className="flex items-start gap-3">
                           {!n.is_read && (
-                            <div className="w-2 h-2 mt-2 rounded-full bg-amber-500 flex-shrink-0" />
+                            <div className="w-2 h-2 mt-2 rounded-full bg-brand-primary flex-shrink-0" />
                           )}
                           <div
                             className={`flex-1 min-w-0 ${n.link ? "cursor-pointer" : ""}`}
@@ -288,7 +277,7 @@ export default function DriverNotificationsPage() {
                             <div className="flex items-center justify-between gap-2 mt-2">
                               <p className="text-xs text-slate-400 dark:text-slate-500">{ago}</p>
                               {n.link && (
-                                <span className="text-xs text-amber-600 dark:text-amber-400 inline-flex items-center gap-1 font-medium">
+                                <span className="text-xs text-brand-primary hover:opacity-80 inline-flex items-center gap-1 font-medium">
                                   <ExternalLink className="w-3 h-3" />
                                   Tap to open
                                 </span>

@@ -71,9 +71,9 @@ const statusBadge = (status: string) => {
   const map: Record<string, string> = {
     delivered: "bg-emerald-100 text-emerald-700 border-emerald-200",
     completed: "bg-emerald-100 text-emerald-700 border-emerald-200",
-    in_transit: "bg-amber-100 text-amber-700 border-amber-200",
+    in_transit: "bg-brand-primary/10 text-brand-primary border-brand-primary/20 dark:bg-brand-primary/20 dark:text-brand-primary",
     ready: "bg-slate-100 text-slate-700 border-slate-200",
-    confirmed: "bg-amber-100 text-amber-700 border-amber-200",
+    confirmed: "bg-slate-100 text-slate-700 border-slate-200",
     preparing: "bg-slate-100 text-slate-700 border-slate-200",
     cancelled: "bg-rose-100 text-rose-700 border-rose-200",
   };
@@ -177,10 +177,25 @@ export default function DriverDeliveriesPage() {
                   />
                 </div>
                 <Tabs defaultValue="all">
-                  <TabsList className="mb-4">
-                    <TabsTrigger value="all">All ({filteredOrders.length})</TabsTrigger>
-                    <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
-                    <TabsTrigger value="completed">Completed</TabsTrigger>
+                  <TabsList className="mb-4 flex w-full gap-1 overflow-x-auto">
+                    <TabsTrigger
+                      value="all"
+                      className="flex-1 justify-center min-w-[120px] whitespace-nowrap data-[state=active]:bg-brand-primary data-[state=active]:text-white data-[state=active]:shadow-sm"
+                    >
+                      All ({filteredOrders.length})
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="upcoming"
+                      className="flex-1 justify-center min-w-[120px] whitespace-nowrap data-[state=active]:bg-brand-primary data-[state=active]:text-white data-[state=active]:shadow-sm"
+                    >
+                      Upcoming
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="completed"
+                      className="flex-1 justify-center min-w-[120px] whitespace-nowrap data-[state=active]:bg-brand-primary data-[state=active]:text-white data-[state=active]:shadow-sm"
+                    >
+                      Completed
+                    </TabsTrigger>
                   </TabsList>
                   <TabsContent value="all">
                     <DeliveryList orders={filteredOrders} />
@@ -265,7 +280,7 @@ function DeliveryList({ orders }: { orders: DriverOrder[] }) {
                       POD path in one place. */}
                   <Link
                     href={withSlug(staffOrderHref(o.id, "driver"))}
-                    className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-amber-200 bg-amber-50 hover:bg-amber-100 text-amber-700 font-semibold min-h-[32px] dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300 dark:hover:bg-amber-900/60"
+                    className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-brand-primary/30 bg-brand-primary/5 hover:bg-brand-primary/10 text-brand-primary font-semibold min-h-[32px] dark:border-brand-primary/30 dark:bg-brand-primary/10 dark:text-brand-primary dark:hover:bg-brand-primary/20"
                     title="Open the driver brief for this order"
                   >
                     <ExternalLink className="w-3.5 h-3.5" />

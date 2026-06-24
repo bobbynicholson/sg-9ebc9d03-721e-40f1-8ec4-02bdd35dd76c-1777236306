@@ -234,8 +234,8 @@ export default function DriverEarningsPage() {
                 </p>
                 <Tabs defaultValue="shifts">
                   <TabsList className="mb-4">
-                    <TabsTrigger value="shifts">Shifts ({stats.shiftCount})</TabsTrigger>
-                    <TabsTrigger value="deliveries">Deliveries ({stats.deliveryCount})</TabsTrigger>
+                    <TabsTrigger value="shifts" className="data-[state=active]:bg-brand-primary data-[state=active]:text-white">Shifts ({stats.shiftCount})</TabsTrigger>
+                    <TabsTrigger value="deliveries" className="data-[state=active]:bg-brand-primary data-[state=active]:text-white">Deliveries ({stats.deliveryCount})</TabsTrigger>
                   </TabsList>
                   <TabsContent value="shifts">
                     <ShiftTable summary={summary} formatR={formatR} />
@@ -326,7 +326,7 @@ function DeliveryTable({ summary, formatR, withSlug }: { summary: DriverPaySumma
               <td className="px-4 py-2 text-right">
                 <Link
                   href={withSlug(staffOrderHref(d.order_id, "driver"))}
-                  className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-amber-200 bg-amber-50 hover:bg-amber-100 text-amber-700 font-semibold min-h-[32px] dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300 dark:hover:bg-amber-500/20"
+                  className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-brand-primary/30 bg-brand-primary/5 hover:bg-brand-primary/10 text-brand-primary font-semibold min-h-[32px] dark:border-brand-primary/30 dark:bg-brand-primary/10 dark:text-brand-primary dark:hover:bg-brand-primary/20"
                   title="Open the driver brief for this order"
                 >
                   <ExternalLink className="w-3.5 h-3.5" />

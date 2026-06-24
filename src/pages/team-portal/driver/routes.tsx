@@ -390,7 +390,7 @@ export default function DriverRoutes() {
         <Button
           size="lg"
           onClick={startShift}
-          className="bg-amber-600 hover:bg-amber-700 text-white min-h-11"
+          className="bg-brand-primary hover:opacity-90 text-white min-h-11"
           title="Start your driving shift. Each stop has its own Start delivery button that notifies the client."
         >
           <Play className="w-5 h-5 mr-2" />
@@ -403,7 +403,7 @@ export default function DriverRoutes() {
             className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-base font-semibold tabular-nums shadow-sm ${
               trip.isPaused
                 ? "bg-amber-50 text-amber-800 border border-amber-300 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-900"
-                : "bg-amber-600 text-white"
+                : "bg-brand-primary text-white"
             }`}
             aria-live="polite"
           >
@@ -481,7 +481,7 @@ export default function DriverRoutes() {
                     </div>
                     <div className="w-full bg-slate-200 dark:bg-slate-800 rounded-full h-2">
                       <div
-                        className="bg-amber-500 h-2 rounded-full transition-all duration-500"
+                        className="bg-brand-primary h-2 rounded-full transition-all duration-500"
                         style={{ width: `${(completedStops / route.stops.length) * 100}%` }}
                       />
                     </div>
@@ -500,7 +500,7 @@ export default function DriverRoutes() {
                     <Button
                       size="lg"
                       onClick={completeTrip}
-                      className="w-full bg-amber-600 hover:bg-amber-700 text-white"
+                      className="w-full bg-brand-primary hover:opacity-90 text-white"
                     >
                       <Flag className="w-5 h-5 mr-2" />
                       Complete trip & record earnings
@@ -545,7 +545,7 @@ export default function DriverRoutes() {
                 <PortalCardHeader
                   title={
                     <span className="flex items-center gap-2">
-                      <Navigation className="h-4 w-4 text-amber-600 dark:text-amber-500" />
+                      <Navigation className="h-4 w-4 text-slate-400 dark:text-slate-500" />
                       {tripCompleted ? "Trip complete" : tripStarted ? "Current stop" : "Next stop"}
                     </span>
                   }
@@ -555,7 +555,7 @@ export default function DriverRoutes() {
                     <>
                       <div>
                         <div className="flex items-center gap-2 mb-2">
-                          <div className="w-8 h-8 rounded-full bg-amber-600 text-white flex items-center justify-center font-semibold tabular-nums">
+                          <div className="w-8 h-8 rounded-full bg-brand-primary text-white flex items-center justify-center font-semibold tabular-nums">
                             {currentStopIndex + 1}
                           </div>
                           <h3 className="font-semibold text-lg text-slate-900 dark:text-white">{currentStop.client_name}</h3>
@@ -600,7 +600,7 @@ export default function DriverRoutes() {
                         return (
                           <>
                             {!stopIsRolling && (
-                              <div className="rounded-lg p-3 text-sm bg-amber-50 text-amber-800 border border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-900">
+                              <div className="rounded-lg p-3 text-sm bg-brand-primary/10 text-brand-primary border border-brand-primary/20 dark:bg-brand-primary/20 dark:text-brand-primary">
                                 <p className="flex items-start gap-2">
                                   <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
                                   Tap <strong>Start delivery</strong> to let the client know you're on the way.
@@ -612,7 +612,7 @@ export default function DriverRoutes() {
                               {!stopIsRolling && (
                                 <Button
                                   onClick={() => startStopDelivery(currentStopIndex)}
-                                  className="w-full bg-amber-600 hover:bg-amber-700 text-white"
+                                  className="w-full bg-brand-primary hover:opacity-90 text-white"
                                   size="lg"
                                 >
                                   <Play className="w-4 h-4 mr-2" />
@@ -734,7 +734,7 @@ export default function DriverRoutes() {
                       key={stop.id}
                       className={`p-4 rounded-xl border transition-colors duration-150 ${
                         isCurrent
-                          ? "border-amber-400 bg-amber-50 dark:border-amber-600 dark:bg-amber-500/10"
+                          ? "border-brand-primary/40 bg-brand-primary/10 dark:border-brand-primary/40 dark:bg-brand-primary/20"
                           : isCompleted
                           ? "border-emerald-200 bg-emerald-50 dark:border-emerald-900 dark:bg-emerald-500/10"
                           : isPending
@@ -749,7 +749,7 @@ export default function DriverRoutes() {
                               isCompleted
                                 ? "bg-emerald-600 text-white"
                                 : isCurrent
-                                ? "bg-amber-600 text-white ring-4 ring-amber-200 dark:ring-amber-900"
+                                ? "bg-brand-primary text-white ring-4 ring-brand-primary/20 dark:ring-brand-primary/30"
                                 : "bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300"
                             }`}
                           >
@@ -763,7 +763,7 @@ export default function DriverRoutes() {
                               <div className="flex items-center gap-2 mb-1 flex-wrap">
                                 <h4 className="font-semibold text-slate-900 dark:text-white">{stop.client_name}</h4>
                                 {isCurrent && (
-                                  <Badge className="bg-amber-600 text-white">
+                                  <Badge className="bg-brand-primary/10 text-brand-primary border border-brand-primary/20 dark:bg-brand-primary/20 dark:text-brand-primary">
                                     <Navigation className="w-3 h-3 mr-1 animate-pulse" />
                                     Current stop
                                   </Badge>
@@ -785,14 +785,14 @@ export default function DriverRoutes() {
                                       ? "bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-500/10 dark:text-rose-300 dark:border-rose-900"
                                       : stop.priority === 3
                                       ? "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"
-                                      : "bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-900"
+                                      : "bg-brand-primary/10 text-brand-primary border border-brand-primary/20 dark:bg-brand-primary/20 dark:text-brand-primary"
                                   }
                                 >
                                   {stop.priority === 1 ? "High" : stop.priority === 3 ? "Low" : "Normal"}
                                 </Badge>
                                 <Link
                                   href={withSlug(staffOrderHref(stop.order_id, "driver"))}
-                                  className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-amber-200 bg-amber-50 hover:bg-amber-100 text-amber-700 font-semibold min-h-[32px] transition-colors duration-150 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300 dark:hover:bg-amber-900/60"
+                                  className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-brand-primary/30 bg-brand-primary/10 hover:bg-brand-primary/5 text-brand-primary font-semibold min-h-[32px] transition-colors duration-150 dark:border-brand-primary/30 dark:bg-brand-primary/20 dark:text-brand-primary"
                                   title="Open the driver brief for this order"
                                 >
                                   <ExternalLink className="w-3.5 h-3.5" />
@@ -808,7 +808,7 @@ export default function DriverRoutes() {
                                     that's the actionable next step for
                                     the driver. Delivery follows. */}
                                 {stop.pickup_time && (
-                                  <span className="flex items-center gap-1 text-amber-700 dark:text-amber-400 font-medium">
+                                  <span className="flex items-center gap-1 text-brand-primary font-medium">
                                     <Clock className="w-3 h-3" />
                                     Collect {stop.pickup_time.slice(0, 5)}
                                   </span>
@@ -834,7 +834,7 @@ export default function DriverRoutes() {
                                   <Button
                                     size="sm"
                                     onClick={() => startStopDelivery(index)}
-                                    className="flex-1 sm:flex-none bg-amber-600 hover:bg-amber-700 text-white"
+                                    className="flex-1 sm:flex-none bg-brand-primary hover:opacity-90 text-white"
                                   >
                                     <Play className="w-4 h-4 sm:mr-2" />
                                     <span className="hidden sm:inline">Start delivery</span>

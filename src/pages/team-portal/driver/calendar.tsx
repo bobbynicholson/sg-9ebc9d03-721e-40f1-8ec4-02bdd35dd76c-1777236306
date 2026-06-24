@@ -7,7 +7,7 @@
  *
  * Two-layer dot legend per day:
  *   - slate dot = at least one order assigned to this driver
- *   - amber dot = at least one unassigned order in the tenant the
+ *   - brand dot = at least one unassigned order in the tenant the
  *                  driver is eligible to claim
  *   - both can co-exist
  *
@@ -223,7 +223,7 @@ export default function DriverCalendarPage() {
     <DriverPageShell
       pageTitle="Calendar - Driver Portal"
       heading="My calendar"
-      subheading="Slate dots = jobs already yours. Amber dots = jobs in your company waiting to be claimed."
+      subheading="Slate dots = jobs already yours. Brand dots = jobs in your company waiting to be claimed."
       icon={CalendarIcon}
       width="wide"
     >
@@ -298,14 +298,14 @@ export default function DriverCalendarPage() {
                             !inMonth
                               ? "bg-slate-50/50 dark:bg-slate-950 text-slate-300 dark:text-slate-600 border-transparent"
                               : isSelected
-                              ? "border-amber-500 ring-2 ring-amber-200 dark:ring-amber-900 bg-white dark:bg-slate-900 text-slate-900 dark:text-white"
+                              ? "border-brand-primary ring-2 ring-brand-primary/20 dark:ring-brand-primary/30 bg-white dark:bg-slate-900 text-slate-900 dark:text-white"
                               : isToday
-                              ? "border-amber-300 bg-amber-50/40 dark:border-amber-800 dark:bg-amber-500/5 text-slate-900 dark:text-white"
-                              : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white hover:border-amber-300"
+                              ? "border-brand-primary/40 bg-brand-primary/5 dark:border-brand-primary/40 dark:bg-brand-primary/10 text-slate-900 dark:text-white"
+                              : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white hover:border-brand-primary/40"
                           }`}
                           aria-label={`${d.toLocaleDateString("en-ZA", { day: "numeric", month: "long" })}, ${mineCount + claimableCount} events`}
                         >
-                          <div className={`text-xs sm:text-sm font-semibold ${isToday ? "text-amber-700 dark:text-amber-400" : ""}`}>
+                          <div className={`text-xs sm:text-sm font-semibold ${isToday ? "text-brand-primary" : ""}`}>
                             {d.getDate()}
                           </div>
                           <div className="flex items-center gap-1 mt-1 flex-wrap">
@@ -316,8 +316,8 @@ export default function DriverCalendarPage() {
                               </span>
                             )}
                             {claimableCount > 0 && (
-                              <span className="inline-flex items-center gap-0.5 text-[10px] px-1 py-0.5 rounded bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300 tabular-nums">
-                                <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                              <span className="inline-flex items-center gap-0.5 text-[10px] px-1 py-0.5 rounded bg-brand-primary/10 text-brand-primary border border-brand-primary/20 dark:bg-brand-primary/20 dark:text-brand-primary tabular-nums">
+                                <span className="w-1.5 h-1.5 rounded-full bg-brand-primary" />
                                 {claimableCount}
                               </span>
                             )}
@@ -332,7 +332,7 @@ export default function DriverCalendarPage() {
                       <span className="w-2 h-2 rounded-full bg-slate-400 dark:bg-slate-500" /> Your jobs
                     </span>
                     <span className="inline-flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-amber-500" /> Open to claim
+                      <span className="w-2 h-2 rounded-full bg-brand-primary" /> Open to claim
                     </span>
                   </div>
                 </>
@@ -361,7 +361,7 @@ export default function DriverCalendarPage() {
                         className={`p-3 rounded-md border ${
                           o.is_mine
                             ? "border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-900"
-                            : "border-amber-200 bg-amber-50/40 dark:border-amber-900 dark:bg-amber-500/5"
+                            : "border-brand-primary/20 bg-brand-primary/5 dark:border-brand-primary/30 dark:bg-brand-primary/10"
                         }`}
                       >
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -376,7 +376,7 @@ export default function DriverCalendarPage() {
                                 className={`text-[10px] ${
                                   o.is_mine
                                     ? "bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700"
-                                    : "bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-900"
+                                    : "bg-brand-primary/10 text-brand-primary border-brand-primary/20 dark:bg-brand-primary/20 dark:text-brand-primary dark:border-brand-primary/30"
                                 }`}
                               >
                                 {o.is_mine ? "Yours" : "Open"}
@@ -390,7 +390,7 @@ export default function DriverCalendarPage() {
                                 </span>
                               )}
                               {o.pickup_time && (
-                                <span className="inline-flex items-center gap-1 text-amber-700 dark:text-amber-400 font-medium">
+                                <span className="inline-flex items-center gap-1 text-brand-primary font-medium">
                                   <Clock className="w-3 h-3" />
                                   Collect {o.pickup_time.slice(0, 5)}
                                 </span>
@@ -412,7 +412,7 @@ export default function DriverCalendarPage() {
                           <div className="flex gap-2 flex-wrap">
                             <Link
                               href={withSlug(staffOrderHref(o.id, "driver"))}
-                              className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-amber-200 bg-amber-50 hover:bg-amber-100 text-amber-700 font-semibold min-h-[32px] transition-colors duration-150 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300 dark:hover:bg-amber-900/60"
+                              className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-brand-primary/30 hover:bg-brand-primary/5 text-brand-primary font-semibold min-h-[32px] transition-colors duration-150"
                               title="Open the driver brief for this order"
                             >
                               <ExternalLink className="w-3.5 h-3.5" />
@@ -430,7 +430,7 @@ export default function DriverCalendarPage() {
                                 size="sm"
                                 onClick={() => claim(o.id)}
                                 disabled={claimingId === o.id}
-                                className="bg-amber-600 hover:bg-amber-700 text-white min-h-11"
+                                className="bg-brand-primary hover:opacity-90 text-white min-h-11"
                               >
                                 {claimingId === o.id ? (
                                   <Loader2 className="w-4 h-4 animate-spin" />
