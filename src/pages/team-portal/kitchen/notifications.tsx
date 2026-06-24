@@ -41,7 +41,7 @@ const priorityIcon = (p?: string | null) => {
 };
 const priorityTone = (p?: string | null) => {
   if (p === "critical" || p === "urgent" || p === "high") return "text-rose-500";
-  if (p === "medium" || p === "warning") return "text-amber-500";
+  if (p === "medium" || p === "warning") return "text-rose-500";
   if (p === "success") return "text-emerald-500";
   return "text-slate-400 dark:text-slate-500";
 };
@@ -234,7 +234,7 @@ export default function KitchenNotificationsPage() {
                     const Icon = priorityIcon(displayedPriority);
                     const tone = priorityTone(displayedPriority);
                     return (
-                      <li key={n.id} className={`p-4 flex items-start gap-3 ${n.is_read ? "bg-white dark:bg-slate-900" : "bg-amber-50/50 dark:bg-amber-950/20"}`}>
+                      <li key={n.id} className={`p-4 flex items-start gap-3 ${n.is_read ? "bg-white dark:bg-slate-900" : "bg-brand-primary/5 dark:bg-brand-primary/10"}`}>
                         <Icon className={`h-5 w-5 ${tone} flex-shrink-0 mt-0.5`} />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-start justify-between gap-2">
