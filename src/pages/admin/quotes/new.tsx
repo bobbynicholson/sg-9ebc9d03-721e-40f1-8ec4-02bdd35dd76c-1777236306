@@ -78,6 +78,7 @@ import { AdminNav } from "@/components/admin/AdminNav";
 import { AddressAutocomplete } from "@/components/admin/AddressAutocomplete";
 import { useCompanyKitchens, type KitchenOption } from "@/hooks/useCompanyKitchens";
 import { dispatchService } from "@/services/dispatchService";
+import { googleMapsService } from "@/services/googleMapsService";
 import { resolveDefaultRegionId } from "@/lib/defaultRegion";
 import { resolveBranchSettings } from "@/services/branchSettingsService";
 import { suggestKitchenForDate, type CapacitySuggestion } from "@/services/kitchenCapacityService";
@@ -561,6 +562,37 @@ function NewQuotePage() {
     return `${String(sh).padStart(2, "0")}:${String(sm).padStart(2, "0")}`;
   }, [eventTime, deliveryBufferMins]);
 
+  /** The setup / delivery time the quote will actually save: the
+   *  operator's typed value, or the suggested default when they never
+   *  touched the field (buildPayload uses the same fallback). */
+  const effectiveSetupTime = setupTime || suggestedSetupTime || "";
+
+  /** Validation: setup / delivery time must land at least this many
+   *  minutes BEFORE the event start time. Setup is when the team
+   *  ARRIVES; with less than a 30 min gap (or a setup at/after the
+   *  start) the food can't possibly be ready when guests arrive. */
+  const MIN_SETUP_GAP_MINS = 30;
+  const setupTimeError = useMemo<string | null>(() => {
+    if (!eventTime || !effectiveSetupTime) return null;
+    const toMin = (t: string): number | null => {
+      const [h, m] = t.slice(0, 5).split(":").map(Number);
+      if (!Number.isFinite(h) || !Number.isFinite(m)) return null;
+      return h * 60 + m;
+    };
+    const startM = toMin(eventTime);
+    const setupM = toMin(effectiveSetupTime);
+    if (startM === null || setupM === null) return null;
+    const gap = startM - setupM;
+    if (gap < MIN_SETUP_GAP_MINS) {
+      const detail =
+        gap <= 0
+          ? "Right now setup is at or after the start."
+          : `Right now there's only a ${gap} min gap.`;
+      return `Setup / delivery time (${effectiveSetupTime}) must be at least ${MIN_SETUP_GAP_MINS} minutes before the start time (${eventTime}). ${detail} The team has to arrive and set up before guests do.`;
+    }
+    return null;
+  }, [eventTime, effectiveSetupTime]);
+
   // ── Pre-fill: load lead when ?leadId=... ──────────────────────────
   // Deps include user.id so the effect re-runs once auth settles.
   // Without that, the first render fires while the session is still
@@ -871,6 +903,30 @@ function NewQuotePage() {
     return () => { cancelled = true; };
   }, [companyId, selectedKitchen?.id, selectedKitchen?.source]);
 
+  // ── Geocode fallback: address text -> lat/lng. ───────────────────
+  // The distance auto-fill needs venue coordinates. We only get those
+  // when the operator PICKS a Google suggestion. If the address was
+  // typed by hand, or loaded from a saved client/lead that never
+  // stored coordinates, lat/lng stay null and the distance field sits
+  // empty even though "we already have the address". This looks the
+  // coordinates up from the address text so the haversine below can
+  // run. No-op when coords are already known, the address is too short
+  // to resolve, or the Maps key isn't configured (geocodeAddress
+  // returns null and the operator types the distance manually).
+  useEffect(() => {
+    if (typeof venueLat === "number" && typeof venueLng === "number") return;
+    const addr = venueAddress.trim();
+    if (addr.length < 6) return;
+    let cancelled = false;
+    const handle = setTimeout(async () => {
+      const coords = await googleMapsService.geocodeAddress(addr);
+      if (cancelled || !coords) return;
+      setVenueLat(coords.lat);
+      setVenueLng(coords.lng);
+    }, 600);
+    return () => { cancelled = true; clearTimeout(handle); };
+  }, [venueAddress, venueLat, venueLng]);
+
   // ── Auto-distance from selected kitchen to venue (haversine). ────
   // Triggers whenever venueLat/Lng changes (set by AddressAutocomplete
   // on pick) OR the operator switches kitchen via the picker.
@@ -896,17 +952,28 @@ function NewQuotePage() {
         Math.cos(toRad(venueLat)) *
         Math.sin(dLng / 2) ** 2;
     const km = 2 * R * Math.asin(Math.sqrt(a));
+    const kmRounded = Number(km.toFixed(2));
+    // Collection is the same kitchen <-> venue leg as delivery (the
+    // team drives back to collect equipment), so it shares the exact
+    // same one-way distance. We have the address + kitchen coords, so
+    // fill BOTH automatically instead of making the operator retype
+    // the collection distance by hand.
     if (havInitRef.current) {
       // Real user-driven change: switching kitchen / picking new
       // address recomputes the distance + re-enables auto-fee.
-      setDeliveryDistance(Number(km.toFixed(2)));
+      setDeliveryDistance(kmRounded);
       setDeliveryFeeOverridden(false);
+      setCollectionDistance(kmRounded);
+      setCollectionFeeOverridden(false);
     } else {
       // First run after mount. For a NEW quote, set the computed
       // distance. For an EDITED quote, keep the SAVED distance so
       // reopening doesn't reset the fee to the auto value (Pic 64).
       havInitRef.current = true;
-      if (!fromQuoteId) setDeliveryDistance(Number(km.toFixed(2)));
+      if (!fromQuoteId) {
+        setDeliveryDistance(kmRounded);
+        setCollectionDistance(kmRounded);
+      }
     }
   }, [selectedKitchen?.id, selectedKitchen?.lat, selectedKitchen?.lng, venueLat, venueLng]);
 
@@ -1318,6 +1385,17 @@ function NewQuotePage() {
   const persistQuote = useCallback(async (override: { status?: string; sent_at?: string; __skipSentEmail?: boolean } = {}): Promise<string | null> => {
     if (!companyId || !user?.id) return null;
     if (!clientName) return null;          // never save an empty husk
+    // Time sanity gate: never persist a quote whose setup / delivery
+    // time isn't at least 30 min before the start. Blocks the explicit
+    // Save buttons (autosave skips silently - see the effect below).
+    if (setupTimeError) {
+      toast({
+        title: "Check the event times",
+        description: setupTimeError,
+        variant: "destructive",
+      });
+      return null;
+    }
     setSaving(true);
     try {
       const payload = buildPayload();
@@ -1716,7 +1794,7 @@ function NewQuotePage() {
     } finally {
       setSaving(false);
     }
-  }, [buildPayload, clientName, companyId, leadId, quoteId, router, toast, user?.id]);
+  }, [buildPayload, clientName, companyId, leadId, quoteId, router, toast, user?.id, setupTimeError]);
 
   // Auto-save: 1.5s debounced, only for active drafts with a name AND
   // an email. Audit (May 2026): the email check was on handleSaveDraft
@@ -1731,12 +1809,15 @@ function NewQuotePage() {
     if (!clientName) return;
     if (!email || !email.trim()) return;
     if (!dirtyRef.current) return;
+    // Don't autosave a quote with an invalid setup/start time - the
+    // inline error already flags it; persistQuote would just toast.
+    if (setupTimeError) return;
     const handle = setTimeout(() => {
       dirtyRef.current = false;
       persistQuote();
     }, AUTOSAVE_DELAY_MS);
     return () => clearTimeout(handle);
-  }, [status, clientName, menuItems, equipment, guestCount, surgePct, discountPct, discountFlat, deliveryFee, collectionFee, validUntil, eventName, eventDate, venueAddress, email, persistQuote]);
+  }, [status, clientName, menuItems, equipment, guestCount, surgePct, discountPct, discountFlat, deliveryFee, collectionFee, validUntil, eventName, eventDate, venueAddress, email, persistQuote, setupTimeError]);
 
   const handleSaveDraft = async () => {
     // No deal without email - the follow-up engine, invoice flow,
@@ -1994,7 +2075,7 @@ function NewQuotePage() {
               {isConvertedQuote ? (
                 <>
                   <div className="flex items-center gap-1">
-                    <Button variant="outline" onClick={handleSaveDraft} disabled={saving || !clientName}>
+                    <Button variant="outline" onClick={handleSaveDraft} disabled={saving || !clientName || !!setupTimeError}>
                       <Save className="w-4 h-4 mr-2" />
                       Save
                     </Button>
@@ -2003,7 +2084,7 @@ function NewQuotePage() {
                   <div className="flex items-center gap-1">
                     <Button
                       onClick={() => handleSend()}
-                      disabled={sending || saving || computed.total <= 0 || !email}
+                      disabled={sending || saving || computed.total <= 0 || !email || !!setupTimeError}
                       className="bg-gradient-to-r from-brand-primary to-brand-secondary"
                     >
                       {sending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
@@ -2015,7 +2096,7 @@ function NewQuotePage() {
               ) : (
                 <>
                   <div className="flex items-center gap-1">
-                    <Button variant="outline" onClick={handleSaveDraft} disabled={saving || !clientName}>
+                    <Button variant="outline" onClick={handleSaveDraft} disabled={saving || !clientName || !!setupTimeError}>
                       <Save className="w-4 h-4 mr-2" />
                       {status === "accepted" ? "Save" : "Save draft"}
                     </Button>
@@ -2031,7 +2112,7 @@ function NewQuotePage() {
                   <div className="flex items-center gap-1">
                     <Button
                       onClick={() => handleSend()}
-                      disabled={sending || saving || computed.total <= 0 || !email}
+                      disabled={sending || saving || computed.total <= 0 || !email || !!setupTimeError}
                       className="bg-gradient-to-r from-brand-primary to-brand-secondary"
                     >
                       {sending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
@@ -2120,9 +2201,14 @@ function NewQuotePage() {
                           Use suggested {suggestedSetupTime} ({deliveryBufferMins} min before start)
                         </button>
                       )}
-                      {setupTime && eventTime && setupTime !== suggestedSetupTime && (
+                      {!setupTimeError && setupTime && eventTime && setupTime !== suggestedSetupTime && (
                         <p className="text-[11px] text-slate-500 mt-1">
                           Custom setup time · {setupTime} arrival for {eventTime} start
+                        </p>
+                      )}
+                      {setupTimeError && (
+                        <p className="text-[11px] text-red-600 font-medium mt-1">
+                          {setupTimeError}
                         </p>
                       )}
                     </div>

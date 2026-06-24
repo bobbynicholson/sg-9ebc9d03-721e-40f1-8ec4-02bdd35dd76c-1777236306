@@ -205,6 +205,40 @@ export const googleMapsService = {
     }
   },
 
+  /**
+   * Geocode a free-text address into lat/lng. Used when an address was
+   * typed by hand (or loaded from a saved client/lead that never stored
+   * coordinates) so the quote builder can still auto-fill the delivery +
+   * collection distance. Returns null when the Maps key isn't configured
+   * or the address can't be resolved - the caller keeps the field empty
+   * and the operator types the distance manually.
+   */
+  async geocodeAddress(address: string): Promise<{ lat: number; lng: number } | null> {
+    try {
+      await this.initializeGoogleMaps();
+      if (!(window as any).google) return null;
+
+      const geocoder = new (window as any).google.maps.Geocoder();
+      const result = await new Promise<any>((resolve, reject) => {
+        geocoder.geocode(
+          { address, componentRestrictions: { country: "za" } },
+          (results: any, status: any) => {
+            if (status === "OK" && results && results[0]) resolve(results[0]);
+            else reject(new Error(`Geocode failed: ${status}`));
+          }
+        );
+      });
+
+      return {
+        lat: result.geometry.location.lat(),
+        lng: result.geometry.location.lng(),
+      };
+    } catch (error) {
+      console.warn("Error geocoding address:", error);
+      return null;
+    }
+  },
+
   async calculateDistance(origin: string, destination: string): Promise<{
     distance: number;
     duration: number;
