@@ -196,6 +196,13 @@ export async function renderBrandedEmailHtml(opts: BrandedEmailOptions): Promise
   };
 
   const primary = normalisedColor(brand.primary_color, "#0f172a");
+  // Raj (2026-06-25): client emails must carry the SAME brand identity
+  // as the client portal. The portal header is a primary -> secondary
+  // gradient with white text (ClientPageHeader), and the CTA uses the
+  // accent. Mirror exactly that here so a multi-colour brand (e.g. Spit
+  // Braai's red/green/blue) shows its full combination, not just one
+  // colour. secondary_color was previously read but never used.
+  const secondary = normalisedColor(brand.secondary_color, primary);
   // TIGHTEN I.126: prefer the accent colour for the CTA so the email
   // doesn't read as one big block of the primary brand colour. When
   // accent and primary are equal (or both null), fall back to primary
@@ -203,6 +210,16 @@ export async function renderBrandedEmailHtml(opts: BrandedEmailOptions): Promise
   const accentRaw   = normalisedColor(brand.accent_color, primary);
   const accent      = accentRaw === primary ? primary : accentRaw;
   const ctaTextColor = isLight(accent) ? "#0f172a" : "#ffffff";
+  // Header text flips to near-black on a light brand colour so it stays
+  // readable; white on the usual saturated brand colours.
+  const headerTextColor = isLight(primary) ? "#0f172a" : "#ffffff";
+  // Gradient header to match the portal. Falls back to a flat primary
+  // when the tenant only set one colour, and Outlook (no gradient
+  // support) reads the bgcolor/background-color flat primary anyway.
+  const headerGradient =
+    secondary !== primary
+      ? `linear-gradient(135deg, ${primary} 0%, ${secondary} 100%)`
+      : primary;
   const companyName  = (brand.company_name || "").trim() || "Your catering team";
 
   const stripped = stripDocumentTags(body);
@@ -283,10 +300,10 @@ ${preheaderHtml}
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#f1f5f9;padding:24px 0;">
   <tr>
     <td align="left" style="padding:0 12px;">
-      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" class="cms-card" style="max-width:600px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(15,23,42,0.06);border-top:3px solid ${primary};">
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" class="cms-card" style="max-width:600px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(15,23,42,0.06);">
         <tr>
-          <td class="cms-header" style="padding:20px 24px 4px 24px;text-align:left;">
-            <div class="cms-header-name" style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:13px;font-weight:600;color:${primary};letter-spacing:2px;text-transform:uppercase;line-height:1.4;mso-line-height-rule:exactly;">
+          <td class="cms-header" bgcolor="${primary}" style="padding:24px;text-align:left;background-color:${primary};background-image:${headerGradient};">
+            <div class="cms-header-name" style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:20px;font-weight:700;color:${headerTextColor};letter-spacing:0.3px;line-height:1.3;mso-line-height-rule:exactly;">
               ${companyName}
             </div>
           </td>
