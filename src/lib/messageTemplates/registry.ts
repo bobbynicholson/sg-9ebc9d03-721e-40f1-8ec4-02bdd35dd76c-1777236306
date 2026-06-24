@@ -452,12 +452,12 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     group: "Quote",
     label: "Quote just sent",
     description: "First send of a fresh quote.",
-    defaultSubject: "{{event_name}} quote from {{tenant_name}} - {{total_zar}}",
+    defaultSubject: "Your {{event_name}} quote from {{tenant_name}} - {{total_zar}}",
     defaultBody:
       `Hi {{first_name}},\n\n` +
-      `Thanks for the opportunity to quote you. Your quote {{quote_number}} for {{event_name}} on {{event_date}} is ready - the total is {{total}} including VAT.\n\n` +
-      `View and accept the quote here:\n{{quote_url}}\n\n` +
-      `Have a look and let me know if anything needs changing. Happy to walk through the menu options on a quick call.\n\nBest,\n{{from_name}}`,
+      `Thank you for the opportunity to quote on {{event_name}}. Your quote {{quote_number}} is ready, and the total comes to {{total}} including VAT.\n\n` +
+      `You can view the full breakdown and accept your quote here:\n{{quote_url}}\n\n` +
+      `Please have a look when you get a chance and let me know if anything needs changing. I am happy to adjust the menu or talk through the options on a quick call.\n\nKind regards,\n{{from_name}}\n{{tenant_name}}`,
     variables: QUOTE_VARS,
   },
   {
@@ -467,12 +467,12 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     group: "Quote",
     label: "Revised quote",
     description: "After a quote is updated.",
-    defaultSubject: "Revised {{event_name}} quote - {{total_zar}}",
+    defaultSubject: "Your revised {{event_name}} quote - {{total_zar}}",
     defaultBody:
       `Hi {{first_name}},\n\n` +
-      `I have revised the quote based on what we last spoke about. The total is now {{total}}.\n\n` +
-      `View the updated quote here:\n{{quote_url}}\n\n` +
-      `Have a quick look when you can and shout if anything still needs tweaking.\n\nBest,\n{{from_name}}`,
+      `Thank you for your patience. I have updated your quote {{quote_number}} for {{event_name}} based on what we last discussed, and the new total comes to {{total}} including VAT.\n\n` +
+      `You can view the updated quote here:\n{{quote_url}}\n\n` +
+      `Please take a look when you can and let me know if anything still needs tweaking. Happy to make further changes.\n\nKind regards,\n{{from_name}}\n{{tenant_name}}`,
     variables: QUOTE_VARS,
   },
   {
