@@ -482,7 +482,7 @@ export default function KitchenStockPage() {
               </div>
               <Button
                 onClick={() => { setPushResult(null); setPushOpen(true); }}
-                className="bg-amber-600 hover:bg-amber-700 text-white"
+                className="bg-brand-primary hover:opacity-90 text-white"
                 disabled={pushing}
               >
                 <ShoppingCart className="w-4 h-4 mr-2" />
@@ -534,10 +534,10 @@ export default function KitchenStockPage() {
                 </Select>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <Button size="sm" variant={recipeLinkedOnly ? "default" : "outline"} onClick={() => setRecipeLinkedOnly((v) => !v)} className={recipeLinkedOnly ? "bg-amber-600 hover:bg-amber-700 text-white" : ""}>
+                <Button size="sm" variant={recipeLinkedOnly ? "default" : "outline"} onClick={() => setRecipeLinkedOnly((v) => !v)} className={recipeLinkedOnly ? "bg-brand-primary hover:opacity-90 text-white" : ""}>
                   <ChefHat className="h-4 w-4 mr-2" />In recipes
                 </Button>
-                <Button size="sm" variant={belowParOnly ? "default" : "outline"} onClick={() => setBelowParOnly((v) => !v)} className={belowParOnly ? "bg-amber-600 hover:bg-amber-700 text-white" : ""}>
+                <Button size="sm" variant={belowParOnly ? "default" : "outline"} onClick={() => setBelowParOnly((v) => !v)} className={belowParOnly ? "bg-brand-primary hover:opacity-90 text-white" : ""}>
                   <AlertTriangle className="h-4 w-4 mr-2" />Below par
                 </Button>
                 {/* KS-A: sort selector. Default is alphabetical
@@ -624,7 +624,7 @@ export default function KitchenStockPage() {
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-medium text-slate-900 dark:text-white truncate">{i.item_name}</span>
                             {recipeLinkedIds.has(i.id) && (
-                              <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900 inline-flex items-center gap-1">
+                              <Badge variant="outline" className="text-[10px] bg-brand-primary/10 text-brand-primary border-brand-primary/20 dark:bg-brand-primary/20 dark:text-brand-primary inline-flex items-center gap-1">
                                 <ChefHat className="w-2.5 h-2.5" />in recipes
                               </Badge>
                             )}
@@ -780,10 +780,10 @@ export default function KitchenStockPage() {
               onClick={saveUsage}
               disabled={saving || !usedQty}
               className={
-                action === "received" ? "bg-amber-600 hover:bg-amber-700 text-white" :
-                action === "wasted" ? "bg-amber-600 hover:bg-amber-700 text-white" :
+                action === "received" ? "bg-brand-primary hover:opacity-90 text-white" :
+                action === "wasted" ? "bg-brand-primary hover:opacity-90 text-white" :
                 action === "count" ? "bg-slate-700 hover:bg-slate-800 text-white" :
-                                     "bg-amber-600 hover:bg-amber-700 text-white"
+                                     "bg-brand-primary hover:opacity-90 text-white"
               }
             >
               {saving ? <><Loader2 className="h-4 w-4 mr-2 animate-spin motion-reduce:animate-none" /> Saving</> :
@@ -803,7 +803,7 @@ export default function KitchenStockPage() {
         <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <ShoppingCart className="w-5 h-5 text-amber-700 dark:text-amber-400" />
+              <ShoppingCart className="w-5 h-5 text-slate-400 dark:text-slate-500" />
               {pushResult ? "Shopping list created" : "Push below-par items to shopping"}
             </DialogTitle>
             <DialogDescription>
@@ -830,7 +830,7 @@ export default function KitchenStockPage() {
                 </Button>
                 <a
                   href={user?.company_slug ? `/${user.company_slug}/team-portal/shopping` : "/team-portal/shopping"}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-md bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-md bg-brand-primary hover:opacity-90 text-white text-sm font-medium"
                 >
                   <ShoppingCart className="w-4 h-4" />
                   Open shopping
@@ -865,7 +865,7 @@ export default function KitchenStockPage() {
                 <Button
                   onClick={handlePushToShopping}
                   disabled={pushing || belowParItems.length === 0}
-                  className="bg-amber-600 hover:bg-amber-700 text-white"
+                  className="bg-brand-primary hover:opacity-90 text-white"
                 >
                   {pushing ? <><Loader2 className="w-4 h-4 mr-2 animate-spin motion-reduce:animate-none" />Pushing</> : <><ShoppingCart className="w-4 h-4 mr-2" />Push {belowParItems.length} item{belowParItems.length === 1 ? "" : "s"}</>}
                 </Button>

@@ -13,6 +13,7 @@ import { formatDistanceToNow } from "date-fns";
 import { effectivePriority, isStaleNotification, STALE_NOTIFICATION_DAYS } from "@/lib/notificationDisplay";
 import { PortalShell, PortalHeader, PortalCard } from "@/components/portal/ui";
 import { useTenantHref } from "@/lib/tenantUrl";
+import { cn } from "@/lib/utils";
 
 interface Notification {
   id: string;
@@ -42,7 +43,7 @@ const priorityTone = (p?: string | null) => {
   if (p === "critical" || p === "urgent" || p === "high") return "text-rose-500";
   if (p === "medium" || p === "warning") return "text-amber-500";
   if (p === "success") return "text-emerald-500";
-  return "text-blue-500";
+  return "text-slate-400 dark:text-slate-500";
 };
 
 export default function KitchenNotificationsPage() {
@@ -195,11 +196,11 @@ export default function KitchenNotificationsPage() {
             }
           />
 
-          <div className="flex gap-2 mb-4">
-            <Button variant={tab === "all" ? "default" : "outline"} size="sm" onClick={() => setTab("all")} className={tab === "all" ? "bg-amber-600 hover:bg-amber-700 text-white" : ""}>
+          <div className="flex w-full gap-1 overflow-x-auto mb-4">
+            <Button variant={tab === "all" ? "default" : "outline"} size="sm" onClick={() => setTab("all")} className={cn("flex-1 justify-center min-w-[120px] whitespace-nowrap", tab === "all" && "bg-brand-primary hover:opacity-90 text-white")}>
               All
             </Button>
-            <Button variant={tab === "unread" ? "default" : "outline"} size="sm" onClick={() => setTab("unread")} className={tab === "unread" ? "bg-amber-600 hover:bg-amber-700 text-white" : ""}>
+            <Button variant={tab === "unread" ? "default" : "outline"} size="sm" onClick={() => setTab("unread")} className={cn("flex-1 justify-center min-w-[120px] whitespace-nowrap", tab === "unread" && "bg-brand-primary hover:opacity-90 text-white")}>
               Unread {unreadCount > 0 && <span className="ml-1.5 bg-white/20 px-1.5 rounded text-[10px] tabular-nums">{unreadCount}</span>}
             </Button>
           </div>
@@ -258,7 +259,7 @@ export default function KitchenNotificationsPage() {
                               <button
                                 type="button"
                                 onClick={() => openLink(n)}
-                                className="text-[11px] text-amber-700 dark:text-amber-400 hover:underline underline-offset-2"
+                                className="text-[11px] text-brand-primary hover:opacity-80 hover:underline underline-offset-2"
                               >
                                 Open
                               </button>
