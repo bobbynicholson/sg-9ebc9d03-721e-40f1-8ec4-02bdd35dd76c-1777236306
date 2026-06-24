@@ -2036,7 +2036,78 @@ function NewQuotePage() {
       <AdminNav />
 
       <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
-        <div className="px-4 py-8 pb-28 max-w-full">
+        <div className="px-4 py-8 max-w-full">
+          {/* Sticky action bar (Raj, 2026-06-25): pinned to the TOP so
+              the live quote total + Save buttons stay in view as the
+              operator scrolls down a long quote. In-flow `sticky` (not
+              fixed) so it never overlaps content and clears the mobile
+              nav header (top-14) while sitting flush on desktop. The
+              total updates dynamically; tapping it drops the same price
+              breakdown as the Running total card (shared
+              renderTotalsBreakdown - they can't disagree). */}
+          <div className="sticky top-14 lg:top-4 z-30 mb-4">
+            <div className="relative">
+              <div className="rounded-xl border border-slate-200 bg-white/95 backdrop-blur shadow-lg px-4 py-2.5 flex items-center justify-between gap-3">
+                <button
+                  type="button"
+                  onClick={() => setBreakdownOpen((v) => !v)}
+                  className="flex items-center gap-2 min-w-0 text-left"
+                >
+                  <span className="p-2 rounded-lg bg-gradient-to-br from-brand-primary to-brand-secondary flex-shrink-0">
+                    <Banknote className="w-4 h-4 text-white" />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-[11px] text-slate-500 leading-tight">
+                      Quote total{pricingIncludesVat || taxRate > 0 ? " incl. VAT" : ""} · tap for breakdown
+                    </span>
+                    <span className="flex items-center gap-1 font-bold text-lg text-slate-900 leading-tight">
+                      {fmtR(computed.total)}
+                      {breakdownOpen ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+                    </span>
+                  </span>
+                </button>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleSaveDraft}
+                    disabled={saving || !clientName || !!setupTimeError}
+                  >
+                    {saving ? <Loader2 className="w-4 h-4 sm:mr-2 animate-spin" /> : <Save className="w-4 h-4 sm:mr-2" />}
+                    <span className="hidden sm:inline">
+                      {isConvertedQuote || status === "accepted" ? "Save" : "Save draft"}
+                    </span>
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={() => handleSend()}
+                    disabled={sending || saving || computed.total <= 0 || !email || !!setupTimeError}
+                    className="bg-gradient-to-r from-brand-primary to-brand-secondary"
+                  >
+                    {sending ? <Loader2 className="w-4 h-4 sm:mr-2 animate-spin" /> : <Send className="w-4 h-4 sm:mr-2" />}
+                    <span className="hidden sm:inline">{isConvertedQuote ? "Save & Notify" : "Save & Send"}</span>
+                  </Button>
+                </div>
+              </div>
+              {breakdownOpen && (
+                <div className="absolute left-0 top-full mt-2 w-full max-w-sm rounded-xl border border-slate-200 bg-white/95 backdrop-blur shadow-2xl p-4 space-y-1.5 text-sm max-h-[55vh] overflow-y-auto z-10">
+                  <div className="flex items-center justify-between mb-1">
+                    <p className="font-semibold text-slate-900">Why this price</p>
+                    <button
+                      type="button"
+                      onClick={() => setBreakdownOpen(false)}
+                      className="text-slate-400 hover:text-slate-600"
+                      aria-label="Close breakdown"
+                    >
+                      <ChevronUp className="w-4 h-4" />
+                    </button>
+                  </div>
+                  {renderTotalsBreakdown()}
+                </div>
+              )}
+            </div>
+          </div>
+
           <Link href={withSlug("/admin/quotes")}>
             <Button variant="ghost" className="mb-4 text-sm">
               <ArrowLeft className="w-4 h-4 mr-2" />
@@ -3183,79 +3254,6 @@ function NewQuotePage() {
         </div>
 
         <Footer />
-      </div>
-
-      {/* Sticky action bar (Raj, 2026-06-25): the live quote total +
-          Save buttons follow the operator down the page so they never
-          have to scroll back to the top toolbar while building a long
-          quote. The total updates dynamically as items are added, and
-          tapping it expands the same price breakdown as the Running
-          total card (shared renderTotalsBreakdown - the two can't
-          disagree). Outer layer is pointer-events-none so the empty
-          strip doesn't block clicks on the content behind it. */}
-      <div className="fixed bottom-0 left-0 right-0 z-40 lg:pl-72 xl:pl-80 pointer-events-none">
-        <div className="px-4 pb-4">
-          <div className="pointer-events-auto">
-            {breakdownOpen && (
-              <div className="mb-2 ml-auto max-w-sm rounded-xl border border-slate-200 bg-white/95 backdrop-blur shadow-2xl p-4 space-y-1.5 text-sm max-h-[55vh] overflow-y-auto">
-                <div className="flex items-center justify-between mb-1">
-                  <p className="font-semibold text-slate-900">Why this price</p>
-                  <button
-                    type="button"
-                    onClick={() => setBreakdownOpen(false)}
-                    className="text-slate-400 hover:text-slate-600"
-                    aria-label="Close breakdown"
-                  >
-                    <ChevronDown className="w-4 h-4" />
-                  </button>
-                </div>
-                {renderTotalsBreakdown()}
-              </div>
-            )}
-            <div className="rounded-xl border border-slate-200 bg-white/95 backdrop-blur shadow-2xl px-4 py-3 flex items-center justify-between gap-3">
-              <button
-                type="button"
-                onClick={() => setBreakdownOpen((v) => !v)}
-                className="flex items-center gap-2 min-w-0 text-left"
-              >
-                <span className="p-2 rounded-lg bg-gradient-to-br from-brand-primary to-brand-secondary flex-shrink-0">
-                  <Banknote className="w-4 h-4 text-white" />
-                </span>
-                <span className="min-w-0">
-                  <span className="block text-[11px] text-slate-500 leading-tight">
-                    Quote total{pricingIncludesVat || taxRate > 0 ? " incl. VAT" : ""} · tap for breakdown
-                  </span>
-                  <span className="flex items-center gap-1 font-bold text-lg text-slate-900 leading-tight">
-                    {fmtR(computed.total)}
-                    {breakdownOpen ? <ChevronDown className="w-4 h-4 text-slate-400" /> : <ChevronUp className="w-4 h-4 text-slate-400" />}
-                  </span>
-                </span>
-              </button>
-              <div className="flex items-center gap-2 flex-shrink-0">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleSaveDraft}
-                  disabled={saving || !clientName || !!setupTimeError}
-                >
-                  {saving ? <Loader2 className="w-4 h-4 sm:mr-2 animate-spin" /> : <Save className="w-4 h-4 sm:mr-2" />}
-                  <span className="hidden sm:inline">
-                    {isConvertedQuote || status === "accepted" ? "Save" : "Save draft"}
-                  </span>
-                </Button>
-                <Button
-                  size="sm"
-                  onClick={() => handleSend()}
-                  disabled={sending || saving || computed.total <= 0 || !email || !!setupTimeError}
-                  className="bg-gradient-to-r from-brand-primary to-brand-secondary"
-                >
-                  {sending ? <Loader2 className="w-4 h-4 sm:mr-2 animate-spin" /> : <Send className="w-4 h-4 sm:mr-2" />}
-                  <span className="hidden sm:inline">{isConvertedQuote ? "Save & Notify" : "Save & Send"}</span>
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
 
       <ChatBot userRole="admin" companyId={companyId || undefined} />
