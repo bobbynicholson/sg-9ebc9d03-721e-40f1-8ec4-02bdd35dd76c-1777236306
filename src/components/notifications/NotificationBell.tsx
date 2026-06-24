@@ -298,8 +298,17 @@ export function NotificationBell() {
         align="start"
         collisionPadding={12}
         avoidCollisions
-        className="w-[calc(100vw-1.5rem)] max-w-[420px] sm:w-[420px] p-0"
-        sideOffset={8}
+        className={cn(
+          // Opens to the RIGHT of the bell so it sits clear of the sidebar.
+          // Strong shadow + rounded corners + ring so it reads as a distinct
+          // floating panel hovering above the dashboard, not something laid
+          // flat over the content. overflow-hidden keeps the rounded corners
+          // clean against the header / footer fills.
+          "w-[calc(100vw-1.5rem)] max-w-[420px] sm:w-[420px] p-0 overflow-hidden",
+          "rounded-2xl border border-slate-200/80 dark:border-slate-700/70",
+          "shadow-2xl ring-1 ring-black/5 dark:ring-white/10",
+        )}
+        sideOffset={10}
       >
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b bg-slate-50 dark:bg-slate-900">
