@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
-import { Bell, Check, X, Clock, AlertCircle, CheckCircle } from "lucide-react";
+import { Bell, Check, X, Clock, AlertCircle, CheckCircle, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -238,29 +238,30 @@ export function NotificationBell() {
     }
   };
 
+  // Soft tinted icon chip per priority - replaces the old heavy
+  // left-border bar. Each row gets a rounded icon "coin" whose tint
+  // signals urgency without shouting.
   const getPriorityIcon = (priority: string | null) => {
     switch (priority) {
       case "urgent":
-        return <AlertCircle className="h-4 w-4 text-rose-500" />;
       case "high":
-        return <AlertCircle className="h-4 w-4 text-rose-500" />;
+        return <AlertCircle className="h-4 w-4 text-rose-600 dark:text-rose-400" />;
       case "medium":
-        return <Bell className="h-4 w-4 text-slate-400" />;
+        return <Bell className="h-4 w-4 text-amber-600 dark:text-amber-400" />;
       default:
-        return <Bell className="h-4 w-4 text-slate-400" />;
+        return <Bell className="h-4 w-4 text-slate-500 dark:text-slate-400" />;
     }
   };
 
-  const getPriorityColor = (priority: string | null) => {
+  const getPriorityIconBg = (priority: string | null) => {
     switch (priority) {
       case "urgent":
-        return "border-l-rose-500";
       case "high":
-        return "border-l-rose-400";
+        return "bg-rose-50 dark:bg-rose-950/40";
       case "medium":
-        return "border-l-slate-300";
+        return "bg-amber-50 dark:bg-amber-950/40";
       default:
-        return "border-l-slate-200 dark:border-l-slate-700";
+        return "bg-slate-100 dark:bg-slate-800";
     }
   };
 
@@ -311,52 +312,52 @@ export function NotificationBell() {
         sideOffset={10}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b bg-slate-50 dark:bg-slate-900">
-          <div className="flex items-center gap-2">
-            <Bell className="h-5 w-5 text-slate-700 dark:text-slate-300" />
-            <h3 className="font-semibold text-slate-900 dark:text-white">
-              Notifications
-            </h3>
-            {unreadCount > 0 && (
-              <Badge className="text-xs bg-brand-primary text-white border-transparent">
-                {unreadCount} new
-              </Badge>
-            )}
+        <div className="flex items-center justify-between gap-2 px-4 py-3.5 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-950">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-brand-primary/10">
+              <Bell className="h-4 w-4 text-brand-primary" />
+            </div>
+            <div className="min-w-0">
+              <h3 className="text-sm font-semibold text-slate-900 dark:text-white leading-none">
+                Notifications
+              </h3>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 truncate">
+                {unreadCount > 0
+                  ? `${unreadCount} unread message${unreadCount === 1 ? "" : "s"}`
+                  : "You're all caught up"}
+              </p>
+            </div>
           </div>
-          <div className="flex items-center gap-1">
-            {unreadCount > 0 && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleMarkAllAsRead}
-                className="h-7 text-xs"
-              >
-                <CheckCircle className="h-3 w-3 mr-1" />
-                Mark all read
-              </Button>
-            )}
-          </div>
+          {unreadCount > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleMarkAllAsRead}
+              className="h-7 flex-shrink-0 text-xs text-brand-primary hover:bg-brand-primary/10 hover:text-brand-primary"
+            >
+              <CheckCircle className="h-3.5 w-3.5 mr-1" />
+              Mark all read
+            </Button>
+          )}
         </div>
 
         {/* Notifications List */}
-        <ScrollArea className="h-[400px]">
+        <ScrollArea className="h-[420px] bg-slate-50/60 dark:bg-slate-950/40">
           {loading ? (
-            <div className="flex items-center justify-center py-12 text-slate-600">
-              <div className="text-center">
-                <Clock className="h-8 w-8 mx-auto mb-2 animate-pulse" />
-                <p className="text-sm">Loading notifications...</p>
-              </div>
+            <div className="flex flex-col items-center justify-center py-16 text-slate-500">
+              <Clock className="h-7 w-7 mb-3 animate-pulse text-slate-400" />
+              <p className="text-sm">Loading notifications...</p>
             </div>
           ) : visibleNotifications.length === 0 ? (
-            <div className="flex items-center justify-center py-12 text-slate-600">
-              <div className="text-center">
-                <Bell className="h-12 w-12 mx-auto mb-3 text-slate-300" />
-                <p className="font-medium mb-1">No notifications</p>
-                <p className="text-sm text-slate-500">You're all caught up!</p>
+            <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
+              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-brand-primary/10 mb-4">
+                <Bell className="h-7 w-7 text-brand-primary" />
               </div>
+              <p className="font-semibold text-slate-900 dark:text-white mb-1">No notifications</p>
+              <p className="text-sm text-slate-500 dark:text-slate-400">You're all caught up.</p>
             </div>
           ) : (
-            <div className="divide-y divide-slate-200 dark:divide-slate-700">
+            <div className="divide-y divide-slate-100 dark:divide-slate-800">
               {visibleNotifications.map((notification) => {
                 // Wave 24: degrade displayed priority on stale rows so a
                 // 19-day-old "URGENT" doesn't keep glowing red in the
@@ -371,75 +372,79 @@ export function NotificationBell() {
                   key={notification.id}
                   onClick={() => handleNotificationClick(notification)}
                   className={cn(
-                    "relative px-4 py-3 transition-colors border-l-4 cursor-pointer",
+                    "group relative flex gap-3 px-4 py-3.5 cursor-pointer transition-colors",
                     !notification.is_read
-                      ? "bg-brand-primary/5 dark:bg-brand-primary/10 hover:bg-brand-primary/10 dark:hover:bg-brand-primary/20"
-                      : "hover:bg-slate-50 dark:hover:bg-slate-800",
-                    getPriorityColor(displayedPriority)
+                      ? "bg-white hover:bg-brand-primary/[0.04] dark:bg-slate-900 dark:hover:bg-brand-primary/10"
+                      : "hover:bg-white dark:hover:bg-slate-900/60",
                   )}
                 >
-                  <div className="flex items-start gap-3">
-                    <div className="mt-0.5 flex-shrink-0">
-                      {getPriorityIcon(displayedPriority)}
-                    </div>
-                    
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-2 mb-1">
-                        <h4
-                          className={cn(
-                            "text-sm font-medium leading-tight",
-                            !notification.is_read
-                              ? "text-slate-900 dark:text-white"
-                              : "text-slate-700 dark:text-slate-300"
-                          )}
-                        >
-                          {notification.title}
-                        </h4>
-                        <div className="flex items-center gap-1 flex-shrink-0">
-                          {!notification.is_read && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-6 w-6 hover:bg-brand-primary/10 dark:hover:bg-brand-primary/20"
-                              onClick={(e) => handleMarkAsRead(notification.id, e)}
-                            >
-                              <Check className="h-3 w-3" />
-                            </Button>
-                          )}
+                  {/* Unread accent rail */}
+                  {!notification.is_read && (
+                    <span className="absolute left-0 top-0 bottom-0 w-[3px] bg-brand-primary" />
+                  )}
+
+                  {/* Priority icon coin */}
+                  <div
+                    className={cn(
+                      "mt-0.5 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full",
+                      getPriorityIconBg(displayedPriority),
+                    )}
+                  >
+                    {getPriorityIcon(displayedPriority)}
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between gap-2">
+                      <h4
+                        className={cn(
+                          "text-[13px] leading-snug pr-1",
+                          !notification.is_read
+                            ? "font-semibold text-slate-900 dark:text-white"
+                            : "font-medium text-slate-600 dark:text-slate-300",
+                        )}
+                      >
+                        {notification.title}
+                      </h4>
+                      {/* Row actions - hidden until hover so the row stays calm */}
+                      <div className="flex items-center gap-0.5 flex-shrink-0 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+                        {!notification.is_read && (
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-6 w-6 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:text-slate-500 dark:hover:bg-rose-950/40"
-                            onClick={(e) => handleDelete(notification.id, e)}
+                            aria-label="Mark as read"
+                            className="h-6 w-6 text-slate-400 hover:text-brand-primary hover:bg-brand-primary/10"
+                            onClick={(e) => handleMarkAsRead(notification.id, e)}
                           >
-                            <X className="h-3 w-3" />
+                            <Check className="h-3.5 w-3.5" />
                           </Button>
-                        </div>
-                      </div>
-                      
-                      <p className="text-xs text-slate-600 dark:text-slate-400 mb-2 line-clamp-2">
-                        {notification.message}
-                      </p>
-                      
-                      <div className="flex items-center gap-2 text-xs text-slate-500">
-                        <Clock className="h-3 w-3" />
-                        <span>
-                          {formatDistanceToNow(new Date(notification.created_at || ""), {
-                            addSuffix: true,
-                          })}
-                        </span>
-                        {notification.notification_type && (
-                          <>
-                            <span>•</span>
-                            <Badge variant="outline" className="text-xs px-1 py-0">
-                              {notification.notification_type.replace(/_/g, " ")}
-                            </Badge>
-                          </>
                         )}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          aria-label="Dismiss"
+                          className="h-6 w-6 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                          onClick={(e) => handleDelete(notification.id, e)}
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </Button>
                       </div>
-                      
-                      {!notification.is_read && (
-                        <div className="absolute top-3 right-3 w-2 h-2 bg-brand-primary rounded-full" />
+                    </div>
+
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-2 leading-relaxed">
+                      {notification.message}
+                    </p>
+
+                    <div className="flex items-center gap-1.5 mt-2 text-[11px] text-slate-400 dark:text-slate-500">
+                      <Clock className="h-3 w-3 flex-shrink-0" />
+                      <span className="whitespace-nowrap">
+                        {formatDistanceToNow(new Date(notification.created_at || ""), {
+                          addSuffix: true,
+                        })}
+                      </span>
+                      {notification.notification_type && (
+                        <span className="ml-1 inline-flex items-center rounded-full bg-slate-100 dark:bg-slate-800 px-2 py-0.5 text-[10px] font-medium text-slate-500 dark:text-slate-400 capitalize truncate">
+                          {notification.notification_type.replace(/_/g, " ")}
+                        </span>
                       )}
                     </div>
                   </div>
@@ -452,13 +457,14 @@ export function NotificationBell() {
 
         {/* Footer */}
         {visibleNotifications.length > 0 && (
-          <div className="border-t p-2 bg-slate-50 dark:bg-slate-900">
+          <div className="border-t border-slate-100 dark:border-slate-800 p-2 bg-white dark:bg-slate-950">
             <Button
               variant="ghost"
-              className="w-full text-sm text-brand-primary hover:opacity-80 hover:bg-brand-primary/5 dark:hover:bg-brand-primary/10"
+              className="w-full h-9 text-sm font-medium text-brand-primary hover:bg-brand-primary/10 hover:text-brand-primary"
               onClick={handleViewAll}
             >
               View all notifications
+              <ChevronRight className="h-4 w-4 ml-1" />
             </Button>
           </div>
         )}
