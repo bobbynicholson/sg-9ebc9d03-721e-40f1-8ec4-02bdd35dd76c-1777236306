@@ -237,10 +237,10 @@ export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venue
   };
 
   return (
-    <Card className="border-2 border-brand-primary/20">
+    <Card className="border-2 border-brand-accent/20">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Truck className="h-5 w-5 text-brand-primary" />
+          <Truck className="h-5 w-5 text-brand-accent" />
           Delivery Checklist - Order #{orderNumber}
         </CardTitle>
         <CardDescription>

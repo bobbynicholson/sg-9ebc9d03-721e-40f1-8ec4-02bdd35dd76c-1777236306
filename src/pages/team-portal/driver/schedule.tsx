@@ -130,7 +130,7 @@ export default function DriverSchedulePage() {
                           className={`flex flex-col md:flex-row md:items-center md:justify-between gap-3 p-5 ${i > 0 ? "border-t border-slate-100 dark:border-slate-800" : ""} hover:bg-slate-50 dark:hover:bg-slate-800/50`}
                         >
                           <div className="flex items-start gap-3 flex-1 min-w-0">
-                            <div className="w-12 h-12 rounded-xl bg-brand-primary/10 text-brand-primary border border-brand-primary/20 dark:bg-brand-primary/20 dark:text-brand-primary flex flex-col items-center justify-center text-xs flex-shrink-0">
+                            <div className="w-12 h-12 rounded-xl bg-brand-accent/10 text-brand-accent border border-brand-accent/20 dark:bg-brand-accent/20 dark:text-brand-accent flex flex-col items-center justify-center text-xs flex-shrink-0">
                               <span className="font-bold leading-none tabular-nums">
                                 {new Date(o.event_date).toLocaleDateString("en-ZA", { day: "numeric" })}
                               </span>
@@ -171,7 +171,7 @@ export default function DriverSchedulePage() {
                                 )}
                                 <Link
                                   href={withSlug(staffOrderHref(o.id, "driver"))}
-                                  className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-brand-primary/30 bg-brand-primary/5 hover:bg-brand-primary/10 text-brand-primary font-semibold min-h-[32px]"
+                                  className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-brand-accent/30 bg-brand-accent/5 hover:bg-brand-accent/10 text-brand-accent font-semibold min-h-[32px]"
                                   title="Open the driver brief for this order"
                                 >
                                   <ExternalLink className="w-3.5 h-3.5" />
