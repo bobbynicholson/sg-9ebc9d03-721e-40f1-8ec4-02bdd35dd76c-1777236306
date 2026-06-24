@@ -1105,7 +1105,7 @@ export default function KitchenDashboard() {
                             eat. */}
                         <div className="flex items-start justify-between gap-2 sm:gap-3">
                           <div className="flex items-start gap-2 sm:gap-3 flex-1 min-w-0">
-                            <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-amber-600 text-white flex items-center justify-center font-bold flex-shrink-0 text-xs sm:text-base mt-0.5">
+                            <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-brand-primary text-white flex items-center justify-center font-bold flex-shrink-0 text-xs sm:text-base mt-0.5 shadow-sm">
                               {index + 1}
                             </div>
                             <div className="min-w-0 flex-1">
@@ -1115,7 +1115,7 @@ export default function KitchenDashboard() {
                               <p className="text-xs text-slate-600 dark:text-slate-400">
                                 {order.guest_count} guests • Eat {eventTime}
                                 {(order as any).pickup_time && (
-                                  <span className="ml-1 text-amber-700 dark:text-amber-400 font-medium">
+                                  <span className="ml-1 text-brand-primary font-medium">
                                     · Collect {String((order as any).pickup_time).slice(0, 5)}
                                   </span>
                                 )}
@@ -1148,7 +1148,7 @@ export default function KitchenDashboard() {
                                 reachable via the small printer icon. */}
                             <Link
                               href={withSlug(staffOrderHref(order.id, "kitchen_staff"))}
-                              className="inline-flex items-center justify-center gap-1.5 min-h-11 px-3 rounded-md text-sm font-semibold bg-amber-600 text-white hover:bg-amber-700 transition-colors duration-150 shadow-sm"
+                              className="inline-flex items-center justify-center gap-1.5 min-h-11 px-3 rounded-md text-sm font-semibold bg-brand-primary text-white hover:opacity-90 transition-opacity duration-150 shadow-sm"
                               title="Open the full order document"
                             >
                               <ChefHat className="w-4 h-4" />
@@ -1441,9 +1441,9 @@ export default function KitchenDashboard() {
               isSoon ? "Starts soon" :
                        "Plenty of time";
             const tone =
-              isLate ? "bg-rose-50 dark:bg-rose-950/30 border-l-rose-500" :
-              isSoon ? "bg-amber-50 dark:bg-amber-950/30 border-l-amber-500" :
-                       "bg-emerald-50 dark:bg-emerald-950/30 border-l-emerald-500";
+              isLate ? "bg-gradient-to-br from-rose-50 to-white dark:from-rose-950/40 dark:to-slate-900 border-l-rose-500" :
+              isSoon ? "bg-gradient-to-br from-amber-50 to-white dark:from-amber-950/40 dark:to-slate-900 border-l-amber-500" :
+                       "bg-gradient-to-br from-emerald-50 to-white dark:from-emerald-950/40 dark:to-slate-900 border-l-emerald-500";
             const statusTone =
               isLate ? "bg-rose-600 text-white" :
               isSoon ? "bg-amber-600 text-white" :
@@ -1452,26 +1452,32 @@ export default function KitchenDashboard() {
               isLate ? "text-rose-500 dark:text-rose-400" :
               isSoon ? "text-amber-500 dark:text-amber-400" :
                        "text-emerald-500 dark:text-emerald-400";
+            const tileTone =
+              isLate ? "bg-rose-100/80 dark:bg-rose-500/15" :
+              isSoon ? "bg-amber-100/80 dark:bg-amber-500/15" :
+                       "bg-emerald-100/80 dark:bg-emerald-500/15";
             return (
-              <PortalCard padded={false} className={`mb-4 sm:mb-6 border-l-4 ${tone}`}>
-                <div className="p-4 sm:p-5 flex items-center justify-between gap-4">
+              <PortalCard padded={false} className={`mb-4 sm:mb-6 overflow-hidden border-l-4 ${tone}`}>
+                <div className="p-4 sm:p-6 flex items-center justify-between gap-4">
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 mb-1.5">
+                    <div className="flex items-center gap-2 mb-2">
                       <p className="text-xs uppercase tracking-wide text-slate-600 dark:text-slate-400 font-semibold">Next pickup</p>
                       <span className={`text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-full ${statusTone}`}>
                         {statusWord}
                       </span>
                     </div>
-                    <p className="text-2xl sm:text-3xl font-semibold text-slate-900 dark:text-white leading-tight">
+                    <p className="text-3xl sm:text-4xl font-bold tracking-tight text-slate-900 dark:text-white leading-none">
                       {when.dayLabel} <span className="tabular-nums">{when.timeLabel}</span>
                     </p>
-                    <p className="text-sm text-slate-600 dark:text-slate-300 mt-1 truncate">
+                    <p className="text-sm text-slate-600 dark:text-slate-300 mt-2 truncate">
                       <span className="font-medium text-slate-700 dark:text-slate-200">{nextPickup.eventName}</span>
                       {nextPickup.client && <span className="text-slate-500 dark:text-slate-400">, {nextPickup.client}</span>}
                     </p>
                     <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">{away}</p>
                   </div>
-                  <Clock className={`w-10 h-10 sm:w-12 sm:h-12 shrink-0 ${iconTone}`} />
+                  <span className={`flex h-14 w-14 sm:h-16 sm:w-16 shrink-0 items-center justify-center rounded-2xl ${tileTone}`}>
+                    <Clock className={`w-7 h-7 sm:w-8 sm:h-8 ${iconTone}`} />
+                  </span>
                 </div>
               </PortalCard>
             );
@@ -1691,7 +1697,7 @@ export default function KitchenDashboard() {
                             return (
                               <div
                                 key={order.id}
-                                className={`p-3 rounded-md border-l-4 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:shadow transition-shadow duration-150 ${tone}`}
+                                className={`p-3 rounded-lg border-l-4 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:-translate-y-0.5 hover:shadow-md hover:border-slate-300 dark:hover:border-slate-600 transition-[box-shadow,transform,border-color] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] ${tone}`}
                               >
                                 {/* Wave 70.18 - card title block + order
                                     number. No longer a tiny link --
@@ -1798,7 +1804,7 @@ export default function KitchenDashboard() {
                                 <div className="mt-2 grid grid-cols-[1fr_auto] gap-1.5">
                                   <Link
                                     href={withSlug(staffOrderHref(order.id, "kitchen_staff"))}
-                                    className="inline-flex items-center justify-center gap-1.5 min-h-11 px-3 rounded-md text-sm font-semibold bg-amber-600 text-white hover:bg-amber-700 transition-colors duration-150 shadow-sm"
+                                    className="inline-flex items-center justify-center gap-1.5 min-h-11 px-3 rounded-md text-sm font-semibold bg-brand-primary text-white hover:opacity-90 transition-opacity duration-150 shadow-sm"
                                     title="Open the full order document"
                                   >
                                     <ChefHat className="w-4 h-4" />
@@ -1824,7 +1830,7 @@ export default function KitchenDashboard() {
                                     just helps the right path. */}
                                 {col.key === "preparing" && (
                                   <Button
-                                    className="w-full mt-2 min-h-11 text-sm gap-1.5 bg-amber-600 hover:bg-amber-700"
+                                    className="w-full mt-2 min-h-11 text-sm gap-1.5 bg-brand-primary hover:opacity-90"
                                     onClick={() => handleMarkReady(order.id, order.client_name || order.event_name)}
                                   >
                                     <CheckCircle className="w-4 h-4" />
