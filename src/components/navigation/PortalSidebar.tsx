@@ -436,7 +436,13 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
                     </div>
                   </Link>
                   <div className="flex items-center gap-2 shrink-0">
-                    <NotificationBell />
+                    {/* Bell intentionally NOT in the desktop sidebar header.
+                        Clicking it popped a large dropdown that overlapped the
+                        dashboard content, and it duplicated the "Notifications"
+                        nav item (with its own unread badge) in the footer
+                        section. Desktop users open notifications via that nav
+                        row -> full notifications page. The bell stays in the
+                        mobile header where the nav item isn't always visible. */}
                     <ThemeSwitch />
                   </div>
                 </div>
@@ -450,7 +456,9 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
             ) : (
               <div className="flex flex-col items-center gap-3 w-full">
                 <LogoTile size="lg" />
-                <NotificationBell />
+                {/* See note above: no bell in the desktop rail. The collapsed
+                    footer still shows the Notifications nav icon + badge. */}
+                <ThemeSwitch />
               </div>
             )}
           </div>
