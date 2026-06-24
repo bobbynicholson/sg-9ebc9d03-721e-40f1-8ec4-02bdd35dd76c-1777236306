@@ -2949,6 +2949,55 @@ function NewQuotePage() {
             {/* Right column: sticky summary + preview */}
             <div className="lg:col-span-1">
               <div className="lg:sticky lg:top-6 space-y-4">
+                {/* Internal items summary (Raj, 2026-06-25): the client
+                    preview is hidden, but the operator still needs to see
+                    WHAT is on the quote - the dishes + equipment with
+                    quantities and line money - not just the totals below.
+                    Always visible, uses the same per-line math as the
+                    Running total / public quote. */}
+                {(menuItems.some((l) => l.name) || equipment.some((e) => e.name)) && (
+                  <Card className="border-0 shadow-xl">
+                    <CardHeader>
+                      <CardTitle className="text-base">Items in this quote</CardTitle>
+                      <CardDescription>Dishes + equipment on this quote and what each adds up to.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="text-sm space-y-3">
+                      {menuItems.some((l) => l.name) && (
+                        <div>
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 mb-1">Dishes</p>
+                          <ul className="space-y-1">
+                            {menuItems.filter((l) => l.name).map((l, i) => {
+                              const q =
+                                l.pricingMode === "per_person" ? guestCount :
+                                l.pricingMode === "flat" ? 1 : l.quantity;
+                              const net = l.unitPrice * q * (1 - l.discountPct / 100);
+                              return (
+                                <li key={i} className="flex justify-between text-xs gap-2">
+                                  <span className="text-slate-700">{l.name} × {q}</span>
+                                  <span className="text-slate-900 font-medium flex-shrink-0">{fmtR(net)}</span>
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        </div>
+                      )}
+                      {equipment.some((e) => e.name) && (
+                        <div>
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 mb-1">Equipment</p>
+                          <ul className="space-y-1">
+                            {equipment.filter((e) => e.name).map((e, i) => (
+                              <li key={`e${i}`} className="flex justify-between text-xs gap-2">
+                                <span className="text-slate-700">{e.name} × {e.quantity}</span>
+                                <span className="text-slate-900 font-medium flex-shrink-0">{fmtR(e.unitPrice * e.quantity)}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
+
                 <Card className="border-0 shadow-xl">
                   <CardHeader>
                     <CardTitle className="text-base">Running total</CardTitle>
