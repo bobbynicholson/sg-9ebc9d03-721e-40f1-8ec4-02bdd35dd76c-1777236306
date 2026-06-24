@@ -7,7 +7,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { deliveryService } from "@/services/deliveryService";
+import { confirmDelivery, updateDeliveryStatus } from "@/services/driver/deliveryManagement";
+import { notificationService } from "@/services/notificationService";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 
 interface DeliveryStatusModalProps {
@@ -36,6 +39,11 @@ export function DeliveryStatusModal({
   stopName 
 }: DeliveryStatusModalProps) {
   const { toast } = useToast();
+  // deliveryId is actually the ORDER id (route stops are built from
+  // orders). The old code PATCHed the legacy `deliveries` table keyed by
+  // this id, which has no row -> 406. We now drive the canonical order
+  // workflow, which needs the acting driver's id.
+  const { user } = useAuth();
   const [status, setStatus] = useState<"completed" | "failed">("completed");
   const [failureReason, setFailureReason] = useState("");
   const [notes, setNotes] = useState("");
@@ -66,6 +74,16 @@ export function DeliveryStatusModal({
       return;
     }
 
+    const driverId = user?.id;
+    if (!driverId) {
+      toast({
+        title: "Not signed in",
+        description: "Your session expired. Sign in again and retry.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setLoading(true);
     try {
       // Build notes with failure reason if applicable
@@ -75,21 +93,51 @@ export function DeliveryStatusModal({
         finalNotes = `Failure Reason: ${reasonLabel}\n${notes}`;
       }
 
-      // Update delivery status
-      await deliveryService.updateDeliveryStatus(
-        deliveryId,
-        status === "completed" ? "delivered" : "failed",
-        finalNotes
-      );
+      // Canonical path. Read current status so we can satisfy the
+      // ready -> in_transit -> delivered transition rule (the order is
+      // usually "ready" when the driver reaches the stop; jumping
+      // straight to "delivered" is rejected by the state machine).
+      const { data: ord } = await supabase
+        .from("orders")
+        .select("status, user_id, client_name")
+        .eq("id", deliveryId)
+        .maybeSingle();
+      const cur = (ord as any)?.status as string | undefined;
 
-      // Upload photo if provided
-      if (photoFile && photoPreview) {
-        await deliveryService.addDeliveryPhoto(deliveryId, photoPreview);
-      }
-
-      // Add signature if provided
-      if (signature) {
-        await deliveryService.addClientSignature(deliveryId, signature);
+      if (status === "completed") {
+        // Move the truck into transit first if it hasn't been already,
+        // then confirm with POD photo + signature written to orders.*.
+        if (cur && cur !== "in_transit" && cur !== "delivered" && cur !== "completed") {
+          const pre = await updateDeliveryStatus(deliveryId, "in_transit", driverId);
+          if (!pre.success) throw new Error(pre.error || "Could not start the trip");
+        }
+        const res = await confirmDelivery(
+          deliveryId,
+          driverId,
+          photoPreview || undefined,
+          signature || undefined,
+          finalNotes || undefined,
+          signature || undefined,
+        );
+        if (!res.success) throw new Error(res.error || "Could not confirm delivery");
+      } else {
+        // Failed delivery: there is no "failed" order status, so we don't
+        // flip the order. Alert dispatch (the order owner) with the
+        // reason + a deep link so they can re-dispatch or call the client.
+        const ownerId = (ord as any)?.user_id;
+        if (ownerId) {
+          await notificationService.createNotification({
+            recipient_id: ownerId,
+            user_id: ownerId,
+            notification_type: "delivery_failed",
+            title: "Delivery failed",
+            message: `${stopName}: ${finalNotes || "Driver reported a failed delivery."}`,
+            priority: "high",
+            link: `/order/${deliveryId}?role=admin`,
+            related_entity_type: "order",
+            related_entity_id: deliveryId,
+          } as any);
+        }
       }
 
       toast({
