@@ -170,7 +170,7 @@ function PublicHolidaysAdmin() {
               >
                 <Download className="w-4 h-4 mr-1.5" /> Export CSV
               </Button>
-              <Button onClick={() => setAdding(true)} className="bg-gradient-to-r from-rose-500 to-orange-500 text-white">
+              <Button onClick={() => setAdding(true)} className="bg-gradient-to-r from-brand-primary to-brand-secondary text-white hover:opacity-90">
                 <Plus className="w-4 h-4 mr-1.5" /> Add company holiday
               </Button>
             </>
@@ -427,7 +427,7 @@ function AddHolidayDialog({
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={onClose} disabled={saving}>Cancel</Button>
-          <Button onClick={save} disabled={saving} className="bg-gradient-to-r from-rose-500 to-orange-500 text-white">
+          <Button onClick={save} disabled={saving} className="bg-gradient-to-r from-brand-primary to-brand-secondary text-white hover:opacity-90">
             {saving ? "Saving..." : "Add holiday"}
           </Button>
         </DialogFooter>
