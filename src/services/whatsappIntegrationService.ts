@@ -36,7 +36,13 @@ async function buildCustomerOrderLink(order: any, label: string): Promise<string
 }
 
 async function buildOrderPaymentLink(order: any): Promise<string> {
-  const fallback = `${process.env.NEXT_PUBLIC_APP_URL || "https://cateringms.com"}/client-portal/billing?orderId=${order.id}`;
+  const portalFallback = `${process.env.NEXT_PUBLIC_APP_URL || "https://cateringms.com"}/c/order/${order.id}`;
+  let fallback = portalFallback;
+  try {
+    fallback = await buildCustomerOrderLink(order, "whatsapp-payment-reminder");
+  } catch (e) {
+    console.warn("[whatsappIntegrationService] customer order fallback failed:", e);
+  }
   try {
     const { data } = await supabase
       .from("invoices")
@@ -51,7 +57,7 @@ async function buildOrderPaymentLink(order: any): Promise<string> {
     return buildPayInvoiceUrlServer((data as any)?.public_token) || fallback;
   } catch (e) {
     console.warn("[whatsappIntegrationService] payment link lookup failed:", e);
-    return fallback;
+    return fallback || portalFallback;
   }
 }
 

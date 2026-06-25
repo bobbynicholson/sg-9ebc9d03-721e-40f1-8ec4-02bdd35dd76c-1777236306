@@ -444,9 +444,10 @@ export async function listHandoversForCompany(
 export async function getHandoverDetail(
   sb: SupabaseClient,
   handoverId: string,
+  companyId?: string | null,
 ): Promise<{ handover: HandoverWithOrderMeta | null; jobs: any[] }> {
   try {
-    const { data: hRow, error: hErr } = await (sb as any)
+    let handoverQuery = (sb as any)
       .from("cleaning_event_handovers")
       .select(`
         id, company_id, order_id, status,
@@ -459,7 +460,9 @@ export async function getHandoverDetail(
         )
       `)
       .eq("id", handoverId)
-      .maybeSingle();
+      .is("deleted_at", null);
+    if (companyId) handoverQuery = handoverQuery.eq("company_id", companyId);
+    const { data: hRow, error: hErr } = await handoverQuery.maybeSingle();
     if (hErr || !hRow) {
       return { handover: null, jobs: [] };
     }
@@ -472,6 +475,7 @@ export async function getHandoverDetail(
         notes
       `)
       .eq("event_handover_id", handoverId)
+      .eq("company_id", hRow.company_id)
       .is("deleted_at", null);
 
     // Batch-resolve equipment names.
@@ -481,7 +485,8 @@ export async function getHandoverDetail(
       const { data: eqRows } = await (sb as any)
         .from("equipment")
         .select("id, name")
-        .in("id", equipmentIds);
+        .in("id", equipmentIds)
+        .eq("company_id", hRow.company_id);
       for (const e of (eqRows || []) as Array<{ id: string; name: string | null }>) {
         if (e.name) nameMap.set(e.id, e.name);
       }
@@ -534,7 +539,7 @@ export async function getHandoverDetail(
 export async function completeHandover(
   sb: SupabaseClient,
   handoverId: string,
-  args?: { totalReturned?: number; totalDamaged?: number; totalMissing?: number; notes?: string },
+  args?: { totalReturned?: number; totalDamaged?: number; totalMissing?: number; notes?: string; companyId?: string | null },
 ): Promise<{ ok: boolean; error?: string }> {
   try {
     const patch: any = {
@@ -546,11 +551,13 @@ export async function completeHandover(
     if (args?.totalMissing != null) patch.total_items_missing = args.totalMissing;
     if (args?.notes != null) patch.notes = args.notes;
 
-    const { error } = await (sb as any)
+    let query = (sb as any)
       .from("cleaning_event_handovers")
       .update(patch)
       .eq("id", handoverId)
       .neq("status", "cancelled");
+    if (args?.companyId) query = query.eq("company_id", args.companyId);
+    const { error } = await query;
     if (error) return { ok: false, error: error.message };
     return { ok: true };
   } catch (e: any) {

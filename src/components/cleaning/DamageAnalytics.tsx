@@ -24,6 +24,7 @@ import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 
 export function DamageAnalytics() {
   const { user } = useAuth();
+  const companyId = (user as any)?.company_id || null;
   const { toast } = useToast();
   // TIGHTEN I.80 (2026-06-02): tenant-aware currency. Was previously
   // hardcoded "R" prefix which read wrong for USD / GBP / EUR tenants.
@@ -48,21 +49,22 @@ export function DamageAnalytics() {
   useEffect(() => {
     loadDamages();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, dateRange, selectedType]);
+  }, [user, companyId, dateRange, selectedType]);
 
   // Refresh when a cleaner flags new damage in another tab / page.
   useEffect(() => {
     const off = onEquipmentDamaged(() => { loadDamages(); });
     return off;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, dateRange, selectedType]);
+  }, [user, companyId, dateRange, selectedType]);
 
   const loadDamages = async () => {
-    if (!user) return;
+    if (!user || !companyId) return;
 
     setLoading(true);
     try {
       const filters: any = {
+        companyId,
         startDate: dateRange.from.toISOString(),
         endDate: dateRange.to.toISOString(),
       };
@@ -75,6 +77,7 @@ export function DamageAnalytics() {
         equipmentTrackingService.getDamages(filters),
         equipmentTrackingService.getDamageCostBreakdown({
           userId: user.id,
+          companyId,
           startDate: dateRange.from.toISOString(),
           endDate: dateRange.to.toISOString(),
         }),

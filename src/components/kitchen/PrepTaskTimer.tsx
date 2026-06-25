@@ -41,6 +41,7 @@ interface PrepTask {
 
 interface PrepTaskTimerProps {
   orderId: string;
+  companyId?: string | null;
 }
 
 function PrepTaskTimerRow({
@@ -188,27 +189,29 @@ export function fuzzyMatchTask(phrase: string, candidates: PrepTask[]): PrepTask
   return best?.task ?? null;
 }
 
-export function PrepTaskTimer({ orderId }: PrepTaskTimerProps) {
+export function PrepTaskTimer({ orderId, companyId: companyIdProp }: PrepTaskTimerProps) {
   const { user } = useAuth();
+  const companyId = companyIdProp || (user as any)?.company_id || null;
   const { toast } = useToast();
   const [tasks, setTasks] = useState<PrepTask[]>([]);
   const [now, setNow] = useState<number>(() => Date.now());
   const [alerts, setAlerts] = useState<Array<{ id: string; label: string }>>([]);
 
   const load = useCallback(async () => {
-    const { data, error } = await supabase
+    let query = supabase
       .from("kitchen_prep_tasks")
       .select("id, menu_item_name, task_type, duration_min, status, started_at, completed_at, start_at")
       .eq("order_id", orderId)
       .in("status", ["pending", "in_progress"])
-      .is("deleted_at", null)
-      .order("start_at", { ascending: true });
+      .is("deleted_at", null);
+    if (companyId) query = query.eq("company_id", companyId);
+    const { data, error } = await query.order("start_at", { ascending: true });
     if (error) {
       console.error("[PrepTaskTimer] kitchen_prep_tasks fetch failed:", error);
       return;
     }
     setTasks((data || []) as PrepTask[]);
-  }, [orderId]);
+  }, [orderId, companyId]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -218,6 +221,7 @@ export function PrepTaskTimer({ orderId }: PrepTaskTimerProps) {
   }, []);
 
   useEffect(() => {
+    const realtimeFilter = companyId ? `company_id=eq.${companyId}` : `order_id=eq.${orderId}`;
     const sub = supabase
       .channel(`prep-timer-${orderId}-${Math.random().toString(36).slice(2)}`)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -225,11 +229,11 @@ export function PrepTaskTimer({ orderId }: PrepTaskTimerProps) {
         event: "*",
         schema: "public",
         table: "kitchen_prep_tasks",
-        filter: `order_id=eq.${orderId}`,
+        filter: realtimeFilter,
       }, () => { void load(); })
       .subscribe();
     return () => { supabase.removeChannel(sub); };
-  }, [orderId, load]);
+  }, [orderId, companyId, load]);
 
   const handleAlert = useCallback((task: PrepTask) => {
     setAlerts(prev => prev.some(a => a.id === task.id) ? prev : [...prev, { id: task.id, label: `${task.menu_item_name} (${task.task_type})` }]);

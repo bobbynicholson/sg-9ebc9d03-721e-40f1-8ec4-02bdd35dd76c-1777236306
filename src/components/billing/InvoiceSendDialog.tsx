@@ -61,9 +61,8 @@ export function InvoiceSendDialog({
   const { user } = useAuth() as any;
   const tenantCurrency = useTenantCurrency(user?.company_id ?? null);
   const amountLabel = tenantCurrency.format(totalAmount);
-  // Bare numeric form for the deposit/balance templates that hardcode
-  // their own "R" prefix ("Amount due: R {{deposit_amount}}") - the
-  // currency-formatted label here would double the symbol.
+  // Bare numeric legacy form for tenant overrides that still hardcode
+  // their own currency prefix. Global defaults use {{amount}}.
   const amountBare = totalAmount.toLocaleString("en-ZA", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   // The deposit/balance templates carry {{invoice_link}}. Resolve the

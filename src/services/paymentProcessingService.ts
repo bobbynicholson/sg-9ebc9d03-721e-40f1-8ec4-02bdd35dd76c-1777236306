@@ -11,7 +11,7 @@ import { notificationService } from "./notificationService";
 import { PayFastService } from "@/lib/payfastService";
 import { sendEmailViaAPI } from "@/lib/emailClient";
 import { updateOrderStatus } from "./order/orderWorkflow";
-import { buildPayInvoiceUrlServer } from "@/lib/customerLinksServer";
+import { buildPayInvoiceUrlServer, mintOrderCustomerLink } from "@/lib/customerLinksServer";
 
 // Wave 24: paymentProcessingService is the entry point that the
 // PayFast / Stripe / Yoco webhooks call to flip an order's
@@ -33,6 +33,40 @@ function resolveServerClient(): any {
   }
 }
 const supabase: any = resolveServerClient();
+
+async function resolveOpenInvoicePayLink(orderId: string): Promise<string | null> {
+  try {
+    const { data: invoiceRow } = await supabase
+      .from("invoices")
+      .select("public_token")
+      .eq("order_id", orderId)
+      .is("deleted_at", null)
+      .gt("balance_due", 0)
+      .neq("status", "paid")
+      .order("due_date", { ascending: true, nullsFirst: false })
+      .limit(1)
+      .maybeSingle();
+    return buildPayInvoiceUrlServer((invoiceRow as any)?.public_token);
+  } catch (linkErr) {
+    console.warn("[paymentProcessingService] invoice pay link lookup failed:", linkErr);
+    return null;
+  }
+}
+
+async function resolveOrderCustomerFallback(order: any, label: string): Promise<string | null> {
+  if (!order?.id || !order?.company_id) return null;
+  try {
+    return await mintOrderCustomerLink({
+      sb: supabase,
+      companyId: order.company_id,
+      orderId: order.id,
+      label,
+    });
+  } catch (linkErr) {
+    console.warn("[paymentProcessingService] order customer link fallback failed:", linkErr);
+    return null;
+  }
+}
 
 export interface PaymentSchedule {
   orderId: string;
@@ -544,23 +578,11 @@ class PaymentProcessingService {
             );
             const urgency = daysUntilDue <= 1 ? "⚠️ URGENT: " : "";
             const subject = `${urgency}Payment Reminder - Balance Due ${daysUntilDue === 1 ? "Tomorrow" : `in ${daysUntilDue} Days`}`;
-            const fallbackPayUrl = `${process.env.NEXT_PUBLIC_APP_URL || "https://cateringms.com"}/client-portal/billing?orderId=${reminder.order_id}`;
-            let payNowUrl = fallbackPayUrl;
-            try {
-              const { data: invoiceRow } = await supabase
-                .from("invoices")
-                .select("public_token")
-                .eq("order_id", reminder.order_id)
-                .is("deleted_at", null)
-                .gt("balance_due", 0)
-                .neq("status", "paid")
-                .order("due_date", { ascending: true, nullsFirst: false })
-                .limit(1)
-                .maybeSingle();
-              payNowUrl = buildPayInvoiceUrlServer((invoiceRow as any)?.public_token) || fallbackPayUrl;
-            } catch (linkErr) {
-              console.warn("[paymentProcessingService] balance pay link lookup failed:", linkErr);
-            }
+            const fallbackPayUrl = `${process.env.NEXT_PUBLIC_APP_URL || "https://cateringms.com"}/c/order/${reminder.order_id}`;
+            const payNowUrl =
+              await resolveOpenInvoicePayLink(reminder.order_id) ||
+              await resolveOrderCustomerFallback(orderData, "balance-reminder") ||
+              fallbackPayUrl;
             
             const body = `Dear ${orderData.client_name || "Valued Client"},
 
@@ -832,8 +854,12 @@ Your Catering Company`;
       const testMode = process.env.NODE_ENV !== "production";
 
       if (!merchantId || !merchantKey) {
-        console.warn("PayFast credentials not configured - returning billing URL");
-        return `/client-portal/billing?orderId=${orderId}&type=${paymentType}&amount=${amount}`;
+        console.warn("PayFast credentials not configured - returning public invoice/order URL");
+        return (
+          await resolveOpenInvoicePayLink(orderId) ||
+          await resolveOrderCustomerFallback(order, `payment-link-${paymentType}`) ||
+          `/c/order/${orderId}`
+        );
       }
 
       // Initialize PayFast service

@@ -30,15 +30,17 @@ const damageTypeLabels: Record<DamageType, string> = {
 
 export function RecentDamagesStrip() {
   const { user } = useAuth();
+  const companyId = (user as any)?.company_id || null;
   const [rows, setRows] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
-    if (!user) return;
+    if (!user || !companyId) return;
     setLoading(true);
     try {
       const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
       const damages = await equipmentTrackingService.getDamages({
+        companyId,
         startDate: sevenDaysAgo,
         endDate: new Date().toISOString(),
       });
@@ -48,7 +50,7 @@ export function RecentDamagesStrip() {
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, companyId]);
 
   useEffect(() => { load(); }, [load]);
 

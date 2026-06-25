@@ -36,8 +36,9 @@ interface PrepTaskRow {
 const fmt = (iso: string) =>
   new Date(iso).toLocaleString("en-ZA", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 
-export function KitchenPrepTasksCard({ orderId }: { orderId: string }) {
+export function KitchenPrepTasksCard({ orderId, companyId: companyIdProp }: { orderId: string; companyId?: string | null }) {
   const { user } = useAuth();
+  const companyId = companyIdProp || (user as any)?.company_id || null;
   const { toast } = useToast();
   const [tasks, setTasks] = useState<PrepTaskRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -46,12 +47,13 @@ export function KitchenPrepTasksCard({ orderId }: { orderId: string }) {
 
   const load = useCallback(async () => {
     if (!orderId) return;
-    const { data } = await (supabase as any)
+    let query = (supabase as any)
       .from("kitchen_prep_tasks")
       .select("id, task_type, status, started_at, completed_at, completed_by, menu_item_name, start_at, duration_min")
       .eq("order_id", orderId)
-      .is("deleted_at", null)
-      .order("start_at", { ascending: true, nullsFirst: false });
+      .is("deleted_at", null);
+    if (companyId) query = query.eq("company_id", companyId);
+    const { data } = await query.order("start_at", { ascending: true, nullsFirst: false });
     const rows = dedupeKitchenPrepTasks((data || []) as PrepTaskRow[]);
     setTasks(rows);
     const ids = Array.from(new Set(rows.map((r) => r.completed_by).filter(Boolean))) as string[];
@@ -62,22 +64,23 @@ export function KitchenPrepTasksCard({ orderId }: { orderId: string }) {
       setNames(m);
     }
     setLoading(false);
-  }, [orderId]);
+  }, [orderId, companyId]);
 
   useEffect(() => { void load(); }, [load]);
 
   useEffect(() => {
     if (!orderId) return;
+    const realtimeFilter = companyId ? `company_id=eq.${companyId}` : `order_id=eq.${orderId}`;
     const ch = supabase
       .channel(`kitchen-ticket-tasks:${orderId}:${Math.random().toString(36).slice(2, 8)}`)
       .on(
         "postgres_changes" as any,
-        { event: "*", schema: "public", table: "kitchen_prep_tasks", filter: `order_id=eq.${orderId}` },
+        { event: "*", schema: "public", table: "kitchen_prep_tasks", filter: realtimeFilter },
         () => { void load(); },
       )
       .subscribe();
     return () => { void supabase.removeChannel(ch); };
-  }, [orderId, load]);
+  }, [orderId, companyId, load]);
 
   const onStart = async (id: string) => {
     if (!user?.id) return;

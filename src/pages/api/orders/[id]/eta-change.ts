@@ -116,7 +116,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
             title: `Update on your delivery`,
             message: `Your driver is running ~${delayMinutes} minutes late for order ${orderLabel}. They're on the way.`,
             priority: "normal",
-            link: `/client-portal/tracking`,
+            link: `/client-portal/tracking?orderId=${orderId}`,
             related_entity_type: "order",
             related_entity_id: orderId,
           } as any);

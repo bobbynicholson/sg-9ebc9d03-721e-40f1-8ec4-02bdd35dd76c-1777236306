@@ -47,6 +47,7 @@ import { KitchenPrepTasksCard } from "@/components/kitchen/KitchenPrepTasksCard"
 
 interface OrderRow {
   id: string;
+  company_id: string | null;
   order_number: string | null;
   // Wave 70.45c - event_name added so the canonical BookingHeader can
   // surface the client-facing event label (the chef knows which event
@@ -257,7 +258,7 @@ function KitchenTicketPage() {
           // silently null-rendered as "Order not found". Same trap as
           // Wave 43. Use guest_count alone; if the column ever ships,
           // re-add it here AND read it in the BackplannedItem helper.
-          .select("id, order_number, event_name, client_name, client_phone, event_date, event_time, guest_count, venue_address, special_instructions, internal_notes, setup_time, pickup_time, status")
+          .select("id, company_id, order_number, event_name, client_name, client_phone, event_date, event_time, guest_count, venue_address, special_instructions, internal_notes, setup_time, pickup_time, status")
           .eq("id", orderId)
           .is("deleted_at", null);
         if (callerCompanyId) q = q.eq("company_id", callerCompanyId);
@@ -499,7 +500,7 @@ function KitchenTicketPage() {
                 the order doc. Screen-only; routes through kitchenPrepService
                 so prep_started_at + order-ready + dispatch notifications all
                 fire. */}
-            <KitchenPrepTasksCard orderId={order.id} />
+            <KitchenPrepTasksCard orderId={order.id} companyId={order.company_id} />
 
             {/* Wave 66.9 - backplanned timeline ribbon. Single line so
                 the chef sees the day's choreography at the top of the

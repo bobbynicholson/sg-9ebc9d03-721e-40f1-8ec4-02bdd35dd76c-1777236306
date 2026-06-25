@@ -89,16 +89,17 @@ function HandoverDetailInner() {
 
   const load = async () => {
     if (!handoverId) return;
+    const companyId = (user as any)?.company_id || null;
     setLoading(true);
     try {
-      const { handover: h, jobs: j } = await getHandoverDetail(supabase as any, handoverId);
+      const { handover: h, jobs: j } = await getHandoverDetail(supabase as any, handoverId, companyId);
       setHandover(h);
       setJobs(j);
       if (h?.notes) setNotes(h.notes);
       // Pull any damage flagged on this order so the rows can surface it.
       if (h?.order_id) {
         try {
-          const dmgs = await equipmentTrackingService.getDamages({ orderId: h.order_id });
+          const dmgs = await equipmentTrackingService.getDamages({ orderId: h.order_id, companyId: h.company_id });
           const map: Record<string, { qty: number; types: string[] }> = {};
           for (const d of (dmgs || []) as any[]) {
             const eid = d.equipment_id;
@@ -176,6 +177,7 @@ function HandoverDetailInner() {
       const r = await completeHandover(supabase as any, handover.id, {
         totalReturned,
         notes: notes.trim() || undefined,
+        companyId: (handover as any).company_id,
       });
       if (!r.ok) {
         toast({ title: "Couldn't complete", description: r.error, variant: "destructive" });

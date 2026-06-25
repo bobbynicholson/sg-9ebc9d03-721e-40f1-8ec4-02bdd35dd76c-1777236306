@@ -1990,7 +1990,7 @@ export default function KitchenDashboard() {
                                     different responsibilities. */}
                                 {col.key === "preparing" && (
                                   <div className="mt-2 pt-2 border-t border-slate-200 dark:border-slate-700 space-y-2">
-                                    <PrepTaskTimer orderId={order.id} />
+                                    <PrepTaskTimer orderId={order.id} companyId={user.company_id} />
                                     <TaskCompletionButtons
                                       orderId={order.id}
                                       orderNumber={order.order_number}

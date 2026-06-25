@@ -36,12 +36,13 @@ export const shoppingService = {
     return data || [];
   },
 
-  async getShoppingList(listId: string): Promise<ShoppingList | null> {
-    const { data, error } = await supabase
+  async getShoppingList(listId: string, companyId?: string | null): Promise<ShoppingList | null> {
+    let query = supabase
       .from("shopping_lists")
       .select("*")
-      .eq("id", listId)
-      .single();
+      .eq("id", listId);
+    if (companyId) query = query.eq("company_id", companyId);
+    const { data, error } = await query.single();
 
     if (error) {
       console.error("Error fetching shopping list:", error);
@@ -253,7 +254,12 @@ export const shoppingService = {
     return data;
   },
 
-  async getShoppingListItems(listId: string): Promise<ShoppingListItem[]> {
+  async getShoppingListItems(listId: string, companyId?: string | null): Promise<ShoppingListItem[]> {
+    if (companyId) {
+      const list = await this.getShoppingList(listId, companyId);
+      if (!list) return [];
+    }
+
     const { data, error } = await supabase
       .from("shopping_list_items")
       .select("*")

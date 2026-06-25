@@ -863,11 +863,9 @@ async function notifyClientOfInvoiceIssued(
     } catch {
       amountLabel = `${currencyCode} ${totalNum.toLocaleString("en-ZA", { minimumFractionDigits: 2 })}`;
     }
-    // Bare numeric form ("752,50") for templates that hardcode their
-    // own currency prefix - the seeded deposit/balance bodies read
-    // "Amount due: R {{deposit_amount}}", so passing the full
-    // currency-formatted label produced "R R 752,50" in the client's
-    // inbox.
+    // Bare numeric legacy form ("752,50") for tenant overrides that
+    // still hardcode their own currency prefix. Global defaults use
+    // the fully formatted {{amount}} field.
     const amountBare = totalNum.toLocaleString("en-ZA", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     const summary = `${tenantName} issued invoice ${invoiceData.invoiceNumber} for ${eventName}. Total: ${amountLabel}. Pay via the link or EFT.`;
     const portalLink = `/client-portal/billing?invoiceId=${invoiceId}`;
@@ -1562,9 +1560,8 @@ export async function sendInvoiceEmail(
     } catch {
       amountLabel = `${amountCurrency} ${amountValue.toFixed(2)}`;
     }
-    // Bare numeric form for templates that hardcode their own currency
-    // prefix ("Amount due: R {{deposit_amount}}") - see the matching
-    // fix in notifyClientOfInvoiceIssued.
+    // Bare numeric legacy form for tenant overrides that still hardcode
+    // their own currency prefix. Global defaults use {{amount}}.
     const amountBare = amountValue.toLocaleString("en-ZA", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     const eventLabel = (invoiceData as any).eventName || invoiceData.orderNumber || "your event";
 

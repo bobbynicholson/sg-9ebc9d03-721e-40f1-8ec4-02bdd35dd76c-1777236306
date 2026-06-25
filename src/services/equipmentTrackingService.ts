@@ -390,6 +390,7 @@ ${companyName}`;
    */
   async getDamages(filters: {
     userId?: string;
+    companyId?: string;
     orderId?: string;
     startDate?: string;
     endDate?: string;
@@ -412,6 +413,10 @@ ${companyName}`;
         )
       `)
       .order("created_at", { ascending: false });
+
+    if (filters.companyId) {
+      query = query.eq("company_id", filters.companyId);
+    }
 
     if (filters.orderId) {
       query = query.eq("order_id", filters.orderId);
@@ -448,6 +453,7 @@ ${companyName}`;
    */
   async getDamageCostBreakdown(params: {
     userId: string;
+    companyId?: string;
     startDate: string;
     endDate: string;
   }): Promise<{
@@ -458,6 +464,7 @@ ${companyName}`;
   }> {
     const damages = await this.getDamages({
       userId: params.userId,
+      companyId: params.companyId,
       startDate: params.startDate,
       endDate: params.endDate,
     });
