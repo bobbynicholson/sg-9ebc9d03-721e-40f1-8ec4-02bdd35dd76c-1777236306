@@ -134,10 +134,10 @@ export default function CleaningTasksPage() {
       <main className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <PortalHeader
-            title="Cleaning tasks"
+            title="Task board"
             subtitle={
               <>
-                Today's open cleaning tasks - start, complete, log notes.{" "}
+                Scheduled checklist work lives here. Equipment returns and washing queues stay on the Cleaning desk.{" "}
                 <a href="/team-portal/cleaning/schedules" className="text-amber-600 dark:text-amber-400 underline">Manage the recurring schedule</a> if you need to add a new repeating area.
               </>
             }

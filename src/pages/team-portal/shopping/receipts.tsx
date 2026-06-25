@@ -39,7 +39,7 @@ export default function ShoppingReceipts() {
   return (
     <>
       <Head>
-        <title>Receipt scanner - CateringMS</title>
+        <title>Receipts - CateringMS</title>
       </Head>
       <NoIndexMeta />
 
@@ -48,9 +48,9 @@ export default function ShoppingReceipts() {
       <div className="overflow-x-hidden lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
         <PortalShell className="min-h-screen">
           <div className="mb-4">
-            <Link href={`${slugPrefix}/team-portal/shopping/dashboard`}>
+            <Link href={`${slugPrefix}/team-portal/shopping/invoices`}>
               <Button variant="ghost" size="sm">
-                <ArrowLeft className="w-4 h-4 mr-1.5" /> Back to shopping
+                <ArrowLeft className="w-4 h-4 mr-1.5" /> Back to Spend
               </Button>
             </Link>
           </div>
@@ -59,7 +59,7 @@ export default function ShoppingReceipts() {
             icon={Camera}
             title={
               <span className="flex items-center gap-2">
-                Receipt scanner
+                Receipts
                 <InfoTooltip content={"Photograph supplier slips as they come in. We pull the supplier, line items and totals so cost prices on inventory stay current without anyone retyping them.\n\nUp to 20 photos in one batch. JPG, PNG and WebP, 8 MB per image."} />
               </span>
             }
@@ -67,7 +67,7 @@ export default function ShoppingReceipts() {
           />
 
           <ReceiptScanner
-            historyHref={`${slugPrefix}/team-portal/shopping/dashboard`}
+            historyHref={`${slugPrefix}/team-portal/shopping/invoices`}
             accent="amber"
           />
 

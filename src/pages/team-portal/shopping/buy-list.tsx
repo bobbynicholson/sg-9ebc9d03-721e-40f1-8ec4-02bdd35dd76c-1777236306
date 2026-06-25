@@ -19,7 +19,7 @@
  *   2. Items append to current user's active shopping_list
  *      (auto-creates one if none, auto-assigns shopper_id)
  *   3. Sticky footer shows running selection count + estimated cost
- *   4. After add, user navigates to dashboard to tick items off
+ *   4. After add, user navigates to Today to tick items off
  *      as they buy.
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -289,7 +289,7 @@ export default function ShoppingBuyListPage() {
       if (result) {
         toast({
           title: `Added ${result.itemCount} item${result.itemCount === 1 ? "" : "s"} to your list`,
-          description: "Open the dashboard to start ticking them off as you buy.",
+          description: "Open Today to tick them off as you buy.",
         });
         setSelected(new Set());
       } else {
@@ -356,7 +356,7 @@ export default function ShoppingBuyListPage() {
             {activeList.list && (
               <Link href={withSlug("/team-portal/shopping/dashboard")} className="shrink-0">
                 <Button variant="outline" size="sm" className="gap-1">
-                  Open list <ArrowRight className="w-3.5 h-3.5" />
+                  Open Today <ArrowRight className="w-3.5 h-3.5" />
                 </Button>
               </Link>
             )}

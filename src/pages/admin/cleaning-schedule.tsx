@@ -223,7 +223,7 @@ function CleaningScheduleGrid() {
           <PortalHeader
             title="Cleaning schedule"
             icon={Sparkles}
-            subtitle="Weekly cleaning roster. Same shifts table as the kitchen, filtered to cleaning duties."
+            subtitle="Cleaning-only roster for planned shifts, duty coverage, and handover workload."
             actions={
             <>
                 <Button variant="outline" size="sm" onClick={() => setWeekStart(addDays(weekStart, -7))}>

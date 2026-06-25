@@ -54,11 +54,11 @@ const config: PortalSidebarConfig = {
       title: "Live now",
       defaultOpen: true,
       items: [
-        { title: "Today",        href: "/team-portal/driver/dashboard", icon: LayoutDashboard, description: "Today's deliveries" },
+        { title: "Today",        href: "/team-portal/driver/dashboard#today", icon: LayoutDashboard, description: "Today's deliveries" },
         // Clock in / out lives on the dashboard (DriverClockButton).
         // Surfaced as its own labelled item so a driver looking for
         // "the clock" finds it instantly at shift start / end.
-        { title: "Clock",        href: "/team-portal/driver/dashboard", icon: Clock,           description: "Clock in / out for your shift" },
+        { title: "Clock",        href: "/team-portal/driver/dashboard#clock", icon: Clock,           description: "Clock in / out for your shift" },
         { title: "Routes",       href: "/team-portal/driver/routes",    icon: Navigation,      description: "What you're driving" },
         { title: "Calendar",     href: "/team-portal/driver/calendar",  icon: Calendar,        description: "Your bookings and jobs you can claim" },
         { title: "GPS Tracking", href: "/team-portal/driver/tracking",  icon: MapPin,          description: "Live status updates" },

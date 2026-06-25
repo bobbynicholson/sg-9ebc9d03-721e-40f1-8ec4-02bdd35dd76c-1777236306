@@ -9,7 +9,6 @@ import {
   Navigation,
   TrendingUp,
   Banknote,
-  Sparkles,
   Bell,
   Camera,
   X,
@@ -27,8 +26,6 @@ import { MessageCircle } from "lucide-react";
 import { openNavigation as openMapsNavigation } from "@/lib/driverNavigation";
 import { useKitchenOrigin } from "@/hooks/useKitchenOrigin";
 import { useDriverGPSPing } from "@/hooks/useDriverGPSPing";
-import { TeamWelcomeBanner } from "@/components/portal/TeamWelcomeBanner";
-import { MyShiftTodayCard } from "@/components/portal/MyShiftTodayCard";
 import { WidgetErrorBoundary } from "@/components/dashboard/WidgetErrorBoundary";
 import { AvailableJobsCard } from "@/components/driver/AvailableJobsCard";
 import { WaiterServicePanel } from "@/components/waiter/WaiterServicePanel";
@@ -42,7 +39,6 @@ import Head from "next/head";
 import { useAuth } from "@/contexts/AuthContext";
 import { useOrderRefreshSignal } from "@/hooks/useOrderRefreshSignal";
 import { PortalShell, PortalCard, PortalCardHeader, StatTile } from "@/components/portal/ui";
-import { CateringDashGame } from "@/components/games/CateringDashGame";
 import { ChatBot } from "@/components/ChatBot";
 import Link from "next/link";
 import { useTenantHref } from "@/lib/tenantUrl";
@@ -100,7 +96,6 @@ function DriverDashboardInner() {
   // dashboard tile was the last hardcoded "R" in the driver portal.
   const tenantCurrency = useTenantCurrency(user?.company_id ?? null);
   const [jobs, setJobs] = useState<Job[]>([]);
-  const [showGame, setShowGame] = useState(false);
   const [loading, setLoading] = useState(true);
   const [unreadCount, setUnreadCount] = useState(0);
   const [totalEarnings, setTotalEarnings] = useState(0);
@@ -569,7 +564,7 @@ function DriverDashboardInner() {
   return (
     <>
       <Head>
-        <title>Driver dashboard - CateringMS</title>
+        <title>Driver today - CateringMS</title>
       </Head>
       <NoIndexMeta />
 
@@ -580,7 +575,7 @@ function DriverDashboardInner() {
           keeps a bespoke "Welcome back, {name}" greeting (warmer than
           the icon+title PortalHeader the other driver pages use) but
           rides on the shared neutral ground + container. */}
-      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+      <div id="today" className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           {/* Header */}
           <div className="mb-4 sm:mb-6 md:mb-8">
@@ -636,14 +631,6 @@ function DriverDashboardInner() {
                 >
                   <Printer className="w-4 h-4" />
                   Print run sheet
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => setShowGame(true)}
-                  className="h-10 sm:h-12 px-4 sm:px-6 text-sm sm:text-base gap-1.5"
-                >
-                  <Sparkles className="w-4 h-4" />
-                  Play Game
                 </Button>
               </div>
             </div>
@@ -903,30 +890,11 @@ function DriverDashboardInner() {
               </div>
             </PortalCard>
 
-            <TeamWelcomeBanner role="driver" userId={user?.id} />
-
-            {/* Wave 42 Tier 3: personal shift card. Lists today's
-                delivery shifts (and any other shift_type the driver
-                is rostered for) with task chips inline. Self-add
-                works thanks to the staff_shift_tasks_self_write
-                policy from Tier 1.
-                Wave 43 T1: scope widened to include
-                kitchen_and_cleaning so multi-role drivers (some
-                drivers also help in kitchen) see all their shifts
-                here. Wrapped in WidgetErrorBoundary so a render
-                fault doesn't blank the portal. */}
-            <WidgetErrorBoundary label="Your shifts today">
-              <MyShiftTodayCard
-                scopeShiftTypes={["delivery", "kitchen_and_cleaning"]}
-                defaultTaskType="delivery"
-              />
-            </WidgetErrorBoundary>
-
             {/* Phase 10 #10: one-tap clock-in / clock-out.
              *  Replaces the only-after-the-fact admin-logged shift
              *  flow with a real-time clock. Drives the BCEA
              *  fatigue checks (Phase 7 #2) honestly. */}
-            <div className="mb-4 sm:mb-6">
+            <div id="clock" className="mb-4 sm:mb-6 scroll-mt-24">
               <DriverClockButton driverId={user?.id} companyId={user?.company_id} />
             </div>
 
@@ -1015,8 +983,6 @@ function DriverDashboardInner() {
 
         <Footer />
       </div>
-
-      {showGame && <CateringDashGame onClose={() => setShowGame(false)} />}
 
       {/* Phase 5: POD capture */}
       {podJob && (

@@ -11,7 +11,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ChefHat, Clock, CheckCircle, Calendar, Users, Package, AlertTriangle, Truck, ExternalLink, Loader2, Sparkles, Printer } from "lucide-react";
+import { ChefHat, Clock, CheckCircle, Calendar, Users, Package, AlertTriangle, Truck, ExternalLink, Loader2, Printer } from "lucide-react";
 import Link from "next/link";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { staffOrderHref } from "@/lib/orderUrls";
@@ -21,9 +21,6 @@ import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { DynamicNav } from "@/components/DynamicNav";
 import { PortalShell, PortalHeader, PortalCard, PortalCardHeader, StatTile } from "@/components/portal/ui";
-import { TeamWelcomeBanner } from "@/components/portal/TeamWelcomeBanner";
-import { MyShiftTodayCard } from "@/components/portal/MyShiftTodayCard";
-import { WidgetErrorBoundary } from "@/components/dashboard/WidgetErrorBoundary";
 import { CleaningScheduleDialog } from "@/components/kitchen/CleaningScheduleDialog";
 import { ChatBot } from "@/components/ChatBot";
 import { KitchenServiceFAB } from "@/components/kitchen/KitchenServiceFAB";
@@ -1043,8 +1040,8 @@ export default function KitchenDashboard() {
       <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <PortalHeader
-            title="Kitchen"
-            subtitle="Manage prep, duty shifts and inventory"
+            title="Kitchen today"
+            subtitle="Today's service board: orders, prep blockers, production handoffs, cleaning readiness, and the printable run sheet."
             icon={ChefHat}
             actions={
               <>
@@ -1070,7 +1067,7 @@ export default function KitchenDashboard() {
                       : "View the cleaning schedule"
                   }
                 >
-                  <Sparkles className="w-4 h-4" />
+                  <CheckCircle className="w-4 h-4" />
                   <span>Cleaning schedule</span>
                   {cleaningReadiness && (
                     <Badge
@@ -1116,21 +1113,6 @@ export default function KitchenDashboard() {
               </>
             }
           />
-
-          <div className="mb-6">
-            <TeamWelcomeBanner role="kitchen" userId={user?.id} />
-          </div>
-
-          {/* Wave 42 Tier 3: personal shift card. Lists today's
-              kitchen + kitchen_and_cleaning shifts with task chips
-              inline. Wave 43 T1: wrapped in WidgetErrorBoundary so
-              a render fault doesn't blank the kitchen portal. */}
-          <WidgetErrorBoundary label="Your shifts today">
-            <MyShiftTodayCard
-              scopeShiftTypes={["kitchen", "kitchen_and_cleaning"]}
-              defaultTaskType="kitchen"
-            />
-          </WidgetErrorBoundary>
 
           {/* Phase 5C: tile board replaces the per-user Start/End Duty
               widget. One login on the tablet, one tap per staff member. */}
@@ -1292,7 +1274,7 @@ export default function KitchenDashboard() {
                   const pct = total > 0 ? Math.round((done / total) * 100) : null;
                   return (
                     <StatTile
-                      icon={Sparkles}
+                      icon={CheckCircle}
                       label="Prep readiness"
                       value={pct == null ? "-" : `${pct}%`}
                       hint={pct == null ? "No prep tasks recorded yet" : `${done} of ${total} prep tasks done`}

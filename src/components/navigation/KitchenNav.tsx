@@ -110,7 +110,7 @@ export function KitchenNav(_: KitchenNavProps = {}) {
             // "Live now" (always open) so staff can find it fast at the
             // start + end of a shift instead of hunting in Kitchen ops.
             title: "Clock",
-            href: "/team-portal/kitchen/duty",
+            href: "/team-portal/kitchen/duty#clock",
             icon: Clock,
             description: "Clock in / out",
           },
@@ -149,7 +149,7 @@ export function KitchenNav(_: KitchenNavProps = {}) {
         title: "Kitchen ops",
         defaultOpen: false,
         items: [
-          { title: "Team",    href: "/team-portal/kitchen/duty",  icon: Users,    description: "Staff on duty" },
+          { title: "Team",    href: "/team-portal/kitchen/duty#team",  icon: Users,    description: "Staff on duty" },
           { title: "Stock",   href: "/team-portal/kitchen/stock", icon: Package,  description: "Inventory levels" },
           { title: "Recipes", href: "/team-portal/kitchen/menu",  icon: BookOpen, description: "Recipe library" },
         ],

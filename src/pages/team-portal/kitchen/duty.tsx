@@ -809,7 +809,7 @@ export default function KitchenDutyRosterPage() {
               : null;
             const onBreak = !!myActiveShift?.break_started_at;
             return (
-              <PortalCard padded={false} className={`mb-6 ${
+              <PortalCard id="clock" padded={false} className={`mb-6 scroll-mt-24 ${
                 earnings?.overtime ? "border-rose-300 bg-rose-50/40 dark:border-rose-500/40 dark:bg-rose-500/10" :
                 earnings?.overdueBreak ? "border-amber-300 bg-amber-50/40 dark:border-amber-500/40 dark:bg-amber-500/10" :
                 ""
@@ -1004,7 +1004,7 @@ export default function KitchenDutyRosterPage() {
             </PortalCard>
           )}
 
-          <div className="flex items-center justify-between mb-3 px-0.5">
+          <div id="team" className="flex items-center justify-between mb-3 px-0.5 scroll-mt-24">
             <h2 className="text-base sm:text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">
               <Activity className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
               Live floor

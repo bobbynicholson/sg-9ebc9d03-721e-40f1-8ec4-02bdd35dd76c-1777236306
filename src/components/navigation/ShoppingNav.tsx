@@ -72,17 +72,15 @@ export function ShoppingNav(_: ShoppingNavProps = {}) {
   // Hooks at the top, stable order across renders.
   const counts = useShoppingLiveCounts();
   const mode = useShoppingPortalMode();
-  // Wave 70.30: the active-list hook drives "Your list" framing
-  // on the Active shop nav item + live item counts. One-shopper-
-  // per-tenant assumption - we surface "yours" when the list is
-  // assigned to the current user, "team" otherwise.
+  // Wave 70.30: the active-list hook drives the Active shop badge
+  // and live item counts. The item-level ticking surface is Today;
+  // Active shop is list creation, claiming, and close-out.
   const activeList = useActiveShoppingList();
 
   // One-shot toast on auto-transition into run mode.
   useShoppingModeToast();
 
   const isRunActive = mode.mode === "run";
-  const yourList = activeList.list?.isYours ? activeList.list : null;
   const remainingOnList = activeList.items.filter(i => !i.purchased).length;
 
   const config: PortalSidebarConfig = {
@@ -148,15 +146,10 @@ export function ShoppingNav(_: ShoppingNavProps = {}) {
               : null,
           },
           {
-            // Wave 70.30: "Your list" framing when the active list
-            // is assigned to the current shopper. Falls back to
-            // "Team list" when it's an unassigned company list.
-            title: yourList ? "Your list" : "Team list",
-            href: "/team-portal/shopping/dashboard",
+            title: "Active shop",
+            href: "/team-portal/shopping/orders",
             icon: ShoppingCart,
-            description: yourList
-              ? `${remainingOnList} item${remainingOnList === 1 ? "" : "s"} left to buy`
-              : "Start a shop or join the team list",
+            description: "Create, claim, close lists",
             badge: () => {
               if (remainingOnList > 0) {
                 return { text: `${remainingOnList} left`, tone: "default", pulse: isRunActive };
@@ -167,7 +160,7 @@ export function ShoppingNav(_: ShoppingNavProps = {}) {
               return null;
             },
             liveDescription: () => {
-              if (!activeList.list) return "No list running - open Buy list";
+              if (!activeList.list) return "No open list";
               if (remainingOnList === 0 && activeList.items.length > 0) {
                 return "Ready to file receipt";
               }

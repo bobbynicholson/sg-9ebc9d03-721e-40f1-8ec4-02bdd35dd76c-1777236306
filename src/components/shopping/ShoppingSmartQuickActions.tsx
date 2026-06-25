@@ -7,7 +7,7 @@
  *
  *   quiet     - Suppliers, Inventory, Kitchen demand   (catch-up)
  *   plan      - Build buy list, Kitchen demand, Inventory  (gear up)
- *   run       - Snap a receipt, Active list, Quick add   (act fast)
+ *   run       - Snap a receipt, Today, Quick add         (act fast)
  *   reconcile - File receipts, Spend today, Match suppliers (wrap)
  *
  * Wraps the existing MobileQuickActions presenter so the visual
@@ -51,8 +51,8 @@ export function ShoppingSmartQuickActions({ onNavigate }: ShoppingSmartQuickActi
     ],
     run: [
       { href: "/team-portal/shopping/receipts",       label: "Snap a receipt", sub: "Photo the slip",        icon: Camera,      accent: "from-brand-primary to-brand-secondary" },
-      // Wave 70.30: "Active list" now lives on the dashboard.
-      { href: "/team-portal/shopping/dashboard",      label: "Your list",      sub: "Tick items off",        icon: ShoppingCart, accent: "from-brand-primary to-brand-secondary" },
+      // Today is the item-level run desk: tick bought items here.
+      { href: "/team-portal/shopping/dashboard",      label: "Today",          sub: "Tick items off",        icon: ShoppingCart, accent: "from-brand-primary to-brand-secondary" },
       { href: "/team-portal/shopping/buy-list",       label: "Quick add",      sub: "Add more from shortfall", icon: Plus,       accent: "from-brand-primary to-brand-secondary" },
     ],
     reconcile: [

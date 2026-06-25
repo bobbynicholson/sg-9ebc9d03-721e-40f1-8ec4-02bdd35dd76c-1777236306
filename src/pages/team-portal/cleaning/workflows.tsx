@@ -3,7 +3,7 @@ import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import Head from "next/head";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Sparkles, Search, ChevronDown, ChevronRight as ChevronRightIcon, Clock, ShieldCheck } from "lucide-react";
+import { Search, ChevronDown, ChevronRight as ChevronRightIcon, Clock, ShieldCheck } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { CleaningNav } from "@/components/navigation/CleaningNav";
 import { PortalShell, PortalHeader, PortalCard } from "@/components/portal/ui";
@@ -152,7 +152,7 @@ export default function CleaningWorkflowsPage() {
           <PortalHeader
             title="Cleaning workflows"
             subtitle="Step-by-step SOPs per equipment category, food-safety compliant"
-            icon={Sparkles}
+            icon={ShieldCheck}
           />
 
           <PortalCard className="mb-6">
@@ -188,7 +188,7 @@ export default function CleaningWorkflowsPage() {
             <PortalCard padded={false}>
               <div className="py-16 px-6 text-center">
                 <div className="w-12 h-12 mx-auto mb-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 flex items-center justify-center">
-                  <Sparkles className="h-6 w-6 text-slate-300 dark:text-slate-600" />
+                  <ShieldCheck className="h-6 w-6 text-slate-300 dark:text-slate-600" />
                 </div>
                 <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-1.5">No equipment to show workflows for</h2>
                 <p className="text-sm text-slate-600 dark:text-slate-400 max-w-md mx-auto">Add equipment in Admin then return to see SOPs per category</p>

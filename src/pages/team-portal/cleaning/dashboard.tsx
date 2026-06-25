@@ -3,7 +3,7 @@ import { useRouter } from "next/router";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Sparkles, ClipboardCheck, AlertTriangle, Users, CheckCircle, Truck, Clock, Package, Printer, Loader2, Camera } from "lucide-react";
+import { SprayCan, ClipboardCheck, AlertTriangle, Users, CheckCircle, Truck, Clock, Package, Printer, Loader2, Camera } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
@@ -14,8 +14,6 @@ import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { PortalShell, PortalHeader, PortalCard, PortalCardHeader, StatTile } from "@/components/portal/ui";
 import { CleaningDutyWidget } from "@/components/cleaning/CleaningDutyWidget";
-import { MyShiftTodayCard } from "@/components/portal/MyShiftTodayCard";
-import { WidgetErrorBoundary } from "@/components/dashboard/WidgetErrorBoundary";
 import { CleaningJobsQueue } from "@/components/cleaning/CleaningJobsQueue";
 import { CleaningEventBoard } from "@/components/cleaning/CleaningEventBoard";
 import { PreEventCleanlinessPanel } from "@/components/cleaning/PreEventCleanlinessPanel";
@@ -29,7 +27,6 @@ import Head from "next/head";
 import { useAuth } from "@/contexts/AuthContext";
 import { useOrderRefreshSignal } from "@/hooks/useOrderRefreshSignal";
 import { ChatBot } from "@/components/ChatBot";
-import { TeamWelcomeBanner } from "@/components/portal/TeamWelcomeBanner";
 import { UserRole } from "@/types/app";
 import { supabase } from "@/integrations/supabase/client";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
@@ -286,7 +283,7 @@ function CleaningDashboardInner() {
           <PortalHeader
             title="Cleaning desk"
             subtitle="Returns, washing queue, priority inspections, damages, and what is ready to send out again."
-            icon={Sparkles}
+            icon={SprayCan}
             actions={
               /* CLN2-J (cleaning deep audit, CLN2-19): paper roster. The
                  cleaning lead handing off to a fresh shift wants a
@@ -315,21 +312,6 @@ function CleaningDashboardInner() {
               </Button>
             }
           />
-
-          <div className="mb-6">
-            <TeamWelcomeBanner role="cleaning" userId={user?.id} />
-          </div>
-
-          {/* Wave 42 Tier 3: personal shift card. Lists today's
-              cleaning + kitchen_and_cleaning shifts with task chips
-              inline. Self-add via the staff_shift_tasks_self_write
-              RLS policy. Wave 43 T1: wrapped in WidgetErrorBoundary. */}
-          <WidgetErrorBoundary label="Your shifts today">
-            <MyShiftTodayCard
-              scopeShiftTypes={["cleaning", "kitchen_and_cleaning"]}
-              defaultTaskType="cleaning"
-            />
-          </WidgetErrorBoundary>
 
           {/* Wave 39: live duty + clock-in surface. Component existed
               but was imported and never rendered. Wave 39 also fixed

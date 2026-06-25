@@ -5,7 +5,7 @@
  * Equipment / Footer) into 4 sections plus a live-intelligence layer
  * that mirrors the kitchen portal pattern proven in Wave 70.7:
  *
- *   LIVE NOW   - Today, Returns, Washing, My shift  (4 items, always open)
+ *   LIVE NOW   - Today, Returns, Washing, Task board (4 items, always open)
  *   INVENTORY  - Equipment, Supplies, Workflows     (3 items, closed by default)
  *   REPORTS    - Damages, Schedules                 (2 items, closed by default)
  *   FOOTER     - Notifications, Settings            (footer treatment)
@@ -51,7 +51,6 @@ import {
   CalendarClock,
   Bell,
   Settings,
-  Sparkles,
   Users,
 } from "lucide-react";
 import { PortalSidebar, type PortalSidebarConfig } from "./PortalSidebar";
@@ -92,7 +91,7 @@ export function CleaningNav(_: CleaningNavProps = {}) {
     role: "cleaning",
     title: "Cleaning Portal",
     mobileSubtitle: "Returns, washes, damages",
-    brandIcon: Sparkles,
+    brandIcon: SprayCan,
     // Tenant brand accent via brand-* CSS vars (amber default). See portalPalette.ts.
     ...BRAND_PORTAL_PALETTE,
     // Unified (2026-06-25): all portals lead with the primary brand colour
@@ -164,13 +163,13 @@ export function CleaningNav(_: CleaningNavProps = {}) {
               : null,
           },
           {
-            title: "My shift",
+            title: "Task board",
             href: "/team-portal/cleaning/tasks",
             icon: Clock,
-            description: "Tasks + clock in/out",
+            description: "Start, finish, note tasks",
             liveDescription: () => counts.onDutyNow > 0
               ? `${counts.onDutyNow} on duty`
-              : "Off duty - tap to start",
+              : "No one clocked in",
           },
         ],
       },

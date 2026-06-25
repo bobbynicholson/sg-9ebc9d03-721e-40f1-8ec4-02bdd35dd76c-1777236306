@@ -36,7 +36,7 @@ import {
 } from "@/components/ui/dialog";
 import {
   ShoppingCart, CheckCircle, Clock, Package, ListChecks, Camera,
-  ArrowRight, Loader2, User, Users as UsersIcon, AlertCircle, Sparkles,
+  ArrowRight, Loader2, User, Users as UsersIcon, AlertCircle,
   Printer,
 } from "lucide-react";
 import { Footer } from "@/components/Footer";
@@ -45,7 +45,6 @@ import Head from "next/head";
 import { useAuth } from "@/contexts/AuthContext";
 import { ChatBot } from "@/components/ChatBot";
 import { DynamicNav } from "@/components/DynamicNav";
-import { TeamWelcomeBanner } from "@/components/portal/TeamWelcomeBanner";
 import { UserRole } from "@/types/app";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { PortalShell, PortalHeader, PortalCard, PortalCardHeader, StatTile } from "@/components/portal/ui";
@@ -314,18 +313,14 @@ function ShoppingDashboardInner() {
       <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <PortalHeader
-            title="Shopping"
+            title="Shopping today"
             subtitle={
               activeList.list
-                ? "Your active list - tick items as you buy them"
-                : "Open the Buy list to start a new shopping run"
+                ? "Live run desk: tick purchases, attach receipt details, and close out today's active list."
+                : "Start from Buy list for shortfalls, or Active shop when you already know what needs buying."
             }
             icon={ShoppingCart}
           />
-
-          <div className="mb-6">
-            <TeamWelcomeBanner role="shopping" userId={user?.id} />
-          </div>
 
           {/* Loading + empty states */}
           {activeList.loading ? (
@@ -349,7 +344,7 @@ function ShoppingDashboardInner() {
             <PortalCard padded={false}>
               <div className="py-16 px-6 text-center">
                 <div className="w-12 h-12 mx-auto mb-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 flex items-center justify-center">
-                  <Sparkles className="w-6 h-6 text-slate-400 dark:text-slate-500" />
+                  <ShoppingCart className="w-6 h-6 text-slate-400 dark:text-slate-500" />
                 </div>
                 <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-1.5">
                   No active shopping list
