@@ -162,7 +162,7 @@ export default function BlogPage() {
               {featured && (
                 <Reveal className="mb-12">
                   <Link href={`/blog/${featured.slug}`} className="group block">
-                    <article className="grid grid-cols-1 overflow-hidden rounded-3xl border border-stone-200 bg-white shadow-sm transition-[transform,box-shadow,border-color] duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] hover:-translate-y-1 hover:border-amber-200 hover:shadow-xl md:grid-cols-2">
+                    <article className="grid grid-cols-1 overflow-hidden rounded-3xl border border-stone-200 bg-white shadow-sm transition-[transform,box-shadow,border-color] duration-300 ease-standard hover:-translate-y-1 hover:border-amber-200 hover:shadow-xl md:grid-cols-2">
                       <div className="relative h-60 w-full overflow-hidden md:h-full md:min-h-[20rem]">
                         <Image
                           src={featured.image}

@@ -418,7 +418,7 @@ export default function ShoppingInventoryPage() {
                           <tr
                             key={i.id}
                             onClick={() => openEdit(i)}
-                            className="group cursor-pointer transition-colors duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-slate-50 dark:hover:bg-slate-800/60"
+                            className="group cursor-pointer transition-colors duration-150 ease-standard hover:bg-slate-50 dark:hover:bg-slate-800/60"
                           >
                             <td className="px-4 py-3">
                               <div className="font-medium text-slate-900 dark:text-white">{i.item_name}</div>
@@ -458,7 +458,7 @@ export default function ShoppingInventoryPage() {
                         key={i.id}
                         onClick={() => openEdit(i)}
                         aria-label={`Adjust stock for ${i.item_name}`}
-                        className="w-full text-left p-4 flex items-start justify-between gap-3 transition-colors duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-slate-50 dark:hover:bg-slate-800/60 active:bg-slate-100 dark:active:bg-slate-800"
+                        className="w-full text-left p-4 flex items-start justify-between gap-3 transition-colors duration-150 ease-standard hover:bg-slate-50 dark:hover:bg-slate-800/60 active:bg-slate-100 dark:active:bg-slate-800"
                       >
                         <div className="min-w-0 flex-1">
                           <div className="font-medium text-slate-900 dark:text-white truncate">{i.item_name}</div>

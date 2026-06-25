@@ -2029,7 +2029,7 @@ export default function KitchenDashboard() {
                             return (
                               <div
                                 key={order.id}
-                                className={`p-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:-translate-y-0.5 hover:shadow-md hover:border-slate-300 dark:hover:border-slate-600 transition-[box-shadow,transform,border-color] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] ${tone}`}
+                                className={`p-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:-translate-y-0.5 hover:shadow-md hover:border-slate-300 dark:hover:border-slate-600 transition-[box-shadow,transform,border-color] duration-200 ease-standard ${tone}`}
                               >
                                 {/* Wave 70.18 - card title block + order
                                     number. No longer a tiny link --

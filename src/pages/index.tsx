@@ -97,7 +97,7 @@ function Photo({
         role="img"
         aria-label={alt}
         className={`absolute inset-0 bg-cover bg-center bg-no-repeat ${
-          zoom ? `transition-transform duration-[1.2s] ${EASE} group-hover:scale-[1.06]` : ""
+          zoom ? `transition-transform duration-1200 ${EASE} group-hover:scale-[1.06]` : ""
         }`}
         style={{ backgroundImage: `url('${src}')` }}
       />

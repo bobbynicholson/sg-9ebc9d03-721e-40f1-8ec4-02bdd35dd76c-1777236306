@@ -19,7 +19,7 @@ import * as React from "react";
 
 // Strong ease-out curve -- matches --ease-out in globals.css. The built-in
 // CSS easings are too weak; this is the curve with punch.
-export const EASE = "ease-[cubic-bezier(0.23,1,0.32,1)]";
+export const EASE = "ease-standard";
 
 // Card surface: hover-lift + shadow bloom on hover, animating only the
 // properties that actually change. `group` so child icon chips can react.

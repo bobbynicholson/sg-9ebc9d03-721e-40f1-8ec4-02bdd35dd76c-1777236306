@@ -348,7 +348,7 @@ export default function ShoppingOrdersPage() {
               role="tab"
               aria-selected={tab === "lists"}
               onClick={() => setTab("lists")}
-              className={`inline-flex items-center gap-2 px-3.5 h-9 rounded-lg text-sm font-medium transition-[color,background-color] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-amber-500 ${
+              className={`inline-flex items-center gap-2 px-3.5 h-9 rounded-lg text-sm font-medium transition-[color,background-color] duration-150 ease-standard active:scale-[0.98] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-amber-500 ${
                 tab === "lists"
                   ? "bg-brand-primary text-white"
                   : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
@@ -360,7 +360,7 @@ export default function ShoppingOrdersPage() {
               role="tab"
               aria-selected={tab === "upcoming"}
               onClick={() => setTab("upcoming")}
-              className={`inline-flex items-center gap-2 px-3.5 h-9 rounded-lg text-sm font-medium transition-[color,background-color] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-amber-500 ${
+              className={`inline-flex items-center gap-2 px-3.5 h-9 rounded-lg text-sm font-medium transition-[color,background-color] duration-150 ease-standard active:scale-[0.98] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-amber-500 ${
                 tab === "upcoming"
                   ? "bg-brand-primary text-white"
                   : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"

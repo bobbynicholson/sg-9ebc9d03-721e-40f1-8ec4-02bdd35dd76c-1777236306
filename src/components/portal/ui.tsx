@@ -102,7 +102,7 @@ export function PortalCard({
         "rounded-2xl border border-slate-200/80 bg-white/95 dark:border-slate-800 dark:bg-slate-900",
         SOFT_SHADOW,
         interactive &&
-          "cursor-pointer transition-[box-shadow,border-color,transform] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] hover:-translate-y-px hover:border-slate-300 hover:shadow-[0_2px_4px_rgba(15,23,42,0.05),0_16px_40px_-18px_rgba(15,23,42,0.22)] dark:hover:border-slate-700",
+          "cursor-pointer transition-[box-shadow,border-color,transform] duration-200 ease-standard hover:-translate-y-px hover:border-slate-300 hover:shadow-[0_2px_4px_rgba(15,23,42,0.05),0_16px_40px_-18px_rgba(15,23,42,0.22)] dark:hover:border-slate-700",
         padded && "p-4 sm:p-5",
         className,
       )}

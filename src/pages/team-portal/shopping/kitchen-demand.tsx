@@ -192,7 +192,7 @@ export default function ShoppingKitchenDemandPage() {
                       type="button"
                       onClick={() => setHorizon(h.key)}
                       aria-pressed={active}
-                      className={`flex-1 sm:flex-none px-3 py-1.5 text-xs font-medium rounded-md whitespace-nowrap transition-[color,background-color,box-shadow,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-amber-500 ${
+                      className={`flex-1 sm:flex-none px-3 py-1.5 text-xs font-medium rounded-md whitespace-nowrap transition-[color,background-color,box-shadow,transform] duration-150 ease-standard active:scale-[0.97] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-amber-500 ${
                         active
                           ? "bg-brand-primary text-white shadow-sm"
                           : "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
@@ -264,7 +264,7 @@ export default function ShoppingKitchenDemandPage() {
               {demand.length === 0 && canOpenMenuBuilder && (
                 <Link
                   href={withSlug("/admin/menu")}
-                  className="inline-flex items-center gap-1.5 mt-4 px-3 py-2 rounded-lg bg-brand-primary hover:bg-brand-primary/90 text-white text-sm font-medium transition-[background-color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97]"
+                  className="inline-flex items-center gap-1.5 mt-4 px-3 py-2 rounded-lg bg-brand-primary hover:bg-brand-primary/90 text-white text-sm font-medium transition-[background-color,transform] duration-150 ease-standard active:scale-[0.97]"
                 >
                   Open menu builder <ExternalLink className="w-3.5 h-3.5" />
                 </Link>

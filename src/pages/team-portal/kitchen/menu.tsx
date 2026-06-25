@@ -209,7 +209,7 @@ export default function KitchenMenuItemsPage() {
                   <h2 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 px-1">{cat}, {list.length}</h2>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     {list.map((i) => (
-                      <button key={i.id} onClick={() => loadIngredients(i)} className="text-left bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_10px_30px_-16px_rgba(15,23,42,0.12)] hover:border-brand-primary/40 dark:hover:border-brand-primary/40 hover:-translate-y-0.5 transition-[box-shadow,border-color,transform] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:transform-none motion-reduce:transition-none overflow-hidden">
+                      <button key={i.id} onClick={() => loadIngredients(i)} className="text-left bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_10px_30px_-16px_rgba(15,23,42,0.12)] hover:border-brand-primary/40 dark:hover:border-brand-primary/40 hover:-translate-y-0.5 transition-[box-shadow,border-color,transform] duration-200 ease-standard motion-reduce:transform-none motion-reduce:transition-none overflow-hidden">
                         <div className="aspect-[16/9] bg-slate-100 dark:bg-slate-800 flex items-center justify-center overflow-hidden">
                           {i.image_url ? (
                             // eslint-disable-next-line @next/next/no-img-element

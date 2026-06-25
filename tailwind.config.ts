@@ -95,6 +95,12 @@ const config: Config = {
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
       },
+      transitionTimingFunction: {
+        standard: "cubic-bezier(0.23, 1, 0.32, 1)",
+      },
+      transitionDuration: {
+        1200: "1200ms",
+      },
       keyframes: {
         "accordion-down": {
           from: {

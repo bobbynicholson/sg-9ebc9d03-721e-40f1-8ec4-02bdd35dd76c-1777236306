@@ -77,7 +77,7 @@ export function LandingFooter() {
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label={s.label}
-                  className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/5 text-stone-300 transition-[background-color,color,border-color] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] hover:border-amber-400/40 hover:bg-amber-500/10 hover:text-amber-400"
+                  className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/5 text-stone-300 transition-[background-color,color,border-color] duration-200 ease-standard hover:border-amber-400/40 hover:bg-amber-500/10 hover:text-amber-400"
                 >
                   <s.icon className="h-4 w-4" />
                 </a>
@@ -113,7 +113,7 @@ export function LandingFooter() {
           </div>
           <Link
             href="/company-signup"
-            className="group inline-flex items-center gap-2 rounded-full bg-gradient-to-b from-amber-500 to-amber-600 px-6 py-3 text-sm font-semibold text-white shadow-md shadow-amber-700/20 transition-[transform,box-shadow] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:shadow-lg active:scale-[0.97]"
+            className="group inline-flex items-center gap-2 rounded-full bg-gradient-to-b from-amber-500 to-amber-600 px-6 py-3 text-sm font-semibold text-white shadow-md shadow-amber-700/20 transition-[transform,box-shadow] duration-150 ease-standard hover:shadow-lg active:scale-[0.97]"
           >
             Get Your Free Quote
             <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />

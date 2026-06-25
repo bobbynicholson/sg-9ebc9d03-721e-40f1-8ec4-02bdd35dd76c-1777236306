@@ -174,7 +174,7 @@ export default function ShoppingNotificationsPage() {
               role="tab"
               aria-selected={tab === "all"}
               onClick={() => setTab("all")}
-              className={`h-8 px-3.5 rounded-lg text-sm font-medium transition-[color,background-color,border-color] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/40 ${
+              className={`h-8 px-3.5 rounded-lg text-sm font-medium transition-[color,background-color,border-color] duration-150 ease-standard active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/40 ${
                 tab === "all"
                   ? "bg-brand-primary text-white"
                   : "border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
@@ -187,7 +187,7 @@ export default function ShoppingNotificationsPage() {
               role="tab"
               aria-selected={tab === "unread"}
               onClick={() => setTab("unread")}
-              className={`h-8 px-3.5 rounded-lg text-sm font-medium inline-flex items-center transition-[color,background-color,border-color] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/40 ${
+              className={`h-8 px-3.5 rounded-lg text-sm font-medium inline-flex items-center transition-[color,background-color,border-color] duration-150 ease-standard active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/40 ${
                 tab === "unread"
                   ? "bg-brand-primary text-white"
                   : "border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
