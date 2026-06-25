@@ -236,7 +236,8 @@ export default function ClientTracking() {
     const trackDriverId = order.collecting && order.collection_driver_id
       ? order.collection_driver_id
       : order.driver_id;
-    if (!trackDriverId) {
+    const tenantCompanyId: string | null = company?.id ?? null;
+    if (!trackDriverId || !tenantCompanyId) {
       setDriverLocation(null);
       return;
     }
@@ -249,6 +250,7 @@ export default function ClientTracking() {
         .from("driver_locations")
         .select("latitude, longitude")
         .eq("driver_id", trackDriverId)
+        .eq("company_id", tenantCompanyId)
         .maybeSingle();
 
       if (driver && driver.latitude && driver.longitude) {

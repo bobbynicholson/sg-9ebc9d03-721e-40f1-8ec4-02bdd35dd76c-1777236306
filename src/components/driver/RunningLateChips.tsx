@@ -100,7 +100,7 @@ export function RunningLateChips({ orderId, onBroadcast }: Props) {
             onClick={() => handleTap(mins)}
             className={`min-h-11 px-3 text-sm ${
               isArmed
-                ? "bg-amber-600 hover:bg-amber-700 text-white"
+                ? "bg-brand-primary hover:bg-brand-primary/90 text-white"
                 : "border-amber-300 text-amber-800 hover:bg-amber-50"
             }`}
             title={

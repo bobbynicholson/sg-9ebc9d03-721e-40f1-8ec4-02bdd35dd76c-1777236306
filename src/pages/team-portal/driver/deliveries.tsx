@@ -99,7 +99,7 @@ export default function DriverDeliveriesPage() {
   );
 
   useEffect(() => {
-    if (!user?.id) return;
+    if (!user?.id || !user?.company_id) return;
     let cancelled = false;
     (async () => {
       setLoading(true);
@@ -113,6 +113,7 @@ export default function DriverDeliveriesPage() {
         // legacy driver_id) OR the SECONDARY (secondary_driver_id) - a
         // second driver on a two-driver job was getting an empty list
         // because secondary_driver_id wasn't in the filter.
+        .eq("company_id", user.company_id)
         .or(`assigned_driver_id.eq.${user.id},driver_id.eq.${user.id},secondary_driver_id.eq.${user.id}`)
         .order("event_date", { ascending: false });
       if (!cancelled) {
@@ -127,7 +128,7 @@ export default function DriverDeliveriesPage() {
       }
     })();
     return () => { cancelled = true; };
-  }, [user?.id]);
+  }, [user?.id, user?.company_id]);
 
   const stats = useMemo(() => {
     const now = new Date();

@@ -180,8 +180,8 @@ export default function CleaningNotificationsPage() {
           />
 
           <div className="flex gap-2 mb-4">
-            <Button variant={tab === "all" ? "default" : "outline"} size="sm" onClick={() => setTab("all")} className={tab === "all" ? "bg-amber-600 hover:bg-amber-700" : ""}>All</Button>
-            <Button variant={tab === "unread" ? "default" : "outline"} size="sm" onClick={() => setTab("unread")} className={tab === "unread" ? "bg-amber-600 hover:bg-amber-700" : ""}>
+            <Button variant={tab === "all" ? "default" : "outline"} size="sm" onClick={() => setTab("all")} className={tab === "all" ? "bg-brand-primary hover:bg-brand-primary/90" : ""}>All</Button>
+            <Button variant={tab === "unread" ? "default" : "outline"} size="sm" onClick={() => setTab("unread")} className={tab === "unread" ? "bg-brand-primary hover:bg-brand-primary/90" : ""}>
               Unread {unread > 0 && <span className="ml-1.5 bg-white/20 px-1.5 rounded text-[10px] tabular-nums">{unread}</span>}
             </Button>
           </div>

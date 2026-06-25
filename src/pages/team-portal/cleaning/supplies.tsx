@@ -157,7 +157,7 @@ export default function CleaningSuppliesPage() {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 dark:text-slate-500" />
                 <Input placeholder="Search by name, category, location..." className="pl-9" value={search} onChange={(e) => setSearch(e.target.value)} />
               </div>
-              <Button variant={belowParOnly ? "default" : "outline"} onClick={() => setBelowParOnly((v) => !v)} className={belowParOnly ? "bg-amber-600 hover:bg-amber-700" : ""}>
+              <Button variant={belowParOnly ? "default" : "outline"} onClick={() => setBelowParOnly((v) => !v)} className={belowParOnly ? "bg-brand-primary hover:bg-brand-primary/90" : ""}>
                 <AlertTriangle className="h-4 w-4 mr-2" />Low only
               </Button>
             </div>
@@ -222,7 +222,7 @@ export default function CleaningSuppliesPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={closeUse} disabled={saving}>Cancel</Button>
-            <Button onClick={saveUsage} disabled={saving} className="bg-amber-600 hover:bg-amber-700">
+            <Button onClick={saveUsage} disabled={saving} className="bg-brand-primary hover:bg-brand-primary/90">
               {saving ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving</> : "Log usage"}
             </Button>
           </DialogFooter>

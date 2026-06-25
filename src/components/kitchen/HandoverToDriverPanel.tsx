@@ -28,6 +28,7 @@ import { CheckCircle2, ArrowRightLeft, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { useTenantHref } from "@/lib/tenantUrl";
 
 interface HandoverToDriverPanelProps {
   orderId: string;
@@ -47,9 +48,15 @@ interface HandoverState {
 export function HandoverToDriverPanel({ orderId, orderNumber }: HandoverToDriverPanelProps) {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { withSlug } = useTenantHref();
   const [state, setState] = useState<HandoverState>({ loading: true, signed: false });
 
   const load = async () => {
+    const companyId = (user as { company_id?: string } | null)?.company_id ?? null;
+    if (!companyId) {
+      setState({ loading: false, signed: false });
+      return;
+    }
     setState((s) => ({ ...s, loading: true }));
     try {
       // Existing kitchen->driver handover row, if any.
@@ -57,6 +64,7 @@ export function HandoverToDriverPanel({ orderId, orderNumber }: HandoverToDriver
         .from("equipment_handovers")
         .select("id, handover_time, handed_over_by, notes")
         .eq("order_id", orderId)
+        .eq("company_id", companyId)
         .eq("from_stage", "kitchen")
         .eq("to_stage", "driver")
         .order("handover_time", { ascending: false })
@@ -68,6 +76,7 @@ export function HandoverToDriverPanel({ orderId, orderNumber }: HandoverToDriver
         .from("driver_assignments")
         .select("driver_id, profiles:driver_id ( full_name )")
         .eq("order_id", orderId)
+        .eq("company_id", companyId)
         .eq("assignment_type", "delivery")
         .order("assigned_at", { ascending: false })
         .limit(1)
@@ -100,7 +109,7 @@ export function HandoverToDriverPanel({ orderId, orderNumber }: HandoverToDriver
 
   useEffect(() => {
     void load();
-  }, [orderId]);
+  }, [orderId, user?.company_id]);
 
   const handleSign = async () => {
     if (!user?.id) {
@@ -202,7 +211,7 @@ export function HandoverToDriverPanel({ orderId, orderNumber }: HandoverToDriver
           size="sm"
           className="bg-rose-600 hover:bg-rose-700 text-white"
         >
-          <a href={`/admin/order-assignments?orderId=${encodeURIComponent(orderId)}`}>
+          <a href={withSlug(`/admin/order-assignments?orderId=${encodeURIComponent(orderId)}`)}>
             Nudge dispatch
           </a>
         </Button>
@@ -225,7 +234,7 @@ export function HandoverToDriverPanel({ orderId, orderNumber }: HandoverToDriver
         size="sm"
         onClick={handleSign}
         disabled={state.loading}
-        className="bg-amber-600 hover:bg-amber-700 text-white"
+        className="bg-brand-primary hover:bg-brand-primary/90 text-white"
       >
         Sign over to driver
       </Button>

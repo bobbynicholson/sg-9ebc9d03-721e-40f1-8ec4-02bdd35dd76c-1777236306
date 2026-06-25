@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { useRouter } from "next/router";
+import { useTenantHref } from "@/lib/tenantUrl";
 
 /**
  * /team-portal/shopping/alerts - DEPRECATED.
@@ -21,8 +22,9 @@ import { useRouter } from "next/router";
  */
 export default function ShoppingAlertsRedirect() {
   const router = useRouter();
+  const { withSlug } = useTenantHref();
   useEffect(() => {
-    router.replace("/team-portal/shopping/buy-list");
-  }, [router]);
+    router.replace(withSlug("/team-portal/shopping/buy-list"));
+  }, [router, withSlug]);
   return null;
 }

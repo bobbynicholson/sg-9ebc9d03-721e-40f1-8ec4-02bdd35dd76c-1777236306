@@ -202,7 +202,7 @@ export default function ShoppingSuppliersPage() {
             subtitle="Your suppliers, contacts, payment terms and ratings"
             icon={Users}
             actions={
-              <Button onClick={openNew} className="bg-amber-600 hover:bg-amber-700 text-white rounded-lg">
+              <Button onClick={openNew} className="bg-brand-primary hover:bg-brand-primary/90 text-white rounded-lg">
                 <Plus className="h-4 w-4 mr-2" />Add supplier
               </Button>
             }
@@ -287,7 +287,7 @@ export default function ShoppingSuppliersPage() {
                     : "Add the people you buy from so you can track contacts, payment terms and ratings in one place."}
                 </p>
                 {!search.trim() && (
-                  <Button onClick={openNew} className="mt-4 bg-amber-600 hover:bg-amber-700 text-white rounded-lg">
+                  <Button onClick={openNew} className="mt-4 bg-brand-primary hover:bg-brand-primary/90 text-white rounded-lg">
                     <Plus className="h-4 w-4 mr-2" />Add your first supplier
                   </Button>
                 )}
@@ -408,7 +408,7 @@ export default function ShoppingSuppliersPage() {
           )}
           <DialogFooter>
             <Button variant="outline" onClick={close} disabled={saving} className="rounded-lg">Cancel</Button>
-            <Button onClick={save} disabled={saving} className="bg-amber-600 hover:bg-amber-700 text-white rounded-lg">
+            <Button onClick={save} disabled={saving} className="bg-brand-primary hover:bg-brand-primary/90 text-white rounded-lg">
               {saving ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving</> : editing?.id ? "Save changes" : "Add supplier"}
             </Button>
           </DialogFooter>

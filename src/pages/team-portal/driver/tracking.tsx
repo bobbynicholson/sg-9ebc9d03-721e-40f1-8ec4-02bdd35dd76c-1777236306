@@ -100,7 +100,7 @@ function DriverTrackingInner() {
   const { origin: kitchenOrigin } = useKitchenOrigin(user?.id, user?.company_id);
 
   const loadActiveDelivery = async () => {
-    if (!user?.id) return;
+    if (!user?.id || !user?.company_id) return;
     setLoading(true);
 
     const { data, error } = await supabase
@@ -129,6 +129,7 @@ function DriverTrackingInner() {
         )
       `)
       .eq("driver_id", user.id)
+      .eq("company_id", user.company_id)
       .in("status", ["assigned", "accepted", "en_route", "picked_up", "at_venue"])
       .order("assigned_at", { ascending: false })
       .limit(1)

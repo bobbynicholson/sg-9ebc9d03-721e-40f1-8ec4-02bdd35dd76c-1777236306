@@ -925,7 +925,8 @@ function ClientPortalDashboardInner() {
   const liveDriverId = headline?.assigned_driver_id || headline?.driver_id || null;
 
   useEffect(() => {
-    if (!headline || !headlineIsLive || !liveDriverId) {
+    const tenantCompanyId: string | null = company?.id ?? null;
+    if (!headline || !headlineIsLive || !liveDriverId || !tenantCompanyId) {
       setDriverPin(null);
       return;
     }
@@ -939,6 +940,7 @@ function ClientPortalDashboardInner() {
           .from("driver_locations")
           .select("latitude, longitude, updated_at")
           .eq("driver_id", liveDriverId)
+          .eq("company_id", tenantCompanyId)
           .maybeSingle();
         if (pinError) {
           console.error("[client-portal/dashboard] driver_locations fetch failed:", pinError);
@@ -951,6 +953,7 @@ function ClientPortalDashboardInner() {
           .from("profiles")
           .select("full_name, phone, phone_number")
           .eq("id", liveDriverId)
+          .eq("company_id", tenantCompanyId)
           .maybeSingle();
         if (driverProfileError) {
           console.error("[client-portal/dashboard] profiles fetch failed:", driverProfileError);
@@ -982,7 +985,7 @@ function ClientPortalDashboardInner() {
       cancelled = true;
       clearInterval(t);
     };
-  }, [headline?.id, liveDriverId, headlineIsLive]);
+  }, [headline?.id, liveDriverId, headlineIsLive, company?.id]);
 
   // ── Past events strip ───────────────────────────────────────────────
   const pastOrders = useMemo(
@@ -1313,7 +1316,7 @@ function ClientPortalDashboardInner() {
                     behavior: "smooth", block: "start",
                   });
                 }}
-                className="inline-flex items-center gap-1.5 px-4 py-3 rounded-lg font-semibold shadow-sm min-h-11 shrink-0 bg-amber-600 hover:bg-amber-700 text-white transition-colors duration-150"
+                className="inline-flex items-center gap-1.5 px-4 py-3 rounded-lg font-semibold shadow-sm min-h-11 shrink-0 bg-brand-primary hover:bg-brand-primary/90 text-white transition-colors duration-150"
               >
                 <Star className="w-4 h-4" />
                 Rate
@@ -1363,7 +1366,7 @@ function ClientPortalDashboardInner() {
                   className={`inline-flex items-center gap-2 px-4 py-3 rounded-lg font-semibold text-white shadow-sm min-h-11 shrink-0 ${
                     outstanding.overdueCount > 0
                       ? "bg-rose-600 hover:bg-rose-700"
-                      : "bg-amber-600 hover:bg-amber-700"
+                      : "bg-brand-primary hover:bg-brand-primary/90"
                   }`}
                 >
                   <Receipt className="w-4 h-4" />
@@ -1802,7 +1805,7 @@ function HeroCard({
                 <button
                   type="button"
                   onClick={onMessage}
-                  className="text-xs font-medium text-amber-900 hover:text-amber-700 hover:underline mt-1.5 inline-flex items-center gap-1"
+                  className="text-xs font-medium text-brand-primary hover:text-brand-primary/80 hover:underline mt-1.5 inline-flex items-center gap-1"
                 >
                   <MessageSquare className="w-3 h-3" />
                   Ping {companyName} for an update

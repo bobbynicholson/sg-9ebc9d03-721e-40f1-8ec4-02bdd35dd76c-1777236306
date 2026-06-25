@@ -47,9 +47,10 @@ export default function ClientNotificationsPage() {
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<"all" | "unread">("all");
   const [actingId, setActingId] = useState<string | null>(null);
+  const companyId = company?.id || null;
 
   useEffect(() => {
-    if (!user?.id) return;
+    if (!user?.id || !companyId) return;
     let cancelled = false;
     (async () => {
       setLoading(true);
@@ -58,7 +59,7 @@ export default function ClientNotificationsPage() {
           user.id,
           tab === "unread",
           activeRole,
-          { limit: 100 },
+          { limit: 100, companyId },
         );
         if (!cancelled) setNotifications(data);
       } catch (e: any) {
@@ -74,7 +75,7 @@ export default function ClientNotificationsPage() {
       }
     })();
     return () => { cancelled = true; };
-  }, [user?.id, activeRole, tab, toast]);
+  }, [user?.id, companyId, activeRole, tab, toast]);
 
   // Render-level dedupe by id (matches the admin bell + page guarantee).
   const visible = useMemo(
@@ -145,7 +146,7 @@ export default function ClientNotificationsPage() {
   const onMarkAllRead = async () => {
     if (!user?.id || unreadCount === 0) return;
     try {
-      await notificationService.markAllAsRead(user.id, activeRole);
+      await notificationService.markAllAsRead(user.id, activeRole, companyId);
       setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
       toast({ title: "All caught up" });
     } catch (e: any) {

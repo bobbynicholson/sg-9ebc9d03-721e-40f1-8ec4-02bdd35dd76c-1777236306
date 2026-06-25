@@ -237,7 +237,7 @@ export default function CleaningDamagePage() {
             subtitle="Track damaged or lost equipment with replacement cost estimates"
             icon={FileWarning}
             actions={
-              <Button onClick={openCreate} className="bg-amber-600 hover:bg-amber-700">
+              <Button onClick={openCreate} className="bg-brand-primary hover:bg-brand-primary/90">
                 <Plus className="h-4 w-4 mr-2" />Report damage
               </Button>
             }
@@ -255,7 +255,7 @@ export default function CleaningDamagePage() {
 
           <div className="flex flex-wrap items-center gap-2 mb-4">
             {(["open", "resolved", "all"] as const).map((t) => (
-              <Button key={t} variant={tab === t ? "default" : "outline"} size="sm" onClick={() => setTab(t)} className={tab === t ? "bg-amber-600 hover:bg-amber-700 capitalize" : "capitalize"}>
+              <Button key={t} variant={tab === t ? "default" : "outline"} size="sm" onClick={() => setTab(t)} className={tab === t ? "bg-brand-primary hover:bg-brand-primary/90 capitalize" : "capitalize"}>
                 {t}
               </Button>
             ))}
@@ -397,7 +397,7 @@ export default function CleaningDamagePage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={closeCreate} disabled={saving}>Cancel</Button>
-            <Button onClick={saveCreate} disabled={saving} className="bg-amber-600 hover:bg-amber-700">
+            <Button onClick={saveCreate} disabled={saving} className="bg-brand-primary hover:bg-brand-primary/90">
               {saving ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving</> : "Submit report"}
             </Button>
           </DialogFooter>

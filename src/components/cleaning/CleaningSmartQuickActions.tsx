@@ -36,27 +36,28 @@ interface CleaningSmartQuickActionsProps {
 export function CleaningSmartQuickActions({ onNavigate }: CleaningSmartQuickActionsProps) {
   const { withSlug } = useTenantHref();
   const { mode } = useCleaningPortalMode();
+  const accent = "from-brand-primary to-brand-secondary";
 
   const ACTIONS_BY_MODE = {
     quiet: [
-      { href: "/team-portal/cleaning/damage",    label: "Open damages",  sub: "Clear the backlog",     icon: AlertTriangle, accent: "from-amber-500 to-orange-500" },
-      { href: "/team-portal/cleaning/equipment", label: "Equipment",     sub: "Catalogue + verify",    icon: Package,       accent: "from-cyan-500 to-blue-500" },
-      { href: "/team-portal/cleaning/supplies",  label: "Stock check",   sub: "Detergents + cloths",   icon: SprayCan,      accent: "from-emerald-500 to-teal-500" },
+      { href: "/team-portal/cleaning/damage",    label: "Open damages",  sub: "Clear the backlog",     icon: AlertTriangle, accent },
+      { href: "/team-portal/cleaning/equipment", label: "Equipment",     sub: "Catalogue + verify",    icon: Package,       accent },
+      { href: "/team-portal/cleaning/supplies",  label: "Stock check",   sub: "Detergents + cloths",   icon: SprayCan,      accent },
     ],
     dispatch: [
-      { href: "/team-portal/cleaning/equipment", label: "Verify outgoing", sub: "Check before dispatch", icon: ClipboardCheck, accent: "from-amber-500 to-orange-500" },
-      { href: "/team-portal/cleaning/dashboard", label: "Today's events",  sub: "What's going out",      icon: Calendar,       accent: "from-cyan-500 to-blue-500" },
-      { href: "/team-portal/cleaning/damage",    label: "Report damage",   sub: "Log a broken item",     icon: AlertTriangle,  accent: "from-rose-500 to-pink-500" },
+      { href: "/team-portal/cleaning/equipment", label: "Verify outgoing", sub: "Check before dispatch", icon: ClipboardCheck, accent },
+      { href: "/team-portal/cleaning/dashboard", label: "Today's events",  sub: "What's going out",      icon: Calendar,       accent },
+      { href: "/team-portal/cleaning/damage",    label: "Report damage",   sub: "Log a broken item",     icon: AlertTriangle,  accent },
     ],
     returns: [
-      { href: "/team-portal/cleaning/dashboard#returns", label: "Verify a return", sub: "Equipment coming back", icon: PackageOpen, accent: "from-cyan-500 to-blue-500" },
-      { href: "/team-portal/cleaning/dashboard#washing", label: "Active washes",   sub: "Jobs in progress",      icon: Droplets,    accent: "from-blue-500 to-indigo-500" },
-      { href: "/team-portal/cleaning/dashboard#duty",    label: "Clock in",        sub: "Start your shift",      icon: Clock,       accent: "from-emerald-500 to-teal-500" },
+      { href: "/team-portal/cleaning/dashboard#returns", label: "Verify a return", sub: "Equipment coming back", icon: PackageOpen, accent },
+      { href: "/team-portal/cleaning/dashboard#washing", label: "Active washes",   sub: "Jobs in progress",      icon: Droplets,    accent },
+      { href: "/team-portal/cleaning/dashboard#duty",    label: "Clock in",        sub: "Start your shift",      icon: Clock,       accent },
     ],
     wrap: [
-      { href: "/team-portal/cleaning/dashboard#washing", label: "Sign off jobs", sub: "Mark handovers done", icon: CheckCircle2,  accent: "from-emerald-500 to-teal-500" },
-      { href: "/team-portal/cleaning/damage",            label: "Open damages",  sub: "End-of-day log",      icon: AlertTriangle, accent: "from-amber-500 to-orange-500" },
-      { href: "/team-portal/cleaning/dashboard#duty",    label: "Clock out",     sub: "End your shift",      icon: Clock,         accent: "from-slate-500 to-slate-600" },
+      { href: "/team-portal/cleaning/dashboard#washing", label: "Sign off jobs", sub: "Mark handovers done", icon: CheckCircle2,  accent },
+      { href: "/team-portal/cleaning/damage",            label: "Open damages",  sub: "End-of-day log",      icon: AlertTriangle, accent },
+      { href: "/team-portal/cleaning/dashboard#duty",    label: "Clock out",     sub: "End your shift",      icon: Clock,         accent },
     ],
   } as const;
 

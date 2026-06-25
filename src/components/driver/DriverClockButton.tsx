@@ -75,12 +75,13 @@ export function DriverClockButton({
   void tick;
 
   const refresh = async () => {
-    if (!driverId) return;
+    if (!driverId || !companyId) return;
     try {
       const { data } = await (supabase as any)
         .from("driver_shifts")
         .select("id, actual_start")
         .eq("driver_id", driverId)
+        .eq("company_id", companyId)
         .is("deleted_at", null)
         .is("actual_end", null)
         .not("actual_start", "is", null)
@@ -98,6 +99,7 @@ export function DriverClockButton({
         .from("driver_shifts")
         .select("id, planned_start, planned_end")
         .eq("driver_id", driverId)
+        .eq("company_id", companyId)
         .eq("shift_date", todayIso)
         .is("deleted_at", null)
         .not("planned_start", "is", null)
@@ -116,7 +118,7 @@ export function DriverClockButton({
   useEffect(() => {
     void refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [driverId]);
+  }, [driverId, companyId]);
 
   const clockIn = async () => {
     if (!driverId || !companyId) return;
@@ -218,7 +220,7 @@ export function DriverClockButton({
             size="sm"
             onClick={clockOut}
             disabled={busy}
-            className="bg-amber-600 hover:bg-amber-700 shrink-0"
+            className="bg-brand-primary hover:bg-brand-primary/90 text-white shrink-0"
           >
             {busy ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Square className="w-4 h-4 mr-1" />}
             Clock out

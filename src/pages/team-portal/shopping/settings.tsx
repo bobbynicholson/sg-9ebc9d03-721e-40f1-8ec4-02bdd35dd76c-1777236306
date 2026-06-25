@@ -94,7 +94,7 @@ export default function ShoppingSettingsPage() {
                   size="sm"
                   onClick={save}
                   disabled={saving || !loaded}
-                  className="rounded-lg bg-amber-600 hover:bg-amber-700 text-white"
+                  className="rounded-lg bg-brand-primary hover:bg-brand-primary/90 text-white"
                 >
                   {saving ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving</> : <><Save className="h-4 w-4 mr-2" />Save changes</>}
                 </Button>

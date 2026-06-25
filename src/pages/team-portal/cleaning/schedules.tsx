@@ -149,7 +149,7 @@ export default function CleaningSchedulesPage() {
               </>
             }
             actions={
-              <Button onClick={openCreate} className="bg-amber-600 hover:bg-amber-700">
+              <Button onClick={openCreate} className="bg-brand-primary hover:bg-brand-primary/90">
                 <Plus className="h-4 w-4 mr-2" />New schedule
               </Button>
             }
@@ -259,7 +259,7 @@ export default function CleaningSchedulesPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={closeCreate} disabled={saving}>Cancel</Button>
-            <Button onClick={saveCreate} disabled={saving} className="bg-amber-600 hover:bg-amber-700">
+            <Button onClick={saveCreate} disabled={saving} className="bg-brand-primary hover:bg-brand-primary/90">
               {saving ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving</> : "Create schedule"}
             </Button>
           </DialogFooter>

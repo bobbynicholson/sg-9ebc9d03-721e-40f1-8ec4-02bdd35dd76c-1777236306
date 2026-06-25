@@ -158,7 +158,7 @@ export default function ShoppingNotificationsPage() {
                   </Button>
                 )}
                 {unread > 0 && (
-                  <Button onClick={markAllRead} size="sm" className="rounded-lg bg-amber-600 hover:bg-amber-700 text-white">
+                  <Button onClick={markAllRead} size="sm" className="rounded-lg bg-brand-primary hover:bg-brand-primary/90 text-white">
                     <Check className="h-4 w-4 mr-2" />Mark all read
                   </Button>
                 )}
@@ -176,7 +176,7 @@ export default function ShoppingNotificationsPage() {
               onClick={() => setTab("all")}
               className={`h-8 px-3.5 rounded-lg text-sm font-medium transition-[color,background-color,border-color] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/40 ${
                 tab === "all"
-                  ? "bg-amber-600 text-white"
+                  ? "bg-brand-primary text-white"
                   : "border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
               }`}
             >
@@ -189,7 +189,7 @@ export default function ShoppingNotificationsPage() {
               onClick={() => setTab("unread")}
               className={`h-8 px-3.5 rounded-lg text-sm font-medium inline-flex items-center transition-[color,background-color,border-color] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/40 ${
                 tab === "unread"
-                  ? "bg-amber-600 text-white"
+                  ? "bg-brand-primary text-white"
                   : "border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
               }`}
             >

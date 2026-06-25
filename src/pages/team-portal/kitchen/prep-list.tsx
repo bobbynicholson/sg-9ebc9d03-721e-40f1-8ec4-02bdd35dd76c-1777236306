@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import {
   ClipboardList, ChefHat, Calendar, Users, MapPin, Clock,
   AlertTriangle, CheckCircle2, ShoppingCart, Layers, Package, Info, ExternalLink,
+  RotateCcw,
 } from "lucide-react";
 import { PortalShell, PortalHeader, PortalCard, PortalCardHeader } from "@/components/portal/ui";
 import { KitchenNav } from "@/components/navigation/KitchenNav";
@@ -416,6 +417,16 @@ export default function KitchenPrepListPage() {
 
   const shortfallCount = aggregated.filter(d => d.shortfall > 0).length;
   const [creatingList, setCreatingList] = useState(false);
+  const [flippedOrderIds, setFlippedOrderIds] = useState<Set<string>>(() => new Set());
+
+  const toggleOrderFlip = (orderId: string) => {
+    setFlippedOrderIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(orderId)) next.delete(orderId);
+      else next.add(orderId);
+      return next;
+    });
+  };
 
   // KIT3-E (task #248): wire the per-ingredient "Add to list" CTA
   // to actually write a shopping_list_item row instead of toasting
@@ -850,6 +861,18 @@ export default function KitchenPrepListPage() {
                       // the cross-order projection so two orders sharing an
                       // ingredient don't both render "ok" when together they're short.
                       const aggMap = new Map(aggregated.map(a => [`${a.name.toLowerCase()}|${(a.unit || "").toLowerCase()}`, a]));
+                      const ingredientRows = ingredients.map((ing) => {
+                        const aggKey = `${ing.ingredient_name.toLowerCase()}|${(ing.unit || "").toLowerCase()}`;
+                        const agg = aggMap.get(aggKey);
+                        return { ...ing, agg, isShortOverall: !!agg && agg.shortfall > 0 };
+                      });
+                      const shortIngredientCount = ingredientRows.filter((ing) => ing.isShortOverall).length;
+                      const equipmentItems = Array.isArray(meta?.equipment_items) ? meta.equipment_items : [];
+                      const noteCount = [
+                        meta?.dietary_requirements,
+                        meta?.kitchen_instructions,
+                        meta?.special_instructions,
+                      ].filter(Boolean).length;
 
                       const urgency = urgencyOf(o, meta);
                       const urgencyBadge =
@@ -868,6 +891,12 @@ export default function KitchenPrepListPage() {
                             : urgency.tier === "watch"
                               ? "border-l-4 border-l-amber-400 dark:border-l-amber-600"
                               : "";
+                      const cardTitle = orderDisplayName({
+                        event_name: o.event_name,
+                        client_name: meta?.client_name,
+                        order_number: o.order_number,
+                      });
+                      const isFlipped = flippedOrderIds.has(o.order_id);
 
                       return (
                         <PortalCard key={o.order_id} padded={false} className={cardBorder}>
@@ -880,7 +909,7 @@ export default function KitchenPrepListPage() {
                                       to the client name so the chef sees a
                                       real name. client_name lives on meta. */}
                                   <span className="truncate">
-                                    {orderDisplayName({ event_name: o.event_name, client_name: meta?.client_name, order_number: o.order_number })}
+                                    {cardTitle}
                                   </span>
                                   <Badge variant="outline" className="text-[10px]">{o.order_number}</Badge>
                                   {urgencyBadge && (
@@ -913,9 +942,102 @@ export default function KitchenPrepListPage() {
                                   </p>
                                 )}
                               </div>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() => toggleOrderFlip(o.order_id)}
+                                aria-pressed={isFlipped}
+                                className="h-8 shrink-0 gap-1 border-brand-primary/30 text-brand-primary hover:bg-brand-primary/5"
+                              >
+                                <RotateCcw className="h-3.5 w-3.5" />
+                                {isFlipped ? "Event" : "Requirements"}
+                              </Button>
                             </div>
                           </div>
-                          <div className="p-5 pt-0 space-y-3">
+                          <div className="px-5 pb-5 pt-0 [perspective:1200px]">
+                            <div
+                              className="relative transition-transform duration-500 ease-out [transform-style:preserve-3d] motion-reduce:transition-none"
+                              style={{ transform: isFlipped ? "rotateY(180deg)" : "rotateY(0deg)" }}
+                            >
+                              <div
+                                className={`space-y-4 [backface-visibility:hidden] ${isFlipped ? "pointer-events-none absolute inset-x-0 top-0" : "relative"}`}
+                                aria-hidden={isFlipped}
+                              >
+                              {(meta?.dietary_requirements || meta?.kitchen_instructions || meta?.special_instructions) && (
+                                <div className="rounded-lg border border-brand-primary/20 bg-brand-primary/5 p-3">
+                                  <p className="flex items-center gap-1.5 text-xs font-semibold text-slate-900 dark:text-white">
+                                    <Info className="h-3.5 w-3.5 text-brand-primary" />
+                                    {noteCount} chef note{noteCount === 1 ? "" : "s"} attached
+                                  </p>
+                                  {meta?.dietary_requirements && (
+                                    <p className="mt-1 line-clamp-2 text-xs text-rose-800 dark:text-rose-200">
+                                      Allergens / dietary: {meta.dietary_requirements}
+                                    </p>
+                                  )}
+                                </div>
+                              )}
+
+                              <div className="grid grid-cols-2 gap-2 text-xs">
+                                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-900/60">
+                                  <p className="text-slate-500 dark:text-slate-400">Menu items</p>
+                                  <p className="mt-1 text-lg font-semibold tabular-nums text-slate-950 dark:text-white">{menuItems.length}</p>
+                                </div>
+                                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-900/60">
+                                  <p className="text-slate-500 dark:text-slate-400">Ingredients</p>
+                                  <p className="mt-1 text-lg font-semibold tabular-nums text-slate-950 dark:text-white">{ingredients.length}</p>
+                                </div>
+                                <div className={`rounded-lg border p-3 ${shortIngredientCount > 0 ? "border-rose-200 bg-rose-50 dark:border-rose-900 dark:bg-rose-950/30" : "border-emerald-200 bg-emerald-50 dark:border-emerald-900 dark:bg-emerald-950/30"}`}>
+                                  <p className={shortIngredientCount > 0 ? "text-rose-700 dark:text-rose-300" : "text-emerald-700 dark:text-emerald-300"}>Short items</p>
+                                  <p className={`mt-1 text-lg font-semibold tabular-nums ${shortIngredientCount > 0 ? "text-rose-900 dark:text-rose-100" : "text-emerald-900 dark:text-emerald-100"}`}>{shortIngredientCount}</p>
+                                </div>
+                                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-900/60">
+                                  <p className="text-slate-500 dark:text-slate-400">Equipment</p>
+                                  <p className="mt-1 text-lg font-semibold tabular-nums text-slate-950 dark:text-white">{equipmentItems.length}</p>
+                                </div>
+                              </div>
+
+                              <div className="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
+                                <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                                  Quick required preview
+                                </p>
+                                <div className="space-y-2">
+                                  {ingredientRows.slice(0, 4).map((ing) => (
+                                    <div key={ing.ingredient_name} className="flex items-center justify-between gap-2 text-sm">
+                                      <span className="truncate text-slate-700 dark:text-slate-300">{ing.ingredient_name}</span>
+                                      <span className="flex shrink-0 items-center gap-1.5 font-medium tabular-nums text-slate-950 dark:text-white">
+                                        {Number(ing.quantity).toFixed(ing.quantity % 1 === 0 ? 0 : 2)} {ing.unit}
+                                        {ing.isShortOverall ? (
+                                          <AlertTriangle className="h-3.5 w-3.5 text-rose-500" />
+                                        ) : ing.agg ? (
+                                          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                                        ) : null}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => toggleOrderFlip(o.order_id)}
+                                  className="mt-3 inline-flex min-h-10 w-full items-center justify-center gap-1.5 rounded-lg bg-brand-primary px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-primary/90"
+                                >
+                                  <RotateCcw className="h-4 w-4" />
+                                  Flip to all requirements
+                                </button>
+                              </div>
+                              </div>
+                              <div
+                                className={`space-y-3 [backface-visibility:hidden] [transform:rotateY(180deg)] ${!isFlipped ? "pointer-events-none absolute inset-x-0 top-0" : "relative"}`}
+                                aria-hidden={!isFlipped}
+                              >
+                            <div className="rounded-lg border border-brand-primary/20 bg-brand-primary/5 px-3 py-2">
+                              <p className="text-xs font-semibold uppercase tracking-wide text-brand-primary">
+                                Required for this event
+                              </p>
+                              <p className="mt-0.5 text-xs text-slate-600 dark:text-slate-300">
+                                Menu, equipment, notes, and scaled ingredients for {o.guest_count} guests.
+                              </p>
+                            </div>
                             {/* Dietary + kitchen + special notes pulled from
                                 orders.* and shown inline so the chef sees
                                 allergens / no-pork / vegan etc. without
@@ -965,13 +1087,13 @@ export default function KitchenPrepListPage() {
                               kitchen sees it here, the driver sees it
                               on their delivery card. End-to-end visibility.
                             */}
-                            {Array.isArray(meta?.equipment_items) && meta.equipment_items.length > 0 && (
+                            {equipmentItems.length > 0 && (
                               <div>
                                 <p className="text-[11px] uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-1.5 flex items-center gap-1">
-                                  Equipment to pack ({meta.equipment_items.length})
+                                  Equipment to pack ({equipmentItems.length})
                                 </p>
                                 <ul className="text-sm divide-y divide-slate-100 dark:divide-slate-800">
-                                  {meta.equipment_items.map((eq: any, i: number) => {
+                                  {equipmentItems.map((eq: any, i: number) => {
                                     const fromStock = Number(eq.from_stock_qty);
                                     const fromHire = Number(eq.from_hire_qty);
                                     const hasSplit = Number.isFinite(fromStock) && Number.isFinite(fromHire) && (fromStock > 0 || fromHire > 0);
@@ -1022,30 +1144,34 @@ export default function KitchenPrepListPage() {
                                 {" - "}per-portion x guest_count.
                               </p>
                               <ul className="text-sm divide-y divide-slate-100 dark:divide-slate-800">
-                                {ingredients.map((ing) => {
-                                  // Look up aggregated shortfall for this ingredient
-                                  const aggKey = `${ing.ingredient_name.toLowerCase()}|${(ing.unit || "").toLowerCase()}`;
-                                  const agg = aggMap.get(aggKey);
-                                  const isShortOverall = agg && agg.shortfall > 0;
-                                  return (
-                                    <li key={ing.ingredient_name} className="py-1.5 flex items-center justify-between gap-2">
-                                      <span className="text-slate-700 dark:text-slate-300 truncate">{ing.ingredient_name}</span>
-                                      <span className="flex items-center gap-2 flex-shrink-0">
-                                        <span className="tabular-nums text-slate-900 dark:text-white font-medium">
-                                          {Number(ing.quantity).toFixed(ing.quantity % 1 === 0 ? 0 : 2)} {ing.unit}
-                                        </span>
-                                        {isShortOverall ? (
-                                          <span title={`Short ${agg!.shortfall} ${agg!.unit} across ${agg!.used_by.length} orders`}>
-                                            <AlertTriangle className="w-3.5 h-3.5 text-rose-500" />
-                                          </span>
-                                        ) : agg ? (
-                                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-                                        ) : null}
+                                {ingredientRows.map((ing) => (
+                                  <li key={ing.ingredient_name} className="py-1.5 flex items-center justify-between gap-2">
+                                    <span className="text-slate-700 dark:text-slate-300 truncate">{ing.ingredient_name}</span>
+                                    <span className="flex items-center gap-2 flex-shrink-0">
+                                      <span className="tabular-nums text-slate-900 dark:text-white font-medium">
+                                        {Number(ing.quantity).toFixed(ing.quantity % 1 === 0 ? 0 : 2)} {ing.unit}
                                       </span>
-                                    </li>
-                                  );
-                                })}
+                                      {ing.isShortOverall ? (
+                                        <span title={`Short ${ing.agg!.shortfall} ${ing.agg!.unit} across ${ing.agg!.used_by.length} orders`}>
+                                          <AlertTriangle className="w-3.5 h-3.5 text-rose-500" />
+                                        </span>
+                                      ) : ing.agg ? (
+                                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                                      ) : null}
+                                    </span>
+                                  </li>
+                                ))}
                               </ul>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => toggleOrderFlip(o.order_id)}
+                              className="inline-flex min-h-10 w-full items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition-colors hover:border-brand-primary/30 hover:bg-brand-primary/5 hover:text-brand-primary dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                            >
+                              <RotateCcw className="h-4 w-4" />
+                              Back to event summary
+                            </button>
+                              </div>
                             </div>
                           </div>
                         </PortalCard>

@@ -154,7 +154,7 @@ export default function CleaningTasksPage() {
 
           <div className="flex gap-2 mb-4">
             {(["today", "mine", "all"] as const).map((f) => (
-              <Button key={f} variant={filter === f ? "default" : "outline"} size="sm" onClick={() => setFilter(f)} className={filter === f ? "bg-amber-600 hover:bg-amber-700 capitalize" : "capitalize"}>
+              <Button key={f} variant={filter === f ? "default" : "outline"} size="sm" onClick={() => setFilter(f)} className={filter === f ? "bg-brand-primary hover:bg-brand-primary/90 capitalize" : "capitalize"}>
                 {f === "today" ? "Today" : f === "mine" ? "My tasks" : "All open"}
               </Button>
             ))}
@@ -203,7 +203,7 @@ export default function CleaningTasksPage() {
                     </div>
                     <div className="flex gap-2 flex-shrink-0">
                       {t.status === "in_progress" ? (
-                        <Button size="sm" onClick={() => openComplete(t)} className="bg-amber-600 hover:bg-amber-700 text-white">
+                        <Button size="sm" onClick={() => openComplete(t)} className="bg-brand-primary hover:bg-brand-primary/90 text-white">
                           <Check className="h-4 w-4 mr-1" />Done
                         </Button>
                       ) : (
@@ -239,7 +239,7 @@ export default function CleaningTasksPage() {
           />
           <DialogFooter>
             <Button variant="outline" onClick={closeComplete} disabled={saving}>Cancel</Button>
-            <Button onClick={confirmComplete} disabled={saving} className="bg-amber-600 hover:bg-amber-700 text-white">
+            <Button onClick={confirmComplete} disabled={saving} className="bg-brand-primary hover:bg-brand-primary/90 text-white">
               {saving ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving</> : "Mark complete"}
             </Button>
           </DialogFooter>

@@ -241,6 +241,7 @@ function DriverDashboardInner() {
           )
         `)
         .eq("driver_id", user.id)
+        .eq("company_id", user.company_id)
         // driver_assignments has no deleted_at column (the .is("deleted_at",null)
         // here 400'd the whole assignments load -> driver saw no jobs). Soft-
         // delete isn't modelled on this table; the status filter below already

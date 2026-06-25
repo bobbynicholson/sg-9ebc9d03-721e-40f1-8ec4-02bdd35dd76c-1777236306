@@ -43,7 +43,7 @@ export default function DriverSchedulePage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!user?.id) return;
+    if (!user?.id || !user?.company_id) return;
     let cancelled = false;
     (async () => {
       setLoading(true);
@@ -52,6 +52,7 @@ export default function DriverSchedulePage() {
       const { data, error } = await supabase
         .from("orders")
         .select("id, event_date, event_time, venue_address, guest_count, status, client_name")
+        .eq("company_id", user.company_id)
         .or(`assigned_driver_id.eq.${user.id},driver_id.eq.${user.id}`)
         .gte("event_date", toLocalISO(today))
         .in("status", ["confirmed", "preparing", "ready", "in_transit"])
@@ -63,7 +64,7 @@ export default function DriverSchedulePage() {
       }
     })();
     return () => { cancelled = true; };
-  }, [user?.id]);
+  }, [user?.id, user?.company_id]);
 
   const grouped = useMemo(() => {
     const today = new Date();

@@ -64,11 +64,17 @@ export function NotificationBell() {
   const router = useRouter();
   // Wave 27.3: tenant-slug wrapper for internal navigations.
   const { withSlug } = useTenantHref();
-  const { user, activeRole } = useAuth();
+  const { user, activeRole, company, profile } = useAuth() as any;
   const { toast } = useToast();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
+  const companyId =
+    company?.id ||
+    profile?.company_id ||
+    (user as any)?.company_id ||
+    (user as any)?.user_metadata?.company_id ||
+    null;
 
   useEffect(() => {
     if (!user?.id) return;
@@ -101,6 +107,7 @@ export function NotificationBell() {
         }
       },
       activeRole,
+      companyId,
     );
 
     // Safety net: if a network blip drops the realtime channel, a slow
@@ -113,7 +120,7 @@ export function NotificationBell() {
       clearInterval(interval);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, activeRole]);
+  }, [user, activeRole, companyId]);
 
   const loadNotifications = async () => {
     if (!user?.id) return;
@@ -125,14 +132,14 @@ export function NotificationBell() {
         user.id,
         true,
         activeRole,
-        { limit: 50 }
+        { limit: 50, companyId }
       );
       
       const readNotifs = await notificationService.getNotifications(
         user.id,
         false,
         activeRole,
-        { limit: 5 }
+        { limit: 5, companyId }
       );
       
       // Combine, DEDUPE, then sort by date. getNotifications(userId, false)
@@ -170,7 +177,7 @@ export function NotificationBell() {
   const handleMarkAllAsRead = async (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!user?.id) return;
-    await notificationService.markAllAsRead(user.id, activeRole);
+    await notificationService.markAllAsRead(user.id, activeRole, companyId);
     setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
   };
 
@@ -226,15 +233,15 @@ export function NotificationBell() {
     if (role && ADMIN_ROLES.has(role)) {
       router.push(withSlug("/admin/notifications"));
     } else if (role === "driver") {
-      router.push("/team-portal/driver/notifications");
+      router.push(withSlug("/team-portal/driver/notifications"));
     } else if (role === "kitchen_staff") {
-      router.push("/team-portal/kitchen/notifications");
+      router.push(withSlug("/team-portal/kitchen/notifications"));
     } else if (role === "shopping_staff") {
-      router.push("/team-portal/shopping/notifications");
+      router.push(withSlug("/team-portal/shopping/notifications"));
     } else if (role === "cleaning_staff") {
-      router.push("/team-portal/cleaning/notifications");
+      router.push(withSlug("/team-portal/cleaning/notifications"));
     } else {
-      router.push("/client-portal/notifications");
+      router.push(withSlug("/client-portal/notifications"));
     }
   };
 

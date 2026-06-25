@@ -47,7 +47,7 @@ const MODE_META: Record<PortalServiceMode, {
   service: {
     label: "Service",
     icon: Flame,
-    bg: "bg-gradient-to-r from-orange-500 to-red-500 border-orange-600",
+    bg: "bg-gradient-to-r from-brand-primary to-brand-secondary border-brand-primary",
     text: "text-white",
     pulse: true,
   },

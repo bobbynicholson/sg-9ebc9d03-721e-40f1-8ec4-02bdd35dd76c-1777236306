@@ -315,7 +315,7 @@ export default function ShoppingOrdersPage() {
             subtitle="Open team shopping lists, what is still left to buy, and upcoming events that need procurement."
             icon={ShoppingCart}
             actions={
-              <Button onClick={openCreate} className="bg-amber-600 hover:bg-amber-700 text-white rounded-lg">
+              <Button onClick={openCreate} className="bg-brand-primary hover:bg-brand-primary/90 text-white rounded-lg">
                 <Plus className="h-4 w-4 mr-2" />Create list
               </Button>
             }
@@ -350,7 +350,7 @@ export default function ShoppingOrdersPage() {
               onClick={() => setTab("lists")}
               className={`inline-flex items-center gap-2 px-3.5 h-9 rounded-lg text-sm font-medium transition-[color,background-color] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-amber-500 ${
                 tab === "lists"
-                  ? "bg-amber-600 text-white"
+                  ? "bg-brand-primary text-white"
                   : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
               }`}
             >
@@ -362,7 +362,7 @@ export default function ShoppingOrdersPage() {
               onClick={() => setTab("upcoming")}
               className={`inline-flex items-center gap-2 px-3.5 h-9 rounded-lg text-sm font-medium transition-[color,background-color] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-amber-500 ${
                 tab === "upcoming"
-                  ? "bg-amber-600 text-white"
+                  ? "bg-brand-primary text-white"
                   : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
               }`}
             >
@@ -409,7 +409,7 @@ export default function ShoppingOrdersPage() {
                 </div>
                 <p className="font-semibold text-slate-900 dark:text-white">No shopping lists yet</p>
                 <p className="text-sm text-slate-600 dark:text-slate-400 mt-1 max-w-sm mx-auto">Start a list before a procurement run to track what you buy and attach the till slip when you&apos;re done.</p>
-                <Button onClick={openCreate} className="bg-amber-600 hover:bg-amber-700 text-white rounded-lg mt-5">
+                <Button onClick={openCreate} className="bg-brand-primary hover:bg-brand-primary/90 text-white rounded-lg mt-5">
                   <Plus className="h-4 w-4 mr-2" />New shopping list
                 </Button>
               </PortalCard>
@@ -445,7 +445,7 @@ export default function ShoppingOrdersPage() {
                           <Button size="sm" variant="outline" onClick={() => claimList(l.id)} className="border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg">Claim</Button>
                         )}
                         {listIsOpen && (
-                          <Button size="sm" onClick={() => openComplete(l.id)} className="bg-amber-600 hover:bg-amber-700 text-white rounded-lg">
+                          <Button size="sm" onClick={() => openComplete(l.id)} className="bg-brand-primary hover:bg-brand-primary/90 text-white rounded-lg">
                             <Check className="h-4 w-4 mr-1" />Complete
                           </Button>
                         )}
@@ -532,7 +532,7 @@ export default function ShoppingOrdersPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={closeCreate} disabled={saving} className="border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg">Cancel</Button>
-            <Button onClick={saveCreate} disabled={saving} className="bg-amber-600 hover:bg-amber-700 text-white rounded-lg">
+            <Button onClick={saveCreate} disabled={saving} className="bg-brand-primary hover:bg-brand-primary/90 text-white rounded-lg">
               {saving ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving</> : "Create list"}
             </Button>
           </DialogFooter>
@@ -634,7 +634,7 @@ export default function ShoppingOrdersPage() {
             <Button
               onClick={completeList}
               disabled={completing}
-              className="bg-amber-600 hover:bg-amber-700 text-white rounded-lg"
+              className="bg-brand-primary hover:bg-brand-primary/90 text-white rounded-lg"
             >
               {completing ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving</> : <><Check className="h-4 w-4 mr-2" />Mark complete</>}
             </Button>

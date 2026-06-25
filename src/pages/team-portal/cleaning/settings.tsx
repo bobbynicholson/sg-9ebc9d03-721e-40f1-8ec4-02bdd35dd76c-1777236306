@@ -91,7 +91,7 @@ export default function CleaningSettingsPage() {
             actions={
               <div className="flex gap-2">
                 <Button variant="outline" size="sm" onClick={resetDefaults}>Reset</Button>
-                <Button size="sm" onClick={save} disabled={saving || !loaded} className="bg-amber-600 hover:bg-amber-700">
+                <Button size="sm" onClick={save} disabled={saving || !loaded} className="bg-brand-primary hover:bg-brand-primary/90">
                   {saving ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving</> : <><Save className="h-4 w-4 mr-2" />Save</>}
                 </Button>
               </div>

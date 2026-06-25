@@ -1545,7 +1545,7 @@ export default function KitchenDashboard() {
                        "bg-gradient-to-br from-emerald-50 to-white dark:from-emerald-950/40 dark:to-slate-900 border-emerald-200 dark:border-emerald-900";
             const statusTone =
               isLate ? "bg-rose-600 text-white" :
-              isSoon ? "bg-amber-600 text-white" :
+              isSoon ? "bg-brand-primary text-white" :
                        "bg-emerald-600 text-white";
             const iconTone =
               isLate ? "text-rose-500 dark:text-rose-400" :
@@ -1623,7 +1623,7 @@ export default function KitchenDashboard() {
                           size="sm"
                           onClick={() => handleForceClose(o.id, label)}
                           disabled={forceClosingId === o.id}
-                          className="bg-amber-600 hover:bg-amber-700 gap-1.5 text-xs h-8 flex-shrink-0"
+                          className="bg-brand-primary hover:bg-brand-primary/90 gap-1.5 text-xs h-8 flex-shrink-0"
                         >
                           {forceClosingId === o.id ? (
                             <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -2132,7 +2132,7 @@ export default function KitchenDashboard() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              className="bg-amber-600 hover:bg-amber-700"
+              className="bg-brand-primary hover:bg-brand-primary/90"
               onClick={confirmForceClose}
             >
               Force-close + mark delivered

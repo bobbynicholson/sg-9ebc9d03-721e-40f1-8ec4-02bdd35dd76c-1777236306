@@ -353,7 +353,7 @@ function ShoppingDashboardInner() {
                   Open the Buy list to see what's short and start a new shopping run. Ticks save automatically once a list is going.
                 </p>
                 <Link href={withSlug("/team-portal/shopping/buy-list")}>
-                  <Button className="bg-amber-600 hover:bg-amber-700 text-white rounded-lg gap-1.5">
+                  <Button className="bg-brand-primary hover:bg-brand-primary/90 text-white rounded-lg gap-1.5">
                     <ListChecks className="w-4 h-4" />
                     Open Buy list
                     <ArrowRight className="w-3.5 h-3.5 ml-1" />
@@ -455,7 +455,7 @@ function ShoppingDashboardInner() {
                       {remaining.length === 0 && items.length > 0 && (
                         <Button
                           onClick={handleCompleteOpen}
-                          className="flex-1 text-sm sm:text-base h-10 sm:h-11 bg-amber-600 hover:bg-amber-700 text-white rounded-lg gap-1.5"
+                          className="flex-1 text-sm sm:text-base h-10 sm:h-11 bg-brand-primary hover:bg-brand-primary/90 text-white rounded-lg gap-1.5"
                         >
                           <CheckCircle className="w-4 h-4" />
                           Mark list complete
@@ -531,7 +531,7 @@ function ShoppingDashboardInner() {
                     size="sm"
                     variant={filter === f ? "default" : "outline"}
                     onClick={() => setFilter(f)}
-                    className={filter === f ? "bg-amber-600 hover:bg-amber-700 capitalize" : "capitalize"}
+                    className={filter === f ? "bg-brand-primary hover:bg-brand-primary/90 capitalize" : "capitalize"}
                   >
                     {f === "pending" ? "Remaining" : f === "purchased" ? "Bought" : "All"}
                   </Button>
@@ -674,7 +674,7 @@ function ShoppingDashboardInner() {
                                             type="button"
                                             onClick={(e) => handleClaim(e, item.id, true)}
                                             onKeyDown={(e) => { if (e.key === " " || e.key === "Enter") handleClaim(e, item.id, true); }}
-                                            className="text-[10px] font-semibold uppercase tracking-wide px-2 py-1 rounded border min-h-9 transition-colors duration-150 flex-shrink-0 bg-slate-100 text-slate-600 border-slate-200 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 dark:hover:bg-amber-950 dark:hover:text-amber-300 dark:hover:border-amber-900"
+                                            className="text-[10px] font-semibold uppercase tracking-wide px-2 py-1 rounded border min-h-9 transition-colors duration-150 flex-shrink-0 bg-slate-100 text-slate-600 border-slate-200 hover:bg-brand-primary/10 hover:text-brand-primary hover:border-brand-primary/30 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 dark:hover:bg-brand-primary/10 dark:hover:text-brand-primary dark:hover:border-brand-primary/40"
                                             title="Claim this line - shows your teammates you're on it"
                                           >Claim</button>
                                         );
@@ -685,7 +685,7 @@ function ShoppingDashboardInner() {
                                             type="button"
                                             onClick={(e) => handleClaim(e, item.id, false)}
                                             onKeyDown={(e) => { if (e.key === " " || e.key === "Enter") handleClaim(e, item.id, false); }}
-                                            className="text-[10px] font-semibold uppercase tracking-wide px-2 py-1 rounded border min-h-9 transition-colors duration-150 flex-shrink-0 bg-amber-50 text-amber-700 border-amber-200 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-900 dark:hover:bg-rose-950 dark:hover:text-rose-300 dark:hover:border-rose-900"
+                                            className="text-[10px] font-semibold uppercase tracking-wide px-2 py-1 rounded border min-h-9 transition-colors duration-150 flex-shrink-0 bg-brand-primary/10 text-brand-primary border-brand-primary/20 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200 dark:bg-brand-primary/10 dark:text-brand-primary dark:border-brand-primary/30 dark:hover:bg-rose-950 dark:hover:text-rose-300 dark:hover:border-rose-900"
                                             title="You claimed this. Tap to release."
                                           >You</button>
                                         );
@@ -787,7 +787,7 @@ function ShoppingDashboardInner() {
                                     type="button"
                                     onClick={(e) => handleClaim(e, item.id, true)}
                                     onKeyDown={(e) => { if (e.key === " " || e.key === "Enter") handleClaim(e, item.id, true); }}
-                                    className="text-[10px] font-semibold uppercase tracking-wide px-2 py-1 rounded border min-h-9 transition-colors duration-150 flex-shrink-0 bg-slate-100 text-slate-600 border-slate-200 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 dark:hover:bg-amber-950 dark:hover:text-amber-300 dark:hover:border-amber-900"
+                                    className="text-[10px] font-semibold uppercase tracking-wide px-2 py-1 rounded border min-h-9 transition-colors duration-150 flex-shrink-0 bg-slate-100 text-slate-600 border-slate-200 hover:bg-brand-primary/10 hover:text-brand-primary hover:border-brand-primary/30 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 dark:hover:bg-brand-primary/10 dark:hover:text-brand-primary dark:hover:border-brand-primary/40"
                                     title="Claim this line - shows your teammates you're on it"
                                   >Claim</button>
                                 );
@@ -798,7 +798,7 @@ function ShoppingDashboardInner() {
                                     type="button"
                                     onClick={(e) => handleClaim(e, item.id, false)}
                                     onKeyDown={(e) => { if (e.key === " " || e.key === "Enter") handleClaim(e, item.id, false); }}
-                                    className="text-[10px] font-semibold uppercase tracking-wide px-2 py-1 rounded border min-h-9 transition-colors duration-150 flex-shrink-0 bg-amber-50 text-amber-700 border-amber-200 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-900 dark:hover:bg-rose-950 dark:hover:text-rose-300 dark:hover:border-rose-900"
+                                    className="text-[10px] font-semibold uppercase tracking-wide px-2 py-1 rounded border min-h-9 transition-colors duration-150 flex-shrink-0 bg-brand-primary/10 text-brand-primary border-brand-primary/20 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200 dark:bg-brand-primary/10 dark:text-brand-primary dark:border-brand-primary/30 dark:hover:bg-rose-950 dark:hover:text-rose-300 dark:hover:border-rose-900"
                                     title="You claimed this. Tap to release."
                                   >You</button>
                                 );
@@ -911,7 +911,7 @@ function ShoppingDashboardInner() {
             <Button
               onClick={handleCompleteConfirm}
               disabled={completing}
-              className="bg-amber-600 hover:bg-amber-700 text-white rounded-lg"
+              className="bg-brand-primary hover:bg-brand-primary/90 text-white rounded-lg"
             >
               {completing ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Saving</> : "Mark complete"}
             </Button>

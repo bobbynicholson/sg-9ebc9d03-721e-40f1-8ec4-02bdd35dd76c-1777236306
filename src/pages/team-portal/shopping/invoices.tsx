@@ -148,7 +148,7 @@ export default function ShoppingInvoicesPage() {
               variant={hasReceiptOnly ? "default" : "outline"}
               aria-pressed={hasReceiptOnly}
               onClick={() => setHasReceiptOnly((v) => !v)}
-              className={hasReceiptOnly ? "bg-amber-600 hover:bg-amber-700 text-white rounded-lg gap-2" : "rounded-lg gap-2"}
+              className={hasReceiptOnly ? "bg-brand-primary hover:bg-brand-primary/90 text-white rounded-lg gap-2" : "rounded-lg gap-2"}
             >
               <FileText className="h-4 w-4" />Receipt attached only
             </Button>

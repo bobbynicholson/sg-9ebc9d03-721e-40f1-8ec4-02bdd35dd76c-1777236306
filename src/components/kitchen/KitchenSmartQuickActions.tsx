@@ -26,27 +26,28 @@ interface KitchenSmartQuickActionsProps {
 export function KitchenSmartQuickActions({ onNavigate }: KitchenSmartQuickActionsProps) {
   const { withSlug } = useTenantHref();
   const { mode } = usePortalServiceMode();
+  const accent = "from-brand-primary to-brand-secondary";
 
   const ACTIONS_BY_MODE = {
     off: [
-      { href: "/team-portal/kitchen/today",    label: "Today",   sub: "What's coming up",  icon: LayoutDashboard, accent: "from-orange-500 to-red-500" },
-      { href: "/team-portal/kitchen/menu",     label: "Recipes", sub: "Recipe library",    icon: BookOpen,        accent: "from-violet-500 to-purple-500" },
-      { href: "/team-portal/kitchen/stock",    label: "Stock",   sub: "Inventory levels",  icon: Package,         accent: "from-emerald-500 to-teal-500" },
+      { href: "/team-portal/kitchen/today",    label: "Today",   sub: "What's coming up",  icon: LayoutDashboard, accent },
+      { href: "/team-portal/kitchen/menu",     label: "Recipes", sub: "Recipe library",    icon: BookOpen,        accent },
+      { href: "/team-portal/kitchen/stock",    label: "Stock",   sub: "Inventory levels",  icon: Package,         accent },
     ],
     prep: [
-      { href: "/team-portal/kitchen/prep-list",  label: "Prep list",  sub: "Today's tasks",      icon: ClipboardList, accent: "from-orange-500 to-red-500" },
-      { href: "/team-portal/kitchen/production", label: "Production", sub: "Day grid",           icon: ChefHat,       accent: "from-amber-500 to-orange-500" },
-      { href: "/team-portal/kitchen/stock",      label: "Stock",      sub: "Quick deduct",       icon: Package,       accent: "from-emerald-500 to-teal-500" },
+      { href: "/team-portal/kitchen/prep-list",  label: "Prep list",  sub: "Today's tasks",      icon: ClipboardList, accent },
+      { href: "/team-portal/kitchen/production", label: "Production", sub: "Day grid",           icon: ChefHat,       accent },
+      { href: "/team-portal/kitchen/stock",      label: "Stock",      sub: "Quick deduct",       icon: Package,       accent },
     ],
     service: [
-      { href: "/team-portal/kitchen/production", label: "Production", sub: "Mark items ready",   icon: Flame,         accent: "from-orange-500 to-red-500" },
-      { href: "/team-portal/kitchen/today",      label: "Service",    sub: "Service desk view",  icon: LayoutDashboard, accent: "from-amber-500 to-orange-500" },
-      { href: "/team-portal/kitchen/prep-list",  label: "Prep list",  sub: "Last-minute prep",   icon: ClipboardList, accent: "from-rose-500 to-pink-500" },
+      { href: "/team-portal/kitchen/production", label: "Production", sub: "Mark items ready",   icon: Flame,         accent },
+      { href: "/team-portal/kitchen/today",      label: "Service",    sub: "Service desk view",  icon: LayoutDashboard, accent },
+      { href: "/team-portal/kitchen/prep-list",  label: "Prep list",  sub: "Last-minute prep",   icon: ClipboardList, accent },
     ],
     close: [
-      { href: "/team-portal/kitchen/duty",       label: "Clock out",   sub: "End your shift",     icon: Users,             accent: "from-emerald-500 to-teal-500" },
-      { href: "/team-portal/kitchen/duty",       label: "Hand-off",    sub: "Note for next shift",icon: MessageSquareText, accent: "from-violet-500 to-purple-500" },
-      { href: "/team-portal/kitchen/stock",      label: "Stock used",  sub: "Deduct on inventory",icon: Package,           accent: "from-amber-500 to-orange-500" },
+      { href: "/team-portal/kitchen/duty",       label: "Clock out",   sub: "End your shift",     icon: Users,             accent },
+      { href: "/team-portal/kitchen/duty",       label: "Hand-off",    sub: "Note for next shift",icon: MessageSquareText, accent },
+      { href: "/team-portal/kitchen/stock",      label: "Stock used",  sub: "Deduct on inventory",icon: Package,           accent },
     ],
   } as const;
 

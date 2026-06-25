@@ -118,6 +118,7 @@ interface NotificationFilters {
   type?: string;
   startDate?: string;
   endDate?: string;
+  companyId?: string | null;
 }
 
 /**
@@ -267,6 +268,10 @@ export const notificationService = {
       query = query.or(`target_role.eq.${activeRole},target_role.is.null`);
     }
 
+    if (filters?.companyId) {
+      query = query.eq("company_id", filters.companyId);
+    }
+
     if (filters?.priority) {
       query = query.eq("priority", filters.priority);
     }
@@ -320,7 +325,7 @@ export const notificationService = {
     return data;
   },
 
-  async markAllAsRead(userId: string, activeRole?: string): Promise<boolean> {
+  async markAllAsRead(userId: string, activeRole?: string, companyId?: string | null): Promise<boolean> {
     let query = supabase
       .from("notifications")
       .update({
@@ -332,6 +337,10 @@ export const notificationService = {
 
     if (activeRole) {
       query = query.or(`target_role.eq.${activeRole},target_role.is.null`);
+    }
+
+    if (companyId) {
+      query = query.eq("company_id", companyId);
     }
 
     const { error } = await query;
@@ -525,7 +534,8 @@ export const notificationService = {
   subscribeToNotifications(
     userId: string, 
     callback: (notification: Notification) => void,
-    activeRole?: string
+    activeRole?: string,
+    companyId?: string | null,
   ) {
     // Unique suffix per subscription instance. Supabase reuses an
     // existing channel object when the name collides, so a remount
@@ -533,7 +543,7 @@ export const notificationService = {
     // channel and throw "cannot add postgres_changes callbacks after
     // subscribe()" - which crashed the whole admin layout. A random
     // suffix guarantees a fresh channel every time.
-    const channelKey = `notifications:${userId}:${activeRole || "all"}:${Math.random().toString(36).slice(2, 10)}`;
+    const channelKey = `notifications:${userId}:${activeRole || "all"}:${companyId || "all"}:${Math.random().toString(36).slice(2, 10)}`;
     const channel = supabase
       .channel(channelKey)
       .on(
@@ -546,6 +556,7 @@ export const notificationService = {
         },
         (payload) => {
           const notification = payload.new as Notification;
+          if (companyId && notification.company_id !== companyId) return;
           if (!activeRole || !notification.target_role || notification.target_role === activeRole) {
             callback(notification);
           }

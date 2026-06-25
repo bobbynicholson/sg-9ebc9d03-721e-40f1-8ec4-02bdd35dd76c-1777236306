@@ -128,7 +128,7 @@ export function ReceiptScanner({
     : "border-purple-300 hover:border-purple-500 hover:bg-purple-50";
   const accentIcon = accent === "amber" ? "text-slate-400 dark:text-slate-500" : accent === "emerald" ? "text-emerald-400" : "text-purple-400";
   const accentBtn = accent === "amber"
-    ? "bg-amber-600 hover:bg-amber-700 text-white rounded-lg"
+    ? "bg-brand-primary hover:bg-brand-primary/90 text-white rounded-lg"
     : accent === "emerald"
     ? "bg-gradient-to-r from-emerald-600 to-teal-600"
     : "bg-gradient-to-r from-purple-600 to-pink-600";
@@ -493,7 +493,7 @@ export function ReceiptScanner({
                         ) : (
                           <Button
                             size="sm"
-                            className="mt-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg"
+                            className="mt-1 bg-brand-primary hover:bg-brand-primary/90 text-white rounded-lg"
                             onClick={() => setReconcileRow(r)}
                           >
                             <ListChecks className="w-3.5 h-3.5 mr-1.5" />

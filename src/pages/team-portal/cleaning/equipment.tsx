@@ -172,7 +172,7 @@ export default function CleaningEquipmentPage() {
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <PortalHeader
             title="Equipment verification"
-            subtitle="Verify gear returned from a function, log missing or damaged items with auto-billing"
+            subtitle="Verify gear returned from a function, then log missing or damaged items for admin invoice review"
             icon={ShieldCheck}
           />
 
@@ -318,7 +318,7 @@ export default function CleaningEquipmentPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={closeVerify} disabled={saving}>Cancel</Button>
-            <Button onClick={saveVerification} disabled={saving} className="bg-amber-600 hover:bg-amber-700">
+            <Button onClick={saveVerification} disabled={saving} className="bg-brand-primary hover:bg-brand-primary/90">
               {saving ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving</> : "Save verification"}
             </Button>
           </DialogFooter>

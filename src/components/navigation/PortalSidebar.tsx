@@ -422,7 +422,7 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
                 </div>
               </SheetContent>
             </Sheet>
-            <Link href={config.dashboardHref} className="flex items-center gap-2 min-w-0">
+            <Link href={withSlug(config.dashboardHref)} className="flex items-center gap-2 min-w-0">
               <LogoTile size="sm" />
               <span className="font-bold text-slate-900 dark:text-white truncate">{config.title}</span>
             </Link>
@@ -452,7 +452,7 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
             {!isCollapsed ? (
               <>
                 <div className="flex items-center justify-between gap-2">
-                  <Link href={config.dashboardHref} className="flex items-center gap-3 min-w-0 flex-1">
+                  <Link href={withSlug(config.dashboardHref)} className="flex items-center gap-3 min-w-0 flex-1">
                     <LogoTile size="lg" />
                     <div className="min-w-0">
                       <h1 className="font-bold text-slate-900 dark:text-white truncate">{config.title}</h1>

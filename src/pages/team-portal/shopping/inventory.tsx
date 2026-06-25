@@ -259,7 +259,7 @@ export default function ShoppingInventoryPage() {
             {stats.below > 0 && (
               <Button
                 variant="default"
-                className="bg-amber-600 hover:bg-amber-700 text-white rounded-lg self-start sm:self-auto"
+                className="bg-brand-primary hover:bg-brand-primary/90 text-white rounded-lg self-start sm:self-auto"
                 onClick={async () => {
                   try {
                     const res = await fetch("/api/admin/inventory/draft-reorder", {
@@ -347,7 +347,7 @@ export default function ShoppingInventoryPage() {
                 variant={belowParOnly ? "default" : "outline"}
                 onClick={() => setBelowParOnly((v) => !v)}
                 aria-pressed={belowParOnly}
-                className={belowParOnly ? "bg-amber-600 hover:bg-amber-700 text-white rounded-lg" : "rounded-lg"}
+                className={belowParOnly ? "bg-brand-primary hover:bg-brand-primary/90 text-white rounded-lg" : "rounded-lg"}
               >
                 <AlertTriangle className="h-4 w-4 mr-2" />
                 Below par only
@@ -515,7 +515,7 @@ export default function ShoppingInventoryPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={closeEdit} disabled={saving}>Cancel</Button>
-            <Button onClick={saveAdjustment} disabled={saving} className="bg-amber-600 hover:bg-amber-700 text-white rounded-lg">
+            <Button onClick={saveAdjustment} disabled={saving} className="bg-brand-primary hover:bg-brand-primary/90 text-white rounded-lg">
               {saving ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Saving</> : "Save adjustment"}
             </Button>
           </DialogFooter>

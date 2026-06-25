@@ -179,7 +179,7 @@ export function BarcodeScanFab({ companyId, onScanMatch, visible }: Props) {
           setOpen(true);
           window.setTimeout(() => { void startScanner(); }, 50);
         }}
-        className="fixed right-4 bottom-4 sm:right-6 sm:bottom-6 z-40 inline-flex items-center justify-center w-14 h-14 rounded-full bg-amber-600 hover:bg-amber-700 text-white shadow-xl ring-4 ring-amber-100 transition focus:outline-none focus:ring-amber-200"
+        className="fixed right-4 bottom-4 sm:right-6 sm:bottom-6 z-40 inline-flex items-center justify-center w-14 h-14 rounded-full bg-brand-primary hover:bg-brand-primary/90 text-white shadow-xl ring-4 ring-brand-primary/15 transition focus:outline-none focus:ring-brand-primary/25"
         style={{ marginBottom: "env(safe-area-inset-bottom)" }}
         aria-label="Scan a barcode to tick an item bought"
         title="Scan a barcode"
@@ -256,7 +256,7 @@ export function BarcodeScanFab({ companyId, onScanMatch, visible }: Props) {
                   type="button"
                   onClick={handleManualSubmit}
                   disabled={lookingUp || !manualBarcode.trim()}
-                  className="min-h-11 bg-amber-600 hover:bg-amber-700"
+                  className="min-h-11 bg-brand-primary hover:bg-brand-primary/90 text-white"
                 >
                   Tick
                 </Button>

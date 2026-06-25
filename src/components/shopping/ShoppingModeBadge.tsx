@@ -54,7 +54,7 @@ const MODE_META: Record<ShoppingPortalMode, {
     shortLabel: "Run",
     description: "A shopping list is active right now. Tick items off as you buy.",
     icon: ShoppingCart,
-    bg: "bg-amber-600 border-amber-600",
+    bg: "bg-brand-primary border-brand-primary",
     text: "text-white",
     pulse: true,
   },
@@ -164,13 +164,13 @@ export function ShoppingModeBadge() {
                 className={cn(
                   "w-full flex items-start gap-2.5 rounded-md border px-2.5 py-2 text-left transition-colors duration-150",
                   active
-                    ? "border-amber-500 bg-amber-50"
+                    ? "border-brand-primary/40 bg-brand-primary/10"
                     : "border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300",
                 )}
               >
                 <span className={cn(
                   "flex-shrink-0 w-7 h-7 rounded-md flex items-center justify-center mt-0.5",
-                  active ? "bg-amber-600 text-white" : "bg-slate-100 text-slate-600",
+                  active ? "bg-brand-primary text-white" : "bg-slate-100 text-slate-600",
                 )}>
                   <MIcon className="h-3.5 w-3.5" />
                 </span>
@@ -178,12 +178,12 @@ export function ShoppingModeBadge() {
                   <span className="flex items-center gap-1.5">
                     <span className={cn(
                       "text-[12px] font-semibold",
-                      active ? "text-amber-900" : "text-slate-800",
+                      active ? "text-brand-primary" : "text-slate-800",
                     )}>
                       {M.shortLabel}
                     </span>
                     {active && (
-                      <span className="text-[9px] uppercase tracking-wider bg-amber-600 text-white px-1.5 py-0.5 rounded font-bold">
+                      <span className="text-[9px] uppercase tracking-wider bg-brand-primary text-white px-1.5 py-0.5 rounded font-bold">
                         Active
                       </span>
                     )}

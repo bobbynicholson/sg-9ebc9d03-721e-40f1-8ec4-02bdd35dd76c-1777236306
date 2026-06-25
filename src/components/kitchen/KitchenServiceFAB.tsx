@@ -49,8 +49,8 @@ export function KitchenServiceFAB() {
       aria-label="Open kitchen menu"
       className={cn(
         "lg:hidden fixed left-4 z-50 flex items-center gap-2 px-4 py-3 rounded-full shadow-xl",
-        "bg-gradient-to-r from-orange-500 to-red-500 text-white",
-        "hover:from-orange-600 hover:to-red-600 active:scale-95 transition-all",
+        "bg-gradient-to-r from-brand-primary to-brand-secondary text-white",
+        "hover:opacity-90 active:scale-95 transition-all",
         overdue ? "motion-safe:animate-pulse" : "",
       )}
       style={{

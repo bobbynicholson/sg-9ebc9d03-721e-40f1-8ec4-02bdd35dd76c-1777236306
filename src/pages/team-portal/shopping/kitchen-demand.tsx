@@ -142,7 +142,7 @@ export default function ShoppingKitchenDemandPage() {
               <Button
                 onClick={handleCreateList}
                 disabled={creating || stats.shortfall === 0}
-                className="bg-amber-600 hover:bg-amber-700 text-white rounded-lg"
+                className="bg-brand-primary hover:bg-brand-primary/90 text-white rounded-lg"
               >
                 {creating ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Creating</> : (
                   <><ShoppingCart className="w-4 h-4 mr-2" />Create shopping list</>
@@ -194,7 +194,7 @@ export default function ShoppingKitchenDemandPage() {
                       aria-pressed={active}
                       className={`flex-1 sm:flex-none px-3 py-1.5 text-xs font-medium rounded-md whitespace-nowrap transition-[color,background-color,box-shadow,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-amber-500 ${
                         active
-                          ? "bg-amber-600 text-white shadow-sm"
+                          ? "bg-brand-primary text-white shadow-sm"
                           : "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
                       }`}
                     >{h.label}</button>
@@ -264,7 +264,7 @@ export default function ShoppingKitchenDemandPage() {
               {demand.length === 0 && canOpenMenuBuilder && (
                 <Link
                   href={withSlug("/admin/menu")}
-                  className="inline-flex items-center gap-1.5 mt-4 px-3 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium transition-[background-color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97]"
+                  className="inline-flex items-center gap-1.5 mt-4 px-3 py-2 rounded-lg bg-brand-primary hover:bg-brand-primary/90 text-white text-sm font-medium transition-[background-color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97]"
                 >
                   Open menu builder <ExternalLink className="w-3.5 h-3.5" />
                 </Link>
@@ -367,7 +367,7 @@ export default function ShoppingKitchenDemandPage() {
             Demand math comes from menu item recipes. If something&apos;s missing, {canOpenMenuBuilder ? (
               <>
                 attach the recipe in
-                <Link href={withSlug("/admin/menu")} className="text-amber-700 hover:text-amber-800 dark:text-amber-500 dark:hover:text-amber-400 ml-1 underline">Menu builder</Link>.
+                <Link href={withSlug("/admin/menu")} className="text-brand-primary hover:text-brand-primary/80 dark:text-brand-primary dark:hover:text-brand-primary/80 ml-1 underline">Menu builder</Link>.
               </>
             ) : (
               "ask an admin or owner to attach the recipe."

@@ -340,7 +340,7 @@ export default function ShoppingBuyListPage() {
           {/* Active list status */}
           <PortalCard className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center" padded>
             <div className="flex min-w-0 flex-1 items-center gap-3">
-              <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${activeList.list ? "bg-amber-600 text-white" : "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400"}`}>
+              <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${activeList.list ? "bg-brand-primary text-white" : "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400"}`}>
                 <ShoppingCart className="h-4 w-4" />
               </span>
               <div className="min-w-0">
@@ -385,7 +385,7 @@ export default function ShoppingBuyListPage() {
                   size="sm"
                   variant={filter === k ? "default" : "outline"}
                   onClick={() => setFilter(k)}
-                  className={filter === k ? "bg-amber-600 text-white hover:bg-amber-700" : ""}
+                  className={filter === k ? "bg-brand-primary text-white hover:bg-brand-primary/90" : ""}
                 >
                   {label}
                 </Button>
@@ -435,7 +435,7 @@ export default function ShoppingBuyListPage() {
                   </p>
                   {rows.length === 0 && (
                     <p className="mx-auto mt-2 max-w-md text-sm text-slate-600 dark:text-slate-400">
-                      Add items in <Link href={withSlug("/team-portal/shopping/inventory")} className="text-amber-700 underline underline-offset-2 hover:text-amber-800 dark:text-amber-500 dark:hover:text-amber-400">Inventory</Link> to get a buy list.
+                      Add items in <Link href={withSlug("/team-portal/shopping/inventory")} className="text-brand-primary underline underline-offset-2 hover:text-brand-primary/80 dark:text-brand-primary dark:hover:text-brand-primary/80">Inventory</Link> to get a buy list.
                     </p>
                   )}
                 </div>
@@ -563,7 +563,7 @@ export default function ShoppingBuyListPage() {
               <Button
                 onClick={handleAddSelected}
                 disabled={adding}
-                className="gap-1 bg-amber-600 text-white hover:bg-amber-700"
+                className="gap-1 bg-brand-primary text-white hover:bg-brand-primary/90"
               >
                 {adding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
                 {activeList.list ? "Add to your list" : "Start list with selected"}

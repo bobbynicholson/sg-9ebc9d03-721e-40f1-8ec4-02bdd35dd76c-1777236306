@@ -502,7 +502,7 @@ export default function MyOrders() {
                               token - that fell through to magic-link
                               'request a new link' for portal-auth
                               users, which is wrong. */}
-                          <Link href={clientOrderHref(order.id, { inPortal: true })}>
+                          <Link href={clientPortalHref(clientOrderHref(order.id, { inPortal: true }))}>
                             <Button size="sm" variant="outline" className="w-full sm:w-auto">
                               View details
                             </Button>

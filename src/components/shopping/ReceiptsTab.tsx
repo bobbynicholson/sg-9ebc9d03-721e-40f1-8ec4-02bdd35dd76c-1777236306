@@ -343,7 +343,7 @@ export function ReceiptsTab({ companyId, userId }: Props) {
             <Download className="w-4 h-4" />
             Export CSV
           </Button>
-          <Button onClick={() => setAddOpen(true)} size="sm" className="gap-1.5 bg-amber-600 hover:bg-amber-700">
+          <Button onClick={() => setAddOpen(true)} size="sm" className="gap-1.5 bg-brand-primary hover:bg-brand-primary/90 text-white">
             <Camera className="w-4 h-4" />
             Add slip by hand
           </Button>
@@ -434,7 +434,7 @@ export function ReceiptsTab({ companyId, userId }: Props) {
                 onClick={() => setWindowKind(t.id)}
                 className={`px-3 py-1.5 rounded-md ${
                   windowKind === t.id
-                    ? "bg-amber-600 text-white font-medium"
+                    ? "bg-brand-primary text-white font-medium"
                     : "text-slate-600 hover:bg-slate-50"
                 }`}
               >
@@ -596,7 +596,7 @@ export function ReceiptsTab({ companyId, userId }: Props) {
             <DialogClose asChild>
               <Button variant="outline" disabled={adding}>Cancel</Button>
             </DialogClose>
-            <Button onClick={handleAddSlip} disabled={adding} className="bg-amber-600 hover:bg-amber-700 gap-1.5">
+            <Button onClick={handleAddSlip} disabled={adding} className="bg-brand-primary hover:bg-brand-primary/90 text-white gap-1.5">
               {adding ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
               {adding ? "Saving…" : "Save slip"}
             </Button>
@@ -911,7 +911,7 @@ function ReceiptRow({
                   {newDeductible ? "Deductible" : "Skip"}
                 </span>
               </label>
-              <Button size="sm" onClick={handleAddItem} disabled={busy} className="gap-1 bg-amber-600 hover:bg-amber-700">
+              <Button size="sm" onClick={handleAddItem} disabled={busy} className="gap-1 bg-brand-primary hover:bg-brand-primary/90 text-white">
                 <Plus className="w-3.5 h-3.5" /> Add
               </Button>
             </div>
