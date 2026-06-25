@@ -179,6 +179,12 @@ Use the next available T.NNN number.
   **Files:** driver portal `src/pages/team-portal/driver/*` (available-orders view + interest action, likely new `order_driver_interest` table - check for existing claim/bid first); notify drivers on order-needs-driver (best-effort + dedup); admin assignment `src/pages/admin/order-assignments.tsx` / `driver-management.tsx` (show interested list + ratings + availability); driver ratings (check existing feedback/delivery tables, else define).
   **Done when:** Driver can register interest + gets notified of available orders; admin assigns from the interested list with ratings visible. **Clarify with Raj:** interest informational vs self-claim; how rating is calculated (delivery feedback avg / on-time %).
 
+- [ ] T.024 — BUG: dispatch driver-assign gives no toast / no UI update (silent failure)
+  **What:** On `/admin/order-assignments`, assigning a driver sometimes shows no toast and the list doesn't reflect it.
+  **Why:** `handleAssignPick` (order-assignments.tsx:520) + `handleBulkAssign` (:600) have `try/finally` with NO `catch` - if `dispatchService.assignDriverWithGate` throws, the success/error toast + `loadAll()` after the await never run, so the click silently does nothing. Secondary: the conflict-warning branch (~:551) toasts but `return`s early without closing the dialog or `loadAll()`, so a warn-and-allow assignment lands but the UI doesn't update.
+  **Files:** `src/pages/admin/order-assignments.tsx`, `src/services/dispatchService.ts:575`.
+  **Done when:** Add `catch` (destructive toast + captureException) to both handlers; conflict-warning branch still closes + reloads + emits; row reflects the assigned driver after assign.
+
 ---
 
 ## Completed
