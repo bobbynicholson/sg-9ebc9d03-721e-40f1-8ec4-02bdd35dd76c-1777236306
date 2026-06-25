@@ -146,10 +146,10 @@ function AchievementsContent() {
                     <p className="text-4xl font-bold text-slate-900">{achievements.length}</p>
                   </CardContent>
                 </Card>
-                <Card className="border-0 shadow-lg bg-gradient-to-br from-emerald-50 to-teal-50">
+                <Card className="border-0 shadow-lg bg-gradient-to-br from-brand-primary/10 to-brand-secondary/10">
                   <CardContent className="p-6">
                     <div className="flex items-center gap-3 mb-2">
-                      <Crown className="w-5 h-5 text-emerald-600" />
+                      <Crown className="w-5 h-5 text-brand-primary" />
                       <p className="text-sm text-slate-600 font-semibold">Leaderboard rank</p>
                     </div>
                     <p className="text-4xl font-bold text-slate-900">
@@ -247,7 +247,7 @@ function AchievementsContent() {
               <Card className="border-0 shadow-lg">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <Crown className="w-5 h-5 text-emerald-600" />
+                    <Crown className="w-5 h-5 text-brand-primary" />
                     Top 10 across the team
                   </CardTitle>
                 </CardHeader>

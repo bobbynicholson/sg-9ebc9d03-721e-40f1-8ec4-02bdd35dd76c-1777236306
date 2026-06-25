@@ -362,10 +362,10 @@ export function CancellationWizard({
             </span>
           </div>
           <div className="flex items-center justify-between text-sm">
-            <span className="text-emerald-700 flex items-center gap-1.5">
+            <span className="text-brand-primary flex items-center gap-1.5">
               <Wallet className="h-3.5 w-3.5" /> Or as store credit
             </span>
-            <span className="font-semibold text-emerald-700 tabular-nums">
+            <span className="font-semibold text-brand-primary tabular-nums">
               {fmtMoney(terms.creditAmount)}
               {terms.creditAmount > terms.refundAmount && (
                 <span className="ml-1 text-xs font-normal">
@@ -390,13 +390,13 @@ export function CancellationWizard({
       )}
 
       {!isQuote && terms.canPostpone && onPostponeRequest && (
-        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 flex items-start gap-3">
-          <CalendarClock className="h-5 w-5 text-emerald-600 mt-0.5 flex-shrink-0" />
+        <div className="rounded-xl border border-brand-primary/20 bg-brand-primary/10 p-4 flex items-start gap-3">
+          <CalendarClock className="h-5 w-5 text-brand-primary mt-0.5 flex-shrink-0" />
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-emerald-900">
+            <p className="text-sm font-semibold text-brand-primary">
               Could you postpone instead?
             </p>
-            <p className="text-sm text-emerald-800 mt-1">
+            <p className="text-sm text-brand-primary mt-1">
               Same deposit, new date. Nothing lost on either side.
             </p>
           </div>
@@ -404,7 +404,7 @@ export function CancellationWizard({
             type="button"
             variant="outline"
             size="sm"
-            className="border-emerald-300 text-emerald-700 hover:bg-emerald-100"
+            className="border-brand-primary/30 text-brand-primary hover:bg-brand-primary/15"
             onClick={() => {
               close();
               onPostponeRequest();
@@ -444,13 +444,13 @@ export function CancellationWizard({
           onClick={() => setPayout("credit")}
           className={`text-left rounded-xl border-2 p-4 transition-all ${
             payout === "credit"
-              ? "border-emerald-500 bg-emerald-50 ring-2 ring-emerald-200"
-              : "border-slate-200 bg-white hover:border-emerald-300"
+              ? "border-brand-primary bg-brand-primary/10 ring-2 ring-brand-primary/20"
+              : "border-slate-200 bg-white hover:border-brand-primary/30"
           }`}
         >
           <div className="flex items-start justify-between mb-2">
-            <Wallet className="h-5 w-5 text-emerald-600" />
-            <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100">
+            <Wallet className="h-5 w-5 text-brand-primary" />
+            <Badge className="bg-brand-primary/15 text-brand-primary hover:bg-brand-primary/15">
               Recommended
             </Badge>
           </div>

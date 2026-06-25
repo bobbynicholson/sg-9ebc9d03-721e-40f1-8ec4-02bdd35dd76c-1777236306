@@ -250,7 +250,7 @@ export function MarkPaidDialog({ open, invoice, onOpenChange, onPaid, formatMone
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <CheckCircle2 className="w-5 h-5 text-green-600" />
+            <CheckCircle2 className="w-5 h-5 text-brand-primary" />
             Mark {invoiceNumber || "invoice"} paid
           </DialogTitle>
           <DialogDescription>
@@ -437,9 +437,9 @@ export function MarkPaidDialog({ open, invoice, onOpenChange, onPaid, formatMone
                       checked={confirmChannel === "whatsapp"}
                       onChange={() => setConfirmChannel("whatsapp")}
                       disabled={!canSendWa}
-                      className="accent-green-600"
+                      className="accent-brand-primary"
                     />
-                    <MessageCircle className="w-3.5 h-3.5 text-green-700" />
+                    <MessageCircle className="w-3.5 h-3.5 text-brand-primary" />
                     WhatsApp
                     {clientPhone && <span className="text-slate-500">{clientPhone}</span>}
                   </label>
@@ -467,7 +467,7 @@ export function MarkPaidDialog({ open, invoice, onOpenChange, onPaid, formatMone
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
             Cancel
           </Button>
-          <Button onClick={handleSubmit} disabled={saving || !amountValid} className="bg-green-600 hover:bg-green-700">
+          <Button onClick={handleSubmit} disabled={saving || !amountValid} className="bg-brand-primary hover:bg-brand-primary/90">
             {saving ? "Recording..." : partialPayment ? "Record partial payment" : "Mark paid"}
           </Button>
         </DialogFooter>

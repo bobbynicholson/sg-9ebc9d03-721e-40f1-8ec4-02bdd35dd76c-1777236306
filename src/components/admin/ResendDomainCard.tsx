@@ -470,7 +470,7 @@ export function ResendDomainCard({ companyId, onVerified, compact }: Props) {
     const s = state.status;
     if (s === "verified") {
       return (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700">
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-brand-primary/15 text-brand-primary">
           <CheckCircle2 className="w-3 h-3" /> Verified
         </span>
       );
@@ -585,19 +585,19 @@ export function ResendDomainCard({ companyId, onVerified, compact }: Props) {
       <div
         className={`rounded-lg border p-3 flex items-start gap-3 ${
           effectiveSender.usingTenantDomain
-            ? "border-emerald-200 bg-emerald-50"
+            ? "border-brand-primary/20 bg-brand-primary/10"
             : "border-blue-200 bg-blue-50"
         }`}
       >
         <Mail
           className={`w-4 h-4 mt-0.5 flex-shrink-0 ${
-            effectiveSender.usingTenantDomain ? "text-emerald-700" : "text-blue-700"
+            effectiveSender.usingTenantDomain ? "text-brand-primary" : "text-blue-700"
           }`}
         />
         <div className="flex-1 min-w-0">
           <p
             className={`text-xs font-semibold uppercase tracking-wide ${
-              effectiveSender.usingTenantDomain ? "text-emerald-700" : "text-blue-700"
+              effectiveSender.usingTenantDomain ? "text-brand-primary" : "text-blue-700"
             }`}
           >
             Currently sending as
@@ -653,17 +653,17 @@ export function ResendDomainCard({ companyId, onVerified, compact }: Props) {
       {/* VERIFIED CELEBRATION */}
       {verified && (
         <div
-          className={`rounded-lg border border-emerald-300 bg-emerald-50 p-4 ${
+          className={`rounded-lg border border-brand-primary/30 bg-brand-primary/10 p-4 ${
             justVerified ? "animate-in fade-in duration-700" : ""
           }`}
         >
           <div className="flex items-start gap-3">
-            <CheckCircle2 className="w-6 h-6 text-emerald-600 flex-shrink-0 mt-0.5" />
+            <CheckCircle2 className="w-6 h-6 text-brand-primary flex-shrink-0 mt-0.5" />
             <div className="space-y-1">
-              <p className="font-semibold text-emerald-900">
+              <p className="font-semibold text-brand-primary">
                 Verified - you're ready to send
               </p>
-              <p className="text-sm text-emerald-800">
+              <p className="text-sm text-brand-primary">
                 Outgoing emails for this company will now arrive at your clients showing
                 <strong className="ml-1">@{state.domain}</strong> as the sender.
                 Send a test from <code>/admin/invoices</code> or <code>/admin/quotes</code> to confirm.
@@ -797,14 +797,14 @@ export function ResendDomainCard({ companyId, onVerified, compact }: Props) {
                     return (
                       <tr key={idx} className="border-b border-slate-100 last:border-0 align-top">
                         <td className="px-3 py-2">
-                          {matched && <CheckCircle2 className="w-4 h-4 text-emerald-600" />}
+                          {matched && <CheckCircle2 className="w-4 h-4 text-brand-primary" />}
                           {wrongValue && <AlertTriangle className="w-4 h-4 text-red-600" />}
                           {stillPropagating && <Loader2 className="w-4 h-4 text-amber-600 animate-spin" />}
                         </td>
                         <td className="px-3 py-2 font-mono text-slate-700">{r.type}</td>
                         <td className="px-3 py-2 font-mono break-all">{r.name}</td>
                         <td className="px-3 py-2 text-slate-600">
-                          {matched && <span className="text-emerald-700 font-semibold">Match</span>}
+                          {matched && <span className="text-brand-primary font-semibold">Match</span>}
                           {wrongValue && <span className="text-red-700 font-semibold">Wrong value published</span>}
                           {stillPropagating && <span className="text-amber-700">Still propagating</span>}
                           {r.diagnosis && (

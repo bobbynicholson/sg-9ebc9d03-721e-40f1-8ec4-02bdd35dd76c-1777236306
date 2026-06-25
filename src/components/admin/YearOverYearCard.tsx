@@ -98,7 +98,7 @@ export function YearOverYearCard({
   const orderDelta = prior ? fmtPct(thisYearOrders, prior.count) : { delta: 0, label: "-" };
 
   const tone = (delta: number) =>
-    delta > 0 ? "text-emerald-700 bg-emerald-50 border-emerald-200"
+    delta > 0 ? "text-brand-primary bg-brand-primary/10 border-brand-primary/20"
     : delta < 0 ? "text-rose-700 bg-rose-50 border-rose-200"
     : "text-slate-600 bg-slate-50 border-slate-200";
   const Icon = (delta: number) =>

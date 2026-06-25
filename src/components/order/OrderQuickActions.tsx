@@ -106,7 +106,7 @@ export function OrderQuickActions({ order }: Props) {
 
   const chipBase = "inline-flex items-center gap-1.5 text-xs font-medium rounded-md px-2 py-1 transition";
   const slateChip = `${chipBase} text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 hover:text-slate-900`;
-  const greenChip = `${chipBase} text-green-800 bg-green-50 border border-green-200 hover:bg-green-100`;
+  const greenChip = `${chipBase} text-brand-primary bg-brand-primary/10 border border-brand-primary/20 hover:bg-brand-primary/15`;
 
   return (
     <div className="flex flex-wrap items-center gap-1.5 mb-3 print:hidden">

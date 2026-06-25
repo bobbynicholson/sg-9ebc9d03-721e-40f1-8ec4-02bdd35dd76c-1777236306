@@ -868,7 +868,7 @@ function DispatchQueuePage() {
                   Drivers on shift
                   <InfoTooltip content={"Drivers actively on a scheduled shift right now. Falls back to drivers with a GPS ping in the last hour on tenants who haven't set up shift schedules yet."} />
                 </p>
-                <Users className="w-4 h-4 text-emerald-500" />
+                <Users className="w-4 h-4 text-brand-primary" />
               </div>
               <p className="text-2xl font-semibold text-slate-900">{kpis?.onShiftDrivers ?? "-"}</p>
               <p className="text-xs text-slate-500 mt-1">last hour</p>
@@ -1013,7 +1013,7 @@ function DispatchQueuePage() {
               </div>
             ) : filtered.length === 0 ? (
               <div className="text-center py-12 px-4">
-                <CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto mb-3" />
+                <CheckCircle2 className="w-12 h-12 text-brand-primary mx-auto mb-3" />
                 <p className="text-sm font-medium text-slate-700">
                   {orders.length === 0 ? "No upcoming orders" : "Nothing matches this filter"}
                 </p>
@@ -1136,7 +1136,7 @@ function DispatchQueuePage() {
                       <div className="min-w-0">
                         {order.assigned_driver_name ? (
                           <div className="flex items-center gap-1.5 flex-wrap">
-                            <Badge className="text-[10px] font-normal bg-emerald-100 text-emerald-800 border-0">
+                            <Badge className="text-[10px] font-normal bg-brand-primary/15 text-brand-primary border-0">
                               <CheckCircle2 className="w-3 h-3 mr-0.5" />
                               {order.assigned_driver_name}
                             </Badge>
@@ -1206,7 +1206,7 @@ function DispatchQueuePage() {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
                               <DropdownMenuItem onClick={() => openAssign(order)}>
-                                <Sparkles className="w-4 h-4 mr-2 text-emerald-600" />
+                                <Sparkles className="w-4 h-4 mr-2 text-brand-primary" />
                                 Reassign with suggestions
                               </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => setVehicleTarget(order)}>
@@ -1446,7 +1446,7 @@ function DispatchQueuePage() {
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-emerald-600" />
+              <Sparkles className="w-5 h-5 text-brand-primary" />
               Assign driver · {assignTarget?.client_name}
             </DialogTitle>
             <p className="text-sm text-slate-500">
@@ -1456,7 +1456,7 @@ function DispatchQueuePage() {
 
           {suggestLoading ? (
             <div className="py-8 text-center text-sm text-slate-500">
-              <div className="animate-spin w-5 h-5 border-2 border-emerald-600 border-t-transparent rounded-full mx-auto mb-2" />
+              <div className="animate-spin w-5 h-5 border-2 border-brand-primary/80 border-t-transparent rounded-full mx-auto mb-2" />
               Scoring drivers...
             </div>
           ) : suggestions.length === 0 ? (
@@ -1476,7 +1476,7 @@ function DispatchQueuePage() {
                     disabled={assignSaving}
                     className={`w-full text-left rounded-lg border p-3 transition-all ${
                       idx === 0 && !blocked
-                        ? "border-emerald-500 bg-emerald-50 hover:bg-emerald-100 ring-2 ring-emerald-200"
+                        ? "border-brand-primary bg-brand-primary/10 hover:bg-brand-primary/15 ring-2 ring-brand-primary/20"
                         : blocked
                           ? "border-red-200 bg-red-50/40 hover:bg-red-50"
                           : "border-slate-200 bg-white hover:bg-slate-50"
@@ -1486,7 +1486,7 @@ function DispatchQueuePage() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
                           {idx === 0 && !blocked && (
-                            <span className="text-[9px] font-semibold uppercase tracking-wide bg-emerald-600 text-white px-1.5 py-0.5 rounded">
+                            <span className="text-[9px] font-semibold uppercase tracking-wide bg-brand-primary text-white px-1.5 py-0.5 rounded">
                               Top match
                             </span>
                           )}
@@ -1525,7 +1525,7 @@ function DispatchQueuePage() {
                       </div>
                       <div className="text-right shrink-0">
                         <p className={`text-2xl font-bold tabular-nums ${
-                          s.score.total >= 75 ? "text-emerald-700" :
+                          s.score.total >= 75 ? "text-brand-primary" :
                           s.score.total >= 50 ? "text-blue-700" :
                                                 "text-amber-700"
                         }`}>

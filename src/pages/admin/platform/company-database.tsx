@@ -465,7 +465,7 @@ export default function CompanyDatabasePage() {
           />
           <StatTile
             label="Active"
-            value={<span className="text-green-600 dark:text-green-500">{companies.filter((c) => c.subscription_status === "active").length}</span>}
+            value={<span className="text-brand-primary dark:text-brand-primary">{companies.filter((c) => c.subscription_status === "active").length}</span>}
             hint="On a paid subscription now"
             icon={CheckCircle}
           />

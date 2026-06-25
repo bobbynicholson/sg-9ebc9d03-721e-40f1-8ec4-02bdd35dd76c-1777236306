@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -568,7 +568,7 @@ function FinancialDashboardInner() {
           <div className="max-w-md mx-auto mt-12 rounded-lg border border-rose-200 bg-white p-6 shadow-sm">
             <h2 className="text-lg font-bold text-rose-900 mb-2">Couldn't load financial data</h2>
             <p className="text-sm text-slate-600 mb-4">{loadError}</p>
-            <Button onClick={loadFinancialData} className="bg-emerald-600 hover:bg-emerald-700">
+            <Button onClick={loadFinancialData} className="bg-brand-primary hover:bg-brand-primary/90">
               <RefreshCw className="w-4 h-4 mr-2" /> Retry
             </Button>
           </div>
@@ -601,8 +601,8 @@ function FinancialDashboardInner() {
         <NoIndexMeta />
         <AdminNav />
         <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-4 md:p-8 lg:pl-72 xl:pl-80 pt-20 lg:pt-8">
-          <div className="max-w-2xl mx-auto mt-12 rounded-lg border border-emerald-200 bg-white p-8 shadow-sm text-center">
-            <Banknote className="w-12 h-12 text-emerald-600 mx-auto mb-3" />
+          <div className="max-w-2xl mx-auto mt-12 rounded-lg border border-brand-primary/20 bg-white p-8 shadow-sm text-center">
+            <Banknote className="w-12 h-12 text-brand-primary mx-auto mb-3" />
             <h1 className="text-2xl font-bold text-slate-900 mb-2">Financial Dashboard</h1>
             <h2 className="text-base font-semibold text-slate-700 mb-2">No financial activity yet</h2>
             <p className="text-sm text-slate-600 max-w-md mx-auto mb-5">
@@ -611,7 +611,7 @@ function FinancialDashboardInner() {
               start by sending a quote.
             </p>
             <div className="inline-flex gap-2">
-              <Button asChild className="bg-emerald-600 hover:bg-emerald-700">
+              <Button asChild className="bg-brand-primary hover:bg-brand-primary/90">
                 <Link href={withSlug("/admin/quotes/new")}>Start a quote</Link>
               </Button>
               <Button asChild variant="outline">
@@ -727,14 +727,14 @@ function FinancialDashboardInner() {
                     70/55 so the score's 0-80 range produces the full
                     red/yellow/green spectrum honestly. */}
                 <Card className={`border-2 ${
-                  (metrics?.healthScore || 0) >= 70 ? "border-green-500 bg-green-50" :
+                  (metrics?.healthScore || 0) >= 70 ? "border-brand-primary bg-brand-primary/10" :
                   (metrics?.healthScore || 0) >= 55 ? "border-yellow-500 bg-yellow-50" :
                   "border-red-500 bg-red-50"
                 }`}>
                   <CardContent className="p-4 text-center">
                     <div className="flex items-center gap-2 justify-center mb-1">
                       {(metrics?.healthScore || 0) >= 70 ? (
-                        <Trophy className="w-5 h-5 text-green-600" />
+                        <Trophy className="w-5 h-5 text-brand-primary" />
                       ) : (
                         <Sparkles className="w-5 h-5 text-yellow-600" />
                       )}
@@ -813,10 +813,10 @@ function FinancialDashboardInner() {
               story; the forecast chart + payables / fixed costs
               roll-up + cashflow alerts live on the focused page. */}
           {canSeeFinanceForecast && (
-            <Card className="mb-6 border-2 border-emerald-200 bg-emerald-50/40">
+            <Card className="mb-6 border-2 border-brand-primary/20 bg-brand-primary/10">
               <CardContent className="p-4 flex items-center justify-between gap-3">
                 <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-md bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+                  <div className="w-10 h-10 rounded-md bg-brand-primary/15 text-brand-primary flex items-center justify-center shrink-0">
                     <TrendingUp className="w-5 h-5" />
                   </div>
                   <div>
@@ -827,7 +827,7 @@ function FinancialDashboardInner() {
                   </div>
                 </div>
                 <Link href={withSlug("/admin/cashflow-dashboard")}>
-                  <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 whitespace-nowrap">
+                  <Button size="sm" className="bg-brand-primary hover:bg-brand-primary/90 whitespace-nowrap">
                     Open cashflow dashboard
                   </Button>
                 </Link>
@@ -857,7 +857,7 @@ function FinancialDashboardInner() {
                         real net, not the cash-minus-wages partial. */}
                     <InfoTooltip content={"Cash received less every known outflow in metrics state: wages owed, fixed costs due in the next 30 days, supplier payables due in the next 30 days, inventory COGS over the last 90 days.\n\nMatches the Net Cash Flow row on the Financial Summary card below. Status badge reads off this net, not the received-minus-wages partial."} />
                   </CardTitle>
-                  <Banknote className="w-5 h-5 text-green-600" />
+                  <Banknote className="w-5 h-5 text-brand-primary" />
                 </div>
               </CardHeader>
               <CardContent>
@@ -890,7 +890,7 @@ function FinancialDashboardInner() {
                       <div className="mt-2 space-y-0.5 text-xs">
                         <div className="flex justify-between text-slate-600">
                           <span>Received</span>
-                          <span className="tabular-nums text-green-700">+{formatCurrency(received)}</span>
+                          <span className="tabular-nums text-brand-primary">+{formatCurrency(received)}</span>
                         </div>
                         <div className="flex justify-between text-slate-600">
                           <span>Wages owed</span>
@@ -914,8 +914,8 @@ function FinancialDashboardInner() {
                           <span className="text-sm text-slate-500">No activity yet</span>
                         ) : net > 0 ? (
                           <>
-                            <ArrowUpRight className="w-4 h-4 text-green-600" />
-                            <span className="text-sm text-green-600">Healthy</span>
+                            <ArrowUpRight className="w-4 h-4 text-brand-primary" />
+                            <span className="text-sm text-brand-primary">Healthy</span>
                           </>
                         ) : net === 0 ? (
                           <span className="text-sm text-slate-500">Break-even</span>
@@ -1121,7 +1121,7 @@ function FinancialDashboardInner() {
                       return (
                         <div className="border-t pt-4 flex justify-between items-center">
                           <span className="font-semibold flex items-center gap-1">Net Cash Flow (30d) <InfoTooltip content={"Cash received less wages owed, fixed costs, supplier payables due in the next 30 days, and 90-day inventory cost.\n\nSame number as the Current Cash Flow tile above and the Cashflow Dashboard summary."} /></span>
-                          <span className={`font-bold text-lg ${net > 0 ? "text-green-600" : "text-red-600"}`}>
+                          <span className={`font-bold text-lg ${net > 0 ? "text-brand-primary" : "text-red-600"}`}>
                             {formatCurrency(net)}
                           </span>
                         </div>
@@ -1494,7 +1494,7 @@ function FinancialDashboardInner() {
                                   </td>
                                   <td className="py-2.5 px-3 text-right font-mono">{r.count}</td>
                                   <td className="py-2.5 px-3 text-right font-mono font-semibold">{formatCurrency(r.revenue)}</td>
-                                  <td className="py-2.5 px-3 text-right font-mono text-emerald-700">{formatCurrency(r.paid)}</td>
+                                  <td className="py-2.5 px-3 text-right font-mono text-brand-primary">{formatCurrency(r.paid)}</td>
                                   <td className="py-2.5 pl-3 text-right font-mono text-amber-700">{formatCurrency(r.outstanding)}</td>
                                 </tr>
                               ))}
@@ -1510,7 +1510,7 @@ function FinancialDashboardInner() {
                                   <td className="py-2.5 pr-3">All branches</td>
                                   <td className="py-2.5 px-3 text-right font-mono">{totals.count}</td>
                                   <td className="py-2.5 px-3 text-right font-mono">{formatCurrency(totals.revenue)}</td>
-                                  <td className="py-2.5 px-3 text-right font-mono text-emerald-700">{formatCurrency(totals.paid)}</td>
+                                  <td className="py-2.5 px-3 text-right font-mono text-brand-primary">{formatCurrency(totals.paid)}</td>
                                   <td className="py-2.5 pl-3 text-right font-mono text-amber-700">{formatCurrency(totals.outstanding)}</td>
                                 </tr>
                               </tfoot>

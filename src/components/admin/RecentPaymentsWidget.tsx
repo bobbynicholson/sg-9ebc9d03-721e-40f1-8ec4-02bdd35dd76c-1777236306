@@ -94,12 +94,12 @@ export function RecentPaymentsWidget({ companyId }: { companyId: string | null }
   const total = rows.reduce((acc, r) => acc + Number(r.amount || 0), 0);
 
   return (
-    <Card className="mb-6 border-emerald-200 bg-emerald-50/30">
+    <Card className="mb-6 border-brand-primary/20 bg-brand-primary/5">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between gap-2">
           <div>
             <CardTitle className="flex items-center gap-2 text-base">
-              <Wallet className="w-4 h-4 text-emerald-600" />
+              <Wallet className="w-4 h-4 text-brand-primary" />
               Recent payments, last 7 days
             </CardTitle>
             <CardDescription className="text-xs">
@@ -107,7 +107,7 @@ export function RecentPaymentsWidget({ companyId }: { companyId: string | null }
             </CardDescription>
           </div>
           <Link href={withSlug("/admin/invoices")}>
-            <Button variant="ghost" size="sm" className="text-emerald-700">
+            <Button variant="ghost" size="sm" className="text-brand-primary">
               All invoices <ArrowRight className="w-3.5 h-3.5 ml-1" />
             </Button>
           </Link>
@@ -118,7 +118,7 @@ export function RecentPaymentsWidget({ companyId }: { companyId: string | null }
           <p className="text-xs text-slate-500 py-4">Loading...</p>
         ) : (
           <>
-            <ul className="divide-y divide-emerald-100">
+            <ul className="divide-y divide-brand-primary/15">
               {rows.map((r) => {
                 // Phase 23 #8: full-row link to the originating
                 // order so the bookkeeper can verify the payment
@@ -140,7 +140,7 @@ export function RecentPaymentsWidget({ companyId }: { companyId: string | null }
                         {r.payment_method || "method tbc"} · {fmtRelative(r.created_at)}
                       </p>
                     </div>
-                    <span className="shrink-0 text-sm font-bold tabular-nums text-emerald-800">
+                    <span className="shrink-0 text-sm font-bold tabular-nums text-brand-primary">
                       {tenantCurrency.format(Number(r.amount || 0), 0)}
                     </span>
                   </>
@@ -150,7 +150,7 @@ export function RecentPaymentsWidget({ companyId }: { companyId: string | null }
                     {r.order_id ? (
                       <Link
                         href={withSlug(`/order/${r.order_id}`)}
-                        className="py-2 flex items-center gap-3 hover:bg-emerald-50/60 rounded transition"
+                        className="py-2 flex items-center gap-3 hover:bg-brand-primary/10 rounded transition"
                       >
                         {Row}
                       </Link>
@@ -161,7 +161,7 @@ export function RecentPaymentsWidget({ companyId }: { companyId: string | null }
                 );
               })}
             </ul>
-            <div className="mt-3 pt-2 border-t border-emerald-100 text-[11px] text-slate-500 flex items-center justify-between">
+            <div className="mt-3 pt-2 border-t border-brand-primary/15 text-[11px] text-slate-500 flex items-center justify-between">
               <span>{rows.length} payment{rows.length === 1 ? "" : "s"}</span>
               <span className="tabular-nums font-medium text-slate-700">
                 {tenantCurrency.format(total, 0)} total

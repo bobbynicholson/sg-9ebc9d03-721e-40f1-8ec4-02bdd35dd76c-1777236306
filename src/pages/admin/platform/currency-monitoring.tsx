@@ -220,7 +220,7 @@ function PlatformCurrencyMonitoringPage() {
           <StatTile
             label="90-Day Change"
             value={
-              <span className={fluctuation.percentage >= 0 ? "text-red-600 dark:text-red-500" : "text-green-600 dark:text-green-500"}>
+              <span className={fluctuation.percentage >= 0 ? "text-red-600 dark:text-red-500" : "text-brand-primary dark:text-brand-primary"}>
                 {fluctuation.percentage >= 0 ? "+" : ""}{fluctuation.percentage.toFixed(2)}%
               </span>
             }
@@ -290,7 +290,7 @@ function PlatformCurrencyMonitoringPage() {
             <div className="space-y-4">
               {alerts.length === 0 ? (
                 <div className="text-center py-8">
-                  <CheckCircle className="h-12 w-12 text-emerald-500 mx-auto mb-3" />
+                  <CheckCircle className="h-12 w-12 text-brand-primary mx-auto mb-3" />
                   <p className="text-slate-600 dark:text-slate-400">
                     No active alerts. Currency is within acceptable range.
                   </p>

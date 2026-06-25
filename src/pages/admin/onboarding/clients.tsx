@@ -320,10 +320,10 @@ function ClientImportPage() {
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
             {/* File drop */}
-            <Card className="border-2 border-dashed border-emerald-200 bg-white">
+            <Card className="border-2 border-dashed border-brand-primary/20 bg-white">
               <CardContent className="p-6">
                 <div className="flex items-center gap-2 mb-2">
-                  <FileSpreadsheet className="w-5 h-5 text-emerald-600" />
+                  <FileSpreadsheet className="w-5 h-5 text-brand-primary" />
                   <h2 className="font-semibold text-slate-900">Upload a file</h2>
                 </div>
                 <p className="text-xs text-slate-500 mb-3">
@@ -341,7 +341,7 @@ function ClientImportPage() {
                   <a
                     href="data:text/csv;charset=utf-8,Name,Surname,Email,Phone%0AJohn,Doe,john%40example.co.za,0823334444%0AJane,Smith,jane%40example.co.za,%2B27834445555"
                     download="client-list-template.csv"
-                    className="inline-flex items-center gap-1 text-emerald-700 hover:underline"
+                    className="inline-flex items-center gap-1 text-brand-primary hover:underline"
                   >
                     <Upload className="w-3 h-3" /> Download a template
                   </a>
@@ -387,7 +387,7 @@ function ClientImportPage() {
                   <div>
                     <h3 className="font-semibold text-slate-900">Preview ({rows.length} rows)</h3>
                     <p className="text-xs text-slate-500 mt-0.5">
-                      <span className="text-emerald-700 font-medium">{counts.ok}</span> ready to import,
+                      <span className="text-brand-primary font-medium">{counts.ok}</span> ready to import,
                       {" "}<span className="text-rose-700 font-medium">{counts.bad}</span> need a fix.
                     </p>
                   </div>
@@ -466,7 +466,7 @@ function ClientImportPage() {
                             </td>
                             <td className="py-1.5 px-2">
                               {ok ? (
-                                <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 border">
+                                <Badge className="bg-brand-primary/15 text-brand-primary border-brand-primary/20 border">
                                   <CheckCircle2 className="w-3 h-3 mr-1" /> Ready
                                 </Badge>
                               ) : (
@@ -500,22 +500,22 @@ function ClientImportPage() {
 
           {/* Result summary */}
           {result && (
-            <Card className="border-emerald-200 bg-emerald-50">
+            <Card className="border-brand-primary/20 bg-brand-primary/10">
               <CardContent className="p-4 flex flex-wrap items-center gap-3 justify-between">
                 <div className="flex items-center gap-2">
-                  <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                  <CheckCircle2 className="w-5 h-5 text-brand-primary" />
                   <div className="text-sm">
-                    <p className="font-medium text-emerald-900">
+                    <p className="font-medium text-brand-primary">
                       Imported {result.imported} of {result.total}.
                     </p>
-                    <p className="text-xs text-emerald-700">
+                    <p className="text-xs text-brand-primary">
                       {result.skipped > 0 && <>Skipped {result.skipped} already on file. </>}
                       {result.rejected > 0 && <>Rejected {result.rejected} with missing fields.</>}
                     </p>
                   </div>
                 </div>
                 <Link href={withSlug("/admin/contacts")}>
-                  <Button variant="outline" className="border-emerald-300 bg-white">
+                  <Button variant="outline" className="border-brand-primary/30 bg-white">
                     Open contacts
                   </Button>
                 </Link>

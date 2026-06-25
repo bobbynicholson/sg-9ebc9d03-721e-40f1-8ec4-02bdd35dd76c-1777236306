@@ -745,8 +745,8 @@ function TeamsIndexPage() {
           key: "outsource" as TeamRow["key"],
           name: "Outsource",
           icon: Truck,
-          iconColor: "text-teal-600",
-          bg: "from-teal-50 to-cyan-50",
+          iconColor: "text-brand-primary",
+          bg: "from-brand-primary/10 to-brand-secondary/10",
           href: "/admin/outsource-providers",
           headCount: outsourceProvidersRes.count ?? 0,
           hoursThisWeek: null,
@@ -945,7 +945,7 @@ function TeamsIndexPage() {
                             {canSeeFinance && r.burnTodayZar != null && r.burnTodayZar > 0 && (
                               <Badge
                                 variant="outline"
-                                className="text-[10px] tabular-nums border-emerald-300 text-emerald-700 bg-emerald-50"
+                                className="text-[10px] tabular-nums border-brand-primary/30 text-brand-primary bg-brand-primary/10"
                                 title={r.key === "shopping"
                                   ? "Shopping spend committed today (actual + estimated for pending lists)."
                                   : r.key === "drivers"
@@ -982,7 +982,7 @@ function TeamsIndexPage() {
                           {r.clockedNow != null && r.headCount > 0 && (
                             <p className="text-[11px] mt-0.5 flex items-center gap-1.5">
                               <span className="text-slate-400">Clocked:</span>
-                              <span className={`tabular-nums font-medium ${r.clockedNow >= r.headCount ? "text-emerald-700" : r.clockedNow === 0 ? "text-rose-700" : "text-amber-700"}`}>
+                              <span className={`tabular-nums font-medium ${r.clockedNow >= r.headCount ? "text-brand-primary" : r.clockedNow === 0 ? "text-rose-700" : "text-amber-700"}`}>
                                 {r.clockedNow} / {r.headCount}
                               </span>
                               {r.clockedNow < r.headCount && (
@@ -1017,7 +1017,7 @@ function TeamsIndexPage() {
                         variant="outline"
                         size="sm"
                         onClick={(e) => { e.preventDefault(); setBroadcastTeam(r); }}
-                        className="gap-1.5 border-green-300 text-green-800 hover:bg-green-50 flex-shrink-0"
+                        className="gap-1.5 border-brand-primary/30 text-brand-primary hover:bg-brand-primary/10 flex-shrink-0"
                         title={`Send a WhatsApp message to every ${r.name.toLowerCase()} member with a phone on file.`}
                       >
                         <MessageCircle className="w-3.5 h-3.5" />
@@ -1059,7 +1059,7 @@ function TeamsIndexPage() {
                           {canSeeFinance && hireInBurn > 0 && (
                             <Badge
                               variant="outline"
-                              className="text-[10px] tabular-nums border-emerald-300 text-emerald-700 bg-emerald-50"
+                              className="text-[10px] tabular-nums border-brand-primary/30 text-brand-primary bg-brand-primary/10"
                               title="Committed spend across all open hire-in orders (draft + confirmed + picked-up). Closes when the order is marked returned + payable cleared."
                             >
                               <Banknote className="w-2.5 h-2.5 mr-0.5" />
@@ -1109,7 +1109,7 @@ function Stat({
         {delta != null && delta !== 0 && (
           <span
             title={deltaTooltip}
-            className={`text-[10px] font-semibold tabular-nums ${delta > 0 ? "text-emerald-700" : "text-rose-700"}`}
+            className={`text-[10px] font-semibold tabular-nums ${delta > 0 ? "text-brand-primary" : "text-rose-700"}`}
           >
             {delta > 0 ? "+" : ""}{delta}
           </span>
@@ -1237,7 +1237,7 @@ function BroadcastDialog({
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <MessageCircle className="w-5 h-5 text-green-600" />
+            <MessageCircle className="w-5 h-5 text-brand-primary" />
             Message {team?.name.toLowerCase() || "team"}
           </DialogTitle>
           <DialogDescription>
@@ -1275,7 +1275,7 @@ function BroadcastDialog({
           <Button
             onClick={handleSend}
             disabled={sending || loadingRecipients || recipients.length === 0 || !body.trim()}
-            className="bg-green-600 hover:bg-green-700 gap-1.5"
+            className="bg-brand-primary hover:bg-brand-primary/90 gap-1.5"
           >
             {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <MessageCircle className="w-4 h-4" />}
             {sending ? "Queueing..." : `Send to ${recipients.length || 0}`}

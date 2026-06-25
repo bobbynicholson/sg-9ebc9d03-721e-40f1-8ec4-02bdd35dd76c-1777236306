@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { PlatformNav } from "@/components/admin/PlatformNav";
 import { PortalShell, PortalHeader, PortalCard, PortalCardHeader } from "@/components/portal/ui";
 import { Button } from "@/components/ui/button";
@@ -402,27 +402,27 @@ export default function CMSBlogPage() {
                     />
                     <div className="space-y-3 text-sm text-slate-600 dark:text-slate-400">
                       <div className="flex items-start gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
+                        <CheckCircle2 className="w-4 h-4 text-brand-primary mt-0.5 flex-shrink-0" />
                         <p>Use descriptive, keyword-rich titles (50-60 characters)</p>
                       </div>
                       <div className="flex items-start gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
+                        <CheckCircle2 className="w-4 h-4 text-brand-primary mt-0.5 flex-shrink-0" />
                         <p>Include primary keyword in first paragraph</p>
                       </div>
                       <div className="flex items-start gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
+                        <CheckCircle2 className="w-4 h-4 text-brand-primary mt-0.5 flex-shrink-0" />
                         <p>Use H2/H3 headings for structure</p>
                       </div>
                       <div className="flex items-start gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
+                        <CheckCircle2 className="w-4 h-4 text-brand-primary mt-0.5 flex-shrink-0" />
                         <p>Keep meta description under 160 characters</p>
                       </div>
                       <div className="flex items-start gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
+                        <CheckCircle2 className="w-4 h-4 text-brand-primary mt-0.5 flex-shrink-0" />
                         <p>Add internal links to related content</p>
                       </div>
                       <div className="flex items-start gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
+                        <CheckCircle2 className="w-4 h-4 text-brand-primary mt-0.5 flex-shrink-0" />
                         <p>Include FAQ schema for rich snippets</p>
                       </div>
                     </div>

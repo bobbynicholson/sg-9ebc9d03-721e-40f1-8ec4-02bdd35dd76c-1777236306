@@ -639,14 +639,14 @@ function RefundsPage() {
     let iconBg: string;
     let Icon: typeof CheckCircle2;
     if (isCreditIssue) {
-      iconBg = "bg-emerald-100 text-emerald-700";
+      iconBg = "bg-brand-primary/15 text-brand-primary";
       Icon = Wallet;
     } else if (isCreditRedeem) {
       iconBg = "bg-blue-100 text-blue-700";
       Icon = ArrowRightLeft;
     } else {
       iconBg = isCompleted
-        ? "bg-emerald-100 text-emerald-700"
+        ? "bg-brand-primary/15 text-brand-primary"
         : isRejected
           ? "bg-rose-100 text-rose-700"
           : "bg-amber-100 text-amber-700";
@@ -655,7 +655,7 @@ function RefundsPage() {
 
     // Headline copy varies per kind.
     const amountColor = isCreditIssue
-      ? "text-emerald-700"
+      ? "text-brand-primary"
       : isCreditRedeem
         ? "text-blue-700"
         : "text-rose-700";
@@ -702,12 +702,12 @@ function RefundsPage() {
               </Badge>
             )}
             {isRefund && isCompleted && (r.refund_gateway || "").toLowerCase() === "payfast" ? (
-              <Badge className="text-xs bg-emerald-600 hover:bg-emerald-600">
+              <Badge className="text-xs bg-brand-primary hover:bg-brand-primary">
                 Auto-processed
               </Badge>
             ) : null}
             {isCreditIssue && (
-              <Badge className="text-xs bg-emerald-600 hover:bg-emerald-600">
+              <Badge className="text-xs bg-brand-primary hover:bg-brand-primary">
                 Cancellation credit
               </Badge>
             )}
@@ -783,7 +783,7 @@ function RefundsPage() {
           <Button
             size="sm"
             variant="outline"
-            className="border-emerald-300 text-emerald-800 hover:bg-emerald-50"
+            className="border-brand-primary/30 text-brand-primary hover:bg-brand-primary/10"
             onClick={() => markPaid(r)}
             disabled={busy === r.id}
           >
@@ -963,7 +963,7 @@ function RefundsPage() {
               <Card className="border-2">
                 <CardContent className="pt-4 pb-3">
                   <p className="text-xs font-medium text-slate-600">Credit liability outstanding</p>
-                  <p className="text-2xl font-bold tabular-nums text-emerald-700 mt-1">
+                  <p className="text-2xl font-bold tabular-nums text-brand-primary mt-1">
                     {fmt.format(intel.creditLiability)}
                   </p>
                   <p className="text-[11px] text-slate-500 mt-0.5">Issued minus redeemed across all time. Money you owe clients in unspent credit.</p>

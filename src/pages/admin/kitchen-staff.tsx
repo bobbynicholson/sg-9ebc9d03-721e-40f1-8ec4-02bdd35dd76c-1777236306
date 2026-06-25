@@ -855,7 +855,7 @@ function KitchenStaffPage() {
                                 columns. Hourly stays unbadged (the
                                 default + the columns are visible). */}
                             {payType === "monthly" && (
-                              <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200">Monthly</Badge>
+                              <Badge variant="outline" className="text-[10px] bg-brand-primary/10 text-brand-primary border-brand-primary/20">Monthly</Badge>
                             )}
                             {payType === "shift" && (
                               <Badge variant="outline" className="text-[10px] bg-purple-50 text-purple-700 border-purple-200">Per shift</Badge>
@@ -974,7 +974,7 @@ function KitchenStaffPage() {
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 onClick={(e) => e.stopPropagation()}
-                                className="text-green-700 hover:text-green-900"
+                                className="text-brand-primary hover:text-brand-primary"
                                 title={`WhatsApp ${s.full_name}`}
                                 aria-label={`WhatsApp ${s.full_name}`}
                               >
@@ -1406,9 +1406,9 @@ function KitchenStaffPage() {
             </div>
           )}
           {editTarget && editTarget.linked_profile_id && (
-            <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 mt-3">
-              <p className="text-sm font-semibold text-emerald-800">Portal access linked</p>
-              <p className="text-xs text-emerald-700 mt-0.5">
+            <div className="rounded-lg border border-brand-primary/20 bg-brand-primary/10 p-3 mt-3">
+              <p className="text-sm font-semibold text-brand-primary">Portal access linked</p>
+              <p className="text-xs text-brand-primary mt-0.5">
                 This staff member has a portal login. Manage roles + permissions on{" "}
                 <Link href={withSlug("/admin/users")} className="underline">Users</Link>.
               </p>

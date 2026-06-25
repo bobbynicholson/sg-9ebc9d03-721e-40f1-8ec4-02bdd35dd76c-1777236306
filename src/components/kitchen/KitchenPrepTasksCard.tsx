@@ -135,7 +135,7 @@ export function KitchenPrepTasksCard({ orderId, companyId: companyIdProp }: { or
           return (
             <li key={t.id} className="flex items-center gap-3 p-2.5 rounded-md border border-slate-200 bg-white">
               {doneish ? (
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                <CheckCircle2 className="w-4 h-4 text-brand-primary flex-shrink-0" />
               ) : (
                 <Clock className="w-4 h-4 text-slate-400 flex-shrink-0" />
               )}
@@ -145,7 +145,7 @@ export function KitchenPrepTasksCard({ orderId, companyId: companyIdProp }: { or
                   {t.menu_item_name && <span className="text-slate-500"> · {t.menu_item_name}</span>}
                 </p>
                 {doneish && t.completed_at && (
-                  <p className="text-[11px] text-emerald-700">
+                  <p className="text-[11px] text-brand-primary">
                     Done{t.completed_by && names.get(t.completed_by) ? ` by ${names.get(t.completed_by)}` : ""} · {fmt(t.completed_at)}
                   </p>
                 )}
@@ -165,14 +165,14 @@ export function KitchenPrepTasksCard({ orderId, companyId: companyIdProp }: { or
                   </Button>
                 </div>
               ) : (
-                <span className="text-[10px] uppercase tracking-wider text-emerald-700 flex-shrink-0">{t.status}</span>
+                <span className="text-[10px] uppercase tracking-wider text-brand-primary flex-shrink-0">{t.status}</span>
               )}
             </li>
           );
         })}
       </ul>
       {allDone && (
-        <p className="mt-2 text-xs font-semibold text-emerald-700">
+        <p className="mt-2 text-xs font-semibold text-brand-primary">
           All prep done - the order has been moved to Ready and dispatch notified.
         </p>
       )}

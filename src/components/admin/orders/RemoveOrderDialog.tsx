@@ -401,7 +401,7 @@ export function RemoveOrderDialog({
                   </div>
                 </div>
                 <div className="flex items-start gap-2">
-                  <Receipt className="w-4 h-4 mt-0.5 text-emerald-600" />
+                  <Receipt className="w-4 h-4 mt-0.5 text-brand-primary" />
                   <div className="text-sm flex-1">
                     Paid by client so far: <strong>{fmt.format(Math.max(snap.deposit_paid_amount, snap.total_amount_paid))}</strong>
                   </div>
@@ -422,13 +422,13 @@ export function RemoveOrderDialog({
               </div>
 
               {existingCredit > 0 ? (
-                <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm flex items-start gap-2">
-                  <Wallet className="w-4 h-4 mt-0.5 text-emerald-600 flex-shrink-0" />
+                <div className="rounded-lg border border-brand-primary/20 bg-brand-primary/10 p-3 text-sm flex items-start gap-2">
+                  <Wallet className="w-4 h-4 mt-0.5 text-brand-primary flex-shrink-0" />
                   <div className="flex-1">
-                    <p className="font-medium text-emerald-900">
+                    <p className="font-medium text-brand-primary">
                       Client already holds {fmt.format(existingCredit)} in store credit.
                     </p>
-                    <p className="text-xs text-emerald-800 mt-0.5">
+                    <p className="text-xs text-brand-primary mt-0.5">
                       {payoutChoice === "credit" && derivedCredit > 0
                         ? `New balance after this credit: ${fmt.format(existingCredit + derivedCredit)}.`
                         : "Visible so you can decide whether refund or credit makes sense."}
@@ -463,14 +463,14 @@ export function RemoveOrderDialog({
                     onClick={() => setPayoutChoice("credit")}
                     className={`text-left rounded-lg border-2 p-3 transition-all ${
                       payoutChoice === "credit"
-                        ? "border-emerald-500 bg-emerald-50"
-                        : "border-slate-200 hover:border-emerald-300"
+                        ? "border-brand-primary bg-brand-primary/10"
+                        : "border-slate-200 hover:border-brand-primary/30"
                     }`}
                   >
                     <div className="flex items-center justify-between mb-1">
-                      <Wallet className="w-4 h-4 text-emerald-600" />
+                      <Wallet className="w-4 h-4 text-brand-primary" />
                       {bonusPp > 0 && derivedCredit > snap.refund_amount && (
-                        <span className="text-[10px] font-medium uppercase text-emerald-700 bg-emerald-100 rounded px-1.5 py-0.5">
+                        <span className="text-[10px] font-medium uppercase text-brand-primary bg-brand-primary/15 rounded px-1.5 py-0.5">
                           +{bonusPp}pp bonus
                         </span>
                       )}

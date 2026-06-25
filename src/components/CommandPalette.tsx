@@ -96,7 +96,7 @@ const badgeTone: Record<DataResult["badge"], string> = {
   Order: "bg-blue-100 text-blue-700",
   Client: "bg-purple-100 text-purple-700",
   Lead: "bg-amber-100 text-amber-700",
-  Quote: "bg-emerald-100 text-emerald-700",
+  Quote: "bg-brand-primary/15 text-brand-primary",
   Inventory: "bg-slate-100 text-slate-700",
 };
 

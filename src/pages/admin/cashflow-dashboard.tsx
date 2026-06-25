@@ -396,7 +396,7 @@ function CashflowDashboardInner() {
         <AdminNav />
         <div className="flex items-center justify-center min-h-screen lg:pl-72 xl:pl-80 pt-20 lg:pt-0">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto mb-4" />
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-primary/80 mx-auto mb-4" />
             <p>Loading cashflow data...</p>
           </div>
         </div>
@@ -416,7 +416,7 @@ function CashflowDashboardInner() {
           <div className="max-w-md mx-auto mt-12 rounded-lg border border-rose-200 bg-white p-6 shadow-sm">
             <h2 className="text-lg font-bold text-rose-900 mb-2">Couldn't load cashflow</h2>
             <p className="text-sm text-slate-600 mb-4">{loadError}</p>
-            <Button onClick={() => { void load(); }} className="bg-emerald-600 hover:bg-emerald-700">
+            <Button onClick={() => { void load(); }} className="bg-brand-primary hover:bg-brand-primary/90">
               <RefreshCw className="w-4 h-4 mr-2" /> Retry
             </Button>
           </div>
@@ -471,15 +471,15 @@ function CashflowDashboardInner() {
             && (metrics?.supplierPayablesNext30 || 0) === 0
             && (metrics?.equipmentHireUpcomingCount || 0) === 0
             && (metrics?.shoppingUpcomingCount || 0) === 0 ? (
-            <div className="mb-6 rounded-lg border border-emerald-200 bg-white p-8 text-center shadow-sm">
-              <TrendingUp className="w-10 h-10 text-emerald-600 mx-auto mb-3" />
+            <div className="mb-6 rounded-lg border border-brand-primary/20 bg-white p-8 text-center shadow-sm">
+              <TrendingUp className="w-10 h-10 text-brand-primary mx-auto mb-3" />
               <h2 className="text-lg font-bold text-slate-900 mb-2">No cashflow activity yet</h2>
               <p className="text-sm text-slate-600 max-w-md mx-auto">
                 Once you confirm your first order or record your first payment, this dashboard
                 will start projecting your cash position forward 30 days.
               </p>
               <div className="mt-4 inline-flex gap-2">
-                <Button asChild className="bg-emerald-600 hover:bg-emerald-700">
+                <Button asChild className="bg-brand-primary hover:bg-brand-primary/90">
                   <Link href={withSlug("/admin/quotes/new")}>Start a quote</Link>
                 </Button>
                 <Button asChild variant="outline">
@@ -541,7 +541,7 @@ function CashflowDashboardInner() {
             <Card className="border-2">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-base">
-                  <Banknote className="w-5 h-5 text-emerald-600" />
+                  <Banknote className="w-5 h-5 text-brand-primary" />
                   30-day cashflow summary
                   <InfoTooltip content={"The same numbers the forecast chart subtracts.\n\nReceived: cash already in the bank from paid orders.\n\nWages owed, fixed costs and supplier payables are subtracted to get Net 30d."} />
                 </CardTitle>
@@ -556,7 +556,7 @@ function CashflowDashboardInner() {
                     Net cash flow (30d)
                     <InfoTooltip content={"Matches the projected balance trend in the chart above."} />
                   </span>
-                  <span className={`font-bold text-lg ${net30 >= 0 ? "text-emerald-600" : "text-red-600"}`}>
+                  <span className={`font-bold text-lg ${net30 >= 0 ? "text-brand-primary" : "text-red-600"}`}>
                     {fmt(net30, currency)}
                   </span>
                 </div>
@@ -632,7 +632,7 @@ function CashflowDashboardInner() {
 }
 
 function Row({ label, value, tone }: { label: string; value: string; tone: "positive" | "negative" | "neutral" }) {
-  const color = tone === "positive" ? "text-emerald-700"
+  const color = tone === "positive" ? "text-brand-primary"
     : tone === "negative" ? "text-red-700"
     : "text-slate-900";
   return (
@@ -657,8 +657,8 @@ function NavLink({
 }) {
   return (
     <Link href={href} className="block">
-      <div className="flex items-center gap-3 p-3 rounded-md border border-slate-200 hover:bg-slate-50 hover:border-emerald-300 transition-colors">
-        <div className="w-9 h-9 rounded-md bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
+      <div className="flex items-center gap-3 p-3 rounded-md border border-slate-200 hover:bg-slate-50 hover:border-brand-primary/30 transition-colors">
+        <div className="w-9 h-9 rounded-md bg-brand-primary/10 text-brand-primary flex items-center justify-center shrink-0">
           <Icon className="w-4 h-4" />
         </div>
         <div className="flex-1 min-w-0">
@@ -695,8 +695,8 @@ function ActionLink({
       disabled={disabled}
       className="block w-full text-left disabled:opacity-60 disabled:cursor-not-allowed"
     >
-      <div className="flex items-center gap-3 p-3 rounded-md border border-slate-200 hover:bg-slate-50 hover:border-emerald-300 transition-colors">
-        <div className="w-9 h-9 rounded-md bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
+      <div className="flex items-center gap-3 p-3 rounded-md border border-slate-200 hover:bg-slate-50 hover:border-brand-primary/30 transition-colors">
+        <div className="w-9 h-9 rounded-md bg-brand-primary/10 text-brand-primary flex items-center justify-center shrink-0">
           <Icon className="w-4 h-4" />
         </div>
         <div className="flex-1 min-w-0">

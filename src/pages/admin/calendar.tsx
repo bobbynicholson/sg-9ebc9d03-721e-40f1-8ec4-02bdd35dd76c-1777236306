@@ -48,9 +48,9 @@ const STATUS_TONES: Record<string, string> = {
   pending:    "bg-amber-100 text-amber-800 border-amber-200",
   confirmed:  "bg-blue-100 text-blue-800 border-blue-200",
   preparing:  "bg-purple-100 text-purple-800 border-purple-200",
-  ready:      "bg-green-100 text-green-800 border-green-200",
+  ready:      "bg-brand-primary/15 text-brand-primary border-brand-primary/20",
   in_transit: "bg-indigo-100 text-indigo-800 border-indigo-200",
-  delivered:  "bg-emerald-100 text-emerald-800 border-emerald-200",
+  delivered:  "bg-brand-primary/15 text-brand-primary border-brand-primary/20",
   completed:  "bg-slate-100 text-slate-800 border-slate-200",
   cancelled:  "bg-rose-100 text-rose-700 border-rose-200",
   // Paused stays blue (still booked, capacity counted) but with a
@@ -773,7 +773,7 @@ function AdminCalendar() {
   // Waves 70.28 / 70.29 / 70.31 for visual consistency.
   const DAY_MODE_META: Record<string, { label: string; sublabel: string; bg: string; text: string; pulse: boolean }> = {
     quiet:    { label: "Quiet",    sublabel: "Open diary, easy to win extra bookings", bg: "bg-slate-100 border-slate-200", text: "text-slate-700", pulse: false },
-    relaxed:  { label: "Relaxed",  sublabel: "Light day, room to focus on prep",       bg: "bg-emerald-50 border-emerald-200", text: "text-emerald-800", pulse: false },
+    relaxed:  { label: "Relaxed",  sublabel: "Light day, room to focus on prep",       bg: "bg-brand-primary/10 border-brand-primary/20", text: "text-brand-primary", pulse: false },
     busy:     { label: "Busy",     sublabel: "Solid run - keep the team aligned",     bg: "bg-blue-50 border-blue-200", text: "text-blue-800", pulse: false },
     packed:   { label: "Packed",   sublabel: "Heavy load - watch capacity + drivers", bg: "bg-amber-50 border-amber-200", text: "text-amber-800", pulse: false },
     conflict: { label: "Conflicts","sublabel": "Multiple events within 60 min of each other - review", bg: "bg-rose-50 border-rose-200", text: "text-rose-800", pulse: true },
@@ -1161,7 +1161,7 @@ function AdminCalendar() {
                         orange: "bg-orange-100 text-orange-800 border-orange-300",
                         indigo: "bg-indigo-100 text-indigo-800 border-indigo-300",
                         purple: "bg-purple-100 text-purple-800 border-purple-300",
-                        cyan:   "bg-cyan-100 text-cyan-800 border-cyan-300",
+                        cyan:   "bg-brand-primary/15 text-brand-primary border-brand-primary/30",
                         rose:   "bg-rose-100 text-rose-800 border-rose-300",
                       };
                       return (
@@ -1372,7 +1372,7 @@ function AdminCalendar() {
                                 </span>,
                               );
                               if (layers.cleaning && cl > 0) chips.push(
-                                <span key="c" className="inline-flex items-center gap-0.5 text-[9px] text-cyan-700 bg-cyan-50 border border-cyan-100 rounded px-1 py-px" title={`${cl} cleaning block${cl === 1 ? "" : "s"}`}>
+                                <span key="c" className="inline-flex items-center gap-0.5 text-[9px] text-brand-primary bg-brand-primary/10 border border-brand-primary/15 rounded px-1 py-px" title={`${cl} cleaning block${cl === 1 ? "" : "s"}`}>
                                   <Droplets className="w-2.5 h-2.5" />{cl}
                                 </span>,
                               );
@@ -1613,7 +1613,7 @@ function AdminCalendar() {
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-slate-600 flex items-center gap-1.5">Upcoming <InfoTooltip content={"Every open event dated today or later. The preview above lists only the next five, but this is the real count."} /></span>
-                    <span className="text-2xl font-bold text-emerald-900 tabular-nums">{upcomingAll.length}</span>
+                    <span className="text-2xl font-bold text-brand-primary tabular-nums">{upcomingAll.length}</span>
                   </div>
                 </CardContent>
               </Card>
@@ -1680,17 +1680,17 @@ function AdminCalendar() {
                     </div>
                     <div className={cn(
                       "rounded-lg border px-2 py-1.5",
-                      dayIntel.eventsWithIssues > 0 ? "border-rose-200 bg-rose-50" : "border-emerald-200 bg-emerald-50",
+                      dayIntel.eventsWithIssues > 0 ? "border-rose-200 bg-rose-50" : "border-brand-primary/20 bg-brand-primary/10",
                     )}>
                       <p className={cn(
                         "text-[14px] font-bold tabular-nums leading-none",
-                        dayIntel.eventsWithIssues > 0 ? "text-rose-700" : "text-emerald-700",
+                        dayIntel.eventsWithIssues > 0 ? "text-rose-700" : "text-brand-primary",
                       )}>
                         {dayIntel.eventsWithIssues}
                       </p>
                       <p className={cn(
                         "text-[9px] uppercase tracking-wider mt-0.5 leading-none",
-                        dayIntel.eventsWithIssues > 0 ? "text-rose-700" : "text-emerald-700",
+                        dayIntel.eventsWithIssues > 0 ? "text-rose-700" : "text-brand-primary",
                       )}>
                         {/* Day-level scale = events at risk (NOT issue
                             count - per-event cards below show "N to

@@ -88,7 +88,7 @@ export function ComplaintPortal() {
     const colors = {
       submitted: "bg-blue-100 text-blue-800",
       in_review: "bg-yellow-100 text-yellow-800",
-      resolved: "bg-green-100 text-green-800",
+      resolved: "bg-brand-primary/15 text-brand-primary",
       closed: "bg-slate-100 text-slate-800",
     };
     return colors[status];
@@ -263,7 +263,7 @@ export function ComplaintPortal() {
         {complaints.length === 0 ? (
           <Card className="border-0 shadow-lg">
             <CardContent className="py-8 sm:py-12 text-center px-4">
-              <CheckCircle2 className="w-12 h-12 sm:w-16 sm:h-16 mx-auto text-green-500 mb-3 sm:mb-4" />
+              <CheckCircle2 className="w-12 h-12 sm:w-16 sm:h-16 mx-auto text-brand-primary mb-3 sm:mb-4" />
               <p className="text-base sm:text-lg font-semibold text-slate-900 mb-2">No complaints submitted</p>
               <p className="text-sm sm:text-base text-slate-600">We're glad everything is going smoothly!</p>
             </CardContent>
@@ -307,14 +307,14 @@ export function ComplaintPortal() {
                 </div>
 
                 {complaint.adminResponse && (
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-3 sm:p-4">
+                  <div className="bg-brand-primary/10 border border-brand-primary/20 rounded-lg p-3 sm:p-4">
                     <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-2">
                       <div className="flex items-center gap-2">
-                        <MessageSquare className="w-4 h-4 sm:w-5 sm:h-5 text-green-600 flex-shrink-0" />
-                        <p className="font-semibold text-sm sm:text-base text-green-900">Admin Response</p>
+                        <MessageSquare className="w-4 h-4 sm:w-5 sm:h-5 text-brand-primary flex-shrink-0" />
+                        <p className="font-semibold text-sm sm:text-base text-brand-primary">Admin Response</p>
                       </div>
                       {complaint.resolvedAt && (
-                        <span className="text-xs sm:text-sm text-green-700">
+                        <span className="text-xs sm:text-sm text-brand-primary">
                           • Resolved {formatLocalDate(complaint.resolvedAt)}
                         </span>
                       )}

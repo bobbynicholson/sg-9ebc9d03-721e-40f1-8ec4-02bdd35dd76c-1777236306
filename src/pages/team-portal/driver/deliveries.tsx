@@ -1,4 +1,4 @@
-﻿/* eslint-disable @typescript-eslint/ban-ts-comment */
+/* eslint-disable @typescript-eslint/ban-ts-comment */
 // @ts-nocheck
 import { useEffect, useMemo, useState } from "react";
 import Head from "next/head";
@@ -69,8 +69,8 @@ const ACTIVE_STATUSES_FOR_CONFIRMATION_PANEL = new Set([
 
 const statusBadge = (status: string) => {
   const map: Record<string, string> = {
-    delivered: "bg-emerald-100 text-emerald-700 border-emerald-200",
-    completed: "bg-emerald-100 text-emerald-700 border-emerald-200",
+    delivered: "bg-brand-primary/15 text-brand-primary border-brand-primary/20",
+    completed: "bg-brand-primary/15 text-brand-primary border-brand-primary/20",
     in_transit: "bg-brand-primary/10 text-brand-primary border-brand-primary/20 dark:bg-brand-primary/20 dark:text-brand-primary",
     ready: "bg-slate-100 text-slate-700 border-slate-200",
     confirmed: "bg-slate-100 text-slate-700 border-slate-200",
@@ -329,7 +329,7 @@ function DeliveryList({ orders }: { orders: DriverOrder[] }) {
                           )}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300 dark:hover:bg-emerald-900/60"
+                          className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-brand-primary/20 bg-brand-primary/10 hover:bg-brand-primary/15 text-brand-primary dark:border-brand-primary/30 dark:bg-brand-primary/15 dark:text-brand-primary dark:hover:bg-brand-primary/20"
                           title="Open WhatsApp"
                           onClick={() => void logPiiAccess({
                             entityType: "order",
@@ -420,7 +420,7 @@ function DeliveryList({ orders }: { orders: DriverOrder[] }) {
                                 <span className="text-[11px] text-slate-500 dark:text-slate-400">{eq.category}</span>
                               )}
                               {hasSplit && fromStock > 0 && (
-                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-900">
+                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-brand-primary/15 text-brand-primary border border-brand-primary/20 dark:bg-brand-primary/15 dark:text-brand-primary dark:border-brand-primary/30">
                                   {fromStock} OWNED
                                 </span>
                               )}

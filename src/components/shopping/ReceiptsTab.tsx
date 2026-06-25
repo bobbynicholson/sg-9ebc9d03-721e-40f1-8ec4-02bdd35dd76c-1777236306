@@ -358,10 +358,10 @@ export function ReceiptsTab({ companyId, userId }: Props) {
             <p className="text-2xl font-bold text-slate-900 mt-1 tabular-nums">{summary.receiptCount}</p>
           </CardContent>
         </Card>
-        <Card className="border-0 shadow-sm bg-gradient-to-br from-emerald-50 to-emerald-100">
+        <Card className="border-0 shadow-sm bg-gradient-to-br from-brand-primary/10 to-brand-secondary/10">
           <CardContent className="py-4 px-4">
-            <p className="text-xs uppercase tracking-wide text-emerald-700 font-semibold">Deductible total</p>
-            <p className="text-2xl font-bold text-emerald-900 mt-1 tabular-nums">{fmtR(summary.deductibleTotal)}</p>
+            <p className="text-xs uppercase tracking-wide text-brand-primary font-semibold">Deductible total</p>
+            <p className="text-2xl font-bold text-brand-primary mt-1 tabular-nums">{fmtR(summary.deductibleTotal)}</p>
           </CardContent>
         </Card>
         <Card className="border-0 shadow-sm">
@@ -834,7 +834,7 @@ function ReceiptRow({
               {receipt.total != null && (
                 <span>Slip total: <span className="font-medium text-slate-900">{fmtR(receipt.total)}</span></span>
               )}
-              <span className="text-emerald-700">
+              <span className="text-brand-primary">
                 Deductible: <span className="font-medium">{fmtR(receipt.deductibleTotal)}</span>
               </span>
               {receipt.nonDeductibleTotal > 0 && (
@@ -907,7 +907,7 @@ function ReceiptRow({
               />
               <label className="flex items-center gap-1.5 text-xs cursor-pointer">
                 <Switch checked={newDeductible} onCheckedChange={setNewDeductible} />
-                <span className={newDeductible ? "text-emerald-700 font-medium" : "text-slate-500"}>
+                <span className={newDeductible ? "text-brand-primary font-medium" : "text-slate-500"}>
                   {newDeductible ? "Deductible" : "Skip"}
                 </span>
               </label>
@@ -1005,7 +1005,7 @@ function LineRow({
           checked={item.is_deductible}
           onCheckedChange={(v: boolean) => onToggleDeductible(item.id, v)}
         />
-        <span className={item.is_deductible ? "text-emerald-700 font-medium" : "text-slate-500"}>
+        <span className={item.is_deductible ? "text-brand-primary font-medium" : "text-slate-500"}>
           {item.is_deductible ? "Deductible" : "Skip"}
         </span>
       </label>

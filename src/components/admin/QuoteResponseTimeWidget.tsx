@@ -143,9 +143,9 @@ export function QuoteResponseTimeWidget({ companyId }: { companyId: string | nul
                 across {stats.viewSample} quote{stats.viewSample === 1 ? "" : "s"}
               </p>
             </div>
-            <div className="rounded-lg border border-emerald-200 bg-white p-3">
+            <div className="rounded-lg border border-brand-primary/20 bg-white p-3">
               <div className="flex items-center gap-2 mb-1">
-                <CheckCircle className="w-4 h-4 text-emerald-600" />
+                <CheckCircle className="w-4 h-4 text-brand-primary" />
                 <span className="text-xs text-slate-600 font-medium">Sent → accepted</span>
               </div>
               <p className="text-2xl font-bold tabular-nums text-slate-900">

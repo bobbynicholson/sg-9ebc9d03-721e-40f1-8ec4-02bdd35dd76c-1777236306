@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -379,7 +379,7 @@ function DriverDashboardInner() {
             title: notification.title,
             description: notification.message,
             duration: 10000,
-            className: "bg-green-50 border-green-500",
+            className: "bg-brand-primary/10 border-brand-primary",
           });
 
           // Reload jobs to show updated status
@@ -521,12 +521,12 @@ function DriverDashboardInner() {
     );
   };
 
-  // Semantic status tints: emerald = delivered/ready (success),
+  // Semantic status tints: brand = delivered/ready (success),
   // brand = en-route/in-flight (active), slate = assigned/neutral.
   const getStatusColor = (status: string) => {
     switch (status) {
       case "ready":
-        return "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-900";
+        return "bg-brand-primary/10 text-brand-primary border-brand-primary/20 dark:bg-brand-primary/10 dark:text-brand-primary dark:border-brand-primary/30";
       case "assigned":
       case "accepted":
         return "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700";
@@ -535,7 +535,7 @@ function DriverDashboardInner() {
         return "bg-brand-primary/10 text-brand-primary border-brand-primary/20 dark:bg-brand-primary/20 dark:text-brand-primary dark:border-brand-primary/20";
       case "delivered":
       case "completed":
-        return "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-900";
+        return "bg-brand-primary/10 text-brand-primary border-brand-primary/20 dark:bg-brand-primary/10 dark:text-brand-primary dark:border-brand-primary/30";
       default:
         return "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700";
     }
@@ -943,7 +943,7 @@ function DriverDashboardInner() {
               <PWAInstallPrompt />
             </div>
 
-            {/* GPS pinger status. Quiet when no active jobs; greenish
+            {/* GPS pinger status. Quiet when no active jobs; brand
              *  pulse while the foreground hook is dripping coords to
              *  dispatch; a soft warning when geolocation was refused
              *  so the driver knows the in-app tracker isn't running.
@@ -953,7 +953,7 @@ function DriverDashboardInner() {
             {activeOrderIds.length > 0 && (
               <div className="mb-4 sm:mb-6 flex flex-wrap items-center gap-2 text-xs sm:text-sm">
                 {gpsActive && !gpsError ? (
-                  <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-900">
+                  <Badge className="bg-brand-primary/10 text-brand-primary border-brand-primary/20 dark:bg-brand-primary/10 dark:text-brand-primary dark:border-brand-primary/30">
                     <MapPin className="w-3 h-3 mr-1 animate-pulse" />
                     GPS sharing on
                     {lastPingAt
@@ -1056,7 +1056,7 @@ function DriverDashboardInner() {
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <CheckCircle className="w-5 h-5 text-emerald-600 dark:text-emerald-500" />
+              <CheckCircle className="w-5 h-5 text-brand-primary dark:text-brand-primary" />
               Status - {confirmJob?.client_name}
             </DialogTitle>
           </DialogHeader>

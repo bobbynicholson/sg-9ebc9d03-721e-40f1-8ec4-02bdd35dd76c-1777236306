@@ -212,7 +212,7 @@ export function ShortagesPanel() {
   };
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "resolved":      return "bg-green-500";
+      case "resolved":      return "bg-brand-primary";
       case "investigating": return "bg-blue-500";
       case "pending":       return "bg-orange-500";
       default:              return "bg-gray-500";
@@ -268,9 +268,9 @@ export function ShortagesPanel() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs md:text-sm text-gray-600 mb-1 flex items-center gap-1">Resolved <InfoTooltip content={"Reports that have been closed out and resolved."} /></p>
-                <p className="text-2xl md:text-3xl font-bold text-green-600">{resolvedCount}</p>
+                <p className="text-2xl md:text-3xl font-bold text-brand-primary">{resolvedCount}</p>
               </div>
-              <CheckCircle className="w-8 h-8 md:w-10 md:h-10 text-green-500" />
+              <CheckCircle className="w-8 h-8 md:w-10 md:h-10 text-brand-primary" />
             </div>
           </CardContent>
         </Card>
@@ -407,7 +407,7 @@ export function ShortagesPanel() {
                   ) : null}
 
                   {shortage.status === "resolved" && shortage.resolution_notes ? (
-                    <div className="text-xs md:text-sm text-gray-600 bg-green-50 p-2 rounded">
+                    <div className="text-xs md:text-sm text-gray-600 bg-brand-primary/10 p-2 rounded">
                       <span className="font-medium">Resolution:</span> {shortage.resolution_notes}
                       {shortage.resolved_by_profile && (
                         <div className="mt-1 text-xs text-gray-500">
@@ -432,7 +432,7 @@ export function ShortagesPanel() {
                         <Button
                           onClick={() => { setSelectedShortage(shortage); setResolveDialogOpen(true); }}
                           size="sm"
-                          className="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-xs"
+                          className="w-full sm:w-auto bg-brand-primary hover:bg-brand-primary/90 text-xs"
                         >
                           <CheckCircle className="w-3 h-3 mr-2" />
                           Resolve
@@ -443,14 +443,14 @@ export function ShortagesPanel() {
                       <Button
                         onClick={() => { setSelectedShortage(shortage); setResolveDialogOpen(true); }}
                         size="sm"
-                        className="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-xs"
+                        className="w-full sm:w-auto bg-brand-primary hover:bg-brand-primary/90 text-xs"
                       >
                         <CheckCircle className="w-3 h-3 mr-2" />
                         Resolve
                       </Button>
                     )}
                     {shortage.status === "resolved" && (
-                      <Badge className="bg-green-500 text-white justify-center py-2 text-xs">
+                      <Badge className="bg-brand-primary text-white justify-center py-2 text-xs">
                         <CheckCircle className="w-3 h-3 mr-2" />
                         Resolved
                       </Badge>
@@ -503,7 +503,7 @@ export function ShortagesPanel() {
             <Button
               onClick={handleResolveShortage}
               disabled={!resolutionNotes.trim()}
-              className="w-full sm:w-auto bg-green-600 hover:bg-green-700"
+              className="w-full sm:w-auto bg-brand-primary hover:bg-brand-primary/90"
               size="sm"
             >
               <CheckCircle className="w-4 h-4 mr-2" />

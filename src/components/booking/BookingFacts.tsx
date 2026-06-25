@@ -79,7 +79,7 @@ function AdminFacts({ facts }: { facts: BookingFactsAdmin }) {
           </div>
           <div>
             <p className="text-[10px] uppercase tracking-wider text-slate-500">Balance due</p>
-            <p className={`text-sm tabular-nums font-semibold ${Number(facts.balance_due || 0) > 0 ? "text-rose-700" : "text-emerald-700"}`}>
+            <p className={`text-sm tabular-nums font-semibold ${Number(facts.balance_due || 0) > 0 ? "text-rose-700" : "text-brand-primary"}`}>
               {facts.balance_due != null ? tenantCurrency.format(Number(facts.balance_due)) : "--"}
             </p>
           </div>
@@ -114,7 +114,7 @@ function AdminFacts({ facts }: { facts: BookingFactsAdmin }) {
     : { label: "All ingredients covered", tone: "emerald" as const, icon: CheckCircle2 };
 
   const TONE: Record<string, { card: string; text: string; iconBg: string }> = {
-    emerald: { card: "border-emerald-200 bg-emerald-50/40", text: "text-emerald-800", iconBg: "bg-emerald-100 text-emerald-700" },
+    emerald: { card: "border-brand-primary/20 bg-brand-primary/10", text: "text-brand-primary", iconBg: "bg-brand-primary/15 text-brand-primary" },
     blue:    { card: "border-blue-200 bg-blue-50/40",        text: "text-blue-800",    iconBg: "bg-blue-100 text-blue-700" },
     amber:   { card: "border-amber-200 bg-amber-50/40",      text: "text-amber-800",   iconBg: "bg-amber-100 text-amber-700" },
     rose:    { card: "border-rose-200 bg-rose-50/40",        text: "text-rose-800",    iconBg: "bg-rose-100 text-rose-700" },
@@ -222,7 +222,7 @@ function ClientFacts({ facts }: { facts: BookingFactsClient }) {
             </div>
             <div>
               <p className="text-[10px] uppercase tracking-wider text-slate-500">Balance to pay</p>
-              <p className={`text-sm tabular-nums font-semibold ${Number(facts.balance_due || 0) > 0 ? "text-amber-700" : "text-emerald-700"}`}>
+              <p className={`text-sm tabular-nums font-semibold ${Number(facts.balance_due || 0) > 0 ? "text-amber-700" : "text-brand-primary"}`}>
                 {facts.balance_due != null ? tenantCurrency.format(Number(facts.balance_due)) : "--"}
               </p>
             </div>
@@ -380,9 +380,9 @@ function DriverFacts({ facts }: { facts: BookingFactsDriver }) {
 function CleaningFacts({ facts }: { facts: BookingFactsCleaning }) {
   const handoverHref = facts.handover.id ? `/team-portal/cleaning/handovers/${facts.handover.id}` : null;
   return (
-    <Card className="border-0 shadow-sm bg-gradient-to-r from-cyan-50 to-blue-50 print:bg-white print:shadow-none print:border print:border-slate-300">
+    <Card className="border-0 shadow-sm bg-gradient-to-r from-brand-primary/10 to-blue-50 print:bg-white print:shadow-none print:border print:border-slate-300">
       <CardContent className="p-4">
-        <p className="text-[10px] uppercase tracking-widest text-cyan-700 font-bold mb-2 flex items-center gap-1.5">
+        <p className="text-[10px] uppercase tracking-widest text-brand-primary font-bold mb-2 flex items-center gap-1.5">
           <Sparkles className="w-3 h-3" />
           Cleaning handover
         </p>
@@ -399,12 +399,12 @@ function CleaningFacts({ facts }: { facts: BookingFactsCleaning }) {
               </div>
             </div>
             {facts.handover.expected_at && (
-              <p className="text-xs text-cyan-700">
+              <p className="text-xs text-brand-primary">
                 Expected back by {new Date(facts.handover.expected_at).toLocaleString("en-ZA", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hour12: false })}
               </p>
             )}
             {handoverHref && (
-              <Link href={handoverHref} className="inline-flex items-center gap-1 text-xs text-cyan-700 hover:text-cyan-900 mt-2 font-medium">
+              <Link href={handoverHref} className="inline-flex items-center gap-1 text-xs text-brand-primary hover:text-brand-primary mt-2 font-medium">
                 Open handover detail →
               </Link>
             )}
@@ -421,9 +421,9 @@ function CleaningFacts({ facts }: { facts: BookingFactsCleaning }) {
 
 function ShoppingFacts({ facts }: { facts: BookingFactsShopping }) {
   return (
-    <Card className="border-0 shadow-sm bg-gradient-to-r from-emerald-50 to-green-50 print:bg-white print:shadow-none print:border print:border-slate-300">
+    <Card className="border-0 shadow-sm bg-gradient-to-r from-brand-primary/10 to-brand-secondary/10 print:bg-white print:shadow-none print:border print:border-slate-300">
       <CardContent className="p-4">
-        <p className="text-[10px] uppercase tracking-widest text-emerald-700 font-bold mb-2 flex items-center gap-1.5">
+        <p className="text-[10px] uppercase tracking-widest text-brand-primary font-bold mb-2 flex items-center gap-1.5">
           <ShoppingBag className="w-3 h-3" />
           Items to procure ({facts.items.length})
         </p>
@@ -433,7 +433,7 @@ function ShoppingFacts({ facts }: { facts: BookingFactsShopping }) {
           <ul className="divide-y divide-slate-100">
             {facts.items.map((it, i) => (
               <li key={i} className="py-1.5 flex items-center gap-2">
-                <Package className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
+                <Package className="w-3.5 h-3.5 text-brand-primary flex-shrink-0" />
                 <span className="text-sm text-slate-800 flex-1">{it.item_name || "Item"}</span>
                 <span className="text-sm font-semibold tabular-nums text-slate-900">{it.quantity}×</span>
               </li>

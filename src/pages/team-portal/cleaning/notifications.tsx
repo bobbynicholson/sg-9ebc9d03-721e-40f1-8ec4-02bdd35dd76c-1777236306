@@ -38,7 +38,7 @@ const priorityIcon = (p?: string | null) => {
 const priorityTone = (p?: string | null) => {
   if (p === "critical" || p === "urgent" || p === "high") return "text-rose-500";
   if (p === "medium" || p === "warning") return "text-amber-500";
-  if (p === "success") return "text-emerald-500";
+  if (p === "success") return "text-brand-primary";
   return "text-slate-400 dark:text-slate-500";
 };
 

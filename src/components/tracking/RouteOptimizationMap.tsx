@@ -193,7 +193,7 @@ export default function RouteOptimizationMap({ route }: RouteOptimizationMapProp
       >
         <Popup>
           <div className="p-2">
-            <h3 className="font-semibold text-green-700 mb-1">Route Start</h3>
+            <h3 className="font-semibold text-brand-primary mb-1">Route Start</h3>
             <p className="text-sm text-slate-600">First delivery point</p>
           </div>
         </Popup>

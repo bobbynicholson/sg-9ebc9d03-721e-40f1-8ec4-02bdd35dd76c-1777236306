@@ -512,7 +512,7 @@ export function OutsourcedFulfilmentPanel({
                           const isWinner = a.status === "accepted";
                           const isCancelledSibling = a.status === "cancelled";
                           const cls = isWinner
-                            ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                            ? "bg-brand-primary/10 text-brand-primary border-brand-primary/20"
                             : isCancelledSibling
                               ? "bg-slate-100 text-slate-500 border-slate-200"
                               : "bg-blue-50 text-blue-800 border-blue-200";
@@ -579,7 +579,7 @@ export function OutsourcedFulfilmentPanel({
                       {/* Channel-aware request send - WhatsApp first when preferred */}
                       {channel === "whatsapp" || channel === "sms" ? (
                         <Button size="sm" variant="ghost" onClick={() => sendWhatsApp(a)} title="Send via WhatsApp">
-                          <MessageCircle className="w-4 h-4 text-green-700" />
+                          <MessageCircle className="w-4 h-4 text-brand-primary" />
                         </Button>
                       ) : null}
                       <Button size="sm" variant="ghost" onClick={() => sendEmail(a)} title="Send via email">
@@ -595,7 +595,7 @@ export function OutsourcedFulfilmentPanel({
                             variant="ghost"
                             onClick={() => handleMarkAccepted(a)}
                             title="Mark accepted on their behalf"
-                            className="text-green-700 hover:text-green-800"
+                            className="text-brand-primary hover:text-brand-primary"
                           >
                             <Check className="w-4 h-4" />
                           </Button>

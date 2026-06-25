@@ -73,8 +73,8 @@ const MODE_META: Record<AdminPortalMode, {
     shortLabel: "Review",
     description: "Today's events are done. Review revenue, chase unpaid invoices, close out.",
     icon: Wallet,
-    bg: "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800",
-    text: "text-emerald-800 dark:text-emerald-300",
+    bg: "bg-brand-primary/10 dark:bg-brand-primary/10 border-brand-primary/20 dark:border-brand-primary/30",
+    text: "text-brand-primary dark:text-brand-primary",
     pulse: false,
   },
 };

@@ -178,7 +178,7 @@ export default function OutsourceAcceptPage() {
 
               {!loading && !error && done === "accepted" && (
                 <div className="text-center py-6">
-                  <CheckCircle2 className="w-12 h-12 text-green-600 mx-auto mb-2" />
+                  <CheckCircle2 className="w-12 h-12 text-brand-primary mx-auto mb-2" />
                   <h2 className="text-lg font-semibold text-slate-900">Confirmed - thank you</h2>
                   <p className="text-sm text-slate-600 mt-1">
                     {data?.providerName ? `${data.providerName}, the company` : "The company"} will be in touch with final details closer to the date.
@@ -299,7 +299,7 @@ export default function OutsourceAcceptPage() {
                         <Button
                           onClick={() => submit(false)}
                           disabled={submitting}
-                          className="flex-1 bg-green-600 hover:bg-green-700"
+                          className="flex-1 bg-brand-primary hover:bg-brand-primary/90"
                         >
                           {submitting ? "Sending..." : "Accept"}
                         </Button>

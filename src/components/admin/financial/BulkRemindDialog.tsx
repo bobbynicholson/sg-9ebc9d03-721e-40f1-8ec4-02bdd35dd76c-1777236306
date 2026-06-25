@@ -186,7 +186,7 @@ export function BulkRemindDialog({ open, onOpenChange, initialScope = "overdue" 
                   {preview.total} invoice{preview.total === 1 ? "" : "s"} in scope
                 </span>
                 <span className="tabular-nums text-slate-500">
-                  <span className="inline-flex items-center gap-0.5 text-emerald-700"><Mail className="w-3 h-3" /> {preview.withEmail}</span>
+                  <span className="inline-flex items-center gap-0.5 text-brand-primary"><Mail className="w-3 h-3" /> {preview.withEmail}</span>
                   {preview.withoutEmail > 0 && (
                     <span className="inline-flex items-center gap-0.5 text-amber-700 ml-2"><MailX className="w-3 h-3" /> {preview.withoutEmail} skipped</span>
                   )}
@@ -197,7 +197,7 @@ export function BulkRemindDialog({ open, onOpenChange, initialScope = "overdue" 
                   <li key={i} className="flex items-center justify-between gap-2">
                     <span className="truncate flex items-center gap-1">
                       {row.hasEmail
-                        ? <Mail className="w-3 h-3 text-emerald-600 shrink-0" />
+                        ? <Mail className="w-3 h-3 text-brand-primary shrink-0" />
                         : <MailX className="w-3 h-3 text-amber-600 shrink-0" />}
                       <span className="truncate" title={row.clientName}>{row.clientName}</span>
                     </span>

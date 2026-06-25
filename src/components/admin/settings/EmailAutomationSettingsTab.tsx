@@ -59,7 +59,7 @@ export function EmailAutomationSettingsTab({ templatesHref }: Props) {
                   <div className="text-xs text-slate-600">Strategic Emails</div>
                 </div>
                 <div className="bg-white rounded-lg p-2 md:p-3 text-center">
-                  <div className="text-xl md:text-2xl font-bold text-green-600">12</div>
+                  <div className="text-xl md:text-2xl font-bold text-brand-primary">12</div>
                   <div className="text-xs text-slate-600">Month Journey</div>
                 </div>
                 <div className="bg-white rounded-lg p-2 md:p-3 text-center">

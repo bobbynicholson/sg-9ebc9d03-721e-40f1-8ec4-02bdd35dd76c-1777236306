@@ -169,7 +169,7 @@ export function CashflowSnapshotWidget({ companyId, currency = "ZAR" }: Props) {
   const isPositive = forecast > 0;
   const isTight = forecast >= 0 && forecast < Math.max(costs * 0.15, 10000);
   const tone = isPositive
-    ? (isTight ? "text-amber-700" : "text-emerald-700")
+    ? (isTight ? "text-amber-700" : "text-brand-primary")
     : "text-red-700";
 
   const updatedAgeHours = cashUpdatedAt
@@ -180,10 +180,10 @@ export function CashflowSnapshotWidget({ companyId, currency = "ZAR" }: Props) {
 
   if (loading) {
     return (
-      <Card className="border-2 border-emerald-200 mb-6">
+      <Card className="border-2 border-brand-primary/20 mb-6">
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-1">
-            <Banknote className="w-4 h-4 text-emerald-600" />
+            <Banknote className="w-4 h-4 text-brand-primary" />
             Cashflow snapshot
           </CardTitle>
         </CardHeader>
@@ -195,17 +195,17 @@ export function CashflowSnapshotWidget({ companyId, currency = "ZAR" }: Props) {
   }
 
   return (
-    <Card className="border-2 border-emerald-200 hover:shadow-lg transition-shadow mb-6">
+    <Card className="border-2 border-brand-primary/20 hover:shadow-lg transition-shadow mb-6">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-1">
-            <Banknote className="w-4 h-4 text-emerald-600" />
+            <Banknote className="w-4 h-4 text-brand-primary" />
             Cashflow snapshot
             <InfoTooltip content={"30-day forward cashflow read: cash on hand + income still to come (booked orders) - costs still to come (food COGS, equipment hire, shopping, supplier payables, fixed costs).\n\nTap 'Open forecast' for the day-by-day chart + detail drawer + CSV export."} />
           </CardTitle>
           <Link
             href={withSlug("/admin/financial-dashboard")}
-            className="text-xs text-emerald-700 hover:underline flex items-center gap-1"
+            className="text-xs text-brand-primary hover:underline flex items-center gap-1"
           >
             Open forecast
             <ArrowRight className="w-3 h-3" />
@@ -242,7 +242,7 @@ export function CashflowSnapshotWidget({ companyId, currency = "ZAR" }: Props) {
             <div className="mt-1 text-xs text-slate-500 space-y-0.5">
               <div className="flex justify-between">
                 <span>In</span>
-                <span className="text-emerald-700 tabular-nums">+{fmt(income, currency)}</span>
+                <span className="text-brand-primary tabular-nums">+{fmt(income, currency)}</span>
               </div>
               <div className="flex justify-between">
                 <span>Out</span>
@@ -261,7 +261,7 @@ export function CashflowSnapshotWidget({ companyId, currency = "ZAR" }: Props) {
                 Tight. Forecast is positive but close to the cost-out figure. Worth eyeballing the chart.
               </div>
             ) : (
-              <div className="text-xs text-emerald-700 leading-relaxed">
+              <div className="text-xs text-brand-primary leading-relaxed">
                 Healthy. Forecast covers costs comfortably for the next 30 days.
               </div>
             )}

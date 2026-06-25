@@ -709,7 +709,7 @@ export function ReconcileSlipDrawer({
                 : it.item_name.toLowerCase().includes(ln.inventory_query.toLowerCase()),
             ).slice(0, 6);
             const ruleTone =
-              matchedRule?.deductibility === "deductible" ? "bg-emerald-100 text-emerald-700 border-emerald-200" :
+              matchedRule?.deductibility === "deductible" ? "bg-brand-primary/15 text-brand-primary border-brand-primary/20" :
               matchedRule?.deductibility === "partial" ? "bg-amber-100 text-amber-700 border-amber-200" :
               matchedRule?.deductibility === "non_deductible" ? "bg-rose-100 text-rose-700 border-rose-200" :
               "bg-slate-100 text-slate-600 border-slate-200";
@@ -816,7 +816,7 @@ export function ReconcileSlipDrawer({
                               <button
                                 type="button"
                                 onClick={() => setLine(idx, { create_new_name: ln.inventory_query, add_to_stock: true })}
-                                className="w-full text-left px-3 py-1.5 text-sm hover:bg-slate-50 text-emerald-700 inline-flex items-center gap-1.5"
+                                className="w-full text-left px-3 py-1.5 text-sm hover:bg-slate-50 text-brand-primary inline-flex items-center gap-1.5"
                               >
                                 <Plus className="w-3.5 h-3.5" /> Create &ldquo;{ln.inventory_query}&rdquo;
                               </button>
@@ -824,7 +824,7 @@ export function ReconcileSlipDrawer({
                           </div>
                         )}
                         {ln.create_new_name && !ln.inventory_item_id && (
-                          <p className="mt-1 text-[11px] text-emerald-700">
+                          <p className="mt-1 text-[11px] text-brand-primary">
                             Will create new inventory item: <strong>{ln.create_new_name}</strong>
                           </p>
                         )}

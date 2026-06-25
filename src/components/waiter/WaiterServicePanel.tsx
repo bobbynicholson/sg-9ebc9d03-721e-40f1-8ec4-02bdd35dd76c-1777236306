@@ -326,7 +326,7 @@ export function WaiterServicePanel() {
                   </div>
                 )}
                 {a?.equipment_returned_at && (
-                  <p className="text-[11px] text-emerald-700 flex items-center gap-1">
+                  <p className="text-[11px] text-brand-primary flex items-center gap-1">
                     <CheckCircle2 className="w-3 h-3" />
                     Equipment returned {new Date(a.equipment_returned_at).toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" })}
                   </p>
@@ -392,12 +392,12 @@ function PhaseRow({ label, iconKey, stampedAt, disabled, loading, onStamp, prima
     CheckCircle2;
   if (stampedAt) {
     return (
-      <div className="flex items-center justify-between gap-2 text-xs px-2 py-1.5 rounded bg-emerald-50 border border-emerald-200">
-        <span className="inline-flex items-center gap-1.5 text-emerald-800 font-medium">
+      <div className="flex items-center justify-between gap-2 text-xs px-2 py-1.5 rounded bg-brand-primary/10 border border-brand-primary/20">
+        <span className="inline-flex items-center gap-1.5 text-brand-primary font-medium">
           <Icon className="w-3.5 h-3.5" />
           {label}
         </span>
-        <span className="text-[11px] text-emerald-700 tabular-nums">
+        <span className="text-[11px] text-brand-primary tabular-nums">
           {new Date(stampedAt).toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" })}
         </span>
       </div>

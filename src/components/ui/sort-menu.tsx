@@ -68,7 +68,7 @@ export function SortMenu({
               className="cursor-pointer flex items-center justify-between"
             >
               <span>{opt.label}</span>
-              {isActive && <Check className="w-3.5 h-3.5 text-emerald-600" />}
+              {isActive && <Check className="w-3.5 h-3.5 text-brand-primary" />}
             </DropdownMenuItem>
           );
         })}

@@ -132,7 +132,7 @@ export function RecentReceiptsPanel({ companyId }: { companyId: string | null | 
                     </p>
                   </div>
                   <div className="flex items-center gap-3 flex-shrink-0">
-                    <span className="text-sm font-semibold text-emerald-700">{fmtR(r.total)}</span>
+                    <span className="text-sm font-semibold text-brand-primary">{fmtR(r.total)}</span>
                     {isOpen ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
                   </div>
                 </button>

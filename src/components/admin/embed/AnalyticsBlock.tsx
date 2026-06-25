@@ -67,11 +67,11 @@ export function AnalyticsBlock({ formId }: Props) {
           <div className="text-[10px] uppercase tracking-wide text-slate-500">30d submits</div>
         </div>
         <div>
-          <div className="text-lg font-bold text-emerald-600 tabular-nums">{conversion}%</div>
+          <div className="text-lg font-bold text-brand-primary tabular-nums">{conversion}%</div>
           <div className="text-[10px] uppercase tracking-wide text-slate-500">Conv rate</div>
         </div>
         <div>
-          <div className={`text-lg font-bold tabular-nums flex items-center justify-center gap-1 ${trendUp ? "text-emerald-600" : "text-red-600"}`}>
+          <div className={`text-lg font-bold tabular-nums flex items-center justify-center gap-1 ${trendUp ? "text-brand-primary" : "text-red-600"}`}>
             {trendUp ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
             {Math.abs(trendPct)}%
           </div>

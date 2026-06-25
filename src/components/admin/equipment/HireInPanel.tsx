@@ -67,7 +67,7 @@ const STATUS_META: Record<HireOrder["status"], { label: string; tone: string }> 
   draft:     { label: "Draft",     tone: "bg-slate-100 text-slate-700 border-slate-200" },
   confirmed: { label: "Confirmed", tone: "bg-blue-100 text-blue-700 border-blue-200" },
   picked_up: { label: "Picked up", tone: "bg-amber-100 text-amber-800 border-amber-200" },
-  returned:  { label: "Returned",  tone: "bg-emerald-100 text-emerald-700 border-emerald-200" },
+  returned:  { label: "Returned",  tone: "bg-brand-primary/15 text-brand-primary border-brand-primary/20" },
   cancelled: { label: "Cancelled", tone: "bg-rose-100 text-rose-700 border-rose-200" },
 };
 
@@ -628,7 +628,7 @@ export function HireInPanel() {
         <Card className="border-0 shadow-md">
           <CardContent className="p-4">
             <p className="text-xs text-slate-600 mb-1">Returned</p>
-            <p className="text-2xl font-bold text-emerald-600">{counts.returned || 0}</p>
+            <p className="text-2xl font-bold text-brand-primary">{counts.returned || 0}</p>
           </CardContent>
         </Card>
         <button
@@ -842,7 +842,7 @@ export function HireInPanel() {
                         </>
                       )}
                       {r.payable_id && (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 text-[10px]">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-brand-primary/10 text-brand-primary border border-brand-primary/20 px-1.5 py-0.5 text-[10px]">
                           Payable linked
                         </span>
                       )}

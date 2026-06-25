@@ -670,7 +670,7 @@ export function CashflowForecastCard({
   };
 
   return (
-    <Card className="border-2 border-emerald-200 hover:shadow-lg transition-shadow">
+    <Card className="border-2 border-brand-primary/20 hover:shadow-lg transition-shadow">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-1">
@@ -681,7 +681,7 @@ export function CashflowForecastCard({
               }
             />
           </CardTitle>
-          <Banknote className="w-5 h-5 text-emerald-600" />
+          <Banknote className="w-5 h-5 text-brand-primary" />
         </div>
       </CardHeader>
       <CardContent>
@@ -706,7 +706,7 @@ export function CashflowForecastCard({
                     size="sm"
                     onClick={handleSave}
                     disabled={saving}
-                    className="bg-emerald-600 hover:bg-emerald-700"
+                    className="bg-brand-primary hover:bg-brand-primary/90"
                   >
                     <Save className="w-3.5 h-3.5 mr-1" />
                     {saving ? "Saving..." : "Save"}
@@ -790,7 +790,7 @@ export function CashflowForecastCard({
             </div>
             <div
               className={`text-2xl font-bold tabular-nums ${
-                isPositive ? (isTight ? "text-amber-700" : "text-emerald-700") : "text-red-700"
+                isPositive ? (isTight ? "text-amber-700" : "text-brand-primary") : "text-red-700"
               }`}
             >
               {(currencyUtils.formatCurrency as (a: number, c: string) => string)(forecast, currency)}
@@ -810,7 +810,7 @@ export function CashflowForecastCard({
                   Order revenue (gross)
                   <InfoTooltip content={"Sum of total_amount on non-cancelled orders with an event_date inside the forecast window. The chart subtracts per-order COGS from each day, so the bottom-line forecast is net of the cost to make. The Inventory (90d COGS) line on the Current Cash Flow tile and the Net Cash Flow row on the financial dashboard report the historical version."} />
                 </span>
-                <span className="tabular-nums text-green-700">
+                <span className="tabular-nums text-brand-primary">
                   +{(currencyUtils.formatCurrency as (a: number, c: string) => string)(projectedRevenueForWindow, currency)}
                 </span>
               </div>
@@ -1015,7 +1015,7 @@ export function CashflowForecastCard({
                       {fmt(point.balance, currency)}
                     </div>
                     {point.income > 0 && (
-                      <div className="mt-1 text-xs text-green-700 tabular-nums">
+                      <div className="mt-1 text-xs text-brand-primary tabular-nums">
                         +{fmt(point.income, currency)} income today
                       </div>
                     )}
@@ -1075,12 +1075,12 @@ export function CashflowForecastCard({
                             <a
                               key={o.id}
                               href={withSlug(`/order/${o.id}`)}
-                              className="flex items-center justify-between rounded-md border border-slate-200 px-3 py-2 hover:border-emerald-300 hover:bg-emerald-50"
+                              className="flex items-center justify-between rounded-md border border-slate-200 px-3 py-2 hover:border-brand-primary/30 hover:bg-brand-primary/10"
                             >
                               <span className="text-sm text-slate-900 truncate flex-1">
                                 {o.client}
                               </span>
-                              <span className="ml-3 tabular-nums text-sm text-green-700">
+                              <span className="ml-3 tabular-nums text-sm text-brand-primary">
                                 +{fmt(o.amount, currency)}
                               </span>
                               <ArrowUpRight className="w-3.5 h-3.5 ml-2 text-slate-400" />
@@ -1170,7 +1170,7 @@ function CashflowTooltip({ active, payload, currency }: TooltipProps) {
       {row.income > 0 && (
         <div className="mt-0.5 flex items-center justify-between gap-3">
           <span className="text-slate-600">Income in</span>
-          <span className="tabular-nums text-green-700">
+          <span className="tabular-nums text-brand-primary">
             +{fmt(row.income, currency)}
           </span>
         </div>

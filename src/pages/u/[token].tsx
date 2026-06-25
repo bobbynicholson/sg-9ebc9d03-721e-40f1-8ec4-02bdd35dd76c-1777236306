@@ -60,8 +60,8 @@ export default function EmailUnsubscribePage() {
           <CardContent className="pt-8 pb-6 text-center">
             {done ? (
               <>
-                <div className="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center mx-auto mb-4">
-                  <CheckCircle2 className="w-6 h-6 text-emerald-600" />
+                <div className="w-12 h-12 rounded-full bg-brand-primary/15 flex items-center justify-center mx-auto mb-4">
+                  <CheckCircle2 className="w-6 h-6 text-brand-primary" />
                 </div>
                 <h1 className="text-xl font-bold text-slate-900 mb-2">You're unsubscribed</h1>
                 <p className="text-sm text-slate-600">

@@ -31,8 +31,8 @@ const STAGE_TONE: Record<string, string> = {
   leads: "bg-blue-500",
   quotes_sent: "bg-indigo-500",
   quotes_viewed: "bg-violet-500",
-  quotes_accepted: "bg-emerald-500",
-  orders_completed: "bg-emerald-700",
+  quotes_accepted: "bg-brand-primary",
+  orders_completed: "bg-brand-primary/90",
 };
 
 interface Props {

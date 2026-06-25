@@ -365,7 +365,7 @@ export default function EmbedFormCustomiser() {
                   {readiness.failingRecommended} recommended
                 </Badge>
               ) : (
-                <Badge className="bg-emerald-100 text-emerald-800 border border-emerald-200 gap-1 ml-2">
+                <Badge className="bg-brand-primary/15 text-brand-primary border border-brand-primary/20 gap-1 ml-2">
                   <CheckCircle2 className="w-3 h-3" />
                   Ready to embed
                 </Badge>
@@ -401,12 +401,12 @@ export default function EmbedFormCustomiser() {
             if (failing.length === 0 && readiness.failingRequired === 0 && readiness.failingRecommended === 0) {
               // Render a slim green confirmation strip when nothing's failing.
               return (
-                <Card className="border-0 shadow mb-4 bg-gradient-to-br from-emerald-50 to-teal-50">
+                <Card className="border-0 shadow mb-4 bg-gradient-to-br from-brand-primary/10 to-brand-secondary/10">
                   <CardContent className="p-3 flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
-                    <p className="text-xs text-emerald-900">
+                    <CheckCircle2 className="w-4 h-4 text-brand-primary flex-shrink-0" />
+                    <p className="text-xs text-brand-primary">
                       <strong>Form is ready to embed.</strong>{" "}
-                      {templateMeta && <span className="text-emerald-800">{TEMPLATE_INTENT[templateMeta.id]}</span>}
+                      {templateMeta && <span className="text-brand-primary">{TEMPLATE_INTENT[templateMeta.id]}</span>}
                     </p>
                   </CardContent>
                 </Card>

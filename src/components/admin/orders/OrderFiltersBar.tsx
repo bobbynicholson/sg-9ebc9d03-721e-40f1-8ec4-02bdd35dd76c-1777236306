@@ -202,8 +202,8 @@ export function OrderFiltersBar({
               onClick={() => onDateFilterChange(dateFilter === q.key ? "all" : q.key)}
               className={`inline-flex items-center rounded-full text-xs px-2.5 py-0.5 border ${
                 dateFilter === q.key
-                  ? "border-emerald-500 bg-emerald-100 text-emerald-800"
-                  : "border-slate-200 bg-white text-slate-600 hover:border-emerald-300 hover:text-emerald-700"
+                  ? "border-brand-primary bg-brand-primary/15 text-brand-primary"
+                  : "border-slate-200 bg-white text-slate-600 hover:border-brand-primary/30 hover:text-brand-primary"
               }`}
               title={`Filter to ${q.label.toLowerCase()}`}
             >

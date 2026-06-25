@@ -151,7 +151,7 @@ export function OrderChatPanel({ companyId, orderId, userId, senderRole, compact
                   ? "bg-blue-600 text-white"
                   : m.sender_role === "dispatcher"
                     ? "bg-white border border-slate-200 text-slate-900"
-                    : "bg-emerald-100 border border-emerald-200 text-emerald-900"
+                    : "bg-brand-primary/15 border border-brand-primary/20 text-brand-primary"
               }`}>
                 {!mine && (
                   <p className="text-[10px] font-semibold opacity-70 mb-0.5">

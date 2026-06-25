@@ -113,7 +113,7 @@ function HandoverCard({ h }: { h: HandoverWithOrderMeta }) {
           Open <ChevronRight className="w-3 h-3" />
         </span>
         {h.status === "complete" && (
-          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+          <CheckCircle2 className="w-3.5 h-3.5 text-brand-primary" />
         )}
       </div>
     </Link>
@@ -252,9 +252,9 @@ export function CleaningEventBoard() {
             </div>
 
             {/* Done today */}
-            <div className="rounded-lg border border-emerald-200 bg-emerald-50/40 overflow-hidden">
-              <div className="px-3 py-2 border-b border-emerald-200 bg-emerald-50 flex items-center justify-between">
-                <p className="text-xs font-semibold uppercase tracking-wide text-emerald-900">
+            <div className="rounded-lg border border-brand-primary/20 bg-brand-primary/10 overflow-hidden">
+              <div className="px-3 py-2 border-b border-brand-primary/20 bg-brand-primary/10 flex items-center justify-between">
+                <p className="text-xs font-semibold uppercase tracking-wide text-brand-primary">
                   Done today
                 </p>
                 <Badge variant="outline" className="text-[10px] tabular-nums bg-white">

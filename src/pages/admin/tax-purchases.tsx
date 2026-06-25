@@ -343,7 +343,7 @@ function TaxPurchasesPage() {
                   Export CSV
                 </Button>
                 <Link href={withSlug("/admin/shopping?tab=receipts")}>
-                  <Button size="sm" className="gap-1.5 bg-emerald-600 hover:bg-emerald-700">
+                  <Button size="sm" className="gap-1.5 bg-brand-primary hover:bg-brand-primary/90">
                     <ShoppingCart className="w-4 h-4" />
                     Manage receipts
                   </Button>
@@ -381,16 +381,16 @@ function TaxPurchasesPage() {
             )}
 
             {/* WHERE-TO-EDIT BANNER */}
-            <Card className="border-0 shadow-sm bg-emerald-50 mb-4">
+            <Card className="border-0 shadow-sm bg-brand-primary/10 mb-4">
               <CardContent className="py-3 px-4 flex items-center gap-3 flex-wrap">
-                <ShoppingCart className="w-5 h-5 text-emerald-700 shrink-0" />
+                <ShoppingCart className="w-5 h-5 text-brand-primary shrink-0" />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-emerald-900">All edits happen on the Shopping dashboard</p>
-                  <p className="text-xs text-emerald-800/80">
+                  <p className="text-sm font-semibold text-brand-primary">All edits happen on the Shopping dashboard</p>
+                  <p className="text-xs text-brand-primary/80">
                     Add slips, mark lines deductible, rescan with AI and intake stock all in one place. This page is read-only on purpose.
                   </p>
                 </div>
-                <Link href={withSlug("/admin/shopping?tab=receipts")} className="text-emerald-700 hover:text-emerald-800 inline-flex items-center gap-1 text-xs font-semibold">
+                <Link href={withSlug("/admin/shopping?tab=receipts")} className="text-brand-primary hover:text-brand-primary inline-flex items-center gap-1 text-xs font-semibold">
                   Go to receipts tab <ExternalLink className="w-3.5 h-3.5" />
                 </Link>
               </CardContent>
@@ -409,21 +409,21 @@ function TaxPurchasesPage() {
                   )}
                 </CardContent>
               </Card>
-              <Card className="border-0 shadow-sm bg-gradient-to-br from-emerald-50 to-emerald-100">
+              <Card className="border-0 shadow-sm bg-gradient-to-br from-brand-primary/10 to-brand-secondary/10">
                 <CardContent className="py-4 px-4">
-                  <p className="text-xs uppercase tracking-wide text-emerald-700 font-semibold">Deductible total</p>
-                  <p className="text-2xl font-bold text-emerald-900 mt-1 tabular-nums">{fmtR(summary.deductibleTotal)}</p>
+                  <p className="text-xs uppercase tracking-wide text-brand-primary font-semibold">Deductible total</p>
+                  <p className="text-2xl font-bold text-brand-primary mt-1 tabular-nums">{fmtR(summary.deductibleTotal)}</p>
                   {/* TAX-B: YoY delta sub-line. */}
                   {yoyDelta && yoyDelta.pct != null && (
                     <p className={`text-[10px] mt-1 inline-flex items-center gap-0.5 ${
-                      yoyDelta.pct > 5 ? "text-emerald-800" : yoyDelta.pct < -5 ? "text-rose-700" : "text-emerald-700/70"
+                      yoyDelta.pct > 5 ? "text-brand-primary" : yoyDelta.pct < -5 ? "text-rose-700" : "text-brand-primary/70"
                     }`}>
                       {yoyDelta.pct >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
                       {yoyDelta.pct >= 0 ? "+" : ""}{yoyDelta.pct.toFixed(0)}% vs same window last year
                     </p>
                   )}
                   {yoyDelta && yoyDelta.pct == null && priorYearDeductible === 0 && (
-                    <p className="text-[10px] text-emerald-700/70 mt-1">No comparable spend last year</p>
+                    <p className="text-[10px] text-brand-primary/70 mt-1">No comparable spend last year</p>
                   )}
                 </CardContent>
               </Card>
@@ -462,7 +462,7 @@ function TaxPurchasesPage() {
                 to file?" plus a 6-month view of deductible velocity. */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-4">
               <Card className={`border-0 shadow-sm ${
-                sarsReadiness.color === "emerald" ? "bg-emerald-50/80"
+                sarsReadiness.color === "emerald" ? "bg-brand-primary/10"
                 : sarsReadiness.color === "amber" ? "bg-amber-50/80"
                 : sarsReadiness.color === "rose" ? "bg-rose-50/80"
                 : ""
@@ -474,7 +474,7 @@ function TaxPurchasesPage() {
                     </p>
                     {sarsReadiness.score != null && (
                       <span className={`text-2xl font-bold tabular-nums ${
-                        sarsReadiness.color === "emerald" ? "text-emerald-700"
+                        sarsReadiness.color === "emerald" ? "text-brand-primary"
                         : sarsReadiness.color === "amber" ? "text-amber-700"
                         : sarsReadiness.color === "rose" ? "text-rose-700"
                         : "text-slate-700"
@@ -535,7 +535,7 @@ function TaxPurchasesPage() {
                           <div key={b.key} className="flex-1 flex flex-col items-center gap-1" title={`${b.label}: ${fmtR(b.total)}`}>
                             <div className="flex-1 w-full flex items-end">
                               <div
-                                className={`w-full rounded-t ${isLast ? "bg-emerald-600" : "bg-slate-300"}`}
+                                className={`w-full rounded-t ${isLast ? "bg-brand-primary" : "bg-slate-300"}`}
                                 style={{ height: `${Math.max(3, h)}%` }}
                               />
                             </div>
@@ -599,7 +599,7 @@ function TaxPurchasesPage() {
             <Card className="border-0 shadow-sm mb-4">
               <CardContent className="py-4 px-4">
                 <h2 className="text-sm font-semibold text-slate-900 mb-3 flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-emerald-600" />
+                  <FileText className="w-4 h-4 text-brand-primary" />
                   Deductible spend by category
                   <span className="text-[10px] font-normal text-slate-400 ml-auto">Tap a category to filter slips</span>
                 </h2>
@@ -630,7 +630,7 @@ function TaxPurchasesPage() {
                             >
                               <td className="py-2 pr-3 text-slate-900">{row.category}</td>
                               <td className="py-2 px-3 text-right tabular-nums text-slate-600">{row.count}</td>
-                              <td className="py-2 pl-3 text-right tabular-nums font-semibold text-emerald-700">{fmtR(row.total)}</td>
+                              <td className="py-2 pl-3 text-right tabular-nums font-semibold text-brand-primary">{fmtR(row.total)}</td>
                             </tr>
                           );
                         })}
@@ -639,7 +639,7 @@ function TaxPurchasesPage() {
                           <td className="py-2 px-3 text-right tabular-nums text-slate-600">
                             {deductibleByCategory.reduce((s, r) => s + r.count, 0)}
                           </td>
-                          <td className="py-2 pl-3 text-right tabular-nums font-bold text-emerald-700">
+                          <td className="py-2 pl-3 text-right tabular-nums font-bold text-brand-primary">
                             {fmtR(summary.deductibleTotal)}
                           </td>
                         </tr>
@@ -695,7 +695,7 @@ function TaxPurchasesPage() {
                       />
                     ))}
                     <div className="pt-3 text-center">
-                      <Link href={withSlug("/admin/shopping?tab=receipts")} className="text-xs text-emerald-700 hover:text-emerald-800 inline-flex items-center gap-1 font-semibold">
+                      <Link href={withSlug("/admin/shopping?tab=receipts")} className="text-xs text-brand-primary hover:text-brand-primary inline-flex items-center gap-1 font-semibold">
                         Edit any of these on the Shopping dashboard <ExternalLink className="w-3 h-3" />
                       </Link>
                     </div>
@@ -781,7 +781,7 @@ function SlipRow({
           {/* TAX-B: stacked rand line on mobile, inline on sm+. */}
           <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 text-xs text-slate-600 mt-0.5">
             {r.total != null && <span>Slip: <span className="font-medium text-slate-900">{fmtR(r.total)}</span></span>}
-            <span className="text-emerald-700">Deductible: <span className="font-medium">{fmtR(r.deductibleTotal)}</span></span>
+            <span className="text-brand-primary">Deductible: <span className="font-medium">{fmtR(r.deductibleTotal)}</span></span>
             {r.vatClaimableTotal > 0 && (
               <span className="text-blue-700">VAT: <span className="font-medium">{fmtR(r.vatClaimableTotal)}</span></span>
             )}
@@ -877,7 +877,7 @@ function LineRow({
       <td className="py-1.5 px-2 text-right tabular-nums">{fmtR(it.amount)}</td>
       <td className="py-1.5 px-2 text-center">
         {it.is_deductible ? (
-          <span className="text-emerald-700 font-medium">Yes</span>
+          <span className="text-brand-primary font-medium">Yes</span>
         ) : (
           <span className="text-slate-400">No</span>
         )}

@@ -53,7 +53,7 @@ interface TaxRule {
 }
 
 const DEDUCT_TONE: Record<TaxRule["deductibility"], string> = {
-  deductible: "bg-emerald-100 text-emerald-700 border-emerald-200",
+  deductible: "bg-brand-primary/15 text-brand-primary border-brand-primary/20",
   partial: "bg-amber-100 text-amber-700 border-amber-200",
   non_deductible: "bg-rose-100 text-rose-700 border-rose-200",
 };

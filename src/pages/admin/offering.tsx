@@ -655,7 +655,7 @@ function OfferingPage() {
                       </div>
                       <div className="h-1.5 w-full rounded-full bg-slate-100 overflow-hidden">
                         <div
-                          className={`h-full rounded-full ${menuPhotoPct >= 90 ? "bg-emerald-500" : menuPhotoPct >= 60 ? "bg-amber-500" : "bg-rose-500"}`}
+                          className={`h-full rounded-full ${menuPhotoPct >= 90 ? "bg-brand-primary" : menuPhotoPct >= 60 ? "bg-amber-500" : "bg-rose-500"}`}
                           style={{ width: `${menuPhotoPct}%` }}
                         />
                       </div>
@@ -744,7 +744,7 @@ function OfferingPage() {
                                       <Badge
                                         variant="outline"
                                         className={`tabular-nums text-[10px] ${
-                                          m.marginPct >= 50 ? "border-emerald-300 text-emerald-700 bg-emerald-50" :
+                                          m.marginPct >= 50 ? "border-brand-primary/30 text-brand-primary bg-brand-primary/10" :
                                           m.marginPct >= 25 ? "border-amber-300 text-amber-700 bg-amber-50" :
                                           "border-rose-300 text-rose-700 bg-rose-50"
                                         }`}
@@ -814,7 +814,7 @@ function OfferingPage() {
                       </div>
                       <div className="h-1.5 w-full rounded-full bg-slate-100 overflow-hidden">
                         <div
-                          className={`h-full rounded-full ${equipPhotoPct >= 90 ? "bg-emerald-500" : equipPhotoPct >= 60 ? "bg-amber-500" : "bg-rose-500"}`}
+                          className={`h-full rounded-full ${equipPhotoPct >= 90 ? "bg-brand-primary" : equipPhotoPct >= 60 ? "bg-amber-500" : "bg-rose-500"}`}
                           style={{ width: `${equipPhotoPct}%` }}
                         />
                       </div>

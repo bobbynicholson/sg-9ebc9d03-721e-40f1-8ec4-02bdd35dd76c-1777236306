@@ -141,7 +141,7 @@ function OrderCard({ order, autoEmailMap, currencySymbol, setSelectedOrder, setI
           {(auto.sent > 0 || (intel.bucket === "done" && !auto.postEventSent)) && (
             <div className="flex flex-wrap items-center gap-2 text-[11px]">
               {auto.sent > 0 && (
-                <span className="inline-flex items-center gap-1 text-emerald-800 bg-emerald-50 border border-emerald-200 rounded px-1.5 py-0.5">
+                <span className="inline-flex items-center gap-1 text-brand-primary bg-brand-primary/10 border border-brand-primary/20 rounded px-1.5 py-0.5">
                   {auto.sent} auto email{auto.sent === 1 ? "" : "s"} sent
                 </span>
               )}

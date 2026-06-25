@@ -174,7 +174,7 @@ export default function PricingPage() {
           </button>
           <span className={`flex items-center ${billingCycle === "annually" ? "font-semibold text-stone-900" : "text-stone-500"}`}>
             Annually
-            <Badge variant="outline" className="ml-2 border-emerald-300 bg-emerald-50 text-emerald-800">
+            <Badge variant="outline" className="ml-2 border-brand-primary/30 bg-brand-primary/10 text-brand-primary">
               Save 15%
             </Badge>
           </span>
@@ -220,7 +220,7 @@ export default function PricingPage() {
                       <span className="text-stone-500">/month</span>
                     </div>
                     {billingCycle === "annually" && (
-                      <p className="mt-2 text-sm font-medium text-emerald-700">
+                      <p className="mt-2 text-sm font-medium text-brand-primary">
                         Save {formatPrice(annualSavings.savings, currency)} per year
                       </p>
                     )}

@@ -151,7 +151,7 @@ export function SentLogPanel() {
                 onClick={() => setStatusFilter(t.id)}
                 className={`px-3 py-1.5 rounded-md ${
                   statusFilter === t.id
-                    ? "bg-emerald-600 text-white font-medium"
+                    ? "bg-brand-primary text-white font-medium"
                     : "text-slate-600 hover:bg-slate-50"
                 }`}
               >
@@ -255,8 +255,8 @@ export function SentLogPanel() {
 function StatusIcon({ status }: { status: string }) {
   if (status === "sent") {
     return (
-      <div className="w-9 h-9 rounded-lg bg-emerald-50 flex items-center justify-center shrink-0">
-        <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+      <div className="w-9 h-9 rounded-lg bg-brand-primary/10 flex items-center justify-center shrink-0">
+        <CheckCircle2 className="w-4 h-4 text-brand-primary" />
       </div>
     );
   }
@@ -276,7 +276,7 @@ function StatusIcon({ status }: { status: string }) {
 
 function StatTile({ label, value, accent }: { label: string; value: number; accent?: "emerald" | "amber" | "rose" }) {
   const colour =
-    accent === "emerald" ? "text-emerald-700" :
+    accent === "emerald" ? "text-brand-primary" :
     accent === "amber"   ? "text-amber-700" :
     accent === "rose"    ? "text-rose-700" :
                            "text-slate-900";

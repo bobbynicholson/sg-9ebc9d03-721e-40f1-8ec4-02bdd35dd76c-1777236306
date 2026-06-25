@@ -36,9 +36,9 @@ const TONE: Record<OrderReadiness["chip"], {
   pulse: string;
 }> = {
   green: {
-    card: "bg-green-50 border-green-200",
-    dot: "bg-green-500",
-    label: "text-green-800",
+    card: "bg-brand-primary/10 border-brand-primary/20",
+    dot: "bg-brand-primary",
+    label: "text-brand-primary",
     Icon: CheckCircle2,
     pulse: "",
   },
@@ -280,7 +280,7 @@ export function OrderReadinessChip({
             className={`text-xs font-semibold flex-shrink-0 px-3 py-1.5 rounded-md inline-flex items-center gap-1.5 transition-all ${focusRing} ${
               closeConfirm
                 ? "bg-rose-600 text-white hover:bg-rose-700"
-                : "bg-emerald-600 text-white hover:bg-emerald-700"
+                : "bg-brand-primary text-white hover:bg-brand-primary/90"
             }`}
             title={closeConfirm ? "Tap again to confirm" : "Force-close: marks prep done + stamps delivery + flips status"}
           >

@@ -347,7 +347,7 @@ Thanks${companyName ? `,\n${companyName}` : ""}`;
     <>
       <SheetHeader>
         <SheetTitle className="flex items-center gap-2">
-          <Send className="w-5 h-5 text-emerald-600" />
+          <Send className="w-5 h-5 text-brand-primary" />
           Send install instructions
         </SheetTitle>
         <SheetDescription>
@@ -386,7 +386,7 @@ Thanks${companyName ? `,\n${companyName}` : ""}`;
             onClick={() => {
               window.open(composeEmail.gmailUrl({ to, subject, body }), "_blank", "noopener");
             }}
-            className="gap-2 bg-emerald-600 hover:bg-emerald-700"
+            className="gap-2 bg-brand-primary hover:bg-brand-primary/90"
           >
             <ExternalLink className="w-4 h-4" /> Open in Gmail
           </Button>

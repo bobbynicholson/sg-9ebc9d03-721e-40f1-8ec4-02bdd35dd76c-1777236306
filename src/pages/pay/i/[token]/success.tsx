@@ -93,7 +93,7 @@ export default function InvoicePaymentSuccessPage() {
       <div className="min-h-screen bg-stone-50 flex items-center justify-center p-4">
         <Card className="max-w-md w-full border-0 shadow-sm">
           <CardContent className="py-10 px-6 text-center space-y-5">
-            <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-emerald-600 shadow-lg">
+            <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-brand-primary shadow-lg">
               <CheckCircle2 className="w-7 h-7 text-white" />
             </div>
             <div>

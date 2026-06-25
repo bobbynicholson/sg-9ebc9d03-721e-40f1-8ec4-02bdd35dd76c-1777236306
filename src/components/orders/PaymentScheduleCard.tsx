@@ -76,7 +76,7 @@ export function PaymentScheduleCard({
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               {schedule.depositPaid ? (
-                <CheckCircle className="h-5 w-5 text-green-500" />
+                <CheckCircle className="h-5 w-5 text-brand-primary" />
               ) : (
                 <Clock className="h-5 w-5 text-orange-500" />
               )}
@@ -120,7 +120,7 @@ export function PaymentScheduleCard({
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               {schedule.balancePaid ? (
-                <CheckCircle className="h-5 w-5 text-green-500" />
+                <CheckCircle className="h-5 w-5 text-brand-primary" />
               ) : isBalanceOverdue ? (
                 <AlertCircle className="h-5 w-5 text-red-500" />
               ) : (

@@ -5,7 +5,7 @@
  * strip + per-item badges:
  *
  *   eventsToday    - today's orders, not cancelled
- *   inTransitNow   - orders currently status='in_transit'
+ *   inTransitNow   - today's orders currently status='in_transit'
  *   newLeadsToday  - leads created today
  *   quotesOverdue  - quotes in_circulation (sent/viewed/revised)
  *                     where sent_at > 48h ago and no client response
@@ -112,7 +112,9 @@ export function useAdminLiveCounts(): AdminLiveCounts {
         .from("orders")
         .select("id", { count: "exact", head: true })
         .eq("company_id", companyId)
-        .eq("status", "in_transit");
+        .eq("event_date", todayIso)
+        .eq("status", "in_transit")
+        .is("deleted_at", null);
       if (regionFilterId) inTransitQ.eq("region_id", regionFilterId);
 
       const newLeadsQ = sb

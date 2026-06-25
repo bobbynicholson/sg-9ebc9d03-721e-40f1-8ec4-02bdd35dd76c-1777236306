@@ -407,7 +407,7 @@ function RoutePlanningInner() {
                   disabled={autoAssigning || unassignedOrders.length === 0 || drivers.length === 0}
                   size="lg"
                   variant="outline"
-                  className="border-emerald-600 text-emerald-700 hover:bg-emerald-50"
+                  className="border-brand-primary/80 text-brand-primary hover:bg-brand-primary/10"
                   title="Score every unassigned order and assign the top-matched driver"
                 >
                   {autoAssigning ? (
@@ -465,7 +465,7 @@ function RoutePlanningInner() {
                     <p className="text-sm font-medium text-slate-600 flex items-center gap-1">Active Drivers <InfoTooltip content={"Drivers with role=driver on your team. Drivers without an explicit is_active flag count as active."} /></p>
                     <p className="text-2xl font-bold text-slate-900">{drivers.length}</p>
                   </div>
-                  <Truck className="h-8 w-8 text-emerald-500" />
+                  <Truck className="h-8 w-8 text-brand-primary" />
                 </div>
               </CardContent>
             </Card>
@@ -491,7 +491,7 @@ function RoutePlanningInner() {
                       {optimizedRoutes.reduce((sum, r) => sum + r.total_distance, 0).toFixed(1)} km
                     </p>
                   </div>
-                  <TrendingUp className="h-8 w-8 text-green-500" />
+                  <TrendingUp className="h-8 w-8 text-brand-primary" />
                 </div>
               </CardContent>
             </Card>
@@ -501,7 +501,7 @@ function RoutePlanningInner() {
           {!loading && unassignedOrders.length === 0 && optimizedRoutes.length === 0 && (
             <Card className="mb-6 border-dashed">
               <CardContent className="py-12 text-center">
-                <CheckCircle className="h-12 w-12 text-emerald-500 mx-auto mb-3" />
+                <CheckCircle className="h-12 w-12 text-brand-primary mx-auto mb-3" />
                 <h3 className="text-lg font-semibold text-slate-900">Nothing waiting on dispatch</h3>
                 <p className="text-sm text-slate-600 mt-1 max-w-md mx-auto">
                   No confirmed orders need a driver right now. Once a quote is converted and confirmed, the order will land here for routing.
@@ -515,10 +515,10 @@ function RoutePlanningInner() {
             <div className="lg:col-span-1 space-y-4">
               {/* Phase 3: batch suggestions */}
               {batchPairs.length > 0 && (
-                <Card className="border-emerald-200 bg-emerald-50/30">
+                <Card className="border-brand-primary/20 bg-brand-primary/5">
                   <CardHeader className="pb-3">
                     <CardTitle className="flex items-center gap-2 text-base">
-                      <Sparkles className="h-4 w-4 text-emerald-600" />
+                      <Sparkles className="h-4 w-4 text-brand-primary" />
                       Batch suggestions
                       <InfoTooltip content={"Two unassigned orders close in distance and time. Sending them to one driver saves a trip. Click Batch to auto-assign the top-scored driver to both."} />
                     </CardTitle>
@@ -530,7 +530,7 @@ function RoutePlanningInner() {
                     {batchPairs.slice(0, 5).map(pair => {
                       const isAssigning = batchAssigning === pair.primary.id;
                       return (
-                        <div key={`${pair.primary.id}-${pair.secondary.id}`} className="rounded-md border border-emerald-200 bg-white p-2.5">
+                        <div key={`${pair.primary.id}-${pair.secondary.id}`} className="rounded-md border border-brand-primary/20 bg-white p-2.5">
                           <div className="text-xs space-y-1">
                             <p className="font-medium text-slate-900 truncate">{pair.primary.client_name}</p>
                             <p className="font-medium text-slate-900 truncate">+ {pair.secondary.client_name}</p>
@@ -542,7 +542,7 @@ function RoutePlanningInner() {
                             size="sm"
                             disabled={isAssigning}
                             onClick={() => handleBatchAssign(pair)}
-                            className="w-full mt-2 h-7 text-xs bg-emerald-600 hover:bg-emerald-700 gap-1.5"
+                            className="w-full mt-2 h-7 text-xs bg-brand-primary hover:bg-brand-primary/90 gap-1.5"
                           >
                             <Sparkles className="w-3 h-3" />
                             {isAssigning ? "Assigning..." : "Batch to one driver"}
@@ -756,7 +756,7 @@ function RoutePlanningInner() {
                                   {route.infeasible_count} late
                                 </Badge>
                               ) : (
-                                <Badge className="bg-green-100 text-green-800 flex-shrink-0">
+                                <Badge className="bg-brand-primary/15 text-brand-primary flex-shrink-0">
                                   <CheckCircle className="w-3 h-3 mr-1" />
                                   Ready
                                 </Badge>
@@ -897,7 +897,7 @@ function RoutePlanningInner() {
                               </span>
                               {stop.predicted_arrival_at && (
                                 <span className={`flex items-center gap-1 tabular-nums ${
-                                  stop.time_window_breach ? "text-red-700 font-medium" : "text-emerald-700"
+                                  stop.time_window_breach ? "text-red-700 font-medium" : "text-brand-primary"
                                 }`}>
                                   <Clock className="w-3 h-3" />
                                   ETA {new Date(stop.predicted_arrival_at).toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" })}
@@ -915,12 +915,12 @@ function RoutePlanningInner() {
                     </div>
 
                     {/* Environmental Impact */}
-                    <div className="mt-6 p-4 bg-green-50 rounded-lg">
-                      <h4 className="font-semibold text-green-900 mb-2 flex items-center gap-2">
+                    <div className="mt-6 p-4 bg-brand-primary/10 rounded-lg">
+                      <h4 className="font-semibold text-brand-primary mb-2 flex items-center gap-2">
                         <Leaf className="h-4 w-4" />
                         Environmental impact
                       </h4>
-                      <p className="text-sm text-green-800">
+                      <p className="text-sm text-brand-primary">
                         This optimised route will produce approximately{" "}
                         <span className="font-semibold">
                           {routeOptimizationService.calculateRouteStats(selectedRoute).carbonFootprint.toFixed(2)} kg CO₂

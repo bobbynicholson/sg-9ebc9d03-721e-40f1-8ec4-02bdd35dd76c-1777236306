@@ -212,7 +212,7 @@ function PlatformTemplatesPanel() {
                             <Zap className="w-3 h-3" /> Automatic
                           </Badge>
                           {row.isCustomised ? (
-                            <Badge className="bg-emerald-100 text-emerald-800 border-0 text-[10px] gap-1">
+                            <Badge className="bg-brand-primary/15 text-brand-primary border-0 text-[10px] gap-1">
                               <CheckCircle2 className="w-3 h-3" /> Customised
                             </Badge>
                           ) : (

@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/router";
 import Head from "next/head";
@@ -214,10 +214,10 @@ function PlatformDashboard() {
 
                 <Button
                   variant="outline"
-                  className="h-auto p-4 flex flex-col items-start gap-2 hover:border-green-500 hover:bg-green-50"
+                  className="h-auto p-4 flex flex-col items-start gap-2 hover:border-brand-primary hover:bg-brand-primary/10"
                   onClick={() => router.push("/admin/platform/user-management")}
                 >
-                  <Users className="w-6 h-6 text-green-600" />
+                  <Users className="w-6 h-6 text-brand-primary" />
                   <div className="text-left">
                     <div className="font-semibold">Users</div>
                     <div className="text-xs text-slate-500">Manage all users</div>
@@ -340,12 +340,12 @@ function PlatformDashboard() {
         {/* Platform Health: compact horizontal strip */}
         <PortalCard className="mb-6 sm:mb-8 flex flex-wrap items-center gap-x-6 gap-y-3 p-4">
             <div className="flex items-center gap-2.5">
-              <div className="w-2 h-2 rounded-full bg-green-500 ring-4 ring-green-200 animate-pulse" />
+              <div className="w-2 h-2 rounded-full bg-brand-primary ring-4 ring-brand-primary/20 animate-pulse" />
               <span className="text-sm font-semibold text-slate-900 dark:text-white flex items-center gap-1.5">
                 Platform Health
                 <InfoTooltip content="A quick health snapshot of the platform.\n\nOnly the active companies number is live right now. The 98% score, response time, ticket count and uptime are placeholders until a monitoring service is connected." />
               </span>
-              <span className="text-2xl font-bold text-green-600 tabular-nums">98%</span>
+              <span className="text-2xl font-bold text-brand-primary tabular-nums">98%</span>
             </div>
             <div className="h-4 w-px bg-slate-200 dark:bg-slate-700 hidden sm:block" />
             <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-xs text-slate-600 dark:text-slate-400">
@@ -445,7 +445,7 @@ function PlatformDashboard() {
                             </p>
                           </div>
                           <div className="text-right">
-                            <p className="font-bold text-green-600">
+                            <p className="font-bold text-brand-primary">
                               {analyticsService.formatCurrency(item.revenue)}
                             </p>
                             <p className="text-xs text-slate-500">revenue</p>
@@ -467,9 +467,9 @@ function PlatformDashboard() {
                 />
                 <p className="-mt-2 mb-3 text-sm text-slate-500 dark:text-slate-400">Current subscription distribution</p>
                   <div className="space-y-4">
-                    <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg border border-green-200">
+                    <div className="flex items-center justify-between p-4 bg-brand-primary/10 rounded-lg border border-brand-primary/20">
                       <div className="flex items-center gap-3">
-                        <div className="h-12 w-12 rounded-full bg-green-500 flex items-center justify-center">
+                        <div className="h-12 w-12 rounded-full bg-brand-primary flex items-center justify-center">
                           <Users className="h-6 w-6 text-white" />
                         </div>
                         <div>
@@ -479,7 +479,7 @@ function PlatformDashboard() {
                           </p>
                         </div>
                       </div>
-                      <Badge className="bg-green-500">
+                      <Badge className="bg-brand-primary">
                         {analyticsService.formatPercentage(
                           metrics?.totalCustomers > 0
                             ? (metrics.activeSubscriptions / metrics.totalCustomers) * 100
@@ -646,7 +646,7 @@ function PlatformDashboard() {
                           <p className="font-bold text-slate-900">
                             {location.customerCount} customers
                           </p>
-                          <p className="text-sm text-green-600">
+                          <p className="text-sm text-brand-primary">
                             {analyticsService.formatCurrency(location.revenue)}
                           </p>
                         </div>

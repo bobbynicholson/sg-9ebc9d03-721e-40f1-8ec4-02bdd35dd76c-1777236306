@@ -204,7 +204,7 @@ export function LowStockAlerts() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <CheckCircle className="h-5 w-5 text-green-600" />
+            <CheckCircle className="h-5 w-5 text-brand-primary" />
             All Items In Stock
           </CardTitle>
           <CardDescription>No low stock alerts at this time</CardDescription>

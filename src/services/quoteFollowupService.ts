@@ -272,7 +272,7 @@ export function readCadenceFromAdminSettings(): FollowupCadence {
 }
 
 export const TRAFFIC_LIGHT_CLASS: Record<FollowupTrafficLight, string> = {
-  green: "bg-emerald-100 text-emerald-700 border-emerald-200",
+  green: "bg-brand-primary/15 text-brand-primary border-brand-primary/20",
   amber: "bg-amber-100 text-amber-700 border-amber-200",
   rose:  "bg-rose-100 text-rose-700 border-rose-200",
   slate: "bg-slate-100 text-slate-600 border-slate-200",

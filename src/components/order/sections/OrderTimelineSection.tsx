@@ -719,7 +719,7 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen }: Props) {
       case "kitchen":  return "bg-rose-500 text-white border-rose-600";
       case "driver":   return "bg-indigo-500 text-white border-indigo-600";
       case "service":  return "bg-amber-500 text-white border-amber-600";
-      case "closeout": return "bg-emerald-500 text-white border-emerald-600";
+      case "closeout": return "bg-brand-primary text-white border-brand-primary/80";
       default:         return "bg-slate-500 text-white border-slate-600";
     }
   };
@@ -732,7 +732,7 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen }: Props) {
     switch (key) {
       case "created":       return { role: "System",   tone: "bg-slate-100 text-slate-700 border-slate-200" };
       case "confirmed":     return { role: "Admin",    tone: "bg-slate-100 text-slate-700 border-slate-200" };
-      case "shopping":      return { role: "Shopping", tone: "bg-emerald-50 text-emerald-800 border-emerald-200" };
+      case "shopping":      return { role: "Shopping", tone: "bg-brand-primary/10 text-brand-primary border-brand-primary/20" };
       case "equipment_ready": return { role: "Admin",  tone: "bg-violet-50 text-violet-800 border-violet-200" };
       case "prep":          return { role: "Kitchen",  tone: "bg-rose-50 text-rose-800 border-rose-200" };
       case "ready":         return { role: "Kitchen",  tone: "bg-rose-50 text-rose-800 border-rose-200" };
@@ -746,7 +746,7 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen }: Props) {
       case "event_done":    return { role: "Waiter",   tone: "bg-amber-50 text-amber-800 border-amber-200" };
       case "departed":      return { role: "Driver",   tone: "bg-indigo-50 text-indigo-800 border-indigo-200" };
       case "equipment":     return { role: "Driver",   tone: "bg-indigo-50 text-indigo-800 border-indigo-200" };
-      case "cleaning":      return { role: "Cleaning", tone: "bg-cyan-50 text-cyan-800 border-cyan-200" };
+      case "cleaning":      return { role: "Cleaning", tone: "bg-brand-primary/10 text-brand-primary border-brand-primary/20" };
       case "completed":     return { role: "Admin",    tone: "bg-slate-100 text-slate-700 border-slate-200" };
       default:              return { role: "-",        tone: "bg-slate-50 text-slate-500 border-slate-200" };
     }
@@ -850,7 +850,7 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen }: Props) {
                 {!isLast && (
                   <span
                     aria-hidden
-                    className={`absolute left-[15px] top-7 bottom-0 w-px ${done ? "bg-emerald-400" : "bg-slate-200"}`}
+                    className={`absolute left-[15px] top-7 bottom-0 w-px ${done ? "bg-brand-primary/70" : "bg-slate-200"}`}
                   />
                 )}
                 <div
@@ -933,11 +933,11 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen }: Props) {
             const delivered = order.status === "delivered" || !!order.delivered_at;
             if (!delivered && !balanceUnpaid) return null;
             return (
-              <div className={`rounded-lg border p-3 ${balanceUnpaid ? "border-amber-300 bg-amber-50" : "border-emerald-300 bg-emerald-50"}`}>
+              <div className={`rounded-lg border p-3 ${balanceUnpaid ? "border-amber-300 bg-amber-50" : "border-brand-primary/30 bg-brand-primary/10"}`}>
                 <div className="flex items-start gap-2">
                   {balanceUnpaid
                     ? <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
-                    : <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" />}
+                    : <CheckCircle2 className="w-4 h-4 text-brand-primary flex-shrink-0 mt-0.5" />}
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-semibold text-slate-900">
                       {balanceUnpaid ? "Payment still outstanding" : "Ready to close"}
@@ -980,7 +980,7 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen }: Props) {
           <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-rose-500" />Kitchen</span>
           <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-indigo-500" />Driver</span>
           <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-500" />Service</span>
-          <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500" />Closeout</span>
+          <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-brand-primary" />Closeout</span>
         </div>
       </div>
     </CollapsibleSection>

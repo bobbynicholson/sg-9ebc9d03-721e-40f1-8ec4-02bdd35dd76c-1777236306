@@ -281,7 +281,7 @@ export default function AdminEmbedFormsPage() {
                 hint="Across all forms"
                 tooltip="Lifetime submissions across every form, excluding rows flagged as spam."
                 icon={SendIcon}
-                iconColor="text-emerald-600"
+                iconColor="text-brand-primary"
                 loading={loading}
               />
               <MetricCard
@@ -489,7 +489,7 @@ function FormCard({
             </div>
           )}
           <Badge
-            className={`absolute top-2 right-2 ${form.is_active ? "bg-emerald-500" : "bg-slate-500"} text-white`}
+            className={`absolute top-2 right-2 ${form.is_active ? "bg-brand-primary" : "bg-slate-500"} text-white`}
           >
             {form.is_active ? "Active" : "Paused"}
           </Badge>
@@ -540,7 +540,7 @@ function FormCard({
               <div className="text-[10px] uppercase tracking-wide text-slate-500">Submits</div>
             </div>
             <div>
-              <div className="text-lg font-bold text-emerald-600 tabular-nums">{conversion}%</div>
+              <div className="text-lg font-bold text-brand-primary tabular-nums">{conversion}%</div>
               <div className="text-[10px] uppercase tracking-wide text-slate-500">Conv</div>
             </div>
           </div>

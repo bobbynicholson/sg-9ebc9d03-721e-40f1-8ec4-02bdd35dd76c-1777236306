@@ -276,10 +276,10 @@ export function getUrgencyColorClasses(level: string): {
       };
     default:
       return {
-        bg: "bg-green-50",
-        text: "text-green-900",
-        border: "border-green-500",
-        badge: "bg-green-600 text-white",
+        bg: "bg-brand-primary/10",
+        text: "text-brand-primary",
+        border: "border-brand-primary",
+        badge: "bg-brand-primary text-white",
       };
   }
 }

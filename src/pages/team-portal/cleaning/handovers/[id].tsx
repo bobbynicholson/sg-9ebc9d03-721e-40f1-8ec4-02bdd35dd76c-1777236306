@@ -52,14 +52,14 @@ function fmtDateTime(iso: string | null): string {
 const PHASE_LABELS: Record<string, { label: string; tone: string }> = {
   expected:    { label: "Expected",    tone: "bg-brand-primary/10 text-brand-primary border-brand-primary/20" },
   in_progress: { label: "In progress", tone: "bg-brand-primary/10 text-brand-primary border-brand-primary/20" },
-  complete:    { label: "Complete",    tone: "bg-emerald-100 text-emerald-800 border-emerald-200" },
+  complete:    { label: "Complete",    tone: "bg-brand-primary/15 text-brand-primary border-brand-primary/20" },
   cancelled:   { label: "Cancelled",   tone: "bg-slate-100 text-slate-600 border-slate-200" },
 };
 
 const JOB_STATUS_LABEL: Record<string, { label: string; tone: string }> = {
   queued:      { label: "Queued",      tone: "bg-slate-100 text-slate-700 border-slate-200" },
   in_progress: { label: "In progress", tone: "bg-brand-primary/10 text-brand-primary border-brand-primary/20" },
-  complete:    { label: "Done",        tone: "bg-emerald-100 text-emerald-800 border-emerald-200" },
+  complete:    { label: "Done",        tone: "bg-brand-primary/15 text-brand-primary border-brand-primary/20" },
   cancelled:   { label: "Cancelled",   tone: "bg-rose-100 text-rose-700 border-rose-200" },
 };
 
@@ -309,7 +309,7 @@ function HandoverDetailInner() {
                       <span className="text-brand-primary">Returned {fmtDateTime(handover.in_progress_at)}</span>
                     )}
                     {handover.completed_at && (
-                      <span className="text-emerald-700">Signed off {fmtDateTime(handover.completed_at)}</span>
+                      <span className="text-brand-primary">Signed off {fmtDateTime(handover.completed_at)}</span>
                     )}
                     {phaseMeta && (
                       <Badge variant="outline" className={`text-[10px] ml-auto ${phaseMeta.tone}`}>
@@ -410,10 +410,10 @@ function HandoverDetailInner() {
 
               {/* Sign-off */}
               {canManageCleaning && canComplete && (
-                <Card className="border-0 shadow-md mb-4 border-l-4 border-l-emerald-500 bg-emerald-50/30">
+                <Card className="border-0 shadow-md mb-4 border-l-4 border-l-brand-primary bg-brand-primary/5">
                   <CardContent className="p-4 space-y-3">
                     <div className="flex items-start gap-2">
-                      <CheckCircle2 className="w-5 h-5 text-emerald-600 mt-0.5 flex-shrink-0" />
+                      <CheckCircle2 className="w-5 h-5 text-brand-primary mt-0.5 flex-shrink-0" />
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-semibold text-slate-900">Sign off this handover</p>
                         <p className="text-xs text-slate-600 mt-0.5">

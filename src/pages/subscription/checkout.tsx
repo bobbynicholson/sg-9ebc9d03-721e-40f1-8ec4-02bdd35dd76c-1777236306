@@ -236,7 +236,7 @@ export default function CheckoutPage() {
 
                     <div className="bg-slate-50 p-4 rounded-lg space-y-3">
                       <div className="flex items-center gap-3">
-                        <Shield className="w-5 h-5 text-green-600" />
+                        <Shield className="w-5 h-5 text-brand-primary" />
                         <p className="text-sm text-slate-700 font-medium">
                           Your trial includes all {plan.name} features
                         </p>
@@ -331,15 +331,15 @@ export default function CheckoutPage() {
                     )}
                     {savings > 0 && (
                       <div className="flex justify-between text-sm">
-                        <span className="text-green-600 font-medium">Annual savings</span>
-                        <span className="text-green-600 font-medium">
+                        <span className="text-brand-primary font-medium">Annual savings</span>
+                        <span className="text-brand-primary font-medium">
                           {formatCurrency(savings)} ({savingsPercentage}%)
                         </span>
                       </div>
                     )}
                     <div className="flex justify-between text-sm">
                       <span className="text-slate-600">14-day trial discount</span>
-                      <span className="text-green-600 font-medium">-{formatCurrency(amount)}</span>
+                      <span className="text-brand-primary font-medium">-{formatCurrency(amount)}</span>
                     </div>
                   </div>
 
@@ -369,7 +369,7 @@ export default function CheckoutPage() {
                     <p className="text-sm font-medium mb-2">What's included:</p>
                     {plan.features.slice(0, 5).map((feature, idx) => (
                       <div key={idx} className="flex items-start gap-2">
-                        <Check className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
+                        <Check className="w-4 h-4 text-brand-primary mt-0.5 flex-shrink-0" />
                         <span className="text-sm text-slate-700">{feature}</span>
                       </div>
                     ))}

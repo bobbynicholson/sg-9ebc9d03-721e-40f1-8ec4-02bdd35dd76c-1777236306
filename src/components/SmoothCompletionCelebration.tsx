@@ -80,7 +80,7 @@ export function SmoothCompletionCelebration({
         <DialogHeader>
           <div className="flex justify-center mb-4">
             <div className="relative">
-              <div className="w-20 h-20 bg-gradient-to-br from-green-400 to-emerald-600 rounded-full flex items-center justify-center animate-bounce">
+              <div className="w-20 h-20 bg-gradient-to-br from-brand-primary to-brand-secondary rounded-full flex items-center justify-center animate-bounce">
                 <CheckCircle className="w-12 h-12 text-white" />
               </div>
               <div className="absolute -top-2 -right-2">
@@ -118,7 +118,7 @@ export function SmoothCompletionCelebration({
 
             <Button
               onClick={onClose}
-              className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700"
+              className="w-full bg-gradient-to-r from-brand-primary to-brand-secondary hover:from-brand-primary hover:to-brand-secondary/90"
               size="lg"
             >
               <PartyPopper className="w-5 h-5 mr-2" />

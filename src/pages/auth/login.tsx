@@ -52,7 +52,7 @@ const DEV_USERS = [
     label: "Driver",
     description: "Driver & Waiter",
     icon: Truck,
-    gradient: "from-green-500 to-emerald-500",
+    gradient: "from-brand-primary to-brand-secondary",
   },
   {
     email: "shopping@spitbraaidelivery.co.za",
@@ -68,7 +68,7 @@ const DEV_USERS = [
     label: "Cleaning Staff",
     description: "Cleaning Operations",
     icon: SprayCan,
-    gradient: "from-teal-500 to-cyan-500",
+    gradient: "from-brand-primary to-brand-secondary",
   },
   {
     email: "universalsportmags23@gmail.com",

@@ -221,7 +221,7 @@ export function InventorySettingsTab({ companyId: companyIdProp }: Props = {}) {
         )}
 
         <div className="flex justify-end pt-2">
-          <Button onClick={handleSave} disabled={saving} className="bg-emerald-600 hover:bg-emerald-700 gap-2">
+          <Button onClick={handleSave} disabled={saving} className="bg-brand-primary hover:bg-brand-primary/90 gap-2">
             <Save className="w-4 h-4" />
             {saving ? "Saving..." : "Save inventory settings"}
           </Button>

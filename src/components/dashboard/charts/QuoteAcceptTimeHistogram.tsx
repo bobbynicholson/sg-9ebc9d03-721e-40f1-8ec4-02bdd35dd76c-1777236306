@@ -49,7 +49,7 @@ export function QuoteAcceptTimeHistogram({ data, loading }: Props) {
     <Card className="border-0 shadow-sm">
       <CardHeader className="pb-2">
         <CardTitle className="text-sm font-semibold flex items-center gap-2">
-          <Clock className="w-4 h-4 text-emerald-600" />
+          <Clock className="w-4 h-4 text-brand-primary" />
           Time to accept
           <InfoTooltip
             content={
@@ -91,9 +91,9 @@ export function QuoteAcceptTimeHistogram({ data, loading }: Props) {
               </BarChart>
             </ResponsiveContainer>
             <div className="mt-2 px-2 grid grid-cols-3 gap-2 text-[11px]">
-              <div className="rounded bg-emerald-50 border border-emerald-100 px-2 py-1">
-                <div className="text-[9px] uppercase tracking-wide text-emerald-700">Median</div>
-                <div className="font-semibold text-emerald-900">{fmtHours(data.medianHours)}</div>
+              <div className="rounded bg-brand-primary/10 border border-brand-primary/15 px-2 py-1">
+                <div className="text-[9px] uppercase tracking-wide text-brand-primary">Median</div>
+                <div className="font-semibold text-brand-primary">{fmtHours(data.medianHours)}</div>
               </div>
               <div className="rounded bg-amber-50 border border-amber-100 px-2 py-1">
                 <div className="text-[9px] uppercase tracking-wide text-amber-700">90th %ile</div>

@@ -109,8 +109,8 @@ interface EquipmentBookingRow {
 const TASK_STATUS_TONES: Record<string, string> = {
   pending: "bg-slate-50 text-slate-700 border-slate-200",
   in_progress: "bg-orange-50 text-orange-700 border-orange-200",
-  done: "bg-emerald-50 text-emerald-700 border-emerald-200",
-  completed: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  done: "bg-brand-primary/10 text-brand-primary border-brand-primary/20",
+  completed: "bg-brand-primary/10 text-brand-primary border-brand-primary/20",
   skipped: "bg-slate-50 text-slate-500 border-slate-200",
 };
 
@@ -507,19 +507,19 @@ export function KitchenSection({
 
               {equipReadyList.length > 0 && (
                 <div>
-                  <p className="text-[11px] uppercase tracking-wider text-emerald-700 mb-1">Ready to load</p>
+                  <p className="text-[11px] uppercase tracking-wider text-brand-primary mb-1">Ready to load</p>
                   <ul className="space-y-1">
                     {equipReadyList.map((b) => {
                       const eq = b.equipment;
                       return (
-                        <li key={b.id} className="flex items-center gap-2 p-2 rounded border border-emerald-200 bg-emerald-50/70">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
-                          <span className="inline-flex items-center justify-center min-w-[1.5rem] h-5 rounded-full bg-white border border-emerald-200 text-emerald-800 text-[10px] font-bold tabular-nums px-1.5 flex-shrink-0">
+                        <li key={b.id} className="flex items-center gap-2 p-2 rounded border border-brand-primary/20 bg-brand-primary/10">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-brand-primary flex-shrink-0" />
+                          <span className="inline-flex items-center justify-center min-w-[1.5rem] h-5 rounded-full bg-white border border-brand-primary/20 text-brand-primary text-[10px] font-bold tabular-nums px-1.5 flex-shrink-0">
                             {b.quantity || 1}
                           </span>
-                          <span className="text-sm text-emerald-900 truncate flex-1">{eq?.name || "Equipment"}</span>
+                          <span className="text-sm text-brand-primary truncate flex-1">{eq?.name || "Equipment"}</span>
                           {!eq?.requires_cleaning && (
-                            <span className="text-[10px] uppercase tracking-wider text-emerald-700">No clean needed</span>
+                            <span className="text-[10px] uppercase tracking-wider text-brand-primary">No clean needed</span>
                           )}
                         </li>
                       );
@@ -554,7 +554,7 @@ export function KitchenSection({
                   return (
                     <li key={t.id} className={`flex items-center gap-3 p-2.5 rounded-md border ${tone}`}>
                       {doneish ? (
-                        <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                        <CheckCircle2 className="w-4 h-4 text-brand-primary flex-shrink-0" />
                       ) : (
                         <Clock className="w-4 h-4 text-slate-400 flex-shrink-0" />
                       )}
@@ -575,7 +575,7 @@ export function KitchenSection({
                             work (or that it was an admin override) rather
                             than just a status flip. */}
                         {doneish && t.completed_at && (
-                          <p className="text-[11px] text-emerald-700 mt-0.5">
+                          <p className="text-[11px] text-brand-primary mt-0.5">
                             Done{t.completed_by && actorNames.get(t.completed_by) ? ` by ${actorNames.get(t.completed_by)}` : ""}
                             {" · "}
                             {new Date(t.completed_at).toLocaleString("en-ZA", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
@@ -604,7 +604,7 @@ export function KitchenSection({
                             size="sm"
                             onClick={() => handleComplete(t.id)}
                             disabled={isActing}
-                            className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700"
+                            className="h-7 text-xs bg-brand-primary hover:bg-brand-primary/90"
                           >
                             {isActing ? <Loader2 className="w-3 h-3 animate-spin" /> : <><CheckCircle2 className="w-3 h-3 mr-1" />Done</>}
                           </Button>

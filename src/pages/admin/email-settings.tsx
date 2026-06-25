@@ -506,7 +506,7 @@ function EmailSettingsPage() {
               <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
                 <div
                   className={`h-full transition-all ${
-                    capPct > 90 ? "bg-red-500" : capPct > 70 ? "bg-amber-500" : "bg-emerald-500"
+                    capPct > 90 ? "bg-red-500" : capPct > 70 ? "bg-amber-500" : "bg-brand-primary"
                   }`}
                   style={{ width: `${capPct}%` }}
                 />
@@ -573,11 +573,11 @@ function EmailSettingsPage() {
               spit-braai-delivery's setup. The platform send.cateringms.com
               subdomain is verified at the Skylight level, so every
               tenant gets working email out of the box. */}
-          <Card className="border-0 shadow-lg mb-6 bg-gradient-to-br from-emerald-50 to-sky-50">
+          <Card className="border-0 shadow-lg mb-6 bg-gradient-to-br from-brand-primary/10 to-sky-50">
             <CardContent className="py-5">
               <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center flex-shrink-0">
-                  <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                <div className="w-10 h-10 rounded-lg bg-brand-primary/15 flex items-center justify-center flex-shrink-0">
+                  <CheckCircle2 className="w-5 h-5 text-brand-primary" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <h3 className="font-semibold text-slate-900">You're already set up to send</h3>
@@ -586,7 +586,7 @@ function EmailSettingsPage() {
                     <code className="text-xs bg-white px-1.5 py-0.5 rounded border border-slate-200 font-mono">noreply@send.cateringms.com</code>
                     {" "}with Reply-To set to <strong>{row.from_email || "your address above"}</strong>.
                     Clients see your From name, and when they hit Reply it lands in your inbox.
-                    <strong className="text-emerald-800"> No DNS setup required.</strong>
+                    <strong className="text-brand-primary"> No DNS setup required.</strong>
                     {" "}This is what most caterers use.
                   </p>
                   <p className="text-xs text-slate-500 mt-2">
@@ -823,11 +823,11 @@ function EmailSettingsPage() {
               {(row.provider === "gmail_oauth" || row.provider === "ms365_oauth") && (
                 <div className="pt-3 border-t border-slate-100 space-y-3">
                   {row.is_verified ? (
-                    <div className="flex items-center gap-2 text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-md p-3">
+                    <div className="flex items-center gap-2 text-brand-primary bg-brand-primary/10 border border-brand-primary/20 rounded-md p-3">
                       <CheckCircle2 className="w-5 h-5" />
                       <div className="text-sm">
                         <p className="font-semibold">Connected as {row.oauth_account_email || row.from_email}</p>
-                        <p className="text-xs text-emerald-600">Ready to send through your inbox.</p>
+                        <p className="text-xs text-brand-primary">Ready to send through your inbox.</p>
                       </div>
                     </div>
                   ) : (
@@ -1090,7 +1090,7 @@ function ProviderOption({
   meta: Array<{ label: string; value: string }>;
 }) {
   const statusColour = status.tone === "emerald"
-    ? "bg-emerald-100 text-emerald-800"
+    ? "bg-brand-primary/15 text-brand-primary"
     : status.tone === "amber"
       ? "bg-amber-100 text-amber-800"
       : "bg-slate-100 text-slate-700";

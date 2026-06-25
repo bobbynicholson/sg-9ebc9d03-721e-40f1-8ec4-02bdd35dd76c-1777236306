@@ -28,7 +28,7 @@ interface Notification {
 const priorityTone = (p?: string | null) => {
   if (p === "critical" || p === "urgent" || p === "high") return "bg-rose-500";
   if (p === "medium" || p === "warning") return "bg-amber-500";
-  if (p === "success") return "bg-emerald-500";
+  if (p === "success") return "bg-brand-primary";
   return null; // informational → no dot, stays neutral
 };
 

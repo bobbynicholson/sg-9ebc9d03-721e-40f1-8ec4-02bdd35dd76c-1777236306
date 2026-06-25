@@ -90,18 +90,18 @@ export function NewVsRepeatDonut({ data, loading }: Props) {
               <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                 <div className="text-[10px] text-slate-500">Total</div>
                 <div className="text-base font-bold text-slate-900">{fmtR(data.totalRevenue)}</div>
-                <div className="text-[10px] text-emerald-700 font-medium">
+                <div className="text-[10px] text-brand-primary font-medium">
                   {(data.newShare * 100).toFixed(1)}% new
                 </div>
               </div>
             </div>
             <div className="mt-2 grid grid-cols-2 gap-2 text-[11px]">
-              <div className="flex items-start gap-2 p-2 rounded bg-emerald-50 border border-emerald-100">
-                <span className="w-2 h-2 mt-1 rounded-full bg-emerald-500 shrink-0" />
+              <div className="flex items-start gap-2 p-2 rounded bg-brand-primary/10 border border-brand-primary/15">
+                <span className="w-2 h-2 mt-1 rounded-full bg-brand-primary shrink-0" />
                 <div className="min-w-0">
-                  <div className="font-semibold text-emerald-900">New</div>
-                  <div className="text-emerald-800">{fmtR(data.newClients.revenue)}</div>
-                  <div className="text-emerald-700/70">{data.newClients.uniqueClients} client{data.newClients.uniqueClients === 1 ? "" : "s"}, {data.newClients.orderCount} order{data.newClients.orderCount === 1 ? "" : "s"}</div>
+                  <div className="font-semibold text-brand-primary">New</div>
+                  <div className="text-brand-primary">{fmtR(data.newClients.revenue)}</div>
+                  <div className="text-brand-primary/70">{data.newClients.uniqueClients} client{data.newClients.uniqueClients === 1 ? "" : "s"}, {data.newClients.orderCount} order{data.newClients.orderCount === 1 ? "" : "s"}</div>
                 </div>
               </div>
               <div className="flex items-start gap-2 p-2 rounded bg-indigo-50 border border-indigo-100">

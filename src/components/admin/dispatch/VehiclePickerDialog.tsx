@@ -408,10 +408,10 @@ function CurrentBookingRow({
     );
   }
   return (
-    <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3">
+    <div className="rounded-lg border border-brand-primary/20 bg-brand-primary/10 p-3">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <p className="text-[10px] uppercase tracking-wide text-emerald-700 font-semibold mb-0.5">
+          <p className="text-[10px] uppercase tracking-wide text-brand-primary font-semibold mb-0.5">
             {role} booked
           </p>
           <p className="text-sm font-semibold text-slate-900">
@@ -452,9 +452,9 @@ function CandidateRow({
       disabled={busy || selected}
       className={`w-full text-left rounded-lg border p-3 transition-all ${
         selected
-          ? "border-emerald-300 bg-emerald-50/60 cursor-default"
+          ? "border-brand-primary/30 bg-brand-primary/10 cursor-default"
           : topMatch
-            ? "border-emerald-500 bg-emerald-50 hover:bg-emerald-100"
+            ? "border-brand-primary bg-brand-primary/10 hover:bg-brand-primary/15"
             : "border-slate-200 bg-white hover:bg-slate-50"
       }`}
     >
@@ -462,12 +462,12 @@ function CandidateRow({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1 flex-wrap">
             {topMatch && !selected && (
-              <span className="text-[9px] font-semibold uppercase tracking-wide bg-emerald-600 text-white px-1.5 py-0.5 rounded">
+              <span className="text-[9px] font-semibold uppercase tracking-wide bg-brand-primary text-white px-1.5 py-0.5 rounded">
                 Top match
               </span>
             )}
             {selected && (
-              <span className="text-[9px] font-semibold uppercase tracking-wide bg-emerald-700 text-white px-1.5 py-0.5 rounded inline-flex items-center gap-1">
+              <span className="text-[9px] font-semibold uppercase tracking-wide bg-brand-primary/90 text-white px-1.5 py-0.5 rounded inline-flex items-center gap-1">
                 <CheckCircle2 className="w-2.5 h-2.5" />
                 Currently booked
               </span>
@@ -492,7 +492,7 @@ function CandidateRow({
         </div>
         <div className="text-right shrink-0">
           <p className={`text-2xl font-bold tabular-nums ${
-            candidate.score >= 5 ? "text-emerald-700" :
+            candidate.score >= 5 ? "text-brand-primary" :
             candidate.score >= 0 ? "text-blue-700" :
                                    "text-amber-700"
           }`}>

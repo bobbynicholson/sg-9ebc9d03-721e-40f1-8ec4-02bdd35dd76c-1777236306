@@ -179,7 +179,7 @@ export function OrderManualFollowupsPanel({ orderId }: Props) {
   if (followups.length === 0) return null; // nothing to surface - panel doesn't render
 
   return (
-    <Card className={pendingCount > 0 ? "border-amber-300" : "border-emerald-200"}>
+    <Card className={pendingCount > 0 ? "border-amber-300" : "border-brand-primary/20"}>
       <CardHeader className="pb-2">
         <CardTitle className="text-sm flex items-center gap-2">
           {pendingCount > 0 ? (
@@ -192,9 +192,9 @@ export function OrderManualFollowupsPanel({ orderId }: Props) {
             </>
           ) : (
             <>
-              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+              <CheckCircle2 className="w-4 h-4 text-brand-primary" />
               <span>All follow-ups complete</span>
-              <Badge variant="outline" className="bg-emerald-100 text-emerald-800 border-emerald-300 ml-auto">
+              <Badge variant="outline" className="bg-brand-primary/15 text-brand-primary border-brand-primary/30 ml-auto">
                 {followups.length} done
               </Badge>
             </>
@@ -212,7 +212,7 @@ export function OrderManualFollowupsPanel({ orderId }: Props) {
             return (
               <li
                 key={f.ref_id || `${f.kind}-${i}`}
-                className={`flex items-start gap-3 p-3 rounded border ${isDone ? "border-emerald-200 bg-emerald-50/50" : meta.tone}`}
+                className={`flex items-start gap-3 p-3 rounded border ${isDone ? "border-brand-primary/20 bg-brand-primary/10" : meta.tone}`}
               >
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-0.5">
@@ -220,7 +220,7 @@ export function OrderManualFollowupsPanel({ orderId }: Props) {
                       {meta.title}
                     </span>
                     {isDone && (
-                      <Badge variant="outline" className="bg-emerald-100 text-emerald-700 border-emerald-200 text-[10px]">
+                      <Badge variant="outline" className="bg-brand-primary/15 text-brand-primary border-brand-primary/20 text-[10px]">
                         Done
                       </Badge>
                     )}

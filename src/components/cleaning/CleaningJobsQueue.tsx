@@ -289,7 +289,7 @@ export function CleaningJobsQueue() {
                         {holdingId === r.id && (
                           <span
                             aria-hidden="true"
-                            className="absolute inset-y-0 left-0 bg-emerald-800/40 transition-[width] duration-75"
+                            className="absolute inset-y-0 left-0 bg-brand-primary/40 transition-[width] duration-75"
                             style={{ width: `${Math.round(holdProgress * 100)}%` }}
                           />
                         )}

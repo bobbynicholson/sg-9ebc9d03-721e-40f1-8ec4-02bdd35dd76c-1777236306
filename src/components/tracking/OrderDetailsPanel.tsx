@@ -119,7 +119,7 @@ const STATUS_TONE: Record<string, string> = {
   preparing: "bg-yellow-100 text-yellow-800",
   ready: "bg-purple-100 text-purple-800",
   in_transit: "bg-orange-100 text-orange-800",
-  delivered: "bg-green-100 text-green-800",
+  delivered: "bg-brand-primary/15 text-brand-primary",
   cancelled: "bg-red-100 text-red-800",
 };
 
@@ -388,7 +388,7 @@ export function OrderDetailsPanel({ order, fromName, companyName, onClose }: Pro
                 return (
                   <li key={step.key} className="flex items-center gap-2 text-xs">
                     {reached ? (
-                      <CheckCircle2 className={`h-4 w-4 flex-shrink-0 ${isCurrent ? "text-orange-500" : "text-emerald-500"}`} />
+                      <CheckCircle2 className={`h-4 w-4 flex-shrink-0 ${isCurrent ? "text-orange-500" : "text-brand-primary"}`} />
                     ) : (
                       <Circle className="h-4 w-4 text-slate-300 flex-shrink-0" />
                     )}
@@ -538,7 +538,7 @@ export function OrderDetailsPanel({ order, fromName, companyName, onClose }: Pro
             </p>
             <div className="flex items-center gap-2 text-xs text-slate-600">
               <span>Deposit: {fmtMoney.format(deposit)}</span>
-              <span>{order.deposit_paid ? <Badge className="bg-emerald-100 text-emerald-800 text-[10px]">Paid</Badge> : <Badge variant="outline" className="text-[10px]">Outstanding</Badge>}</span>
+              <span>{order.deposit_paid ? <Badge className="bg-brand-primary/15 text-brand-primary text-[10px]">Paid</Badge> : <Badge variant="outline" className="text-[10px]">Outstanding</Badge>}</span>
             </div>
             {balance > 0 && (
               <div className="text-xs text-slate-600">Balance: <span className="font-semibold text-slate-900">{fmtMoney.format(balance)}</span></div>
@@ -569,7 +569,7 @@ export function OrderDetailsPanel({ order, fromName, companyName, onClose }: Pro
             </p>
             <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
               <div
-                className="h-full bg-emerald-500"
+                className="h-full bg-brand-primary"
                 style={{ width: `${kitchenStats.total > 0 ? (kitchenStats.done / kitchenStats.total) * 100 : 0}%` }}
               />
             </div>
@@ -634,9 +634,9 @@ export function OrderDetailsPanel({ order, fromName, companyName, onClose }: Pro
 
       {/* PROOF OF DELIVERY, only when captured */}
       {(order.pod_photo_url || order.pod_signature_url || order.pod_captured_at) && (
-        <Card className="border-emerald-200 bg-emerald-50/30">
+        <Card className="border-brand-primary/20 bg-brand-primary/5">
           <CardContent className="p-3 space-y-2">
-            <div className="flex items-center gap-2 text-xs font-semibold text-emerald-700 uppercase tracking-wide">
+            <div className="flex items-center gap-2 text-xs font-semibold text-brand-primary uppercase tracking-wide">
               <CheckCircle2 className="h-3 w-3" /> Proof of delivery
             </div>
             {order.pod_recipient_name && (
@@ -653,7 +653,7 @@ export function OrderDetailsPanel({ order, fromName, companyName, onClose }: Pro
             <div className="grid grid-cols-2 gap-2">
               {order.pod_photo_url && (
                 <a href={order.pod_photo_url} target="_blank" rel="noopener noreferrer" className="group">
-                  <div className="aspect-square rounded-md overflow-hidden bg-white border border-emerald-200 relative">
+                  <div className="aspect-square rounded-md overflow-hidden bg-white border border-brand-primary/20 relative">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={order.pod_photo_url} alt="Delivery photo" className="w-full h-full object-cover" />
                     <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center text-transparent group-hover:text-white text-xs font-medium">
@@ -668,7 +668,7 @@ export function OrderDetailsPanel({ order, fromName, companyName, onClose }: Pro
               )}
               {order.pod_signature_url && (
                 <a href={order.pod_signature_url} target="_blank" rel="noopener noreferrer" className="group">
-                  <div className="aspect-square rounded-md overflow-hidden bg-white border border-emerald-200 relative flex items-center justify-center p-2">
+                  <div className="aspect-square rounded-md overflow-hidden bg-white border border-brand-primary/20 relative flex items-center justify-center p-2">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={order.pod_signature_url} alt="Signature" className="max-w-full max-h-full object-contain" />
                   </div>
@@ -731,7 +731,7 @@ export function OrderDetailsPanel({ order, fromName, companyName, onClose }: Pro
                     ? step.reason
                     : "";
                 const tone = step.ok
-                  ? "text-emerald-700"
+                  ? "text-brand-primary"
                   : step.skipped
                   ? "text-slate-500"
                   : "text-rose-700";
@@ -868,7 +868,7 @@ function ComposeDrawer({
     <>
       <SheetHeader>
         <SheetTitle className="flex items-center gap-2">
-          <Send className="w-5 h-5 text-emerald-600" />
+          <Send className="w-5 h-5 text-brand-primary" />
           Compose to {order.client_name}
         </SheetTitle>
         <SheetDescription>
@@ -926,7 +926,7 @@ function ComposeDrawer({
             variant="default"
             disabled={!order.client_email}
             onClick={() => window.open(composeEmail.gmailUrl(payload), "_blank", "noopener")}
-            className="gap-2 bg-emerald-600 hover:bg-emerald-700"
+            className="gap-2 bg-brand-primary hover:bg-brand-primary/90"
           >
             <ExternalLink className="w-4 h-4" /> Open in Gmail
           </Button>

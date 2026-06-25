@@ -397,7 +397,7 @@ function CompanyProfilePage() {
                   <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
                     <div className="flex items-center gap-2">
                       {requiredDone === requiredTotal ? (
-                        <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                        <CheckCircle2 className="w-5 h-5 text-brand-primary" />
                       ) : (
                         <AlertTriangle className="w-5 h-5 text-amber-600" />
                       )}
@@ -689,7 +689,7 @@ function CompanyProfilePage() {
           <Card id="section-vat" className="border-0 shadow-lg mb-6 scroll-mt-20">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Globe className="w-5 h-5 text-emerald-600" />
+                <Globe className="w-5 h-5 text-brand-primary" />
                 VAT registration
                 <InfoTooltip content={"South African rule: VAT-registered businesses issue 'Tax Invoice' documents with their VAT number on every quote and invoice. Non-registered businesses issue plain 'Invoices'.\n\nFlip the toggle and the document templates + totals labels (incl. VAT) update everywhere automatically."} />
               </CardTitle>
@@ -860,7 +860,7 @@ function CompanyProfilePage() {
           <Card id="section-address" className="border-0 shadow-lg mb-6 scroll-mt-20">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <MapPin className="w-5 h-5 text-emerald-600" />
+                <MapPin className="w-5 h-5 text-brand-primary" />
                 Kitchen / HQ address
                 <InfoTooltip content={"This is the starting point for every delivery distance and route plan.\n\nThe more accurate the address and coordinates, the more accurate every quote's delivery fee will be."} />
               </CardTitle>

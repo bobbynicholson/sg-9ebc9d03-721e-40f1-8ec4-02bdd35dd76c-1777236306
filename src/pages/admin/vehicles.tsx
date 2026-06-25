@@ -1271,7 +1271,7 @@ function VehiclesPage() {
             {deleteImpact === null ? (
               <p className="text-xs text-slate-500">Checking impact...</p>
             ) : deleteImpact.activeBookings === 0 && deleteImpact.activeOrders === 0 ? (
-              <p className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded px-2 py-1.5">
+              <p className="text-xs text-brand-primary bg-brand-primary/10 border border-brand-primary/20 rounded px-2 py-1.5">
                 No active bookings or future orders reference this vehicle. Clean removal.
               </p>
             ) : (

@@ -955,7 +955,7 @@ function StockPage() {
                   </Link>
                   <Button
                     size="sm"
-                    className="flex-1 text-xs gap-1 bg-emerald-600 hover:bg-emerald-700"
+                    className="flex-1 text-xs gap-1 bg-brand-primary hover:bg-brand-primary/90"
                     onClick={handleGenerateShoppingList}
                     disabled={generatingShop || lowStock.count === 0}
                     title={lowStock.count === 0 ? "Nothing low to add" : "Create a shopping list with all low-stock items"}
@@ -1101,7 +1101,7 @@ function StockPage() {
             <Card className="border-0 shadow-lg mb-6">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-                  <ListChecks className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-600" />
+                  <ListChecks className="w-4 h-4 sm:w-5 sm:h-5 text-brand-primary" />
                   Event readiness - next {equipWindow} days
                 </CardTitle>
                 <p className="text-xs text-slate-600 mt-1">
@@ -1111,7 +1111,7 @@ function StockPage() {
               <CardContent>
                 <ul className="space-y-2">
                   {eventReadiness.slice(0, 8).map((e) => {
-                    const tone = e.readinessPct >= 85 ? "bg-emerald-500"
+                    const tone = e.readinessPct >= 85 ? "bg-brand-primary"
                       : e.readinessPct >= 70 ? "bg-amber-500"
                       : "bg-rose-500";
                     return (

@@ -237,7 +237,7 @@ export function taskChipMeta(t: TaskType): {
     case "kitchen":
       return { label: "Kitchen", shortLabel: "K", chip: "bg-orange-100 text-orange-800 border-orange-300" };
     case "cleaning":
-      return { label: "Cleaning", shortLabel: "C", chip: "bg-cyan-100 text-cyan-800 border-cyan-300" };
+      return { label: "Cleaning", shortLabel: "C", chip: "bg-brand-primary/15 text-brand-primary border-brand-primary/30" };
     case "delivery":
       return { label: "Delivery", shortLabel: "D", chip: "bg-blue-100 text-blue-800 border-blue-300" };
     case "shopping":
@@ -245,7 +245,7 @@ export function taskChipMeta(t: TaskType): {
     case "waitering":
       return { label: "Waitering", shortLabel: "W", chip: "bg-pink-100 text-pink-800 border-pink-300" };
     case "setup":
-      return { label: "Setup", shortLabel: "Su", chip: "bg-emerald-100 text-emerald-800 border-emerald-300" };
+      return { label: "Setup", shortLabel: "Su", chip: "bg-brand-primary/15 text-brand-primary border-brand-primary/30" };
     case "breakdown":
       return { label: "Breakdown", shortLabel: "Br", chip: "bg-amber-100 text-amber-800 border-amber-300" };
     case "admin":

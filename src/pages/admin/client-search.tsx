@@ -345,7 +345,7 @@ function ClientSearchPage() {
                           size="sm"
                           variant="outline"
                           onClick={() => handleViewInvoices(client.id)}
-                          className="hover:bg-green-50 hover:border-green-300"
+                          className="hover:bg-brand-primary/10 hover:border-brand-primary/30"
                         >
                           <Receipt className="w-4 h-4 mr-2" />
                           Invoices

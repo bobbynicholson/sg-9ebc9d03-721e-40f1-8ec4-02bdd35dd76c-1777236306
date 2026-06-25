@@ -186,7 +186,7 @@ export function DriverGPSTracker({
       case "arrived":
         return "bg-orange-100 text-orange-700 border-orange-200";
       case "delivered":
-        return "bg-green-100 text-green-700 border-green-200";
+        return "bg-brand-primary/15 text-brand-primary border-brand-primary/20";
       case "completed":
         return "bg-slate-100 text-slate-700 border-slate-200";
       default:
@@ -200,7 +200,7 @@ export function DriverGPSTracker({
         <CardTitle className="flex items-center justify-between">
           <span>GPS Tracking</span>
           {isTracking && (
-            <Badge className="bg-green-100 text-green-700 border-green-200">
+            <Badge className="bg-brand-primary/15 text-brand-primary border-brand-primary/20">
               <MapPin className="w-3 h-3 mr-1 animate-pulse" />
               Tracking Active
             </Badge>
@@ -211,7 +211,7 @@ export function DriverGPSTracker({
         {!isTracking ? (
           <Button 
             onClick={handleStartTracking}
-            className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
+            className="w-full bg-gradient-to-r from-brand-primary to-brand-secondary hover:from-brand-primary/90 hover:to-brand-secondary/90"
           >
             <Navigation className="w-4 h-4 mr-2" />
             Start GPS Tracking
@@ -292,7 +292,7 @@ export function DriverGPSTracker({
               {deliveryStatus === "arrived" && (
                 <Button 
                   onClick={() => updateStatus("delivered")}
-                  className="col-span-2 bg-green-600 hover:bg-green-700"
+                  className="col-span-2 bg-brand-primary hover:bg-brand-primary/90"
                 >
                   <CheckCircle className="w-4 h-4 mr-2" />
                   Delivered

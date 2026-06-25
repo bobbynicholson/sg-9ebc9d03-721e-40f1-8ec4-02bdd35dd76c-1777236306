@@ -383,7 +383,7 @@ function SuppliersList() {
                                         className={`text-[10px] inline-flex items-center gap-1 ${
                                           flags.creepPct > 0
                                             ? "bg-rose-50 text-rose-700 border-rose-200"
-                                            : "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                            : "bg-brand-primary/10 text-brand-primary border-brand-primary/20"
                                         }`}
                                         title={`Median per-item price change vs 60-120d ago, across ${flags.creepItems} items`}
                                       >
@@ -426,7 +426,7 @@ function SuppliersList() {
                                         target="_blank"
                                         rel="noreferrer"
                                         onClick={(e) => e.stopPropagation()}
-                                        className="inline-flex items-center text-emerald-600 hover:text-emerald-700"
+                                        className="inline-flex items-center text-brand-primary hover:text-brand-primary"
                                         title="Open WhatsApp"
                                       >
                                         <MessageCircle className="w-3.5 h-3.5" />
@@ -518,7 +518,7 @@ function SuppliersList() {
                                     className={`text-[10px] inline-flex items-center gap-1 ${
                                       flags.creepPct > 0
                                         ? "bg-rose-50 text-rose-700 border-rose-200"
-                                        : "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                        : "bg-brand-primary/10 text-brand-primary border-brand-primary/20"
                                     }`}
                                   >
                                     {flags.creepPct > 0 ? "+" : ""}{flags.creepPct.toFixed(0)}%
@@ -535,7 +535,7 @@ function SuppliersList() {
                                   <div className="flex items-center gap-2">
                                     <span className="flex items-center gap-1"><Phone className="w-3 h-3" /> {s.phone}</span>
                                     {wa && (
-                                      <a href={wa} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="text-emerald-600">
+                                      <a href={wa} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="text-brand-primary">
                                         <MessageCircle className="w-3.5 h-3.5" />
                                       </a>
                                     )}
@@ -686,7 +686,7 @@ function StatTile({
 }: { label: string; value: string; icon: typeof TrendingUp; accent?: "slate" | "emerald" | "rose"; muted?: boolean }) {
   const accentClass = muted
     ? "text-slate-400"
-    : accent === "emerald" ? "text-emerald-600"
+    : accent === "emerald" ? "text-brand-primary"
     : accent === "rose"    ? "text-rose-600"
     : "text-slate-700";
   return (

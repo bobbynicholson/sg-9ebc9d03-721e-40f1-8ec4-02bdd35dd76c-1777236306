@@ -1132,7 +1132,7 @@ return (
                   href={`https://wa.me/${String((selectedOrder as any).client_phone).replace(/[^\d]/g, "")}?text=${encodeURIComponent(`Hi ${((selectedOrder as any).client_name || "there").split(" ")[0]}, regarding your booking ${(selectedOrder as any).order_number || ""}`)}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 text-xs font-medium text-green-800 bg-green-50 border border-green-200 rounded-md px-2 py-1 hover:bg-green-100 transition"
+                  className="inline-flex items-center gap-1.5 text-xs font-medium text-brand-primary bg-brand-primary/10 border border-brand-primary/20 rounded-md px-2 py-1 hover:bg-brand-primary/15 transition"
                   title="Open WhatsApp pre-filled"
                 >
                   <MessageCircle className="w-3.5 h-3.5" />
@@ -1453,7 +1453,7 @@ return (
               </div>
               <div>
                 <Label className="text-xs">Total</Label>
-                <p className="text-base font-bold text-emerald-600 mt-1 tabular-nums">
+                <p className="text-base font-bold text-brand-primary mt-1 tabular-nums">
                   {C}{Number((selectedOrder as any).total_amount || 0).toLocaleString("en-ZA", { maximumFractionDigits: 2 })}
                 </p>
               </div>
@@ -1493,13 +1493,13 @@ return (
                   </div>
                   <div>
                     <Label className="text-xs">Net after outsource</Label>
-                    <p className={`text-sm font-semibold mt-1 tabular-nums ${netMargin >= 0 ? "text-emerald-700" : "text-rose-700"}`}>
+                    <p className={`text-sm font-semibold mt-1 tabular-nums ${netMargin >= 0 ? "text-brand-primary" : "text-rose-700"}`}>
                       {C}{netMargin.toLocaleString("en-ZA", { maximumFractionDigits: 2 })}
                     </p>
                   </div>
                   <div>
                     <Label className="text-xs">Margin</Label>
-                    <p className={`text-sm font-semibold mt-1 tabular-nums ${marginPct >= 30 ? "text-emerald-700" : marginPct >= 15 ? "text-amber-700" : "text-rose-700"}`}>
+                    <p className={`text-sm font-semibold mt-1 tabular-nums ${marginPct >= 30 ? "text-brand-primary" : marginPct >= 15 ? "text-amber-700" : "text-rose-700"}`}>
                       {marginPct.toFixed(1)}%
                     </p>
                   </div>
@@ -1557,7 +1557,7 @@ return (
                       : "Solo run, no co-driver required."}
                   </p>
                   {(selectedOrder as any).secondary_driver_id && (
-                    <p className="mt-1 text-emerald-700">Secondary driver assigned.</p>
+                    <p className="mt-1 text-brand-primary">Secondary driver assigned.</p>
                   )}
                 </div>
               </div>
@@ -1950,19 +1950,19 @@ return (
               </p>
             </div>
           ) : (
-            <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 space-y-2">
-              <p className="text-emerald-900">
+            <div className="rounded-lg border border-brand-primary/20 bg-brand-primary/10 p-3 space-y-2">
+              <p className="text-brand-primary">
                 Items + total will scale to the new guest count using the <strong>current per-unit prices</strong>.
               </p>
-              <div className="flex items-center justify-between text-xs text-emerald-900/80 pt-1 border-t border-emerald-200">
+              <div className="flex items-center justify-between text-xs text-brand-primary/80 pt-1 border-t border-brand-primary/20">
                 <span>Current total</span>
                 <span className="tabular-nums">{C}{Number(oldTotal).toLocaleString("en-ZA", { maximumFractionDigits: 2 })}</span>
               </div>
-              <div className="flex items-center justify-between text-emerald-900 font-semibold">
+              <div className="flex items-center justify-between text-brand-primary font-semibold">
                 <span>New total</span>
                 <span className="tabular-nums">{C}{Number(projectedTotal).toLocaleString("en-ZA", { maximumFractionDigits: 2 })}</span>
               </div>
-              <p className="text-emerald-900/80 text-xs pt-1">
+              <p className="text-brand-primary/80 text-xs pt-1">
                 To change the per-unit prices (e.g., volume discount, menu upgrade), update the source quote.
               </p>
             </div>

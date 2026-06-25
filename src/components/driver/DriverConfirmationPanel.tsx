@@ -251,7 +251,7 @@ export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venue
         {/* En-Route to Kitchen */}
         <div className="flex items-center justify-between p-4 rounded-lg border bg-card">
           <div className="flex items-center gap-3">
-            <MapPin className={`h-5 w-5 ${isConfirmed('en_route_to_kitchen') ? 'text-green-500' : 'text-gray-400'}`} />
+            <MapPin className={`h-5 w-5 ${isConfirmed('en_route_to_kitchen') ? 'text-brand-primary' : 'text-gray-400'}`} />
             <div>
               <p className="font-medium">En-Route to Kitchen</p>
               {isConfirmed('en_route_to_kitchen') && (
@@ -260,7 +260,7 @@ export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venue
             </div>
           </div>
           {isConfirmed('en_route_to_kitchen') ? (
-            <Badge variant="default" className="bg-green-500">
+            <Badge variant="default" className="bg-brand-primary">
               <CheckCircle className="h-3 w-3 mr-1" />
               Confirmed
             </Badge>
@@ -278,7 +278,7 @@ export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venue
         {/* At Kitchen */}
         <div className="flex items-center justify-between p-4 rounded-lg border bg-card">
           <div className="flex items-center gap-3">
-            <MapPinned className={`h-5 w-5 ${isConfirmed('at_kitchen') ? 'text-green-500' : 'text-gray-400'}`} />
+            <MapPinned className={`h-5 w-5 ${isConfirmed('at_kitchen') ? 'text-brand-primary' : 'text-gray-400'}`} />
             <div>
               <p className="font-medium">Arrived at Kitchen</p>
               {isConfirmed('at_kitchen') && (
@@ -287,7 +287,7 @@ export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venue
             </div>
           </div>
           {isConfirmed('at_kitchen') ? (
-            <Badge variant="default" className="bg-green-500">
+            <Badge variant="default" className="bg-brand-primary">
               <CheckCircle className="h-3 w-3 mr-1" />
               Confirmed
             </Badge>
@@ -305,7 +305,7 @@ export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venue
         {/* Departed Kitchen */}
         <div className="flex items-center justify-between p-4 rounded-lg border bg-card">
           <div className="flex items-center gap-3">
-            <Truck className={`h-5 w-5 ${isConfirmed('departed_kitchen') ? 'text-green-500' : 'text-gray-400'}`} />
+            <Truck className={`h-5 w-5 ${isConfirmed('departed_kitchen') ? 'text-brand-primary' : 'text-gray-400'}`} />
             <div>
               <p className="font-medium">Departed Kitchen</p>
               {isConfirmed('departed_kitchen') && (
@@ -314,7 +314,7 @@ export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venue
             </div>
           </div>
           {isConfirmed('departed_kitchen') ? (
-            <Badge variant="default" className="bg-green-500">
+            <Badge variant="default" className="bg-brand-primary">
               <CheckCircle className="h-3 w-3 mr-1" />
               Confirmed
             </Badge>
@@ -332,7 +332,7 @@ export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venue
         {/* At Venue */}
         <div className="flex items-center justify-between p-4 rounded-lg border bg-card">
           <div className="flex items-center gap-3">
-            <Clock className={`h-5 w-5 ${isConfirmed('at_venue') ? 'text-green-500' : 'text-gray-400'}`} />
+            <Clock className={`h-5 w-5 ${isConfirmed('at_venue') ? 'text-brand-primary' : 'text-gray-400'}`} />
             <div>
               <p className="font-medium">Arrived at Venue</p>
               {isConfirmed('at_venue') && (
@@ -351,7 +351,7 @@ export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venue
             </div>
           </div>
           {isConfirmed('at_venue') ? (
-            <Badge variant="default" className="bg-green-500">
+            <Badge variant="default" className="bg-brand-primary">
               <CheckCircle className="h-3 w-3 mr-1" />
               Confirmed
             </Badge>
@@ -374,7 +374,7 @@ export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venue
         {/* Setup started */}
         <div className="flex items-center justify-between p-4 rounded-lg border bg-card">
           <div className="flex items-center gap-3">
-            <Package className={`h-5 w-5 ${isConfirmed('setup_started') ? 'text-green-500' : 'text-gray-400'}`} />
+            <Package className={`h-5 w-5 ${isConfirmed('setup_started') ? 'text-brand-primary' : 'text-gray-400'}`} />
             <div>
               <p className="font-medium">Setup started</p>
               {isConfirmed('setup_started') && (
@@ -383,7 +383,7 @@ export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venue
             </div>
           </div>
           {isConfirmed('setup_started') ? (
-            <Badge variant="default" className="bg-green-500">
+            <Badge variant="default" className="bg-brand-primary">
               <CheckCircle className="h-3 w-3 mr-1" />
               Done
             </Badge>
@@ -401,7 +401,7 @@ export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venue
         {/* Service started */}
         <div className="flex items-center justify-between p-4 rounded-lg border bg-card">
           <div className="flex items-center gap-3">
-            <CheckCircle className={`h-5 w-5 ${isConfirmed('service_started') ? 'text-green-500' : 'text-gray-400'}`} />
+            <CheckCircle className={`h-5 w-5 ${isConfirmed('service_started') ? 'text-brand-primary' : 'text-gray-400'}`} />
             <div>
               <p className="font-medium">Service started</p>
               {isConfirmed('service_started') && (
@@ -410,7 +410,7 @@ export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venue
             </div>
           </div>
           {isConfirmed('service_started') ? (
-            <Badge variant="default" className="bg-green-500">
+            <Badge variant="default" className="bg-brand-primary">
               <CheckCircle className="h-3 w-3 mr-1" />
               Done
             </Badge>
@@ -428,7 +428,7 @@ export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venue
         {/* Departed venue */}
         <div className="flex items-center justify-between p-4 rounded-lg border bg-card">
           <div className="flex items-center gap-3">
-            <Truck className={`h-5 w-5 ${isConfirmed('departed_venue') ? 'text-green-500' : 'text-gray-400'}`} />
+            <Truck className={`h-5 w-5 ${isConfirmed('departed_venue') ? 'text-brand-primary' : 'text-gray-400'}`} />
             <div>
               <p className="font-medium">Departed venue</p>
               {isConfirmed('departed_venue') && (
@@ -437,7 +437,7 @@ export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venue
             </div>
           </div>
           {isConfirmed('departed_venue') ? (
-            <Badge variant="default" className="bg-green-500">
+            <Badge variant="default" className="bg-brand-primary">
               <CheckCircle className="h-3 w-3 mr-1" />
               Done
             </Badge>
@@ -517,7 +517,7 @@ export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venue
                 )}
               </div>
               {collectionAssignment.status === "picked_up" || collectionAssignment.status === "completed" ? (
-                <Badge variant="default" className="bg-emerald-500">
+                <Badge variant="default" className="bg-brand-primary">
                   <CheckCircle className="h-3 w-3 mr-1" />
                   Collected
                 </Badge>
@@ -556,7 +556,7 @@ export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venue
                 )}
               </div>
               {collectionAssignment.status === "completed" ? (
-                <Badge variant="default" className="bg-emerald-500">
+                <Badge variant="default" className="bg-brand-primary">
                   <CheckCircle className="h-3 w-3 mr-1" />
                   Done
                 </Badge>

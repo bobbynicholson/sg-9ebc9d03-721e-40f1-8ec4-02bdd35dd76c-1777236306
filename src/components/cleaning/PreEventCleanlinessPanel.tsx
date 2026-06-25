@@ -6,7 +6,7 @@
  * When the last required item ticks, the strip flips to "Ready",
  * status writes to cleaning_event_checklists, and the
  * cateringms:cleaning-ready window event fires so the kitchen
- * dashboard chip flips green within seconds (no refresh needed).
+ * dashboard chip flips to the brand-ready state within seconds (no refresh needed).
  *
  * Why an accordion strip rather than a grid table: the brief noted
  * "UI weight - mobile first". Five items per event times 6 events
@@ -46,7 +46,7 @@ function localTomorrowISO(): string {
 }
 
 function statusTone(status: ChecklistRow["status"]) {
-  if (status === "ready") return { ring: "border-emerald-200 bg-emerald-50", badge: "bg-emerald-100 text-emerald-800 border-emerald-300", label: "Ready" };
+  if (status === "ready") return { ring: "border-brand-primary/20 bg-brand-primary/10", badge: "bg-brand-primary/15 text-brand-primary border-brand-primary/30", label: "Ready" };
   if (status === "in_progress") return { ring: "border-amber-200 bg-amber-50", badge: "bg-amber-100 text-amber-800 border-amber-300", label: "In progress" };
   return { ring: "border-slate-200 bg-white", badge: "bg-slate-100 text-slate-700 border-slate-300", label: "Pending" };
 }
@@ -122,14 +122,14 @@ function EventStrip({
                   checked={item.checked}
                   disabled={isBusy}
                   onChange={() => onToggle(order.id, idx)}
-                  className="w-5 h-5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                  className="w-5 h-5 rounded border-slate-300 text-brand-primary focus:ring-brand-primary"
                 />
                 <span className={`text-sm flex-1 ${item.checked ? "line-through text-slate-500" : "text-slate-800"}`}>
                   {item.label}
                   {item.required ? null : <span className="text-xs text-slate-400 ml-1">(optional)</span>}
                 </span>
                 {isBusy && <Loader2 className="w-3 h-3 animate-spin text-slate-400" />}
-                {item.checked && !isBusy && <CheckCircle2 className="w-4 h-4 text-emerald-600" />}
+                {item.checked && !isBusy && <CheckCircle2 className="w-4 h-4 text-brand-primary" />}
               </label>
             );
           })}
@@ -243,7 +243,7 @@ export function PreEventCleanlinessPanel() {
           <Badge variant="outline" className="ml-1 text-xs">Tomorrow</Badge>
         </CardTitle>
         <p className="text-sm text-slate-600">
-          Tick each step as it's done. The kitchen dashboard flips its chip green when every required item is checked.
+          Tick each step as it's done. The kitchen dashboard marks its chip ready when every required item is checked.
         </p>
       </CardHeader>
       <CardContent>

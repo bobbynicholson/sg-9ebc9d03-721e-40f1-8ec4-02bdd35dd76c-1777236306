@@ -87,7 +87,7 @@ export function OnDutyBoard() {
           <Users className="h-5 w-5" />
           On Duty Staff
           {activeShifts.length > 0 && (
-            <Badge variant="default" className="ml-auto bg-green-500">
+            <Badge variant="default" className="ml-auto bg-brand-primary">
               {activeShifts.length} on duty
             </Badge>
           )}
@@ -106,11 +106,11 @@ export function OnDutyBoard() {
             {activeShifts.map((shift) => (
               <div
                 key={shift.id}
-                className="flex items-center gap-3 p-3 border rounded-lg bg-green-50 border-green-200"
+                className="flex items-center gap-3 p-3 border rounded-lg bg-brand-primary/10 border-brand-primary/20"
               >
-                <Avatar className="h-10 w-10 border-2 border-green-500">
+                <Avatar className="h-10 w-10 border-2 border-brand-primary">
                   <AvatarImage src={shift.staff?.avatar_url} />
-                  <AvatarFallback className="bg-green-100 text-green-700">
+                  <AvatarFallback className="bg-brand-primary/15 text-brand-primary">
                     {getInitials(shift.staff?.full_name || "?")}
                   </AvatarFallback>
                 </Avatar>
@@ -123,7 +123,7 @@ export function OnDutyBoard() {
                     Started {getElapsedTime(shift.shift_start)} ago
                   </div>
                 </div>
-                <Badge variant="default" className="bg-green-500">
+                <Badge variant="default" className="bg-brand-primary">
                   Active
                 </Badge>
               </div>

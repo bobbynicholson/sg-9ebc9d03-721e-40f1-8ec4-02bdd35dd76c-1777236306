@@ -180,7 +180,7 @@ export function ConvertLeadDialog({ open, onOpenChange, lead, onConverted }: Pro
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <ShoppingCart className="w-5 h-5 text-emerald-600" />
+            <ShoppingCart className="w-5 h-5 text-brand-primary" />
             Convert lead to order
           </DialogTitle>
         </DialogHeader>
@@ -258,7 +258,7 @@ export function ConvertLeadDialog({ open, onOpenChange, lead, onConverted }: Pro
             <Button
               onClick={handleConfirm}
               disabled={submitting}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+              className="bg-brand-primary hover:bg-brand-primary/90 text-white"
             >
               {submitting ? (
                 <>

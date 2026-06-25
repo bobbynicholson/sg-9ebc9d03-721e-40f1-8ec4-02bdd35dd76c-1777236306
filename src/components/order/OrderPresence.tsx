@@ -37,8 +37,8 @@ function initials(name: string): string {
 // across re-renders without needing avatar_url.
 function colourClass(name: string): string {
   const palette = [
-    "bg-rose-500", "bg-orange-500", "bg-amber-500", "bg-emerald-500",
-    "bg-cyan-500", "bg-blue-500", "bg-indigo-500", "bg-purple-500", "bg-pink-500",
+    "bg-rose-500", "bg-orange-500", "bg-amber-500", "bg-brand-primary",
+    "bg-brand-primary", "bg-blue-500", "bg-indigo-500", "bg-purple-500", "bg-pink-500",
   ];
   let hash = 0;
   for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) | 0;

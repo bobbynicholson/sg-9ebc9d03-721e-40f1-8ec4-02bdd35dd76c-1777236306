@@ -176,12 +176,12 @@ export default function InventoryRecipes() {
                   </div>
 
                   {/* Example Calculation */}
-                  <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                  <div className="mt-4 p-3 bg-brand-primary/10 border border-brand-primary/20 rounded-lg">
                     <div className="flex items-start gap-2">
-                      <Calculator className="h-4 w-4 text-green-600 mt-0.5" />
+                      <Calculator className="h-4 w-4 text-brand-primary mt-0.5" />
                       <div className="text-sm">
-                        <p className="font-medium text-green-900">Auto-Deduction Example:</p>
-                        <p className="text-green-700 mt-1">
+                        <p className="font-medium text-brand-primary">Auto-Deduction Example:</p>
+                        <p className="text-brand-primary mt-1">
                           When an order with {guestCount} guests and this menu item is marked delivered,
                           the quantities shown above will be automatically deducted from your inventory.
                         </p>
@@ -222,7 +222,7 @@ export default function InventoryRecipes() {
               </div>
               <div>
                 <h4 className="font-semibold text-slate-900 mb-2">Step 2: Add Your Recipe</h4>
-                <pre className="bg-slate-900 text-green-400 p-4 rounded overflow-x-auto text-sm">
+                <pre className="bg-slate-900 text-brand-primary/90 p-4 rounded overflow-x-auto text-sm">
 {`{
   menu_item_name: "Your Menu Item",
   ingredients: [

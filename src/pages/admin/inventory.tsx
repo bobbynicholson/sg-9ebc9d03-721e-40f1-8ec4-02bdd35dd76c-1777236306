@@ -1000,7 +1000,7 @@ function AdminInventory() {
               </DropdownMenu>
               <Button
                 size="sm"
-                className="bg-emerald-600 hover:bg-emerald-700 gap-2"
+                className="bg-brand-primary hover:bg-brand-primary/90 gap-2"
                 onClick={() => setReceiveOpen(true)}
               >
                 <Package className="w-4 h-4" />
@@ -1068,7 +1068,7 @@ function AdminInventory() {
                   Stock on hand
                   <InfoTooltip content="Value of stock on hand at last logged cost. Sum of quantity x cost_per_unit across items with a non-zero cost. Items without cost data don't contribute." />
                 </p>
-                <Package className="w-4 h-4 text-emerald-500" />
+                <Package className="w-4 h-4 text-brand-primary" />
               </div>
               <p className="text-2xl font-semibold text-slate-900">
                 {tenantCurrency.format(stockOnHandValue, 0)}
@@ -1116,7 +1116,7 @@ function AdminInventory() {
                 <div>
                   <CardTitle className="text-base flex items-center gap-2">
                     {atRiskItems.length === 0 ? (
-                      <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                      <CheckCircle2 className="w-5 h-5 text-brand-primary" />
                     ) : (
                       <AlertTriangle className="w-5 h-5 text-amber-600" />
                     )}
@@ -1162,7 +1162,7 @@ function AdminInventory() {
                   placeholder="Search items, suppliers, SKU"
                   value={searchTerm}
                   onChange={e => setSearchTerm(e.target.value)}
-                  className="w-full pl-9 pr-12 py-2 text-sm border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                  className="w-full pl-9 pr-12 py-2 text-sm border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-brand-primary"
                 />
                 {/* Phase 25 #6: clear-search affordance. Swap the
                     `/` keyboard hint for the X clear button when
@@ -1198,7 +1198,7 @@ function AdminInventory() {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-64">
                   <DropdownMenuItem onClick={() => setSaveViewOpen(true)} className="gap-2 cursor-pointer">
-                    <BookmarkPlus className="w-4 h-4 text-emerald-600" />
+                    <BookmarkPlus className="w-4 h-4 text-brand-primary" />
                     <span className="text-sm font-medium">Save current view</span>
                   </DropdownMenuItem>
                   {savedViews.length > 0 && <DropdownMenuSeparator />}
@@ -1316,7 +1316,7 @@ function AdminInventory() {
               <div className="flex items-center justify-center">
                 <input
                   type="checkbox"
-                  className="accent-emerald-600 cursor-pointer"
+                  className="accent-brand-primary cursor-pointer"
                   checked={filteredInventory.length > 0 && filteredInventory.every(i => selected.has(i.id))}
                   ref={cb => {
                     if (cb) {
@@ -1342,7 +1342,7 @@ function AdminInventory() {
 
             {loading ? (
               <div className="text-center py-12">
-                <div className="animate-spin w-6 h-6 border-2 border-emerald-600 border-t-transparent rounded-full mx-auto mb-3" />
+                <div className="animate-spin w-6 h-6 border-2 border-brand-primary/80 border-t-transparent rounded-full mx-auto mb-3" />
                 <p className="text-sm text-slate-500">Loading inventory...</p>
               </div>
             ) : filteredInventory.length === 0 ? (
@@ -1352,7 +1352,7 @@ function AdminInventory() {
                   <>
                     <p className="text-sm font-medium text-slate-700 mb-1">Nothing in inventory yet</p>
                     <p className="text-xs text-slate-500 mb-4">Add your first item. Try chicken, butter, or rice.</p>
-                    <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 gap-2" onClick={openAdd}>
+                    <Button size="sm" className="bg-brand-primary hover:bg-brand-primary/90 gap-2" onClick={openAdd}>
                       <Plus className="w-4 h-4" />
                       Add an item
                     </Button>
@@ -1371,7 +1371,7 @@ function AdminInventory() {
                 const barColour =
                   isOut ? "bg-red-500" :
                   isLow ? "bg-amber-500" :
-                  fillPct >= 75 ? "bg-emerald-500" :
+                  fillPct >= 75 ? "bg-brand-primary" :
                   "bg-blue-500";
                 const leftBorder =
                   isOut ? "border-l-red-500" :
@@ -1385,14 +1385,14 @@ function AdminInventory() {
                     {/* Desktop dense row */}
                     <div
                       className={`hidden md:grid grid-cols-[28px_28px_minmax(0,2fr)_minmax(0,1fr)_110px_minmax(0,1.4fr)_120px_110px_minmax(0,1fr)_120px] gap-3 px-4 py-3 items-center transition-colors cursor-pointer ${
-                        selected.has(item.id) ? "bg-emerald-50 hover:bg-emerald-100" : "hover:bg-slate-50"
+                        selected.has(item.id) ? "bg-brand-primary/10 hover:bg-brand-primary/15" : "hover:bg-slate-50"
                       }`}
                       onClick={() => toggleRow(item)}
                     >
                       <div className="flex items-center justify-center" onClick={e => e.stopPropagation()}>
                         <input
                           type="checkbox"
-                          className="accent-emerald-600 cursor-pointer"
+                          className="accent-brand-primary cursor-pointer"
                           checked={selected.has(item.id)}
                           onChange={() => toggleSelected(item.id)}
                           aria-label={`Select ${item.name}`}
@@ -1458,7 +1458,7 @@ function AdminInventory() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="h-8 w-8 p-0 text-slate-500 hover:text-emerald-700 hover:bg-emerald-50"
+                          className="h-8 w-8 p-0 text-slate-500 hover:text-brand-primary hover:bg-brand-primary/10"
                           title="Move stock"
                           onClick={() => openMove(item)}
                         >
@@ -1575,7 +1575,7 @@ function AdminInventory() {
                                         daysToExpiry < 0     ? "text-red-700 font-semibold" :
                                         daysToExpiry <= 7    ? "text-amber-700 font-semibold" :
                                         daysToExpiry <= 30   ? "text-amber-600" :
-                                                               "text-emerald-700";
+                                                               "text-brand-primary";
                                       const expiryLabel =
                                         daysToExpiry == null ? "no expiry" :
                                         daysToExpiry < 0     ? `expired ${-daysToExpiry}d ago` :
@@ -1587,7 +1587,7 @@ function AdminInventory() {
                                           <div className="min-w-0 flex-1">
                                             <p className="text-slate-700 truncate">
                                               {idx === 0 && (
-                                                <span className="inline-block px-1 py-0 text-[9px] font-semibold uppercase tracking-wide bg-emerald-100 text-emerald-800 rounded mr-1.5">
+                                                <span className="inline-block px-1 py-0 text-[9px] font-semibold uppercase tracking-wide bg-brand-primary/15 text-brand-primary rounded mr-1.5">
                                                   Use first
                                                 </span>
                                               )}
@@ -1640,7 +1640,7 @@ function AdminInventory() {
                                   const change = first > 0 ? ((last - first) / first) * 100 : 0;
                                   const changeTone =
                                     Math.abs(change) < 1 ? "text-slate-500" :
-                                    change > 0 ? "text-red-600" : "text-emerald-700";
+                                    change > 0 ? "text-red-600" : "text-brand-primary";
                                   const trendStroke = change > 0 ? "#dc2626" : change < 0 ? "#059669" : "#64748b";
                                   return (
                                     <div>
@@ -1693,7 +1693,7 @@ function AdminInventory() {
                                           )}
                                         </div>
                                         <div className="text-right whitespace-nowrap">
-                                          <span className={`tabular-nums font-medium ${qty > 0 ? "text-emerald-700" : "text-red-700"}`}>
+                                          <span className={`tabular-nums font-medium ${qty > 0 ? "text-brand-primary" : "text-red-700"}`}>
                                             {sign}{qty} {item.unit}
                                           </span>
                                           <span className="text-slate-400 ml-2">{relativeTime(m.created_at)}</span>
@@ -1740,7 +1740,7 @@ function AdminInventory() {
             <DialogClose asChild>
               <Button variant="outline" disabled={addSaving}>Cancel</Button>
             </DialogClose>
-            <Button onClick={handleAddSave} disabled={addSaving} className="bg-emerald-600 hover:bg-emerald-700">
+            <Button onClick={handleAddSave} disabled={addSaving} className="bg-brand-primary hover:bg-brand-primary/90">
               {addSaving ? "Saving..." : "Add item"}
             </Button>
           </DialogFooter>
@@ -1788,7 +1788,7 @@ function AdminInventory() {
                       key={r.key}
                       className={`flex items-start gap-3 px-3 py-2 rounded-md border cursor-pointer transition-colors ${
                         moveReasonKey === r.key
-                          ? "border-emerald-500 bg-emerald-50"
+                          ? "border-brand-primary bg-brand-primary/10"
                           : "border-slate-200 hover:border-slate-300 hover:bg-slate-50"
                       }`}
                     >
@@ -1798,7 +1798,7 @@ function AdminInventory() {
                         value={r.key}
                         checked={moveReasonKey === r.key}
                         onChange={() => setMoveReasonKey(r.key)}
-                        className="mt-0.5 accent-emerald-600"
+                        className="mt-0.5 accent-brand-primary"
                       />
                       <div className="flex-1">
                         <p className="text-sm font-medium text-slate-900">{r.label}</p>
@@ -1871,7 +1871,7 @@ function AdminInventory() {
             <DialogClose asChild>
               <Button variant="outline" disabled={moveSaving}>Cancel</Button>
             </DialogClose>
-            <Button onClick={handleMoveSave} disabled={moveSaving} className="bg-emerald-600 hover:bg-emerald-700">
+            <Button onClick={handleMoveSave} disabled={moveSaving} className="bg-brand-primary hover:bg-brand-primary/90">
               {moveSaving ? "Saving..." : "Update stock"}
             </Button>
           </DialogFooter>
@@ -2036,7 +2036,7 @@ function AdminInventory() {
             <DialogClose asChild>
               <Button variant="outline">Cancel</Button>
             </DialogClose>
-            <Button onClick={handleSaveCurrentView} disabled={!viewName.trim()} className="bg-emerald-600 hover:bg-emerald-700">
+            <Button onClick={handleSaveCurrentView} disabled={!viewName.trim()} className="bg-brand-primary hover:bg-brand-primary/90">
               Save view
             </Button>
           </DialogFooter>
@@ -2081,7 +2081,7 @@ function ItemForm({
             id="category"
             value={form.category}
             onChange={e => setForm({ ...form, category: e.target.value })}
-            className="mt-1 w-full border border-slate-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            className="mt-1 w-full border border-slate-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary"
           >
             {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
@@ -2185,7 +2185,7 @@ function ItemForm({
           id="preferred_supplier_id"
           value={form.preferred_supplier_id}
           onChange={e => setForm({ ...form, preferred_supplier_id: e.target.value })}
-          className="mt-1 w-full border border-slate-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white"
+          className="mt-1 w-full border border-slate-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary bg-white"
         >
           <option value="">No preferred supplier</option>
           {suppliers.map(s => <option key={s.id} value={s.id}>{s.supplier_name}</option>)}
@@ -2254,7 +2254,7 @@ function BranchScopePicker({
         id="branch_scope"
         value={(form as any).branch_scope || "shared"}
         onChange={(e) => setForm({ ...form, branch_scope: e.target.value } as any)}
-        className="mt-1 w-full border border-slate-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white"
+        className="mt-1 w-full border border-slate-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary bg-white"
       >
         <option value="shared">Shared (every branch can use this)</option>
         {branches.map((b) => (

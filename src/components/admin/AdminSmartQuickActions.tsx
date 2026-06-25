@@ -34,17 +34,17 @@ export function AdminSmartQuickActions({ onNavigate }: AdminSmartQuickActionsPro
     setup: [
       { href: "/admin/onboarding", label: "Continue setup",  sub: "Finish onboarding",     icon: Wand2,     accent: "from-indigo-500 to-purple-500" },
       { href: "/admin/contacts",   label: "Add client",      sub: "Build your CRM",        icon: UserPlus,  accent: "from-blue-500 to-indigo-500" },
-      { href: "/admin/inventory",  label: "Stock setup",     sub: "Items + par levels",    icon: Package,   accent: "from-emerald-500 to-teal-500" },
+      { href: "/admin/inventory",  label: "Stock setup",     sub: "Items + par levels",    icon: Package,   accent: "from-brand-primary to-brand-secondary" },
     ],
     quiet: [
       { href: "/admin/calendar",   label: "Today's events",  sub: "Calendar",              icon: Calendar,  accent: "from-purple-500 to-pink-500" },
       { href: "/admin/leads",      label: "New leads",       sub: "Inbox",                 icon: UserPlus,  accent: "from-blue-500 to-indigo-500" },
-      { href: "/admin/stock",      label: "Stock outlook",   sub: "Pressure feed",         icon: Package,   accent: "from-emerald-500 to-teal-500" },
+      { href: "/admin/stock",      label: "Stock outlook",   sub: "Pressure feed",         icon: Package,   accent: "from-brand-primary to-brand-secondary" },
     ],
     pipeline: [
       { href: "/admin/quotes",     label: "Quotes to chase", sub: "> 48h overdue",         icon: FileSpreadsheet, accent: "from-blue-500 to-indigo-500" },
       { href: "/admin/leads",      label: "Lead inbox",      sub: "New today",             icon: UserPlus,  accent: "from-purple-500 to-pink-500" },
-      { href: "/admin/calendar",   label: "Calendar",        sub: "What's coming",         icon: Calendar,  accent: "from-emerald-500 to-teal-500" },
+      { href: "/admin/calendar",   label: "Calendar",        sub: "What's coming",         icon: Calendar,  accent: "from-brand-primary to-brand-secondary" },
     ],
     ops: [
       { href: "/admin/tracking",          label: "Live ops",      sub: "Today's jobs in flight", icon: MapPin,        accent: "from-purple-500 to-pink-500" },
@@ -52,7 +52,7 @@ export function AdminSmartQuickActions({ onNavigate }: AdminSmartQuickActionsPro
       { href: "/admin/calendar",          label: "Today",         sub: "Full schedule",          icon: Activity,      accent: "from-blue-500 to-indigo-500" },
     ],
     review: [
-      { href: "/admin/financial-dashboard", label: "Revenue today", sub: "Day's numbers",      icon: BarChart3, accent: "from-emerald-500 to-teal-500" },
+      { href: "/admin/financial-dashboard", label: "Revenue today", sub: "Day's numbers",      icon: BarChart3, accent: "from-brand-primary to-brand-secondary" },
       { href: "/admin/invoices",            label: "Unpaid",        sub: "Chase outstanding",  icon: Wallet,    accent: "from-amber-500 to-orange-500" },
       { href: "/admin/refunds",             label: "Refunds",       sub: "Pending payouts",    icon: Receipt,   accent: "from-rose-500 to-pink-500" },
     ],

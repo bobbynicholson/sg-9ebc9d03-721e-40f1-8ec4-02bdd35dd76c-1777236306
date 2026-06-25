@@ -286,7 +286,7 @@ export default function ClientAuthCallbackPage(_props: PageProps) {
             )}
             {status === "ok" && (
               <>
-                <CheckCircle2 className="w-10 h-10 mx-auto text-emerald-500" />
+                <CheckCircle2 className="w-10 h-10 mx-auto text-brand-primary" />
                 <h1 className="text-lg font-semibold text-slate-900">Welcome back</h1>
                 <p className="text-sm text-slate-600">Loading your dashboard...</p>
               </>

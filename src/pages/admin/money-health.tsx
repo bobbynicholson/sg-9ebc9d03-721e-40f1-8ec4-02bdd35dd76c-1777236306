@@ -96,19 +96,19 @@ function MoneyHealthPage() {
                 <div className="flex flex-wrap items-center gap-4">
                   <div><p className="text-xs text-slate-500">Queued</p><p className={`text-xl font-bold ${email.stale ? "text-amber-600" : "text-slate-900 dark:text-white"}`}>{email.queued}</p></div>
                   <div><p className="text-xs text-slate-500">Failed</p><p className={`text-xl font-bold ${email.failed > 0 ? "text-rose-600" : "text-slate-900 dark:text-white"}`}>{email.failed}</p></div>
-                  <div><p className="text-xs text-slate-500">Sent (24h)</p><p className="text-xl font-bold text-emerald-600">{email.sentLast24h}</p></div>
+                  <div><p className="text-xs text-slate-500">Sent (24h)</p><p className="text-xl font-bold text-brand-primary">{email.sentLast24h}</p></div>
                   <div><p className="text-xs text-slate-500">Oldest waiting</p><p className="text-xl font-bold text-slate-900 dark:text-white">{email.oldestQueuedMinutes != null ? `${email.oldestQueuedMinutes}m` : "-"}</p></div>
                   <div className="ml-auto flex items-center gap-2">
                     {email.stale && (
                       <Badge variant="outline" className="bg-amber-50 text-amber-800 border-amber-200 gap-1"><AlertTriangle className="w-3 h-3" /> Queue stale - worker may be down</Badge>
                     )}
                     {email.queued > 0 && (
-                      <Button onClick={drain} disabled={draining} className="gap-2 bg-emerald-600 hover:bg-emerald-700">
+                      <Button onClick={drain} disabled={draining} className="gap-2 bg-brand-primary hover:bg-brand-primary/90">
                         {draining ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />} Send pending now
                       </Button>
                     )}
                     {email.queued === 0 && email.failed === 0 && (
-                      <span className="text-sm text-emerald-700 inline-flex items-center gap-1"><CheckCircle2 className="w-4 h-4" /> All clear</span>
+                      <span className="text-sm text-brand-primary inline-flex items-center gap-1"><CheckCircle2 className="w-4 h-4" /> All clear</span>
                     )}
                   </div>
                 </div>
@@ -125,7 +125,7 @@ function MoneyHealthPage() {
                 <Banknote className="w-4 h-4" /> Money reconciliation
                 {money && (
                   issues.length === 0
-                    ? <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 gap-1"><CheckCircle2 className="w-3 h-3" /> {money.scanned} orders reconcile</Badge>
+                    ? <Badge variant="outline" className="bg-brand-primary/10 text-brand-primary border-brand-primary/20 gap-1"><CheckCircle2 className="w-3 h-3" /> {money.scanned} orders reconcile</Badge>
                     : <Badge variant="outline" className="bg-rose-50 text-rose-700 border-rose-200 gap-1"><AlertTriangle className="w-3 h-3" /> {money.affectedOrders} order{money.affectedOrders === 1 ? "" : "s"} need a look</Badge>
                 )}
               </CardTitle>
@@ -135,7 +135,7 @@ function MoneyHealthPage() {
                 <div className="py-4 text-sm text-slate-500 flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Scanning {/* */}orders...</div>
               ) : issues.length === 0 ? (
                 <div className="py-8 text-center text-slate-500">
-                  <CheckCircle2 className="w-10 h-10 mx-auto mb-2 text-emerald-500" />
+                  <CheckCircle2 className="w-10 h-10 mx-auto mb-2 text-brand-primary" />
                   <p className="text-sm">Every order's order / invoice / payment figures agree. {errorCount === 0 ? "No drift." : ""}</p>
                 </div>
               ) : (

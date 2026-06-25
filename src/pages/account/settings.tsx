@@ -424,22 +424,22 @@ function ProfileSettingsPage() {
           </div>
 
           {saved && (
-            <Card className="border-0 shadow-lg bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border-l-4 border-l-green-500">
+            <Card className="border-0 shadow-lg bg-gradient-to-r from-brand-primary/10 to-brand-secondary/10 dark:from-brand-primary/10 dark:to-brand-secondary/10 border-l-4 border-l-brand-primary">
               <CardContent className="py-4 px-6">
                 <div className="flex items-center gap-2">
-                  <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400" />
-                  <p className="font-semibold text-green-900 dark:text-green-100">Profile updated successfully!</p>
+                  <CheckCircle className="w-5 h-5 text-brand-primary dark:text-brand-primary" />
+                  <p className="font-semibold text-brand-primary dark:text-brand-primary">Profile updated successfully!</p>
                 </div>
               </CardContent>
             </Card>
           )}
 
           {passwordSaved && (
-            <Card className="border-0 shadow-lg bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border-l-4 border-l-green-500">
+            <Card className="border-0 shadow-lg bg-gradient-to-r from-brand-primary/10 to-brand-secondary/10 dark:from-brand-primary/10 dark:to-brand-secondary/10 border-l-4 border-l-brand-primary">
               <CardContent className="py-4 px-6">
                 <div className="flex items-center gap-2">
-                  <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400" />
-                  <p className="font-semibold text-green-900 dark:text-green-100">Password changed successfully!</p>
+                  <CheckCircle className="w-5 h-5 text-brand-primary dark:text-brand-primary" />
+                  <p className="font-semibold text-brand-primary dark:text-brand-primary">Password changed successfully!</p>
                 </div>
               </CardContent>
             </Card>

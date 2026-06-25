@@ -73,7 +73,7 @@ const STATUS_META: Record<string, { label: string; tone: string; icon: typeof Al
   shortfall:     { label: "Shortfall",  tone: "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-900",          icon: AlertTriangle, sort: 0 },
   below_minimum: { label: "Below par",  tone: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900",     icon: AlertCircle,   sort: 1 },
   low:           { label: "Low",        tone: "bg-yellow-50 text-yellow-800 border-yellow-200 dark:bg-yellow-950/40 dark:text-yellow-300 dark:border-yellow-900", icon: AlertCircle,   sort: 2 },
-  ok:            { label: "OK",         tone: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900", icon: Package,    sort: 3 },
+  ok:            { label: "OK",         tone: "bg-brand-primary/10 text-brand-primary border-brand-primary/20 dark:bg-brand-primary/15 dark:text-brand-primary dark:border-brand-primary/30", icon: Package,    sort: 3 },
 };
 
 type FilterKey = "all" | "shortfall" | "below_par" | "low";
@@ -424,7 +424,7 @@ export default function ShoppingBuyListPage() {
                   <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800/50">
                     {rows.length === 0
                       ? <Package className="h-6 w-6 text-slate-400 dark:text-slate-500" />
-                      : <CheckCircle2 className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />}
+                      : <CheckCircle2 className="h-6 w-6 text-brand-primary dark:text-brand-primary" />}
                   </div>
                   <p className="font-medium text-slate-900 dark:text-white">
                     {rows.length === 0
@@ -472,7 +472,7 @@ export default function ShoppingBuyListPage() {
                               {meta.label}
                             </Badge>
                             {alreadyOnList && (
-                              <Badge variant="outline" className="gap-1 border-emerald-200 bg-emerald-50 text-[10px] text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300">
+                              <Badge variant="outline" className="gap-1 border-brand-primary/20 bg-brand-primary/10 text-[10px] text-brand-primary dark:border-brand-primary/30 dark:bg-brand-primary/15 dark:text-brand-primary">
                                 <CheckCircle2 className="h-3 w-3" />
                                 Already on list
                               </Badge>
@@ -504,7 +504,7 @@ export default function ShoppingBuyListPage() {
                             size="sm"
                             variant="outline"
                             disabled
-                            className="flex-shrink-0 gap-1 border-emerald-200 text-emerald-700 dark:border-emerald-900 dark:text-emerald-300"
+                            className="flex-shrink-0 gap-1 border-brand-primary/20 text-brand-primary dark:border-brand-primary/30 dark:text-brand-primary"
                             title="Already on your active list"
                           >
                             <CheckCircle2 className="h-3.5 w-3.5" />

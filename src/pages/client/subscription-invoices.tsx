@@ -172,7 +172,7 @@ function SubscriptionInvoicesPage() {
                             Period: {formatDate(subscription.current_period_start)} - {formatDate(subscription.current_period_end)}
                           </p>
                           <p>
-                            Status: <span className="font-medium text-green-600">
+                            Status: <span className="font-medium text-brand-primary">
                               {subscription.status}
                             </span>
                           </p>

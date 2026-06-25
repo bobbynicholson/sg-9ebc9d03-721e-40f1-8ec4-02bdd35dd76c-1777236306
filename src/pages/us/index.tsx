@@ -96,7 +96,7 @@ export default function USHomePage() {
                 <div className="inline-flex items-center gap-3 mb-6 bg-white/20 text-white border border-white/30 backdrop-blur-sm px-6 py-3 rounded-full">
                   <span className="text-2xl">🇺🇸</span>
                   <span className="font-semibold">Launching in the USA</span>
-                  <Badge className="bg-green-500 text-white border-0 animate-pulse">
+                  <Badge className="bg-brand-primary text-white border-0 animate-pulse">
                     Beta Now Open
                   </Badge>
                 </div>
@@ -109,9 +109,9 @@ export default function USHomePage() {
                   Transform your US catering business with automated workflows, real-time tracking, and intelligent operations management
                 </p>
 
-                <div className="inline-flex items-center gap-2 mb-8 bg-green-500/20 border border-green-400 rounded-full px-6 py-3 backdrop-blur-sm">
-                  <Rocket className="w-5 h-5 text-green-300" />
-                  <span className="font-semibold text-green-100">
+                <div className="inline-flex items-center gap-2 mb-8 bg-brand-primary/20 border border-brand-primary/40 rounded-full px-6 py-3 backdrop-blur-sm">
+                  <Rocket className="w-5 h-5 text-brand-primary/80" />
+                  <span className="font-semibold text-white/90">
                     Official Launch: February 1, 2026 | {daysUntilLaunch} days to go
                   </span>
                 </div>
@@ -164,7 +164,7 @@ export default function USHomePage() {
                   <Card key={index} className="text-center border-2 hover:border-purple-600 transition-colors relative overflow-hidden">
                     <CardContent className="pt-6">
                       {stat.badge && (
-                        <Badge className="absolute top-2 right-2 bg-green-500 text-white text-xs animate-pulse">
+                        <Badge className="absolute top-2 right-2 bg-brand-primary text-white text-xs animate-pulse">
                           {stat.badge}
                         </Badge>
                       )}
@@ -269,8 +269,8 @@ export default function USHomePage() {
                         <p className="text-gray-700 font-medium">{item.problem}</p>
                       </div>
                       <div className="flex items-start gap-4 pl-12">
-                        <CheckCircle2 className="w-6 h-6 text-green-600 flex-shrink-0" />
-                        <p className="text-green-700 font-semibold">{item.solution}</p>
+                        <CheckCircle2 className="w-6 h-6 text-brand-primary flex-shrink-0" />
+                        <p className="text-brand-primary font-semibold">{item.solution}</p>
                       </div>
                     </CardContent>
                   </Card>
@@ -348,7 +348,7 @@ export default function USHomePage() {
                 <div className="bg-white/20 rounded-lg p-4 mb-4 backdrop-blur-sm">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-sm font-semibold">Beta Members:</span>
-                    <Badge className="bg-green-500 text-white border-0">
+                    <Badge className="bg-brand-primary text-white border-0">
                       {cateringCount} Caterers
                     </Badge>
                   </div>

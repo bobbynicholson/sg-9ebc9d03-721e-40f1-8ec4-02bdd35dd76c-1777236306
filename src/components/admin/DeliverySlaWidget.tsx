@@ -127,7 +127,7 @@ export function DeliverySlaWidget({ companyId }: { companyId: string | null }) {
 
   const onTimePct = stats.total > 0 ? Math.round((stats.onTime / stats.total) * 100) : 0;
   const tone = onTimePct >= 90
-    ? "bg-emerald-50 border-emerald-200"
+    ? "bg-brand-primary/10 border-brand-primary/20"
     : onTimePct >= 75
       ? "bg-blue-50 border-blue-200"
       : "bg-amber-50 border-amber-200";
@@ -150,7 +150,7 @@ export function DeliverySlaWidget({ companyId }: { companyId: string | null }) {
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div className="rounded-lg bg-white border border-slate-200 p-3">
               <p className="text-xs text-slate-500">On time</p>
-              <p className="text-2xl font-bold tabular-nums text-emerald-700">{onTimePct}%</p>
+              <p className="text-2xl font-bold tabular-nums text-brand-primary">{onTimePct}%</p>
               <p className="text-[11px] text-slate-500 tabular-nums">{stats.onTime} of {stats.total}</p>
             </div>
             <div className="rounded-lg bg-white border border-slate-200 p-3">

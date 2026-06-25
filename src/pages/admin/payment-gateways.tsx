@@ -65,7 +65,7 @@ function ToneBadge({ label, tone }: { label: string; tone: "muted" | "info" | "s
   const map: Record<string, string> = {
     muted: "bg-slate-200 text-slate-700",
     info: "bg-blue-100 text-blue-800 border border-blue-200",
-    success: "bg-emerald-100 text-emerald-800 border border-emerald-200",
+    success: "bg-brand-primary/15 text-brand-primary border border-brand-primary/20",
     live: "bg-rose-100 text-rose-800 border border-rose-200",
   };
   return <span className={`text-xs font-semibold px-2 py-1 rounded-full ${map[tone]}`}>{label}</span>;
@@ -347,7 +347,7 @@ function PaymentGatewaysPage() {
               className={
                 activeConfig
                   ? activeConfig.is_test
-                    ? "border-emerald-200 bg-emerald-50"
+                    ? "border-brand-primary/20 bg-brand-primary/10"
                     : "border-rose-200 bg-rose-50"
                   : "border-slate-200 bg-slate-50"
               }
@@ -378,9 +378,9 @@ function PaymentGatewaysPage() {
           )}
 
           {savedToast && (
-            <Alert className="border-emerald-200 bg-emerald-50">
-              <Check className="h-4 w-4 text-emerald-600" />
-              <AlertDescription className="text-emerald-800">{savedToast}</AlertDescription>
+            <Alert className="border-brand-primary/20 bg-brand-primary/10">
+              <Check className="h-4 w-4 text-brand-primary" />
+              <AlertDescription className="text-brand-primary">{savedToast}</AlertDescription>
             </Alert>
           )}
 
@@ -441,7 +441,7 @@ function PaymentGatewaysPage() {
                       </Button>
                     )}
                     {config && testResults[config.id] && (
-                      <p className={`text-xs ${testResults[config.id].ok ? "text-emerald-700" : "text-rose-700"}`}>
+                      <p className={`text-xs ${testResults[config.id].ok ? "text-brand-primary" : "text-rose-700"}`}>
                         {testResults[config.id].ok
                           ? "Credentials verified."
                           : `Test failed: ${testResults[config.id].message || "see logs"}`}
@@ -455,7 +455,7 @@ function PaymentGatewaysPage() {
                     {config && !config.is_active && (
                       <Button
                         variant="default"
-                        className="w-full bg-emerald-600 hover:bg-emerald-700"
+                        className="w-full bg-brand-primary hover:bg-brand-primary/90"
                         onClick={() => handleActivate(config.id)}
                       >
                         <Power className="h-4 w-4 mr-2" />

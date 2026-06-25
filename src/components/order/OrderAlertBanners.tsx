@@ -202,11 +202,11 @@ export function OrderAlertBanners({ order }: Props) {
     banners.push({
       key: "cold-chain",
       node: (
-        <div className="flex items-start gap-2 p-2.5 rounded-md border border-cyan-300 bg-cyan-50">
-          <Snowflake className="w-4 h-4 text-cyan-700 flex-shrink-0 mt-0.5" />
+        <div className="flex items-start gap-2 p-2.5 rounded-md border border-brand-primary/30 bg-brand-primary/10">
+          <Snowflake className="w-4 h-4 text-brand-primary flex-shrink-0 mt-0.5" />
           <div className="min-w-0 flex-1 text-xs">
-            <p className="font-semibold text-cyan-900">Cold chain required</p>
-            <p className="text-cyan-800">Refrigerated transport mandatory. Driver must use a cold-chain capable vehicle. Stage time at room temperature is the failure mode.</p>
+            <p className="font-semibold text-brand-primary">Cold chain required</p>
+            <p className="text-brand-primary">Refrigerated transport mandatory. Driver must use a cold-chain capable vehicle. Stage time at room temperature is the failure mode.</p>
           </div>
         </div>
       ),

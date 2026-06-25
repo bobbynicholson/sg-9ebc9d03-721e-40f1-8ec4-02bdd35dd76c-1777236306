@@ -783,7 +783,7 @@ function DriverSettlementPage() {
                   onClick={bulkMarkAllPaid}
                   disabled={bulkPayBusy || rows.length === 0}
                   title="Draft + mark all unsettled drivers as paid via EFT. Reversible per row."
-                  className="border-emerald-300 text-emerald-800 hover:bg-emerald-50"
+                  className="border-brand-primary/30 text-brand-primary hover:bg-brand-primary/10"
                 >
                   {bulkPayBusy ? (
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -845,7 +845,7 @@ function DriverSettlementPage() {
                     neutral
                       ? "border-slate-200 text-slate-600 bg-slate-50"
                       : positive
-                        ? "border-emerald-300 text-emerald-700 bg-emerald-50"
+                        ? "border-brand-primary/30 text-brand-primary bg-brand-primary/10"
                         : "border-rose-300 text-rose-700 bg-rose-50"
                   }`}
                 >
@@ -877,7 +877,7 @@ function DriverSettlementPage() {
                 {owed === 0 && totals.active > 0 && (
                   <Badge
                     variant="outline"
-                    className="px-3 py-1.5 text-sm border-emerald-300 text-emerald-700 bg-emerald-50"
+                    className="px-3 py-1.5 text-sm border-brand-primary/30 text-brand-primary bg-brand-primary/10"
                   >
                     <BadgeCheck className="w-3 h-3 mr-1" />
                     All settled for this period
@@ -920,7 +920,7 @@ function DriverSettlementPage() {
             const utilTone =
               pct >= 70 ? "text-rose-600"
               : pct >= 50 ? "text-amber-600"
-              : pct >= 25 ? "text-emerald-600"
+              : pct >= 25 ? "text-brand-primary"
               : "text-slate-500";
             const settledCount = rows.filter((r) => {
               const t = r.summary?.totals;
@@ -952,12 +952,12 @@ function DriverSettlementPage() {
                   label="Settled this period"
                   value={`${settledCount} / ${totals.active}`}
                   icon={BadgeCheck}
-                  accent={settledCount === totals.active && totals.active > 0 ? "text-emerald-700" : "text-slate-600"}
+                  accent={settledCount === totals.active && totals.active > 0 ? "text-brand-primary" : "text-slate-600"}
                 />
                 <TotalCard
                   label="Grand total"
                   value={formatR(totals.grand)}
-                  accent="text-emerald-700"
+                  accent="text-brand-primary"
                   emphasize
                 />
               </div>
@@ -1139,7 +1139,7 @@ function DriverSettlementPage() {
                       <span>Callout pay</span>
                       <span className="tabular-nums">{formatR(payoutDialog.totals.callout_pay)}</span>
                     </div>
-                    <div className="flex justify-between text-emerald-700 font-semibold pt-1 border-t border-slate-200 mt-2">
+                    <div className="flex justify-between text-brand-primary font-semibold pt-1 border-t border-slate-200 mt-2">
                       <span>Gross total</span>
                       <span className="tabular-nums">{formatR(payoutDialog.totals.grand_total)}</span>
                     </div>
@@ -1192,7 +1192,7 @@ function DriverSettlementPage() {
                   type="button"
                   onClick={confirmMarkPaid}
                   disabled={!payoutDialog || payoutDialog.busy}
-                  className="px-3 py-2 text-sm bg-emerald-600 hover:bg-emerald-700 text-white rounded-md flex items-center gap-1.5 disabled:opacity-60"
+                  className="px-3 py-2 text-sm bg-brand-primary hover:bg-brand-primary/90 text-white rounded-md flex items-center gap-1.5 disabled:opacity-60"
                 >
                   {payoutDialog?.busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <CircleCheck className="w-4 h-4" />}
                   Mark as paid
@@ -1457,7 +1457,7 @@ function FragmentRows({
             <td className="px-4 py-3 text-right tabular-nums">{formatR(t.distance_pay)}</td>
             <td className="px-4 py-3 text-right tabular-nums">{detailSummary?.deliveries.length ?? "-"}</td>
             <td className="px-4 py-3 text-right tabular-nums">{formatR(t.callout_pay)}</td>
-            <td className="px-4 py-3 text-right tabular-nums font-semibold text-emerald-700">{formatR(t.grand_total)}</td>
+            <td className="px-4 py-3 text-right tabular-nums font-semibold text-brand-primary">{formatR(t.grand_total)}</td>
           </>
         )}
         {/* DRV-B settlement status column. Paid = green chip with
@@ -1471,7 +1471,7 @@ function FragmentRows({
             <button
               type="button"
               onClick={() => onReverse(payout!.id)}
-              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100"
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-brand-primary/10 text-brand-primary border border-brand-primary/20 hover:bg-brand-primary/15"
               title={`Paid via ${payout!.paid_method || "-"}${payout!.paid_reference ? ` (${payout!.paid_reference})` : ""}. Click to reverse.`}
             >
               <BadgeCheck className="w-3 h-3" /> Paid
@@ -1480,7 +1480,7 @@ function FragmentRows({
             <button
               type="button"
               onClick={onMarkPaid}
-              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-50 text-slate-700 border border-slate-200 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200"
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-50 text-slate-700 border border-slate-200 hover:bg-brand-primary/10 hover:text-brand-primary hover:border-brand-primary/20"
               title="Record this payout"
             >
               <CircleDashed className="w-3 h-3" /> Mark paid
@@ -1846,7 +1846,7 @@ function DriverSettlementCard({
             <span className="text-[11px] text-rose-500 italic">Failed</span>
           ) : (
             <>
-              <p className="text-lg font-bold text-emerald-700 tabular-nums">{formatR(t.grand_total)}</p>
+              <p className="text-lg font-bold text-brand-primary tabular-nums">{formatR(t.grand_total)}</p>
               <p className="text-[11px] text-slate-500 tabular-nums">{t.hours_total.toFixed(2)}h</p>
             </>
           )}
@@ -1875,7 +1875,7 @@ function DriverSettlementCard({
           <button
             type="button"
             onClick={() => onReverse(payout!.id)}
-            className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200"
+            className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-medium bg-brand-primary/10 text-brand-primary border border-brand-primary/20"
           >
             <BadgeCheck className="w-3 h-3" /> Paid - tap to reverse
           </button>
@@ -1883,7 +1883,7 @@ function DriverSettlementCard({
           <button
             type="button"
             onClick={onMarkPaid}
-            className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-medium bg-emerald-600 text-white hover:bg-emerald-700"
+            className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-medium bg-brand-primary text-white hover:bg-brand-primary/90"
           >
             <CircleDashed className="w-3 h-3" /> Mark as paid
           </button>
@@ -1903,7 +1903,7 @@ function TotalCard({
   emphasize?: boolean;
 }) {
   return (
-    <Card className={`border-0 shadow ${emphasize ? "ring-2 ring-emerald-200" : ""}`}>
+    <Card className={`border-0 shadow ${emphasize ? "ring-2 ring-brand-primary/20" : ""}`}>
       <CardContent className="p-4">
         <p className="text-[10px] uppercase tracking-wide font-semibold text-slate-500">{label}</p>
         <div className="flex items-center gap-2 mt-1">

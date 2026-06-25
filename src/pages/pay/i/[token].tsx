@@ -507,12 +507,12 @@ export default function InvoicePaymentPage() {
                 )}
               </div>
               {isPaid ? (
-                <Badge className="bg-emerald-600 text-white border-0 gap-1 px-3 py-1.5 text-sm">
+                <Badge className="bg-brand-primary text-white border-0 gap-1 px-3 py-1.5 text-sm">
                   <CheckCircle2 className="w-4 h-4" />
                   Paid
                 </Badge>
               ) : isPartiallyPaid ? (
-                <Badge className="bg-emerald-600 text-white border-0 gap-1 px-3 py-1.5 text-sm">
+                <Badge className="bg-brand-primary text-white border-0 gap-1 px-3 py-1.5 text-sm">
                   <CheckCircle2 className="w-4 h-4" />
                   Deposit paid
                 </Badge>
@@ -538,7 +538,7 @@ export default function InvoicePaymentPage() {
                 </div>
                 <div>
                   <p className="text-[10px] uppercase tracking-[0.15em] text-brand-primary font-bold">Paid to date</p>
-                  <p className="text-xl font-bold text-emerald-700 tabular-nums">{fmtMoney.format(invoice.amount_paid)}</p>
+                  <p className="text-xl font-bold text-brand-primary tabular-nums">{fmtMoney.format(invoice.amount_paid)}</p>
                   {/* When the deposit / each payment actually landed, so
                       the client sees "deposited on X" + what's left, not
                       just a running total. */}
@@ -585,7 +585,7 @@ export default function InvoicePaymentPage() {
                     {fmtMoney.format(invoice.balance_due)}
                   </p>
                   {isPartiallyPaid && (
-                    <p className="text-sm font-semibold text-emerald-700 mt-1">
+                    <p className="text-sm font-semibold text-brand-primary mt-1">
                       Deposit received - thank you. The remaining {remainingPct}% is still to pay.
                     </p>
                   )}
@@ -671,9 +671,9 @@ export default function InvoicePaymentPage() {
           {/* PAYMENT SECTION - screen only */}
           <div className="no-print">
             {isPaid ? (
-              <Alert className="border-emerald-200 bg-emerald-50">
-                <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                <AlertDescription className="text-emerald-800">
+              <Alert className="border-brand-primary/20 bg-brand-primary/10">
+                <CheckCircle2 className="h-4 w-4 text-brand-primary" />
+                <AlertDescription className="text-brand-primary">
                   <strong>Payment received.</strong> Thanks {invoice.invoice_data?.clientName || "for your business"} - this invoice is settled in full.
                 </AlertDescription>
               </Alert>
@@ -768,22 +768,22 @@ export default function InvoicePaymentPage() {
                       with this catering company. Default-on for the
                       cashflow win; clients can untick. */}
                   {creditAvailable > 0 && !settledByCredit && (
-                    <div className="rounded-xl border-2 border-emerald-200 bg-emerald-50 p-4">
+                    <div className="rounded-xl border-2 border-brand-primary/20 bg-brand-primary/10 p-4">
                       <label className="flex items-start gap-3 cursor-pointer">
                         <input
                           type="checkbox"
                           checked={applyCredit}
                           onChange={(e) => setApplyCredit(e.target.checked)}
-                          className="mt-1 h-4 w-4 rounded border-emerald-400 text-emerald-600 focus:ring-emerald-500"
+                          className="mt-1 h-4 w-4 rounded border-brand-primary/40 text-brand-primary focus:ring-brand-primary"
                         />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
-                            <Wallet className="w-4 h-4 text-emerald-600" />
-                            <span className="font-semibold text-emerald-900">
+                            <Wallet className="w-4 h-4 text-brand-primary" />
+                            <span className="font-semibold text-brand-primary">
                               Apply your store credit
                             </span>
                           </div>
-                          <p className="text-sm text-emerald-800 mt-1">
+                          <p className="text-sm text-brand-primary mt-1">
                             You have <strong>{fmtMoney.format(creditAvailable)}</strong> in credit on file with {invoice.companies.company_name || "the caterer"}.
                             {creditMaxApplicable >= invoice.balance_due
                               ? " That covers this whole invoice - nothing left to charge."
@@ -795,10 +795,10 @@ export default function InvoicePaymentPage() {
                   )}
 
                   {settledByCredit ? (
-                    <div className="rounded-xl border-2 border-emerald-300 bg-emerald-50 p-5 text-center">
-                      <CheckCircle2 className="w-10 h-10 text-emerald-600 mx-auto mb-2" />
-                      <p className="font-bold text-emerald-900 text-lg">Invoice settled</p>
-                      <p className="text-sm text-emerald-800 mt-1">
+                    <div className="rounded-xl border-2 border-brand-primary/30 bg-brand-primary/10 p-5 text-center">
+                      <CheckCircle2 className="w-10 h-10 text-brand-primary mx-auto mb-2" />
+                      <p className="font-bold text-brand-primary text-lg">Invoice settled</p>
+                      <p className="text-sm text-brand-primary mt-1">
                         We applied {fmtMoney.format(creditMaxApplicable)} of your store credit - nothing further to pay.
                       </p>
                     </div>

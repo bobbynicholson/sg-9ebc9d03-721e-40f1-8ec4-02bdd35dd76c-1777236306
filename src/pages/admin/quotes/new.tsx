@@ -2149,7 +2149,7 @@ function NewQuotePage() {
                     <Badge className="bg-blue-100 text-blue-700 border-blue-200">{status}</Badge>
                   )}
                   {savedAt && (
-                    <span className="inline-flex items-center gap-1 text-emerald-600 text-xs">
+                    <span className="inline-flex items-center gap-1 text-brand-primary text-xs">
                       <CheckCircle2 className="w-3.5 h-3.5" />
                       Saved {savedAt.toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" })}
                     </span>
@@ -2170,7 +2170,7 @@ function NewQuotePage() {
                     order without re-acceptance - the client already
                     accepted and owns the order page now. */}
                 {appliedChangeRequest && (
-                  <div className="mt-2 p-2.5 rounded-md border border-emerald-300 bg-emerald-50 text-xs text-emerald-900 max-w-xl">
+                  <div className="mt-2 p-2.5 rounded-md border border-brand-primary/30 bg-brand-primary/10 text-xs text-brand-primary max-w-xl">
                     <strong className="font-semibold">Loaded the client's requested changes.</strong>{" "}
                     The date, guests, venue, and items below now reflect what the client asked for. Review the pricing (and re-pick the venue if the address changed, so delivery/collection recompute), then Save &amp; Send to return the updated quote. This marks the change request as addressed.
                   </div>
@@ -2288,7 +2288,7 @@ function NewQuotePage() {
               <Card className="border-0 shadow-lg">
                 <CardHeader>
                   <CardTitle className="text-base flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-emerald-600" />
+                    <Sparkles className="w-4 h-4 text-brand-primary" />
                     Client + event
                   </CardTitle>
                   <CardDescription>
@@ -2620,7 +2620,7 @@ function NewQuotePage() {
                           >
                             {(q as any).quote_name || (q as any).quote_number || `Quote ${i + 1}`}
                             {(q as any).total != null && (
-                              <span className="ml-2 text-emerald-600">{fmtR(safeNum((q as any).total))}</span>
+                              <span className="ml-2 text-brand-primary">{fmtR(safeNum((q as any).total))}</span>
                             )}
                           </Button>
                         ))}
@@ -2766,7 +2766,7 @@ function NewQuotePage() {
                               {line.discountPct > 0 ? (
                                 <>
                                   <span className="line-through text-slate-400 mr-1.5">{fmtR(gross)}</span>
-                                  <span className="text-emerald-600">{fmtR(net)}</span>
+                                  <span className="text-brand-primary">{fmtR(net)}</span>
                                 </>
                               ) : (
                                 fmtR(net)
@@ -2803,7 +2803,7 @@ function NewQuotePage() {
                         <Button
                           size="sm"
                           variant="outline"
-                          className="border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+                          className="border-brand-primary/30 text-brand-primary hover:bg-brand-primary/10"
                           onClick={() => {
                             setEquipment((prev) =>
                               prev.map((e) => (e.name ? { ...e, quantity: guestCount } : e)),
@@ -2922,7 +2922,7 @@ function NewQuotePage() {
                                       <span className="font-semibold text-amber-700">{av.reserved}</span> reserved on this date
                                     </span>
                                     <span className="text-slate-500">·</span>
-                                    <span className="text-emerald-700">
+                                    <span className="text-brand-primary">
                                       <span className="font-semibold">{av.available}</span> free
                                     </span>
                                   </div>
@@ -2938,14 +2938,14 @@ function NewQuotePage() {
                                   {e.quantity > 0 && (
                                     <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-slate-100">
                                       {split.fromHire === 0 && split.fromStock > 0 ? (
-                                        <span className="inline-flex items-center gap-1 text-[11px] text-emerald-700 font-medium">
+                                        <span className="inline-flex items-center gap-1 text-[11px] text-brand-primary font-medium">
                                           <span aria-hidden>✓</span>
                                           You have enough: {split.fromStock} from stock ({av.available - split.fromStock} still free after this run)
                                         </span>
                                       ) : (
                                         <>
                                           {split.fromStock > 0 && (
-                                            <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200">
+                                            <Badge variant="outline" className="text-[10px] bg-brand-primary/10 text-brand-primary border-brand-primary/20">
                                               {split.fromStock} from stock
                                             </Badge>
                                           )}
@@ -3217,7 +3217,7 @@ function NewQuotePage() {
                         </ul>
                         <div className="flex justify-between font-semibold border-t pt-2">
                           <span>Total (incl. VAT)</span>
-                          <span className="text-emerald-600">{fmtR(computed.total)}</span>
+                          <span className="text-brand-primary">{fmtR(computed.total)}</span>
                         </div>
                         {clientNotes && (
                           <p className="mt-3 text-xs text-slate-600 italic whitespace-pre-wrap border-t pt-2">{clientNotes}</p>
@@ -3326,7 +3326,7 @@ function Row({ label, value, muted, tone }: { label: string; value: string; mute
   const valueClass =
     tone === "warm" ? "text-amber-600 font-medium" :
     tone === "discount" ? "text-rose-600 font-medium" :
-    tone === "bold" ? "text-emerald-600 font-bold text-lg" :
+    tone === "bold" ? "text-brand-primary font-bold text-lg" :
     "text-slate-900 font-medium";
   return (
     <div className="flex items-baseline justify-between">

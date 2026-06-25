@@ -250,9 +250,9 @@ export function AvailableJobsCard({ onClaimed }: Props) {
     <Card className="mb-6 border-0 shadow-md">
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-base">
-          <Inbox className="w-4 h-4 text-emerald-600" />
+          <Inbox className="w-4 h-4 text-brand-primary" />
           Available jobs
-          <Badge variant="outline" className="ml-2 bg-emerald-50 text-emerald-800">
+          <Badge variant="outline" className="ml-2 bg-brand-primary/10 text-brand-primary">
             {rows.length} open
           </Badge>
         </CardTitle>
@@ -348,7 +348,7 @@ export function AvailableJobsCard({ onClaimed }: Props) {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
-              <Hand className="w-5 h-5 text-emerald-600" />
+              <Hand className="w-5 h-5 text-brand-primary" />
               Claim this delivery?
             </AlertDialogTitle>
             <AlertDialogDescription asChild>

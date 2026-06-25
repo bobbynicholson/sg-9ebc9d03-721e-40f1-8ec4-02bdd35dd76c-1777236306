@@ -622,7 +622,7 @@ function AdminDashboardPage() {
             <div className="mb-6 rounded-lg border border-rose-200 bg-white p-5 shadow-sm">
               <h2 className="text-base font-bold text-rose-900 mb-1">Couldn't load dashboard metrics</h2>
               <p className="text-sm text-slate-600 mb-3">{error}</p>
-              <Button onClick={loadMetrics} size="sm" className="bg-emerald-600 hover:bg-emerald-700">
+              <Button onClick={loadMetrics} size="sm" className="bg-brand-primary hover:bg-brand-primary/90">
                 <TrendingUp className="w-4 h-4 mr-2" /> Retry
               </Button>
             </div>
@@ -639,10 +639,10 @@ function AdminDashboardPage() {
               Detection: no orders / quotes / inventory / team
               members in the current range AND no rows. */}
           {(isFreshTenant && companyId) ? (
-            <Card className="border-0 shadow-lg mb-6 bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50">
+            <Card className="border-0 shadow-lg mb-6 bg-gradient-to-br from-brand-primary/10 via-brand-primary/10 to-brand-secondary/10">
               <CardHeader>
                 <CardTitle className="text-xl sm:text-2xl flex items-center gap-2">
-                  <LayoutDashboard className="w-6 h-6 text-emerald-600" />
+                  <LayoutDashboard className="w-6 h-6 text-brand-primary" />
                   Welcome to CateringMS
                 </CardTitle>
               </CardHeader>
@@ -693,7 +693,7 @@ function AdminDashboardPage() {
               hint={`${stats.bookedOrders} confirmed booking${stats.bookedOrders === 1 ? "" : "s"}`}
               tooltip={`Total value of orders the client has confirmed for ${range.label.toLowerCase()}, either by paying a deposit or by being manually marked as confirmed by your team. Also includes orders with any payment recorded.\n\nPending, draft, and cancelled orders are excluded.`}
               icon={Banknote}
-              iconColor="text-green-600"
+              iconColor="text-brand-primary"
               badge={{ text: `${stats.bookedOrders} booked`, tone: "green" }}
               loading={loading}
               href={withSlug("/admin/orders?status=confirmed")}
@@ -704,7 +704,7 @@ function AdminDashboardPage() {
               hint={`Money received in ${range.label}`}
               tooltip={"Money actually banked from clients in this period. Includes deposits, partial payments and fully settled invoices. Cancelled-with-deposit cash stays counted here until a refund payment is recorded (Wave 70.52a).\n\nPulled from recorded payments on each order."}
               icon={CheckCircle}
-              iconColor="text-emerald-600"
+              iconColor="text-brand-primary"
               badge={{ text: `${stats.collectedOrders} paid`, tone: "green" }}
               loading={loading}
               href={withSlug("/admin/financial-dashboard")}
@@ -760,7 +760,7 @@ function AdminDashboardPage() {
                   hint={`${stats.quoteConversionSample} closed in range${stats.quoteConversionSample < 5 ? " (small sample)" : ""}`}
                   tooltip={"Accepted ÷ closed quotes (accepted + rejected + expired) whose decision landed in this date range. Drafts are excluded - they were never sent so the outcome is undecided.\n\nSample size matters. A 100% rate over 1 closed quote means much less than 60% over 30."}
                   icon={CheckCircle}
-                  iconColor="text-emerald-600"
+                  iconColor="text-brand-primary"
                   badge={stats.quoteConversionSample < 5
                     ? { text: "Low n", tone: "amber" }
                     : { text: "Closed", tone: "green" }}
@@ -799,7 +799,7 @@ function AdminDashboardPage() {
               hint="Mean per booked order"
               tooltip={"Mean value per booked order in this period (cancelled orders excluded from both numerator and denominator). A higher number means bigger events or a richer mix."}
               icon={TrendingUp}
-              iconColor="text-emerald-600"
+              iconColor="text-brand-primary"
               loading={loading}
               href={withSlug("/admin/financial-dashboard")}
             />
@@ -809,7 +809,7 @@ function AdminDashboardPage() {
               hint={`${stats.completedOrdersInRange} of ${stats.totalOrdersInRange} done`}
               tooltip={"Share of orders in this period that finished as completed. Note: events in the future count against the denominator until they happen, so a normal Monday may show a low number even when nothing is wrong. Anything below 95% on already-happened events is worth a closer look."}
               icon={CheckCircle}
-              iconColor="text-green-600"
+              iconColor="text-brand-primary"
               loading={loading}
               href={withSlug("/admin/orders")}
             />
@@ -829,7 +829,7 @@ function AdminDashboardPage() {
               hint="Active users"
               tooltip={"Everyone currently on your team. Excludes soft-deleted profiles (deleted_at) and explicitly deactivated accounts (is_active=false), so an offboarded driver no longer inflates the headline. Not affected by the date filter."}
               icon={Users}
-              iconColor="text-cyan-600"
+              iconColor="text-brand-primary"
               loading={loading}
               href={withSlug("/admin/users")}
             />
@@ -1150,7 +1150,7 @@ function AdminDashboardPage() {
                        active count. */}
                   {stats.upcomingEvents > 0 && (
                     <PriorityRow
-                      icon={Calendar} accent="border-green-500" iconColor="text-green-600"
+                      icon={Calendar} accent="border-brand-primary" iconColor="text-brand-primary"
                       title={`${stats.upcomingEvents} Upcoming Event${stats.upcomingEvents !== 1 ? "s" : ""}`}
                       sub={stats.nextEventDate
                         ? `Next: ${new Date(`${stats.nextEventDate}T12:00:00`).toLocaleDateString("en-ZA", { weekday: "short", day: "numeric", month: "short" })}`
@@ -1210,7 +1210,7 @@ function AdminDashboardPage() {
                 </Link>
                 <Link
                   href={withSlug("/admin/users")}
-                  className="flex items-center gap-3 p-4 bg-gradient-to-br from-blue-50 to-cyan-50 rounded-lg hover:shadow-md transition-all"
+                  className="flex items-center gap-3 p-4 bg-gradient-to-br from-blue-50 to-brand-secondary/10 rounded-lg hover:shadow-md transition-all"
                 >
                   <Users className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600 flex-shrink-0" />
                   <div>
@@ -1221,9 +1221,9 @@ function AdminDashboardPage() {
                 {canSeeFinance ? (
                   <Link
                     href={withSlug("/admin/financial-dashboard")}
-                    className="flex items-center gap-3 p-4 bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg hover:shadow-md transition-all"
+                    className="flex items-center gap-3 p-4 bg-gradient-to-br from-brand-primary/10 to-brand-secondary/10 rounded-lg hover:shadow-md transition-all"
                   >
-                    <Banknote className="w-5 h-5 sm:w-6 sm:h-6 text-green-600 flex-shrink-0" />
+                    <Banknote className="w-5 h-5 sm:w-6 sm:h-6 text-brand-primary flex-shrink-0" />
                     <div>
                       <div className="font-semibold text-sm sm:text-base text-slate-900">Financial Reports</div>
                       <div className="text-xs text-slate-600">Deeper analytics</div>
@@ -1232,10 +1232,10 @@ function AdminDashboardPage() {
                 ) : null}
                 <Link
                   href={withSlug("/admin/inventory")}
-                  className="flex items-center gap-3 p-4 bg-gradient-to-br from-emerald-50 to-teal-50 rounded-lg hover:shadow-md transition-all"
+                  className="flex items-center gap-3 p-4 bg-gradient-to-br from-brand-primary/10 to-brand-secondary/10 rounded-lg hover:shadow-md transition-all"
                 >
                   <div className="relative flex-shrink-0">
-                    <Package className="w-5 h-5 sm:w-6 sm:h-6 text-emerald-600" />
+                    <Package className="w-5 h-5 sm:w-6 sm:h-6 text-brand-primary" />
                     {stats.lowStockItems > 0 && (
                       <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-red-500 rounded-full text-[9px] text-white flex items-center justify-center font-bold leading-none">
                         {stats.lowStockItems > 9 ? "9+" : stats.lowStockItems}

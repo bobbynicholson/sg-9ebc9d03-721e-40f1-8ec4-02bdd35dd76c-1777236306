@@ -94,15 +94,15 @@ export function ActiveStaffNowWidget({ companyId }: { companyId: string | null }
   if (!loading && rows.length === 0) return null;
 
   return (
-    <Card className="mb-6 border-emerald-200 bg-emerald-50/30">
+    <Card className="mb-6 border-brand-primary/20 bg-brand-primary/5">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between gap-2">
           <div>
             <CardTitle className="flex items-center gap-2 text-base">
-              <Clock className="w-4 h-4 text-emerald-600" />
+              <Clock className="w-4 h-4 text-brand-primary" />
               On the clock now
               {rows.length > 0 && (
-                <Badge className="ml-2 bg-emerald-100 text-emerald-800 border-emerald-300 text-[10px]">
+                <Badge className="ml-2 bg-brand-primary/15 text-brand-primary border-brand-primary/30 text-[10px]">
                   {rows.length}
                 </Badge>
               )}
@@ -112,7 +112,7 @@ export function ActiveStaffNowWidget({ companyId }: { companyId: string | null }
             </CardDescription>
           </div>
           <Link href={withSlug("/admin/staff-hours")}>
-            <Button variant="ghost" size="sm" className="text-emerald-700">
+            <Button variant="ghost" size="sm" className="text-brand-primary">
               Staff hours <ArrowRight className="w-3.5 h-3.5 ml-1" />
             </Button>
           </Link>
@@ -122,7 +122,7 @@ export function ActiveStaffNowWidget({ companyId }: { companyId: string | null }
         {loading ? (
           <p className="text-xs text-slate-500 py-4">Loading...</p>
         ) : (
-          <ul className="divide-y divide-emerald-100">
+          <ul className="divide-y divide-brand-primary/15">
             {rows.map((r) => {
               const elapsedMs = Date.now() - new Date(r.clock_in).getTime();
               const overEight = elapsedMs > 8 * 3_600_000;
@@ -133,12 +133,12 @@ export function ActiveStaffNowWidget({ companyId }: { companyId: string | null }
                 <li key={r.id}>
                   <Link
                     href={withSlug("/admin/staff-hours")}
-                    className="py-2 flex items-center gap-3 hover:bg-emerald-50/60 rounded transition"
+                    className="py-2 flex items-center gap-3 hover:bg-brand-primary/10 rounded transition"
                   >
                     <Badge className={`shrink-0 text-[10px] uppercase tracking-wide font-semibold ${
                       overEight
                         ? "bg-amber-100 text-amber-800 border-amber-200"
-                        : "bg-emerald-100 text-emerald-800 border-emerald-200"
+                        : "bg-brand-primary/15 text-brand-primary border-brand-primary/20"
                     }`}>
                       {fmtElapsed(r.clock_in)}
                     </Badge>

@@ -213,7 +213,7 @@ function SupplierDetail() {
               <Card className="border-0 shadow-sm mb-5">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-base flex items-center gap-2">
-                    <TrendingUp className="w-4 h-4 text-emerald-600" />
+                    <TrendingUp className="w-4 h-4 text-brand-primary" />
                     Purchase summary
                   </CardTitle>
                 </CardHeader>
@@ -452,7 +452,7 @@ function SupplierDetail() {
                                 {r.notes && ` · ${r.notes.slice(0, 60)}${r.notes.length > 60 ? "..." : ""}`}
                               </p>
                             </div>
-                            <span className="text-sm font-semibold text-emerald-700 flex-shrink-0">{fmtR(r.total)}</span>
+                            <span className="text-sm font-semibold text-brand-primary flex-shrink-0">{fmtR(r.total)}</span>
                           </div>
                         </Link>
                       ))}
@@ -524,7 +524,7 @@ function SupplierDetail() {
 function SummaryTile({
   label, value, icon: Icon, accent = "slate",
 }: { label: string; value: string; icon: typeof TrendingUp; accent?: "slate" | "emerald" }) {
-  const accentClass = accent === "emerald" ? "text-emerald-600" : "text-slate-700";
+  const accentClass = accent === "emerald" ? "text-brand-primary" : "text-slate-700";
   return (
     <Card className="border-0 shadow-sm">
       <CardContent className="py-4">

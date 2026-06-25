@@ -89,7 +89,7 @@ export const STATUS_TONE: Record<OutsourceAssignmentStatus, { label: string; cls
   declined: { label: "Declined", cls: "bg-rose-50 text-rose-800 border-rose-200" },
   en_route: { label: "On the way", cls: "bg-blue-50 text-blue-800 border-blue-200" },
   on_site: { label: "On site", cls: "bg-blue-50 text-blue-800 border-blue-200" },
-  completed: { label: "Done", cls: "bg-green-50 text-green-800 border-green-200" },
+  completed: { label: "Done", cls: "bg-brand-primary/10 text-brand-primary border-brand-primary/20" },
   cancelled: { label: "Cancelled", cls: "bg-slate-50 text-slate-600 border-slate-200" },
 };
 

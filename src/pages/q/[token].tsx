@@ -586,7 +586,7 @@ export default function PublicQuotePage() {
                 )}
               </div>
               {accepted ? (
-                <Badge className="bg-emerald-600 text-white border-0 gap-1 px-3 py-1.5 text-sm">
+                <Badge className="bg-brand-primary text-white border-0 gap-1 px-3 py-1.5 text-sm">
                   <CheckCircle2 className="w-4 h-4" />
                   Accepted
                 </Badge>
@@ -830,7 +830,7 @@ export default function PublicQuotePage() {
                       </div>
                       <div className="flex justify-between text-sm">
                         <span className="text-stone-600">Discount</span>
-                        <span className="text-emerald-700 tabular-nums">
+                        <span className="text-brand-primary tabular-nums">
                           -{fmtMoney(discount)}
                         </span>
                       </div>
@@ -901,18 +901,18 @@ export default function PublicQuotePage() {
           {/* ACCEPT - screen only, hidden in print */}
           <div className="no-print">
             {accepted ? (
-              <Card className="border-0 bg-gradient-to-br from-emerald-50 to-brand-primary/10 shadow-sm">
+              <Card className="border-0 bg-gradient-to-br from-brand-primary/10 to-brand-primary/10 shadow-sm">
                 <CardContent className="py-8 px-5 text-center space-y-5">
-                  <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-emerald-600 shadow-lg">
+                  <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-brand-primary shadow-lg">
                     <CheckCircle2 className="w-7 h-7 text-white" />
                   </div>
                   <div>
-                    <h2 className="text-xl sm:text-2xl font-serif font-bold text-emerald-900">
+                    <h2 className="text-xl sm:text-2xl font-serif font-bold text-brand-primary">
                       {justAccepted
                         ? `Thanks${acceptName ? `, ${acceptName.split(" ")[0]}` : ""} - you're booked in`
                         : "Quote accepted"}
                     </h2>
-                    <p className="text-sm text-emerald-800 mt-1.5 max-w-md mx-auto">
+                    <p className="text-sm text-brand-primary mt-1.5 max-w-md mx-auto">
                       {companyName} has been notified. Here's what happens from here.
                     </p>
                   </div>
@@ -921,14 +921,14 @@ export default function PublicQuotePage() {
                       client knows they're not in a black hole. */}
                   <ol className="text-left max-w-md mx-auto space-y-3">
                     <li className="flex items-start gap-3">
-                      <span className="flex-shrink-0 w-6 h-6 rounded-full bg-emerald-600 text-white text-xs font-bold flex items-center justify-center">1</span>
+                      <span className="flex-shrink-0 w-6 h-6 rounded-full bg-brand-primary text-white text-xs font-bold flex items-center justify-center">1</span>
                       <div className="flex-1">
                         <p className="text-sm font-semibold text-stone-900">Confirmation email</p>
                         <p className="text-xs text-stone-600">A copy of this quote and the next steps will arrive in your inbox shortly.</p>
                       </div>
                     </li>
                     <li className="flex items-start gap-3">
-                      <span className="flex-shrink-0 w-6 h-6 rounded-full bg-emerald-600 text-white text-xs font-bold flex items-center justify-center">2</span>
+                      <span className="flex-shrink-0 w-6 h-6 rounded-full bg-brand-primary text-white text-xs font-bold flex items-center justify-center">2</span>
                       <div className="flex-1">
                         <p className="text-sm font-semibold text-stone-900">
                           {depositLabel ? `Deposit invoice - ${depositLabel}` : "Deposit invoice"}
@@ -941,7 +941,7 @@ export default function PublicQuotePage() {
                       </div>
                     </li>
                     <li className="flex items-start gap-3">
-                      <span className="flex-shrink-0 w-6 h-6 rounded-full bg-emerald-600 text-white text-xs font-bold flex items-center justify-center">3</span>
+                      <span className="flex-shrink-0 w-6 h-6 rounded-full bg-brand-primary text-white text-xs font-bold flex items-center justify-center">3</span>
                       <div className="flex-1">
                         <p className="text-sm font-semibold text-stone-900">
                           {eventDate ? `Event day - ${eventDate}` : "Event day"}
@@ -951,7 +951,7 @@ export default function PublicQuotePage() {
                     </li>
                   </ol>
 
-                  <div className="pt-2 border-t border-emerald-200 flex flex-wrap items-center justify-center gap-2">
+                  <div className="pt-2 border-t border-brand-primary/20 flex flex-wrap items-center justify-center gap-2">
                     <Button
                       variant="outline"
                       size="sm"
@@ -1065,7 +1065,7 @@ export default function PublicQuotePage() {
                             brand colour (which can be anything). */}
                         <Button
                           onClick={() => { setAcceptOpen(true); setChangesOpen(false); setChangesError(null); }}
-                          className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 px-6 shadow-sm"
+                          className="bg-brand-primary hover:bg-brand-primary/90 text-white gap-1.5 px-6 shadow-sm"
                           size="lg"
                         >
                           <CheckCircle2 className="w-5 h-5" />
@@ -1314,7 +1314,7 @@ export default function PublicQuotePage() {
                     document.getElementById("quote-accept-card")?.scrollIntoView({ behavior: "smooth", block: "center" });
                   }, 60);
                 }}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 px-5 shadow-sm shrink-0"
+                className="bg-brand-primary hover:bg-brand-primary/90 text-white gap-1.5 px-5 shadow-sm shrink-0"
               >
                 <CheckCircle2 className="w-4 h-4" />
                 Accept quote

@@ -347,7 +347,7 @@ export function ReceiptScanner({
         <Card
           className={`border rounded-xl mb-4 ${
             scanStatus.kind === "success"
-              ? "border-emerald-200 bg-emerald-50 dark:border-emerald-500/30 dark:bg-emerald-500/10"
+              ? "border-brand-primary/20 bg-brand-primary/10 dark:border-brand-primary/30 dark:bg-brand-primary/10"
               : scanStatus.kind === "empty"
                 ? "border-amber-200 bg-amber-50 dark:border-amber-500/30 dark:bg-amber-500/10"
                 : "border-rose-200 bg-rose-50 dark:border-rose-500/30 dark:bg-rose-500/10"
@@ -355,7 +355,7 @@ export function ReceiptScanner({
         >
           <CardContent className="p-4 flex items-start gap-2 text-sm">
             {scanStatus.kind === "success" ? (
-              <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 mt-0.5 flex-shrink-0" />
+              <CheckCircle2 className="w-4 h-4 text-brand-primary dark:text-brand-primary mt-0.5 flex-shrink-0" />
             ) : (
               <AlertTriangle
                 className={`w-4 h-4 mt-0.5 flex-shrink-0 ${scanStatus.kind === "empty" ? "text-amber-600 dark:text-amber-400" : "text-rose-600 dark:text-rose-400"}`}
@@ -364,7 +364,7 @@ export function ReceiptScanner({
             <span
               className={
                 scanStatus.kind === "success"
-                  ? "text-emerald-800 dark:text-emerald-200"
+                  ? "text-brand-primary dark:text-brand-primary"
                   : scanStatus.kind === "empty"
                     ? "text-amber-800 dark:text-amber-200"
                     : "text-rose-800 dark:text-rose-200"
@@ -399,7 +399,7 @@ export function ReceiptScanner({
       {stats && (
         <Card className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm mb-4">
           <CardContent className="p-4 flex flex-wrap items-center gap-4 text-sm">
-            <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-400">
+            <span className="inline-flex items-center gap-1 text-brand-primary dark:text-brand-primary">
               <CheckCircle2 className="w-4 h-4" />
               <strong>{stats.okCount}</strong> read
             </span>
@@ -451,7 +451,7 @@ export function ReceiptScanner({
                         ) : (warnings.length > 0 ? (
                           <Badge className="bg-amber-100 text-amber-800 border-amber-200 border dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30">Review</Badge>
                         ) : (
-                          <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 border dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30">Clean</Badge>
+                          <Badge className="bg-brand-primary/15 text-brand-primary border-brand-primary/20 border dark:bg-brand-primary/15 dark:text-brand-primary dark:border-brand-primary/30">Clean</Badge>
                         ))}
                       </div>
                       <p className="text-xs text-slate-500 dark:text-slate-400 flex flex-wrap items-center gap-x-3 gap-y-0.5">
@@ -476,7 +476,7 @@ export function ReceiptScanner({
                       <p className="text-xl font-bold text-slate-900 dark:text-slate-50">{fmtR(m.total)}</p>
                       {!hasError && (
                         savedRowIds.has(r.id) ? (
-                          <Badge className="mt-1 bg-emerald-100 text-emerald-700 border-emerald-200 border dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30">
+                          <Badge className="mt-1 bg-brand-primary/15 text-brand-primary border-brand-primary/20 border dark:bg-brand-primary/15 dark:text-brand-primary dark:border-brand-primary/30">
                             <CheckCircle2 className="w-3 h-3 mr-1" /> Saved
                           </Badge>
                         ) : (

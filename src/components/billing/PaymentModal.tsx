@@ -279,8 +279,8 @@ export function PaymentModal({ invoice, open, onClose, onPaymentSuccess, onShowR
       <Dialog open={open} onOpenChange={onClose}>
         <DialogContent className="max-w-md">
           <div className="text-center py-8">
-            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <CheckCircle className="w-10 h-10 text-green-600" />
+            <div className="w-16 h-16 bg-brand-primary/15 rounded-full flex items-center justify-center mx-auto mb-4">
+              <CheckCircle className="w-10 h-10 text-brand-primary" />
             </div>
             <h3 className="text-2xl font-bold text-slate-900 mb-2">Payment Successful</h3>
             <p className="text-slate-600 mb-4">
@@ -296,7 +296,7 @@ export function PaymentModal({ invoice, open, onClose, onPaymentSuccess, onShowR
                     onShowReceipt(invoice.id);
                     onClose();
                   }}
-                  className="flex-1 bg-emerald-600 hover:bg-emerald-700"
+                  className="flex-1 bg-brand-primary hover:bg-brand-primary/90"
                 >
                   Download receipt
                 </Button>
@@ -422,7 +422,7 @@ export function PaymentModal({ invoice, open, onClose, onPaymentSuccess, onShowR
             </div>
             {applyCredit && creditMaxApplicable > 0 && netAmount !== invoice.amount && (
               <div className="mt-3 pt-3 border-t border-blue-200 space-y-1.5 text-sm">
-                <div className="flex justify-between text-emerald-700">
+                <div className="flex justify-between text-brand-primary">
                   <span>Store credit applied</span>
                   <span className="font-semibold tabular-nums">
                     -{fmtCurrency(creditMaxApplicable)}
@@ -441,22 +441,22 @@ export function PaymentModal({ invoice, open, onClose, onPaymentSuccess, onShowR
               win for the catering company); the client can untick if
               they'd rather hold the credit for a future booking. */}
           {creditAvailable > 0 && (
-            <div className="rounded-xl border-2 border-emerald-200 bg-emerald-50 p-4">
+            <div className="rounded-xl border-2 border-brand-primary/20 bg-brand-primary/10 p-4">
               <label className="flex items-start gap-3 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={applyCredit}
                   onChange={(e) => setApplyCredit(e.target.checked)}
-                  className="mt-1 h-4 w-4 rounded border-emerald-400 text-emerald-600 focus:ring-emerald-500"
+                  className="mt-1 h-4 w-4 rounded border-brand-primary/40 text-brand-primary focus:ring-brand-primary"
                 />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <Wallet className="w-4 h-4 text-emerald-600" />
-                    <span className="font-semibold text-emerald-900">
+                    <Wallet className="w-4 h-4 text-brand-primary" />
+                    <span className="font-semibold text-brand-primary">
                       Apply your store credit
                     </span>
                   </div>
-                  <p className="text-sm text-emerald-800 mt-1">
+                  <p className="text-sm text-brand-primary mt-1">
                     You have <strong>{fmtCurrency(creditAvailable)}</strong> in
                     credit on file.
                     {creditMaxApplicable < creditAvailable
@@ -488,7 +488,7 @@ export function PaymentModal({ invoice, open, onClose, onPaymentSuccess, onShowR
                     active={paymentMethod === "eft"}
                     value="eft"
                     onSelect={() => setPaymentMethod("eft")}
-                    icon={<Landmark className="w-5 h-5 text-emerald-600" />}
+                    icon={<Landmark className="w-5 h-5 text-brand-primary" />}
                     title="Manual EFT / bank transfer"
                     subtitle="Pay from your banking app, then tell them"
                   />
@@ -523,7 +523,7 @@ export function PaymentModal({ invoice, open, onClose, onPaymentSuccess, onShowR
             {paymentMethod === "eft" ? (
               <Button
                 onClick={() => setConfirmingClaim(true)}
-                className="flex-1 bg-emerald-600 hover:bg-emerald-700"
+                className="flex-1 bg-brand-primary hover:bg-brand-primary/90"
                 disabled={processing}
               >
                 <ClipboardCheck className="w-4 h-4 mr-2" />
@@ -532,7 +532,7 @@ export function PaymentModal({ invoice, open, onClose, onPaymentSuccess, onShowR
             ) : (
               <Button
                 onClick={handlePayment}
-                className="flex-1 bg-gradient-to-r from-green-500 to-emerald-600"
+                className="flex-1 bg-gradient-to-r from-brand-primary to-brand-secondary"
                 disabled={processing}
               >
                 {processing ? (
@@ -589,30 +589,30 @@ function EftPanel({
         a needle in a haystack on the caterer's side. Make it the
         biggest, most copy-able thing on the screen.
       */}
-      <div className="rounded-xl border-2 border-emerald-300 bg-emerald-50 p-4">
+      <div className="rounded-xl border-2 border-brand-primary/30 bg-brand-primary/10 p-4">
         <div className="flex items-center justify-between gap-2 mb-1">
-          <span className="text-xs font-semibold uppercase tracking-wide text-emerald-700">
+          <span className="text-xs font-semibold uppercase tracking-wide text-brand-primary">
             Use this reference - exactly
           </span>
           <button
             type="button"
             onClick={() => onCopy("reference", invoice.invoice_number)}
-            className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 hover:text-emerald-900"
+            className="inline-flex items-center gap-1 text-xs font-semibold text-brand-primary hover:text-brand-primary"
           >
             <Copy className="w-3.5 h-3.5" /> Copy
           </button>
         </div>
-        <p className="font-mono text-xl sm:text-2xl font-bold text-emerald-900 break-all leading-tight">
+        <p className="font-mono text-xl sm:text-2xl font-bold text-brand-primary break-all leading-tight">
           {invoice.invoice_number}
         </p>
-        <p className="text-xs text-emerald-700 mt-1">
+        <p className="text-xs text-brand-primary mt-1">
           Without this reference your payment can't be matched to the invoice.
         </p>
       </div>
 
       <div className="rounded-xl border border-slate-200 bg-white">
         <div className="px-4 py-2 border-b border-slate-100 flex items-center gap-2">
-          <Landmark className="w-4 h-4 text-emerald-600" />
+          <Landmark className="w-4 h-4 text-brand-primary" />
           <span className="text-sm font-semibold text-slate-800">Banking details</span>
         </div>
         <div className="divide-y divide-slate-100">
@@ -684,7 +684,7 @@ function BankRow({
       <button
         type="button"
         onClick={onCopy}
-        className="text-slate-400 hover:text-emerald-600 flex-shrink-0"
+        className="text-slate-400 hover:text-brand-primary flex-shrink-0"
         aria-label={`Copy ${label}`}
       >
         <Copy className="w-3.5 h-3.5" />

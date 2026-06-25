@@ -84,19 +84,19 @@ export function ComposeDrawerHost({
           aria-orientation="vertical"
           aria-label="Resize compose drawer"
           onMouseDown={(e) => { e.preventDefault(); setDragging(true); }}
-          className="absolute left-0 top-0 bottom-0 w-2 cursor-ew-resize group hover:bg-emerald-100/40"
+          className="absolute left-0 top-0 bottom-0 w-2 cursor-ew-resize group hover:bg-brand-primary/15"
           style={{ zIndex: 60 }}
         >
           <div
             className={cn(
               "absolute top-1/2 -translate-y-1/2 left-0 w-1.5 h-16 rounded-r-lg transition-colors",
-              dragging ? "bg-emerald-500" : "bg-slate-200 group-hover:bg-emerald-400",
+              dragging ? "bg-brand-primary" : "bg-slate-200 group-hover:bg-brand-primary/70",
             )}
           />
           <GripVertical
             className={cn(
               "absolute top-1/2 -translate-y-1/2 left-0 w-3 h-3",
-              dragging ? "text-emerald-700" : "text-slate-400 opacity-0 group-hover:opacity-100",
+              dragging ? "text-brand-primary" : "text-slate-400 opacity-0 group-hover:opacity-100",
             )}
           />
         </div>

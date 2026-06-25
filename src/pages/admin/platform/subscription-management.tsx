@@ -272,7 +272,7 @@ function PlatformSubscriptionManagement() {
 
   const getStatusBadge = (status: string) => {
     const config: Record<string, { label: string; className: string }> = {
-      active: { label: "Active", className: "bg-green-500" },
+      active: { label: "Active", className: "bg-brand-primary" },
       trial: { label: "Trial", className: "bg-blue-500" },
       past_due: { label: "Past Due", className: "bg-yellow-500" },
       cancelled: { label: "Cancelled", className: "bg-red-500" },
@@ -370,7 +370,7 @@ function PlatformSubscriptionManagement() {
                 <InfoTooltip content="Companies on a paid plan right now.\n\nThese are the customers actually generating recurring revenue." />
               </span>
             }
-            value={<span className="text-green-600 dark:text-green-500">{stats.active}</span>}
+            value={<span className="text-brand-primary dark:text-brand-primary">{stats.active}</span>}
             hint="Paying customers"
             icon={CheckCircle}
           />

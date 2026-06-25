@@ -156,7 +156,7 @@ export function ReassignDriverDialog({
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-emerald-600" />
+            <Sparkles className="w-5 h-5 text-brand-primary" />
             Reassign driver{order.client_name ? ` · ${order.client_name}` : ""}
           </DialogTitle>
           <p className="text-sm text-slate-500">
@@ -210,7 +210,7 @@ export function ReassignDriverDialog({
 
         {loading ? (
           <div className="py-8 text-center text-sm text-slate-500">
-            <div className="animate-spin w-5 h-5 border-2 border-emerald-600 border-t-transparent rounded-full mx-auto mb-2" />
+            <div className="animate-spin w-5 h-5 border-2 border-brand-primary/80 border-t-transparent rounded-full mx-auto mb-2" />
             Scoring drivers...
           </div>
         ) : suggestions.length === 0 ? (
@@ -229,7 +229,7 @@ export function ReassignDriverDialog({
                   disabled={saving}
                   className={`w-full text-left rounded-lg border p-3 transition-all ${
                     idx === 0 && !blocked
-                      ? "border-emerald-500 bg-emerald-50 hover:bg-emerald-100 ring-2 ring-emerald-200"
+                      ? "border-brand-primary bg-brand-primary/10 hover:bg-brand-primary/15 ring-2 ring-brand-primary/20"
                       : blocked
                         ? "border-red-200 bg-red-50/40 hover:bg-red-50"
                         : "border-slate-200 bg-white hover:bg-slate-50"
@@ -239,7 +239,7 @@ export function ReassignDriverDialog({
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
                         {idx === 0 && !blocked && (
-                          <span className="text-[9px] font-semibold uppercase tracking-wide bg-emerald-600 text-white px-1.5 py-0.5 rounded">
+                          <span className="text-[9px] font-semibold uppercase tracking-wide bg-brand-primary text-white px-1.5 py-0.5 rounded">
                             Top match
                           </span>
                         )}
@@ -273,7 +273,7 @@ export function ReassignDriverDialog({
                     </div>
                     <div className="text-right shrink-0">
                       <p className={`text-2xl font-bold tabular-nums ${
-                        s.score.total >= 75 ? "text-emerald-700" :
+                        s.score.total >= 75 ? "text-brand-primary" :
                         s.score.total >= 50 ? "text-blue-700" :
                                               "text-amber-700"
                       }`}>

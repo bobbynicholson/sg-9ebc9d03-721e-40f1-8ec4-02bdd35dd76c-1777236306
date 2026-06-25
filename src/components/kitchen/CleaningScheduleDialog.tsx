@@ -116,7 +116,7 @@ export function CleaningScheduleDialog({
                 variant="outline"
                 className={`ml-1 tabular-nums ${
                   cleaningReadiness.complete === cleaningReadiness.total
-                    ? "bg-emerald-100 text-emerald-800 border-emerald-300"
+                    ? "bg-brand-primary/15 text-brand-primary border-brand-primary/30"
                     : cleaningReadiness.complete > 0
                     ? "bg-amber-100 text-amber-800 border-amber-300"
                     : "bg-brand-primary/10 text-brand-primary border-brand-primary/20"
@@ -220,7 +220,7 @@ export function CleaningScheduleDialog({
             {/* Tomorrow's pre-event checklist progress. */}
             <section>
               <h3 className="text-sm font-semibold text-slate-700 flex items-center gap-1.5 mb-2">
-                <ClipboardCheck className="w-4 h-4 text-emerald-600" />
+                <ClipboardCheck className="w-4 h-4 text-brand-primary" />
                 Tomorrow's pre-event checklists
                 <Badge variant="outline" className="ml-1 tabular-nums">
                   {checklist.length}
@@ -248,7 +248,7 @@ export function CleaningScheduleDialog({
                         variant="outline"
                         className={`tabular-nums ${
                           c.status === "ready"
-                            ? "bg-emerald-100 text-emerald-800 border-emerald-300"
+                            ? "bg-brand-primary/15 text-brand-primary border-brand-primary/30"
                             : c.status === "in_progress"
                             ? "bg-amber-100 text-amber-800 border-amber-300"
                             : "bg-slate-100 text-slate-700 border-slate-300"

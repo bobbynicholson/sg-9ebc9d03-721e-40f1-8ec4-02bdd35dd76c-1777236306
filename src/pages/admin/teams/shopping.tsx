@@ -212,7 +212,7 @@ function ShoppingTeamPage() {
               {stats.receiptsThisWeek} slip{stats.receiptsThisWeek === 1 ? "" : "s"} this week
             </Badge>
             {canSeeFinance && stats.spendToday > 0 && (
-              <Badge variant="outline" className="px-3 py-1.5 text-sm border-emerald-300 text-emerald-700 bg-emerald-50 tabular-nums">
+              <Badge variant="outline" className="px-3 py-1.5 text-sm border-brand-primary/30 text-brand-primary bg-brand-primary/10 tabular-nums">
                 <Banknote className="w-3 h-3 mr-1" />
                 {tenantCurrency.format(stats.spendToday)} today
               </Badge>
@@ -225,10 +225,10 @@ function ShoppingTeamPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-4">
             {canSeeFinance && stats.topVendorThisMonth && (
               <Link href={withSlug(`/admin/suppliers?q=${encodeURIComponent(stats.topVendorThisMonth.vendor)}`)}>
-                <Card className="border-0 shadow-md hover:shadow-lg transition-shadow bg-gradient-to-br from-emerald-50 to-teal-50">
+                <Card className="border-0 shadow-md hover:shadow-lg transition-shadow bg-gradient-to-br from-brand-primary/10 to-brand-secondary/10">
                   <CardContent className="p-5">
                     <div className="flex items-start gap-3">
-                      <TrendingDown className="w-6 h-6 text-emerald-700 flex-shrink-0" />
+                      <TrendingDown className="w-6 h-6 text-brand-primary flex-shrink-0" />
                       <div className="min-w-0">
                         <p className="font-semibold text-slate-900 truncate">
                           Top vendor this month: {stats.topVendorThisMonth.vendor}

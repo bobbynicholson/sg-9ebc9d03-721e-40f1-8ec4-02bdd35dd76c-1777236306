@@ -337,7 +337,7 @@ export function AddShiftTaskModal({
           </div>
 
           {!billable && (
-            <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-900">
+            <div className="rounded-md border border-brand-primary/20 bg-brand-primary/10 px-3 py-2 text-xs text-brand-primary">
               No extra cost. The staffer is on shift - their pay covers this task.
             </div>
           )}
@@ -389,7 +389,7 @@ export function AddShiftTaskModal({
                       </label>
                     </div>
                   </div>
-                  <div className="rounded-md border border-cyan-200 bg-cyan-50 px-3 py-2 text-xs text-cyan-900 space-y-0.5">
+                  <div className="rounded-md border border-brand-primary/20 bg-brand-primary/10 px-3 py-2 text-xs text-brand-primary space-y-0.5">
                     <div>
                       Suggested method: <strong>{decidedMethod === "dishwasher" ? "Dishwasher" : "Manual"}</strong>
                       {decidedMachine && <span> - {decidedMachine.name}</span>}

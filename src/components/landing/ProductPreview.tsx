@@ -37,7 +37,7 @@ const EVENTS = [
 const BARS = [42, 58, 47, 70, 61, 88, 76];
 
 const toneMap: Record<string, string> = {
-  emerald: "bg-emerald-50 text-emerald-700 ring-emerald-600/20",
+  emerald: "bg-brand-primary/10 text-brand-primary ring-brand-primary/20",
   amber: "bg-amber-50 text-amber-700 ring-amber-600/20",
   blue: "bg-blue-50 text-blue-700 ring-blue-600/20",
   stone: "bg-stone-100 text-stone-600 ring-stone-500/20",
@@ -55,9 +55,9 @@ export function ProductPreview() {
         <div className="flex items-center gap-2 border-b border-stone-200/80 bg-stone-50 px-4 py-3">
           <span className="h-3 w-3 rounded-full bg-red-400/80" />
           <span className="h-3 w-3 rounded-full bg-amber-400/80" />
-          <span className="h-3 w-3 rounded-full bg-emerald-400/80" />
+          <span className="h-3 w-3 rounded-full bg-brand-primary/80" />
           <div className="mx-auto flex items-center gap-2 rounded-md bg-white px-3 py-1 text-[11px] text-stone-400 ring-1 ring-stone-200">
-            <span className="h-2 w-2 rounded-full bg-emerald-500" />
+            <span className="h-2 w-2 rounded-full bg-brand-primary" />
             app.cateringms.com/admin/dashboard
           </div>
         </div>
@@ -114,7 +114,7 @@ export function ProductPreview() {
                 <div key={kpi.label} className="rounded-xl border border-stone-200/80 bg-white p-3">
                   <p className="text-[10px] font-medium uppercase tracking-wide text-stone-400">{kpi.label}</p>
                   <p className="mt-1 text-lg font-semibold tracking-tight text-stone-900">{kpi.value}</p>
-                  <p className="mt-0.5 inline-flex items-center gap-0.5 text-[10px] font-semibold text-emerald-600">
+                  <p className="mt-0.5 inline-flex items-center gap-0.5 text-[10px] font-semibold text-brand-primary">
                     <ArrowUpRight className="h-3 w-3" /> {kpi.delta}
                   </p>
                 </div>
@@ -168,8 +168,8 @@ export function ProductPreview() {
                 <div className="rounded-xl border border-stone-200/80 bg-white p-3">
                   <div className="mb-2 flex items-center justify-between">
                     <p className="text-[11px] font-semibold text-stone-900">Live delivery</p>
-                    <span className="inline-flex items-center gap-1 text-[9px] font-semibold text-emerald-600">
-                      <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500 motion-reduce:animate-none" /> Tracking
+                    <span className="inline-flex items-center gap-1 text-[9px] font-semibold text-brand-primary">
+                      <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-brand-primary motion-reduce:animate-none" /> Tracking
                     </span>
                   </div>
                   <div className="relative h-16 overflow-hidden rounded-lg bg-stone-100">
@@ -193,8 +193,8 @@ export function ProductPreview() {
       {/* Floating live-status cards */}
       <div className="absolute -left-3 top-24 hidden animate-[floaty_5s_ease-in-out_infinite] sm:block motion-reduce:animate-none">
         <div className="flex items-center gap-2.5 rounded-xl border border-stone-200 bg-white px-3 py-2.5 shadow-xl">
-          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-100">
-            <Check className="h-4 w-4 text-emerald-600" />
+          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-primary/15">
+            <Check className="h-4 w-4 text-brand-primary" />
           </span>
           <div className="leading-tight">
             <p className="text-[11px] font-semibold text-stone-900">Quote accepted</p>
@@ -211,7 +211,7 @@ export function ProductPreview() {
           <div className="leading-tight">
             <p className="text-[11px] font-semibold text-stone-900">Driver en route</p>
             <p className="inline-flex items-center gap-1 text-[10px] text-stone-400">
-              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500 motion-reduce:animate-none" />
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-brand-primary motion-reduce:animate-none" />
               Khumalo 40th · ETA 12 min
             </p>
           </div>

@@ -206,19 +206,19 @@ function AdminUsersPage() {
     },
     {
       value: "shopping" as UserRole, label: "Shopping Team", icon: ShoppingCart,
-      color: "bg-green-100 text-green-700 border-green-200",
+      color: "bg-brand-primary/15 text-brand-primary border-brand-primary/20",
       group: "operational",
       description: "Shopping portal: Buy-now list, snap-a-slip receipts, supplier contacts.",
     },
     {
       value: "cleaning_manager" as UserRole, label: "Cleaning Manager", icon: Sparkles,
-      color: "bg-teal-100 text-teal-700 border-teal-200",
+      color: "bg-brand-primary/15 text-brand-primary border-brand-primary/20",
       group: "operational",
       description: "Cleaning manager portal: cleaning queue, team availability, handovers, no finance.",
     },
     {
       value: "cleaning" as UserRole, label: "Cleaning Team", icon: Sparkles,
-      color: "bg-cyan-100 text-cyan-700 border-cyan-200",
+      color: "bg-brand-primary/15 text-brand-primary border-brand-primary/20",
       group: "operational",
       description: "Cleaning portal: post-event handovers, equipment damages log, low-supplies alerts.",
     },
@@ -818,7 +818,7 @@ function AdminUsersPage() {
             <Card className="border-0 shadow-lg">
               <CardContent className="p-4">
                 <p className="text-xs md:text-sm text-slate-600 mb-1 flex items-center gap-1.5">Active <InfoTooltip content={"Users currently enabled and able to log in."} /></p>
-                <p className="text-2xl md:text-3xl font-bold text-green-600">
+                <p className="text-2xl md:text-3xl font-bold text-brand-primary">
                   {users.filter(u => u.is_active).length}
                 </p>
               </CardContent>
@@ -939,7 +939,7 @@ function AdminUsersPage() {
                             <h3 className="text-lg md:text-xl font-semibold text-slate-900 truncate">
                               {targetUser.full_name || "Unnamed User"}
                             </h3>
-                            <Badge className={targetUser.is_active ? "bg-green-100 text-green-700 border-green-200 text-xs" : "bg-slate-100 text-slate-700 border-slate-200 text-xs"}>
+                            <Badge className={targetUser.is_active ? "bg-brand-primary/15 text-brand-primary border-brand-primary/20 text-xs" : "bg-slate-100 text-slate-700 border-slate-200 text-xs"}>
                               {targetUser.is_active ? "Active" : "Inactive"}
                             </Badge>
                             {/* USR2-A: activity chip mirrors the
@@ -1087,7 +1087,7 @@ function AdminUsersPage() {
                                 size="sm"
                                 onClick={() => handleStatusToggle(targetUser, true)}
                                 disabled={statusBusy === targetUser.id}
-                                className="text-sm text-emerald-700 border-emerald-300 hover:bg-emerald-50"
+                                className="text-sm text-brand-primary border-brand-primary/30 hover:bg-brand-primary/10"
                               >
                                 <UserCheck className="w-4 h-4 mr-2" />
                                 {statusBusy === targetUser.id ? "Saving..." : "Reactivate"}
@@ -1222,7 +1222,7 @@ function AdminUsersPage() {
                               />
                               <Button 
                                 onClick={() => handleSaveRoles(targetUser.id)}
-                                className="bg-gradient-to-r from-brand-primary to-brand-secondary hover:from-green-700 hover:to-emerald-700 flex-1 sm:flex-initial text-sm"
+                                className="bg-gradient-to-r from-brand-primary to-brand-secondary hover:from-brand-primary/90 hover:to-brand-secondary/90 flex-1 sm:flex-initial text-sm"
                                 disabled={selectedDepartments.length === 0 || saving}
                                 size="sm"
                               >

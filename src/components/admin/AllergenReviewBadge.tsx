@@ -56,7 +56,7 @@ export function AllergenReviewBadge({
     return (
       <span
         className={cn(
-          "inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 text-emerald-700",
+          "inline-flex items-center gap-1 rounded-md border border-brand-primary/20 bg-brand-primary/10 text-brand-primary",
           compact ? "px-1.5 py-0.5 text-[11px]" : "px-2 py-1 text-xs",
           className,
         )}

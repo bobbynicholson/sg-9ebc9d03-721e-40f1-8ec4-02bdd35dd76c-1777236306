@@ -52,7 +52,7 @@ export function RevenueTrendChart({ data, loading }: Props) {
     <Card className="border-0 shadow-sm">
       <CardHeader className="pb-2">
         <CardTitle className="text-sm font-semibold flex items-center gap-2">
-          <TrendingUp className="w-4 h-4 text-emerald-600" />
+          <TrendingUp className="w-4 h-4 text-brand-primary" />
           Revenue trend (last 12 months)
           <InfoTooltip
             content={
@@ -133,7 +133,7 @@ export function RevenueTrendChart({ data, loading }: Props) {
               <div className="flex items-center gap-4 mt-2 px-2 text-[11px] text-slate-500">
                 {peak && (
                   <span>
-                    Peak: <span className="font-semibold text-emerald-700">{peak.label} {fmtR(peak.booked)}</span>
+                    Peak: <span className="font-semibold text-brand-primary">{peak.label} {fmtR(peak.booked)}</span>
                   </span>
                 )}
                 {trough && trough.monthKey !== peak?.monthKey && (

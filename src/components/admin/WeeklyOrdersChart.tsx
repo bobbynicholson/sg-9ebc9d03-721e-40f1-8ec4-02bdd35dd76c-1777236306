@@ -134,7 +134,7 @@ export function WeeklyOrdersChart({ companyId }: { companyId: string | null }) {
                 ? "bg-blue-500"
                 : b.isPast
                   ? "bg-slate-300"
-                  : "bg-emerald-400";
+                  : "bg-brand-primary/70";
               return (
                 <div key={b.date} className="flex-1 flex flex-col items-center justify-end gap-1 min-w-0">
                   <span className="text-[10px] tabular-nums font-semibold text-slate-700">

@@ -138,7 +138,7 @@ export function BranchCapacityHeatmap({ data, loading }: Props) {
                 {slowestBranchName && (
                   <>
                     Most capacity free:{" "}
-                    <span className="font-semibold text-emerald-700">{slowestBranchName}</span>.
+                    <span className="font-semibold text-brand-primary">{slowestBranchName}</span>.
                   </>
                 )}
               </div>

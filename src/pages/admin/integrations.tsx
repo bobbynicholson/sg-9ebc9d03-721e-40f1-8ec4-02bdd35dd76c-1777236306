@@ -407,7 +407,7 @@ function IntegrationsPage() {
           </Card>
 
           {/* Xero accounting */}
-          <Card className="border-0 shadow-lg mb-6 bg-gradient-to-br from-blue-50 to-cyan-50">
+          <Card className="border-0 shadow-lg mb-6 bg-gradient-to-br from-blue-50 to-brand-secondary/10">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Receipt className="w-5 h-5 text-blue-600" />
@@ -471,19 +471,19 @@ function IntegrationsPage() {
           {/* Phase 5 #8: QuickBooks counterpart. Same OAuth pattern;
               the sync endpoint mirrors Xero's drift / 401-retry /
               token-refresh shape via the shared accountingTokens lib. */}
-          <Card className="border-0 shadow-lg mb-6 bg-gradient-to-br from-emerald-50 to-teal-50">
+          <Card className="border-0 shadow-lg mb-6 bg-gradient-to-br from-brand-primary/10 to-brand-secondary/10">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Receipt className="w-5 h-5 text-emerald-600" />
+                <Receipt className="w-5 h-5 text-brand-primary" />
                 QuickBooks Online
-                <Badge variant="outline" className="text-[10px] bg-emerald-100 text-emerald-700 border-emerald-200">Native OAuth</Badge>
+                <Badge variant="outline" className="text-[10px] bg-brand-primary/15 text-brand-primary border-brand-primary/20">Native OAuth</Badge>
               </CardTitle>
               <CardDescription>
                 Direct push of CateringMS invoices into QuickBooks Online. Idempotent on external_id; QuickBooks-side edits land a 409 conflict instead of clobbering.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
-              <div className="bg-white rounded-lg p-3 border border-emerald-100 text-xs space-y-1">
+              <div className="bg-white rounded-lg p-3 border border-brand-primary/15 text-xs space-y-1">
                 <p className="font-semibold text-slate-900">What gets pushed</p>
                 <ul className="list-disc list-inside text-slate-700 space-y-0.5">
                   <li>Invoices created or marked sent in CateringMS land as draft invoices in QB.</li>
@@ -491,14 +491,14 @@ function IntegrationsPage() {
                   <li>Tokens refresh automatically on a 401 so you don't need to reconnect.</li>
                 </ul>
               </div>
-              <div className="bg-emerald-50 border border-emerald-200 rounded-md p-3 text-xs text-emerald-900 flex items-center justify-between gap-3">
+              <div className="bg-brand-primary/10 border border-brand-primary/20 rounded-md p-3 text-xs text-brand-primary flex items-center justify-between gap-3">
                 <div>
                   <p className="font-semibold mb-1">Connect QuickBooks Online</p>
                   <p>Sign in once with your Intuit / QuickBooks account and CateringMS pushes invoices straight in.</p>
                 </div>
                 <a
                   href="/api/accounting/quickbooks/authorize"
-                  className="inline-flex items-center gap-2 shrink-0 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium px-3 py-2"
+                  className="inline-flex items-center gap-2 shrink-0 rounded-md bg-brand-primary hover:bg-brand-primary/90 text-white text-sm font-medium px-3 py-2"
                 >
                   Connect QuickBooks
                   <ExternalLink className="w-3 h-3" />
@@ -592,7 +592,7 @@ function IntegrationsPage() {
                             {s.last_fired_at ? (
                               <>
                                 {new Date(s.last_fired_at).toLocaleString("en-ZA", { day: "numeric", month: "short", hour: "numeric", minute: "numeric" })}
-                                {s.last_status && <span className="ml-1 text-emerald-600">[{s.last_status}]</span>}
+                                {s.last_status && <span className="ml-1 text-brand-primary">[{s.last_status}]</span>}
                                 {s.failure_count > 0 && <span className="ml-1 text-red-600">{s.failure_count} fails</span>}
                               </>
                             ) : "Never"}
@@ -628,7 +628,7 @@ function IntegrationsPage() {
           <Card className="border-0 shadow-lg mb-6">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Key className="w-5 h-5 text-emerald-600" />
+                <Key className="w-5 h-5 text-brand-primary" />
                 Inbound API keys
                 <InfoTooltip content={"Use these to push data into CateringMS from anywhere, Zapier, Make, your own scripts, Facebook Lead Ads.\n\nExample: a Lead Ads form fills, Zapier hits our leads endpoint with the API key, and a new lead drops into your pipeline."} />
               </CardTitle>
@@ -639,7 +639,7 @@ function IntegrationsPage() {
             <CardContent className="space-y-4">
               <div className="bg-slate-900 text-slate-100 rounded-lg p-3 text-xs font-mono overflow-x-auto">
                 <div className="text-slate-400 mb-1"># Create a new lead in CateringMS</div>
-                <div>POST <span className="text-emerald-400">{apiBaseUrl}/api/integrations/leads</span></div>
+                <div>POST <span className="text-brand-primary/90">{apiBaseUrl}/api/integrations/leads</span></div>
                 <div>Authorization: Bearer <span className="text-amber-400">cms_yourkey_xxx...</span></div>
                 <div>Content-Type: application/json</div>
                 <div className="mt-2 text-slate-400">
@@ -660,16 +660,16 @@ function IntegrationsPage() {
               </div>
 
               {newKeyResult && (
-                <div className="rounded-lg border-2 border-emerald-300 bg-emerald-50 p-4">
+                <div className="rounded-lg border-2 border-brand-primary/30 bg-brand-primary/10 p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-emerald-900 mb-1 flex items-center gap-1.5">
+                      <p className="font-semibold text-brand-primary mb-1 flex items-center gap-1.5">
                         <Sparkles className="w-4 h-4" /> New API key, copy it now
                       </p>
-                      <p className="text-xs text-emerald-700 mb-2">
+                      <p className="text-xs text-brand-primary mb-2">
                         We only show this once. Store it somewhere safe, if you lose it, revoke and create a new one.
                       </p>
-                      <code className="block bg-white border border-emerald-200 rounded px-3 py-2 text-xs font-mono break-all">
+                      <code className="block bg-white border border-brand-primary/20 rounded px-3 py-2 text-xs font-mono break-all">
                         {newKeyResult.rawKey}
                       </code>
                     </div>
@@ -908,14 +908,14 @@ function SageCard({ companyId }: { companyId: string | null | undefined }) {
   const allFourSet = !!(metadata.default_ledger_account_id && metadata.default_tax_rate_id && metadata.default_bank_account_id);
 
   return (
-    <Card className="border-0 shadow-lg mb-6 bg-gradient-to-br from-blue-50 to-cyan-50">
+    <Card className="border-0 shadow-lg mb-6 bg-gradient-to-br from-blue-50 to-brand-secondary/10">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 flex-wrap">
           <Receipt className="w-5 h-5 text-blue-600" />
           Sage Business Cloud (Pastel)
           <Badge variant="outline" className="text-[10px] bg-blue-100 text-blue-700 border-blue-200">Native OAuth</Badge>
           {connected && allFourSet && (
-            <Badge variant="outline" className="text-[10px] bg-emerald-100 text-emerald-700 border-emerald-300">Sync ready</Badge>
+            <Badge variant="outline" className="text-[10px] bg-brand-primary/15 text-brand-primary border-brand-primary/30">Sync ready</Badge>
           )}
           {connected && !allFourSet && (
             <Badge variant="outline" className="text-[10px] bg-amber-100 text-amber-800 border-amber-300">Needs defaults</Badge>

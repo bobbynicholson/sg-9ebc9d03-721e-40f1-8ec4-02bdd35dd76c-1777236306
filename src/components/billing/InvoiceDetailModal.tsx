@@ -207,7 +207,7 @@ export function InvoiceDetailModal({ invoice, open, onClose }: InvoiceDetailModa
                 <span
                   className={`px-3 py-1 rounded-full text-sm font-medium ${
                     invoice.status === "paid"
-                      ? "bg-green-100 text-green-800"
+                      ? "bg-brand-primary/15 text-brand-primary"
                       : invoice.status === "overdue"
                       ? "bg-red-100 text-red-800"
                       : "bg-yellow-100 text-yellow-800"
@@ -217,9 +217,9 @@ export function InvoiceDetailModal({ invoice, open, onClose }: InvoiceDetailModa
                 </span>
               </div>
               {invoice.paid_at && (
-                <div className="flex justify-between items-center p-3 bg-green-50 rounded-lg border border-green-200">
-                  <span className="text-green-700">Payment Date</span>
-                  <span className="font-semibold text-green-800">
+                <div className="flex justify-between items-center p-3 bg-brand-primary/10 rounded-lg border border-brand-primary/20">
+                  <span className="text-brand-primary">Payment Date</span>
+                  <span className="font-semibold text-brand-primary">
                     {formatLocalDate(invoice.paid_at)}
                   </span>
                 </div>

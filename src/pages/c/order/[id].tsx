@@ -67,9 +67,9 @@ const STATUS_TONES: Record<string, string> = {
   pending:    "bg-amber-100 text-amber-800 border-amber-200",
   confirmed:  "bg-blue-100 text-blue-800 border-blue-200",
   preparing:  "bg-purple-100 text-purple-800 border-purple-200",
-  ready:      "bg-green-100 text-green-800 border-green-200",
+  ready:      "bg-brand-primary/15 text-brand-primary border-brand-primary/20",
   in_transit: "bg-indigo-100 text-indigo-800 border-indigo-200",
-  delivered:  "bg-emerald-100 text-emerald-800 border-emerald-200",
+  delivered:  "bg-brand-primary/15 text-brand-primary border-brand-primary/20",
   completed:  "bg-slate-100 text-slate-800 border-slate-200",
   cancelled:  "bg-rose-100 text-rose-700 border-rose-200",
 };
@@ -509,8 +509,8 @@ export default function ClientOrderPage() {
                     )}
                     {discount > 0 && (
                       <div className="flex items-center justify-between px-6 py-2 text-sm bg-slate-50/60">
-                        <span className="text-emerald-700">Discount</span>
-                        <span className="text-emerald-700 tabular-nums">-{fmtMoney.format(discount)}</span>
+                        <span className="text-brand-primary">Discount</span>
+                        <span className="text-brand-primary tabular-nums">-{fmtMoney.format(discount)}</span>
                       </div>
                     )}
                     {deliveryFee > 0 && (
@@ -585,7 +585,7 @@ export default function ClientOrderPage() {
                           <span className="text-slate-600">
                             {label}{p.processed_at ? ` · ${new Date(p.processed_at).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}` : ""}
                           </span>
-                          <span className="font-semibold text-emerald-700 tabular-nums">{fmtMoney.format(Number(p.amount) || 0)}</span>
+                          <span className="font-semibold text-brand-primary tabular-nums">{fmtMoney.format(Number(p.amount) || 0)}</span>
                         </div>
                       );
                     })}
@@ -784,7 +784,7 @@ export default function ClientOrderPage() {
                       />
                     </div>
                     {cancelMsg && (
-                      <p className={`text-xs ${cancelMsg.tone === "ok" ? "text-emerald-700" : "text-rose-700"}`}>
+                      <p className={`text-xs ${cancelMsg.tone === "ok" ? "text-brand-primary" : "text-rose-700"}`}>
                         {cancelMsg.text}
                       </p>
                     )}
@@ -936,7 +936,7 @@ function Row({ label, value, paid }: { label: string; value: string; paid?: bool
   return (
     <div className="flex items-center justify-between">
       <span className="text-slate-600">{label}</span>
-      <span className={`font-semibold tabular-nums ${paid ? "text-emerald-600" : "text-slate-900"}`}>{value}</span>
+      <span className={`font-semibold tabular-nums ${paid ? "text-brand-primary" : "text-slate-900"}`}>{value}</span>
     </div>
   );
 }
@@ -1045,10 +1045,10 @@ function ExpiredLinkCard({ reason }: { reason: string | null }) {
             </div>
 
             {sent ? (
-              <div className="mt-6 rounded-lg bg-emerald-50 border border-emerald-200 p-4 text-center">
-                <CheckCircle2 className="w-6 h-6 text-emerald-600 mx-auto mb-2" />
-                <p className="text-sm font-semibold text-emerald-900">Check your inbox</p>
-                <p className="text-xs text-emerald-800 mt-1">
+              <div className="mt-6 rounded-lg bg-brand-primary/10 border border-brand-primary/20 p-4 text-center">
+                <CheckCircle2 className="w-6 h-6 text-brand-primary mx-auto mb-2" />
+                <p className="text-sm font-semibold text-brand-primary">Check your inbox</p>
+                <p className="text-xs text-brand-primary mt-1">
                   If we have an order on file for that email, a fresh link is on its way.
                 </p>
               </div>

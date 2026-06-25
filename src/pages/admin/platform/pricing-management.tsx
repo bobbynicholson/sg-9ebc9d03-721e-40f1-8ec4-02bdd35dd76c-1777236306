@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { PlatformNav } from "@/components/admin/PlatformNav";
 import { PortalShell, PortalHeader, PortalCard, PortalCardHeader } from "@/components/portal/ui";
 import { Button } from "@/components/ui/button";
@@ -248,9 +248,9 @@ function PricingManagementPage() {
         </PortalCard>
 
         {saveSuccess && (
-          <Alert className="mb-6 border-emerald-200 bg-emerald-50 dark:border-emerald-500/30 dark:bg-emerald-500/10">
-            <Check className="h-4 w-4 flex-shrink-0 text-emerald-600 dark:text-emerald-400" />
-            <AlertDescription className="text-sm font-medium text-emerald-800 dark:text-emerald-300">
+          <Alert className="mb-6 border-brand-primary/20 bg-brand-primary/10 dark:border-brand-primary/30 dark:bg-brand-primary/10">
+            <Check className="h-4 w-4 flex-shrink-0 text-brand-primary dark:text-brand-primary" />
+            <AlertDescription className="text-sm font-medium text-brand-primary dark:text-brand-primary">
               Pricing updated. Changes are now live on all front-end pages.
             </AlertDescription>
           </Alert>
@@ -424,7 +424,7 @@ function PricingManagementPage() {
                 <span className="text-sm font-medium">You have unsaved changes</span>
               </div>
             ) : (
-              <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
+              <div className="flex items-center gap-2 text-brand-primary dark:text-brand-primary">
                 <Check className="h-4 w-4 flex-shrink-0" />
                 <span className="text-sm font-medium">All changes saved</span>
               </div>

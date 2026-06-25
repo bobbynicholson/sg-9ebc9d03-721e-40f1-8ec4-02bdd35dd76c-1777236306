@@ -660,7 +660,7 @@ function ProvidersList() {
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 title="Opens WhatsApp with a templated enquiry pre-filled"
-                                className="inline-flex items-center gap-1 text-[11px] font-medium text-green-800 bg-green-50 border border-green-200 rounded-md px-2 py-1 hover:bg-green-100"
+                                className="inline-flex items-center gap-1 text-[11px] font-medium text-brand-primary bg-brand-primary/10 border border-brand-primary/20 rounded-md px-2 py-1 hover:bg-brand-primary/15"
                               >
                                 <MessageCircle className="w-3 h-3" />
                                 {p.whatsapp_number}
@@ -707,7 +707,7 @@ function ProvidersList() {
                               <div className="text-[11px] text-slate-500 mt-0.5 space-y-0.5">
                                 <p>{p.assignment_count} booking{p.assignment_count === 1 ? "" : "s"} on file</p>
                                 {acceptRate != null && (
-                                  <p className={acceptRate >= 80 ? "text-emerald-700" : acceptRate >= 50 ? "text-amber-700" : "text-rose-700"}>
+                                  <p className={acceptRate >= 80 ? "text-brand-primary" : acceptRate >= 50 ? "text-amber-700" : "text-rose-700"}>
                                     {acceptRate}% accept
                                   </p>
                                 )}
@@ -1169,7 +1169,7 @@ function CronDryRunPanel() {
           Window: <span className="font-mono">{r.windowStart?.slice(0, 16)}</span> &rarr; <span className="font-mono">{r.windowEnd?.slice(0, 16)}</span>
         </p>
         <p>
-          Candidates in window: <span className="font-semibold">{r.candidates ?? 0}</span>. Would email: <span className="font-semibold text-emerald-700">{r.sent ?? 0}</span>. Skipped (dedup / no email): <span className="font-semibold text-slate-500">{r.skipped ?? 0}</span>.
+          Candidates in window: <span className="font-semibold">{r.candidates ?? 0}</span>. Would email: <span className="font-semibold text-brand-primary">{r.sent ?? 0}</span>. Skipped (dedup / no email): <span className="font-semibold text-slate-500">{r.skipped ?? 0}</span>.
         </p>
         {r.preview && r.preview.length > 0 && (
           <div className="mt-2 max-h-40 overflow-y-auto border border-slate-200 rounded-md bg-white">

@@ -106,19 +106,19 @@ export function OnboardingProgressTracker() {
             key={step.id}
             className={`flex items-center justify-between p-3 rounded-lg transition-colors ${
               step.completed
-                ? "bg-green-50 border border-green-200"
+                ? "bg-brand-primary/10 border border-brand-primary/20"
                 : "bg-white border border-slate-200 hover:border-purple-300"
             }`}
           >
             <div className="flex items-center gap-3">
               {step.completed ? (
-                <CheckCircle2 className="w-5 h-5 text-green-600" />
+                <CheckCircle2 className="w-5 h-5 text-brand-primary" />
               ) : (
                 <Circle className="w-5 h-5 text-slate-400" />
               )}
               <span
                 className={`text-sm font-medium ${
-                  step.completed ? "text-green-700" : "text-slate-700"
+                  step.completed ? "text-brand-primary" : "text-slate-700"
                 }`}
               >
                 {step.label}

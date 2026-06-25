@@ -183,7 +183,7 @@ export function FeedbackSection({ orderId, companyId, delivered, defaultOpen, fo
           {/* Follow-up state */}
           {feedback.requires_follow_up && (
             feedback.followed_up_at ? (
-              <div className="flex items-center gap-2 text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded p-2">
+              <div className="flex items-center gap-2 text-xs text-brand-primary bg-brand-primary/10 border border-brand-primary/20 rounded p-2">
                 <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
                 <span>Follow-up resolved on {new Date(feedback.followed_up_at).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}</span>
               </div>
@@ -198,7 +198,7 @@ export function FeedbackSection({ orderId, companyId, delivered, defaultOpen, fo
           {feedback.created_at && (
             <p className="text-[10px] text-slate-400 text-right tabular-nums">
               Submitted {new Date(feedback.created_at).toLocaleString("en-ZA", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
-              {feedback.is_public && <span className="ml-2 text-emerald-600">· Public</span>}
+              {feedback.is_public && <span className="ml-2 text-brand-primary">· Public</span>}
             </p>
           )}
         </div>

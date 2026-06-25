@@ -1559,7 +1559,7 @@ function InvoicesPageInner() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-700">
+              <div className="text-2xl font-bold text-brand-primary">
                 {tenantMoney.format(invoices.filter(i => i.status === "paid").reduce((sum, inv) => sum + (inv.total_amount || 0), 0))}
               </div>
               <div className="text-[11px] text-slate-500 mt-0.5 tabular-nums">
@@ -1704,7 +1704,7 @@ function InvoicesPageInner() {
                     blue: "bg-blue-600 text-white border-blue-600",
                     amber: "bg-amber-500 text-white border-amber-500",
                     rose: "bg-rose-600 text-white border-rose-600",
-                    emerald: "bg-emerald-600 text-white border-emerald-600",
+                    emerald: "bg-brand-primary text-white border-brand-primary/80",
                   };
                   return (
                     <button
@@ -1928,8 +1928,8 @@ function InvoicesPageInner() {
                     above the list when at least one invoice is
                     ticked. */}
                 {bulkMarkPaidIds.size > 0 && (
-                  <div className="sticky top-2 z-10 bg-white border border-green-200 rounded-lg shadow-sm p-3 flex flex-wrap items-center gap-3">
-                    <span className="text-sm font-medium text-green-900">
+                  <div className="sticky top-2 z-10 bg-white border border-brand-primary/20 rounded-lg shadow-sm p-3 flex flex-wrap items-center gap-3">
+                    <span className="text-sm font-medium text-brand-primary">
                       {bulkMarkPaidIds.size} invoice{bulkMarkPaidIds.size === 1 ? "" : "s"} selected
                     </span>
                     <div className="ml-auto flex items-center gap-2">
@@ -1937,7 +1937,7 @@ function InvoicesPageInner() {
                         size="sm"
                         onClick={runBulkMarkPaid}
                         disabled={bulkMarkPaidBusy}
-                        className="bg-green-600 hover:bg-green-700"
+                        className="bg-brand-primary hover:bg-brand-primary/90"
                       >
                         {bulkMarkPaidBusy ? "Marking..." : "Mark all paid"}
                       </Button>
@@ -2087,7 +2087,7 @@ function InvoicesPageInner() {
                     // the temporary highlight ring below.
                     id={`invoice-row-${invoice.id}`}
                     className={`flex flex-col md:flex-row md:items-center md:justify-between gap-3 p-4 border rounded-lg hover:bg-slate-50 transition-colors ${overdueBorder} ${
-                      bulkMarkPaidIds.has(invoice.id) ? "ring-2 ring-green-300 bg-green-50/30" : ""
+                      bulkMarkPaidIds.has(invoice.id) ? "ring-2 ring-brand-primary/20 bg-brand-primary/10" : ""
                     } ${
                       /* Wave 66.7 - written-off rows fade to 60% so
                          they read as closed-loop at a glance even when
@@ -2125,7 +2125,7 @@ function InvoicesPageInner() {
                       {invoice.status !== "paid" && invoice.status !== "cancelled" && invoice.status !== "written_off" && (
                         <input
                           type="checkbox"
-                          className="mt-1 h-4 w-4 cursor-pointer accent-green-600 shrink-0"
+                          className="mt-1 h-4 w-4 cursor-pointer accent-brand-primary shrink-0"
                           checked={bulkMarkPaidIds.has(invoice.id)}
                           onChange={() => toggleBulkMarkPaid(invoice.id)}
                           title="Tick to include in bulk mark-paid"
@@ -2306,7 +2306,7 @@ function InvoicesPageInner() {
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 onClick={(e) => e.stopPropagation()}
-                                className="text-green-700 inline-flex items-center gap-0.5"
+                                className="text-brand-primary inline-flex items-center gap-0.5"
                                 title="WhatsApp the client"
                               >
                                 <MessageCircle className="w-3 h-3" />
@@ -2388,7 +2388,7 @@ function InvoicesPageInner() {
                           onClick={() => setMarkPaidInvoice(invoice as MarkPaidDialogInvoice)}
                           title="Record a payment for this invoice and optionally send a confirmation to the client"
                           aria-label="Mark this invoice paid"
-                          className="text-green-700 border-green-200 hover:bg-green-50 hover:text-green-800 gap-1.5"
+                          className="text-brand-primary border-brand-primary/20 hover:bg-brand-primary/10 hover:text-brand-primary gap-1.5"
                         >
                           <CheckCircle2 className="h-4 w-4" />
                           <span className="hidden sm:inline">Mark paid</span>

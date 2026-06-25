@@ -834,7 +834,7 @@ function WageDashboardPage() {
                       variant={preset === p ? "default" : "outline"}
                       size="sm"
                       onClick={() => handlePresetChange(p)}
-                      className={preset === p ? "bg-emerald-600 hover:bg-emerald-700" : ""}
+                      className={preset === p ? "bg-brand-primary hover:bg-brand-primary/90" : ""}
                     >
                       {label}
                     </Button>
@@ -850,7 +850,7 @@ function WageDashboardPage() {
                       <Label className="text-xs">To</Label>
                       <Input type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)} className="w-40" />
                     </div>
-                    <Button size="sm" onClick={handleApplyCustom} className="bg-emerald-600 hover:bg-emerald-700">Apply</Button>
+                    <Button size="sm" onClick={handleApplyCustom} className="bg-brand-primary hover:bg-brand-primary/90">Apply</Button>
                   </div>
                 )}
                 <div className="text-xs text-slate-500 inline-flex items-center gap-1">
@@ -887,20 +887,20 @@ function WageDashboardPage() {
                   <div className="text-[10px] text-slate-500 mt-1">Flat fee per dispatch</div>
                 </CardContent>
               </Card>
-              <Card className="border-0 shadow-sm bg-emerald-50">
+              <Card className="border-0 shadow-sm bg-brand-primary/10">
                 <CardContent className="p-4">
-                  <div className="text-[10px] uppercase tracking-wider text-emerald-700 mb-1">Combined</div>
-                  <div className="text-xl sm:text-2xl font-bold text-emerald-700 tabular-nums">{fmtZAR(driverTotals.combined)}</div>
-                  <div className="text-[10px] text-emerald-700 mt-1">{driverRows.length} driver{driverRows.length === 1 ? "" : "s"}</div>
+                  <div className="text-[10px] uppercase tracking-wider text-brand-primary mb-1">Combined</div>
+                  <div className="text-xl sm:text-2xl font-bold text-brand-primary tabular-nums">{fmtZAR(driverTotals.combined)}</div>
+                  <div className="text-[10px] text-brand-primary mt-1">{driverRows.length} driver{driverRows.length === 1 ? "" : "s"}</div>
                 </CardContent>
               </Card>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
-              <Card className="border-0 shadow-sm bg-emerald-50">
+              <Card className="border-0 shadow-sm bg-brand-primary/10">
                 <CardContent className="p-4">
-                  <div className="text-[10px] uppercase tracking-wider text-emerald-700 mb-1">Period total</div>
-                  <div className="text-2xl sm:text-3xl font-bold text-emerald-700 tabular-nums">{fmtZAR(grandTotal)}</div>
+                  <div className="text-[10px] uppercase tracking-wider text-brand-primary mb-1">Period total</div>
+                  <div className="text-2xl sm:text-3xl font-bold text-brand-primary tabular-nums">{fmtZAR(grandTotal)}</div>
                   {/* WAGE-A intel: trend vs same-length previous
                       period. Hidden while loading or when prev was
                       0 (would divide by zero). */}
@@ -908,17 +908,17 @@ function WageDashboardPage() {
                     const diff = kitchenTotals.total_wage - prevPeriodTotal;
                     const pct = Math.round((diff / prevPeriodTotal) * 100);
                     if (Math.abs(pct) < 1) return (
-                      <div className="text-[10px] text-emerald-700 mt-1">Flat vs previous period</div>
+                      <div className="text-[10px] text-brand-primary mt-1">Flat vs previous period</div>
                     );
                     const up = diff > 0;
                     return (
-                      <div className={`text-[10px] mt-1 inline-flex items-center gap-0.5 ${up ? "text-rose-700" : "text-emerald-800"}`}>
+                      <div className={`text-[10px] mt-1 inline-flex items-center gap-0.5 ${up ? "text-rose-700" : "text-brand-primary"}`}>
                         {up ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />}
                         {Math.abs(pct)}% vs previous period
                       </div>
                     );
                   })()}
-                  <div className="text-[10px] text-emerald-700 mt-1">
+                  <div className="text-[10px] text-brand-primary mt-1">
                     {department === "all"
                       ? "Kitchen + drivers + shopping + cleaning"
                       : `${capitalise(department)} department`}
@@ -1023,7 +1023,7 @@ function WageDashboardPage() {
                 let tone = "bg-white";
                 let valueTone = "text-slate-900";
                 if (wagePct != null) {
-                  if (wagePct <= 35) { tone = "bg-emerald-50/60"; valueTone = "text-emerald-700"; }
+                  if (wagePct <= 35) { tone = "bg-brand-primary/10"; valueTone = "text-brand-primary"; }
                   else if (wagePct <= 45) { tone = "bg-amber-50/60"; valueTone = "text-amber-700"; }
                   else { tone = "bg-rose-50/60"; valueTone = "text-rose-700"; }
                 }
@@ -1242,7 +1242,7 @@ function KitchenSummaryView({
               {topFive.map((r, i) => (
                 <li key={r.staff_id} className="flex items-center justify-between border-b border-slate-100 last:border-0 pb-2">
                   <div className="flex items-center gap-2 min-w-0">
-                    <span className="w-5 h-5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold flex items-center justify-center">
+                    <span className="w-5 h-5 rounded-full bg-brand-primary/10 text-brand-primary text-[10px] font-bold flex items-center justify-center">
                       {i + 1}
                     </span>
                     <div className="min-w-0">
@@ -1262,7 +1262,7 @@ function KitchenSummaryView({
                       </div>
                     </div>
                   </div>
-                  <div className="text-sm font-bold text-emerald-700 tabular-nums">{fmtZAR(r.total_wage)}</div>
+                  <div className="text-sm font-bold text-brand-primary tabular-nums">{fmtZAR(r.total_wage)}</div>
                 </li>
               ))}
             </ul>
@@ -1352,13 +1352,13 @@ function DriverSummaryView({ rows, totals, fmtZAR = fmtZARDefault, fmtZARDetaile
                   </span>
                   <div className="text-sm font-medium text-slate-900 truncate">{r.full_name}</div>
                 </div>
-                <div className="text-sm font-bold text-emerald-700 tabular-nums">{fmtZAR(r.total)}</div>
+                <div className="text-sm font-bold text-brand-primary tabular-nums">{fmtZAR(r.total)}</div>
               </li>
             ))}
             {rows.length === 0 && <li className="text-sm text-slate-500 text-center py-4">No drivers in range.</li>}
           </ul>
           <div className="mt-4 pt-3 border-t border-slate-100 text-xs text-slate-500">
-            Combined: <span className="font-bold text-emerald-700 tabular-nums">{fmtZAR(totals.combined)}</span>
+            Combined: <span className="font-bold text-brand-primary tabular-nums">{fmtZAR(totals.combined)}</span>
           </div>
         </CardContent>
       </Card>
@@ -1451,7 +1451,7 @@ function KitchenByPersonTable({
                             )}
                             {r.role_title && <span>{r.role_title}</span>}
                             {r.open_shift && (
-                              <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[9px] px-1 py-0">On shift now</Badge>
+                              <Badge variant="outline" className="bg-brand-primary/10 text-brand-primary border-brand-primary/20 text-[9px] px-1 py-0">On shift now</Badge>
                             )}
                           </div>
                         </div>
@@ -1497,7 +1497,7 @@ function KitchenByPersonTable({
                 </td>
                 <td className="px-2 py-3"></td>
                 <td className="px-2 py-3"></td>
-                <td className="px-3 py-3 text-right text-emerald-700 tabular-nums">{fmtZAR(totals.total_wage)}</td>
+                <td className="px-3 py-3 text-right text-brand-primary tabular-nums">{fmtZAR(totals.total_wage)}</td>
               </tr>
             </tfoot>
           </table>
@@ -1591,7 +1591,7 @@ function DriverByPersonTable({ rows, fmtZAR = fmtZARDefault }: {
                 <td className="px-2 py-3 text-right tabular-nums">
                   {fmtZAR(rows.reduce((s, r) => s + r.callout_pay, 0))}
                 </td>
-                <td className="px-3 py-3 text-right text-emerald-700 tabular-nums">
+                <td className="px-3 py-3 text-right text-brand-primary tabular-nums">
                   {fmtZAR(rows.reduce((s, r) => s + r.total, 0))}
                 </td>
                 <td className="px-2 py-3"></td>

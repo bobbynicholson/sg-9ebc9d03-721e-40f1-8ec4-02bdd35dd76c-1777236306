@@ -323,9 +323,9 @@ function CleaningScheduleGrid() {
                             const iso = toLocalISO(d);
                             const isToday = iso === todayIso;
                             return (
-                              <th key={i} className={`px-2 py-2 text-xs uppercase tracking-wider font-semibold text-center min-w-[110px] ${isToday ? "text-cyan-700" : "text-slate-500"}`}>
+                              <th key={i} className={`px-2 py-2 text-xs uppercase tracking-wider font-semibold text-center min-w-[110px] ${isToday ? "text-brand-primary" : "text-slate-500"}`}>
                                 <div>{DAY_LABELS[i]}</div>
-                                <div className={`text-[10px] tabular-nums ${isToday ? "text-cyan-600" : "text-slate-400"}`}>
+                                <div className={`text-[10px] tabular-nums ${isToday ? "text-brand-primary" : "text-slate-400"}`}>
                                   {d.toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}
                                 </div>
                               </th>
@@ -365,15 +365,15 @@ function CleaningScheduleGrid() {
                                                 isMissed
                                                   ? "border-red-200 bg-red-50"
                                                   : hasActual
-                                                    ? "border-emerald-200 bg-emerald-50"
-                                                    : "border-cyan-200 bg-cyan-50"
+                                                    ? "border-brand-primary/20 bg-brand-primary/10"
+                                                    : "border-brand-primary/20 bg-brand-primary/10"
                                               }`}
                                             >
                                               <div className="flex items-center justify-between gap-1">
                                                 <span className={`text-xs font-semibold tabular-nums ${
                                                   isMissed ? "text-red-900" :
-                                                  hasActual ? "text-emerald-900" :
-                                                              "text-cyan-900"
+                                                  hasActual ? "text-brand-primary" :
+                                                              "text-brand-primary"
                                                 }`}>
                                                   {fmtTime(s.planned_start)}-{fmtTime(s.planned_end)}
                                                 </span>
@@ -384,7 +384,7 @@ function CleaningScheduleGrid() {
                                                 )}
                                               </div>
                                               {hasActual ? (
-                                                <div className="text-[10px] text-emerald-700 mt-0.5 tabular-nums">
+                                                <div className="text-[10px] text-brand-primary mt-0.5 tabular-nums">
                                                   Actual {aHours.toFixed(1)}h
                                                 </div>
                                               ) : isMissed ? (
@@ -392,7 +392,7 @@ function CleaningScheduleGrid() {
                                                   <AlertTriangle className="w-2.5 h-2.5" /> Missed
                                                 </div>
                                               ) : (
-                                                <div className="text-[10px] text-cyan-700 mt-0.5 tabular-nums">
+                                                <div className="text-[10px] text-brand-primary mt-0.5 tabular-nums">
                                                   {plannedHours(s.planned_start, s.planned_end).toFixed(1)}h planned
                                                 </div>
                                               )}
@@ -410,7 +410,7 @@ function CleaningScheduleGrid() {
                                       <button
                                         type="button"
                                         onClick={() => setLogTarget({ staffId: p.id, staffName: p.full_name || p.email, date: iso })}
-                                        className="w-full text-slate-300 hover:text-cyan-600 hover:bg-cyan-50 rounded-md py-2 transition-colors"
+                                        className="w-full text-slate-300 hover:text-brand-primary hover:bg-brand-primary/10 rounded-md py-2 transition-colors"
                                         title="Roster a cleaning shift on this day"
                                       >
                                         <Plus className="w-4 h-4 mx-auto" />

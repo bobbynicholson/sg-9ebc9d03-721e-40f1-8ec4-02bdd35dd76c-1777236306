@@ -224,7 +224,7 @@ export function ShoppingSection({ orderId, companyId, defaultOpen, forceOpen, hi
                   </Button>
                 )}
                 {pushed && (
-                  <span className="inline-flex items-center gap-1 text-[11px] text-emerald-700 bg-emerald-50 border border-emerald-200 rounded px-1.5 py-0.5">
+                  <span className="inline-flex items-center gap-1 text-[11px] text-brand-primary bg-brand-primary/10 border border-brand-primary/20 rounded px-1.5 py-0.5">
                     <CheckCircle2 className="w-3 h-3" />
                     Added ({pushed.itemCount})
                   </span>
@@ -244,15 +244,15 @@ export function ShoppingSection({ orderId, companyId, defaultOpen, forceOpen, hi
           )}
           {ok > 0 && (
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-emerald-800 mt-3 mb-1.5">In stock</p>
+              <p className="text-xs font-semibold uppercase tracking-wider text-brand-primary mt-3 mb-1.5">In stock</p>
               <ul className="space-y-1">
                 {demand.filter((d) => Number(d.shortfall || 0) === 0).map((d) => (
-                  <li key={d.inventory_item_id || d.name} className="flex items-center justify-between gap-2 text-sm p-2 rounded border border-emerald-200 bg-emerald-50/60">
-                    <span className="inline-flex items-center gap-1.5 text-emerald-900">
+                  <li key={d.inventory_item_id || d.name} className="flex items-center justify-between gap-2 text-sm p-2 rounded border border-brand-primary/20 bg-brand-primary/10">
+                    <span className="inline-flex items-center gap-1.5 text-brand-primary">
                       <CheckCircle2 className="w-3.5 h-3.5" />
                       <span className="truncate">{d.name}</span>
                     </span>
-                    <span className="text-xs text-emerald-800 tabular-nums">
+                    <span className="text-xs text-brand-primary tabular-nums">
                       need {Number(d.total_quantity || 0).toFixed(2)} {d.unit} · have {Number(d.on_hand || 0).toFixed(2)}
                     </span>
                   </li>

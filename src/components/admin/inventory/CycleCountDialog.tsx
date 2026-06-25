@@ -162,7 +162,7 @@ export function CycleCountDialog({ open, onOpenChange, companyId, performedBy, i
                   <span className="font-semibold text-slate-900">{enteredEntries.length}</span> counted
                 </span>
                 <span className="text-slate-400">·</span>
-                <span className="flex items-center gap-1 text-emerald-700">
+                <span className="flex items-center gap-1 text-brand-primary">
                   <CheckCircle2 className="w-3.5 h-3.5" />
                   {matchCount} match
                 </span>
@@ -211,7 +211,7 @@ export function CycleCountDialog({ open, onOpenChange, companyId, performedBy, i
                     const variance = counted == null ? null : counted - item.systemStock;
                     const varTone =
                       variance == null ? "text-slate-300" :
-                      variance === 0    ? "text-emerald-700" :
+                      variance === 0    ? "text-brand-primary" :
                       variance < 0      ? "text-red-700"     :
                                           "text-blue-700";
                     return (
@@ -263,9 +263,9 @@ export function CycleCountDialog({ open, onOpenChange, companyId, performedBy, i
         ) : (
           <div className="space-y-3">
             <div className="grid grid-cols-3 gap-3">
-              <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2">
-                <p className="text-xs uppercase tracking-wide text-emerald-700 font-semibold">Match</p>
-                <p className="text-2xl font-bold text-emerald-900">{matchCount}</p>
+              <div className="rounded-md border border-brand-primary/20 bg-brand-primary/10 px-3 py-2">
+                <p className="text-xs uppercase tracking-wide text-brand-primary font-semibold">Match</p>
+                <p className="text-2xl font-bold text-brand-primary">{matchCount}</p>
               </div>
               <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2">
                 <p className="text-xs uppercase tracking-wide text-red-700 font-semibold">Short</p>
@@ -298,7 +298,7 @@ export function CycleCountDialog({ open, onOpenChange, companyId, performedBy, i
                         {counted}
                       </td>
                       <td className={`py-2 px-3 text-right tabular-nums font-semibold ${
-                        variance === 0 ? "text-emerald-700" :
+                        variance === 0 ? "text-brand-primary" :
                         variance < 0 ? "text-red-700" : "text-blue-700"
                       }`}>
                         {variance > 0 ? `+${variance}` : variance}

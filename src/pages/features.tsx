@@ -74,7 +74,7 @@ export default function FeaturesPage() {
         "Automated follow-up sequences",
         "Track conversion rates in real-time"
       ],
-      gradient: "from-blue-500 to-cyan-500",
+      gradient: "from-blue-500 to-brand-secondary",
       impact: "2-2.5x higher conversion (industry data)",
       link: "/features/lead-management"
     },
@@ -104,7 +104,7 @@ export default function FeaturesPage() {
         "Equipment availability tracking",
         "Cleaning schedule integration"
       ],
-      gradient: "from-green-500 to-emerald-500",
+      gradient: "from-brand-primary to-brand-secondary",
       impact: "45-50% reduction in waste",
       link: "/features/inventory-management"
     },
@@ -179,7 +179,7 @@ export default function FeaturesPage() {
         "Supplier price comparison",
         "Cost optimization recommendations"
       ],
-      gradient: "from-cyan-500 to-blue-500",
+      gradient: "from-brand-primary to-blue-500",
       impact: "10-12% cost savings potential",
       link: null
     },
@@ -194,7 +194,7 @@ export default function FeaturesPage() {
         "Status tracking",
         "Equipment reservation system"
       ],
-      gradient: "from-teal-500 to-cyan-500",
+      gradient: "from-brand-primary to-brand-secondary",
       impact: "Zero equipment conflicts",
       link: null
     },
@@ -239,7 +239,7 @@ export default function FeaturesPage() {
         "Automatic reconciliation",
         "Multiple payment methods"
       ],
-      gradient: "from-emerald-500 to-green-500",
+      gradient: "from-brand-primary to-brand-secondary",
       impact: "Instant payment processing",
       link: null
     },

@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -105,14 +105,14 @@ export default function StaffJobProgress() {
       pending: "bg-slate-100 text-slate-800",
       preparing: "bg-brand-primary/10 text-brand-primary",
       assigned: "bg-brand-primary/10 text-brand-primary",
-      ready: "bg-green-100 text-green-800",
-      completed: "bg-green-100 text-green-800",
+      ready: "bg-brand-primary/15 text-brand-primary",
+      completed: "bg-brand-primary/15 text-brand-primary",
     };
     return colors[status as keyof typeof colors] || colors.pending;
   };
 
   const getProgressColor = (progress: number) => {
-    if (progress >= 75) return "bg-green-500";
+    if (progress >= 75) return "bg-brand-primary";
     if (progress >= 50) return "bg-brand-primary";
     if (progress >= 25) return "bg-brand-primary";
     return "bg-slate-300";
@@ -205,7 +205,7 @@ export default function StaffJobProgress() {
                         <div className="space-y-2">
                           <div className="flex items-center gap-2 text-sm text-slate-600">
                             {job.kitchenStatus === "ready" ? (
-                              <CheckCircle className="w-4 h-4 text-green-600" />
+                              <CheckCircle className="w-4 h-4 text-brand-primary" />
                             ) : job.kitchenStatus === "preparing" ? (
                               <Clock className="w-4 h-4 text-brand-primary" />
                             ) : (
@@ -238,7 +238,7 @@ export default function StaffJobProgress() {
                         <div className="space-y-2">
                           <div className="flex items-center gap-2 text-sm text-slate-600">
                             {job.driverStatus === "completed" ? (
-                              <CheckCircle className="w-4 h-4 text-green-600" />
+                              <CheckCircle className="w-4 h-4 text-brand-primary" />
                             ) : job.driverStatus === "assigned" ? (
                               <Clock className="w-4 h-4 text-brand-primary" />
                             ) : (

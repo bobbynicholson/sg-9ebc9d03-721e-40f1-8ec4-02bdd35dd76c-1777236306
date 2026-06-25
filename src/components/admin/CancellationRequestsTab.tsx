@@ -163,7 +163,7 @@ export function CancellationRequestsTab({ orderId, companyId = null, onActioned 
                     <Receipt className="w-3 h-3" />
                     Policy refund: <strong>{fmt(Number(req.refund_amount_calculated))}</strong>
                     {req.refund_amount_approved !== null && Number(req.refund_amount_approved) !== Number(req.refund_amount_calculated) ? (
-                      <span className="ml-2 text-emerald-700">Approved: {fmt(Number(req.refund_amount_approved))}</span>
+                      <span className="ml-2 text-brand-primary">Approved: {fmt(Number(req.refund_amount_approved))}</span>
                     ) : null}
                   </div>
                 ) : null}
@@ -193,7 +193,7 @@ export function CancellationRequestsTab({ orderId, companyId = null, onActioned 
                     size="sm"
                     onClick={() => action(req, true)}
                     disabled={busyId === req.id}
-                    className="bg-emerald-600 hover:bg-emerald-700"
+                    className="bg-brand-primary hover:bg-brand-primary/90"
                   >
                     <CheckCircle2 className="w-4 h-4 mr-1" />
                     {busyId === req.id ? "Working..." : "Approve"}

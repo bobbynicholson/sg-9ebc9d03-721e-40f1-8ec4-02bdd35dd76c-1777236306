@@ -34,7 +34,7 @@ const statusTone: Record<string, string> = {
   pending:     "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700",
   scheduled:   "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700",
   in_progress: "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-900",
-  completed:   "bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-900",
+  completed:   "bg-brand-primary/15 text-brand-primary border-brand-primary/20 dark:bg-brand-primary/15 dark:text-brand-primary dark:border-brand-primary/30",
   overdue:     "bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-950 dark:text-rose-300 dark:border-rose-900",
   skipped:     "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-900",
 };
@@ -175,7 +175,7 @@ export default function CleaningTasksPage() {
               </div>
             ) : tasks.length === 0 ? (
               <div className="text-center py-16 text-slate-500 dark:text-slate-400">
-                <Check className="h-10 w-10 mx-auto mb-3 text-emerald-500 dark:text-emerald-400" />
+                <Check className="h-10 w-10 mx-auto mb-3 text-brand-primary dark:text-brand-primary" />
                 <p className="font-medium text-slate-900 dark:text-white">No open cleaning tasks</p>
                 <p className="text-xs mt-1">Everything is done</p>
               </div>

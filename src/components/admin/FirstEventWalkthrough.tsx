@@ -155,11 +155,11 @@ export function FirstEventWalkthrough({ companyId, slug }: Props) {
   };
 
   return (
-    <Card className="border-0 shadow-lg mb-6 bg-gradient-to-br from-emerald-50 via-cyan-50 to-blue-50">
+    <Card className="border-0 shadow-lg mb-6 bg-gradient-to-br from-brand-primary/10 via-brand-secondary/10 to-blue-50">
       <CardHeader className="pb-3 flex flex-row items-start justify-between gap-3">
         <div>
           <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-            <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-600" />
+            <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-brand-primary" />
             Land your first event
           </CardTitle>
           <p className="text-xs sm:text-sm text-slate-600 mt-1">
@@ -184,33 +184,33 @@ export function FirstEventWalkthrough({ companyId, slug }: Props) {
               href={step.href}
               className={`flex items-center gap-3 p-3 rounded-lg border transition-all group ${
                 step.done
-                  ? "bg-emerald-50/60 border-emerald-200"
-                  : "bg-white border-slate-200 hover:border-emerald-300 hover:shadow-sm"
+                  ? "bg-brand-primary/10 border-brand-primary/20"
+                  : "bg-white border-slate-200 hover:border-brand-primary/30 hover:shadow-sm"
               }`}
             >
               <div
                 className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-sm font-bold ${
                   step.done
-                    ? "bg-emerald-100 text-emerald-700"
-                    : "bg-cyan-100 text-cyan-700"
+                    ? "bg-brand-primary/15 text-brand-primary"
+                    : "bg-brand-primary/15 text-brand-primary"
                 }`}
               >
                 {step.done ? <CheckCircle2 className="w-4 h-4" /> : i + 1}
               </div>
               <div className="flex-1 min-w-0">
-                <p className={`text-sm font-medium truncate ${step.done ? "text-emerald-900 line-through decoration-emerald-300" : "text-slate-900"}`}>
+                <p className={`text-sm font-medium truncate ${step.done ? "text-brand-primary line-through decoration-brand-primary/40" : "text-slate-900"}`}>
                   {step.label}
                 </p>
                 <p className="text-xs text-slate-500 truncate">{step.description}</p>
               </div>
-              <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-emerald-600 flex-shrink-0" />
+              <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-brand-primary flex-shrink-0" />
             </Link>
           ))}
         </div>
         <div className="flex items-center justify-between mt-3 text-xs">
           <span className="text-slate-500 flex items-center gap-1">
             {doneCount > 0 ? (
-              <><CheckCircle2 className="w-3 h-3 text-emerald-500" /> {doneCount} of 3 done</>
+              <><CheckCircle2 className="w-3 h-3 text-brand-primary" /> {doneCount} of 3 done</>
             ) : (
               <><Circle className="w-3 h-3" /> Three steps to your first event</>
             )}

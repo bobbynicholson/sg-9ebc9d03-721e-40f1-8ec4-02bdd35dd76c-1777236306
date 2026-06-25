@@ -294,12 +294,12 @@ export default function ClientTracking() {
 
   // Restrained semantic tints: subtle bg + readable text + hairline
   // border (plus dark variants) instead of solid colour + white text.
-  // in_transit stays emerald (live / on-the-way is a valid green);
+  // in_transit uses the brand tone for live/on-the-way movement;
   // preparing + ready warm to amber; delivered settles to neutral slate.
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "collecting": return "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900";
-      case "in_transit": return "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900";
+      case "collecting": return "bg-brand-primary/10 text-brand-primary border-brand-primary/20 dark:bg-brand-primary/15 dark:text-brand-primary dark:border-brand-primary/30";
+      case "in_transit": return "bg-brand-primary/10 text-brand-primary border-brand-primary/20 dark:bg-brand-primary/15 dark:text-brand-primary dark:border-brand-primary/30";
       case "ready": return "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900";
       case "preparing": return "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900";
       case "delivered": return "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700";
@@ -588,13 +588,13 @@ export default function ClientTracking() {
                       trackDriver={isLiveTrip(selectedOrder)}
                     />
 
-                    {/* Live indicator - emerald pulse signals "live". Shows
+                    {/* Live indicator - brand pulse signals "live". Shows
                         for the delivery leg (in_transit) and for a live
                         equipment-collection trip. */}
                     {(selectedOrder.status === "in_transit" || selectedOrder.collecting) && driverLocation && (
-                      <div className="absolute top-4 right-4 bg-white dark:bg-slate-900 rounded-lg shadow-lg px-4 py-2 border-2 border-emerald-500 dark:border-emerald-600">
+                      <div className="absolute top-4 right-4 bg-white dark:bg-slate-900 rounded-lg shadow-lg px-4 py-2 border-2 border-brand-primary dark:border-brand-primary/80">
                         <div className="flex items-center gap-2">
-                          <div className="w-3 h-3 bg-emerald-500 rounded-full animate-pulse"></div>
+                          <div className="w-3 h-3 bg-brand-primary rounded-full animate-pulse"></div>
                           <span className="text-sm font-medium text-slate-900 dark:text-white">{selectedOrder.collecting ? "Collecting - Live" : "Live Tracking"}</span>
                         </div>
                       </div>
@@ -648,7 +648,7 @@ export default function ClientTracking() {
                               )}`}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 transition-colors dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-950/60"
+                              className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-brand-primary/20 bg-brand-primary/10 hover:bg-brand-primary/15 text-brand-primary transition-colors dark:border-brand-primary/30 dark:bg-brand-primary/15 dark:text-brand-primary dark:hover:bg-brand-primary/20"
                             >
                               💬 WhatsApp
                             </a>
@@ -706,7 +706,7 @@ export default function ClientTracking() {
                           <span className="tabular-nums">{formatLocalTime(order.delivery_time)}</span>
                         </div>
                         {(order.status === "in_transit" || order.collecting) && (
-                          <div className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-medium">
+                          <div className="flex items-center gap-1 text-brand-primary dark:text-brand-primary font-medium">
                             <Navigation className="w-4 h-4" />
                             <span>{order.collecting ? "Collecting" : "En route"}</span>
                           </div>

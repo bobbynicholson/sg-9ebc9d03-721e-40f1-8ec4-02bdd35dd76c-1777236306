@@ -159,9 +159,9 @@ export function ClientLinkButton({ orderId, compact, onGenerated }: Props) {
 
         {/* Fresh link reveal */}
         {freshLink && (
-          <div className="rounded-lg border-2 border-emerald-300 bg-emerald-50 p-4">
+          <div className="rounded-lg border-2 border-brand-primary/30 bg-brand-primary/10 p-4">
             <div className="flex items-start justify-between gap-3 mb-2">
-              <p className="font-semibold text-emerald-900 text-sm flex items-center gap-1.5">
+              <p className="font-semibold text-brand-primary text-sm flex items-center gap-1.5">
                 <Check className="w-4 h-4" />
                 Link copied to clipboard
               </p>
@@ -179,10 +179,10 @@ export function ClientLinkButton({ orderId, compact, onGenerated }: Props) {
                 {copied ? "Copied" : "Copy again"}
               </Button>
             </div>
-            <code className="block bg-white border border-emerald-200 rounded px-3 py-2 text-xs font-mono break-all">
+            <code className="block bg-white border border-brand-primary/20 rounded px-3 py-2 text-xs font-mono break-all">
               {freshLink}
             </code>
-            <p className="text-xs text-emerald-700 mt-2">
+            <p className="text-xs text-brand-primary mt-2">
               Paste this into your usual channel. They open it, see their booking, no account needed.
             </p>
           </div>

@@ -227,7 +227,7 @@ function SubscriptionPage() {
 
   const getStatusColor = (status: string | null | undefined) => {
     switch (status) {
-      case "active": return "bg-green-500";
+      case "active": return "bg-brand-primary";
       case "trial": return "bg-blue-500";
       case "past_due": return "bg-yellow-500";
       case "cancelled": return "bg-red-500";
@@ -489,9 +489,9 @@ function SubscriptionPage() {
                   {billingHistory.map((record) => (
                     <div key={record.id} className="flex items-center justify-between p-4 border rounded-lg">
                       <div className="flex items-center gap-4">
-                        <div className={`p-2 rounded-full ${record.status === "succeeded" ? "bg-green-100" : "bg-red-100"}`}>
+                        <div className={`p-2 rounded-full ${record.status === "succeeded" ? "bg-brand-primary/15" : "bg-red-100"}`}>
                           {record.status === "succeeded" ? (
-                            <CheckCircle2 className="h-5 w-5 text-green-600" />
+                            <CheckCircle2 className="h-5 w-5 text-brand-primary" />
                           ) : (
                             <XCircle className="h-5 w-5 text-red-600" />
                           )}

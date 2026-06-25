@@ -217,7 +217,7 @@ export function KitchenRulesPanel({ contextNote }: Props) {
             <AlertTriangle className="w-3 h-3" /> Unsaved changes
           </span>
         ) : lastSavedAt ? (
-          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 self-start">
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-brand-primary/10 text-brand-primary border border-brand-primary/20 self-start">
             <CheckCircle2 className="w-3 h-3" /> Just saved
           </span>
         ) : null)}

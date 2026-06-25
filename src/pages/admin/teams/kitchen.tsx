@@ -448,7 +448,7 @@ function KitchenTeamPage() {
     // to the kitchen portal; /admin/kitchen-schedule is the live admin
     // view with late/missed badges, so we route there directly.
     { href: "/admin/kitchen-schedule", icon: ClipboardList, label: "Schedule + clock-ins", sub: "Weekly roster, late/missed badges", bg: "from-rose-50 to-pink-50", iconColor: "text-rose-600" },
-    { href: "/admin/inventory-recipes", icon: BookOpen, label: "Recipes & inventory", sub: "Link recipes to stock", bg: "from-emerald-50 to-teal-50", iconColor: "text-emerald-600" },
+    { href: "/admin/inventory-recipes", icon: BookOpen, label: "Recipes & inventory", sub: "Link recipes to stock", bg: "from-brand-primary/10 to-brand-secondary/10", iconColor: "text-brand-primary" },
   ];
 
   const totalPrep = stats.prepPending + stats.prepInProgress + stats.prepDone;
@@ -478,7 +478,7 @@ function KitchenTeamPage() {
                 variant="outline"
                 size="sm"
                 onClick={() => setBroadcastOpen(true)}
-                className="gap-1.5 border-green-300 text-green-800 hover:bg-green-50"
+                className="gap-1.5 border-brand-primary/30 text-brand-primary hover:bg-brand-primary/10"
                 title="Send today's prep list to every kitchen staff member with a phone on file."
               >
                 <MessageCircle className="w-3.5 h-3.5" />
@@ -541,7 +541,7 @@ function KitchenTeamPage() {
                 variant="outline"
                 className={`px-3 py-1.5 text-sm ${
                   stats.clockedNow >= stats.active
-                    ? "border-emerald-300 text-emerald-700 bg-emerald-50"
+                    ? "border-brand-primary/30 text-brand-primary bg-brand-primary/10"
                     : stats.clockedNow === 0
                       ? "border-rose-300 text-rose-700 bg-rose-50"
                       : "border-amber-300 text-amber-700 bg-amber-50"
@@ -553,7 +553,7 @@ function KitchenTeamPage() {
             )}
             {/* KIT-A: wage burn today, finance-gated. */}
             {canSeeFinance && stats.burnTodayZar > 0 && (
-              <Badge variant="outline" className="px-3 py-1.5 text-sm border-emerald-300 text-emerald-700 bg-emerald-50 tabular-nums">
+              <Badge variant="outline" className="px-3 py-1.5 text-sm border-brand-primary/30 text-brand-primary bg-brand-primary/10 tabular-nums">
                 <Banknote className="w-3 h-3 mr-1" />
                 {tenantCurrency.format(stats.burnTodayZar)} burn today
               </Badge>
@@ -639,7 +639,7 @@ function KitchenTeamPage() {
                         <>
                           <div className="h-1.5 w-full rounded-full bg-slate-200 overflow-hidden mt-2">
                             <div
-                              className={`h-full rounded-full ${prepDonePct >= 75 ? "bg-emerald-500" : prepDonePct >= 40 ? "bg-amber-500" : "bg-rose-500"}`}
+                              className={`h-full rounded-full ${prepDonePct >= 75 ? "bg-brand-primary" : prepDonePct >= 40 ? "bg-amber-500" : "bg-rose-500"}`}
                               style={{ width: `${prepDonePct}%` }}
                             />
                           </div>
@@ -648,7 +648,7 @@ function KitchenTeamPage() {
                             {stats.prepInProgress > 0 && stats.prepPending > 0 && <span className="text-slate-400 mx-1">·</span>}
                             {stats.prepPending > 0 && <span>{stats.prepPending} not started</span>}
                             {stats.prepInProgress === 0 && stats.prepPending === 0 && (
-                              <span className="inline-flex items-center gap-1 text-emerald-700"><CheckCircle2 className="w-3 h-3" /> All caught up</span>
+                              <span className="inline-flex items-center gap-1 text-brand-primary"><CheckCircle2 className="w-3 h-3" /> All caught up</span>
                             )}
                           </p>
                         </>
@@ -1007,7 +1007,7 @@ function PrepBroadcastDialog({
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <MessageCircle className="w-5 h-5 text-green-600" />
+            <MessageCircle className="w-5 h-5 text-brand-primary" />
             Send prep list
           </DialogTitle>
           <DialogDescription>
@@ -1044,7 +1044,7 @@ function PrepBroadcastDialog({
           <Button
             onClick={handleSend}
             disabled={sending || loadingRoster || recipients.length === 0 || !body.trim()}
-            className="bg-green-600 hover:bg-green-700 gap-1.5"
+            className="bg-brand-primary hover:bg-brand-primary/90 gap-1.5"
           >
             {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <MessageCircle className="w-4 h-4" />}
             {sending ? "Queueing..." : `Send to ${recipients.length || 0}`}

@@ -675,14 +675,14 @@ function KitchenScheduleGrid() {
                                                 isMissed
                                                   ? "border-red-200 bg-red-50"
                                                   : hasActual
-                                                    ? "border-emerald-200 bg-emerald-50"
+                                                    ? "border-brand-primary/20 bg-brand-primary/10"
                                                     : "border-orange-200 bg-orange-50"
                                               }`}
                                             >
                                               <div className="flex items-center justify-between gap-1">
                                                 <span className={`text-xs font-semibold tabular-nums ${
                                                   isMissed ? "text-red-900" :
-                                                  hasActual ? "text-emerald-900" :
+                                                  hasActual ? "text-brand-primary" :
                                                               "text-orange-900"
                                                 }`}>
                                                   {fmtTime(s.planned_start)}-{fmtTime(s.planned_end)}
@@ -694,7 +694,7 @@ function KitchenScheduleGrid() {
                                                 )}
                                               </div>
                                               {hasActual ? (
-                                                <div className="text-[10px] text-emerald-700 mt-0.5 tabular-nums">
+                                                <div className="text-[10px] text-brand-primary mt-0.5 tabular-nums">
                                                   Actual {aHours.toFixed(1)}h
                                                 </div>
                                               ) : isMissed ? (
@@ -849,7 +849,7 @@ function KitchenScheduleGrid() {
                                   )}
                                 </div>
                                 {distinctChefs > 0 && (
-                                  <div className="text-[9px] sm:text-[10px] text-emerald-700 mt-1 inline-flex items-center gap-0.5">
+                                  <div className="text-[9px] sm:text-[10px] text-brand-primary mt-1 inline-flex items-center gap-0.5">
                                     <Users className="w-2.5 h-2.5" />
                                     <span className="hidden sm:inline">{distinctChefs} chef{distinctChefs === 1 ? "" : "s"}</span>
                                     <span className="sm:hidden tabular-nums">{distinctChefs}</span>

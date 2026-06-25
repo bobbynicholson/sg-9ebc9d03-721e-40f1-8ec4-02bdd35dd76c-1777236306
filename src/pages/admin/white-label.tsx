@@ -505,7 +505,7 @@ function WhiteLabelPage() {
             actions={
               <div className="flex flex-col items-end gap-2">
                 {isWhiteLabeled && (
-                  <Badge className="bg-green-100 text-green-700 border-green-200">
+                  <Badge className="bg-brand-primary/15 text-brand-primary border-brand-primary/20">
                     <Sparkles className="w-3 h-3 mr-1" />
                     Custom Branding Active
                   </Badge>
@@ -721,7 +721,7 @@ function WhiteLabelPage() {
 
                   <div className="rounded-lg bg-slate-50 border border-slate-200 p-3 text-xs text-slate-600">
                     <p className="font-semibold text-slate-700 mb-1">Where you&apos;ll see these</p>
-                    <p>Sidebar logo tile, primary CTAs, the page header gradient on tenant-scoped pages, the left rail accent on email templates, and the highlight colour on buttons throughout the admin and client portals. Status colours (success green, warning amber, error red) stay fixed so they remain readable.</p>
+                    <p>Sidebar logo tile, primary CTAs, page header gradients on tenant-scoped pages, email template accents, and success/active highlights throughout the admin, client, and team portals. Warning and error states stay semantic so urgent work remains readable.</p>
                   </div>
 
                   {/* Typography. NULL/"" = the CateringMS defaults

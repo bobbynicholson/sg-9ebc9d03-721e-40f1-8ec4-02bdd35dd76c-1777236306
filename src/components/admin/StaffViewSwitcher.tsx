@@ -123,8 +123,8 @@ export function StaffViewSwitcher({ companySlug }: ViewSwitcherProps) {
       admin: "bg-blue-500",
       driver: "bg-purple-500",
       kitchen: "bg-orange-500",
-      shopping: "bg-green-500",
-      cleaning: "bg-cyan-500",
+      shopping: "bg-brand-primary",
+      cleaning: "bg-brand-primary",
     };
     return colors[currentView] || "bg-gray-500";
   };
@@ -228,7 +228,7 @@ export function StaffViewSwitcher({ companySlug }: ViewSwitcherProps) {
             <ShoppingCart className="mr-2 h-4 w-4" />
             <span>Shopping Portal</span>
             {currentView === "shopping" && (
-              <Badge className="ml-auto bg-green-500 text-white text-xs">Current</Badge>
+              <Badge className="ml-auto bg-brand-primary text-white text-xs">Current</Badge>
             )}
             {staffByRole.shopping_staff.length > 0 && (
               <Badge variant="secondary" className="ml-auto text-xs">
@@ -240,7 +240,7 @@ export function StaffViewSwitcher({ companySlug }: ViewSwitcherProps) {
             <Sparkles className="mr-2 h-4 w-4" />
             <span>Cleaning Portal</span>
             {currentView === "cleaning" && (
-              <Badge className="ml-auto bg-cyan-500 text-white text-xs">Current</Badge>
+              <Badge className="ml-auto bg-brand-primary text-white text-xs">Current</Badge>
             )}
             {staffByRole.cleaning_staff.length > 0 && (
               <Badge variant="secondary" className="ml-auto text-xs">
@@ -300,7 +300,7 @@ export function StaffViewSwitcher({ companySlug }: ViewSwitcherProps) {
               {/* Shopping Staff */}
               {staffByRole.shopping_staff.length > 0 && (
                 <>
-                  <div className="px-2 py-1.5 text-xs font-semibold text-green-600 mt-2">
+                  <div className="px-2 py-1.5 text-xs font-semibold text-brand-primary mt-2">
                     Shopping Staff
                   </div>
                   {staffByRole.shopping_staff.map((staff) => (
@@ -319,7 +319,7 @@ export function StaffViewSwitcher({ companySlug }: ViewSwitcherProps) {
               {/* Cleaning Staff */}
               {staffByRole.cleaning_staff.length > 0 && (
                 <>
-                  <div className="px-2 py-1.5 text-xs font-semibold text-cyan-600 mt-2">
+                  <div className="px-2 py-1.5 text-xs font-semibold text-brand-primary mt-2">
                     Cleaning Staff
                   </div>
                   {staffByRole.cleaning_staff.map((staff) => (

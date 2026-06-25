@@ -155,7 +155,7 @@ export function DispatchSettingsTab({ companyId: companyIdProp }: Props = {}) {
           <div className="flex items-center justify-between mb-3">
             <div>
               <Label className="text-sm md:text-base font-medium flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-emerald-600" />
+                <Sparkles className="w-4 h-4 text-brand-primary" />
                 Auto-suggest top drivers
               </Label>
               <p className="text-xs text-slate-500 mt-0.5">
@@ -166,7 +166,7 @@ export function DispatchSettingsTab({ companyId: companyIdProp }: Props = {}) {
               type="checkbox"
               checked={settings.autoSuggestEnabled}
               onChange={e => setSettings({ ...settings, autoSuggestEnabled: e.target.checked })}
-              className="w-5 h-5 accent-emerald-600 cursor-pointer"
+              className="w-5 h-5 accent-brand-primary cursor-pointer"
             />
           </div>
 
@@ -182,7 +182,7 @@ export function DispatchSettingsTab({ companyId: companyIdProp }: Props = {}) {
               checked={settings.autoAssignEnabled}
               onChange={e => setSettings({ ...settings, autoAssignEnabled: e.target.checked })}
               disabled={!settings.autoSuggestEnabled}
-              className="w-5 h-5 accent-emerald-600 cursor-pointer disabled:opacity-30"
+              className="w-5 h-5 accent-brand-primary cursor-pointer disabled:opacity-30"
             />
           </div>
         </div>
@@ -230,7 +230,7 @@ export function DispatchSettingsTab({ companyId: companyIdProp }: Props = {}) {
 
           <div className={`mt-3 px-3 py-2 rounded-md border text-sm ${
             Math.abs(totalWeight - 1) < 0.01
-              ? "bg-emerald-50 border-emerald-200 text-emerald-800"
+              ? "bg-brand-primary/10 border-brand-primary/20 text-brand-primary"
               : "bg-amber-50 border-amber-200 text-amber-800"
           }`}>
             Total: <span className="font-semibold tabular-nums">{totalWeight.toFixed(2)}</span>
@@ -246,7 +246,7 @@ export function DispatchSettingsTab({ companyId: companyIdProp }: Props = {}) {
         )}
 
         <div className="flex justify-end pt-2">
-          <Button onClick={handleSave} disabled={saving} className="bg-emerald-600 hover:bg-emerald-700 gap-2">
+          <Button onClick={handleSave} disabled={saving} className="bg-brand-primary hover:bg-brand-primary/90 gap-2">
             <Save className="w-4 h-4" />
             {saving ? "Saving..." : "Save dispatch settings"}
           </Button>
@@ -276,7 +276,7 @@ function WeightRow({
           step="0.05"
           value={value}
           onChange={e => onChange(Number(e.target.value))}
-          className="w-full accent-emerald-600"
+          className="w-full accent-brand-primary"
         />
       </div>
       <div className="col-span-2 text-right">

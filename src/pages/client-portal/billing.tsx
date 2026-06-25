@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import Head from "next/head";
 import Link from "next/link";
@@ -361,7 +361,7 @@ export default function ClientBillingPage() {
   const getStatusBadge = (status: Invoice["status"]) => {
     const variants = {
       pending: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/20",
-      paid: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/20",
+      paid: "bg-brand-primary/10 text-brand-primary border-brand-primary/20 dark:bg-brand-primary/10 dark:text-brand-primary dark:border-brand-primary/20",
       overdue: "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-500/10 dark:text-rose-300 dark:border-rose-500/20",
       failed: "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700",
     };
@@ -578,7 +578,7 @@ export default function ClientBillingPage() {
                                 {invoice.currency}{invoice.amount.toLocaleString()}
                               </p>
                               {invoice.paid_at && (
-                                <p className="text-xs text-emerald-600 dark:text-emerald-400">
+                                <p className="text-xs text-brand-primary dark:text-brand-primary">
                                   Paid: {new Date(invoice.paid_at).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}
                                 </p>
                               )}

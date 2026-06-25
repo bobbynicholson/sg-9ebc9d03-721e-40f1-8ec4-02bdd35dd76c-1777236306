@@ -128,8 +128,8 @@ const STATUS_META: Record<ClientStatus, {
 }> = {
   hot_lead:  { label: "Hot lead",     tone: "bg-red-100 text-red-700 border-red-200",         icon: Flame },
   quoted:    { label: "Quoted",       tone: "bg-orange-100 text-orange-700 border-orange-200", icon: Mail },
-  won:       { label: "Won",          tone: "bg-emerald-100 text-emerald-700 border-emerald-200", icon: CheckCircle2 },
-  active:    { label: "Active",       tone: "bg-green-100 text-green-700 border-green-200",   icon: Sparkles },
+  won:       { label: "Won",          tone: "bg-brand-primary/15 text-brand-primary border-brand-primary/20", icon: CheckCircle2 },
+  active:    { label: "Active",       tone: "bg-brand-primary/15 text-brand-primary border-brand-primary/20",   icon: Sparkles },
   returning: { label: "Returning",    tone: "bg-blue-100 text-blue-700 border-blue-200",       icon: RefreshCw },
   vip:       { label: "VIP",          tone: "bg-purple-100 text-purple-700 border-purple-200", icon: Crown },
   quiet:     { label: "Quiet",        tone: "bg-amber-100 text-amber-700 border-amber-200",   icon: Clock },
@@ -1479,7 +1479,7 @@ function ClientsCRM() {
                               <span>{c.daysSinceLastTouch}d quiet</span>
                             )}
                             {lastContacted && (
-                              <span className="text-emerald-700">✓ contacted</span>
+                              <span className="text-brand-primary">✓ contacted</span>
                             )}
                           </div>
                           {c.suggestion?.label && (
@@ -1604,7 +1604,7 @@ function ClientsCRM() {
                                   )}
                                   {c.mobile_number ? (
                                     <a href={`tel:${c.mobile_number}`} className="flex items-center gap-1 hover:text-slate-900 hover:underline" title="Mobile" onClick={(e) => e.stopPropagation()}>
-                                      <Phone className="w-3 h-3 text-emerald-600" />{c.mobile_number}
+                                      <Phone className="w-3 h-3 text-brand-primary" />{c.mobile_number}
                                     </a>
                                   ) : null}
                                   {c.landline_number ? (
@@ -1700,7 +1700,7 @@ function ClientsCRM() {
                             </td>
                             <td className="py-3 px-2 text-xs text-slate-600">
                               {lastContacted ? (
-                                <span className="text-emerald-600">
+                                <span className="text-brand-primary">
                                   {daysBetween(new Date(lastContacted), new Date())}d ago
                                 </span>
                               ) : c.daysSinceLastTouch !== null ? (

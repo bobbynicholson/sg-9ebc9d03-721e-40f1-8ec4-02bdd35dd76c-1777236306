@@ -241,7 +241,7 @@ export function AttachmentsSection({ orderId, companyId, defaultOpen, forceOpen 
                       {fmtSize(r.size_bytes)}
                       {r.uploader?.full_name && <span> · {r.uploader.full_name}</span>}
                       <span> · {new Date(r.created_at).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}</span>
-                      {r.is_client_visible && <span className="ml-1 text-emerald-700">· Client visible</span>}
+                      {r.is_client_visible && <span className="ml-1 text-brand-primary">· Client visible</span>}
                     </p>
                   </div>
                   <Button

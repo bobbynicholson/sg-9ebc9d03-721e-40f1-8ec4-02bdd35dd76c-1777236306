@@ -421,7 +421,7 @@ export default function KitchenStockPage() {
     const m = Number(i.minimum_stock || 0);
     if (s <= 0) return "bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-950/50 dark:text-rose-200 dark:border-rose-800";
     if (s <= m) return "bg-rose-50 text-rose-600 border-rose-200 dark:bg-rose-950/20 dark:text-rose-300 dark:border-rose-900";
-    return "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900";
+    return "bg-brand-primary/15 text-brand-primary border-brand-primary/20 dark:bg-brand-primary/15 dark:text-brand-primary dark:border-brand-primary/30";
   };
   const label = (i: Inventory) => {
     const s = Number(i.current_stock || 0);
@@ -697,7 +697,7 @@ export default function KitchenStockPage() {
             <button
               type="button"
               onClick={() => setAction("received")}
-              className={`flex flex-col items-center gap-1 px-2 py-2 rounded-md text-xs font-medium transition-colors ${action === "received" ? "bg-white dark:bg-slate-900 shadow-sm text-emerald-700 dark:text-emerald-300" : "text-slate-600 dark:text-slate-300 hover:bg-white/50 dark:hover:bg-slate-900/50"}`}
+              className={`flex flex-col items-center gap-1 px-2 py-2 rounded-md text-xs font-medium transition-colors ${action === "received" ? "bg-white dark:bg-slate-900 shadow-sm text-brand-primary dark:text-brand-primary" : "text-slate-600 dark:text-slate-300 hover:bg-white/50 dark:hover:bg-slate-900/50"}`}
             >
               <Plus className="w-4 h-4" />
               Received
@@ -746,7 +746,7 @@ export default function KitchenStockPage() {
                   <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 tabular-nums">
                     New on-hand: <strong className="text-slate-900 dark:text-white">{preview.newStock} {usingItem.unit_of_measure}</strong>
                     {preview.delta !== 0 && (
-                      <span className={preview.delta > 0 ? "text-emerald-700 dark:text-emerald-400" : "text-rose-700 dark:text-rose-400"}>
+                      <span className={preview.delta > 0 ? "text-brand-primary dark:text-brand-primary" : "text-rose-700 dark:text-rose-400"}>
                         {" "}({preview.delta > 0 ? "+" : ""}{preview.delta})
                       </span>
                     )}
@@ -815,8 +815,8 @@ export default function KitchenStockPage() {
 
           {pushResult ? (
             <div className="flex flex-col items-center gap-3 py-6">
-              <div className="w-14 h-14 rounded-full bg-emerald-100 dark:bg-emerald-950/40 flex items-center justify-center">
-                <CheckCircle2 className="w-7 h-7 text-emerald-700 dark:text-emerald-400" />
+              <div className="w-14 h-14 rounded-full bg-brand-primary/15 dark:bg-brand-primary/15 flex items-center justify-center">
+                <CheckCircle2 className="w-7 h-7 text-brand-primary dark:text-brand-primary" />
               </div>
               <p className="text-sm text-slate-700 dark:text-slate-300 text-center">
                 <strong className="text-slate-900 dark:text-white">{pushResult.itemCount}</strong> item{pushResult.itemCount === 1 ? "" : "s"} pushed.

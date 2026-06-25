@@ -5,7 +5,7 @@
  * signals from the tenant's data:
  *
  *   1. Events today (orders today)
- *   2. Events in flight (in_transit count)
+ *   2. Today's events in flight (in_transit count)
  *   3. New leads + overdue quotes (pipeline pressure)
  *   4. Onboarding completion (new tenant)
  *
@@ -44,7 +44,7 @@ export interface AdminPortalModeState {
   override: AdminPortalMode | null;
   /** Count of orders today (any non-cancelled status). */
   eventsToday: number;
-  /** Count of orders currently in transit. */
+  /** Count of today's orders currently in transit. */
   inTransitNow: number;
   /** Count of quotes in circulation > 48h. */
   quotesOverdue: number;
@@ -150,7 +150,9 @@ export function useAdminPortalMode(): AdminPortalModeState {
         .from("orders")
         .select("id", { count: "exact", head: true })
         .eq("company_id", companyId)
-        .eq("status", "in_transit");
+        .eq("event_date", todayIso)
+        .eq("status", "in_transit")
+        .is("deleted_at", null);
       if (regionFilterId) transitQ.eq("region_id", regionFilterId);
 
       const quotesQ = sb

@@ -827,7 +827,7 @@ function RegionsPage() {
           )}
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-            <StatTile label="Active branches" value={stats.active} accent="text-emerald-600" tooltip={"Branches that are currently switched on and accepting work."} />
+            <StatTile label="Active branches" value={stats.active} accent="text-brand-primary" tooltip={"Branches that are currently switched on and accepting work."} />
             <StatTile label="Open quotes" value={stats.openQuotes} accent="text-purple-600" tooltip={"Quotes in draft or sent state across every branch."} />
             {/* REG-B (regions audit, REG-3): label clarification. The
                 pre-REG-B labels said "MTD orders / MTD revenue", which
@@ -882,7 +882,7 @@ function RegionsPage() {
                           <CardTitle className="text-xl">{region.name}</CardTitle>
                           <Badge variant="outline" className="font-mono text-xs">{region.code}</Badge>
                           {region.is_active ? (
-                            <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 gap-1">
+                            <Badge className="bg-brand-primary/15 text-brand-primary border-brand-primary/20 gap-1">
                               <CheckCircle className="w-3 h-3" />
                               Active
                             </Badge>
@@ -1192,7 +1192,7 @@ function RegionsPage() {
                 <Input id="region-postal" value={form.postal_code} onChange={(e) => setForm({ ...form, postal_code: e.target.value })} placeholder="auto-filled" />
               </div>
               <div>
-                <Label className="flex items-center gap-1.5">Coords {form.lat != null && form.lng != null && <span className="text-[10px] text-emerald-700 font-medium">(set)</span>}</Label>
+                <Label className="flex items-center gap-1.5">Coords {form.lat != null && form.lng != null && <span className="text-[10px] text-brand-primary font-medium">(set)</span>}</Label>
                 <p className="text-xs text-slate-500 mt-2 tabular-nums">
                   {form.lat != null && form.lng != null
                     ? `${Number(form.lat).toFixed(5)}, ${Number(form.lng).toFixed(5)}`
@@ -1358,12 +1358,12 @@ function RegionsPage() {
               </div>
             </div>
 
-            <div className="rounded-lg border border-emerald-200 bg-emerald-50/40 p-4 space-y-3">
-              <div className="flex items-center gap-1.5 text-sm font-semibold text-emerald-900">
+            <div className="rounded-lg border border-brand-primary/20 bg-brand-primary/10 p-4 space-y-3">
+              <div className="flex items-center gap-1.5 text-sm font-semibold text-brand-primary">
                 <AlertCircle className="w-4 h-4" /> Branch manager notifications
                 <InfoTooltip content={"Whether the branch manager (assigned above) gets pinged when activity hits this branch.\n\nThe company owner always receives notifications regardless of these toggles. This controls only the branch manager's secondary copy."} />
               </div>
-              <p className="text-xs text-emerald-800/80">
+              <p className="text-xs text-brand-primary/80">
                 The owner always gets the notification. These toggles control whether the
                 branch manager also gets a copy.
               </p>

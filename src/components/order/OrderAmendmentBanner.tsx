@@ -145,7 +145,7 @@ export function OrderAmendmentBanner({ orderId, companyId, onApplied }: Props) {
             size="sm"
             onClick={() => review("approve")}
             disabled={acting !== null}
-            className="h-8 bg-emerald-600 hover:bg-emerald-700"
+            className="h-8 bg-brand-primary hover:bg-brand-primary/90"
           >
             {acting === "approve" ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <Check className="w-3.5 h-3.5 mr-1" />}
             Approve + apply

@@ -262,7 +262,7 @@ function RequestCard({
   const fields = Object.keys(request.proposed_changes || {});
   const statusBadge: Record<string, { label: string; tone: string; icon: any }> = {
     pending:  { label: "Pending",  tone: "bg-amber-100 text-amber-800 border-amber-200",    icon: Clock },
-    approved: { label: "Approved", tone: "bg-emerald-100 text-emerald-800 border-emerald-200", icon: CheckCircle2 },
+    approved: { label: "Approved", tone: "bg-brand-primary/15 text-brand-primary border-brand-primary/20", icon: CheckCircle2 },
     rejected: { label: "Rejected", tone: "bg-rose-100 text-rose-700 border-rose-200",       icon: XCircle },
   };
   const sb = statusBadge[request.status] || statusBadge.pending;
@@ -337,7 +337,7 @@ function RequestCard({
                 <XCircle className="w-4 h-4 mr-1.5" />
                 Reject
               </Button>
-              <Button size="sm" onClick={onApprove} disabled={isBusy} className="bg-emerald-600 hover:bg-emerald-700">
+              <Button size="sm" onClick={onApprove} disabled={isBusy} className="bg-brand-primary hover:bg-brand-primary/90">
                 <CheckCircle2 className="w-4 h-4 mr-1.5" />
                 {isBusy ? "Approving..." : "Approve + apply"}
               </Button>
@@ -416,7 +416,7 @@ function CascadePanel({
           }
           if (v.ok) {
             return (
-              <li key={key} className="flex items-start gap-2 text-xs text-emerald-700">
+              <li key={key} className="flex items-start gap-2 text-xs text-brand-primary">
                 <CheckCircle2 className="w-3.5 h-3.5 mt-0.5" />
                 <span>{label}: done</span>
               </li>

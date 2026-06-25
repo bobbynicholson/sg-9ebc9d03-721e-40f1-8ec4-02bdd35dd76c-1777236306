@@ -286,14 +286,14 @@ export function WhatsAppButton(props: Props) {
           variant={variant}
           className={`gap-1.5 ${className ?? ""}`}
         >
-          <MessageCircle className="w-3.5 h-3.5 text-emerald-600" />
+          <MessageCircle className="w-3.5 h-3.5 text-brand-primary" />
           {label || null}
         </Button>
       </PopoverTrigger>
 
       <PopoverContent align="end" className="w-[360px] p-3 space-y-2">
         <div className="flex items-center gap-2">
-          <MessageCircle className="w-4 h-4 text-emerald-600" />
+          <MessageCircle className="w-4 h-4 text-brand-primary" />
           <p className="text-sm font-semibold text-slate-900">WhatsApp message</p>
         </div>
 
@@ -313,7 +313,7 @@ export function WhatsAppButton(props: Props) {
               }}
               className={`text-[11px] px-2 py-1 rounded-md border transition-colors ${
                 pickedKey === k
-                  ? "bg-emerald-600 text-white border-emerald-600"
+                  ? "bg-brand-primary text-white border-brand-primary/80"
                   : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
               }`}
             >
@@ -339,7 +339,7 @@ export function WhatsAppButton(props: Props) {
         <Button
           type="button"
           onClick={handleSend}
-          className="w-full h-9 bg-emerald-600 hover:bg-emerald-700 gap-1.5"
+          className="w-full h-9 bg-brand-primary hover:bg-brand-primary/90 gap-1.5"
         >
           <Send className="w-3.5 h-3.5" />
           Send via WhatsApp

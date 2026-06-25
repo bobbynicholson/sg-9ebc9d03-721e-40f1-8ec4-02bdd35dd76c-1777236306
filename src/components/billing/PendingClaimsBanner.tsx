@@ -322,7 +322,7 @@ function ClaimRow({
       <div className="flex gap-2 sm:flex-col lg:flex-row">
         <Button
           size="sm"
-          className="bg-emerald-600 hover:bg-emerald-700"
+          className="bg-brand-primary hover:bg-brand-primary/90"
           onClick={onConfirm}
           disabled={acting}
         >

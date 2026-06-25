@@ -38,10 +38,10 @@ const ROLE_OPTIONS = [
   { value: "region_admin", label: "Branch Manager (single / multi-branch)", icon: Building2, color: "bg-blue-100 text-blue-700" },
   { value: "sales_admin", label: "Sales Admin (cross-branch sales)", icon: Shield, color: "bg-violet-100 text-violet-700" },
   { value: "admin", label: "Admin", icon: Shield, color: "bg-purple-100 text-purple-700" },
-  { value: "driver", label: "Driver", icon: Truck, color: "bg-green-100 text-green-700" },
+  { value: "driver", label: "Driver", icon: Truck, color: "bg-brand-primary/15 text-brand-primary" },
   { value: "kitchen_staff", label: "Kitchen Staff", icon: ChefHat, color: "bg-orange-100 text-orange-700" },
   { value: "shopping_staff", label: "Shopping Staff", icon: ShoppingCart, color: "bg-pink-100 text-pink-700" },
-  { value: "cleaning_staff", label: "Cleaning Staff", icon: Sparkles, color: "bg-cyan-100 text-cyan-700" },
+  { value: "cleaning_staff", label: "Cleaning Staff", icon: Sparkles, color: "bg-brand-primary/15 text-brand-primary" },
 ];
 
 // Roles that get region scoping. Cross-branch roles (company_admin,

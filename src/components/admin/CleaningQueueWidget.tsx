@@ -30,7 +30,7 @@ import { useTenantHref } from "@/lib/tenantUrl";
 const METHOD_TONE: Record<CleaningMethod, { label: string; chip: string; icon: any }> = {
   dishwasher: {
     label: "Dishwasher",
-    chip: "bg-cyan-100 text-cyan-800 border-cyan-200",
+    chip: "bg-brand-primary/15 text-brand-primary border-brand-primary/20",
     icon: Sparkles,
   },
   manual: {
@@ -92,12 +92,12 @@ export function CleaningQueueWidget({ companyId }: { companyId: string | null })
   if (!loading && rows.length === 0) return null;
 
   return (
-    <Card className="mb-6 border-cyan-200 bg-cyan-50/30">
+    <Card className="mb-6 border-brand-primary/20 bg-brand-primary/5">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between gap-2">
           <div>
             <CardTitle className="flex items-center gap-2 text-base">
-              <Sparkles className="w-4 h-4 text-cyan-600" />
+              <Sparkles className="w-4 h-4 text-brand-primary" />
               Cleaning queue
             </CardTitle>
             <CardDescription className="text-xs">
@@ -105,7 +105,7 @@ export function CleaningQueueWidget({ companyId }: { companyId: string | null })
             </CardDescription>
           </div>
           <Link href={withSlug("/team-portal/cleaning/dashboard")}>
-            <Button variant="ghost" size="sm" className="text-cyan-700">
+            <Button variant="ghost" size="sm" className="text-brand-primary">
               All cleaning <ArrowRight className="w-3.5 h-3.5 ml-1" />
             </Button>
           </Link>
@@ -115,7 +115,7 @@ export function CleaningQueueWidget({ companyId }: { companyId: string | null })
         {loading ? (
           <p className="text-xs text-slate-500 py-4">Loading...</p>
         ) : (
-          <ul className="divide-y divide-cyan-100">
+          <ul className="divide-y divide-brand-primary/15">
             {rows.map((r) => {
               // Defensive: fall back to 'manual' tone if method comes
               // back as anything unexpected (PostgREST cache lag,
@@ -128,7 +128,7 @@ export function CleaningQueueWidget({ companyId }: { companyId: string | null })
                 <li key={r.id}>
                   <Link
                     href={withSlug("/team-portal/cleaning/dashboard")}
-                    className="py-2 flex items-center gap-3 hover:bg-cyan-50/60 rounded transition"
+                    className="py-2 flex items-center gap-3 hover:bg-brand-primary/10 rounded transition"
                   >
                     <Badge variant="outline" className={`shrink-0 ${meta.chip} text-[10px] inline-flex items-center gap-1`}>
                       <Icon className="w-3 h-3" />

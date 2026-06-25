@@ -239,15 +239,15 @@ export default function ContactPage() {
 
               {submitted ? (
                 <Reveal>
-                  <div className="rounded-3xl border border-emerald-200 bg-emerald-50 p-8 text-center sm:p-12">
-                    <CheckCircle className="mx-auto mb-5 h-12 w-12 text-emerald-600" />
+                  <div className="rounded-3xl border border-brand-primary/20 bg-brand-primary/10 p-8 text-center sm:p-12">
+                    <CheckCircle className="mx-auto mb-5 h-12 w-12 text-brand-primary" />
                     <h3 className="mb-3 font-display text-2xl font-semibold tracking-tight text-stone-900">Message Sent Successfully!</h3>
                     <p className="mb-6 text-base text-stone-700">
                       Thank you for contacting us. We've received your message and will respond within 24 hours.
                     </p>
                     <Button
                       onClick={() => setSubmitted(false)}
-                      className={`h-12 rounded-full bg-emerald-700 px-8 text-base font-semibold text-white shadow-sm hover:bg-emerald-800 ${btnPress}`}
+                      className={`h-12 rounded-full bg-brand-primary/90 px-8 text-base font-semibold text-white shadow-sm hover:bg-brand-primary/90 ${btnPress}`}
                     >
                       Send Another Message
                     </Button>

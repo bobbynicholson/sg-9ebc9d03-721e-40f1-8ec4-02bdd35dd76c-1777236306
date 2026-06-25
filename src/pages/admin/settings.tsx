@@ -404,11 +404,11 @@ function SettingsPage() {
 
           <div className="space-y-4 md:space-y-6">
           {saved && (
-            <Card className="border-0 shadow-lg bg-gradient-to-r from-green-50 to-emerald-50 border-l-4 border-l-green-500">
+            <Card className="border-0 shadow-lg bg-gradient-to-r from-brand-primary/10 to-brand-secondary/10 border-l-4 border-l-brand-primary">
               <CardContent className="py-3 md:py-4 px-4 md:px-6">
                 <div className="flex items-center gap-2">
-                  <CheckCircle className="w-4 h-4 md:w-5 md:h-5 text-green-600" />
-                  <p className="font-semibold text-sm md:text-base text-green-900">Settings saved successfully!</p>
+                  <CheckCircle className="w-4 h-4 md:w-5 md:h-5 text-brand-primary" />
+                  <p className="font-semibold text-sm md:text-base text-brand-primary">Settings saved successfully!</p>
                 </div>
               </CardContent>
             </Card>
@@ -523,7 +523,7 @@ function SettingsPage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <h3 className="text-lg md:text-2xl font-bold mb-1">Payment Processing</h3>
-                      <p className="text-sm md:text-base text-green-100 mb-2 md:mb-0">
+                      <p className="text-sm md:text-base text-white/90 mb-2 md:mb-0">
                         Connect multiple payment gateways for South African and international transactions.
                       </p>
                       <div className="flex flex-wrap items-center gap-2 md:gap-4 mt-2 md:mt-3">
@@ -545,7 +545,7 @@ function SettingsPage() {
                       className="text-white hover:text-white/80"
                     />
                     <Link href={withSlug("/admin/payment-gateways")}>
-                      <Button size="sm" className="bg-white text-green-600 hover:bg-green-50 w-full md:w-auto">
+                      <Button size="sm" className="bg-white text-brand-primary hover:bg-brand-primary/10 w-full md:w-auto">
                         Configure
                         <ArrowRight className="w-4 h-4 ml-2" />
                       </Button>

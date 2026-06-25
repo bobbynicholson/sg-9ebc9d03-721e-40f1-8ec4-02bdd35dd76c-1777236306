@@ -829,7 +829,7 @@ function CatalogTab({ companyId }: { companyId: string | null }) {
                             {offline ? (
                               <Badge variant="outline" className="text-[10px] bg-slate-50 text-slate-500 border-slate-200">hidden</Badge>
                             ) : (
-                              <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200">in catalog</Badge>
+                              <Badge variant="outline" className="text-[10px] bg-brand-primary/10 text-brand-primary border-brand-primary/20">in catalog</Badge>
                             )}
                             {noFree && (
                               <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-200">
@@ -871,7 +871,7 @@ function CatalogTab({ companyId }: { companyId: string | null }) {
                             ) : (
                               <Badge
                                 variant="outline"
-                                className="text-[10px] bg-cyan-50 text-cyan-700 border-cyan-200"
+                                className="text-[10px] bg-brand-primary/10 text-brand-primary border-brand-primary/20"
                                 title={r.dishwasher_safe ? "Dishwasher-safe - defaults to dishwasher method" : "Hand-wash item - defaults to manual method"}
                               >
                                 <Sparkles className="w-2.5 h-2.5 mr-0.5" />
@@ -901,7 +901,7 @@ function CatalogTab({ companyId }: { companyId: string | null }) {
                               }
                               if (util.pct >= 0.6) {
                                 return (
-                                  <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200" title={`Booked on ${util.bookedEvents} of ${util.totalEvents} events in the last 90 days. Consider buying more stock.`}>
+                                  <Badge variant="outline" className="text-[10px] bg-brand-primary/10 text-brand-primary border-brand-primary/20" title={`Booked on ${util.bookedEvents} of ${util.totalEvents} events in the last 90 days. Consider buying more stock.`}>
                                     High-util ({util.bookedEvents}/{util.totalEvents})
                                   </Badge>
                                 );
@@ -979,7 +979,7 @@ function CatalogTab({ companyId }: { companyId: string | null }) {
                             <CalendarIcon className="w-4 h-4 text-blue-600" />
                           </Button>
                           <Button variant="ghost" size="icon" className="h-8 w-8" aria-label={offline ? `Show ${r.name} in quote builder` : `Hide ${r.name} from quote builder`} title={offline ? "Show in quote builder" : "Hide from quote builder"} onClick={() => toggleAvailable(r)}>
-                            {offline ? <CheckCircle2 className="w-4 h-4 text-emerald-600" /> : <ToggleLeft className="w-4 h-4 text-slate-500" />}
+                            {offline ? <CheckCircle2 className="w-4 h-4 text-brand-primary" /> : <ToggleLeft className="w-4 h-4 text-slate-500" />}
                           </Button>
                           <Button variant="ghost" size="icon" className="h-8 w-8" aria-label={`Edit ${r.name}`} title={`Edit ${r.name}`} onClick={() => setEditing(r)}>
                             <Edit className="w-4 h-4" />
@@ -1175,7 +1175,7 @@ function CatalogTab({ companyId }: { companyId: string | null }) {
               <div className="border-t border-slate-200 pt-4 space-y-3">
                 <div>
                   <p className="text-sm font-semibold text-slate-900 flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-cyan-600" />
+                    <Sparkles className="w-4 h-4 text-brand-primary" />
                     Cleaning
                   </p>
                   <p className="text-xs text-slate-500">
@@ -1527,7 +1527,7 @@ function CatalogTab({ companyId }: { companyId: string | null }) {
                         <div className="text-[11px] text-slate-500 flex items-center gap-1.5 flex-wrap">
                           <span className="capitalize">{r.status.replace(/_/g, " ")}</span>
                           {r.from_stock_qty > 0 && (
-                            <span className="rounded bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.5">
+                            <span className="rounded bg-brand-primary/10 text-brand-primary border border-brand-primary/20 px-1.5 py-0.5">
                               {r.from_stock_qty} owned
                             </span>
                           )}
@@ -1759,7 +1759,7 @@ function AvailabilityTab({ companyId }: { companyId: string | null }) {
                                 {r.loading ? <Loader2 className="w-3.5 h-3.5 inline animate-spin text-slate-400" /> : r.reserved}
                               </td>
                               <td className={`px-3 py-2.5 text-right tabular-nums font-semibold ${
-                                tight ? "text-amber-700" : over ? "text-rose-700" : "text-emerald-700"
+                                tight ? "text-amber-700" : over ? "text-rose-700" : "text-brand-primary"
                               }`}>
                                 {r.loading ? <Loader2 className="w-3.5 h-3.5 inline animate-spin text-slate-400" /> : r.available}
                               </td>

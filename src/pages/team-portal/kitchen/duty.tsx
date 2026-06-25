@@ -748,16 +748,16 @@ export default function KitchenDutyRosterPage() {
                 <div
                   className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-sm font-medium ${
                     active.length > 0
-                      ? "bg-emerald-50 border-emerald-200 text-emerald-800 dark:bg-emerald-500/10 dark:border-emerald-500/30 dark:text-emerald-300"
+                      ? "bg-brand-primary/10 border-brand-primary/20 text-brand-primary dark:bg-brand-primary/15 dark:border-brand-primary/30"
                       : "bg-slate-50 border-slate-200 text-slate-500 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-400"
                   }`}
                   title={active.length > 0 ? "Live - updates as the team clocks in" : "Nobody on shift"}
                 >
                   <span className="relative flex h-2.5 w-2.5">
                     {active.length > 0 && (
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75 motion-reduce:hidden"></span>
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-primary opacity-75 motion-reduce:hidden"></span>
                     )}
-                    <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${active.length > 0 ? "bg-emerald-500" : "bg-slate-400"}`}></span>
+                    <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${active.length > 0 ? "bg-brand-primary" : "bg-slate-400"}`}></span>
                   </span>
                   {active.length > 0 ? `${active.length} on duty now` : "Nobody on duty"}
                 </div>
@@ -772,7 +772,7 @@ export default function KitchenDutyRosterPage() {
             <StatTile
               label="On duty now"
               icon={Activity}
-              value={<span className="text-emerald-600 dark:text-emerald-400">{teamStats.onDutyNow}</span>}
+              value={<span className="text-brand-primary">{teamStats.onDutyNow}</span>}
             />
             <StatTile
               label="Hours today"
@@ -862,7 +862,7 @@ export default function KitchenDutyRosterPage() {
                                 </span>
                               )}
                               {myRoster.actual_start && !myRoster.actual_end && (
-                                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300 text-[10px] font-semibold">
+                                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-brand-primary/10 text-brand-primary dark:bg-brand-primary/15 text-[10px] font-semibold">
                                   Clocked in
                                 </span>
                               )}
@@ -877,7 +877,7 @@ export default function KitchenDutyRosterPage() {
                           onClick={() => handleToggleBreak(myActiveShift)}
                           disabled={saving}
                           variant="outline"
-                          className={onBreak ? "border-emerald-400 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-500/40 dark:text-emerald-300 dark:hover:bg-emerald-500/10" : ""}
+                          className={onBreak ? "border-brand-primary/40 text-brand-primary hover:bg-brand-primary/5 dark:border-brand-primary/40 dark:hover:bg-brand-primary/10" : ""}
                         >
                           <Coffee className="h-4 w-4 mr-2" />
                           {onBreak ? "End break" : "Start break"}
@@ -971,14 +971,14 @@ export default function KitchenDutyRosterPage() {
               still stays in /admin/wages / /admin/kitchen-settlement.
               Only renders for canSeeOtherStaffPay roles. */}
           {payrollBurn && (
-            <PortalCard padded={false} className="mb-6 border-amber-200 bg-amber-50 dark:border-amber-500/30 dark:bg-amber-500/10">
+            <PortalCard padded={false} className="mb-6 border-brand-primary/20 bg-brand-primary/5 dark:border-brand-primary/30 dark:bg-brand-primary/10">
               <div className="p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-9 h-9 rounded-full bg-amber-100 dark:bg-amber-500/20 flex items-center justify-center flex-shrink-0">
-                    <Banknote className="w-4 h-4 text-amber-700 dark:text-amber-400" />
+                  <div className="w-9 h-9 rounded-full bg-brand-primary/10 dark:bg-brand-primary/15 flex items-center justify-center flex-shrink-0">
+                    <Banknote className="w-4 h-4 text-brand-primary" />
                   </div>
                   <div className="min-w-0">
-                    <div className="text-[10px] uppercase tracking-wider text-amber-800 dark:text-amber-400 flex items-center gap-1">
+                    <div className="text-[10px] uppercase tracking-wider text-brand-primary flex items-center gap-1">
                       Live payroll burn
                       <InfoTooltip content="Combined rate of every staffer currently on shift, multiplied by their hourly rate. Aggregate only - per-person pay lives on /admin/wages and /admin/kitchen-settlement." />
                     </div>
@@ -993,7 +993,7 @@ export default function KitchenDutyRosterPage() {
                 {payrollBurn.missingRates > 0 && (
                   <a
                     href={user?.company_slug ? `/${user.company_slug}/admin/wages` : "/admin/wages"}
-                    className="inline-flex items-center gap-1 text-xs text-amber-800 hover:text-amber-900 dark:text-amber-400 dark:hover:text-amber-300 font-medium hover:underline"
+                    className="inline-flex items-center gap-1 text-xs text-brand-primary hover:text-brand-primary/80 font-medium hover:underline"
                   >
                     <AlertTriangle className="w-3 h-3" />
                     {payrollBurn.missingRates} staff missing rate
@@ -1006,7 +1006,7 @@ export default function KitchenDutyRosterPage() {
 
           <div id="team" className="flex items-center justify-between mb-3 px-0.5 scroll-mt-24">
             <h2 className="text-base sm:text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">
-              <Activity className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+              <Activity className="w-4 h-4 text-brand-primary" />
               Live floor
               <span className="text-sm font-normal text-slate-500">·</span>
               <span className="text-sm font-medium text-slate-600 dark:text-slate-400 tabular-nums">{active.length}</span>
@@ -1020,7 +1020,7 @@ export default function KitchenDutyRosterPage() {
               <span
                 className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full border ${
                   rosterCoverage.clockedIn >= rosterCoverage.rostered
-                    ? "bg-emerald-50 border-emerald-200 text-emerald-800 dark:bg-emerald-500/10 dark:border-emerald-500/30 dark:text-emerald-300"
+                    ? "bg-brand-primary/10 border-brand-primary/20 text-brand-primary dark:bg-brand-primary/15 dark:border-brand-primary/30"
                     : rosterCoverage.clockedIn === 0
                       ? "bg-rose-50 border-rose-200 text-rose-800 dark:bg-rose-500/10 dark:border-rose-500/30 dark:text-rose-300"
                       : "bg-amber-50 border-amber-200 text-amber-800 dark:bg-amber-500/10 dark:border-amber-500/30 dark:text-amber-300"
@@ -1084,10 +1084,10 @@ export default function KitchenDutyRosterPage() {
                         }`}
                       >
                         <div className="relative flex-shrink-0">
-                          <div className="w-11 h-11 rounded-full bg-emerald-500 flex items-center justify-center text-white font-semibold shadow-sm">
+                          <div className="w-11 h-11 rounded-full bg-brand-primary flex items-center justify-center text-white font-semibold shadow-sm">
                             {initials}
                           </div>
-                          <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900 shadow-sm" title="Live - on shift" />
+                          <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-brand-primary border-2 border-white dark:border-slate-900 shadow-sm" title="Live - on shift" />
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="font-medium text-slate-900 dark:text-white truncate flex items-center gap-1.5">
@@ -1104,7 +1104,7 @@ export default function KitchenDutyRosterPage() {
                           </div>
                           <div className="text-xs text-slate-500 dark:text-slate-400 capitalize">{s.shift_type ?? "kitchen"} · started {s.shift_start ? formatDistanceToNow(new Date(s.shift_start), { addSuffix: true }) : "--"}</div>
                         </div>
-                        <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/30 tabular-nums">
+                        <Badge variant="outline" className="bg-brand-primary/10 text-brand-primary border-brand-primary/20 dark:bg-brand-primary/15 dark:border-brand-primary/30 tabular-nums">
                           <Clock className="h-3 w-3 mr-1" />{fmtDuration(s.shift_start)}
                         </Badge>
                       </li>
@@ -1176,7 +1176,7 @@ export default function KitchenDutyRosterPage() {
                           )}
                           <div className="flex items-center justify-between gap-2 mt-2">
                             {acked ? (
-                              <span className="inline-flex items-center gap-1 text-[11px] text-emerald-700 dark:text-emerald-400 font-medium">
+                              <span className="inline-flex items-center gap-1 text-[11px] text-brand-primary dark:text-brand-primary font-medium">
                                 <Check className="w-3 h-3" />
                                 Acknowledged
                                 {h.acknowledged_by && staff[h.acknowledged_by] ? ` by ${staff[h.acknowledged_by].full_name || staff[h.acknowledged_by].email}` : ""}
@@ -1229,8 +1229,8 @@ export default function KitchenDutyRosterPage() {
                     const initials = (p.chef_name || "?")
                       .split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase();
                     const onTimeTone =
-                      p.on_time_rate >= 90 ? "from-emerald-400 to-emerald-600" :
-                      p.on_time_rate >= 70 ? "from-amber-400 to-amber-500" :
+                      p.on_time_rate >= 90 ? "from-brand-primary to-brand-secondary" :
+                      p.on_time_rate >= 70 ? "from-brand-primary to-brand-secondary" :
                                               "from-rose-400 to-red-600";
                     return (
                       <li key={p.chef_id} className="p-4 flex items-center gap-4 hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors">
@@ -1268,8 +1268,8 @@ export default function KitchenDutyRosterPage() {
                         </div>
                         <div className="text-right flex-shrink-0">
                           <div className={`text-lg sm:text-xl font-bold tabular-nums ${
-                            p.on_time_rate >= 90 ? "text-emerald-700 dark:text-emerald-400" :
-                            p.on_time_rate >= 70 ? "text-amber-700 dark:text-amber-400"   :
+                            p.on_time_rate >= 90 ? "text-brand-primary" :
+                            p.on_time_rate >= 70 ? "text-brand-primary" :
                                                    "text-rose-700 dark:text-rose-400"
                           }`}>
                             {p.on_time_rate}%
@@ -1376,7 +1376,7 @@ export default function KitchenDutyRosterPage() {
               {myPayslips.map((ps) => {
                 const periodLabel = `${new Date(ps.period_start).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })} - ${new Date(ps.period_end).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}`;
                 const tone =
-                  ps.status === "paid" ? "bg-emerald-100 text-emerald-800 border-emerald-200" :
+                  ps.status === "paid" ? "bg-brand-primary/10 text-brand-primary border-brand-primary/20" :
                   ps.status === "issued" ? "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700" :
                                            "bg-slate-100 text-slate-700 border-slate-200";
                 return (

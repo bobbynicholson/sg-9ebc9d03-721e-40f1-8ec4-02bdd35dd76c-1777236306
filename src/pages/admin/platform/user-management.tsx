@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import { PlatformNav } from "@/components/admin/PlatformNav";
 import { PortalShell, PortalHeader, PortalCard, PortalCardHeader } from "@/components/portal/ui";
@@ -568,7 +568,7 @@ export default function UserManagementPage() {
                       </TableCell>
                       <TableCell>
                         {(user.invite_status || (user.email_verified ? "active" : "pending")) === "active" ? (
-                          <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                          <Badge variant="outline" className="bg-brand-primary/10 text-brand-primary border-brand-primary/20">
                             Active
                           </Badge>
                         ) : (

@@ -949,7 +949,7 @@ function DriverManagementPage() {
                       <CardContent className="py-4 px-4 space-y-3">
                         <div className="flex items-center justify-between">
                           <Label className="text-xs font-semibold text-slate-700 uppercase tracking-wide flex items-center gap-1.5">
-                            <Activity className="w-3.5 h-3.5 text-emerald-600" />
+                            <Activity className="w-3.5 h-3.5 text-brand-primary" />
                             Operational details
                           </Label>
                           <span className="text-[10px] text-slate-400 uppercase tracking-wide">Optional, fill what you know</span>
@@ -1287,14 +1287,14 @@ function DriverManagementPage() {
 
             return (
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <Card className="border-0 shadow-md bg-gradient-to-br from-emerald-50 to-emerald-100">
+                <Card className="border-0 shadow-md bg-gradient-to-br from-brand-primary/10 to-brand-secondary/10">
                   <CardContent className="pt-5 pb-4">
-                    <p className="text-xs uppercase tracking-wide text-emerald-700 font-semibold mb-1 flex items-center gap-1.5">
+                    <p className="text-xs uppercase tracking-wide text-brand-primary font-semibold mb-1 flex items-center gap-1.5">
                       On shift now
                       <InfoTooltip content={"Drivers with a GPS ping in the last 60 minutes. Best signal for live availability."} />
                     </p>
-                    <p className="text-3xl font-bold text-emerald-900">{onShift}</p>
-                    <p className="text-xs text-emerald-700 mt-0.5">of {activeDrivers} active</p>
+                    <p className="text-3xl font-bold text-brand-primary">{onShift}</p>
+                    <p className="text-xs text-brand-primary mt-0.5">of {activeDrivers} active</p>
                   </CardContent>
                 </Card>
                 <Card className="border-0 shadow-md">
@@ -1423,12 +1423,12 @@ function DriverManagementPage() {
                   const capacityFull = maxJobs != null && currentLoad >= maxJobs;
 
                   return (
-                    <Card key={driver.id} className={`border shadow-sm hover:shadow-md transition-shadow ${onShift ? "border-l-4 border-l-emerald-500" : ""}`}>
+                    <Card key={driver.id} className={`border shadow-sm hover:shadow-md transition-shadow ${onShift ? "border-l-4 border-l-brand-primary" : ""}`}>
                       <CardContent className="p-4">
                         <div className="flex items-center justify-between gap-4">
                           <div className="flex items-center gap-3 flex-1 min-w-0">
                             <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold shrink-0 ${
-                              onShift ? "bg-gradient-to-br from-emerald-500 to-green-600" : "bg-gradient-to-br from-slate-400 to-slate-500"
+                              onShift ? "bg-gradient-to-br from-brand-primary to-brand-secondary" : "bg-gradient-to-br from-slate-400 to-slate-500"
                             }`}>
                               {driver.full_name.charAt(0).toUpperCase()}
                             </div>
@@ -1437,8 +1437,8 @@ function DriverManagementPage() {
                               <div className="flex items-center gap-2 mb-0.5 flex-wrap">
                                 <h3 className="font-semibold text-slate-900 truncate">{driver.full_name}</h3>
                                 {onShift && (
-                                  <Badge className="bg-emerald-100 text-emerald-800 border-0 text-[10px] font-medium gap-1">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                  <Badge className="bg-brand-primary/15 text-brand-primary border-0 text-[10px] font-medium gap-1">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-brand-primary animate-pulse" />
                                     On shift
                                   </Badge>
                                 )}
@@ -1546,7 +1546,7 @@ function DriverManagementPage() {
                                   <div className="text-center">
                                     <p className={`text-lg font-bold tabular-nums ${
                                       perf.onTimeRate == null ? "text-slate-400" :
-                                      perf.onTimeRate >= 0.95 ? "text-emerald-700" :
+                                      perf.onTimeRate >= 0.95 ? "text-brand-primary" :
                                       perf.onTimeRate >= 0.85 ? "text-amber-700" :
                                                                 "text-red-700"
                                     }`}>
@@ -1759,7 +1759,7 @@ function DriverManagementPage() {
                 id="vehicle"
                 value={editVehicleId}
                 onChange={e => setEditVehicleId(e.target.value)}
-                className="mt-1 w-full border border-slate-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                className="mt-1 w-full border border-slate-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary"
               >
                 <option value="">No vehicle assigned</option>
                 {vehicles.map(v => (
@@ -1839,7 +1839,7 @@ function DriverManagementPage() {
             <DialogClose asChild>
               <Button variant="outline" disabled={editSaving}>Cancel</Button>
             </DialogClose>
-            <Button onClick={handleEditDriverSave} disabled={editSaving} className="bg-emerald-600 hover:bg-emerald-700">
+            <Button onClick={handleEditDriverSave} disabled={editSaving} className="bg-brand-primary hover:bg-brand-primary/90">
               {editSaving ? "Saving..." : "Save"}
             </Button>
           </DialogFooter>
@@ -1869,7 +1869,7 @@ function DriverManagementPage() {
                 <p>
                   They'll disappear from the driver list and won't be able to log in to the driver portal.
                 </p>
-                <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-emerald-900 text-xs">
+                <div className="rounded-md border border-brand-primary/20 bg-brand-primary/10 px-3 py-2 text-brand-primary text-xs">
                   <strong>Pay history is preserved.</strong> All shifts, deliveries and the costs
                   you paid this driver remain on file. They'll show in Driver Settlement under
                   a "Removed" badge so you can still pay out anything outstanding.

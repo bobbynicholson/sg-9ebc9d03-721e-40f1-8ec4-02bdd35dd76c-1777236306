@@ -152,15 +152,15 @@ export function FinanceSection({ orderId, companyId, defaultOpen, forceOpen, hig
               <p className="text-xs text-slate-500 uppercase tracking-wider">VAT</p>
               <p className="text-sm font-semibold text-slate-900 tabular-nums mt-0.5">{fmtZAR.format(Number(money?.tax_amount || 0))}</p>
             </div>
-            <div className="rounded-md border p-3 bg-emerald-50 border-emerald-200">
-              <p className="text-xs text-emerald-800 uppercase tracking-wider">Total</p>
-              <p className="text-sm font-bold text-emerald-900 tabular-nums mt-0.5">{fmtZAR.format(total)}</p>
+            <div className="rounded-md border p-3 bg-brand-primary/10 border-brand-primary/20">
+              <p className="text-xs text-brand-primary uppercase tracking-wider">Total</p>
+              <p className="text-sm font-bold text-brand-primary tabular-nums mt-0.5">{fmtZAR.format(total)}</p>
             </div>
-            <div className={`rounded-md border p-3 ${outstanding > 0 ? "bg-amber-50 border-amber-200" : "bg-emerald-50 border-emerald-200"}`}>
-              <p className={`text-xs uppercase tracking-wider ${outstanding > 0 ? "text-amber-800" : "text-emerald-800"}`}>
+            <div className={`rounded-md border p-3 ${outstanding > 0 ? "bg-amber-50 border-amber-200" : "bg-brand-primary/10 border-brand-primary/20"}`}>
+              <p className={`text-xs uppercase tracking-wider ${outstanding > 0 ? "text-amber-800" : "text-brand-primary"}`}>
                 {outstanding > 0 ? "Outstanding" : "Paid in full"}
               </p>
-              <p className={`text-sm font-bold tabular-nums mt-0.5 ${outstanding > 0 ? "text-amber-900" : "text-emerald-900"}`}>
+              <p className={`text-sm font-bold tabular-nums mt-0.5 ${outstanding > 0 ? "text-amber-900" : "text-brand-primary"}`}>
                 {fmtZAR.format(outstanding)}
               </p>
             </div>
@@ -169,7 +169,7 @@ export function FinanceSection({ orderId, companyId, defaultOpen, forceOpen, hig
           {money?.deposit_amount != null && Number(money.deposit_amount) > 0 && (
             <div className="text-xs text-slate-600 inline-flex items-center gap-1.5">
               {money.deposit_paid || paid >= Number(money.deposit_amount) ? (
-                <><CheckCircle2 className="w-3 h-3 text-emerald-600" />Deposit ({fmtZAR.format(Number(money.deposit_amount))}) received</>
+                <><CheckCircle2 className="w-3 h-3 text-brand-primary" />Deposit ({fmtZAR.format(Number(money.deposit_amount))}) received</>
               ) : (
                 <><AlertCircle className="w-3 h-3 text-amber-600" />Deposit due: {fmtZAR.format(Number(money.deposit_amount))}</>
               )}
@@ -195,7 +195,7 @@ export function FinanceSection({ orderId, companyId, defaultOpen, forceOpen, hig
                         {p.payment_reference && <span> · ref {p.payment_reference}</span>}
                       </p>
                     </div>
-                    <span className={`text-[10px] uppercase tracking-wider ${p.payment_status === "completed" || p.payment_status === "received" ? "text-emerald-700" : "text-slate-500"}`}>
+                    <span className={`text-[10px] uppercase tracking-wider ${p.payment_status === "completed" || p.payment_status === "received" ? "text-brand-primary" : "text-slate-500"}`}>
                       {p.payment_status || "-"}
                     </span>
                   </li>

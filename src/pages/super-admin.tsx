@@ -57,7 +57,7 @@ const PORTALS: Portal[] = [
       "Revenue tracking",
       "Plan management"
     ],
-    color: "text-green-600"
+    color: "text-brand-primary"
   },
   {
     id: "trial-management",
@@ -85,7 +85,7 @@ const PORTALS: Portal[] = [
       "Regional pricing",
       "Discounts"
     ],
-    color: "text-emerald-600"
+    color: "text-brand-primary"
   },
   {
     id: "currency-monitoring",
@@ -99,7 +99,7 @@ const PORTALS: Portal[] = [
       "Regional settings",
       "Rate alerts"
     ],
-    color: "text-cyan-600"
+    color: "text-brand-primary"
   },
   {
     id: "cms-blog",
@@ -299,11 +299,11 @@ function SuperAdminDashboard() {
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between items-center">
                   <span className="text-slate-600">Authentication:</span>
-                  <Badge className="bg-green-100 text-green-700">Active</Badge>
+                  <Badge className="bg-brand-primary/15 text-brand-primary">Active</Badge>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-slate-600">Email Service:</span>
-                  <Badge className="bg-green-100 text-green-700">Connected</Badge>
+                  <Badge className="bg-brand-primary/15 text-brand-primary">Connected</Badge>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-slate-600">Payment Gateway:</span>
@@ -311,7 +311,7 @@ function SuperAdminDashboard() {
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-slate-600">GPS Tracking:</span>
-                  <Badge className="bg-green-100 text-green-700">Enabled</Badge>
+                  <Badge className="bg-brand-primary/15 text-brand-primary">Enabled</Badge>
                 </div>
               </div>
             </CardContent>

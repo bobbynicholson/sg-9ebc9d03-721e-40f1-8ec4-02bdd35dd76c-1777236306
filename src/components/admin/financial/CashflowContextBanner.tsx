@@ -25,14 +25,14 @@ export function CashflowContextBanner({ message }: Props) {
   const from = router.query.from;
   if (from !== "cashflow") return null;
   return (
-    <div className="mb-4 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 flex items-center justify-between gap-3">
-      <p className="text-sm text-emerald-900">
+    <div className="mb-4 rounded-md border border-brand-primary/20 bg-brand-primary/10 px-4 py-3 flex items-center justify-between gap-3">
+      <p className="text-sm text-brand-primary">
         <span className="font-semibold">From the cashflow forecast:</span>{" "}
         {message}
       </p>
       <Link
         href={withSlug("/admin/cashflow-dashboard")}
-        className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 hover:text-emerald-900 shrink-0"
+        className="inline-flex items-center gap-1 text-xs font-medium text-brand-primary hover:text-brand-primary shrink-0"
       >
         <ArrowLeft className="w-3 h-3" />
         Back to forecast

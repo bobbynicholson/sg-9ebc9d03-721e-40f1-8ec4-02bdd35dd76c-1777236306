@@ -437,7 +437,7 @@ function ImportPage() {
                       active
                         ? "bg-purple-100 text-purple-700 border-purple-200 font-semibold"
                         : done
-                          ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                          ? "bg-brand-primary/10 text-brand-primary border-brand-primary/20"
                           : "bg-white text-slate-500 border-slate-200"
                     }`}
                   >
@@ -567,7 +567,7 @@ function ImportPage() {
                                 className={`text-[10px] px-1.5 py-0.5 rounded ${
                                   lowConfidence
                                     ? "bg-amber-50 text-amber-800 border border-amber-200"
-                                    : "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                    : "bg-brand-primary/10 text-brand-primary border border-brand-primary/20"
                                 }`}
                               >
                                 {Math.round((dec.confidence || 0) * 100)}%
@@ -826,7 +826,7 @@ function ImportPage() {
                                             r.status === "skipped" ? "bg-slate-100 text-slate-700 border border-slate-200" :
                                             (r.preview_warnings?.length || 0) > 0
                                               ? "bg-amber-100 text-amber-800 border border-amber-200"
-                                              : "bg-emerald-100 text-emerald-700 border border-emerald-200"
+                                              : "bg-brand-primary/15 text-brand-primary border border-brand-primary/20"
                                           }`}
                                         >
                                           {r.status === "error" ? "error" :
@@ -945,7 +945,7 @@ function ImportPage() {
                       )}
 
                       <div className="flex items-center gap-2 pt-2">
-                        <Button onClick={runCommit} disabled={busy} className="bg-gradient-to-r from-emerald-600 to-green-600">
+                        <Button onClick={runCommit} disabled={busy} className="bg-gradient-to-r from-brand-primary to-brand-secondary">
                           {busy ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <CheckCircle2 className="w-4 h-4 mr-2" />}
                           Commit import
                         </Button>
@@ -965,7 +965,7 @@ function ImportPage() {
             <Card className="border-0 shadow-lg">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                  <CheckCircle2 className="w-5 h-5 text-brand-primary" />
                   Import complete
                 </CardTitle>
                 <CardDescription>
@@ -1028,7 +1028,7 @@ function ImportPage() {
 
 function Stat({ label, value, tone }: { label: string; value: number; tone?: "emerald" | "amber" | "rose" }) {
   const valueClass =
-    tone === "emerald" ? "text-emerald-600" :
+    tone === "emerald" ? "text-brand-primary" :
     tone === "amber"   ? "text-amber-600"   :
     tone === "rose"    ? "text-rose-600"    : "text-slate-900";
   return (

@@ -179,7 +179,7 @@ export function TaskCompletionButtons({
                   <Icon className="h-5 w-5" />
                   <span className="font-semibold">{taskType.label}</span>
                   {status?.completed && (
-                    <CheckCircle2 className="h-4 w-4 ml-auto text-green-500" />
+                    <CheckCircle2 className="h-4 w-4 ml-auto text-brand-primary" />
                   )}
                 </div>
                 {status?.completed && status.completedAt && (
@@ -203,10 +203,10 @@ export function TaskCompletionButtons({
         )}
 
         {allTasksComplete && (
-          <div className="p-4 bg-green-50 border border-green-200 rounded-lg text-center">
-            <CheckCircle2 className="h-8 w-8 text-green-600 mx-auto mb-2" />
-            <p className="font-semibold text-green-800">All tasks complete</p>
-            <p className="text-sm text-green-700">Order is ready for pickup.</p>
+          <div className="p-4 bg-brand-primary/10 border border-brand-primary/20 rounded-lg text-center">
+            <CheckCircle2 className="h-8 w-8 text-brand-primary mx-auto mb-2" />
+            <p className="font-semibold text-brand-primary">All tasks complete</p>
+            <p className="text-sm text-brand-primary">Order is ready for pickup.</p>
           </div>
         )}
       </CardContent>

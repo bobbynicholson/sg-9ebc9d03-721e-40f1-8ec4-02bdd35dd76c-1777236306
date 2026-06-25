@@ -171,14 +171,14 @@ export default function ShoppingInventoryPage() {
   };
 
   // Semantic stock-level scale (kept intentionally): rose = out,
-  // amber = below par, emerald = in stock. Dark variants added so the
+  // amber = below par, brand = in stock. Dark variants added so the
   // signal survives dark mode without changing the meaning.
   const stockTone = (item: Inventory) => {
     const stock = Number(item.current_stock || 0);
     const min = Number(item.minimum_stock || 0);
     if (stock <= 0) return "bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-950/50 dark:text-rose-300 dark:border-rose-900";
     if (stock <= min) return "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-950/50 dark:text-amber-300 dark:border-amber-900";
-    return "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-900";
+    return "bg-brand-primary/15 text-brand-primary border-brand-primary/20 dark:bg-brand-primary/15 dark:text-brand-primary dark:border-brand-primary/30";
   };
 
   const stockLabel = (item: Inventory) => {
@@ -551,7 +551,7 @@ export default function ShoppingInventoryPage() {
                   const positive = qty >= 0;
                   return (
                     <li key={r.id} className="py-2.5 flex items-start gap-3">
-                      <div className={`mt-0.5 flex items-center justify-center w-7 h-7 rounded-full ${positive ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300" : "bg-rose-50 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300"}`}>
+                      <div className={`mt-0.5 flex items-center justify-center w-7 h-7 rounded-full ${positive ? "bg-brand-primary/10 text-brand-primary dark:bg-brand-primary/15 dark:text-brand-primary" : "bg-rose-50 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300"}`}>
                         {positive ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -559,7 +559,7 @@ export default function ShoppingInventoryPage() {
                           <span className="text-sm font-medium capitalize text-slate-900 dark:text-white">
                             {String(r.transaction_type || "movement").replace(/_/g, " ")}
                           </span>
-                          <span className={`text-sm tabular-nums font-semibold ${positive ? "text-emerald-700 dark:text-emerald-400" : "text-rose-700 dark:text-rose-400"}`}>
+                          <span className={`text-sm tabular-nums font-semibold ${positive ? "text-brand-primary dark:text-brand-primary" : "text-rose-700 dark:text-rose-400"}`}>
                             {positive ? "+" : ""}{qty} {historyItem?.unit_of_measure}
                           </span>
                         </div>

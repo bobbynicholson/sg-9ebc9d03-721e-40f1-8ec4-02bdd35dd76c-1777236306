@@ -20,7 +20,7 @@ export type RowActionTone = "urgent" | "warm" | "neutral";
 const TONE_CLASS: Record<RowActionTone, string> = {
   urgent:  "bg-rose-600 hover:bg-rose-700 text-white",
   warm:    "bg-amber-600 hover:bg-amber-700 text-white",
-  neutral: "bg-emerald-600 hover:bg-emerald-700 text-white",
+  neutral: "bg-brand-primary hover:bg-brand-primary/90 text-white",
 };
 
 export function RowPrimaryAction({

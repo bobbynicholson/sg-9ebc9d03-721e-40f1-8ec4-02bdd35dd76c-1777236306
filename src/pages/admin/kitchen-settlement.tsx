@@ -1,4 +1,4 @@
-﻿/**
+/**
  * /admin/kitchen-settlement - per-period kitchen pay summary.
  *
  * Wave 36.3. Mirrors /admin/driver-settlement.tsx in spirit but
@@ -430,7 +430,7 @@ function KitchenSettlementPage() {
                               <td className="px-3 py-3 text-right">
                                 {ps ? (
                                   <Badge className={
-                                    ps.status === "paid" ? "bg-emerald-100 text-emerald-800 border-emerald-200" :
+                                    ps.status === "paid" ? "bg-brand-primary/15 text-brand-primary border-brand-primary/20" :
                                     ps.status === "issued" ? "bg-blue-100 text-blue-800 border-blue-200" :
                                                               "bg-slate-100 text-slate-700 border-slate-200"
                                   } variant="outline">
@@ -458,7 +458,7 @@ function KitchenSettlementPage() {
                                     {ps && ps.status !== "paid" && (
                                       <Button
                                         size="sm"
-                                        className="h-7 text-xs gap-1 bg-emerald-600 hover:bg-emerald-700"
+                                        className="h-7 text-xs gap-1 bg-brand-primary hover:bg-brand-primary/90"
                                         disabled={persisting === s.id}
                                         onClick={() => issuePayslip(s.id, "paid")}
                                       >

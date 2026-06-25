@@ -512,7 +512,7 @@ function AdminTrackingInner() {
       preparing: "bg-yellow-100 text-yellow-800",
       ready: "bg-purple-100 text-purple-800",
       in_transit: "bg-orange-100 text-orange-800",
-      delivered: "bg-green-100 text-green-800",
+      delivered: "bg-brand-primary/15 text-brand-primary",
       cancelled: "bg-red-100 text-red-800",
     };
     return colors[status] || "bg-gray-100 text-gray-800";
@@ -804,7 +804,7 @@ function AdminTrackingInner() {
                             const riskReasons: string[] = order.risk_reasons || [];
                             const arrived = order.delivery_status === "arrived";
                             const borderTone =
-                              arrived          ? "border-l-emerald-500 bg-emerald-50/40 hover:bg-emerald-50" :
+                              arrived          ? "border-l-brand-primary bg-brand-primary/10 hover:bg-brand-primary/10" :
                               riskTier === "critical" ? "border-l-red-600 bg-red-50/40 hover:bg-red-50" :
                               riskTier === "high"     ? "border-l-red-500 bg-red-50/40 hover:bg-red-50" :
                               riskTier === "watch"    ? "border-l-amber-500 hover:bg-amber-50/40" :
@@ -821,7 +821,7 @@ function AdminTrackingInner() {
                                     <div className="flex items-center gap-1.5 flex-wrap">
                                       <p className="font-semibold text-sm truncate">{order.client_name}</p>
                                       {arrived && (
-                                        <Badge className="bg-emerald-100 text-emerald-800 border-0 text-[9px] font-bold tracking-wide">ARRIVED</Badge>
+                                        <Badge className="bg-brand-primary/15 text-brand-primary border-0 text-[9px] font-bold tracking-wide">ARRIVED</Badge>
                                       )}
                                       {!arrived && (riskTier === "critical" || riskTier === "high") && (
                                         <Badge className={`border-0 text-[9px] font-bold tracking-wide ${
@@ -859,7 +859,7 @@ function AdminTrackingInner() {
                                       <span className={`tabular-nums font-medium ${
                                         margin < 0  ? "text-red-700"   :
                                         margin < 30 ? "text-amber-700" :
-                                                      "text-emerald-700"
+                                                      "text-brand-primary"
                                       }`}>
                                         {margin >= 0 ? `${Math.round(margin)}m slack` : `${Math.round(margin)}m late`}
                                       </span>

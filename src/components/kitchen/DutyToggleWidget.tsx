@@ -90,7 +90,7 @@ export function DutyToggleWidget() {
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               {isOnDuty ? (
-                <Badge variant="default" className="bg-green-500 hover:bg-green-600">
+                <Badge variant="default" className="bg-brand-primary hover:bg-brand-primary">
                   On duty
                 </Badge>
               ) : (

@@ -34,7 +34,7 @@ export default function SubscriptionSuccessPage() {
       <Card className="max-w-2xl w-full border-0 shadow-2xl">
         <CardHeader className="text-center space-y-4 pb-8">
           <div className="flex justify-center">
-            <div className="w-20 h-20 bg-gradient-to-br from-green-400 to-green-600 rounded-full flex items-center justify-center">
+            <div className="w-20 h-20 bg-gradient-to-br from-brand-primary to-brand-secondary rounded-full flex items-center justify-center">
               <CheckCircle className="w-12 h-12 text-white" />
             </div>
           </div>
@@ -80,7 +80,7 @@ export default function SubscriptionSuccessPage() {
               </div>
 
               <div className="flex items-start gap-4">
-                <div className="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
+                <div className="w-10 h-10 bg-brand-primary rounded-full flex items-center justify-center flex-shrink-0">
                   <Calendar className="w-5 h-5 text-white" />
                 </div>
                 <div>
@@ -97,23 +97,23 @@ export default function SubscriptionSuccessPage() {
             <h3 className="font-semibold text-lg">Quick Start Guide</h3>
             <div className="space-y-2 text-sm">
               <div className="flex items-center gap-2">
-                <CheckCircle className="w-4 h-4 text-green-600" />
+                <CheckCircle className="w-4 h-4 text-brand-primary" />
                 <span className="text-slate-600">Set up your company profile and branding</span>
               </div>
               <div className="flex items-center gap-2">
-                <CheckCircle className="w-4 h-4 text-green-600" />
+                <CheckCircle className="w-4 h-4 text-brand-primary" />
                 <span className="text-slate-600">Import your existing inventory and menu items</span>
               </div>
               <div className="flex items-center gap-2">
-                <CheckCircle className="w-4 h-4 text-green-600" />
+                <CheckCircle className="w-4 h-4 text-brand-primary" />
                 <span className="text-slate-600">Create your first quote and send it to a client</span>
               </div>
               <div className="flex items-center gap-2">
-                <CheckCircle className="w-4 h-4 text-green-600" />
+                <CheckCircle className="w-4 h-4 text-brand-primary" />
                 <span className="text-slate-600">Add team members and assign roles</span>
               </div>
               <div className="flex items-center gap-2">
-                <CheckCircle className="w-4 h-4 text-green-600" />
+                <CheckCircle className="w-4 h-4 text-brand-primary" />
                 <span className="text-slate-600">Connect your payment gateway</span>
               </div>
             </div>

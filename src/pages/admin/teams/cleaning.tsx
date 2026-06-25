@@ -404,7 +404,7 @@ function CleaningTeamPage() {
     { href: "/admin/staff?department=cleaning", icon: Users, label: "Cleaning staff", sub: "Roster and availability", bg: "from-purple-50 to-fuchsia-50", iconColor: "text-purple-600" },
     { href: "/admin/cleaning-schedule", icon: ClipboardList, label: "Cleaning schedule", sub: "Jobs, machines and handovers", bg: "from-rose-50 to-pink-50", iconColor: "text-rose-600" },
     { href: "/team-portal/cleaning/damage", icon: AlertTriangle, label: "Damages ledger", sub: "Per-event report and history", bg: "from-amber-50 to-orange-50", iconColor: "text-amber-600" },
-    { href: "/team-portal/cleaning/supplies", icon: Wrench, label: "Supplies", sub: "Detergent, gloves, cloths", bg: "from-emerald-50 to-teal-50", iconColor: "text-emerald-600" },
+    { href: "/team-portal/cleaning/supplies", icon: Wrench, label: "Supplies", sub: "Detergent, gloves, cloths", bg: "from-brand-primary/10 to-brand-secondary/10", iconColor: "text-brand-primary" },
   ];
 
   const totalHandovers = stats.handoversExpected + stats.handoversInProgress + stats.handoversComplete;
@@ -469,7 +469,7 @@ function CleaningTeamPage() {
                 variant="outline"
                 className={`px-3 py-1.5 text-sm ${
                   stats.clockedNow >= stats.active
-                    ? "border-emerald-300 text-emerald-700 bg-emerald-50"
+                    ? "border-brand-primary/30 text-brand-primary bg-brand-primary/10"
                     : stats.clockedNow === 0
                       ? "border-rose-300 text-rose-700 bg-rose-50"
                       : "border-amber-300 text-amber-700 bg-amber-50"
@@ -566,7 +566,7 @@ function CleaningTeamPage() {
                         <Badge variant="outline" className="border-amber-300 text-amber-700 bg-amber-50">
                           {stats.handoversInProgress} in progress
                         </Badge>
-                        <Badge variant="outline" className="border-emerald-300 text-emerald-700 bg-emerald-50">
+                        <Badge variant="outline" className="border-brand-primary/30 text-brand-primary bg-brand-primary/10">
                           {stats.handoversComplete} complete
                         </Badge>
                         {stats.handoversOverdue > 0 && (
@@ -576,7 +576,7 @@ function CleaningTeamPage() {
                         )}
                       </div>
                       <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                        <div className="h-full bg-emerald-500" style={{ width: `${handoversDonePct}%` }} />
+                        <div className="h-full bg-brand-primary" style={{ width: `${handoversDonePct}%` }} />
                       </div>
                       <p className="text-xs text-slate-500 mt-1.5">{handoversDonePct}% complete</p>
                     </>
@@ -607,7 +607,7 @@ function CleaningTeamPage() {
                         <Badge variant="outline" className="border-amber-300 text-amber-700 bg-amber-50">
                           {stats.jobsInProgress} in progress
                         </Badge>
-                        <Badge variant="outline" className="border-emerald-300 text-emerald-700 bg-emerald-50">
+                        <Badge variant="outline" className="border-brand-primary/30 text-brand-primary bg-brand-primary/10">
                           {stats.jobsComplete} complete
                         </Badge>
                         {stats.jobsOverdue > 0 && (

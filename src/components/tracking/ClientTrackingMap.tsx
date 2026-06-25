@@ -346,7 +346,7 @@ export function ClientTrackingMap({
             <h3 className="font-semibold text-sm mb-1">📍 Your Delivery Location</h3>
             <p className="text-xs text-slate-600">{venueLocation.address}</p>
             {estimatedArrival && (
-              <p className="text-xs text-emerald-600 font-medium mt-2">
+              <p className="text-xs text-brand-primary font-medium mt-2">
                 ETA: {new Date(estimatedArrival).toLocaleTimeString()}
               </p>
             )}
@@ -363,7 +363,7 @@ export function ClientTrackingMap({
           <Popup>
             <div className="p-2">
               <h3 className="font-semibold text-sm mb-1">🚗 {liveDriverLocation.driver_name}</h3>
-              <p className="text-xs text-emerald-600 font-medium mb-1">On the way with your order!</p>
+              <p className="text-xs text-brand-primary font-medium mb-1">On the way with your order!</p>
               {liveDriverLocation.driver_phone && (
                 <p className="text-xs text-slate-600 mb-1">
                   📞 {liveDriverLocation.driver_phone}

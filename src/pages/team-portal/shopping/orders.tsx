@@ -56,7 +56,7 @@ interface Order {
 
 // Semantic status tones. Keys stay load-bearing (don't drop a status),
 // but the palette is restrained: amber carries active/in-progress work,
-// emerald = done/ready, rose = cancelled. "confirmed" is not a true info
+// brand = done/ready, rose = cancelled. "confirmed" is not a true info
 // state here, so it reads as a neutral slate tint rather than blue - one
 // fewer colour competing for the shopper's eye. Subtle tints only.
 const NEUTRAL_TONE =
@@ -64,7 +64,7 @@ const NEUTRAL_TONE =
 const AMBER_TONE =
   "bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900/60";
 const EMERALD_TONE =
-  "bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900/60";
+  "bg-brand-primary/10 text-brand-primary border-brand-primary/20 dark:bg-brand-primary/15 dark:text-brand-primary dark:border-brand-primary/30";
 const ROSE_TONE =
   "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-900/60";
 

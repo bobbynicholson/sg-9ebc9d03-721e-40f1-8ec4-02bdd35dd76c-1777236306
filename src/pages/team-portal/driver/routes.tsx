@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -445,7 +445,7 @@ export default function DriverRoutes() {
         </>
       )}
       {tripCompleted && (
-        <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-base px-4 py-2 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-900">
+        <Badge className="bg-brand-primary/10 text-brand-primary border border-brand-primary/20 text-base px-4 py-2 dark:bg-brand-primary/10 dark:text-brand-primary dark:border-brand-primary/30">
           <CheckCircle className="w-4 h-4 mr-2" />
           Trip completed{trip.elapsedMs > 0 ? ` - ${trip.elapsedLabel}` : ""}
         </Badge>
@@ -661,8 +661,8 @@ export default function DriverRoutes() {
                     </>
                   ) : tripCompleted ? (
                     <div className="text-center py-8">
-                      <div className="w-12 h-12 mx-auto mb-4 rounded-xl border border-emerald-200 bg-emerald-50 flex items-center justify-center dark:border-emerald-900 dark:bg-emerald-500/10">
-                        <CheckCircle className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
+                      <div className="w-12 h-12 mx-auto mb-4 rounded-xl border border-brand-primary/20 bg-brand-primary/10 flex items-center justify-center dark:border-brand-primary/30 dark:bg-brand-primary/10">
+                        <CheckCircle className="w-6 h-6 text-brand-primary dark:text-brand-primary" />
                       </div>
                       <h3 className="text-lg font-semibold mb-1.5 text-slate-900 dark:text-white">All stops completed</h3>
                       <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">Great work on finishing your route.</p>
@@ -684,7 +684,7 @@ export default function DriverRoutes() {
               {!tripCompleted && (
                 <PortalCard className="bg-slate-50 dark:bg-slate-900">
                   <h4 className="font-semibold text-slate-900 dark:text-white mb-2 flex items-center gap-2">
-                    <Leaf className="h-4 w-4 text-emerald-600 dark:text-emerald-500" />
+                    <Leaf className="h-4 w-4 text-brand-primary dark:text-brand-primary" />
                     Route efficiency
                   </h4>
                   <p className="text-sm text-slate-600 dark:text-slate-400">
@@ -736,7 +736,7 @@ export default function DriverRoutes() {
                         isCurrent
                           ? "border-brand-primary/40 bg-brand-primary/10 dark:border-brand-primary/40 dark:bg-brand-primary/20"
                           : isCompleted
-                          ? "border-emerald-200 bg-emerald-50 dark:border-emerald-900 dark:bg-emerald-500/10"
+                          ? "border-brand-primary/20 bg-brand-primary/10 dark:border-brand-primary/30 dark:bg-brand-primary/10"
                           : isPending
                           ? "border-slate-200 bg-slate-50 opacity-70 dark:border-slate-800 dark:bg-slate-900"
                           : "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900"
@@ -747,7 +747,7 @@ export default function DriverRoutes() {
                           <div
                             className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold text-lg tabular-nums ${
                               isCompleted
-                                ? "bg-emerald-600 text-white"
+                                ? "bg-brand-primary text-white"
                                 : isCurrent
                                 ? "bg-brand-primary text-white ring-4 ring-brand-primary/20 dark:ring-brand-primary/30"
                                 : "bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300"
@@ -769,7 +769,7 @@ export default function DriverRoutes() {
                                   </Badge>
                                 )}
                                 {isCompleted && (
-                                  <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-900">
+                                  <Badge className="bg-brand-primary/10 text-brand-primary border border-brand-primary/20 dark:bg-brand-primary/10 dark:text-brand-primary dark:border-brand-primary/30">
                                     <CheckCircle className="w-3 h-3 mr-1" />
                                     Completed
                                   </Badge>

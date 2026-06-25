@@ -372,7 +372,7 @@ function OnboardingWizard() {
                       active
                         ? "text-orange-600 font-semibold"
                         : done
-                          ? "text-emerald-600 hover:text-emerald-700"
+                          ? "text-brand-primary hover:text-brand-primary"
                           : "text-slate-400 cursor-not-allowed"
                     }`}
                     title={s.label}
@@ -606,7 +606,7 @@ function WelcomeStep({
                   disabled={saving}
                   className="w-full text-left flex items-start gap-2 px-2 -mx-2 py-1 rounded hover:bg-white transition-colors"
                 >
-                  <Check className={`w-4 h-4 mt-0.5 flex-shrink-0 ${done ? "text-emerald-600" : "text-slate-300"}`} />
+                  <Check className={`w-4 h-4 mt-0.5 flex-shrink-0 ${done ? "text-brand-primary" : "text-slate-300"}`} />
                   <span className="flex-1">
                     <span className={done ? "font-medium text-slate-900" : "text-slate-700"}>{c.label}</span>
                     <span className="text-slate-500">: {c.helper}</span>
@@ -1027,7 +1027,7 @@ function EmailStep({
             <div className="flex items-center gap-2 mb-2">
               <ShieldCheck className="w-5 h-5 text-purple-600" />
               <p className="font-semibold text-slate-900">Use my own domain</p>
-              <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-emerald-100 text-emerald-700">
+              <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-brand-primary/15 text-brand-primary">
                 Recommended
               </span>
             </div>
@@ -1123,24 +1123,24 @@ function ClientsStep({ onBack, onNext }: { onBack: () => void; onNext: () => voi
         </p>
         <ul className="text-xs text-slate-600 space-y-1">
           <li className="flex items-start gap-2">
-            <Check className="w-3.5 h-3.5 text-emerald-600 mt-0.5 flex-shrink-0" />
+            <Check className="w-3.5 h-3.5 text-brand-primary mt-0.5 flex-shrink-0" />
             <span>Required: client name, email or phone</span>
           </li>
           <li className="flex items-start gap-2">
-            <Check className="w-3.5 h-3.5 text-emerald-600 mt-0.5 flex-shrink-0" />
+            <Check className="w-3.5 h-3.5 text-brand-primary mt-0.5 flex-shrink-0" />
             <span>Existing customers (matched by email) are skipped automatically</span>
           </li>
           <li className="flex items-start gap-2">
-            <Check className="w-3.5 h-3.5 text-emerald-600 mt-0.5 flex-shrink-0" />
+            <Check className="w-3.5 h-3.5 text-brand-primary mt-0.5 flex-shrink-0" />
             <span>Test run option lets you preview before anything saves</span>
           </li>
         </ul>
       </div>
 
       {imported !== null && imported > 0 && (
-        <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-3 flex items-start gap-2">
-          <Check className="w-4 h-4 text-emerald-600 mt-0.5 flex-shrink-0" />
-          <p className="text-sm text-emerald-900">
+        <div className="rounded-lg bg-brand-primary/10 border border-brand-primary/20 p-3 flex items-start gap-2">
+          <Check className="w-4 h-4 text-brand-primary mt-0.5 flex-shrink-0" />
+          <p className="text-sm text-brand-primary">
             Clients imported. You can run another import later from the Contacts page.
           </p>
         </div>
@@ -1225,7 +1225,7 @@ function DoneStep({
         <Button variant="outline" onClick={onBack} disabled={saving}>
           <ArrowLeft className="w-4 h-4 mr-2" /> Back
         </Button>
-        <Button onClick={onFinish} disabled={saving} className="flex-1 bg-emerald-600 hover:bg-emerald-700">
+        <Button onClick={onFinish} disabled={saving} className="flex-1 bg-brand-primary hover:bg-brand-primary/90">
           {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
           Finish setup & go to dashboard
         </Button>

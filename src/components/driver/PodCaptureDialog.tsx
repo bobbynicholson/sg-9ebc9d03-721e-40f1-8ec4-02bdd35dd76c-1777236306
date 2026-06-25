@@ -226,7 +226,7 @@ export function PodCaptureDialog({ open, onOpenChange, orderId, clientName, onSa
       <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Camera className="w-5 h-5 text-emerald-600" />
+            <Camera className="w-5 h-5 text-brand-primary" />
             {title || "Confirm delivery"}{clientName ? ` · ${clientName}` : ""}
           </DialogTitle>
           <p className="text-sm text-slate-500">
@@ -238,7 +238,7 @@ export function PodCaptureDialog({ open, onOpenChange, orderId, clientName, onSa
           {/* Photo */}
           <div>
             <Label className="text-sm font-medium flex items-center gap-1.5 mb-2">
-              <Camera className="w-4 h-4 text-emerald-600" />
+              <Camera className="w-4 h-4 text-brand-primary" />
               Delivery photo
             </Label>
             {photoPreview ? (
@@ -270,7 +270,7 @@ export function PodCaptureDialog({ open, onOpenChange, orderId, clientName, onSa
           <div>
             <div className="flex items-center justify-between mb-2">
               <Label className="text-sm font-medium flex items-center gap-1.5">
-                <FileSignature className="w-4 h-4 text-emerald-600" />
+                <FileSignature className="w-4 h-4 text-brand-primary" />
                 Signature
               </Label>
               {hasSignature && (

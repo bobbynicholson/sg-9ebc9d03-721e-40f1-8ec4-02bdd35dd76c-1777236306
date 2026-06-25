@@ -56,7 +56,7 @@ const STATUS_COLOURS: Record<string, string> = {
   draft: "bg-slate-100 text-slate-700",
   sent: "bg-blue-100 text-blue-700",
   viewed: "bg-indigo-100 text-indigo-700",
-  accepted: "bg-green-100 text-green-700",
+  accepted: "bg-brand-primary/15 text-brand-primary",
   rejected: "bg-red-100 text-red-700",
   expired: "bg-amber-100 text-amber-700",
   pending: "bg-amber-100 text-amber-700",
@@ -653,7 +653,7 @@ function AdminQuoteDetailInner() {
                         {quote.status}
                       </Badge>
                       {isClientRequest && (
-                        <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 border">
+                        <Badge className="bg-brand-primary/15 text-brand-primary border-brand-primary/20 border">
                           Client portal request
                         </Badge>
                       )}
@@ -690,13 +690,13 @@ function AdminQuoteDetailInner() {
                 </CardHeader>
                 <CardContent>
                   {isDraft && isClientRequest && (
-                    <div className="mb-4 flex items-start gap-3 rounded-lg border border-emerald-200 bg-emerald-50 p-3">
-                      <Sparkles className="w-5 h-5 text-emerald-600 mt-0.5 flex-shrink-0" />
+                    <div className="mb-4 flex items-start gap-3 rounded-lg border border-brand-primary/20 bg-brand-primary/10 p-3">
+                      <Sparkles className="w-5 h-5 text-brand-primary mt-0.5 flex-shrink-0" />
                       <div className="text-sm">
-                        <p className="font-medium text-emerald-900">
+                        <p className="font-medium text-brand-primary">
                           {quote.client_name} sent this request from the client portal.
                         </p>
-                        <p className="text-emerald-700 mt-0.5">
+                        <p className="text-brand-primary mt-0.5">
                           Set the unit price for each line below, tweak the delivery fee or discount if you need to,
                           then hit "Save & Send" to email the priced quote back.
                         </p>
@@ -957,7 +957,7 @@ function AdminQuoteDetailInner() {
                         <div className="h-px bg-slate-200" />
                         <div className="flex justify-between text-lg">
                           <span className="font-semibold">Total{vatRegistered ? " incl. VAT" : ""}</span>
-                          <span className="font-bold text-green-600 flex items-center gap-1">
+                          <span className="font-bold text-brand-primary flex items-center gap-1">
                             <Banknote className="w-5 h-5" />
                             {fmtMoney(liveTotal)}
                           </span>

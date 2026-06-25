@@ -87,7 +87,7 @@ export function getExpiryStatusConfig(status: "fresh" | "warning" | "critical" |
     default:
       return {
         label: "Fresh",
-        color: "bg-green-100 text-green-800 border-green-300",
+        color: "bg-brand-primary/15 text-brand-primary border-brand-primary/30",
         icon: "✓"
       };
   }

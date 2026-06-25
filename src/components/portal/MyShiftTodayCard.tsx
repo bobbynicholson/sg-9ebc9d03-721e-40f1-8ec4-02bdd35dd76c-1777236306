@@ -165,7 +165,7 @@ export function MyShiftTodayCard({
                     <AlertTriangle className="w-3 h-3" /> Missed clock-in
                   </div>
                 ) : s.actual_start ? (
-                  <div className="text-[11px] text-emerald-700 mt-1 tabular-nums">
+                  <div className="text-[11px] text-brand-primary mt-1 tabular-nums">
                     Clocked in
                     {s.actual_end ? " + out" : ""}
                   </div>

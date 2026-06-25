@@ -156,7 +156,7 @@ export function MessageComposer({
     <>
       <div className="flex flex-col space-y-2 text-left">
         <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
-          {icon ?? <Send className="w-5 h-5 text-emerald-600" />}
+          {icon ?? <Send className="w-5 h-5 text-brand-primary" />}
           {title}
         </h2>
         {subtitle && (
@@ -238,7 +238,7 @@ export function MessageComposer({
               window.open(composeEmail.gmailUrl(payload), "_blank", "noopener");
               handleSent("gmail");
             }}
-            className="gap-2 bg-emerald-600 hover:bg-emerald-700"
+            className="gap-2 bg-brand-primary hover:bg-brand-primary/90"
           >
             <ExternalLink className="w-4 h-4" /> Open in Gmail
           </Button>

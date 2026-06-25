@@ -148,8 +148,8 @@ export function CleaningSection({ orderId, companyId, defaultOpen, forceOpen, hi
           {jobs.map((j) => {
             const doneish = j.status === "complete" || j.status === "completed";
             return (
-              <li key={j.id} className={`flex items-center gap-2 p-2.5 rounded-md border text-sm ${doneish ? "bg-emerald-50 border-emerald-200" : "bg-cyan-50/60 border-cyan-200"}`}>
-                {doneish ? <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" /> : <Clock className="w-4 h-4 text-cyan-600 flex-shrink-0" />}
+              <li key={j.id} className={`flex items-center gap-2 p-2.5 rounded-md border text-sm ${doneish ? "bg-brand-primary/10 border-brand-primary/20" : "bg-brand-primary/10 border-brand-primary/20"}`}>
+                {doneish ? <CheckCircle2 className="w-4 h-4 text-brand-primary flex-shrink-0" /> : <Clock className="w-4 h-4 text-brand-primary flex-shrink-0" />}
                 <span className="font-medium text-slate-900 truncate flex-1">
                   {j.equipment?.name || "Equipment"}
                   {j.quantity != null && <span className="text-slate-500 font-normal"> · {j.quantity}</span>}

@@ -86,9 +86,9 @@ const STATUS_TONES: Record<string, string> = {
   pending:    "bg-amber-50 text-amber-700 border-amber-200",
   confirmed:  "bg-slate-100 text-slate-700 border-slate-200",
   preparing:  "bg-amber-50 text-amber-700 border-amber-200",
-  ready:      "bg-emerald-50 text-emerald-700 border-emerald-200",
+  ready:      "bg-brand-primary/10 text-brand-primary border-brand-primary/20",
   in_transit: "bg-slate-100 text-slate-700 border-slate-200",
-  delivered:  "bg-emerald-50 text-emerald-700 border-emerald-200",
+  delivered:  "bg-brand-primary/10 text-brand-primary border-brand-primary/20",
   cancelled:  "bg-rose-50 text-rose-700 border-rose-200",
 };
 
@@ -97,7 +97,7 @@ const STATUS_TONES: Record<string, string> = {
 const TASK_TONES: Record<string, string> = {
   pending:     "bg-slate-200 border-slate-300 text-slate-800 hover:bg-slate-300",
   in_progress: "bg-brand-primary/15 border-brand-primary/30 text-brand-primary hover:bg-brand-primary/20",
-  done:        "bg-emerald-200 border-emerald-400 text-emerald-900 hover:bg-emerald-300",
+  done:        "bg-brand-primary/20 border-brand-primary/40 text-brand-primary hover:bg-brand-primary/25",
   skipped:     "bg-slate-100 border-slate-200 text-slate-500 hover:bg-slate-200 line-through",
 };
 
@@ -395,12 +395,12 @@ export default function KitchenProductionPage() {
 
   // KIT3-D: utilisation - scheduled cook-hours vs available staff-
   // hours. Available comes from the on-duty + scheduled shift sum
-  // (loaded below). Tone: green under 70%, amber 70-95%, rose
+  // (loaded below). Tone: brand under 70%, amber 70-95%, rose
   // 95%+ (likely under-resourced).
   const utilisation = useMemo(() => {
     if (availableHours <= 0) return null;
     const pct = Math.round((totals.cookHours / availableHours) * 100);
-    const tone = pct >= 95 ? "rose" : pct >= 70 ? "amber" : "emerald";
+    const tone = pct >= 95 ? "rose" : pct >= 70 ? "amber" : "brand";
     return { pct, tone };
   }, [totals.cookHours, availableHours]);
 
@@ -694,7 +694,7 @@ export default function KitchenProductionPage() {
             <StatTile
               label={
                 <span className="flex items-center gap-1">Utilisation
-                  <InfoTooltip content={"Scheduled cook-hours divided by available staff-hours in this window.\nAvailable comes from kitchen_duty_shifts (active + open-ended capped at 8h).\nUnder 70% (emerald) is calm, 70-95% (amber) is busy, 95%+ (rose) means you're likely under-resourced - add staff or shift prep."} />
+                  <InfoTooltip content={"Scheduled cook-hours divided by available staff-hours in this window.\nAvailable comes from kitchen_duty_shifts (active + open-ended capped at 8h).\nUnder 70% uses the brand success tone, 70-95% (amber) is busy, 95%+ (rose) means you're likely under-resourced - add staff or shift prep."} />
                 </span>
               }
               value={
@@ -705,7 +705,7 @@ export default function KitchenProductionPage() {
                         ? "text-rose-700 dark:text-rose-400"
                         : utilisation.tone === "amber"
                           ? "text-amber-700 dark:text-amber-400"
-                          : "text-emerald-700 dark:text-emerald-400"
+                          : "text-brand-primary dark:text-brand-primary"
                     }
                   >
                     {utilisation.pct}%
@@ -1050,7 +1050,7 @@ export default function KitchenProductionPage() {
                   ? "bg-rose-500"
                   : loadPct >= 70
                     ? "bg-amber-500"
-                    : "bg-emerald-500";
+                    : "bg-brand-primary";
                 return (
                   <div key={key}>
                     <div className="flex items-center gap-2 mb-2 px-1 flex-wrap">
@@ -1134,7 +1134,7 @@ export default function KitchenProductionPage() {
                                     <div className="h-1.5 w-full rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
                                       <div
                                         className={`h-full ${
-                                          tasksDone === orderTasks.length ? "bg-emerald-500" :
+                                          tasksDone === orderTasks.length ? "bg-brand-primary" :
                                           tasksDone > 0 ? "bg-amber-500" :
                                                           "bg-slate-300 dark:bg-slate-600"
                                         }`}
@@ -1170,7 +1170,7 @@ export default function KitchenProductionPage() {
               <span className="font-semibold">Status:</span>
               <span className="inline-flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-slate-200 border border-slate-300" /> Pending</span>
               <span className="inline-flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-brand-primary/15 border border-brand-primary/30" /> In progress</span>
-              <span className="inline-flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-emerald-200 border border-emerald-400" /> Done</span>
+              <span className="inline-flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-brand-primary/20 border border-brand-primary/40" /> Done</span>
             </div>
           )}
 
@@ -1203,7 +1203,7 @@ export default function KitchenProductionPage() {
                     <tbody>
                       {recipeAccuracy.map((r) => {
                         const tone =
-                          Math.abs(r.avg_variance_pct) < 5  ? "text-emerald-700 dark:text-emerald-400" :
+                          Math.abs(r.avg_variance_pct) < 5  ? "text-brand-primary dark:text-brand-primary" :
                           Math.abs(r.avg_variance_pct) < 15 ? "text-amber-700 dark:text-amber-400"   :
                                                               "text-rose-700 dark:text-rose-400";
                         const Arrow = r.avg_variance_pct >= 0 ? TrendingUp : TrendingDown;

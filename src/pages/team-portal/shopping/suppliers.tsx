@@ -216,7 +216,7 @@ export default function ShoppingSuppliersPage() {
             {/* Active is a positive status, so a subtle emerald value is semantic, not decoration. */}
             <StatTile
               label={<span className="flex items-center gap-1">Active <InfoTooltip content="Suppliers you're currently using.\n\nThese are the ones that show up when you're picking who to buy from." /></span>}
-              value={<span className="text-emerald-600 dark:text-emerald-400">{stats.active}</span>}
+              value={<span className="text-brand-primary dark:text-brand-primary">{stats.active}</span>}
             />
             {/* Star is the rating glyph: amber is reserved for action + this semantic mark. */}
             <StatTile
@@ -241,7 +241,7 @@ export default function ShoppingSuppliersPage() {
                 aria-pressed={showInactive}
                 className={
                   showInactive
-                    ? "rounded-lg border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-400 dark:hover:bg-emerald-500/20"
+                    ? "rounded-lg border-brand-primary/30 bg-brand-primary/10 text-brand-primary hover:bg-brand-primary/15 dark:border-brand-primary/30 dark:bg-brand-primary/10 dark:text-brand-primary dark:hover:bg-brand-primary/20"
                     : "rounded-lg"
                 }
               >

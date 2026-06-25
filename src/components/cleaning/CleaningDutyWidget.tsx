@@ -245,7 +245,7 @@ export function CleaningDutyWidget() {
                 {initialsOf(user?.full_name, user?.email)}
               </div>
               {onShift && (
-                <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-white shadow-sm" title="Live - on shift" />
+                <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-brand-primary border-2 border-white shadow-sm" title="Live - on shift" />
               )}
             </div>
             <div className="min-w-0">
@@ -275,7 +275,7 @@ export function CleaningDutyWidget() {
                       </span>
                     )}
                     {onShift && (
-                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 text-[10px] font-semibold">
+                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-brand-primary/15 text-brand-primary text-[10px] font-semibold">
                         Linked to shift
                       </span>
                     )}
@@ -341,7 +341,7 @@ export function CleaningDutyWidget() {
                     <div className="w-9 h-9 rounded-full bg-gradient-to-br from-brand-primary to-brand-secondary flex items-center justify-center text-white font-semibold text-xs shadow-sm">
                       {initialsOf(s.profile?.full_name, s.profile?.email)}
                     </div>
-                    <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-500 border-2 border-white" />
+                    <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-brand-primary border-2 border-white" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-slate-900 truncate">
@@ -353,12 +353,12 @@ export function CleaningDutyWidget() {
                   </div>
                   <div className="flex items-center gap-1.5 flex-shrink-0">
                     {s.equipment_verified && (
-                      <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] gap-1">
+                      <Badge variant="outline" className="bg-brand-primary/10 text-brand-primary border-brand-primary/20 text-[10px] gap-1">
                         <CheckCircle2 className="h-2.5 w-2.5" />
                         Verified
                       </Badge>
                     )}
-                    <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 text-[10px] tabular-nums">
+                    <Badge className="bg-brand-primary/15 text-brand-primary hover:bg-brand-primary/15 text-[10px] tabular-nums">
                       <Clock className="h-2.5 w-2.5 mr-0.5" />
                       Live
                     </Badge>

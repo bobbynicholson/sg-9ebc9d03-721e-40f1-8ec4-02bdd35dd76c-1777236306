@@ -580,7 +580,7 @@ function ShoppingDashboardInner() {
                               <Badge variant="outline" className={`text-[10px] tabular-nums ${
                                 pendingCount > 0
                                   ? "bg-white text-slate-700 border-slate-200 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-700"
-                                  : "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-900"
+                                  : "bg-brand-primary/10 text-brand-primary border-brand-primary/20 dark:bg-brand-primary/15 dark:text-brand-primary dark:border-brand-primary/30"
                               }`}>
                                 {pendingCount > 0
                                   ? `${pendingCount} of ${group.items.length} to buy`
@@ -717,7 +717,7 @@ function ShoppingDashboardInner() {
                                     </button>
                                   )}
                                   {item.purchased ? (
-                                    <CheckCircle className="w-5 h-5 text-emerald-600 dark:text-emerald-500 flex-shrink-0" />
+                                    <CheckCircle className="w-5 h-5 text-brand-primary dark:text-brand-primary flex-shrink-0" />
                                   ) : (
                                     <Clock className="w-5 h-5 text-brand-primary flex-shrink-0" />
                                   )}
@@ -830,7 +830,7 @@ function ShoppingDashboardInner() {
                             </button>
                           )}
                           {item.purchased ? (
-                            <CheckCircle className="w-5 h-5 text-emerald-600 dark:text-emerald-500 flex-shrink-0" />
+                            <CheckCircle className="w-5 h-5 text-brand-primary dark:text-brand-primary flex-shrink-0" />
                           ) : (
                             <Clock className="w-5 h-5 text-brand-primary flex-shrink-0" />
                           )}

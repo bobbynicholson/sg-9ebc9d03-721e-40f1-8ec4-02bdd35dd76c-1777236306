@@ -115,7 +115,7 @@ export function RecentInventoryAdjustsWidget({ companyId }: { companyId: string 
               const qty = Number(r.quantity || 0);
               const positive = qty >= 0;
               const Icon = positive ? ArrowUp : ArrowDown;
-              const tone = positive ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700";
+              const tone = positive ? "bg-brand-primary/10 text-brand-primary" : "bg-rose-50 text-rose-700";
               // Phase 24 #6: link to /admin/inventory pre-filtered
               // by the item name. The shopping team coordinator
               // scanning movements drops straight onto the item row.
@@ -140,7 +140,7 @@ export function RecentInventoryAdjustsWidget({ companyId }: { companyId: string 
                         <Badge variant="outline" className="text-[10px] capitalize">
                           {(r.transaction_type || "movement").replace(/_/g, " ")}
                         </Badge>
-                        <span className={`font-semibold ${positive ? "text-emerald-700" : "text-rose-700"}`}>
+                        <span className={`font-semibold ${positive ? "text-brand-primary" : "text-rose-700"}`}>
                           {positive ? "+" : ""}{qty} {r.inventory_items?.unit_of_measure || ""}
                         </span>
                         <span className="text-slate-400">{fmtRelative(r.created_at)}</span>

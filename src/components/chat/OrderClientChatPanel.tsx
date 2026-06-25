@@ -38,7 +38,7 @@ function relativeShort(iso: string): string {
 
 function bubbleClass(senderRole: OrderChatRole, mine: boolean): string {
   if (mine) return "bg-blue-600 text-white";
-  if (senderRole === "client") return "bg-emerald-100 border border-emerald-200 text-emerald-900";
+  if (senderRole === "client") return "bg-brand-primary/15 border border-brand-primary/20 text-brand-primary";
   return "bg-white border border-slate-200 text-slate-900";
 }
 

@@ -65,7 +65,7 @@ const STATUS_BADGE: Record<
   },
   approved: {
     label: "Approved",
-    tone: "bg-emerald-100 text-emerald-800 border-emerald-200",
+    tone: "bg-brand-primary/15 text-brand-primary border-brand-primary/20",
     icon: CheckCircle2,
   },
   rejected: {
@@ -513,7 +513,7 @@ export function AmendmentReviewDrawer({
                                         const isNew = !curByName.has(x.name);
                                         const changed = !isNew && curByName.get(x.name) !== x.qty;
                                         return (
-                                          <li key={i} className={isNew ? "text-emerald-700 font-medium" : changed ? "text-amber-700" : "text-slate-700"}>
+                                          <li key={i} className={isNew ? "text-brand-primary font-medium" : changed ? "text-amber-700" : "text-slate-700"}>
                                             {x.name} <span className="tabular-nums">×{x.qty}</span>
                                             {isNew && <span className="ml-1 text-[10px] uppercase">new</span>}
                                             {changed && <span className="ml-1 text-[10px] uppercase">was ×{curByName.get(x.name)}</span>}
@@ -539,7 +539,7 @@ export function AmendmentReviewDrawer({
                               <p className="text-[10px] uppercase tracking-wide text-slate-400 mb-0.5">
                                 Requested
                               </p>
-                              <p className="text-emerald-700 underline decoration-emerald-400 decoration-2 underline-offset-2 break-words">
+                              <p className="text-brand-primary underline decoration-brand-primary/50 decoration-2 underline-offset-2 break-words">
                                 {renderValue(proposedVal)}
                               </p>
                             </div>
@@ -619,7 +619,7 @@ export function AmendmentReviewDrawer({
                     size="sm"
                     onClick={handlePrimaryApprove}
                     disabled={busy}
-                    className="bg-emerald-600 hover:bg-emerald-700"
+                    className="bg-brand-primary hover:bg-brand-primary/90"
                   >
                     <CheckCircle2 className="w-4 h-4 mr-1.5" />
                     {busy
@@ -893,7 +893,7 @@ export function CancellationReviewDrawer({
                   {request.refund_amount_approved !== null &&
                     Number(request.refund_amount_approved) !==
                       Number(request.refund_amount_calculated) && (
-                      <p className="text-emerald-700 text-xs mt-1">
+                      <p className="text-brand-primary text-xs mt-1">
                         Approved:{" "}
                         {fmtZAR.format(Number(request.refund_amount_approved))}
                       </p>
@@ -990,7 +990,7 @@ export function CancellationReviewDrawer({
                     size="sm"
                     onClick={() => submit(true)}
                     disabled={busy}
-                    className="bg-emerald-600 hover:bg-emerald-700"
+                    className="bg-brand-primary hover:bg-brand-primary/90"
                   >
                     <CheckCircle2 className="w-4 h-4 mr-1.5" />
                     {busy ? "Working..." : "Approve"}

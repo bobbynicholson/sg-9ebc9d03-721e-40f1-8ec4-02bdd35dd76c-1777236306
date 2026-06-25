@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -310,7 +310,7 @@ export default function KitchenDashboard() {
       }, refresh)
       // CLN2-F: cleaning_event_checklists drives the chip now.
       // A cleaner ticking the last required item on another device
-      // should flip this tablet to green within a beat.
+      // should flip this tablet to the brand-ready state within a beat.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .on("postgres_changes" as any, {
         event: "*", schema: "public", table: "cleaning_event_checklists",
@@ -1008,7 +1008,7 @@ export default function KitchenDashboard() {
       confirmed: "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700",
       preparing: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-900",
       prep: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-900",
-      ready: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-900",
+      ready: "bg-brand-primary/10 text-brand-primary border-brand-primary/20 dark:bg-brand-primary/15 dark:text-brand-primary dark:border-brand-primary/30",
       completed: "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700",
     };
     return colors[status] || colors.confirmed;
@@ -1025,7 +1025,7 @@ export default function KitchenDashboard() {
     
     if (hoursUntil < 4) return { level: "high", color: "border-rose-200 bg-rose-50/70 dark:border-rose-900 dark:bg-rose-950/30", dot: "bg-rose-500" };
     if (hoursUntil < 8) return { level: "medium", color: "border-amber-200 bg-amber-50/70 dark:border-amber-900 dark:bg-amber-950/30", dot: "bg-amber-500" };
-    return { level: "low", color: "border-emerald-200 bg-emerald-50/70 dark:border-emerald-900 dark:bg-emerald-950/30", dot: "bg-emerald-500" };
+    return { level: "low", color: "border-brand-primary/20 bg-brand-primary/10 dark:border-brand-primary/30 dark:bg-brand-primary/10", dot: "bg-brand-primary" };
   };
 
   return (
@@ -1056,7 +1056,7 @@ export default function KitchenDashboard() {
                   onClick={() => setCleaningDialogOpen(true)}
                   className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border text-sm font-medium transition-colors duration-150 ${
                     cleaningReadiness && cleaningReadiness.complete === cleaningReadiness.total
-                      ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300 dark:hover:bg-emerald-900/60"
+                      ? "border-brand-primary/20 bg-brand-primary/10 text-brand-primary hover:bg-brand-primary/15 dark:border-brand-primary/30 dark:bg-brand-primary/15 dark:text-brand-primary dark:hover:bg-brand-primary/20"
                       : cleaningReadiness && cleaningReadiness.complete > 0
                       ? "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300 dark:hover:bg-amber-900/60"
                       : "border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
@@ -1074,7 +1074,7 @@ export default function KitchenDashboard() {
                       variant="outline"
                       className={`ml-1 tabular-nums ${
                         cleaningReadiness.complete === cleaningReadiness.total
-                          ? "bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-900 dark:text-emerald-300 dark:border-emerald-800"
+                          ? "bg-brand-primary/15 text-brand-primary border-brand-primary/30 dark:bg-brand-primary/20 dark:text-brand-primary dark:border-brand-primary/30"
                           : cleaningReadiness.complete > 0
                           ? "bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-900 dark:text-amber-300 dark:border-amber-800"
                           : "bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-700 dark:text-slate-200 dark:border-slate-600"
@@ -1338,10 +1338,10 @@ export default function KitchenDashboard() {
               before Low Stock recomputes and quietly drops the row.
               Teal accent to distinguish from the amber Low Stock card. */}
           {Object.keys(restockDeltas).length > 0 && (
-            <PortalCard className="mb-6 sm:mb-8 border-emerald-200 bg-emerald-50/30 dark:border-emerald-900 dark:bg-emerald-950/20">
+            <PortalCard className="mb-6 sm:mb-8 border-brand-primary/20 bg-brand-primary/5 dark:border-brand-primary/30 dark:bg-brand-primary/10">
               <PortalCardHeader
                 title={
-                  <span className="flex items-center gap-2 text-base sm:text-lg text-emerald-700 dark:text-emerald-400">
+                  <span className="flex items-center gap-2 text-base sm:text-lg text-brand-primary dark:text-brand-primary">
                     <Package className="w-5 h-5" />
                     Just restocked
                   </span>
@@ -1362,9 +1362,9 @@ export default function KitchenDashboard() {
                   {Object.entries(restockDeltas).map(([id, info]) => (
                     <span
                       key={id}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 text-sm font-medium"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-brand-primary/10 dark:bg-brand-primary/15 text-brand-primary dark:text-brand-primary text-sm font-medium"
                     >
-                      <span className="text-emerald-600 dark:text-emerald-400">+{info.delta}{info.unit ? ` ${info.unit}` : ""}</span>
+                      <span className="text-brand-primary dark:text-brand-primary">+{info.delta}{info.unit ? ` ${info.unit}` : ""}</span>
                       <span>{info.name}</span>
                     </span>
                   ))}
@@ -1542,19 +1542,19 @@ export default function KitchenDashboard() {
             const tone =
               isLate ? "bg-gradient-to-br from-rose-50 to-white dark:from-rose-950/40 dark:to-slate-900 border-rose-200 dark:border-rose-900" :
               isSoon ? "bg-gradient-to-br from-amber-50 to-white dark:from-amber-950/40 dark:to-slate-900 border-amber-200 dark:border-amber-900" :
-                       "bg-gradient-to-br from-emerald-50 to-white dark:from-emerald-950/40 dark:to-slate-900 border-emerald-200 dark:border-emerald-900";
+                       "bg-gradient-to-br from-brand-primary/10 to-white dark:from-brand-primary/15 dark:to-slate-900 border-brand-primary/20 dark:border-brand-primary/30";
             const statusTone =
               isLate ? "bg-rose-600 text-white" :
               isSoon ? "bg-brand-primary text-white" :
-                       "bg-emerald-600 text-white";
+                       "bg-brand-primary text-white";
             const iconTone =
               isLate ? "text-rose-500 dark:text-rose-400" :
               isSoon ? "text-amber-500 dark:text-amber-400" :
-                       "text-emerald-500 dark:text-emerald-400";
+                       "text-brand-primary dark:text-brand-primary";
             const tileTone =
               isLate ? "bg-rose-100/80 dark:bg-rose-500/15" :
               isSoon ? "bg-amber-100/80 dark:bg-amber-500/15" :
-                       "bg-emerald-100/80 dark:bg-emerald-500/15";
+                       "bg-brand-primary/15 dark:bg-brand-primary/15";
             return (
               <PortalCard padded={false} className={`mb-4 sm:mb-6 overflow-hidden ${tone}`}>
                 <div className="p-4 sm:p-6 flex items-center justify-between gap-4">
@@ -1747,7 +1747,7 @@ export default function KitchenDashboard() {
                   // ready yet").
                   { key: "confirmed", label: "Confirmed",  empty: "No confirmed orders waiting",  tone: "border-slate-200 bg-slate-50/70 dark:border-slate-700 dark:bg-slate-800/30",   dot: "bg-slate-400" },
                   { key: "preparing", label: "In prep",    empty: "No orders in prep right now",  tone: "border-amber-200 bg-amber-50/60 dark:border-amber-900 dark:bg-amber-950/30",   dot: "bg-amber-400" },
-                  { key: "ready",     label: "Ready",      empty: "No orders ready to collect",   tone: "border-emerald-200 bg-emerald-50/60 dark:border-emerald-900 dark:bg-emerald-950/30", dot: "bg-emerald-500" },
+                  { key: "ready",     label: "Ready",      empty: "No orders ready to collect",   tone: "border-brand-primary/20 bg-brand-primary/10 dark:border-brand-primary/30 dark:bg-brand-primary/10", dot: "bg-brand-primary" },
                 ];
 
                 return (
@@ -1763,7 +1763,7 @@ export default function KitchenDashboard() {
                       const headerTone =
                         col.key === "confirmed" ? "bg-slate-100 border-slate-200 text-slate-700 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300" :
                         col.key === "preparing" ? "bg-amber-50 border-amber-200 text-amber-800 dark:bg-amber-950 dark:border-amber-900 dark:text-amber-300" :
-                                                  "bg-emerald-50 border-emerald-200 text-emerald-800 dark:bg-emerald-950 dark:border-emerald-900 dark:text-emerald-300";
+                                                  "bg-brand-primary/10 border-brand-primary/20 text-brand-primary dark:bg-brand-primary/15 dark:border-brand-primary/30 dark:text-brand-primary";
                       return (
                       <div key={col.key} className="flex flex-col rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/40 overflow-hidden">
                         <div className={`flex items-center justify-between px-3 py-2 border-b ${headerTone}`}>
@@ -1875,7 +1875,7 @@ export default function KitchenDashboard() {
                                     <div className="h-1.5 w-full rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
                                       <div
                                         className={`h-full ${
-                                          pct >= 100 ? "bg-emerald-500" :
+                                          pct >= 100 ? "bg-brand-primary" :
                                           pct >= 50  ? "bg-amber-500"   :
                                                        "bg-slate-400"
                                         }`}
@@ -1951,7 +1951,7 @@ export default function KitchenDashboard() {
                                   );
                                   if (!hold) {
                                     return (
-                                      <p className="mt-2 text-[11px] text-emerald-700 dark:text-emerald-400 font-medium inline-flex items-center gap-1">
+                                      <p className="mt-2 text-[11px] text-brand-primary dark:text-brand-primary font-medium inline-flex items-center gap-1">
                                         <Truck className="w-3 h-3" />Waiting for pickup
                                       </p>
                                     );
@@ -1966,7 +1966,7 @@ export default function KitchenDashboard() {
                                   }
                                   return (
                                     <p className={`mt-2 text-[11px] font-medium inline-flex items-center gap-1 ${
-                                      hold.holdMin > maxHotHoldMin * 0.7 ? "text-amber-700 dark:text-amber-400" : "text-emerald-700 dark:text-emerald-400"
+                                      hold.holdMin > maxHotHoldMin * 0.7 ? "text-amber-700 dark:text-amber-400" : "text-brand-primary dark:text-brand-primary"
                                     }`}>
                                       <Truck className="w-3 h-3" />Waiting {hold.holdMin}m, pickup soon
                                     </p>

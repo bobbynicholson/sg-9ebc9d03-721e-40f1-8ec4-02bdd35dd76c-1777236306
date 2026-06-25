@@ -410,7 +410,7 @@ export default function InventoryTracking() {
     if (item.current_stock === 0) return { label: "Out of Stock", color: "bg-red-500", icon: XCircle };
     if (item.current_stock <= item.minimum_stock) return { label: "Low Stock", color: "bg-orange-500", icon: AlertTriangle };
     if (item.current_stock >= item.maximum_stock) return { label: "Overstocked", color: "bg-blue-500", icon: TrendingUp };
-    return { label: "In Stock", color: "bg-green-500", icon: CheckCircle };
+    return { label: "In Stock", color: "bg-brand-primary", icon: CheckCircle };
   };
 
   // Apply category + status filters first, then fuzzy-rank by name / sku /
@@ -764,7 +764,7 @@ export default function InventoryTracking() {
                     <div key={movement.id} className="flex items-center justify-between p-3 border rounded-lg">
                       <div className="flex items-center gap-3">
                         <div className={`p-2 rounded-full ${
-                          isAdd ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                          isAdd ? 'bg-brand-primary/15 text-brand-primary' : 'bg-red-100 text-red-700'
                         }`}>
                           {isAdd ? (
                             <TrendingUp className="h-4 w-4" />

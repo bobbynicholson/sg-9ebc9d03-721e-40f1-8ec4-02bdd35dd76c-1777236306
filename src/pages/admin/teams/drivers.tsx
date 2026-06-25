@@ -370,7 +370,7 @@ function DriversTeamPage() {
 
   const tiles = [
     { href: "/admin/driver-management", icon: Users, label: "Driver management", sub: "Roster, availability, ratings", bg: "from-sky-50 to-blue-50", iconColor: "text-sky-600" },
-    { href: "/admin/driver-settlement", icon: Receipt, label: "Settlement", sub: "Pay out shifts and tips", bg: "from-emerald-50 to-teal-50", iconColor: "text-emerald-600" },
+    { href: "/admin/driver-settlement", icon: Receipt, label: "Settlement", sub: "Pay out shifts and tips", bg: "from-brand-primary/10 to-brand-secondary/10", iconColor: "text-brand-primary" },
     { href: "/admin/route-planning", icon: MapIcon, label: "Route planning", sub: "Daily delivery sequencing", bg: "from-indigo-50 to-violet-50", iconColor: "text-indigo-600" },
     { href: "/admin/vehicles", icon: Car, label: "Vehicles", sub: "Fleet, services, fuel", bg: "from-slate-100 to-slate-50", iconColor: "text-slate-600" },
   ];
@@ -434,7 +434,7 @@ function DriversTeamPage() {
                 variant="outline"
                 className={`px-3 py-1.5 text-sm ${
                   stats.clockedNow >= stats.active
-                    ? "border-emerald-300 text-emerald-700 bg-emerald-50"
+                    ? "border-brand-primary/30 text-brand-primary bg-brand-primary/10"
                     : stats.clockedNow === 0
                       ? "border-rose-300 text-rose-700 bg-rose-50"
                       : "border-amber-300 text-amber-700 bg-amber-50"
@@ -453,7 +453,7 @@ function DriversTeamPage() {
               </Link>
             )}
             {canSeeFinance && stats.burnTodayZar > 0 && (
-              <Badge variant="outline" className="px-3 py-1.5 text-sm border-emerald-300 text-emerald-700 bg-emerald-50 tabular-nums">
+              <Badge variant="outline" className="px-3 py-1.5 text-sm border-brand-primary/30 text-brand-primary bg-brand-primary/10 tabular-nums">
                 <Banknote className="w-3 h-3 mr-1" />
                 {tenantCurrency.format(stats.burnTodayZar)} pay today
               </Badge>
@@ -533,7 +533,7 @@ function DriversTeamPage() {
                         <>
                           <div className="h-1.5 w-full rounded-full bg-slate-200 overflow-hidden mt-2">
                             <div
-                              className={`h-full rounded-full ${pipelinePct >= 75 ? "bg-emerald-500" : pipelinePct >= 40 ? "bg-amber-500" : "bg-rose-500"}`}
+                              className={`h-full rounded-full ${pipelinePct >= 75 ? "bg-brand-primary" : pipelinePct >= 40 ? "bg-amber-500" : "bg-rose-500"}`}
                               style={{ width: `${pipelinePct}%` }}
                             />
                           </div>
@@ -542,7 +542,7 @@ function DriversTeamPage() {
                             {stats.asnInTransit > 0 && stats.asnPending > 0 && <span className="text-slate-400 mx-1">·</span>}
                             {stats.asnPending > 0 && <span>{stats.asnPending} waiting to depart</span>}
                             {stats.asnInTransit === 0 && stats.asnPending === 0 && (
-                              <span className="inline-flex items-center gap-1 text-emerald-700"><CheckCircle2 className="w-3 h-3" /> All deliveries closed</span>
+                              <span className="inline-flex items-center gap-1 text-brand-primary"><CheckCircle2 className="w-3 h-3" /> All deliveries closed</span>
                             )}
                           </p>
                         </>

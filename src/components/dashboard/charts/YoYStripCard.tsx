@@ -22,7 +22,7 @@ interface Props {
 const TONES: Record<"positive" | "negative" | "neutral", {
   text: string; bg: string; stroke: string; fill: string;
 }> = {
-  positive: { text: "text-emerald-700", bg: "bg-emerald-50", stroke: "#10b981", fill: "#10b981" },
+  positive: { text: "text-brand-primary", bg: "bg-brand-primary/10", stroke: "#10b981", fill: "#10b981" },
   negative: { text: "text-rose-700",    bg: "bg-rose-50",    stroke: "#e11d48", fill: "#e11d48" },
   neutral:  { text: "text-slate-600",   bg: "bg-slate-50",   stroke: "#64748b", fill: "#64748b" },
 };

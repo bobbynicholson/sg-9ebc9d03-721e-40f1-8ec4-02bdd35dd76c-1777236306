@@ -366,7 +366,7 @@ function PayablesPage() {
                   <Upload className="w-4 h-4 mr-1.5" />
                   Bulk import
                 </Button>
-                <Button onClick={() => setDialogOpen(true)} className="bg-emerald-600 hover:bg-emerald-700">
+                <Button onClick={() => setDialogOpen(true)} className="bg-brand-primary hover:bg-brand-primary/90">
                   <Plus className="w-4 h-4 mr-1.5" />
                   Add payable
                 </Button>
@@ -450,7 +450,7 @@ function PayablesPage() {
                               </Badge>
                             )}
                             {r.status === "paid" && (
-                              <Badge variant="secondary" className="bg-emerald-100 text-emerald-800 border border-emerald-200">
+                              <Badge variant="secondary" className="bg-brand-primary/15 text-brand-primary border border-brand-primary/20">
                                 Paid
                               </Badge>
                             )}
@@ -555,7 +555,7 @@ function PayablesPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={saving}>Cancel</Button>
-            <Button onClick={handleCreate} disabled={saving} className="bg-emerald-600 hover:bg-emerald-700">
+            <Button onClick={handleCreate} disabled={saving} className="bg-brand-primary hover:bg-brand-primary/90">
               {saving ? "Saving..." : "Add payable"}
             </Button>
           </DialogFooter>
@@ -609,7 +609,7 @@ function PayablesPage() {
                         <td className="px-2 py-1.5 tabular-nums text-slate-400">{r.line}</td>
                         <td className="px-2 py-1.5">
                           <div className="font-medium text-slate-900">{r.supplier_name || <span className="text-slate-400 italic">missing</span>}</div>
-                          {r.supplier_id && <div className="text-[10px] text-emerald-700">matched</div>}
+                          {r.supplier_id && <div className="text-[10px] text-brand-primary">matched</div>}
                         </td>
                         <td className="px-2 py-1.5 tabular-nums text-right">
                           {r.amount_cents > 0 ? fmt(r.amount_cents / 100, currency) : <span className="text-rose-600">-</span>}
@@ -621,7 +621,7 @@ function PayablesPage() {
                         <td className="px-2 py-1.5">
                           {r.error
                             ? <span className="text-rose-700 text-[11px]">{r.error}</span>
-                            : <span className="text-emerald-700 text-[11px]">Ready</span>}
+                            : <span className="text-brand-primary text-[11px]">Ready</span>}
                         </td>
                       </tr>
                     ))}
@@ -631,7 +631,7 @@ function PayablesPage() {
             )}
 
             {bulkResult && (
-              <div className={`rounded-md border px-3 py-2 text-sm ${bulkResult.failed === 0 ? "bg-emerald-50 border-emerald-200 text-emerald-900" : "bg-amber-50 border-amber-200 text-amber-900"}`}>
+              <div className={`rounded-md border px-3 py-2 text-sm ${bulkResult.failed === 0 ? "bg-brand-primary/10 border-brand-primary/20 text-brand-primary" : "bg-amber-50 border-amber-200 text-amber-900"}`}>
                 Imported <strong>{bulkResult.ok}</strong> payable{bulkResult.ok === 1 ? "" : "s"}.
                 {bulkResult.failed > 0 && <> {bulkResult.failed} failed - check the rows still flagged above.</>}
               </div>
@@ -642,7 +642,7 @@ function PayablesPage() {
             <Button
               onClick={handleBulkImport}
               disabled={bulkImporting || !bulkPreview || bulkPreview.filter((r) => !r.error).length === 0}
-              className="bg-emerald-600 hover:bg-emerald-700"
+              className="bg-brand-primary hover:bg-brand-primary/90"
             >
               {bulkImporting
                 ? "Importing..."

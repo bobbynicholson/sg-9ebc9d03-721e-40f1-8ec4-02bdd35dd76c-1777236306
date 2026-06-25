@@ -25,7 +25,7 @@ interface BlogPostProps {
 // Category-based theming
 const CATEGORY_THEMES = {
   "Catering Tips": {
-    gradient: "from-blue-500 to-cyan-500",
+    gradient: "from-blue-500 to-brand-secondary",
     badge: "bg-blue-100 text-blue-700 border-blue-200",
     accent: "text-blue-600",
     button: "bg-blue-600 hover:bg-blue-700",
@@ -37,10 +37,10 @@ const CATEGORY_THEMES = {
     button: "bg-purple-600 hover:bg-purple-700",
   },
   "Event Planning": {
-    gradient: "from-emerald-500 to-teal-500",
-    badge: "bg-emerald-100 text-emerald-700 border-emerald-200",
-    accent: "text-emerald-600",
-    button: "bg-emerald-600 hover:bg-emerald-700",
+    gradient: "from-brand-primary to-brand-secondary",
+    badge: "bg-brand-primary/15 text-brand-primary border-brand-primary/20",
+    accent: "text-brand-primary",
+    button: "bg-brand-primary hover:bg-brand-primary/90",
   },
   "Recipes": {
     gradient: "from-orange-500 to-red-500",

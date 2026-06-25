@@ -143,7 +143,7 @@ export function InvoicePreview(props: InvoicePreviewProps) {
             )}
           </div>
           {isPaid ? (
-            <Badge className="bg-emerald-600 text-white border-0 px-3 py-1.5 text-sm">
+            <Badge className="bg-brand-primary text-white border-0 px-3 py-1.5 text-sm">
               Paid
             </Badge>
           ) : (
@@ -278,7 +278,7 @@ export function InvoicePreview(props: InvoicePreviewProps) {
             <>
               <div className="flex justify-between text-sm pt-2">
                 <span className="text-stone-600">Deposit paid</span>
-                <span className="text-emerald-700 tabular-nums">
+                <span className="text-brand-primary tabular-nums">
                   -{fmtMoney.format(props.depositPaid)}
                 </span>
               </div>
@@ -289,7 +289,7 @@ export function InvoicePreview(props: InvoicePreviewProps) {
                 <span
                   className={
                     props.balanceDue <= 0
-                      ? "text-emerald-700 tabular-nums"
+                      ? "text-brand-primary tabular-nums"
                       : "text-amber-700 tabular-nums"
                   }
                 >

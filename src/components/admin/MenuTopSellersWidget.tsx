@@ -102,10 +102,10 @@ export function MenuTopSellersWidget({ companyId }: { companyId: string | null }
   if (!loading && entries.length === 0) return null;
 
   return (
-    <Card className="mb-6 border-emerald-200 bg-emerald-50/30">
+    <Card className="mb-6 border-brand-primary/20 bg-brand-primary/5">
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-base">
-          <ChefHat className="w-4 h-4 text-emerald-600" />
+          <ChefHat className="w-4 h-4 text-brand-primary" />
           Top sellers, last 30 days
         </CardTitle>
         <CardDescription className="text-xs">
@@ -126,9 +126,9 @@ export function MenuTopSellersWidget({ companyId }: { companyId: string | null }
                 <li key={e.name}>
                   <Link
                     href={`/admin/menu?q=${encodeURIComponent(e.name)}`}
-                    className="flex items-center gap-3 py-1 -mx-1 px-1 rounded hover:bg-emerald-50/60 transition"
+                    className="flex items-center gap-3 py-1 -mx-1 px-1 rounded hover:bg-brand-primary/10 transition"
                   >
-                    <div className="w-6 text-xs font-semibold text-emerald-900 tabular-nums">#{i + 1}</div>
+                    <div className="w-6 text-xs font-semibold text-brand-primary tabular-nums">#{i + 1}</div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-baseline justify-between gap-2">
                         <span className="text-sm font-medium text-slate-900 truncate">{e.name}</span>
@@ -136,8 +136,8 @@ export function MenuTopSellersWidget({ companyId }: { companyId: string | null }
                           {e.quantity} sold
                         </span>
                       </div>
-                      <div className="h-1.5 bg-emerald-100 rounded overflow-hidden mt-1">
-                        <div className="h-full bg-emerald-500" style={{ width: `${share}%` }} />
+                      <div className="h-1.5 bg-brand-primary/15 rounded overflow-hidden mt-1">
+                        <div className="h-full bg-brand-primary" style={{ width: `${share}%` }} />
                       </div>
                       <div className="text-[10px] text-slate-500 mt-0.5 tabular-nums inline-flex items-center gap-1">
                         <TrendingUp className="w-3 h-3" />

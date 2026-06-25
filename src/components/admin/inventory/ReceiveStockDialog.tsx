@@ -220,7 +220,7 @@ export function ReceiveStockDialog({ open, onOpenChange, companyId, performedBy,
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Package className="w-5 h-5 text-emerald-600" />
+            <Package className="w-5 h-5 text-brand-primary" />
             Receive stock
           </DialogTitle>
           <p className="text-sm text-slate-500">
@@ -237,7 +237,7 @@ export function ReceiveStockDialog({ open, onOpenChange, companyId, performedBy,
                 id="supplier"
                 value={supplierId}
                 onChange={e => setSupplierId(e.target.value)}
-                className="mt-1 w-full border border-slate-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                className="mt-1 w-full border border-slate-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary"
               >
                 <option value="">Not specified</option>
                 {suppliers.map(s => (
@@ -270,13 +270,13 @@ export function ReceiveStockDialog({ open, onOpenChange, companyId, performedBy,
           {/* INV-B: barcode scan input. USB / Bluetooth scanners type
               the code + ENTER, so the input fires on Enter. Falls
               back to manual typing if the scanner is offline. */}
-          <div className="rounded-md border border-emerald-200 bg-emerald-50/40 p-3">
-            <Label htmlFor="barcode" className="text-xs uppercase tracking-wide text-emerald-800">
+          <div className="rounded-md border border-brand-primary/20 bg-brand-primary/10 p-3">
+            <Label htmlFor="barcode" className="text-xs uppercase tracking-wide text-brand-primary">
               Scan barcode
             </Label>
             <div className="mt-1 flex gap-2">
               <div className="relative flex-1">
-                <ScanBarcode className="w-4 h-4 absolute left-2 top-1/2 -translate-y-1/2 text-emerald-700" />
+                <ScanBarcode className="w-4 h-4 absolute left-2 top-1/2 -translate-y-1/2 text-brand-primary" />
                 <Input
                   ref={barcodeRef}
                   id="barcode"
@@ -304,7 +304,7 @@ export function ReceiveStockDialog({ open, onOpenChange, companyId, performedBy,
                 Find
               </Button>
             </div>
-            <p className="text-[11px] text-emerald-800/70 mt-1">
+            <p className="text-[11px] text-brand-primary/70 mt-1">
               Scans land on the first empty line. Already-filled lines aren't overwritten.
             </p>
           </div>
@@ -325,7 +325,7 @@ export function ReceiveStockDialog({ open, onOpenChange, companyId, performedBy,
                     <select
                       value={line.itemId}
                       onChange={e => handleItemPick(line.id, e.target.value)}
-                      className="w-full border border-slate-200 rounded-md px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      className="w-full border border-slate-200 rounded-md px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary"
                     >
                       <option value="">Pick an item...</option>
                       {inventoryOptions.map(opt => (
@@ -436,7 +436,7 @@ export function ReceiveStockDialog({ open, onOpenChange, companyId, performedBy,
           <Button
             onClick={handleSave}
             disabled={saving || validLineCount === 0}
-            className="bg-emerald-600 hover:bg-emerald-700"
+            className="bg-brand-primary hover:bg-brand-primary/90"
           >
             {saving ? "Saving..." : `Receive ${validLineCount} line${validLineCount === 1 ? "" : "s"}`}
           </Button>

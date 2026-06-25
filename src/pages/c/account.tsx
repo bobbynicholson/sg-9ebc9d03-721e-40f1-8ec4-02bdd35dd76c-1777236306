@@ -34,9 +34,9 @@ const STATUS_TONES: Record<string, string> = {
   pending:    "bg-amber-100 text-amber-800 border-amber-200",
   confirmed:  "bg-blue-100 text-blue-800 border-blue-200",
   preparing:  "bg-purple-100 text-purple-800 border-purple-200",
-  ready:      "bg-green-100 text-green-800 border-green-200",
+  ready:      "bg-brand-primary/15 text-brand-primary border-brand-primary/20",
   in_transit: "bg-indigo-100 text-indigo-800 border-indigo-200",
-  delivered:  "bg-emerald-100 text-emerald-800 border-emerald-200",
+  delivered:  "bg-brand-primary/15 text-brand-primary border-brand-primary/20",
   completed:  "bg-slate-100 text-slate-800 border-slate-200",
   cancelled:  "bg-rose-100 text-rose-700 border-rose-200",
 };

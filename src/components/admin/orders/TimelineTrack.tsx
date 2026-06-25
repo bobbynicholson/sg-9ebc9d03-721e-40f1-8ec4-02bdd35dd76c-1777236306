@@ -247,7 +247,7 @@ function StageDot({
   const dotClasses = (() => {
     if (isCurrent) return `${currentSize} bg-orange-500 ring-4 ring-orange-100 shadow-md shadow-orange-200`;
     if (isBlocked) return `${currentSize} bg-red-500 ring-4 ring-red-100 animate-pulse shadow-md shadow-red-200`;
-    if (isCompleted) return `${baseSize} bg-green-500 shadow-sm`;
+    if (isCompleted) return `${baseSize} bg-brand-primary shadow-sm`;
     if (isUpcoming) return `${baseSize} bg-slate-300`;
     // not_applicable - render a faint hollow dot (instead of hiding it)
     // so EVERY order shows the full 22-stage pipeline at a consistent
@@ -347,7 +347,7 @@ function StageDot({
           {completedAt && (
             <div className="text-xs">
               <span className="text-slate-500">Done: </span>
-              <span className="font-semibold text-green-700">{completedAt}</span>
+              <span className="font-semibold text-brand-primary">{completedAt}</span>
             </div>
           )}
 
@@ -388,7 +388,7 @@ function StatusBadge({ stage }: { stage: OrderTimelineStage }) {
   const cfg = (() => {
     switch (stage.status) {
       case "completed":
-        return { label: "Done", cls: "bg-green-50 text-green-700 border-green-200" };
+        return { label: "Done", cls: "bg-brand-primary/10 text-brand-primary border-brand-primary/20" };
       case "current":
         // Wave 70.49f - distinguish "actually happening right now" from
         // "this is the next stage to focus on but nobody has started".
@@ -422,7 +422,7 @@ function StatusBadge({ stage }: { stage: OrderTimelineStage }) {
 
 function TimelineColourLegend({ compact = false }: { compact?: boolean }) {
   const items = [
-    { label: "Done", cls: "bg-green-500", text: "text-green-700" },
+    { label: "Done", cls: "bg-brand-primary", text: "text-brand-primary" },
     { label: "Problem", cls: "bg-red-500", text: "text-red-700" },
     { label: "Needs to be done", cls: "bg-orange-500", text: "text-orange-700" },
     { label: "Not started", cls: "bg-slate-300", text: "text-slate-600" },
@@ -481,14 +481,14 @@ function ClusterBand({
         : null;
 
   const headerColor =
-    allCompleted ? "text-green-600" :
+    allCompleted ? "text-brand-primary" :
     hasBlocked ? "text-red-600" :
     hasCurrent ? "text-orange-600" :
     "text-slate-500";
 
   const progressBarColor =
     hasBlocked ? "bg-red-500" :
-    allCompleted ? "bg-green-500" :
+    allCompleted ? "bg-brand-primary" :
     hasCurrent ? "bg-orange-500" :
     "bg-slate-300";
 
@@ -513,9 +513,9 @@ function ClusterBand({
           const connectorClass = !next
             ? ""
             : s.status === "completed" && next.status === "completed"
-              ? "bg-green-500"
+              ? "bg-brand-primary"
               : s.status === "completed" && (next.status === "current" || next.status === "blocked")
-                ? "bg-gradient-to-r from-green-500 via-orange-400 to-orange-300"
+                ? "bg-gradient-to-r from-brand-primary via-orange-400 to-orange-300"
                 : s.status === "current"
                   ? "bg-gradient-to-r from-orange-400 to-slate-200"
                   : s.status === "blocked"
@@ -548,7 +548,7 @@ function ClusterBand({
         </div>
       )}
       {!focusStage && allCompleted && (
-        <div className="text-[10px] text-green-600 font-medium leading-tight text-center">
+        <div className="text-[10px] text-brand-primary font-medium leading-tight text-center">
           All done
         </div>
       )}
@@ -582,7 +582,7 @@ function ClusterPill({
   const tone = (() => {
     if (hasBlocked) return "bg-red-100 text-red-700 border-red-300";
     if (hasCurrent) return "bg-orange-100 text-orange-700 border-orange-300";
-    if (total > 0 && done === total) return "bg-green-100 text-green-700 border-green-300";
+    if (total > 0 && done === total) return "bg-brand-primary/15 text-brand-primary border-brand-primary/30";
     return "bg-slate-100 text-slate-500 border-slate-200";
   })();
 
@@ -691,7 +691,7 @@ export function TimelineTrack({ timeline, compact, onStageClick, hideOperatorBan
                   <div className="flex items-center gap-2">
                     <StageDot stage={s} size="small" onStageClick={onStageClick} withSlug={withSlug} hideOperatorGlossary={hideOperatorGlossary} />
                     <span className={
-                      s.status === "completed" ? "text-green-700 line-through opacity-70" :
+                      s.status === "completed" ? "text-brand-primary line-through opacity-70" :
                       s.status === "current" ? "text-orange-700 font-semibold" :
                       s.status === "blocked" ? "text-red-700 font-semibold" :
                       s.status === "not_applicable" ? "text-slate-400 italic" :

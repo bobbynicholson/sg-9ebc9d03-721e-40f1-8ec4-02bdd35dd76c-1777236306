@@ -121,15 +121,15 @@ export default function RegisterPage() {
       >
         <Card className="w-full max-w-md border border-slate-200/80 shadow-xl rounded-2xl">
           <CardContent className="p-8 sm:p-12 text-center">
-            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-gradient-to-br from-green-500 to-emerald-500 mx-auto flex items-center justify-center shadow-lg mb-4 sm:mb-6">
+            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-gradient-to-br from-brand-primary to-brand-secondary mx-auto flex items-center justify-center shadow-lg mb-4 sm:mb-6">
               <CheckCircle className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
             </div>
             <h2 className="text-xl sm:text-2xl font-bold text-slate-900 mb-3 sm:mb-4">Account Created Successfully!</h2>
             <p className="text-sm sm:text-base text-slate-600 mb-3 sm:mb-4">
               Your account has been created for <strong className="break-all">{formData.email}</strong>
             </p>
-            <div className="bg-green-50 border border-green-200 rounded-lg p-3 sm:p-4 mb-3 sm:mb-4">
-              <p className="text-xs sm:text-sm text-green-800">
+            <div className="bg-brand-primary/10 border border-brand-primary/20 rounded-lg p-3 sm:p-4 mb-3 sm:mb-4">
+              <p className="text-xs sm:text-sm text-brand-primary">
                 <strong>Success!</strong> You can now sign in to your account immediately.
               </p>
             </div>

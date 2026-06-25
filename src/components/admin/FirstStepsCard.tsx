@@ -109,7 +109,7 @@ export function FirstStepsCard({ companyId, slug }: Props) {
           </Link>
           <span className="text-xs text-slate-500 flex items-center gap-1">
             {state.completedSteps > 0 ? (
-              <><CheckCircle2 className="w-3 h-3 text-green-500" /> {state.completedSteps} done</>
+              <><CheckCircle2 className="w-3 h-3 text-brand-primary" /> {state.completedSteps} done</>
             ) : (
               <><Circle className="w-3 h-3" /> Just getting started</>
             )}

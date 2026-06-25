@@ -366,7 +366,7 @@ function OutstandingBalancesPage() {
                               {overdue && <Badge className="ml-1.5 bg-rose-100 text-rose-700 border border-rose-200 text-[10px]">overdue</Badge>}
                             </td>
                             <td className="py-2.5 px-3 text-right tabular-nums text-slate-700 dark:text-slate-300">{fmt.format(r.total)}</td>
-                            <td className="py-2.5 px-3 text-right tabular-nums text-emerald-700">{fmt.format(r.paid)}</td>
+                            <td className="py-2.5 px-3 text-right tabular-nums text-brand-primary">{fmt.format(r.paid)}</td>
                             <td className="py-2.5 px-3 text-right tabular-nums font-bold text-slate-900 dark:text-white">{fmt.format(r.balance)}</td>
                             <td className="py-2.5 px-3 text-right">
                               {r.publicToken && (

@@ -176,17 +176,17 @@ export function DeliveryStatusModal({
               <Card 
                 className={`cursor-pointer transition-all ${
                   status === "completed" 
-                    ? "border-green-500 bg-green-50 ring-2 ring-green-200" 
+                    ? "border-brand-primary bg-brand-primary/10 ring-2 ring-brand-primary/20"
                     : "border-slate-200 hover:border-slate-300"
                 }`}
                 onClick={() => setStatus("completed")}
               >
                 <CardContent className="p-4 text-center">
                   <CheckCircle className={`w-8 h-8 mx-auto mb-2 ${
-                    status === "completed" ? "text-green-600" : "text-slate-400"
+                    status === "completed" ? "text-brand-primary" : "text-slate-400"
                   }`} />
                   <p className={`font-semibold ${
-                    status === "completed" ? "text-green-900" : "text-slate-600"
+                    status === "completed" ? "text-brand-primary" : "text-slate-600"
                   }`}>
                     Completed
                   </p>
@@ -305,7 +305,7 @@ export function DeliveryStatusModal({
               <div className="border-2 border-dashed border-slate-300 rounded-lg p-4">
                 {signature ? (
                   <div className="space-y-2">
-                    <p className="text-sm text-green-600 flex items-center gap-2">
+                    <p className="text-sm text-brand-primary flex items-center gap-2">
                       <CheckCircle className="w-4 h-4" />
                       Signature captured
                     </p>
@@ -371,7 +371,7 @@ export function DeliveryStatusModal({
               disabled={loading}
               className={`flex-1 ${
                 status === "completed"
-                  ? "bg-green-600 hover:bg-green-700"
+                  ? "bg-brand-primary hover:bg-brand-primary/90"
                   : "bg-red-600 hover:bg-red-700"
               }`}
             >

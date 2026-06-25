@@ -39,7 +39,7 @@ export function loginActivityBucket(
     return {
       kind: "active",
       label: `Active ${formatDistanceToNow(new Date(lastSignInAt), { addSuffix: true })}`,
-      tone: "bg-emerald-50 text-emerald-700 border-emerald-200",
+      tone: "bg-brand-primary/10 text-brand-primary border-brand-primary/20",
     };
   }
   if (days <= 30) {

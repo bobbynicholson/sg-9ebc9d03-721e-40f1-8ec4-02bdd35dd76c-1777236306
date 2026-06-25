@@ -8,7 +8,7 @@
  * the current day's window):
  *
  *   - Today's events:    confirmed orders with event_date == today
- *   - In transit:        orders.status = 'in_transit'
+ *   - In transit:        today's orders with status = 'in_transit'
  *   - Drivers on shift:  driver_shifts active today (status=active
  *                         OR scheduled with the time window now)
  *   - Kitchen prep:      orders.status in (preparing, ready)
@@ -28,6 +28,7 @@ import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { toLocalISO } from "@/lib/localDate";
 import { shiftService } from "@/services/shiftService";
 import { ALL_ACTIVE_AND_REALISED_STATUSES } from "@/lib/orderRevenueClassification";
+import { useTenantHref } from "@/lib/tenantUrl";
 
 interface PulseStats {
   todayEvents: number;
@@ -45,6 +46,7 @@ export function TodaysPulse({ companyId }: { companyId: string | null }) {
   const [stats, setStats] = useState<PulseStats>(ZERO);
   const [loading, setLoading] = useState(true);
   const tenantCurrency = useTenantCurrency(companyId);
+  const { withSlug } = useTenantHref();
 
   useEffect(() => {
     if (!companyId) return;
@@ -65,11 +67,14 @@ export function TodaysPulse({ companyId }: { companyId: string | null }) {
             .eq("event_date", today)
             .in("status", ALL_ACTIVE_AND_REALISED_STATUSES as unknown as string[])
             .is("deleted_at", null),
-          // In transit right now
+          // In transit right now. Bound to today's event date so a stale
+          // historical order stuck in_transit does not keep the dashboard
+          // saying "on the road" after the dispatch queue is empty.
           (supabase as any)
             .from("orders")
             .select("id", { count: "exact", head: true })
             .eq("company_id", companyId)
+            .eq("event_date", today)
             .eq("status", "in_transit")
             .is("deleted_at", null),
           // Kitchen prep / ready
@@ -123,8 +128,8 @@ export function TodaysPulse({ companyId }: { companyId: string | null }) {
     tone: string;
   }> = [
     { label: "Today's events",   value: String(stats.todayEvents),  icon: Calendar, href: "/admin/orders", tone: "bg-blue-50 border-blue-200 text-blue-900" },
-    { label: "In transit",        value: String(stats.inTransit),    icon: Truck,    href: "/admin/order-assignments", tone: "bg-indigo-50 border-indigo-200 text-indigo-900" },
-    { label: "Drivers on shift",  value: String(stats.driversOnShift), icon: Users,  href: "/admin/driver-management", tone: "bg-emerald-50 border-emerald-200 text-emerald-900" },
+    { label: "In transit",        value: String(stats.inTransit),    icon: Truck,    href: "/admin/tracking", tone: "bg-brand-primary/10 border-brand-primary/20 text-brand-primary" },
+    { label: "Drivers on shift",  value: String(stats.driversOnShift), icon: Users,  href: "/admin/driver-management", tone: "bg-brand-primary/10 border-brand-primary/20 text-brand-primary" },
     { label: "Kitchen prep",      value: String(stats.kitchenPrep),  icon: ChefHat,  href: "/admin/orders?status=preparing", tone: "bg-purple-50 border-purple-200 text-purple-900" },
     { label: "Paid today",        value: tenantCurrency.format(stats.paidToday, 0), icon: Banknote, href: "/admin/invoices", tone: "bg-amber-50 border-amber-200 text-amber-900" },
   ];
@@ -149,7 +154,7 @@ export function TodaysPulse({ companyId }: { companyId: string | null }) {
           </Card>
         );
         return t.href ? (
-          <Link key={t.label} href={t.href} className="block">{content}</Link>
+          <Link key={t.label} href={withSlug(t.href)} className="block">{content}</Link>
         ) : (
           <div key={t.label}>{content}</div>
         );

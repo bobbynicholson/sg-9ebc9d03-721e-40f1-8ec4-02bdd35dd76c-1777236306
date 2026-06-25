@@ -55,7 +55,7 @@ export function MobileRouteView({
   const getStatusIcon = (status: RouteStop["status"]) => {
     switch (status) {
       case "completed":
-        return <CheckCircle className="w-5 h-5 text-green-500" />;
+        return <CheckCircle className="w-5 h-5 text-brand-primary" />;
       case "in_progress":
         return <Circle className="w-5 h-5 text-blue-500 fill-blue-500" />;
       case "failed":
@@ -187,9 +187,9 @@ export function MobileRouteView({
         )}
 
         {currentStop.status === "completed" && (
-          <div className="flex items-center justify-center gap-2 py-3 bg-green-50 dark:bg-green-950 rounded-lg">
-            <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400" />
-            <span className="text-sm font-medium text-green-600 dark:text-green-400">
+          <div className="flex items-center justify-center gap-2 py-3 bg-brand-primary/10 dark:bg-brand-primary/15 rounded-lg">
+            <CheckCircle className="w-5 h-5 text-brand-primary dark:text-brand-primary" />
+            <span className="text-sm font-medium text-brand-primary dark:text-brand-primary">
               Delivery Completed
             </span>
           </div>

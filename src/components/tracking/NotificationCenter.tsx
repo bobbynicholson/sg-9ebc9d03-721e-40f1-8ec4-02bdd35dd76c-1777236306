@@ -43,11 +43,11 @@ export function NotificationCenter() {
       case "driver_logged_in":
         return <Truck className="w-4 h-4 text-blue-600" />;
       case "food_collected":
-        return <Check className="w-4 h-4 text-green-600" />;
+        return <Check className="w-4 h-4 text-brand-primary" />;
       case "driver_arrived":
         return <MapPin className="w-4 h-4 text-orange-600" />;
       case "delivery_complete":
-        return <Check className="w-4 h-4 text-green-600" />;
+        return <Check className="w-4 h-4 text-brand-primary" />;
       case "review_request":
         return <Star className="w-4 h-4 text-amber-600" />;
       default:
@@ -60,11 +60,11 @@ export function NotificationCenter() {
       case "driver_logged_in":
         return "bg-blue-50 border-blue-200";
       case "food_collected":
-        return "bg-green-50 border-green-200";
+        return "bg-brand-primary/10 border-brand-primary/20";
       case "driver_arrived":
         return "bg-orange-50 border-orange-200";
       case "delivery_complete":
-        return "bg-green-50 border-green-200";
+        return "bg-brand-primary/10 border-brand-primary/20";
       case "review_request":
         return "bg-amber-50 border-amber-200";
       default:

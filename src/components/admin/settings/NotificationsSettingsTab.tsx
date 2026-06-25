@@ -31,14 +31,14 @@ const ROWS: Row[] = [
     title: "Quote Accepted",
     description: "Notification when client accepts quote",
     Icon: CheckCircle,
-    iconClass: "text-green-600",
+    iconClass: "text-brand-primary",
   },
   {
     field: "emailPaymentReceived",
     title: "Payment Received",
     description: "Alert when payment is processed",
     Icon: Banknote,
-    iconClass: "text-green-600",
+    iconClass: "text-brand-primary",
   },
   {
     field: "smsDriverAssigned",

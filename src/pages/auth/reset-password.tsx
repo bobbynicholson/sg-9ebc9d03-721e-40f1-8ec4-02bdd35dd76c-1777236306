@@ -167,7 +167,7 @@ export default function ResetPassword() {
         <Card className="w-full max-w-md">
           <CardContent className="pt-6">
             <div className="flex flex-col items-center justify-center py-8">
-              <CheckCircle2 className="h-16 w-16 text-green-500 mb-4" />
+              <CheckCircle2 className="h-16 w-16 text-brand-primary mb-4" />
               <h2 className="text-2xl font-bold text-slate-900 mb-2">
                 {isInvite ? "You're all set!" : "Password Reset Successful!"}
               </h2>

@@ -78,7 +78,7 @@ export function TopClientsBarChart({ data, loading }: Props) {
                   </div>
                   <div className="relative h-5 bg-slate-100 rounded overflow-hidden group-hover:bg-slate-200 transition-colors">
                     <div className="absolute inset-y-0 left-0 flex" style={{ width: `${totalPct}%` }}>
-                      <div className="h-full bg-emerald-500" style={{ width: `${paidPct}%` }} />
+                      <div className="h-full bg-brand-primary" style={{ width: `${paidPct}%` }} />
                       <div className="h-full bg-amber-400/70 flex-1" />
                     </div>
                   </div>

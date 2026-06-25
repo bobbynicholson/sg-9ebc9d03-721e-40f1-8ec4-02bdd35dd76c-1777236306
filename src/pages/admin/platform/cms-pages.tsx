@@ -331,7 +331,7 @@ function CMSPageManagement() {
                     <Button variant="ghost" size="sm" onClick={handleCancel}>
                       <X className="mr-1.5 h-4 w-4" /> Cancel
                     </Button>
-                    <Button size="sm" onClick={handleSave} className="bg-gradient-to-r from-emerald-600 to-green-600">
+                    <Button size="sm" onClick={handleSave} className="bg-gradient-to-r from-brand-primary to-brand-secondary">
                       <Save className="mr-1.5 h-4 w-4" /> Save page
                     </Button>
                   </>

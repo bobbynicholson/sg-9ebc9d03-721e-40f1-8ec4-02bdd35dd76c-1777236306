@@ -274,7 +274,7 @@ export function CancellationPolicyTab({ companyId: companyIdProp }: Props = {}) 
       <Card className="border-0 shadow-lg">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Receipt className="w-5 h-5 text-emerald-600" />
+            <Receipt className="w-5 h-5 text-brand-primary" />
             Booking + payment defaults
           </CardTitle>
         </CardHeader>

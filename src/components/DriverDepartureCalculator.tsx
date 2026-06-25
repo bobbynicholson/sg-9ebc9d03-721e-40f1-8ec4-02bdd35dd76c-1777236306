@@ -115,7 +115,7 @@ export function DriverDepartureCalculator({
         {/* Collection Time */}
         <div className="p-4 rounded-lg border bg-gray-50">
           <div className="flex items-center gap-2 mb-2">
-            <CheckCircle className="w-5 h-5 text-green-600" />
+            <CheckCircle className="w-5 h-5 text-brand-primary" />
             <h4 className="font-semibold">Collect Food</h4>
           </div>
           <p className="text-lg font-bold mb-1">
@@ -155,10 +155,10 @@ export function DriverDepartureCalculator({
             {isTimeToLeave ? "I'm On the Way to Kitchen!" : "Start Trip to Kitchen"}
           </Button>
         ) : (
-          <div className="p-4 bg-green-50 border-2 border-green-500 rounded-lg text-center">
-            <CheckCircle className="w-8 h-8 text-green-600 mx-auto mb-2" />
-            <p className="font-semibold text-green-900">Trip Started!</p>
-            <p className="text-sm text-green-700 mt-1">
+          <div className="p-4 bg-brand-primary/10 border-2 border-brand-primary rounded-lg text-center">
+            <CheckCircle className="w-8 h-8 text-brand-primary mx-auto mb-2" />
+            <p className="font-semibold text-brand-primary">Trip Started!</p>
+            <p className="text-sm text-brand-primary mt-1">
               Admin has been notified. Drive safely!
             </p>
           </div>

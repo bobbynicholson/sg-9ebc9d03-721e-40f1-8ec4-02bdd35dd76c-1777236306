@@ -152,7 +152,7 @@ export default function SuperAdminManagementDashboard() {
               <CardTitle className="text-sm font-medium text-slate-600">
                 Active Subscriptions
               </CardTitle>
-              <CheckCircle className="w-4 h-4 text-green-600" />
+              <CheckCircle className="w-4 h-4 text-brand-primary" />
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold text-slate-900 dark:text-white">

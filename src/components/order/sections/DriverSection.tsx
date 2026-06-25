@@ -326,7 +326,7 @@ export function DriverSection({ order, defaultOpen, forceOpen, highlight }: Prop
           </span>
         )}
         {v.refrigerated && (
-          <span className="inline-flex items-center gap-1 text-[10px] bg-cyan-50 text-cyan-800 border border-cyan-200 rounded-full px-1.5 py-0.5">
+          <span className="inline-flex items-center gap-1 text-[10px] bg-brand-primary/10 text-brand-primary border border-brand-primary/20 rounded-full px-1.5 py-0.5">
             <Snowflake className="w-3 h-3" />Cold chain
           </span>
         )}
@@ -390,13 +390,13 @@ export function DriverSection({ order, defaultOpen, forceOpen, highlight }: Prop
               </div>
             )}
             {leaveByLabel && (
-              <div className={`flex items-start gap-2 p-3 rounded-md border ${isLeaveByRed ? "bg-rose-50 border-rose-300" : "bg-emerald-50 border-emerald-200"}`}>
-                <CalendarClock className={`w-4 h-4 flex-shrink-0 mt-0.5 ${isLeaveByRed ? "text-rose-700" : "text-emerald-700"}`} />
+              <div className={`flex items-start gap-2 p-3 rounded-md border ${isLeaveByRed ? "bg-rose-50 border-rose-300" : "bg-brand-primary/10 border-brand-primary/20"}`}>
+                <CalendarClock className={`w-4 h-4 flex-shrink-0 mt-0.5 ${isLeaveByRed ? "text-rose-700" : "text-brand-primary"}`} />
                 <div className="min-w-0">
-                  <p className={`text-[10px] uppercase tracking-wider font-semibold ${isLeaveByRed ? "text-rose-800" : "text-emerald-800"}`}>
+                  <p className={`text-[10px] uppercase tracking-wider font-semibold ${isLeaveByRed ? "text-rose-800" : "text-brand-primary"}`}>
                     {isLeaveByRed ? "Should have left" : "Leave by"}
                   </p>
-                  <p className={`text-sm font-semibold ${isLeaveByRed ? "text-rose-900" : "text-emerald-900"}`}>{leaveByLabel}</p>
+                  <p className={`text-sm font-semibold ${isLeaveByRed ? "text-rose-900" : "text-brand-primary"}`}>{leaveByLabel}</p>
                 </div>
               </div>
             )}
@@ -404,11 +404,11 @@ export function DriverSection({ order, defaultOpen, forceOpen, highlight }: Prop
 
           {/* Driver acknowledgement chip */}
           {order.driver_acknowledged_at && (
-            <div className="inline-flex items-center gap-1.5 text-[11px] text-emerald-700 bg-emerald-50 border border-emerald-200 rounded px-2 py-0.5">
+            <div className="inline-flex items-center gap-1.5 text-[11px] text-brand-primary bg-brand-primary/10 border border-brand-primary/20 rounded px-2 py-0.5">
               <CheckCircle2 className="w-3 h-3" />
               Driver acknowledged
-              {order.driver_acknowledged_via && <span className="text-emerald-600">via {order.driver_acknowledged_via}</span>}
-              <span className="text-emerald-600">· {new Date(order.driver_acknowledged_at).toLocaleString("en-ZA", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span>
+              {order.driver_acknowledged_via && <span className="text-brand-primary">via {order.driver_acknowledged_via}</span>}
+              <span className="text-brand-primary">· {new Date(order.driver_acknowledged_at).toLocaleString("en-ZA", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span>
             </div>
           )}
 
@@ -559,7 +559,7 @@ export function DriverSection({ order, defaultOpen, forceOpen, highlight }: Prop
                 ].map((c) => (
                   <span
                     key={c.key}
-                    className={`inline-flex items-center gap-1 text-[11px] rounded-full px-2 py-0.5 border ${c.checked ? "bg-emerald-50 text-emerald-800 border-emerald-200" : "bg-slate-50 text-slate-600 border-slate-200"}`}
+                    className={`inline-flex items-center gap-1 text-[11px] rounded-full px-2 py-0.5 border ${c.checked ? "bg-brand-primary/10 text-brand-primary border-brand-primary/20" : "bg-slate-50 text-slate-600 border-slate-200"}`}
                   >
                     {c.checked ? <CheckCircle2 className="w-3 h-3" /> : <AlertCircle className="w-3 h-3" />}
                     {c.label}
@@ -602,7 +602,7 @@ export function DriverSection({ order, defaultOpen, forceOpen, highlight }: Prop
           )}
 
           {podCaptured && (
-            <div className="flex items-center gap-2 text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded p-2.5">
+            <div className="flex items-center gap-2 text-sm text-brand-primary bg-brand-primary/10 border border-brand-primary/20 rounded p-2.5">
               <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
               <span className="font-medium">POD captured</span>
               {order.pod_photo_url && (

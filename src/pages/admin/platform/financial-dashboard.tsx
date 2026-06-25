@@ -120,7 +120,7 @@ function PlatformFinancialDashboard() {
           {/* Stat tiles */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             <StatTile label="Total tenants" value={stats.total} icon={Users} />
-            <StatTile label="Active subs" value={<span className="text-emerald-600 dark:text-emerald-500">{stats.active}</span>} icon={Activity} />
+            <StatTile label="Active subs" value={<span className="text-brand-primary dark:text-brand-primary">{stats.active}</span>} icon={Activity} />
             <StatTile label="On trial" value={<span className="text-amber-600 dark:text-amber-500">{stats.trialing}</span>} icon={TrendingUp} />
             <StatTile label="Cancelled / churned" value={<span className="text-rose-600 dark:text-rose-500">{stats.cancelled}</span>} icon={AlertTriangle} />
           </div>
@@ -199,7 +199,7 @@ function CompaniesSortableTable({ companies }: { companies: CompanyRow[] }) {
                       {rows.map((c) => {
                         const status = (c.subscription_status || "").toLowerCase();
                         const tone =
-                          status === "active"   ? "bg-emerald-100 text-emerald-700 border-emerald-200" :
+                          status === "active"   ? "bg-brand-primary/15 text-brand-primary border-brand-primary/20" :
                           status === "trial"    ? "bg-amber-100 text-amber-800 border-amber-200" :
                           status.includes("cancel") || status === "churned"
                             ? "bg-rose-100 text-rose-700 border-rose-200"

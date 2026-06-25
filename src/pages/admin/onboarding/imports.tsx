@@ -54,7 +54,7 @@ const STATUS_META: Record<string, { label: string; tone: string }> = {
   mapped:     { label: "Mapped",              tone: "bg-blue-100 text-blue-700 border-blue-200" },
   previewed:  { label: "Preview ready",       tone: "bg-purple-100 text-purple-700 border-purple-200" },
   committing: { label: "Committing...",       tone: "bg-blue-100 text-blue-700 border-blue-200" },
-  completed:  { label: "Completed",           tone: "bg-emerald-100 text-emerald-700 border-emerald-200" },
+  completed:  { label: "Completed",           tone: "bg-brand-primary/15 text-brand-primary border-brand-primary/20" },
   failed:     { label: "Failed",              tone: "bg-rose-100 text-rose-700 border-rose-200" },
   rolled_back:{ label: "Rolled back",         tone: "bg-slate-100 text-slate-600 border-slate-200" },
 };
@@ -271,10 +271,10 @@ function ImportsHistoryPage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
             <Link
               href={`${slugPrefix}/admin/onboarding/clients`}
-              className="group rounded-xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-white p-4 hover:shadow-md transition-shadow flex flex-col"
+              className="group rounded-xl border border-brand-primary/20 bg-gradient-to-br from-brand-primary/10 to-white p-4 hover:shadow-md transition-shadow flex flex-col"
             >
               <div className="flex items-center gap-2 mb-2">
-                <span className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center flex-shrink-0">
+                <span className="w-8 h-8 rounded-lg bg-brand-primary/15 text-brand-primary flex items-center justify-center flex-shrink-0">
                   <Upload className="w-4 h-4" />
                 </span>
                 <span className="font-semibold text-slate-900 flex items-center gap-1.5">
@@ -282,11 +282,11 @@ function ImportsHistoryPage() {
                   <InfoTooltip content={"The fastest way in. Drop a CSV / XLSX (or paste from Sheets) with four columns: Name, Surname, Email, Phone.\n\nWe auto-detect the headers, dedupe by email and skip rows already on file. Best for the contact list you have in Excel or Gmail today."} />
                 </span>
               </div>
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-800 mb-1">Use when</p>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-brand-primary mb-1">Use when</p>
               <p className="text-xs text-slate-700 mb-2">
                 All you have is a contact list. Four columns: Name, Surname, Email, Phone. Drop a CSV/XLSX or paste from Sheets.
               </p>
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-800 mb-1">You get</p>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-brand-primary mb-1">You get</p>
               <p className="text-xs text-slate-600">
                 Client records ready to quote and invoice. No order history.
               </p>
@@ -396,7 +396,7 @@ function ImportsHistoryPage() {
                             isn't a useful signal there. */}
                         {j.status === "completed" && (
                           j.comms_enabled_at ? (
-                            <Badge variant="outline" className="border-emerald-200 bg-emerald-50 text-emerald-700 text-[10px] gap-1" title="Auto-emails (welcome, follow-ups, after-sales) can fire on these records as soon as the schedule says so.">
+                            <Badge variant="outline" className="border-brand-primary/20 bg-brand-primary/10 text-brand-primary text-[10px] gap-1" title="Auto-emails (welcome, follow-ups, after-sales) can fire on these records as soon as the schedule says so.">
                               <Bell className="w-2.5 h-2.5" />
                               Auto-emails on
                             </Badge>
@@ -425,7 +425,7 @@ function ImportsHistoryPage() {
                           )}
                           {commit && (
                             <>
-                              <span className="text-emerald-700">{inserted} inserted</span>
+                              <span className="text-brand-primary">{inserted} inserted</span>
                               {skipped > 0 && (
                                 <span className="text-slate-500">{skipped} skipped</span>
                               )}
@@ -451,7 +451,7 @@ function ImportsHistoryPage() {
                             size="sm"
                             onClick={() => enableComms(j)}
                             disabled={busyId === j.id}
-                            className="bg-emerald-600 hover:bg-emerald-700"
+                            className="bg-brand-primary hover:bg-brand-primary/90"
                             title="Lets the system's automated email sequences (welcome, follow-ups, after-sales) fire on this batch on their normal schedule. Does NOT send anything right now."
                           >
                             {busyId === j.id ? (
@@ -489,7 +489,7 @@ function ImportsHistoryPage() {
                           </Button>
                         )}
                         {j.status === "completed" && (
-                          <span className="inline-flex items-center gap-1 text-xs text-emerald-700 px-2">
+                          <span className="inline-flex items-center gap-1 text-xs text-brand-primary px-2">
                             <CheckCircle2 className="w-3.5 h-3.5" />
                             {ageHours <= ROLLBACK_HOURS
                               ? `Rollback ${(ROLLBACK_HOURS - ageHours).toFixed(1)}h left`
@@ -537,7 +537,7 @@ function Stat({
   label, value, tone, tip,
 }: { label: string; value: number; tone?: "emerald" | "amber" | "rose"; tip?: string }) {
   const valueClass =
-    tone === "emerald" ? "text-emerald-600" :
+    tone === "emerald" ? "text-brand-primary" :
     tone === "amber"   ? "text-amber-600"   :
     tone === "rose"    ? "text-rose-600"    : "text-slate-900";
   return (

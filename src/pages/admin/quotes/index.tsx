@@ -132,12 +132,12 @@ function orderStatusBadge(status: string | null | undefined): { label: string; c
     return { label: "Cancelled", classes: "text-rose-700 border-rose-200 bg-rose-50" };
   }
   // Active production states.
-  if (s === "confirmed") return { label: "Booked",    classes: "text-emerald-700 border-emerald-200 bg-emerald-50" };
+  if (s === "confirmed") return { label: "Booked",    classes: "text-brand-primary border-brand-primary/20 bg-brand-primary/10" };
   if (s === "preparing") return { label: "In prep",   classes: "text-purple-700 border-purple-200 bg-purple-50" };
   if (s === "ready")     return { label: "Ready",     classes: "text-blue-700 border-blue-200 bg-blue-50" };
   if (s === "in_transit") return { label: "Driving",  classes: "text-blue-700 border-blue-200 bg-blue-50" };
-  if (s === "delivered") return { label: "Delivered", classes: "text-emerald-700 border-emerald-200 bg-emerald-50" };
-  if (s === "completed" || s === "paid") return { label: "Completed", classes: "text-emerald-700 border-emerald-200 bg-emerald-50" };
+  if (s === "delivered") return { label: "Delivered", classes: "text-brand-primary border-brand-primary/20 bg-brand-primary/10" };
+  if (s === "completed" || s === "paid") return { label: "Completed", classes: "text-brand-primary border-brand-primary/20 bg-brand-primary/10" };
   // Unknown - show the raw status capitalised so we never invent a meaning.
   return { label: status[0].toUpperCase() + status.slice(1).replace(/_/g, " "), classes: "text-slate-700 border-slate-200 bg-slate-50" };
 }
@@ -174,7 +174,7 @@ const PIPELINE_COLUMNS: Array<{
   { bucket: "action_needed",      title: "Action needed",      tone: "border-rose-300 bg-rose-50",       Icon: Flame },
   { bucket: "in_play",            title: "In play",            tone: "border-blue-300 bg-blue-50",       Icon: Sparkles },
   { bucket: "stale",              title: "Stale",              tone: "border-amber-300 bg-amber-50",     Icon: Clock },
-  { bucket: "won",                title: "Won",                tone: "border-emerald-300 bg-emerald-50", Icon: Crown },
+  { bucket: "won",                title: "Won",                tone: "border-brand-primary/30 bg-brand-primary/10", Icon: Crown },
   // TIGHTEN I.62: distinct bucket so "won then cancelled" isn't
   // silently lumped in with either Won (overstating conversion) or
   // Lost (mixing with genuinely-declined quotes). Warm-amber palette
@@ -1401,7 +1401,7 @@ function AdminQuotesInner() {
     switch (status) {
       case "draft": return "bg-gray-100 text-gray-700 border-gray-200";
       case "sent": return "bg-blue-100 text-blue-700 border-blue-200";
-      case "accepted": return "bg-green-100 text-green-700 border-green-200";
+      case "accepted": return "bg-brand-primary/15 text-brand-primary border-brand-primary/20";
       case "rejected": return "bg-red-100 text-red-700 border-red-200";
       case "expired": return "bg-amber-100 text-amber-700 border-amber-200";
       default: return "bg-gray-100 text-gray-700";
@@ -1496,7 +1496,7 @@ function AdminQuotesInner() {
                   Export CSV
                 </Button>
                 <Link href={withSlug("/admin/quotes/new")}>
-                  <Button size="lg" className="bg-gradient-to-r from-brand-primary to-brand-secondary hover:from-green-700 hover:to-emerald-700">
+                  <Button size="lg" className="bg-gradient-to-r from-brand-primary to-brand-secondary hover:from-brand-primary/90 hover:to-brand-secondary/90">
                     <Plus className="w-5 h-5 mr-2" />
                     New Quote
                   </Button>
@@ -1539,14 +1539,14 @@ function AdminQuotesInner() {
             <Card className="border-0 shadow-lg">
               <CardContent className="p-4">
                 <p className="text-sm text-slate-600 mb-1 flex items-center gap-1.5">Won {tileRange.label.toLowerCase()} <InfoTooltip content={`Quotes the client has accepted within ${tileRange.label}. Convert these to orders if not already done. Won quotes whose linked order was later cancelled drop out of this count.`} /></p>
-                <p className="text-2xl font-bold text-emerald-600">{tileCounts.won}</p>
+                <p className="text-2xl font-bold text-brand-primary">{tileCounts.won}</p>
                 <p className="text-[11px] text-slate-500 mt-0.5">{tileRange.label}</p>
               </CardContent>
             </Card>
             <Card className="border-0 shadow-lg">
               <CardContent className="p-4">
                 <p className="text-sm text-slate-600 mb-1 flex items-center gap-1.5">Total Value <InfoTooltip content={`Sum of quote totals created within ${tileRange.label}.`} /></p>
-                <p className="text-2xl font-bold text-emerald-600">
+                <p className="text-2xl font-bold text-brand-primary">
                   {C}{tileRows.reduce((sum, q) => sum + ((q.quote as any).total ?? 0), 0).toLocaleString()}
                 </p>
                 <p className="text-[11px] text-slate-500 mt-0.5">{tileRange.label}</p>
@@ -1590,7 +1590,7 @@ function AdminQuotesInner() {
               { id: "action_needed",  label: "Action needed", icon: Flame,          tone: "bg-rose-100 text-rose-700 border-rose-200" },
               { id: "in_play",        label: "In play",       icon: Sparkles,       tone: "bg-blue-100 text-blue-700 border-blue-200" },
               { id: "stale",          label: "Stale",         icon: Clock,          tone: "bg-amber-100 text-amber-700 border-amber-200" },
-              { id: "won",                label: "Won",                  icon: Crown,         tone: "bg-emerald-100 text-emerald-700 border-emerald-200" },
+              { id: "won",                label: "Won",                  icon: Crown,         tone: "bg-brand-primary/15 text-brand-primary border-brand-primary/20" },
               // TIGHTEN I.62: dedicated pill for won-then-cancelled
               // so operators can see at a glance how many deals
               // converted-then-fell-through, separate from genuine
@@ -1814,17 +1814,17 @@ function AdminQuotesInner() {
               remind them that the day-of-prep / dispatch / invoicing
               work for those quotes lives on /admin/orders. */}
           {bucket === "won" && bucketFilteredRows.length > 0 && (
-            <Card className="border-0 shadow-sm mb-4 bg-emerald-50">
+            <Card className="border-0 shadow-sm mb-4 bg-brand-primary/10">
               <CardContent className="py-3 px-4 flex items-start gap-3">
-                <Crown className="w-4 h-4 text-emerald-700 mt-0.5 shrink-0" />
-                <div className="text-xs text-emerald-900 leading-relaxed flex-1">
-                  <p className="font-semibold text-emerald-900 mb-0.5">Won quotes have converted to orders</p>
+                <Crown className="w-4 h-4 text-brand-primary mt-0.5 shrink-0" />
+                <div className="text-xs text-brand-primary leading-relaxed flex-1">
+                  <p className="font-semibold text-brand-primary mb-0.5">Won quotes have converted to orders</p>
                   <p>
                     Kitchen prep, dispatch, invoicing and delivery all happen on the orders page. This view is here for sales audit only.
                   </p>
                 </div>
                 <Link href={withSlug("/admin/orders")}>
-                  <Button variant="outline" size="sm" className="gap-1.5 border-emerald-300 text-emerald-800 hover:bg-emerald-100">
+                  <Button variant="outline" size="sm" className="gap-1.5 border-brand-primary/30 text-brand-primary hover:bg-brand-primary/15">
                     Open Orders <ArrowRight className="w-3.5 h-3.5" />
                   </Button>
                 </Link>
@@ -1900,7 +1900,7 @@ function AdminQuotesInner() {
                         : intel.tone === "urgent"
                           ? "ring-2 ring-rose-300"
                           : intel.isClientRequest
-                            ? "ring-2 ring-emerald-300"
+                            ? "ring-2 ring-brand-primary/20"
                             : intel.bucket === "stale"
                               ? "ring-2 ring-amber-300"
                               : ""
@@ -1947,7 +1947,7 @@ function AdminQuotesInner() {
                               team needs to open and price it.
                             */}
                             {intel.isClientRequest && (
-                              <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 border">
+                              <Badge className="bg-brand-primary/15 text-brand-primary border-brand-primary/20 border">
                                 New client request
                               </Badge>
                             )}
@@ -2044,7 +2044,7 @@ function AdminQuotesInner() {
                               </span>
                             )}
                             {auto.sent > 0 && (
-                              <span className="inline-flex items-center gap-1 text-emerald-600">
+                              <span className="inline-flex items-center gap-1 text-brand-primary">
                                 <Send className="w-3.5 h-3.5" />
                                 {auto.sent} auto follow-up{auto.sent === 1 ? "" : "s"} sent
                               </span>
@@ -2078,7 +2078,7 @@ function AdminQuotesInner() {
                             </div>
                             <div className="flex items-center gap-2 text-slate-600">
                               <Banknote className="w-4 h-4" />
-                              <span className="text-sm font-semibold text-green-600">
+                              <span className="text-sm font-semibold text-brand-primary">
                                 {C}{Number(displayTotal).toFixed(2)}
                               </span>
                             </div>
@@ -2114,7 +2114,7 @@ function AdminQuotesInner() {
                               : meta.label === "Delivered"  ? `${orderRef} has been delivered`
                               : meta.label === "Completed"  ? `${orderRef} is completed`
                               : `${orderRef} - ${meta.label.toLowerCase()}`;
-                            const tone = meta?.label === "Booked" || meta?.label === "Delivered" || meta?.label === "Completed" ? "text-emerald-700"
+                            const tone = meta?.label === "Booked" || meta?.label === "Delivered" || meta?.label === "Completed" ? "text-brand-primary"
                                        : meta?.label === "Cancelled"  ? "text-rose-700"
                                        : meta?.label === "Pending"    ? "text-amber-700"
                                        : "text-slate-600";
@@ -2189,7 +2189,7 @@ function AdminQuotesInner() {
                             <div className="h-px bg-slate-200" />
                             <div className="flex justify-between font-bold">
                               <span>Total</span>
-                              <span className="text-green-600">{C}{(quote.total ?? 0).toFixed(2)}</span>
+                              <span className="text-brand-primary">{C}{(quote.total ?? 0).toFixed(2)}</span>
                             </div>
                           </div>
                         </div>
@@ -2240,7 +2240,7 @@ function AdminQuotesInner() {
                               onClick={() => setAcceptPreflight(quote)}
                               disabled={acceptingId === quote.id}
                               title="Client confirmed verbally? Mark accepted and convert to a live order in one click."
-                              className="border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+                              className="border-brand-primary/30 text-brand-primary hover:bg-brand-primary/10"
                             >
                               <CheckCircle className="w-4 h-4 mr-2" />
                               {acceptingId === quote.id ? "Accepting..." : "Mark accepted"}
@@ -2262,7 +2262,7 @@ function AdminQuotesInner() {
                               onClick={() => setAcceptPreflight(quote)}
                               disabled={acceptingId === quote.id}
                               title="Create the live order from this accepted quote - deposit invoice, kitchen prep and confirmation email all fire."
-                              className="border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+                              className="border-brand-primary/30 text-brand-primary hover:bg-brand-primary/10"
                             >
                               <CheckCircle className="w-4 h-4 mr-2" />
                               {acceptingId === quote.id ? "Converting..." : "Convert to order"}
@@ -2674,7 +2674,7 @@ function AdminQuotesInner() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
-              <CheckCircle className="w-5 h-5 text-emerald-600" />
+              <CheckCircle className="w-5 h-5 text-brand-primary" />
               {acceptPreflight?.status === "accepted"
                 ? <>Convert {acceptPreflight?.client_name}&apos;s quote to an order?</>
                 : <>Accept on behalf of {acceptPreflight?.client_name}?</>}
@@ -2689,11 +2689,11 @@ function AdminQuotesInner() {
                 <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2.5 space-y-1.5 text-xs">
                   <p className="font-semibold uppercase tracking-wide text-slate-600">What happens on confirm</p>
                   <div className="flex items-start gap-2">
-                    <span className="text-emerald-600 shrink-0">•</span>
+                    <span className="text-brand-primary shrink-0">•</span>
                     <span>Order created, status <span className="font-mono">confirmed</span></span>
                   </div>
                   <div className="flex items-start gap-2">
-                    <span className="text-emerald-600 shrink-0">•</span>
+                    <span className="text-brand-primary shrink-0">•</span>
                     <span>Deposit invoice generated{(() => {
                       const total = Number(
                         (acceptPreflight as any)?.total
@@ -2714,7 +2714,7 @@ function AdminQuotesInner() {
                     })()}</span>
                   </div>
                   <div className="flex items-start gap-2">
-                    <span className={acceptPreflight?.client_email ? "text-emerald-600 shrink-0" : "text-amber-600 shrink-0"}>•</span>
+                    <span className={acceptPreflight?.client_email ? "text-brand-primary shrink-0" : "text-amber-600 shrink-0"}>•</span>
                     <span>
                       {acceptPreflight?.client_email
                         ? <>Confirmation email to <span className="font-mono">{acceptPreflight.client_email}</span></>
@@ -2722,11 +2722,11 @@ function AdminQuotesInner() {
                     </span>
                   </div>
                   <div className="flex items-start gap-2">
-                    <span className="text-emerald-600 shrink-0">•</span>
+                    <span className="text-brand-primary shrink-0">•</span>
                     <span>Kitchen prep tasks planned (skipped for past-date events)</span>
                   </div>
                   <div className="flex items-start gap-2">
-                    <span className="text-emerald-600 shrink-0">•</span>
+                    <span className="text-brand-primary shrink-0">•</span>
                     <span>Day shows as Booked on the calendar gap finder</span>
                   </div>
                 </div>
@@ -2737,15 +2737,15 @@ function AdminQuotesInner() {
                     handover, EFT cleared, card swiped). When yes,
                     the order + invoice both get stamped paid in one
                     go so the records match the bank. */}
-                <div className="rounded-md border border-emerald-200 bg-emerald-50/50 px-3 py-3 space-y-2.5">
+                <div className="rounded-md border border-brand-primary/20 bg-brand-primary/10 px-3 py-3 space-y-2.5">
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input
                       type="checkbox"
                       checked={depositPaid}
                       onChange={(e) => setDepositPaid(e.target.checked)}
-                      className="w-4 h-4 rounded border-emerald-300 text-emerald-600 focus:ring-emerald-500"
+                      className="w-4 h-4 rounded border-brand-primary/30 text-brand-primary focus:ring-brand-primary"
                     />
-                    <span className="text-sm font-semibold text-emerald-900">
+                    <span className="text-sm font-semibold text-brand-primary">
                       Client has already paid the deposit
                     </span>
                   </label>
@@ -2786,7 +2786,7 @@ function AdminQuotesInner() {
                           className="mt-1 h-8 text-sm"
                         />
                       </div>
-                      <p className="text-[11px] text-emerald-800">
+                      <p className="text-[11px] text-brand-primary">
                         Order + deposit invoice will be marked paid for {depositAmount ? fmtMoney.format(Number(depositAmount)) : "R 0"}
                         {Number(depositAmount) > 0 && acceptPreflight?.total && Number(depositAmount) < Number(acceptPreflight.total)
                           ? `. Balance ${fmtMoney.format(Number(acceptPreflight.total) - Number(depositAmount))} stays open.`
@@ -2806,7 +2806,7 @@ function AdminQuotesInner() {
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => acceptPreflight && runAcceptOnBehalf(acceptPreflight)}
-              className="bg-emerald-600 hover:bg-emerald-700"
+              className="bg-brand-primary hover:bg-brand-primary/90"
             >
               Confirm and convert
             </AlertDialogAction>
@@ -3048,9 +3048,9 @@ function QuoteComposeDrawer({
   // slot so the layout stays in lockstep with the leads compose flow.
   // The composer takes care of the subject / body / send actions.
   const sweetenerControls = mode === "sweetener" ? (
-    <Card className="border-emerald-200 bg-emerald-50/50">
+    <Card className="border-brand-primary/20 bg-brand-primary/10">
       <CardContent className="py-4 px-4 space-y-3">
-        <div className="text-[11px] uppercase tracking-wide text-emerald-700 font-semibold">
+        <div className="text-[11px] uppercase tracking-wide text-brand-primary font-semibold">
           Pick the offer
         </div>
         <div className="flex flex-wrap gap-2">
@@ -3066,8 +3066,8 @@ function QuoteComposeDrawer({
               className={cn(
                 "px-3 py-1.5 rounded-full text-xs font-medium border transition-colors",
                 discountKind === opt.id
-                  ? "bg-emerald-600 text-white border-emerald-600"
-                  : "bg-white text-slate-700 border-slate-200 hover:border-emerald-300",
+                  ? "bg-brand-primary text-white border-brand-primary/80"
+                  : "bg-white text-slate-700 border-slate-200 hover:border-brand-primary/30",
               )}
             >
               {opt.label}
@@ -3161,7 +3161,7 @@ function QuoteComposeDrawer({
 
   return (
     <MessageComposer
-      icon={mode === "sweetener" ? <Gift className="w-5 h-5 text-emerald-600" /> : <Send className="w-5 h-5 text-emerald-600" />}
+      icon={mode === "sweetener" ? <Gift className="w-5 h-5 text-brand-primary" /> : <Send className="w-5 h-5 text-brand-primary" />}
       title={mode === "sweetener"
         ? `Offer ${quote.client_name} a sweetener`
         : `Compose to ${quote.client_name}`}

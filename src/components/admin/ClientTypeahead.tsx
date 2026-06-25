@@ -34,7 +34,7 @@ export interface ClientTypeaheadProps {
 }
 
 const SOURCE_TONE: Record<string, string> = {
-  client: "bg-emerald-100 text-emerald-700 border-emerald-200",
+  client: "bg-brand-primary/15 text-brand-primary border-brand-primary/20",
   lead: "bg-blue-100 text-blue-700 border-blue-200",
   quote: "bg-purple-100 text-purple-700 border-purple-200",
   order: "bg-amber-100 text-amber-700 border-amber-200",
@@ -183,7 +183,7 @@ export function ClientTypeahead({
                   onClick={() => handlePick(r)}
                   onMouseEnter={() => setHighlight(i)}
                   className={`w-full text-left px-3 py-2.5 border-b last:border-b-0 transition-colors ${
-                    i === highlight ? "bg-emerald-50" : "hover:bg-slate-50"
+                    i === highlight ? "bg-brand-primary/10" : "hover:bg-slate-50"
                   }`}
                 >
                   <div className="flex items-start justify-between gap-2">

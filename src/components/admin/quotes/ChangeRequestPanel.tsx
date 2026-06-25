@@ -316,7 +316,7 @@ function RequestCard({
             size="sm"
             onClick={() => onMarkAddressed(req.id)}
             disabled={updatingId === req.id}
-            className="bg-emerald-600 hover:bg-emerald-700 gap-1 h-7 text-[11px] px-2"
+            className="bg-brand-primary hover:bg-brand-primary/90 gap-1 h-7 text-[11px] px-2"
           >
             {updatingId === req.id
               ? <Loader2 className="w-3 h-3 animate-spin" />
@@ -348,14 +348,14 @@ function RequestCard({
           <Badge
             className={
               req.status === "addressed"
-                ? "bg-emerald-100 text-emerald-700"
+                ? "bg-brand-primary/15 text-brand-primary"
                 : "bg-slate-200 text-slate-600"
             }
           >
             {req.status}
           </Badge>
           {req.status === "addressed" && req.addressed_at && (
-            <span className="text-emerald-700">
+            <span className="text-brand-primary">
               {formatTs(req.addressed_at)}
             </span>
           )}

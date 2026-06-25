@@ -290,9 +290,9 @@ export default function ShoppingKitchenDemandPage() {
                         <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${
                           isShort
                             ? "bg-rose-100 dark:bg-rose-950/50"
-                            : "bg-emerald-100 dark:bg-emerald-950/50"
+                            : "bg-brand-primary/15 dark:bg-brand-primary/15"
                         }`}>
-                          <Package className={`w-4 h-4 ${isShort ? "text-rose-700 dark:text-rose-400" : "text-emerald-700 dark:text-emerald-400"}`} />
+                          <Package className={`w-4 h-4 ${isShort ? "text-rose-700 dark:text-rose-400" : "text-brand-primary dark:text-brand-primary"}`} />
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
@@ -303,7 +303,7 @@ export default function ShoppingKitchenDemandPage() {
                               </Badge>
                             )}
                             {!isShort && (
-                              <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900 text-[10px]">
+                              <Badge variant="outline" className="bg-brand-primary/10 text-brand-primary border-brand-primary/20 dark:bg-brand-primary/15 dark:text-brand-primary dark:border-brand-primary/30 text-[10px]">
                                 Covered
                               </Badge>
                             )}

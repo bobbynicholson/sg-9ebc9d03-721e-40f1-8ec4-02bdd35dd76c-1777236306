@@ -506,7 +506,7 @@ function TechCostsDashboard() {
             actions={
               <Link
                 href="/admin/platform/pricing-management"
-                className="inline-flex items-center gap-1 text-sm font-medium text-emerald-700 hover:text-emerald-800"
+                className="inline-flex items-center gap-1 text-sm font-medium text-brand-primary hover:text-brand-primary"
               >
                 Pricing tiers <ArrowRight className="w-4 h-4" />
               </Link>
@@ -563,7 +563,7 @@ function TechCostsDashboard() {
               </div>
               <div>
                 <p className="text-[11px] uppercase font-semibold text-slate-500">Platform margin</p>
-                <p className={`text-xl font-bold ${platform_margin_zar > 0 ? "text-emerald-700" : "text-rose-700"}`}>
+                <p className={`text-xl font-bold ${platform_margin_zar > 0 ? "text-brand-primary" : "text-rose-700"}`}>
                   ZAR {platform_margin_zar.toLocaleString("en-ZA", { maximumFractionDigits: 0 })}
                 </p>
               </div>
@@ -723,8 +723,8 @@ function TechCostsDashboard() {
                         className="rounded-lg border border-slate-200 bg-white"
                       >
                         <summary className="cursor-pointer p-3 flex items-center gap-3 hover:bg-slate-50 rounded-lg">
-                          <div className="w-9 h-9 rounded-lg bg-emerald-50 flex items-center justify-center flex-shrink-0">
-                            <Icon className="w-5 h-5 text-emerald-700" />
+                          <div className="w-9 h-9 rounded-lg bg-brand-primary/10 flex items-center justify-center flex-shrink-0">
+                            <Icon className="w-5 h-5 text-brand-primary" />
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-semibold text-slate-900">{cat.category}</p>
@@ -810,7 +810,7 @@ function TechCostsDashboard() {
                           <td className="py-2 font-mono text-slate-700">
                             ZAR {s.per_tenant_zar.toLocaleString("en-ZA", { maximumFractionDigits: 0 })}
                           </td>
-                          <td className={`py-2 font-mono font-semibold ${margin > 0 ? "text-emerald-700" : "text-rose-700"}`}>
+                          <td className={`py-2 font-mono font-semibold ${margin > 0 ? "text-brand-primary" : "text-rose-700"}`}>
                             ZAR {margin.toLocaleString("en-ZA", { maximumFractionDigits: 0 })}
                           </td>
                         </tr>

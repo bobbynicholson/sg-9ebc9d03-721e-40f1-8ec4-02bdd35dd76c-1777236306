@@ -147,7 +147,7 @@ export function CommsLogSection({ orderId, companyId, defaultOpen, forceOpen }: 
           {events.map((e) => {
             const Icon = e.kind === "email" ? Mail : Bell;
             const statusTone =
-              e.status === "sent" ? "bg-emerald-50 border-emerald-200" :
+              e.status === "sent" ? "bg-brand-primary/10 border-brand-primary/20" :
               e.status === "failed" ? "bg-rose-50 border-rose-300" :
               e.status === "queued" ? "bg-amber-50 border-amber-200" :
               "bg-slate-50 border-slate-200";
@@ -157,7 +157,7 @@ export function CommsLogSection({ orderId, companyId, defaultOpen, forceOpen }: 
               e.status === "queued" ? Clock :
               Bell;
             const statusColor =
-              e.status === "sent" ? "text-emerald-700" :
+              e.status === "sent" ? "text-brand-primary" :
               e.status === "failed" ? "text-rose-700" :
               e.status === "queued" ? "text-amber-700" :
               "text-slate-600";

@@ -290,7 +290,7 @@ export default function NotificationSettings() {
             <Card className="border-0 shadow-lg">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <MessageSquare className="w-5 h-5 text-green-600" />
+                  <MessageSquare className="w-5 h-5 text-brand-primary" />
                   SMS Notifications
                   <InfoTooltip content={"SMS preferences for critical alerts and payment reminders.\n\nNeeds an SMS provider connected before messages will actually go out (none integrated yet - see docs/notifications.md)."} />
                 </CardTitle>

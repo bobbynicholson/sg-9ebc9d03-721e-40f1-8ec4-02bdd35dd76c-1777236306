@@ -458,7 +458,7 @@ export default function CompanySignupPage() {
               <div className={`w-20 h-20 rounded-full mx-auto flex items-center justify-center shadow-lg mb-6 ${
                 emailVerificationRequired
                   ? "bg-gradient-to-br from-amber-500 to-orange-500"
-                  : "bg-gradient-to-br from-emerald-500 to-green-500 animate-pulse"
+                  : "bg-gradient-to-br from-brand-primary to-brand-secondary animate-pulse"
               }`}>
                 <CheckCircle className="w-10 h-10 text-white" />
               </div>
@@ -728,7 +728,7 @@ export default function CompanySignupPage() {
                         <Loader2 className="w-5 h-5 animate-spin text-slate-400" />
                       )}
                       {slugAvailability.state === "available" && (
-                        <CheckCircle className="w-5 h-5 text-emerald-500" />
+                        <CheckCircle className="w-5 h-5 text-brand-primary" />
                       )}
                       {(slugAvailability.state === "taken" ||
                         slugAvailability.state === "reserved" ||
@@ -743,7 +743,7 @@ export default function CompanySignupPage() {
                   <p
                     className={`text-xs ${
                       slugMessage.tone === "good"
-                        ? "text-emerald-600"
+                        ? "text-brand-primary"
                         : slugMessage.tone === "bad"
                         ? "text-red-600"
                         : "text-slate-500"

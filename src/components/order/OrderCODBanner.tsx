@@ -68,14 +68,14 @@ export function OrderCODBanner({ orderId, status, assignedDriverId, deliveredAt 
   if (!isCash || balance <= 0) return null;
 
   return (
-    <div className="flex items-start gap-3 p-3 mb-3 rounded-lg border-2 border-emerald-300 bg-emerald-50 print:hidden">
-      <Banknote className="w-6 h-6 text-emerald-700 flex-shrink-0 mt-0.5" />
+    <div className="flex items-start gap-3 p-3 mb-3 rounded-lg border-2 border-brand-primary/30 bg-brand-primary/10 print:hidden">
+      <Banknote className="w-6 h-6 text-brand-primary flex-shrink-0 mt-0.5" />
       <div className="min-w-0 flex-1">
-        <p className="text-[10px] uppercase tracking-wider text-emerald-800 font-semibold">Cash on delivery</p>
-        <p className="text-lg font-bold text-emerald-900 tabular-nums leading-tight">
+        <p className="text-[10px] uppercase tracking-wider text-brand-primary font-semibold">Cash on delivery</p>
+        <p className="text-lg font-bold text-brand-primary tabular-nums leading-tight">
           Collect {fmtZAR.format(balance)} at delivery
         </p>
-        <p className="text-xs text-emerald-800 mt-0.5">
+        <p className="text-xs text-brand-primary mt-0.5">
           Driver hands the cash back to the office on return. Note the receipt + amount in the POD.
         </p>
       </div>

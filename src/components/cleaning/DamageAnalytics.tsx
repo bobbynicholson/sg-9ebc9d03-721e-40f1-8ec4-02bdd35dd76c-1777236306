@@ -368,7 +368,7 @@ export function DamageAnalytics() {
         </CardContent></Card>
         <Card><CardContent className="pt-4 pb-4">
           <p className="text-xs text-muted-foreground">Resolved</p>
-          <p className="text-xl font-bold text-emerald-600">{formatCurrency(analytics.resolvedCost)}</p>
+          <p className="text-xl font-bold text-brand-primary">{formatCurrency(analytics.resolvedCost)}</p>
           <p className="text-[11px] text-muted-foreground">{analytics.resolvedCount} closed · {analytics.resolvedPct}%</p>
         </CardContent></Card>
         <Card><CardContent className="pt-4 pb-4">
@@ -623,7 +623,7 @@ export function DamageAnalytics() {
                             {damageTypeLabels[damage.damage_type as DamageType]}
                           </Badge>
                           {isBilled(damage) && (
-                            <Badge variant="outline" className="border-emerald-400 text-emerald-700 dark:text-emerald-400">
+                            <Badge variant="outline" className="border-brand-primary/40 text-brand-primary dark:text-brand-primary">
                               Billed
                             </Badge>
                           )}
@@ -651,7 +651,7 @@ export function DamageAnalytics() {
                             <p className="mt-2 text-foreground">{damage.description}</p>
                           )}
                           {damage.resolved && damage.resolution_notes && (
-                            <p className="mt-1 text-emerald-700 dark:text-emerald-400">Resolution: {damage.resolution_notes}</p>
+                            <p className="mt-1 text-brand-primary dark:text-brand-primary">Resolution: {damage.resolution_notes}</p>
                           )}
                           {damage.photo_url && (
                             <a href={damage.photo_url} target="_blank" rel="noopener noreferrer" className="inline-block text-brand-primary hover:underline">
@@ -668,7 +668,7 @@ export function DamageAnalytics() {
                           {format(new Date(damage.created_at), "MMM d, yyyy")}
                         </p>
                         {damage.resolved && (
-                          <Badge variant="outline" className="mt-2 text-emerald-700 border-emerald-400">
+                          <Badge variant="outline" className="mt-2 text-brand-primary border-brand-primary/40">
                             Resolved
                           </Badge>
                         )}
@@ -695,7 +695,7 @@ export function DamageAnalytics() {
                           type="button"
                           variant="outline"
                           size="sm"
-                          className="gap-1.5 min-h-11 text-emerald-700 border-emerald-300 hover:bg-emerald-50"
+                          className="gap-1.5 min-h-11 text-brand-primary border-brand-primary/30 hover:bg-brand-primary/10"
                           onClick={() => handleResolve(damage)}
                           disabled={pendingDamageId === damage.id}
                           aria-label={`Mark ${damage.equipment?.name || "this damage"} as resolved`}

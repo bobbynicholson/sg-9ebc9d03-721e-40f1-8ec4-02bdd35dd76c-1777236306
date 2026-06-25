@@ -161,9 +161,9 @@ export function LogKitchenShiftModal({
         )}
 
         {done && (
-          <Alert className="border-emerald-200 bg-emerald-50">
-            <Check className="h-4 w-4 text-emerald-600" />
-            <AlertDescription className="text-emerald-800 text-sm">Shift rostered.</AlertDescription>
+          <Alert className="border-brand-primary/20 bg-brand-primary/10">
+            <Check className="h-4 w-4 text-brand-primary" />
+            <AlertDescription className="text-brand-primary text-sm">Shift rostered.</AlertDescription>
           </Alert>
         )}
 

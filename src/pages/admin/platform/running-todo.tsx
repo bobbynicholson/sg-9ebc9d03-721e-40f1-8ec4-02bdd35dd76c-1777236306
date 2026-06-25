@@ -46,7 +46,7 @@ import {
 type Status = "shipped" | "in_progress" | "todo" | "blocked";
 
 const statusTone: Record<Status, string> = {
-  shipped:     "bg-emerald-100 text-emerald-800 border-emerald-200",
+  shipped:     "bg-brand-primary/15 text-brand-primary border-brand-primary/20",
   in_progress: "bg-amber-100 text-amber-800 border-amber-200",
   todo:        "bg-slate-100 text-slate-700 border-slate-200",
   blocked:     "bg-rose-100 text-rose-700 border-rose-200",
@@ -90,7 +90,7 @@ const builtFeatures: SprintCard[] = [
     title: "Core platform infrastructure",
     why: "Multi-tenant SaaS architecture, Next.js 15.2 + Supabase + TypeScript, mobile responsive.",
     icon: Server,
-    accent: "from-emerald-500 to-green-500",
+    accent: "from-brand-primary to-brand-secondary",
     items: [
       { title: "Multi-tenant B2B SaaS architecture", status: "shipped" },
       { title: "Custom company URLs (cateringms.com/{slug})", status: "shipped" },
@@ -108,7 +108,7 @@ const builtFeatures: SprintCard[] = [
     title: "Authentication and roles",
     why: "Supabase Auth with 8-role RBAC, protected routes, tenant isolation at DB level.",
     icon: Users,
-    accent: "from-emerald-500 to-green-500",
+    accent: "from-brand-primary to-brand-secondary",
     items: [
       { title: "Supabase Auth (email + OAuth: Google, Facebook)", status: "shipped" },
       { title: "8-role system: super_admin, company_admin, admin, owner, kitchen_staff, shopping_staff, driver, cleaning_staff, client", status: "shipped" },
@@ -123,7 +123,7 @@ const builtFeatures: SprintCard[] = [
     title: "8 portals (super admin, admin, kitchen, shopping, driver, cleaning, client, tokenised client)",
     why: "Each role has a tailored dashboard and workflow surface.",
     icon: Layout,
-    accent: "from-emerald-500 to-green-500",
+    accent: "from-brand-primary to-brand-secondary",
     items: [
       { title: "Super Admin: company DB, subscriptions, trial expiry, platform analytics, blog/CMS, currency monitor", status: "shipped" },
       { title: "Company Admin: dashboard, leads, quotes, orders, calendar, inventory, equipment, drivers, financial reporting, route planning", status: "shipped" },
@@ -140,7 +140,7 @@ const builtFeatures: SprintCard[] = [
     title: "Email automation + payments",
     why: "1,144-line email service, PayFast + Stripe integration, 12-month after-sales automation.",
     icon: Mail,
-    accent: "from-emerald-500 to-green-500",
+    accent: "from-brand-primary to-brand-secondary",
     items: [
       { title: "Staff invitation + welcome emails", status: "shipped" },
       { title: "Quote request auto-reply", status: "shipped" },
@@ -162,7 +162,7 @@ const builtFeatures: SprintCard[] = [
     title: "Advanced features",
     why: "GPS tracking, AI services, gamification, multi-region, integrations.",
     icon: Sparkles,
-    accent: "from-emerald-500 to-green-500",
+    accent: "from-brand-primary to-brand-secondary",
     items: [
       { title: "Real-time GPS driver tracking", status: "shipped" },
       { title: "Route optimisation", status: "shipped" },
@@ -186,7 +186,7 @@ const builtFeatures: SprintCard[] = [
     title: "Hosting + observability",
     why: "Vercel auto-deploy from GitHub, Supabase managed, custom domain.",
     icon: Server,
-    accent: "from-emerald-500 to-green-500",
+    accent: "from-brand-primary to-brand-secondary",
     items: [
       { title: "GitHub repo wired to Vercel auto-deploy on push to main", status: "shipped" },
       { title: "Custom domain cateringms.com", status: "shipped" },
@@ -208,7 +208,7 @@ const auditCards: SprintCard[] = [
     estimate: "~2 hours, complete",
     risk: "Low",
     icon: CheckCircle2,
-    accent: "from-emerald-500 to-green-500",
+    accent: "from-brand-primary to-brand-secondary",
     defaultOpen: true,
     items: [
       { title: "Delete 11 fossil scripts at repo root", detail: "apply_migration.js, fix_*.js, force_deploy.js etc, zero refs", status: "shipped", ref: "c1fbecf" },
@@ -348,7 +348,7 @@ const auditCards: SprintCard[] = [
     estimate: "3-5 days",
     risk: "Medium",
     icon: GitBranch,
-    accent: "from-cyan-500 to-blue-500",
+    accent: "from-brand-primary to-blue-500",
     items: [
       { title: "leadService.convertLeadToQuote actually creates a quote row", detail: "Currently only flips status; admin Convert button calls nothing useful", status: "todo" },
       { title: "Driver double-booking detection on assignDriver", detail: "Pre-check for overlapping deliveries on the same date", status: "todo" },
@@ -456,7 +456,7 @@ const integrationCards: SprintCard[] = [
     estimate: "6-8 hours",
     risk: "Low",
     icon: Plug,
-    accent: "from-emerald-500 to-green-500",
+    accent: "from-brand-primary to-brand-secondary",
     items: [
       { title: "Pick provider (Twilio recommended, or 360Dialog / MessageBird / Meta direct)", status: "todo" },
       { title: "Get phone number + business verification", status: "todo" },
@@ -633,7 +633,7 @@ const launchCards: SprintCard[] = [
     estimate: "8 hours",
     risk: "Low",
     icon: Server,
-    accent: "from-cyan-500 to-blue-500",
+    accent: "from-brand-primary to-blue-500",
     items: [
       { title: "Sentry error monitoring wired up", status: "todo" },
       { title: "LogRocket session replay (optional)", status: "todo" },
@@ -739,7 +739,7 @@ const universalCards: SprintCard[] = [
     estimate: "8 weeks (3 universals per sprint)",
     risk: "Medium",
     icon: Globe,
-    accent: "from-cyan-500 to-blue-500",
+    accent: "from-brand-primary to-blue-500",
     items: [
       { title: "U1, Recipe-level allergen + dietary tag engine", detail: "14 UK + 9 US (incl. sesame post-FASTER Act) + SA tags. Auto-roll up to menu items, auto-flag conflicts on guest dietary submissions, printable allergen sheet per order. One build satisfies UK Natasha's Law + US FDA top-9 + SA wedding RSVP imports.", status: "todo" },
       { title: "U2, Per-tenant certificate vault with auto-attach", detail: "Expiry tracking + auto-attach to quote PDF + public verified badge widget. SA: halaal (SANHA/MJC/NIHT), Beth Din kosher, BBBEE, COIDA, liquor licence. UK: KLBD/HMC, FSA hygiene rating, SFBB, Premises Licence. US: OU/Star-K, IFANCA/HMA, ServSafe, ST-119/state exempt certs.", status: "todo" },
@@ -762,7 +762,7 @@ const saExpansionCards: SprintCard[] = [
     estimate: "2-3 weeks",
     risk: "Medium",
     icon: Flag,
-    accent: "from-emerald-500 to-yellow-500",
+    accent: "from-brand-primary to-yellow-500",
     items: [
       { title: "EskomSePush integration ->load-shedding-aware delivery autopilot", detail: "Pull schedule per delivery address, flag affected slots on kitchen + driver portals, suggest generator hire as billable line, auto-WhatsApp client on swap. Number-one SA operational risk turned into a service guarantee.", status: "todo" },
       { title: "WhatsApp-first quote bot", detail: "Extend existing WhatsApp framework into structured chat that drops into the lead pipeline + returns PayFast deposit link in-thread. Township + spit-braai + mass-event segments live in WhatsApp.", status: "todo" },
@@ -857,7 +857,7 @@ const productNotesCards: SprintCard[] = [
     estimate: "1-2 weeks",
     risk: "Medium",
     icon: Banknote,
-    accent: "from-emerald-500 to-teal-600",
+    accent: "from-brand-primary to-brand-secondary",
     defaultOpen: true,
     items: [
       { title: "Owner-editable 'cash on hand' field on /admin/financial-dashboard", detail: "Phase 1 (2026-05-18, PR #75) shipped. Migration 20260518760000 adds companies.cash_on_hand_cents + cash_on_hand_updated_at + cash_on_hand_updated_by. CashflowForecastCard renders above the existing 4-metric grid for owner / company_admin / admin / super_admin roles only. Inline-edit pencil opens an input; save writes the row + an audit_logs row with old/new cents. Stale-data badge fires if cash_on_hand_updated_at is older than 24h.", status: "shipped" },
@@ -880,7 +880,7 @@ const productNotesCards: SprintCard[] = [
     estimate: "4-6 weeks",
     risk: "High",
     icon: MessageSquare,
-    accent: "from-green-500 to-emerald-600",
+    accent: "from-brand-primary to-brand-secondary",
     items: [
       { title: "WhatsApp Business API inbound message handler", detail: "Connect tenant's WhatsApp Business number via Meta's Cloud API or a BSP (Vonage, 360dialog). All inbound messages land in the CateringMS lead inbox with full thread history.", status: "todo" },
       { title: "Facebook Messenger lead inbox connector", detail: "Same pattern as WhatsApp, Meta Messenger webhook drops enquiries into the lead pipeline. One unified inbox for both channels.", status: "todo" },
@@ -930,7 +930,7 @@ const productNotesCards: SprintCard[] = [
     estimate: "2-3 weeks",
     risk: "Medium",
     icon: ScanLine,
-    accent: "from-teal-500 to-cyan-600",
+    accent: "from-brand-primary to-brand-secondary",
     items: [
       { title: "Mobile camera capture or PDF/image upload in the shopping portal", detail: "Staff can take a photo of a till slip on their phone or upload a scanned PDF. Works from the existing shopping portal, no new app required.", status: "todo" },
       { title: "AI OCR + line-item extraction (Google Vision / AWS Textract / OpenAI Vision)", detail: "Extract: store name, date, line items (description, qty, unit price, total), grand total. Map extracted items against the existing inventory catalogue by name similarity + unit type.", status: "todo" },
@@ -1047,7 +1047,7 @@ const productNotesCards: SprintCard[] = [
     estimate: "30-45 min focused session",
     risk: "Low",
     icon: Sparkles,
-    accent: "from-emerald-500 to-teal-600",
+    accent: "from-brand-primary to-brand-secondary",
     items: [
       { title: "Run section 0 - clean baseline check", detail: "Paste the baseline SQL into Supabase SQL editor for project vsuyzovzqtrngorpqnhy. Expect zero rows on every count except jhb_active_regions. If anything is non-zero, run section 6 cleanup before starting.", status: "todo" },
       { title: "Run sections 1-2 - add JHB branch + invite manager", detail: "Add Johannesburg region with delivery_cost_per_km=12, min_delivery_fee=100, all manager-notification toggles on. Invite branch-manager-jhb@example.com as region_admin scoped to JHB only. Confirm DB rows match expected via the verification SELECTs.", status: "todo" },
@@ -1246,7 +1246,7 @@ const journeyAuditCards: SprintCard[] = [
     estimate: "Done",
     risk: "Low",
     icon: CheckCircle2,
-    accent: "from-emerald-500 to-green-600",
+    accent: "from-brand-primary to-brand-secondary",
     items: [
       { title: "Multi-tenancy fix on /admin/driver-management", detail: "userManagementService.getAllUsers() called without company_id meant company admins saw drivers across every tenant. Now scoped to user.company_id with early return.", status: "shipped", ref: "596ef67" },
       { title: "/api/admin/create-user authentication", detail: "Endpoint was unauthenticated, any anonymous POST could create users with arbitrary role + company_id. Now requires authenticated caller; super_admin can mint anywhere, company-level roles only inside their own tenant and never as super_admin.", status: "shipped", ref: "4f3bc10" },
@@ -1292,7 +1292,7 @@ const trackingRouteSplitCards: SprintCard[] = [
     estimate: "Done",
     risk: "Low",
     icon: GitBranch,
-    accent: "from-emerald-500 to-green-600",
+    accent: "from-brand-primary to-brand-secondary",
     items: [
       { title: "Tracking = LIVE ops view (today's jobs in flight)", detail: "Filters orders to event_date >= today AND status in (confirmed, preparing, ready, in_transit / out_for_delivery, delivered). Auto-refresh actually re-fetches every 30s. Selected order stays in sync across refreshes.", status: "shipped" },
       { title: "Route Planning = PRE-FLIGHT dispatch view (tomorrow's confirmed orders)", detail: "Pulls unassigned orders + active drivers from the DB, runs the optimiser, persists routes via saveOptimizedRoute. After Apply, the order disappears from the queue and the driver gets a notification.", status: "shipped" },
@@ -1306,7 +1306,7 @@ const trackingRouteSplitCards: SprintCard[] = [
     estimate: "Done",
     risk: "Low",
     icon: Database,
-    accent: "from-emerald-500 to-green-600",
+    accent: "from-brand-primary to-brand-secondary",
     items: [
       { title: "Route planning: replaced MOCK_DRIVERS / MOCK_ORDERS with live queries", detail: "routeOptimizationService.getUnassignedOrders(companyId) + driverService.getAllDrivers(companyId). Active drivers only (is_active defaulting to true for legacy rows).", status: "shipped" },
       { title: "Optimise All Routes now persists to DB", detail: "Calls routeOptimizationService.optimizeAllDriverRoutes which writes to orders.driver_id + assigned_driver_id and fires the driver notification. Removed the mock short-circuit in applyRoute.", status: "shipped" },
@@ -1321,7 +1321,7 @@ const trackingRouteSplitCards: SprintCard[] = [
     estimate: "Done",
     risk: "Low",
     icon: Layout,
-    accent: "from-emerald-500 to-green-600",
+    accent: "from-brand-primary to-brand-secondary",
     items: [
       { title: "Header with Today / Tomorrow / Overdue badge", detail: "Order number, event name + date + time, status pill, time-relative badge derived from event_date.", status: "shipped" },
       { title: "Client block with mailto + tel + WhatsApp + Compose drawer", detail: "Compose mirrors the QuoteComposeDrawer pattern from 46ec141: status-aware template, four send channels (Gmail, Outlook, mailto, clipboard).", status: "shipped" },
@@ -1412,7 +1412,7 @@ const embedFormsCards: SprintCard[] = [
     estimate: "Done",
     risk: "Low",
     icon: CheckCircle2,
-    accent: "from-emerald-500 to-green-600",
+    accent: "from-brand-primary to-brand-secondary",
     items: [
       { title: "Schema migration: companies.embed_token + embed_pricing_tiers + 3 new tables", detail: "embed_form_configs (per-tenant form variants), embed_form_submissions (audit + lead linkage), embed_rate_limits (24h pruning TODO). RLS via existing user_has_role + get_user_company_id helpers. Triggers auto-bump submissions_count + last_submission_at. CHECK constraint locks template_id to the 10 known ids. Slug format CHECK on (company_id, slug) so each form has a stable URL-friendly id.", status: "shipped", ref: "supabase/migrations/20260428120000_embed_forms.sql + commit 6dfdd5a" },
       { title: "TypeScript types + per-template default field sets", detail: "EmbedField, EmbedFieldType, EmbedFieldConditional, EmbedTheme, EmbedPricingTier, EmbedFormConfig, EmbedFormSubmission, EmbedTemplateId union. getDefaultFieldsForTemplate(templateId) returns bespoke starter fields for each of the 10 templates with mapsTo hints set so the lead conversion is automatic.", status: "shipped", ref: "src/types/embedForms.ts + src/lib/embedTemplateDefaults.ts + commit 798b2e9" },
@@ -1483,7 +1483,7 @@ const devOpsCards: SprintCard[] = [
     estimate: "Done",
     risk: "Low",
     icon: CheckCircle2,
-    accent: "from-emerald-500 to-green-600",
+    accent: "from-brand-primary to-brand-secondary",
     items: [
       { title: "Migration 1 applied, companies.embed_token + 3 new tables + RLS + triggers", detail: "Originally 20260428120000_embed_forms.sql. Applied via Supabase MCP. Note: dropped the 'owner' role from RLS policies because user_role enum has no such value (only super_admin / company_admin / admin / kitchen_staff / driver / shopping_staff / cleaning_staff / client). All existing companies (2 of them) auto-got an embed_token.", status: "shipped" },
       { title: "Migration 2 applied, companies.auto_reply_to_embed_submissions + increment_embed_form_views RPC", detail: "Originally 20260428130000_embed_forms_api.sql. Applied via Supabase MCP. Service-role grant on the RPC.", status: "shipped" },
@@ -1567,7 +1567,7 @@ function ItemRow({ item }: { item: Item }) {
   return (
     <li className="p-3 sm:p-4 flex items-start gap-3 hover:bg-slate-50">
       <StatusIcon className={`h-4 w-4 mt-0.5 flex-shrink-0 ${
-        item.status === "shipped" ? "text-emerald-600"
+        item.status === "shipped" ? "text-brand-primary"
         : item.status === "in_progress" ? "text-amber-600"
         : item.status === "blocked" ? "text-rose-500"
         : "text-slate-400"
@@ -1692,7 +1692,7 @@ function AdminRunningTodoPage() {
             <StatTile label="Total items" value={stats.total} />
             <StatTile
               label="Shipped"
-              value={<span className="text-emerald-600">{stats.shipped}</span>}
+              value={<span className="text-brand-primary">{stats.shipped}</span>}
             />
             <StatTile
               label="Todo"

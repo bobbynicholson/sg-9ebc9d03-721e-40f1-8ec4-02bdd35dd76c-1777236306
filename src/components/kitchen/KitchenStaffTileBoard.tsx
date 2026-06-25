@@ -426,7 +426,7 @@ export function KitchenStaffTileBoard({
           <span className="flex items-center gap-2">
             <Users className="w-5 h-5 text-brand-primary" />
             {deptLabel}
-            <Badge variant="outline" className={`tabular-nums ${onDutyCount > 0 ? "bg-emerald-50 text-emerald-700 border-emerald-200" : ""}`}>
+            <Badge variant="outline" className={`tabular-nums ${onDutyCount > 0 ? "bg-brand-primary/10 text-brand-primary border-brand-primary/20" : ""}`}>
               {onDutyCount} on duty
             </Badge>
             <Badge variant="outline" className="tabular-nums bg-slate-50 text-slate-600 border-slate-200">
@@ -483,7 +483,7 @@ export function KitchenStaffTileBoard({
               const isBusy = busy.has(s.id);
               const tone = isBusy ? "opacity-70 cursor-wait" :
                 isOnBreak ? "bg-amber-50 border-amber-300 hover:bg-amber-100" :
-                isOnShift ? "bg-emerald-50 border-emerald-300 hover:bg-emerald-100" :
+                isOnShift ? "bg-brand-primary/10 border-brand-primary/30 hover:bg-brand-primary/15" :
                             "bg-slate-50 border-slate-200 hover:bg-slate-100";
 
               return (
@@ -532,11 +532,11 @@ export function KitchenStaffTileBoard({
                     <div className="flex items-center gap-2 mb-2">
                       <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${
                         isOnBreak ? "bg-amber-200" :
-                        isOnShift ? "bg-emerald-200" : "bg-slate-200"
+                        isOnShift ? "bg-brand-primary/20" : "bg-slate-200"
                       }`}>
                         <ChefHat className={`w-4 h-4 ${
                           isOnBreak ? "text-amber-700" :
-                          isOnShift ? "text-emerald-700" : "text-slate-500"
+                          isOnShift ? "text-brand-primary" : "text-slate-500"
                         }`} />
                       </div>
                       <div className="min-w-0 flex-1">
@@ -555,7 +555,7 @@ export function KitchenStaffTileBoard({
                     )}
                     {isOnShift && !isOnBreak && (
                       <div className="space-y-0.5">
-                        <div className="text-[10px] uppercase tracking-wider text-emerald-700">On shift</div>
+                        <div className="text-[10px] uppercase tracking-wider text-brand-primary">On shift</div>
                         <div className="text-base font-bold text-slate-900 tabular-nums">{fmtMins(workedMin)}</div>
                         <div className="text-[10px] text-slate-500">{canControl ? "Tap to clock out" : "Manager controlled"}</div>
                       </div>
@@ -573,7 +573,7 @@ export function KitchenStaffTileBoard({
 
                   {/* On-shift secondary actions: small bar at bottom for break + clock out */}
                   {isOnShift && sh && !isOnBreak && canControl && (
-                    <div className="mt-2 pt-2 border-t border-emerald-200/70 flex gap-1">
+                    <div className="mt-2 pt-2 border-t border-brand-primary/20 flex gap-1">
                       <button
                         type="button"
                         disabled={isBusy}
@@ -606,7 +606,7 @@ export function KitchenStaffTileBoard({
             </AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-3 text-sm">
-                <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-emerald-900">
+                <div className="rounded-lg border border-brand-primary/20 bg-brand-primary/10 px-3 py-2 text-brand-primary">
                   Starting at <span className="font-bold tabular-nums">
                     {openingTarget ? openingTarget.capturedAt.toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" }) : ""}
                   </span> - every minute from now counts toward their hours.
@@ -642,12 +642,12 @@ export function KitchenStaffTileBoard({
             </AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-3 text-sm">
-                <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-emerald-900">
+                <div className="rounded-lg border border-brand-primary/20 bg-brand-primary/10 px-3 py-2 text-brand-primary">
                   Worked today: <span className="font-bold tabular-nums">
                     {fmtMins(closingTarget ? liveWorkedMinutes(closingTarget.shift, now) : 0)}
                   </span>
                   {closingTarget && closingTarget.shift.total_break_min > 0 && (
-                    <span className="text-emerald-700"> · break {closingTarget.shift.total_break_min}m</span>
+                    <span className="text-brand-primary"> · break {closingTarget.shift.total_break_min}m</span>
                   )}
                 </div>
                 <div className="text-slate-600">

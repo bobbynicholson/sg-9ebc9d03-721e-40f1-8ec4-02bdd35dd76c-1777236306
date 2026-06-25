@@ -1174,7 +1174,7 @@ function MenuPage() {
             <Card className="border-0 shadow-sm">
               <CardContent className="p-4">
                 <p className="text-xs uppercase tracking-wider text-slate-500 mb-1">With recipe</p>
-                <p className="text-2xl font-bold text-emerald-700 tabular-nums">{stats.withRecipe}</p>
+                <p className="text-2xl font-bold text-brand-primary tabular-nums">{stats.withRecipe}</p>
               </CardContent>
             </Card>
             <Card className="border-0 shadow-sm">
@@ -1208,7 +1208,7 @@ function MenuPage() {
                   stats.medianMarginPct == null ? "text-slate-400" :
                   stats.medianMarginPct < 30 ? "text-red-700" :
                   stats.medianMarginPct < 50 ? "text-amber-700" :
-                                               "text-emerald-700"
+                                               "text-brand-primary"
                 }`}>
                   {stats.medianMarginPct == null ? "-" : `${stats.medianMarginPct.toFixed(0)}%`}
                 </p>
@@ -1230,7 +1230,7 @@ function MenuPage() {
                   {stats.missingPhoto > 0 && <Camera className="w-3 h-3 text-amber-600" />}
                 </p>
                 <p className={`text-2xl font-bold tabular-nums ${
-                  stats.photoCoveragePct >= 90 ? "text-emerald-700" :
+                  stats.photoCoveragePct >= 90 ? "text-brand-primary" :
                   stats.photoCoveragePct >= 60 ? "text-amber-700" :
                   "text-rose-700"
                 }`}>
@@ -1438,7 +1438,7 @@ function MenuPage() {
                                     const ftype = (it as any).fulfilment_type;
                                     if (it.recipe_id) {
                                       return (
-                                        <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200">
+                                        <Badge variant="outline" className="text-[10px] bg-brand-primary/10 text-brand-primary border-brand-primary/20">
                                           <ChefHat className="w-2.5 h-2.5 mr-0.5" />Recipe x{it.recipe_ingredient_count}
                                         </Badge>
                                       );
@@ -1476,7 +1476,7 @@ function MenuPage() {
                                     const filled = fields.filter((f) => f != null && Number(f) >= 0 && String(f) !== "").length;
                                     const total = fields.length;
                                     const tone =
-                                      filled === total ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
+                                      filled === total ? "bg-brand-primary/10 text-brand-primary border-brand-primary/20" :
                                       filled >= 2 ? "bg-amber-50 text-amber-700 border-amber-200" :
                                       "bg-rose-50 text-rose-700 border-rose-200";
                                     const label = filled === total
@@ -1566,7 +1566,7 @@ function MenuPage() {
                                   const cost = it.cost.cost_per_serving;
                                   const margin = price - cost;
                                   const pct = (margin / price) * 100;
-                                  const tone = pct < 30 ? "text-red-700" : pct < 50 ? "text-amber-700" : "text-emerald-700";
+                                  const tone = pct < 30 ? "text-red-700" : pct < 50 ? "text-amber-700" : "text-brand-primary";
                                   return (
                                     <div className={`text-[10px] tabular-nums font-medium ${tone}`}>
                                       {margin >= 0 ? "+" : ""}R {margin.toFixed(2)} ({pct.toFixed(0)}%)
@@ -1721,7 +1721,7 @@ function MenuPage() {
                       const price = Number(itemDraft.base_price);
                       const cost = Number(itemDraft.cost_per_unit);
                       const margin = ((price - cost) / price) * 100;
-                      const tone = margin >= 60 ? "text-emerald-700"
+                      const tone = margin >= 60 ? "text-brand-primary"
                         : margin >= 30 ? "text-amber-700"
                         : "text-red-700";
                       return (
@@ -1829,7 +1829,7 @@ function MenuPage() {
                         onClick={() => setItemDraft({ ...itemDraft, dietary_tags: toggleArrayValue(itemDraft.dietary_tags, t) })}
                         className={`text-[11px] px-2 py-1 rounded-full border transition-colors ${
                           on
-                            ? "bg-emerald-100 text-emerald-700 border-emerald-300"
+                            ? "bg-brand-primary/15 text-brand-primary border-brand-primary/30"
                             : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
                         }`}
                       >{t.replace(/_/g, " ")}</button>
@@ -1929,7 +1929,7 @@ function MenuPage() {
                   ))}
                 </datalist>
                 {itemDraft.linked_inventory_item_id ? (
-                  <p className="text-[11px] text-emerald-700">Linked. 1 portion will count as 1 unit on shopping.</p>
+                  <p className="text-[11px] text-brand-primary">Linked. 1 portion will count as 1 unit on shopping.</p>
                 ) : (
                   <p className="text-[11px] text-amber-700">Pick an inventory item or save will fail.</p>
                 )}
@@ -2182,9 +2182,9 @@ function MenuPage() {
                     const tone = pct == null ? "text-slate-700"
                       : pct < 30 ? "text-red-700"
                       : pct < 50 ? "text-amber-700"
-                      : "text-emerald-700";
+                      : "text-brand-primary";
                     return (
-                      <div className="rounded-md bg-emerald-50/60 border border-emerald-200 px-3 py-2 text-xs flex flex-wrap items-center gap-x-4 gap-y-1">
+                      <div className="rounded-md bg-brand-primary/10 border border-brand-primary/20 px-3 py-2 text-xs flex flex-wrap items-center gap-x-4 gap-y-1">
                         <span className="text-slate-700">
                           Per-serving cost:{" "}
                           <span className="font-bold tabular-nums text-slate-900">R {liveCost.cost_per_serving.toFixed(2)}</span>
@@ -2235,7 +2235,7 @@ function MenuPage() {
                               ))}
                             </datalist>
                             {ing.inventory_item_id ? (
-                              <span className="text-[10px] text-emerald-700 inline-flex items-center gap-1">
+                              <span className="text-[10px] text-brand-primary inline-flex items-center gap-1">
                                 <Package className="w-2.5 h-2.5" />Linked to inventory
                               </span>
                             ) : (

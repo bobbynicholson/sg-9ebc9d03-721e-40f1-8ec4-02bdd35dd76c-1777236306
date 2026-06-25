@@ -535,7 +535,7 @@ function FixedCostsPage() {
                 <Upload className="w-4 h-4 mr-1.5" />
                 Bulk import
               </Button>
-              <Button onClick={openCreate} className="bg-emerald-600 hover:bg-emerald-700">
+              <Button onClick={openCreate} className="bg-brand-primary hover:bg-brand-primary/90">
                 <Plus className="w-4 h-4 mr-1.5" />
                 Add fixed cost
               </Button>
@@ -838,7 +838,7 @@ function FixedCostsPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={saving}>Cancel</Button>
-            <Button onClick={handleSave} disabled={saving} className="bg-emerald-600 hover:bg-emerald-700">
+            <Button onClick={handleSave} disabled={saving} className="bg-brand-primary hover:bg-brand-primary/90">
               {saving ? "Saving..." : editingId ? "Save changes" : "Add fixed cost"}
             </Button>
           </DialogFooter>
@@ -893,7 +893,7 @@ function FixedCostsPage() {
                 Preview
               </Button>
               {bulkPreview && bulkPreview.some((r) => !r.error) && (
-                <Button onClick={handleBulkImport} disabled={bulkImporting} className="bg-emerald-600 hover:bg-emerald-700">
+                <Button onClick={handleBulkImport} disabled={bulkImporting} className="bg-brand-primary hover:bg-brand-primary/90">
                   {bulkImporting ? "Importing..." : `Import ${bulkPreview.filter((r) => !r.error).length} row${bulkPreview.filter((r) => !r.error).length === 1 ? "" : "s"}`}
                 </Button>
               )}
@@ -933,7 +933,7 @@ function FixedCostsPage() {
             )}
             {bulkResult && (
               <div className="rounded-md bg-slate-50 border border-slate-200 px-3 py-2 text-xs">
-                <span className="font-semibold text-emerald-700">{bulkResult.ok} imported</span>
+                <span className="font-semibold text-brand-primary">{bulkResult.ok} imported</span>
                 {bulkResult.failed > 0 && (
                   <span className="ml-3 text-rose-700">{bulkResult.failed} failed</span>
                 )}

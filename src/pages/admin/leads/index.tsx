@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -98,12 +98,12 @@ function orderStatusBadge(status: string | null | undefined): { label: string; c
   if (s === "cancelled" || s === "declined" || s === "rejected") {
     return { label: "Cancelled", classes: "text-rose-700 border-rose-200 bg-rose-50" };
   }
-  if (s === "confirmed") return { label: "Booked",    classes: "text-emerald-700 border-emerald-200 bg-emerald-50" };
+  if (s === "confirmed") return { label: "Booked",    classes: "text-brand-primary border-brand-primary/20 bg-brand-primary/10" };
   if (s === "preparing") return { label: "In prep",   classes: "text-purple-700 border-purple-200 bg-purple-50" };
   if (s === "ready")     return { label: "Ready",     classes: "text-blue-700 border-blue-200 bg-blue-50" };
   if (s === "in_transit") return { label: "Driving",  classes: "text-blue-700 border-blue-200 bg-blue-50" };
-  if (s === "delivered") return { label: "Delivered", classes: "text-emerald-700 border-emerald-200 bg-emerald-50" };
-  if (s === "completed" || s === "paid") return { label: "Completed", classes: "text-emerald-700 border-emerald-200 bg-emerald-50" };
+  if (s === "delivered") return { label: "Delivered", classes: "text-brand-primary border-brand-primary/20 bg-brand-primary/10" };
+  if (s === "completed" || s === "paid") return { label: "Completed", classes: "text-brand-primary border-brand-primary/20 bg-brand-primary/10" };
   return { label: status[0].toUpperCase() + status.slice(1).replace(/_/g, " "), classes: "text-slate-700 border-slate-200 bg-slate-50" };
 }
 
@@ -1022,7 +1022,7 @@ function AdminLeadsInner() {
       new: "bg-blue-100 text-blue-800",
       contacted: "bg-yellow-100 text-yellow-800",
       qualified: "bg-purple-100 text-purple-800",
-      converted: "bg-green-100 text-green-800",
+      converted: "bg-brand-primary/15 text-brand-primary",
       lost: "bg-slate-100 text-slate-800"
     };
     return colors[status as keyof typeof colors] || colors.new;
@@ -1231,12 +1231,12 @@ function AdminLeadsInner() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-slate-600 flex items-center gap-1.5">Won / Converted <InfoTooltip content={"Leads that turned into a confirmed booking."} /></p>
-                    <p className="text-2xl font-bold text-green-600">
+                    <p className="text-2xl font-bold text-brand-primary">
                       {statusCounts.won}
                     </p>
                   </div>
-                  <div className="w-12 h-12 rounded-lg bg-green-100 flex items-center justify-center">
-                    <Banknote className="w-6 h-6 text-green-600" />
+                  <div className="w-12 h-12 rounded-lg bg-brand-primary/15 flex items-center justify-center">
+                    <Banknote className="w-6 h-6 text-brand-primary" />
                   </div>
                 </div>
               </CardContent>
@@ -1473,7 +1473,7 @@ function AdminLeadsInner() {
                               const label = meta?.label ?? "Linked";
                               const classes = meta?.classes ?? "text-slate-700 border-slate-200 bg-slate-50 hover:bg-slate-100";
                               const hoverClasses = meta?.label === "Booked" || meta?.label === "Delivered" || meta?.label === "Completed"
-                                ? "hover:bg-emerald-100"
+                                ? "hover:bg-brand-primary/15"
                                 : meta?.label === "Pending"   ? "hover:bg-amber-100"
                                 : meta?.label === "Cancelled" ? "hover:bg-rose-100"
                                 : meta?.label === "In prep"   ? "hover:bg-purple-100"
@@ -1769,7 +1769,7 @@ function AdminLeadsInner() {
                             <div className="mt-4">
                               <p className="text-slate-500 text-xs mb-1.5 flex items-center gap-1.5">
                                 Items requested by client
-                                <span className="text-[10px] font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded px-1.5 py-0.5">
+                                <span className="text-[10px] font-medium text-brand-primary bg-brand-primary/10 border border-brand-primary/20 rounded px-1.5 py-0.5">
                                   client portal
                                 </span>
                               </p>

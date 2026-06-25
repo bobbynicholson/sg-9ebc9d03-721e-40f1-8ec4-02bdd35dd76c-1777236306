@@ -52,7 +52,7 @@ const ROLE_CONFIGS: Record<string, RoleConfig> = {
     title: "Owner Assistant",
     greeting: "I can help you manage your business operations and oversee your team.",
     examples: [],
-    color: "from-emerald-600 to-teal-600"
+    color: "from-brand-primary to-brand-secondary"
   },
   driver: {
     title: "Driver Assistant",
@@ -87,7 +87,7 @@ const ROLE_CONFIGS: Record<string, RoleConfig> = {
       "This week's procurement spending",
       "Compare prices for olive oil"
     ],
-    color: "from-green-500 to-emerald-500",
+    color: "from-brand-primary to-brand-secondary",
     icon: "🛒"
   },
   cleaning: {
@@ -99,7 +99,7 @@ const ROLE_CONFIGS: Record<string, RoleConfig> = {
       "My cleaning tasks for today",
       "Equipment usage history"
     ],
-    color: "from-cyan-500 to-blue-500",
+    color: "from-brand-primary to-blue-500",
     icon: "✨"
   },
   client: {
@@ -111,7 +111,7 @@ const ROLE_CONFIGS: Record<string, RoleConfig> = {
       "What's included in my package?",
       "Payment schedule for my order"
     ],
-    color: "from-blue-500 to-cyan-500",
+    color: "from-blue-500 to-brand-secondary",
     icon: "🎉"
   }
 };

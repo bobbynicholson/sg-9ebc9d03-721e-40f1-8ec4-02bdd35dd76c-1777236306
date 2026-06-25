@@ -64,8 +64,8 @@ const STATUS_TONES: Record<string, string> = {
   preparing: "bg-orange-100 text-orange-800 border-orange-300",
   ready: "bg-amber-100 text-amber-800 border-amber-300",
   in_transit: "bg-purple-100 text-purple-800 border-purple-300",
-  delivered: "bg-emerald-100 text-emerald-800 border-emerald-300",
-  completed: "bg-emerald-100 text-emerald-800 border-emerald-300",
+  delivered: "bg-brand-primary/15 text-brand-primary border-brand-primary/30",
+  completed: "bg-brand-primary/15 text-brand-primary border-brand-primary/30",
   cancelled: "bg-rose-100 text-rose-700 border-rose-300",
   paused: "bg-amber-50 text-amber-700 border-amber-300",
 };
@@ -233,7 +233,7 @@ export function OrderHeaderSection({ order, defaultOpen, forceOpen }: Props) {
           )}
           {history && history.order_count > 1 && (
             <span
-              className="inline-flex items-center gap-1 text-[11px] bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-full px-2 py-0.5"
+              className="inline-flex items-center gap-1 text-[11px] bg-brand-primary/10 text-brand-primary border border-brand-primary/20 rounded-full px-2 py-0.5"
               title={history.last_event_date ? `Last event: ${new Date(history.last_event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}` : undefined}
             >
               <Repeat className="w-3 h-3" />

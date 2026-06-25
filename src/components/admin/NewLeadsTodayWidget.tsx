@@ -83,15 +83,15 @@ export function NewLeadsTodayWidget({ companyId }: { companyId: string | null })
   if (!loading && rows.length === 0) return null;
 
   return (
-    <Card className="mb-6 border-emerald-200 bg-emerald-50/30">
+    <Card className="mb-6 border-brand-primary/20 bg-brand-primary/5">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between gap-2">
           <div>
             <CardTitle className="flex items-center gap-2 text-base">
-              <Sparkles className="w-4 h-4 text-emerald-600" />
+              <Sparkles className="w-4 h-4 text-brand-primary" />
               New leads (last 24h)
               {rows.length > 0 && (
-                <Badge className="ml-2 bg-emerald-100 text-emerald-800 border-emerald-300 text-[10px]">
+                <Badge className="ml-2 bg-brand-primary/15 text-brand-primary border-brand-primary/30 text-[10px]">
                   {rows.length}
                 </Badge>
               )}
@@ -101,7 +101,7 @@ export function NewLeadsTodayWidget({ companyId }: { companyId: string | null })
             </CardDescription>
           </div>
           <Link href={withSlug("/admin/leads")}>
-            <Button variant="ghost" size="sm" className="text-emerald-700">
+            <Button variant="ghost" size="sm" className="text-brand-primary">
               All leads <ArrowRight className="w-3.5 h-3.5 ml-1" />
             </Button>
           </Link>
@@ -111,7 +111,7 @@ export function NewLeadsTodayWidget({ companyId }: { companyId: string | null })
         {loading ? (
           <p className="text-xs text-slate-500 py-4">Loading...</p>
         ) : (
-          <ul className="divide-y divide-emerald-100">
+          <ul className="divide-y divide-brand-primary/15">
             {rows.map((r) => {
               const name = r.contact_name || r.client_name || "Unknown enquiry";
               const email = r.email || r.client_email || "";
@@ -122,9 +122,9 @@ export function NewLeadsTodayWidget({ companyId }: { companyId: string | null })
                 <li key={r.id}>
                   <Link
                     href={withSlug(`/admin/leads?leadId=${r.id}`)}
-                    className="py-2 flex items-center gap-3 hover:bg-emerald-50/60 rounded transition"
+                    className="py-2 flex items-center gap-3 hover:bg-brand-primary/10 rounded transition"
                   >
-                    <Badge className="shrink-0 text-[10px] uppercase tracking-wide font-semibold bg-emerald-100 text-emerald-800 border-emerald-200">
+                    <Badge className="shrink-0 text-[10px] uppercase tracking-wide font-semibold bg-brand-primary/15 text-brand-primary border-brand-primary/20">
                       {age <= 0 ? "now" : `${age}h ago`}
                     </Badge>
                     <div className="flex-1 min-w-0">

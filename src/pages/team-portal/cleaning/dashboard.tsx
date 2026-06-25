@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -431,7 +431,7 @@ function CleaningDashboardInner() {
                     ))}
                   {equipment.filter(e => e.status === 'cleaning' || e.status === 'damaged').length === 0 && (
                     <div className="text-center py-8 text-slate-500 dark:text-slate-400">
-                      <CheckCircle className="w-12 h-12 mx-auto mb-2 text-emerald-500 dark:text-emerald-400" />
+                      <CheckCircle className="w-12 h-12 mx-auto mb-2 text-brand-primary dark:text-brand-primary" />
                       <p>All equipment inspections complete for today!</p>
                     </div>
                   )}

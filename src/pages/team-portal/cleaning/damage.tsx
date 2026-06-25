@@ -290,7 +290,7 @@ export default function CleaningDamagePage() {
                     : null;
                   return (
                   <li key={d.id} className="p-4 flex items-start gap-3">
-                    <AlertTriangle className={`h-5 w-5 mt-0.5 flex-shrink-0 ${d.resolved ? "text-emerald-500 dark:text-emerald-400" : "text-amber-500 dark:text-amber-400"}`} />
+                    <AlertTriangle className={`h-5 w-5 mt-0.5 flex-shrink-0 ${d.resolved ? "text-brand-primary dark:text-brand-primary" : "text-amber-500 dark:text-amber-400"}`} />
                     <div className="flex-1 min-w-0">
                       <div className="flex flex-wrap items-center gap-2 mb-1">
                         <Badge variant="outline" className={`${typeTone[d.damage_type ?? ""] ?? "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700"} text-xs capitalize`}>{d.damage_type ?? "damage"}</Badge>
@@ -300,7 +300,7 @@ export default function CleaningDamagePage() {
                           </Badge>
                         )}
                         {d.resolved ? (
-                          <Badge variant="outline" className="bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-900 text-xs">Resolved</Badge>
+                          <Badge variant="outline" className="bg-brand-primary/15 text-brand-primary border-brand-primary/20 dark:bg-brand-primary/15 dark:text-brand-primary dark:border-brand-primary/30 text-xs">Resolved</Badge>
                         ) : (
                           <Badge variant="outline" className="bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-950 dark:text-rose-300 dark:border-rose-900 text-xs">Open</Badge>
                         )}

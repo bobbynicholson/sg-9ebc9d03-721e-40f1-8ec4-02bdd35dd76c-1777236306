@@ -122,7 +122,7 @@ export default function CleaningSuppliesPage() {
     const m = Number(i.minimum_stock || 0);
     if (s <= 0) return "bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-950 dark:text-rose-300 dark:border-rose-900";
     if (s <= m) return "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-900";
-    return "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-900";
+    return "bg-brand-primary/15 text-brand-primary border-brand-primary/20 dark:bg-brand-primary/15 dark:text-brand-primary dark:border-brand-primary/30";
   };
   const label = (i: Inventory) => {
     const s = Number(i.current_stock || 0);

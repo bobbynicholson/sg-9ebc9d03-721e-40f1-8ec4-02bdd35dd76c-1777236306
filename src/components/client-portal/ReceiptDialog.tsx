@@ -349,7 +349,7 @@ export function ReceiptDialog({
 
         <DialogHeader className="receipt-no-print">
           <DialogTitle className="flex items-center gap-2">
-            <ReceiptIcon className="w-5 h-5 text-emerald-600" />
+            <ReceiptIcon className="w-5 h-5 text-brand-primary" />
             {documentLabel}
           </DialogTitle>
           <DialogDescription>
@@ -393,7 +393,7 @@ export function ReceiptDialog({
             {/* Header strip - tenant identity */}
             <div className="flex items-start justify-between gap-4 flex-wrap">
               <div className="min-w-0 flex-1">
-                <p className="text-[11px] uppercase tracking-[0.18em] text-emerald-700 font-semibold">
+                <p className="text-[11px] uppercase tracking-[0.18em] text-brand-primary font-semibold">
                   {documentLabel}
                 </p>
                 <h2 className="text-xl sm:text-2xl font-bold text-slate-900 mt-0.5">
@@ -519,7 +519,7 @@ export function ReceiptDialog({
               </div>
               <div className="flex items-center justify-between text-sm">
                 <span className="text-slate-600">Total paid</span>
-                <span className="font-semibold text-emerald-700 tabular-nums">
+                <span className="font-semibold text-brand-primary tabular-nums">
                   {fmtMoney.format(totalPaid)}
                 </span>
               </div>
@@ -527,7 +527,7 @@ export function ReceiptDialog({
                 <span className="font-semibold text-slate-900">Balance remaining</span>
                 <span
                   className={`font-bold tabular-nums ${
-                    balance > 0 ? "text-amber-700" : "text-emerald-700"
+                    balance > 0 ? "text-amber-700" : "text-brand-primary"
                   }`}
                 >
                   {fmtMoney.format(balance)}

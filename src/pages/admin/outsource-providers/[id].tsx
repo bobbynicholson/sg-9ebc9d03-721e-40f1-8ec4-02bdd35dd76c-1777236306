@@ -98,7 +98,7 @@ const STATUS_TONE: Record<string, string> = {
   declined: "bg-rose-50 text-rose-800 border-rose-200",
   en_route: "bg-blue-50 text-blue-800 border-blue-200",
   on_site: "bg-blue-50 text-blue-800 border-blue-200",
-  completed: "bg-green-50 text-green-800 border-green-200",
+  completed: "bg-brand-primary/10 text-brand-primary border-brand-primary/20",
   cancelled: "bg-slate-50 text-slate-600 border-slate-200",
 };
 
@@ -266,7 +266,7 @@ function ProviderDetail() {
                       const days = Math.floor((new Date(pp.insurance_expiry).getTime() - Date.now()) / 86_400_000);
                       if (days >= 30) {
                         return (
-                          <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200">
+                          <Badge variant="outline" className="text-[10px] bg-brand-primary/10 text-brand-primary border-brand-primary/20">
                             Insured · expires in {days}d
                           </Badge>
                         );
@@ -301,7 +301,7 @@ function ProviderDetail() {
                       </a>
                     )}
                     {provider.whatsapp_number && (
-                      <a href={`https://wa.me/${provider.whatsapp_number.replace(/[^\d]/g, "")}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-xs font-medium text-green-800 bg-green-50 border border-green-200 rounded-md px-2.5 py-1.5 min-h-[34px] hover:bg-green-100">
+                      <a href={`https://wa.me/${provider.whatsapp_number.replace(/[^\d]/g, "")}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-xs font-medium text-brand-primary bg-brand-primary/10 border border-brand-primary/20 rounded-md px-2.5 py-1.5 min-h-[34px] hover:bg-brand-primary/15">
                         <MessageCircle className="w-3 h-3 shrink-0" /> {provider.whatsapp_number}
                       </a>
                     )}
@@ -336,7 +336,7 @@ function ProviderDetail() {
                 <Card>
                   <CardContent className="p-3 sm:p-4">
                     <p className="text-xs text-slate-600 mb-1">Accept rate</p>
-                    <p className={`text-xl sm:text-2xl font-bold tabular-nums ${stats.acceptRate == null ? "text-slate-500" : stats.acceptRate >= 80 ? "text-emerald-700" : stats.acceptRate >= 50 ? "text-amber-700" : "text-rose-700"}`}>
+                    <p className={`text-xl sm:text-2xl font-bold tabular-nums ${stats.acceptRate == null ? "text-slate-500" : stats.acceptRate >= 80 ? "text-brand-primary" : stats.acceptRate >= 50 ? "text-amber-700" : "text-rose-700"}`}>
                       {stats.acceptRate == null ? "-" : `${stats.acceptRate}%`}
                     </p>
                     <p className="text-[10px] text-slate-500 mt-1">
@@ -512,7 +512,7 @@ function ProviderDetail() {
                                   {a.status.replace(/_/g, " ")}
                                 </span>
                                 {a.invoice_paid && (
-                                  <span className="inline-flex items-center gap-0.5 text-[10px] text-emerald-700">
+                                  <span className="inline-flex items-center gap-0.5 text-[10px] text-brand-primary">
                                     <CheckCircle2 className="w-2.5 h-2.5" /> Paid
                                   </span>
                                 )}

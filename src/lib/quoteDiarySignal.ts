@@ -154,7 +154,7 @@ export function computeDiarySignal(
  * row and the diary callout in the compose drawer in lockstep.
  */
 export const DIARY_TONE: Record<DiaryStatus, { chip: string; dot: string; label: string }> = {
-  wide_open:  { chip: "bg-emerald-50 text-emerald-700 border-emerald-200", dot: "bg-emerald-500",   label: "Wide open" },
+  wide_open:  { chip: "bg-brand-primary/10 text-brand-primary border-brand-primary/20", dot: "bg-brand-primary",   label: "Wide open" },
   quiet:      { chip: "bg-sky-50 text-sky-700 border-sky-200",             dot: "bg-sky-500",       label: "Quiet"     },
   one_booking:{ chip: "bg-amber-50 text-amber-700 border-amber-200",       dot: "bg-amber-500",     label: "1 booked"  },
   stacked:    { chip: "bg-rose-50 text-rose-700 border-rose-200",          dot: "bg-rose-500",      label: "Stacked"   },

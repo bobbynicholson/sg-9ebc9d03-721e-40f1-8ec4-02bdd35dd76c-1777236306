@@ -443,8 +443,8 @@ function StatusIcon({ status, channel }: { status: string; channel: "email" | "w
   }
   if (status === "sent") {
     return (
-      <div className="w-9 h-9 rounded-lg bg-emerald-50 flex items-center justify-center shrink-0">
-        <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+      <div className="w-9 h-9 rounded-lg bg-brand-primary/10 flex items-center justify-center shrink-0">
+        <CheckCircle2 className="w-4 h-4 text-brand-primary" />
       </div>
     );
   }
@@ -453,7 +453,7 @@ function StatusIcon({ status, channel }: { status: string; channel: "email" | "w
   if (channel === "whatsapp") {
     return (
       <div className="w-9 h-9 rounded-lg bg-slate-100 flex items-center justify-center shrink-0">
-        <MessageSquare className="w-4 h-4 text-emerald-600" />
+        <MessageSquare className="w-4 h-4 text-brand-primary" />
       </div>
     );
   }

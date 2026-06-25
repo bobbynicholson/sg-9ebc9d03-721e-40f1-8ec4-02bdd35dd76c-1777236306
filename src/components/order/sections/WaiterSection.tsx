@@ -209,7 +209,7 @@ export function WaiterSection({ orderId, companyId, defaultOpen, forceOpen, high
                       key={p.key as string}
                       className={`text-xs p-1.5 rounded border flex items-center gap-1.5 ${
                         stamped
-                          ? "bg-emerald-50 border-emerald-200 text-emerald-800"
+                          ? "bg-brand-primary/10 border-brand-primary/20 text-brand-primary"
                           : "bg-slate-50 border-slate-200 text-slate-500"
                       }`}
                     >
@@ -225,7 +225,7 @@ export function WaiterSection({ orderId, companyId, defaultOpen, forceOpen, high
                 })}
               </div>
               {r.equipment_returned_at && (
-                <div className="mt-2 inline-flex items-center gap-1 text-[11px] text-emerald-700 bg-emerald-50 border border-emerald-200 rounded px-1.5 py-0.5">
+                <div className="mt-2 inline-flex items-center gap-1 text-[11px] text-brand-primary bg-brand-primary/10 border border-brand-primary/20 rounded px-1.5 py-0.5">
                   <Package className="w-3 h-3" />
                   Equipment returned {new Date(r.equipment_returned_at).toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" })}
                 </div>

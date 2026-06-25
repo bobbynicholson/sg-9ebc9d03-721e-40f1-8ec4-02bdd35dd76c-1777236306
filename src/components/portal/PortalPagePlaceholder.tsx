@@ -69,7 +69,7 @@ export function PortalPagePlaceholder({
             <ul className="space-y-3">
               {capabilities.map((c) => (
                 <li key={c} className="flex items-start gap-3 text-sm leading-6 text-slate-700 dark:text-slate-300">
-                  <CheckCircle2 className="mt-1 h-4 w-4 flex-shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+                  <CheckCircle2 className="mt-1 h-4 w-4 flex-shrink-0 text-brand-primary dark:text-brand-primary" aria-hidden="true" />
                   <span>{c}</span>
                 </li>
               ))}

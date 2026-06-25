@@ -239,7 +239,7 @@ export function MenuItemTypeahead({
                   onClick={() => handlePick(r)}
                   onMouseEnter={() => setHighlight(i)}
                   className={`w-full text-left px-3 py-2.5 border-b last:border-b-0 transition-colors ${
-                    i === highlight ? "bg-emerald-50" : "hover:bg-slate-50"
+                    i === highlight ? "bg-brand-primary/10" : "hover:bg-slate-50"
                   }`}
                 >
                   <div className="flex items-start justify-between gap-3">
@@ -258,7 +258,7 @@ export function MenuItemTypeahead({
                           <Badge
                             key={tag}
                             variant="outline"
-                            className="text-[10px] px-1.5 py-0 h-4 bg-emerald-50 text-emerald-700 border-emerald-200"
+                            className="text-[10px] px-1.5 py-0 h-4 bg-brand-primary/10 text-brand-primary border-brand-primary/20"
                           >
                             {tag.replace(/_/g, " ")}
                           </Badge>
@@ -271,7 +271,7 @@ export function MenuItemTypeahead({
                       )}
                     </div>
                     <div className="text-right flex-shrink-0">
-                      <div className="text-sm font-semibold text-emerald-700">
+                      <div className="text-sm font-semibold text-brand-primary">
                         R{Number(r.base_price ?? 0).toFixed(2)}
                       </div>
                       <div className="text-[10px] text-slate-400">per person</div>

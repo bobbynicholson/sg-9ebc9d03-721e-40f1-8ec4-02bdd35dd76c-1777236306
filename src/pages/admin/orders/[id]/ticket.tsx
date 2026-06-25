@@ -690,7 +690,7 @@ function KitchenTicketPage() {
                               {b.cookEndsAt && (
                                 <span>
                                   <span className="text-slate-500">Ready by</span>{" "}
-                                  <span className="font-semibold text-emerald-700">{fmtClock(b.cookEndsAt)}</span>
+                                  <span className="font-semibold text-brand-primary">{fmtClock(b.cookEndsAt)}</span>
                                 </span>
                               )}
                             </div>

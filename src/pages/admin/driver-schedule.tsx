@@ -399,15 +399,15 @@ function DriverScheduleGrid() {
                                                 isMissed
                                                   ? "border-red-200 bg-red-50"
                                                   : hasActual
-                                                    ? "border-emerald-200 bg-emerald-50"
-                                                    : "border-teal-200 bg-teal-50"
+                                                    ? "border-brand-primary/20 bg-brand-primary/10"
+                                                    : "border-brand-primary/20 bg-brand-primary/10"
                                               }`}
                                             >
                                               <div className="flex items-center justify-between gap-1">
                                                 <span className={`text-xs font-semibold tabular-nums ${
                                                   isMissed ? "text-red-900" :
-                                                  hasActual ? "text-emerald-900" :
-                                                              "text-teal-900"
+                                                  hasActual ? "text-brand-primary" :
+                                                              "text-brand-primary"
                                                 }`}>
                                                   {s.planned_start
                                                     ? `${fmtTime(s.planned_start)}-${fmtTime(s.planned_end)}`
@@ -420,7 +420,7 @@ function DriverScheduleGrid() {
                                                 )}
                                               </div>
                                               {hasActual ? (
-                                                <div className="text-[10px] text-emerald-700 mt-0.5 tabular-nums">
+                                                <div className="text-[10px] text-brand-primary mt-0.5 tabular-nums">
                                                   Actual {aHours.toFixed(1)}h
                                                 </div>
                                               ) : isMissed ? (
@@ -428,7 +428,7 @@ function DriverScheduleGrid() {
                                                   <AlertTriangle className="w-2.5 h-2.5" /> Missed
                                                 </div>
                                               ) : (
-                                                <div className="text-[10px] text-teal-700 mt-0.5 tabular-nums">
+                                                <div className="text-[10px] text-brand-primary mt-0.5 tabular-nums">
                                                   {pHours.toFixed(1)}h planned
                                                 </div>
                                               )}
@@ -447,7 +447,7 @@ function DriverScheduleGrid() {
                                       <button
                                         type="button"
                                         onClick={() => setLogTarget({ driverId: d.id, driverName: d.full_name || d.email })}
-                                        className="w-full text-slate-300 hover:text-emerald-600 hover:bg-emerald-50 rounded-md py-2 transition-colors"
+                                        className="w-full text-slate-300 hover:text-brand-primary hover:bg-brand-primary/10 rounded-md py-2 transition-colors"
                                         title="Log a shift on this day"
                                       >
                                         <Plus className="w-4 h-4 mx-auto" />

@@ -172,18 +172,18 @@ export function HandoverToDriverPanel({ orderId, orderNumber }: HandoverToDriver
 
   if (state.signed) {
     return (
-      <div className="flex items-center justify-between p-3 rounded-lg border border-emerald-200 bg-emerald-50">
+      <div className="flex items-center justify-between p-3 rounded-lg border border-brand-primary/20 bg-brand-primary/10">
         <div className="flex items-center gap-2 text-sm">
-          <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+          <CheckCircle2 className="h-4 w-4 text-brand-primary" />
           <div>
-            <p className="font-semibold text-emerald-900">Signed over to driver</p>
-            <p className="text-xs text-emerald-700">
+            <p className="font-semibold text-brand-primary">Signed over to driver</p>
+            <p className="text-xs text-brand-primary">
               {state.signedByName ? `By ${state.signedByName} ` : ""}
               {state.signedAt ? `at ${new Date(state.signedAt).toLocaleString("en-ZA")}` : ""}
             </p>
           </div>
         </div>
-        <Badge className="bg-emerald-500 border-emerald-600">Locked</Badge>
+        <Badge className="bg-brand-primary border-brand-primary/80">Locked</Badge>
       </div>
     );
   }

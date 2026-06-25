@@ -412,7 +412,7 @@ function AdminHRSolutions() {
                 className={`px-3 py-1.5 text-sm ${
                   stats.clockedNow === 0
                     ? "border-slate-200 text-slate-700 bg-slate-50"
-                    : "border-emerald-300 text-emerald-700 bg-emerald-50"
+                    : "border-brand-primary/30 text-brand-primary bg-brand-primary/10"
                 }`}
               >
                 <Flame className="w-3 h-3 mr-1" />
@@ -429,7 +429,7 @@ function AdminHRSolutions() {
             )}
             {canSeeFinance && stats.wageBurnWeekZar > 0 && (
               <Link href={withSlug("/admin/wages")}>
-                <Badge variant="outline" className="px-3 py-1.5 text-sm border-emerald-300 text-emerald-700 bg-emerald-50 tabular-nums cursor-pointer hover:bg-emerald-100">
+                <Badge variant="outline" className="px-3 py-1.5 text-sm border-brand-primary/30 text-brand-primary bg-brand-primary/10 tabular-nums cursor-pointer hover:bg-brand-primary/15">
                   <Banknote className="w-3 h-3 mr-1" />
                   {tenantCurrency.format(stats.wageBurnWeekZar)} burn this week
                 </Badge>
@@ -484,7 +484,7 @@ function AdminHRSolutions() {
             <Card className="border-0 shadow-md bg-white">
               <CardContent className="p-5">
                 <div className="flex items-center gap-2 mb-3">
-                  <Clock className="w-5 h-5 text-emerald-600" />
+                  <Clock className="w-5 h-5 text-brand-primary" />
                   <p className="font-semibold text-slate-900">Hours this week</p>
                 </div>
                 {stats.hoursWeek === 0 ? (
@@ -558,14 +558,14 @@ function AdminHRSolutions() {
                       <div className={`p-3 rounded-lg ${isActive ? "bg-blue-100" : "bg-slate-100"}`}>
                         <Icon className={`w-6 h-6 ${isActive ? "text-blue-600" : "text-slate-400"}`} />
                       </div>
-                      <Badge className={isActive ? "bg-green-100 text-green-800 hover:bg-green-100" : "bg-orange-100 text-orange-800 hover:bg-orange-100"}>
+                      <Badge className={isActive ? "bg-brand-primary/15 text-brand-primary hover:bg-brand-primary/15" : "bg-orange-100 text-orange-800 hover:bg-orange-100"}>
                         {isActive ? "Active" : "Coming Soon"}
                       </Badge>
                     </div>
                     <p className="font-semibold text-slate-900 text-lg">{feature.title}</p>
                     <p className="text-sm text-slate-600 mt-1 mb-3">{feature.description}</p>
                     {feature.chip && (
-                      <p className="text-xs text-emerald-700 mb-3 tabular-nums">{feature.chip}</p>
+                      <p className="text-xs text-brand-primary mb-3 tabular-nums">{feature.chip}</p>
                     )}
                     {isActive ? (
                       <Link href={withSlug(feature.link)}>

@@ -32,7 +32,7 @@ function getPasswordStrength(password: string): PasswordStrength {
 
   if (strength <= 2) return { strength, label: "Weak", color: "text-red-600" };
   if (strength <= 4) return { strength, label: "Medium", color: "text-yellow-600" };
-  return { strength, label: "Strong", color: "text-green-600" };
+  return { strength, label: "Strong", color: "text-brand-primary" };
 }
 
 /**
@@ -116,7 +116,7 @@ export function SecurityTab({ passwordData, onFieldChange, onUpdate, busy }: Pro
                         ? "bg-red-500 w-1/3"
                         : strength.strength <= 4
                         ? "bg-yellow-500 w-2/3"
-                        : "bg-green-500 w-full"
+                        : "bg-brand-primary w-full"
                     }`}
                   />
                 </div>

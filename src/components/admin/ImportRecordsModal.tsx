@@ -606,7 +606,7 @@ export function ImportRecordsModal({
       <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <FileSpreadsheet className="w-5 h-5 text-emerald-600" />
+            <FileSpreadsheet className="w-5 h-5 text-brand-primary" />
             Import {recordLabelPlural}
           </DialogTitle>
           <DialogDescription>
@@ -642,7 +642,7 @@ export function ImportRecordsModal({
                 <Button
                   onClick={() => fileInput.current?.click()}
                   disabled={busy}
-                  className="gap-2 bg-emerald-600 hover:bg-emerald-700"
+                  className="gap-2 bg-brand-primary hover:bg-brand-primary/90"
                 >
                   {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
                   Upload filled file
@@ -670,7 +670,7 @@ export function ImportRecordsModal({
             {earlyValidation && (
               <div className="mt-4 max-w-md mx-auto text-left">
                 <p className="text-xs text-slate-600 text-center mb-2">
-                  Quick scan: <strong className="text-emerald-700">{earlyValidation.ok.toLocaleString("en-ZA")} OK</strong>
+                  Quick scan: <strong className="text-brand-primary">{earlyValidation.ok.toLocaleString("en-ZA")} OK</strong>
                   {earlyValidation.warnings > 0 && (
                     <> · <strong className="text-amber-700">{earlyValidation.warnings.toLocaleString("en-ZA")} warning</strong></>
                   )}
@@ -921,7 +921,7 @@ export function ImportRecordsModal({
                                 </Button>
                                 <Button
                                   size="sm"
-                                  className="gap-1 h-7 text-xs bg-emerald-600 hover:bg-emerald-700"
+                                  className="gap-1 h-7 text-xs bg-brand-primary hover:bg-brand-primary/90"
                                   onClick={saveEditor}
                                   disabled={editSaving}
                                 >
@@ -961,7 +961,7 @@ export function ImportRecordsModal({
                 </p>
                 <div className="mt-2 mx-auto w-64 h-1.5 bg-slate-200 rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-emerald-500 transition-all duration-300"
+                    className="h-full bg-brand-primary transition-all duration-300"
                     style={{
                       width: `${Math.min(100, Math.round((commitProgress.done / Math.max(1, commitProgress.total)) * 100))}%`,
                     }}
@@ -977,13 +977,13 @@ export function ImportRecordsModal({
 
         {step === "done" && commitSummary && (
           <div className="space-y-3 py-2">
-            <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-4 flex items-start gap-3">
-              <Check className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
+            <div className="rounded-lg bg-brand-primary/10 border border-brand-primary/20 p-4 flex items-start gap-3">
+              <Check className="w-5 h-5 text-brand-primary flex-shrink-0 mt-0.5" />
               <div>
-                <p className="text-sm font-semibold text-emerald-900">
+                <p className="text-sm font-semibold text-brand-primary">
                   Import complete
                 </p>
-                <p className="text-xs text-emerald-800 mt-1">
+                <p className="text-xs text-brand-primary mt-1">
                   {commitSummary[template]?.inserted ?? 0} new {recordLabelPlural} added.
                   {(commitSummary[template]?.updated ?? 0) > 0 && (
                     <> {commitSummary[template]?.updated} updated.</>
@@ -1018,7 +1018,7 @@ export function ImportRecordsModal({
                     {reconcile.totals.payments_received > 0 && (
                       <div className="flex justify-between border-b border-slate-100 pb-1">
                         <span className="text-slate-600">Payments received</span>
-                        <span className="font-mono text-emerald-700">R{Math.round(reconcile.totals.payments_received).toLocaleString("en-ZA")}</span>
+                        <span className="font-mono text-brand-primary">R{Math.round(reconcile.totals.payments_received).toLocaleString("en-ZA")}</span>
                       </div>
                     )}
                     {reconcile.totals.outstanding_balance > 0 && (
@@ -1158,7 +1158,7 @@ export function ImportRecordsModal({
               <Button
                 onClick={commit}
                 disabled={busy || willImportCount + previewRows.filter(r => r.dedup_match_id && r.dedup_decision === "update").length === 0}
-                className="bg-emerald-600 hover:bg-emerald-700"
+                className="bg-brand-primary hover:bg-brand-primary/90"
               >
                 {busy ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
                 Import {recordLabelPlural}
@@ -1189,7 +1189,7 @@ function SummaryStat({
   tone: "success" | "danger" | "muted" | "warn";
 }) {
   const map = {
-    success: "bg-emerald-50 text-emerald-700 border-emerald-200",
+    success: "bg-brand-primary/10 text-brand-primary border-brand-primary/20",
     danger: "bg-rose-50 text-rose-700 border-rose-200",
     muted: "bg-slate-50 text-slate-700 border-slate-200",
     warn: "bg-amber-50 text-amber-800 border-amber-200",
@@ -1232,7 +1232,7 @@ function RowStatusBadge({
     );
   }
   return (
-    <Badge className="text-[10px] bg-emerald-100 text-emerald-800 border border-emerald-200">
+    <Badge className="text-[10px] bg-brand-primary/15 text-brand-primary border border-brand-primary/20">
       OK
     </Badge>
   );

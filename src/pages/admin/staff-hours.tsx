@@ -503,7 +503,7 @@ function StaffHoursPage() {
                 <CheckCircle className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-green-600">{C} {Number(summary.totalPaid || 0).toFixed(2)}</div>
+                <div className="text-2xl font-bold text-brand-primary">{C} {Number(summary.totalPaid || 0).toFixed(2)}</div>
                 <p className="text-xs text-muted-foreground">This {period}</p>
               </CardContent>
             </Card>
@@ -735,7 +735,7 @@ function StaffHoursPage() {
                                   </div>
                                   <div className="flex justify-between">
                                     <span>Total Amount:</span>
-                                    <span className="font-bold text-green-600">
+                                    <span className="font-bold text-brand-primary">
                                       {C} {Number(data.unpaidSessions.reduce((sum: number, s: any) => sum + Number(s.total_earnings || 0), 0)).toFixed(2)}
                                     </span>
                                   </div>
@@ -903,7 +903,7 @@ function StaffHoursPage() {
                           </div>
                         </div>
                         <div className="text-right">
-                          <div className="text-lg font-bold text-green-600">
+                          <div className="text-lg font-bold text-brand-primary">
                             {C} {Number(payment.total_amount).toFixed(2)}
                           </div>
                           <div className="text-sm text-muted-foreground capitalize">

@@ -105,7 +105,7 @@ export function AuthShell({
         {/* Floating "live" product card */}
         <div className="pointer-events-none absolute right-10 top-28 hidden animate-[floaty_6s_ease-in-out_infinite] xl:block motion-reduce:animate-none">
           <div className="flex items-center gap-2.5 rounded-2xl border border-white/10 bg-white/10 px-3.5 py-2.5 shadow-xl backdrop-blur-md">
-            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-400/90">
+            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-primary/90">
               <Check className="h-4 w-4 text-white" />
             </span>
             <div className="leading-tight">

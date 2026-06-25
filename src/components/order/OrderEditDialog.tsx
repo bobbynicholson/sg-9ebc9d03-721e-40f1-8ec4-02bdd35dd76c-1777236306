@@ -420,13 +420,13 @@ export function OrderEditDialog({
                 <span className="font-bold text-slate-900 tabular-nums">{fmt.format(estTotal)}</span>
               </div>
               {Math.abs(delta) >= 1 && (
-                <div className={`flex items-center justify-between text-xs ${delta > 0 ? "text-amber-700" : "text-emerald-700"}`}>
+                <div className={`flex items-center justify-between text-xs ${delta > 0 ? "text-amber-700" : "text-brand-primary"}`}>
                   <span>{delta > 0 ? "Increase" : "Decrease"} vs current ({fmt.format(orderTotal)})</span>
                   <span className="font-semibold tabular-nums">{delta > 0 ? "+" : "-"}{fmt.format(Math.abs(delta))}</span>
                 </div>
               )}
               <p className="text-[11px] text-slate-400 leading-snug">Estimate only. Your caterer confirms the final price when they approve these changes, and you&apos;ll get an email with the updated order.</p>
-              {msg && <p className={`text-xs ${msg.tone === "ok" ? "text-emerald-700" : "text-rose-700"}`}>{msg.text}</p>}
+              {msg && <p className={`text-xs ${msg.tone === "ok" ? "text-brand-primary" : "text-rose-700"}`}>{msg.text}</p>}
               <Button
                 onClick={submit}
                 disabled={busy || msg?.tone === "ok"}

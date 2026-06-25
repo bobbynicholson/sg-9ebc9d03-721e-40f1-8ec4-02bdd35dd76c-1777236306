@@ -39,9 +39,9 @@ interface ProfileRow {
 }
 
 const TYPE_META: Record<string, { label: string; icon: any; chip: string }> = {
-  delivery: { label: "Delivery", icon: Truck, chip: "bg-teal-100 text-teal-800 border-teal-300" },
+  delivery: { label: "Delivery", icon: Truck, chip: "bg-brand-primary/15 text-brand-primary border-brand-primary/30" },
   kitchen: { label: "Kitchen", icon: ChefHat, chip: "bg-orange-100 text-orange-800 border-orange-300" },
-  cleaning: { label: "Cleaning", icon: Sparkles, chip: "bg-cyan-100 text-cyan-800 border-cyan-300" },
+  cleaning: { label: "Cleaning", icon: Sparkles, chip: "bg-brand-primary/15 text-brand-primary border-brand-primary/30" },
   kitchen_and_cleaning: { label: "Kitchen + cleaning", icon: ChefHat, chip: "bg-violet-100 text-violet-800 border-violet-300" },
   general: { label: "General", icon: Users, chip: "bg-slate-100 text-slate-800 border-slate-300" },
 };
@@ -170,7 +170,7 @@ export function AssignedShiftsPanel({
               {hasActual && !isMissed && (
                 clockedOut
                   ? <span className="text-slate-500 text-[10px]">Clocked out</span>
-                  : <span className="text-emerald-700 text-[10px]">Clocked in</span>
+                  : <span className="text-brand-primary text-[10px]">Clocked in</span>
               )}
               {isMissed && (
                 <span className="text-red-700 text-[10px] inline-flex items-center gap-0.5 font-medium">

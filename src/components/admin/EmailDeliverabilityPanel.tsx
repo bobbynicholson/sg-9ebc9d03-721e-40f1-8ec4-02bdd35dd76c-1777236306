@@ -239,7 +239,7 @@ export function EmailDeliverabilityPanel({ companyId }: Props) {
             </div>
           </div>
         ) : (
-          <div className="text-xs text-emerald-700 inline-flex items-center gap-1">
+          <div className="text-xs text-brand-primary inline-flex items-center gap-1">
             <CheckCircle2 className="w-3.5 h-3.5" />
             No bounces, complaints or failures in the last 30 days.
           </div>
@@ -264,7 +264,7 @@ function MetricTile({
       ? { bg: "bg-red-50", border: "border-red-200", text: "text-red-900", iconBg: "bg-red-100", iconText: "text-red-600" }
       : level === "warn"
       ? { bg: "bg-amber-50", border: "border-amber-200", text: "text-amber-900", iconBg: "bg-amber-100", iconText: "text-amber-600" }
-      : { bg: "bg-emerald-50", border: "border-emerald-200", text: "text-emerald-900", iconBg: "bg-emerald-100", iconText: "text-emerald-600" };
+      : { bg: "bg-brand-primary/10", border: "border-brand-primary/20", text: "text-brand-primary", iconBg: "bg-brand-primary/15", iconText: "text-brand-primary" };
   return (
     <div className={`rounded-lg border ${colour.border} ${colour.bg} p-3`}>
       <div className="flex items-center gap-2">

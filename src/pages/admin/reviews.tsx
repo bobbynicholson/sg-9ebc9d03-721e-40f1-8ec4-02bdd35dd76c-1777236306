@@ -227,7 +227,7 @@ export default function AdminReviewsPage() {
             </CardContent></Card>
             <Card><CardContent className="p-4">
               <p className="text-xs text-slate-600">Promoters (4-5)</p>
-              <p className="text-2xl font-bold tabular-nums text-emerald-600">{stats.promoters}</p>
+              <p className="text-2xl font-bold tabular-nums text-brand-primary">{stats.promoters}</p>
             </CardContent></Card>
             <Card><CardContent className="p-4">
               <p className="text-xs text-slate-600">Open follow-ups</p>
@@ -259,7 +259,7 @@ export default function AdminReviewsPage() {
                 <button
                   type="button"
                   onClick={() => setFollow("done")}
-                  className={`px-3 py-1.5 text-sm rounded-md font-medium ${follow === "done" ? "bg-white shadow-sm text-emerald-700" : "text-slate-600"}`}
+                  className={`px-3 py-1.5 text-sm rounded-md font-medium ${follow === "done" ? "bg-white shadow-sm text-brand-primary" : "text-slate-600"}`}
                 >
                   Followed up
                 </button>
@@ -288,7 +288,7 @@ export default function AdminReviewsPage() {
                   {filtered.map((r) => {
                     const needsFollow = !!r.requires_follow_up && !r.followed_up_at;
                     const rating = Number(r.overall_rating || 0);
-                    const tone = rating >= 4 ? "bg-emerald-50" : rating <= 2 ? "bg-rose-50" : "";
+                    const tone = rating >= 4 ? "bg-brand-primary/10" : rating <= 2 ? "bg-rose-50" : "";
                     return (
                       <li key={r.id} className={`p-4 ${needsFollow ? "bg-amber-50/40 border-l-4 border-amber-400" : tone}`}>
                         <div className="flex items-start justify-between gap-3 flex-wrap">
@@ -311,7 +311,7 @@ export default function AdminReviewsPage() {
                                 </Badge>
                               )}
                               {r.followed_up_at && (
-                                <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px]">
+                                <Badge variant="outline" className="bg-brand-primary/10 text-brand-primary border-brand-primary/20 text-[10px]">
                                   <CheckCircle2 className="w-2.5 h-2.5 mr-1" />Followed up {formatDistanceToNow(new Date(r.followed_up_at), { addSuffix: true })}
                                 </Badge>
                               )}

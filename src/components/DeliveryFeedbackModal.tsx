@@ -174,8 +174,8 @@ export function DeliveryFeedbackModal({
         <DialogContent className="sm:max-w-md">
           <div className="text-center py-8">
             <div className="mb-4 flex justify-center">
-              <div className="bg-emerald-100 rounded-full p-4">
-                <ThumbsUp className="w-12 h-12 text-emerald-600" />
+              <div className="bg-brand-primary/15 rounded-full p-4">
+                <ThumbsUp className="w-12 h-12 text-brand-primary" />
               </div>
             </div>
             <h3 className="text-2xl font-bold mb-2">Thank You!</h3>
@@ -293,9 +293,9 @@ export function DeliveryFeedbackModal({
 
           {/* Overall Rating Display */}
           {calculateOverallRating() > 0 && (
-            <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
+            <div className="bg-brand-primary/10 border border-brand-primary/20 rounded-lg p-4">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-emerald-900">Your Overall Rating</span>
+                <span className="text-sm font-medium text-brand-primary">Your Overall Rating</span>
                 <div className="flex items-center gap-2">
                   <div className="flex items-center gap-1">
                     {[1, 2, 3, 4, 5].map((star) => (
@@ -309,7 +309,7 @@ export function DeliveryFeedbackModal({
                       />
                     ))}
                   </div>
-                  <span className="text-lg font-bold text-emerald-900">
+                  <span className="text-lg font-bold text-brand-primary">
                     {calculateOverallRating()}/5
                   </span>
                 </div>

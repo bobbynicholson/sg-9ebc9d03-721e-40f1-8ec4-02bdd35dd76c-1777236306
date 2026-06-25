@@ -27,7 +27,7 @@ interface ShoppingList {
 }
 
 const statusTone: Record<string, string> = {
-  completed:    "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-900",
+  completed:    "bg-brand-primary/10 text-brand-primary border-brand-primary/20 dark:bg-brand-primary/15 dark:text-brand-primary dark:border-brand-primary/30",
   draft:        "bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700",
   pending:      "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-900",
   in_progress:  "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-900",
@@ -128,7 +128,7 @@ export default function ShoppingInvoicesPage() {
             <StatTile
               label={<span className="flex items-center gap-1">Estimate variance <InfoTooltip content="What you actually spent against what you estimated, across every run.\n\nA positive number means you went over budget." /></span>}
               value={
-                <span className={stats.variance > 0 ? "text-rose-600 dark:text-rose-400" : "text-emerald-600 dark:text-emerald-400"}>
+                <span className={stats.variance > 0 ? "text-rose-600 dark:text-rose-400" : "text-brand-primary dark:text-brand-primary"}>
                   {stats.variance >= 0 ? "+" : ""}R {stats.variance.toLocaleString("en-ZA", { maximumFractionDigits: 0 })}
                 </span>
               }
@@ -211,7 +211,7 @@ export default function ShoppingInvoicesPage() {
                           )}
                           {l.estimated_total != null && l.actual_total != null && (
                             // Variance: over budget = rose, under/on = emerald.
-                            <span className={`font-medium tabular-nums ${variance > 0 ? "text-rose-600 dark:text-rose-400" : "text-emerald-600 dark:text-emerald-400"}`}>
+                            <span className={`font-medium tabular-nums ${variance > 0 ? "text-rose-600 dark:text-rose-400" : "text-brand-primary dark:text-brand-primary"}`}>
                               {variance >= 0 ? "+" : ""}R {variance.toFixed(2)}
                             </span>
                           )}

@@ -146,7 +146,7 @@ const STATUS_META: Record<string, { label: string; tone: string; rank: number }>
   shortfall:     { label: "Shortfall",     tone: "bg-red-100 text-red-700 border-red-200",       rank: 0 },
   below_minimum: { label: "Below par",     tone: "bg-amber-100 text-amber-800 border-amber-200", rank: 1 },
   low:           { label: "Low",           tone: "bg-yellow-100 text-yellow-800 border-yellow-200", rank: 2 },
-  ok:            { label: "OK",            tone: "bg-emerald-100 text-emerald-700 border-emerald-200", rank: 3 },
+  ok:            { label: "OK",            tone: "bg-brand-primary/15 text-brand-primary border-brand-primary/20", rank: 3 },
 };
 
 const VALID_TABS = new Set(["buy_now", "plan", "supplier", "receipts"]);
@@ -1226,10 +1226,10 @@ function SmartShoppingPage() {
                 <Printer className="w-3.5 h-3.5" /> Print today
               </Button>
               {pickedCount > 0 && (
-                <Card className="border-0 shadow bg-emerald-50 px-4 py-2 flex items-center gap-3">
-                  <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                <Card className="border-0 shadow bg-brand-primary/10 px-4 py-2 flex items-center gap-3">
+                  <CheckCircle2 className="w-5 h-5 text-brand-primary" />
                   <div>
-                    <p className="text-xs text-emerald-700">In your PO list</p>
+                    <p className="text-xs text-brand-primary">In your PO list</p>
                     <p className="font-bold text-slate-900">
                       {pickedCount} item{pickedCount === 1 ? "" : "s"}
                       {canSeeFinanceAggregate ? ` - ${fmtMoney.format(pickedTotal)}` : ""}
@@ -1274,7 +1274,7 @@ function SmartShoppingPage() {
               <SummaryTile
                 label="Estimated PO total"
                 value={fmtMoney.format(buyNow.reduce((s, r) => s + r.cost, 0))}
-                accent="text-emerald-600"
+                accent="text-brand-primary"
                 icon={Receipt}
                 hint="Buy-now items at supplier prices"
                 isMoney
@@ -1284,7 +1284,7 @@ function SmartShoppingPage() {
               <SummaryTile
                 label="Items to buy"
                 value={String(buyNow.length)}
-                accent="text-emerald-600"
+                accent="text-brand-primary"
                 icon={Receipt}
                 hint="Total lines on the buy-now list"
                 tooltip={"How many distinct items need topping up. Rand total is gated to owner / admin."}
@@ -1353,7 +1353,7 @@ function SmartShoppingPage() {
             <Card className="border-0 shadow"><CardContent className="py-16 text-center text-slate-500">
               <Package className="w-10 h-10 mx-auto text-slate-300 mb-3" />
               <p className="font-semibold text-slate-700">No inventory configured yet</p>
-              <p className="text-sm">Add items in <Link href={withSlug("/admin/inventory")} className="text-emerald-600">Inventory</Link>, link them to recipes, and this page lights up.</p>
+              <p className="text-sm">Add items in <Link href={withSlug("/admin/inventory")} className="text-brand-primary">Inventory</Link>, link them to recipes, and this page lights up.</p>
             </CardContent></Card>
           ) : (
             <Tabs defaultValue={initialTab} key={initialTab}>
@@ -1417,7 +1417,7 @@ function SmartShoppingPage() {
                                     onClick={() => markReceivedSingle(r.inventory_item_id)}
                                     disabled={!!rowBusy[r.inventory_item_id]}
                                     title="Goods arrived - add to stock and clear the flag"
-                                    className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded border border-emerald-300 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 disabled:opacity-50 min-h-[28px]"
+                                    className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded border border-brand-primary/30 text-brand-primary bg-brand-primary/10 hover:bg-brand-primary/15 disabled:opacity-50 min-h-[28px]"
                                   >
                                     <CheckCircle2 className="w-3 h-3" /> Mark received
                                   </button>
@@ -1481,7 +1481,7 @@ function SmartShoppingPage() {
                     <div className="flex items-start justify-between gap-3 flex-wrap">
                       <div>
                         <CardTitle className="text-base flex items-center gap-2">
-                          <ListChecks className="w-5 h-5 text-emerald-600" />
+                          <ListChecks className="w-5 h-5 text-brand-primary" />
                           Buy now
                         </CardTitle>
                         <CardDescription>
@@ -1496,7 +1496,7 @@ function SmartShoppingPage() {
                           <button
                             type="button"
                             onClick={pickAllBuyNow}
-                            className="px-2 py-1 rounded border border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                            className="px-2 py-1 rounded border border-brand-primary/20 text-brand-primary hover:bg-brand-primary/10"
                           >
                             Tick all ({buyNow.length})
                           </button>
@@ -1516,7 +1516,7 @@ function SmartShoppingPage() {
                   <CardContent className="p-0">
                     {buyNow.length === 0 ? (
                       <div className="py-12 text-center">
-                        <CheckCircle2 className="w-10 h-10 mx-auto text-emerald-400 mb-2" />
+                        <CheckCircle2 className="w-10 h-10 mx-auto text-brand-primary/90 mb-2" />
                         <p className="font-semibold text-slate-700">All stocked up</p>
                         <p className="text-xs text-slate-500">Nothing to buy right now. Check back tomorrow.</p>
                       </div>
@@ -1694,7 +1694,7 @@ function SmartShoppingPage() {
                     {/* SHOP-L: WhatsApp counterpart. Many tenants have
                         more suppliers on WhatsApp than email, so the
                         bulk fanout there matters just as much. */}
-                    <Button size="sm" variant="outline" onClick={whatsappAllSuppliers} className="gap-1.5 border-green-300 text-green-800 hover:bg-green-50">
+                    <Button size="sm" variant="outline" onClick={whatsappAllSuppliers} className="gap-1.5 border-brand-primary/30 text-brand-primary hover:bg-brand-primary/10">
                       <MessageCircle className="w-3.5 h-3.5" /> WhatsApp all suppliers
                     </Button>
                     <span className="text-slate-500">
@@ -1737,8 +1737,8 @@ function SmartShoppingPage() {
                             <CardHeader className="hover:bg-slate-50 transition-colors">
                               <div className="flex items-center justify-between gap-3 flex-wrap">
                                 <div className="flex items-center gap-3 min-w-0">
-                                  <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-emerald-100 to-teal-100 flex items-center justify-center flex-shrink-0">
-                                    <Building2 className="w-5 h-5 text-emerald-600" />
+                                  <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-brand-primary/15 to-brand-secondary/15 flex items-center justify-center flex-shrink-0">
+                                    <Building2 className="w-5 h-5 text-brand-primary" />
                                   </div>
                                   <div className="min-w-0">
                                     <p className="font-semibold text-slate-900 truncate">
@@ -1777,7 +1777,7 @@ function SmartShoppingPage() {
                                     {g.supplier && (
                                       <div className="flex flex-wrap gap-1.5 mt-1">
                                         {sentToday[g.supplier.id] && (
-                                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium rounded-full bg-brand-primary/15 text-brand-primary border border-brand-primary/20">
                                             <Mail className="w-2.5 h-2.5" /> Sent today
                                           </span>
                                         )}
@@ -2079,7 +2079,7 @@ function SmartShoppingPage() {
                 onClick={() => sendOrderVia("whatsapp")}
                 disabled={!orderDialog?.supplierPhone || orderDialog?.lines.every((l) => !l.included)}
                 variant="outline"
-                className="gap-1.5 text-green-700 hover:bg-green-50 border-green-200"
+                className="gap-1.5 text-brand-primary hover:bg-brand-primary/10 border-brand-primary/20"
                 title="Opens WhatsApp Web / app with the message pre-filled"
               >
                 <MessageCircle className="w-4 h-4" /> WhatsApp
@@ -2280,7 +2280,7 @@ function ItemTable({
                       <div className="min-w-0">
                         <div className="font-medium text-slate-900 flex items-center gap-1.5 flex-wrap">
                           {r.item_name}
-                          {r.is_perishable && <span title="Perishable"><Snowflake className="w-3 h-3 text-cyan-500" /></span>}
+                          {r.is_perishable && <span title="Perishable"><Snowflake className="w-3 h-3 text-brand-primary" /></span>}
                           {/* SHOP-C: price-creep chip. Spar prices on
                               Green Pepper rose 8% in 90d - flag it
                               before the operator places the PO. */}
@@ -2290,7 +2290,7 @@ function ItemTable({
                             return (
                               <Badge
                                 variant="outline"
-                                className={`text-[10px] ${up ? "bg-rose-50 text-rose-700 border-rose-200" : "bg-emerald-50 text-emerald-700 border-emerald-200"}`}
+                                className={`text-[10px] ${up ? "bg-rose-50 text-rose-700 border-rose-200" : "bg-brand-primary/10 text-brand-primary border-brand-primary/20"}`}
                                 title={`Median per-item price change for ${r.supplier?.supplier_name || "this supplier"} vs 60-120d ago`}
                               >
                                 {up ? "+" : ""}{pct.toFixed(0)}% supplier
@@ -2476,14 +2476,14 @@ function ItemTable({
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <span className="font-semibold text-slate-900">{r.item_name}</span>
-                    {r.is_perishable && <Snowflake className="w-3 h-3 text-cyan-500 shrink-0" />}
+                    {r.is_perishable && <Snowflake className="w-3 h-3 text-brand-primary shrink-0" />}
                     <Badge variant="outline" className={`${meta.tone} border text-[10px]`}>{meta.label}</Badge>
                     {canSeeFinance && r.preferred_supplier_id && creep?.[r.preferred_supplier_id]?.median_pct_change != null && Math.abs(creep[r.preferred_supplier_id].median_pct_change) >= 5 && creep[r.preferred_supplier_id].items_compared >= 2 && (() => {
                       const pct = creep[r.preferred_supplier_id].median_pct_change as number;
                       return (
                         <Badge
                           variant="outline"
-                          className={`text-[10px] ${pct > 0 ? "bg-rose-50 text-rose-700 border-rose-200" : "bg-emerald-50 text-emerald-700 border-emerald-200"}`}
+                          className={`text-[10px] ${pct > 0 ? "bg-rose-50 text-rose-700 border-rose-200" : "bg-brand-primary/10 text-brand-primary border-brand-primary/20"}`}
                         >
                           {pct > 0 ? "+" : ""}{pct.toFixed(0)}%
                         </Badge>

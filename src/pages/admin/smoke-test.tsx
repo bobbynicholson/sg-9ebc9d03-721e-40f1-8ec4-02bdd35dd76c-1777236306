@@ -131,13 +131,13 @@ function SmokeTestPage() {
           {result && (
             <Card className={cn(
               "border-2",
-              result.ok ? "border-emerald-200 bg-emerald-50/40" : "border-rose-200 bg-rose-50/40",
+              result.ok ? "border-brand-primary/20 bg-brand-primary/10" : "border-rose-200 bg-rose-50/40",
             )}>
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between gap-3 flex-wrap">
                   <CardTitle className="text-base flex items-center gap-2">
                     {result.ok ? (
-                      <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                      <CheckCircle2 className="w-5 h-5 text-brand-primary" />
                     ) : (
                       <XCircle className="w-5 h-5 text-rose-600" />
                     )}
@@ -165,11 +165,11 @@ function SmokeTestPage() {
                       key={i}
                       className={cn(
                         "flex items-start gap-2 p-2 rounded border text-sm",
-                        s.ok ? "border-emerald-200 bg-white" : "border-rose-200 bg-rose-50",
+                        s.ok ? "border-brand-primary/20 bg-white" : "border-rose-200 bg-rose-50",
                       )}
                     >
                       {s.ok ? (
-                        <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
+                        <CheckCircle2 className="w-4 h-4 text-brand-primary flex-shrink-0 mt-0.5" />
                       ) : (
                         <XCircle className="w-4 h-4 text-rose-600 flex-shrink-0 mt-0.5" />
                       )}
