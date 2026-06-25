@@ -66,6 +66,22 @@ interface InvoiceData {
     unitPrice: number;
     total: number;
   }>;
+  menuItems?: Array<{
+    description: string;
+    quantity: number;
+    unitPrice: number;
+    total: number;
+    note?: string | null;
+  }>;
+  equipmentItems?: Array<{
+    description: string;
+    quantity: number;
+    unitPrice: number;
+    total: number;
+    isHireIn?: boolean;
+    note?: string | null;
+  }>;
+  packageName?: string;
   subtotal: number;
   taxRate: number;
   taxAmount: number;
@@ -98,6 +114,56 @@ interface GenerateInvoiceOptions {
   companyId: string;
   sendEmail?: boolean;
   emailRecipient?: string;
+}
+
+function asArray(value: any): any[] {
+  if (Array.isArray(value)) return value;
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
+function moneyNumber(...values: any[]): number {
+  for (const value of values) {
+    if (value === null || value === undefined || value === "") continue;
+    const n = Number(value);
+    if (Number.isFinite(n)) return n;
+  }
+  return 0;
+}
+
+function menuInvoiceLine(row: any): NonNullable<InvoiceData["menuItems"]>[number] {
+  const quantity = moneyNumber(row?.quantity, row?.qty, 1) || 1;
+  const unitPrice = moneyNumber(row?.unitPrice, row?.unit_price, row?.price);
+  const total = moneyNumber(row?.total, row?.line_total, row?.lineTotal, quantity * unitPrice);
+  return {
+    description: row?.description || row?.item_name || row?.menu_item_name || row?.name || "Menu item",
+    quantity,
+    unitPrice,
+    total,
+    note: row?.notes || row?.note || null,
+  };
+}
+
+function equipmentInvoiceLine(row: any): NonNullable<InvoiceData["equipmentItems"]>[number] {
+  const equipment = row?.equipment || {};
+  const quantity = moneyNumber(row?.quantity, row?.qty, 1) || 1;
+  const unitPrice = moneyNumber(row?.unitPrice, row?.unit_price, row?.rentalPrice, row?.rental_price, equipment?.rental_price);
+  const total = moneyNumber(row?.total, row?.line_total, row?.lineTotal, quantity * unitPrice);
+  return {
+    description: row?.description || row?.equipment_name || row?.name || equipment?.name || "Equipment",
+    quantity,
+    unitPrice,
+    total,
+    isHireIn: row?.isHireIn ?? row?.is_hire_in ?? equipment?.is_hire_in ?? false,
+    note: row?.notes || row?.note || null,
+  };
 }
 
 // TIGHTEN I.93 (2026-06-02): AccountingSyncOptions and the
@@ -178,6 +244,20 @@ export async function generateInvoiceData(
       );
     }
     const orderItems = (orderItemsRows || []) as any[];
+    let quoteMenuRows: any[] = [];
+    let quoteEquipmentRows: any[] = [];
+    if (orderData.quote_id) {
+      const { data: quoteSnapshot, error: quoteSnapshotError } = await (supabase as any)
+        .from("quotes")
+        .select("menu_items, equipment_items")
+        .eq("id", orderData.quote_id)
+        .maybeSingle();
+      if (quoteSnapshotError) {
+        console.warn("[invoiceGenerationService] quote snapshot lookup failed:", quoteSnapshotError);
+      }
+      quoteMenuRows = asArray((quoteSnapshot as any)?.menu_items);
+      quoteEquipmentRows = asArray((quoteSnapshot as any)?.equipment_items);
+    }
     let items: Array<{
       description: string;
       quantity: number;
@@ -221,6 +301,12 @@ export async function generateInvoiceData(
         };
       });
     }
+
+    if (items.length === 0 && quoteMenuRows.length > 0) {
+      items = quoteMenuRows.map(menuInvoiceLine);
+    }
+
+    const menuItems = items.map((item) => ({ ...item, note: null }));
 
     // Surface delivery + waiter charges as their own line items so
     // the client can see the breakdown that built the total. They're
@@ -273,6 +359,32 @@ export async function generateInvoiceData(
         unitPrice: waiterFee,
         total: waiterFee,
       });
+    }
+
+    let equipmentItems = quoteEquipmentRows.map(equipmentInvoiceLine);
+    if (equipmentItems.length === 0) {
+      const { data: equipmentRows, error: equipmentRowsError } = await (supabase as any)
+        .from("equipment_bookings")
+        .select("id, quantity, equipment:equipment_id(name, rental_price, is_hire_in)")
+        .eq("order_id", orderId)
+        .order("created_at", { ascending: true });
+      if (equipmentRowsError) {
+        console.warn("[invoiceGenerationService] equipment_bookings lookup failed:", equipmentRowsError);
+      }
+      equipmentItems = ((equipmentRows || []) as any[]).map(equipmentInvoiceLine);
+    }
+
+    let packageName: string | undefined;
+    if (orderData.package_id) {
+      const { data: bookingPackage, error: bookingPackageError } = await (supabase as any)
+        .from("booking_packages")
+        .select("name")
+        .eq("id", orderData.package_id)
+        .maybeSingle();
+      if (bookingPackageError) {
+        console.warn("[invoiceGenerationService] booking package lookup failed:", bookingPackageError);
+      }
+      packageName = (bookingPackage as any)?.name || undefined;
     }
 
     // Prefer the order's stored subtotal so the invoice agrees with
@@ -445,6 +557,9 @@ export async function generateInvoiceData(
       guestCount: orderData.guest_count || 0,
       
       items,
+      menuItems,
+      equipmentItems,
+      packageName,
       subtotal: invoiceSubtotal,
       taxRate,
       taxAmount,

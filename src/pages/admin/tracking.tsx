@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { MapPin, Clock, Package, User, Phone, Navigation, TrendingUp, AlertCircle, Download, Printer, ExternalLink } from "lucide-react";
 import Head from "next/head";
 import Link from "next/link";
+import { useRouter } from "next/router";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { staffOrderHref } from "@/lib/orderUrls";
 import { useTenantHref } from "@/lib/tenantUrl";
@@ -95,6 +96,7 @@ const AdminTrackingMap = dynamic(
  * the food is going to land where it's meant to land, on time.
  */
 function AdminTrackingInner() {
+  const router = useRouter();
   const { user, profile } = useAuth() as any;
   // TIGHTEN I.119 (2026-06-02): refetch when an order edit lands in any tab.
   const refreshSignal = useOrderRefreshSignal(user?.company_id);
@@ -133,6 +135,15 @@ function AdminTrackingInner() {
   // "View on Map" button in the list view can switch the active tab.
   // Default = "map" matches the previous defaultValue.
   const [activeTab, setActiveTab] = useState<"map" | "list">("map");
+
+  useEffect(() => {
+    const status = typeof router.query.status === "string" ? router.query.status : "";
+    if (["all", "confirmed", "preparing", "ready", "in_transit"].includes(status)) {
+      setStatusFilter(status);
+    }
+    const view = typeof router.query.view === "string" ? router.query.view : "";
+    if (view === "map" || view === "list") setActiveTab(view);
+  }, [router.query.status, router.query.view]);
 
   // Load dispatch settings once for the arrival buffer (used in at-risk calc).
   useEffect(() => {

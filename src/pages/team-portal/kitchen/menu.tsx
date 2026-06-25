@@ -23,8 +23,6 @@ interface MenuItem {
   item_name: string | null;
   description: string | null;
   category: string | null;
-  base_price: number | null;
-  cost_per_unit: number | null;
   is_available: boolean | null;
   active: boolean | null;
   base_servings: number | null;
@@ -84,7 +82,12 @@ export default function KitchenMenuItemsPage() {
     try {
       const { data, error } = await supabase
         .from("menu_items")
-        .select("*")
+        .select(`
+          id, item_name, description, category, is_available, active,
+          base_servings, prep_time_minutes, cook_time_minutes,
+          dietary_tags, allergen_codes, allergen_info, image_url,
+          instructions, recipe_name
+        `)
         .eq("company_id", user.company_id)
         .is("deleted_at", null)
         .order("category", { ascending: true })

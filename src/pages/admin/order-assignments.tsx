@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { AlertTriangle, Truck, Clock, Users, Search, RefreshCw, Sparkles, ChevronDown, ChevronRight, X, CheckCircle2, MapPin, ArrowUpRight, ExternalLink, User as UserIcon, Truck as TruckIcon, Snowflake as SnowflakeIcon, Users as UsersIcon, Download, Printer } from "lucide-react";
+import { AlertTriangle, Truck, Clock, Users, Search, RefreshCw, Sparkles, ChevronDown, ChevronRight, X, CheckCircle2, MapPin, ArrowUpRight, ExternalLink, User as UserIcon, Truck as TruckIcon, Snowflake as SnowflakeIcon, Users as UsersIcon, Download, Printer, Star } from "lucide-react";
 import Link from "next/link";
 import Head from "next/head";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
@@ -28,6 +28,7 @@ import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { ToastAction } from "@/components/ui/toast";
 import { supabase } from "@/integrations/supabase/client";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
+import { captureException } from "@/lib/observability";
 import {
   dispatchService,
   type DispatchSettings,
@@ -43,6 +44,10 @@ import { toLocalISO } from "@/lib/localDate";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { staffOrderHref } from "@/lib/orderUrls";
 import { emitOrderUpdated } from "@/lib/events/orderEvents";
+import {
+  orderDriverInterestService,
+  type DriverInterestSummary,
+} from "@/services/orderDriverInterestService";
 
 interface OrderRow {
   id: string;
@@ -88,6 +93,11 @@ const STATUSES: Array<{ value: string; label: string }> = [
   { value: "assigned",   label: "Driver assigned" },
   { value: "at_risk",    label: "At risk (SLA)" },
 ];
+
+function formatDriverRating(interest: DriverInterestSummary): string {
+  if (interest.average_rating == null || interest.rating_count === 0) return "No rating yet";
+  return `${interest.average_rating.toFixed(1)} rating (${interest.rating_count})`;
+}
 
 function DispatchQueuePage() {
   const router = useRouter();
@@ -163,6 +173,7 @@ function DispatchQueuePage() {
 
   // Audit log per order
   const [auditByOrder, setAuditByOrder] = useState<Record<string, any[]>>({});
+  const [interestByOrder, setInterestByOrder] = useState<Record<string, DriverInterestSummary[]>>({});
 
   const searchRef = useRef<HTMLInputElement | null>(null);
 
@@ -234,6 +245,7 @@ function DispatchQueuePage() {
       if (error) {
         console.error("Order load error:", error);
         setOrders([]);
+        setInterestByOrder({});
         setTotalCount(0);
         return;
       }
@@ -267,6 +279,12 @@ function DispatchQueuePage() {
         pickup_time: r.pickup_time ?? null,
       }));
       setOrders(mapped);
+      setInterestByOrder(
+        await orderDriverInterestService.getInterestedDriversForOrders(
+          companyId,
+          mapped.map((order) => order.id),
+        ),
+      );
       // Wave 70.65: total in the window from PostgREST's
       // Content-Range header (count='exact' on select). Used by
       // the truncation banner so the dispatcher can see when
@@ -297,6 +315,11 @@ function DispatchQueuePage() {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "order_assignment_audit", filter: `company_id=eq.${companyId}` },
+        () => loadAll(),
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "order_driver_interest", filter: `company_id=eq.${companyId}` },
         () => loadAll(),
       )
       .subscribe();
@@ -518,12 +541,13 @@ function DispatchQueuePage() {
   };
 
   const handleAssignPick = async (driverId: string, score?: number, reason?: string) => {
-    if (!assignTarget) return;
+    const target = assignTarget;
+    if (!target) return;
     setAssignSaving(true);
     try {
       const r = await dispatchService.assignDriverWithGate({
         companyId,
-        orderId: assignTarget.id,
+        orderId: target.id,
         driverId,
         performedBy: userId,
         score,
@@ -544,7 +568,7 @@ function DispatchQueuePage() {
         return;
       }
       const driverName = suggestions.find(s => s.driver.id === driverId)?.driver.full_name ?? "Driver";
-      const eventLabel = assignTarget.event_date + (assignTarget.event_time ? ` at ${assignTarget.event_time}` : "");
+      const eventLabel = target.event_date + (target.event_time ? ` at ${target.event_time}` : "");
       // Phase 2 #4: surface a double-booking warning on warn-and-allow.
       // The assignment landed but the dispatcher needs to know they
       // just put this driver on two overlapping events.
@@ -554,33 +578,52 @@ function DispatchQueuePage() {
           description: r.conflictWarning,
           variant: "destructive",
         });
-        return;
+      } else {
+        toast({
+          title: `${driverName} assigned to ${target.client_name}`,
+          description: `Event ${eventLabel}. Driver app updated.`,
+          action: (
+            <ToastAction
+              altText="Undo this assignment"
+              onClick={async () => {
+                await dispatchService.unassignDriver({
+                  companyId, orderId: target.id, performedBy: userId,
+                  reason: "Undo assign",
+                });
+                loadAll();
+                toast({ title: "Reverted", description: target.client_name });
+                // Wave 70.40 - ping listeners; driver was unassigned.
+                emitOrderUpdated(target.id, "dispatch:unassign-driver", ["driver"]);
+              }}
+            >Undo</ToastAction>
+          ),
+        });
       }
-      toast({
-        title: `${driverName} assigned to ${assignTarget.client_name}`,
-        description: `Event ${eventLabel}. Driver app updated.`,
-        action: (
-          <ToastAction
-            altText="Undo this assignment"
-            onClick={async () => {
-              await dispatchService.unassignDriver({
-                companyId, orderId: assignTarget.id, performedBy: userId,
-                reason: "Undo assign",
-              });
-              loadAll();
-              toast({ title: "Reverted", description: assignTarget.client_name });
-              // Wave 70.40 - ping listeners; driver was unassigned.
-              emitOrderUpdated(assignTarget.id, "dispatch:unassign-driver", ["driver"]);
-            }}
-          >Undo</ToastAction>
-        ),
-      });
       setAssignOpen(false);
       loadAll();
       // Wave 70.40 - broadcast so the calendar's per-event "No
       // driver assigned" issue badge clears + readiness chip on
       // /admin/orders flips green without a refresh.
-      emitOrderUpdated(assignTarget.id, "dispatch:assign-driver", ["driver"]);
+      emitOrderUpdated(target.id, "dispatch:assign-driver", ["driver"]);
+    } catch (e: any) {
+      captureException(e, {
+        tags: {
+          route: "/admin/order-assignments",
+          step: "assign-driver",
+          companyId,
+          orderId: target.id,
+          driverId,
+          userId,
+        },
+      });
+      toast({
+        title: "Could not assign driver",
+        description: dbErrorMessage(e, {
+          entity: "order assignment",
+          fallback: "Server rejected the assignment. Refresh and try again.",
+        }),
+        variant: "destructive",
+      });
     } finally {
       setAssignSaving(false);
     }
@@ -622,6 +665,25 @@ function DispatchQueuePage() {
       for (const id of successIds) {
         emitOrderUpdated(id, "dispatch:bulk-assign", ["driver"]);
       }
+    } catch (e: any) {
+      captureException(e, {
+        tags: {
+          route: "/admin/order-assignments",
+          step: "bulk-assign-driver",
+          companyId,
+          driverId: bulkDriverId,
+          userId,
+        },
+        extra: { orderIds: Array.from(selected) },
+      });
+      toast({
+        title: "Could not bulk assign",
+        description: dbErrorMessage(e, {
+          entity: "order assignment",
+          fallback: "Server rejected one of the assignments. Refresh and try again.",
+        }),
+        variant: "destructive",
+      });
     } finally {
       setBulkSaving(false);
     }
@@ -671,6 +733,8 @@ function DispatchQueuePage() {
   };
 
   // ── Render ────────────────────────────────────────────────────────────────
+
+  const assignInterestedDrivers = assignTarget ? interestByOrder[assignTarget.id] || [] : [];
 
   return (
     <>
@@ -1030,6 +1094,7 @@ function DispatchQueuePage() {
                   : Number.POSITIVE_INFINITY;
                 const isAtRisk = !order.assigned_driver_id && slaSlack <= 0;
                 const isUnassigned = !order.assigned_driver_id;
+                const interestedDrivers = interestByOrder[order.id] || [];
                 const eventDt = order.event_time
                   ? new Date(`${order.event_date}T${order.event_time}`)
                   : new Date(`${order.event_date}T12:00`);
@@ -1147,7 +1212,15 @@ function DispatchQueuePage() {
                             URGENT
                           </Badge>
                         ) : (
-                          <span className="text-xs text-amber-700 font-medium">Unassigned</span>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-xs text-amber-700 font-medium">Unassigned</span>
+                            {interestedDrivers.length > 0 && (
+                              <Badge className="text-[10px] font-semibold bg-brand-primary/10 text-brand-primary border border-brand-primary/20">
+                                <Star className="w-3 h-3 mr-0.5" />
+                                {interestedDrivers.length} interested
+                              </Badge>
+                            )}
+                          </div>
                         )}
                         {/* Vehicle chip - click to open the picker. Shows a
                             'No vehicle' affordance even when the driver is
@@ -1459,15 +1532,75 @@ function DispatchQueuePage() {
               <div className="animate-spin w-5 h-5 border-2 border-brand-primary/80 border-t-transparent rounded-full mx-auto mb-2" />
               Scoring drivers...
             </div>
-          ) : suggestions.length === 0 ? (
+          ) : suggestions.length === 0 && assignInterestedDrivers.length === 0 ? (
             <div className="py-8 text-center text-sm text-slate-500">
               <p>No active drivers available.</p>
               <p className="mt-1">Add drivers from the Drivers page first.</p>
             </div>
           ) : (
             <div className="space-y-2 max-h-[55vh] overflow-y-auto pr-1">
+              {assignInterestedDrivers.length > 0 && (
+                <div className="rounded-lg border border-brand-primary/20 bg-brand-primary/10 p-2.5">
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-brand-primary">
+                      Interested drivers
+                    </p>
+                    <Badge className="bg-brand-primary/15 text-brand-primary border-0">
+                      {assignInterestedDrivers.length}
+                    </Badge>
+                  </div>
+                  <div className="space-y-2">
+                    {assignInterestedDrivers.map((interest) => {
+                      const match = suggestions.find((s) => s.driver.id === interest.driver_id);
+                      return (
+                        <button
+                          key={interest.id}
+                          type="button"
+                          onClick={() => handleAssignPick(interest.driver_id, match?.score.total, "Driver expressed interest")}
+                          disabled={assignSaving}
+                          className="w-full rounded-md border border-brand-primary/20 bg-white p-2.5 text-left transition-colors hover:bg-brand-primary/5"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-medium text-slate-900">
+                                {interest.driver_name}
+                              </p>
+                              <p className="mt-0.5 text-xs text-slate-600">
+                                {formatDriverRating(interest)}
+                              </p>
+                              <p className="mt-0.5 text-[10px] text-slate-500">
+                                Tapped Interested {new Date(interest.created_at).toLocaleString()}
+                              </p>
+                            </div>
+                            {match ? (
+                              <div className="text-right">
+                                <p className="text-lg font-bold tabular-nums text-brand-primary">
+                                  {match.score.total}
+                                </p>
+                                <p className="text-[10px] uppercase tracking-wide text-slate-500">score</p>
+                              </div>
+                            ) : (
+                              <Badge variant="outline" className="border-brand-primary/20 text-brand-primary">
+                                Interested
+                              </Badge>
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {suggestions.length > 0 && assignInterestedDrivers.length > 0 && (
+                <p className="pt-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                  All scored drivers
+                </p>
+              )}
+
               {suggestions.map((s, idx) => {
                 const blocked = !s.capacity.ok || !s.feasibility.ok || !s.vehicle.ok;
+                const isInterested = assignInterestedDrivers.some((interest) => interest.driver_id === s.driver.id);
                 return (
                   <button
                     key={s.driver.id}
@@ -1488,6 +1621,11 @@ function DispatchQueuePage() {
                           {idx === 0 && !blocked && (
                             <span className="text-[9px] font-semibold uppercase tracking-wide bg-brand-primary text-white px-1.5 py-0.5 rounded">
                               Top match
+                            </span>
+                          )}
+                          {isInterested && (
+                            <span className="text-[9px] font-semibold uppercase tracking-wide bg-brand-primary/10 text-brand-primary px-1.5 py-0.5 rounded">
+                              Interested
                             </span>
                           )}
                           <p className="text-sm font-medium text-slate-900">{s.driver.full_name}</p>

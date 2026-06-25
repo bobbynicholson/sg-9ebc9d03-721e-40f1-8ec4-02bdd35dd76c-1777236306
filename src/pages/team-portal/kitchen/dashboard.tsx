@@ -54,6 +54,22 @@ import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 type Order = Database["public"]["Tables"]["orders"]["Row"];
 type InventoryItem = Database["public"]["Tables"]["inventory_items"]["Row"];
 
+interface KitchenPlanningOrder {
+  id: string;
+  order_number: string | null;
+  event_name: string | null;
+  client_name: string | null;
+  event_date: string;
+  event_time: string | null;
+  pickup_time: string | null;
+  guest_count: number | null;
+  status: string;
+  venue_address: string | null;
+  special_instructions: string | null;
+  dietary_requirements: string | null;
+  kitchen_instructions: string | null;
+}
+
 interface DamageAlert {
   id: string;
   orderId: string | null;
@@ -74,6 +90,16 @@ function formatCountdown(mins: number): string {
   if (days > 0) return `${sign}${days}d ${hours}h`;
   if (hours > 0) return `${sign}${hours}h ${minutes}m`;
   return `${sign}${minutes}m`;
+}
+
+function localISO(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function addDays(date: Date, days: number): Date {
+  const out = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  out.setDate(out.getDate() + days);
+  return out;
 }
 
 export default function KitchenDashboard() {
@@ -101,6 +127,8 @@ export default function KitchenDashboard() {
   // TIGHTEN I.119 (2026-06-02): refetch when an order edit lands in any tab.
   const refreshSignal = useOrderRefreshSignal(user?.company_id ?? null);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [planningOrders, setPlanningOrders] = useState<KitchenPlanningOrder[]>([]);
+  const [selectedDate, setSelectedDate] = useState(() => localISO(new Date()));
   const [lowStockItems, setLowStockItems] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [progressByOrder, setProgressByOrder] = useState<Record<string, { total: number; done: number }>>({});
@@ -296,8 +324,9 @@ export default function KitchenDashboard() {
       refresh();
     };
 
+    const channelSuffix = Math.random().toString(36).slice(2, 10);
     const sub = supabase
-      .channel(`kitchen-dashboard-${user.company_id}`)
+      .channel(`kitchen-dashboard-${user.company_id}-${channelSuffix}`)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .on("postgres_changes" as any, {
         event: "*", schema: "public", table: "orders",
@@ -453,10 +482,9 @@ export default function KitchenDashboard() {
       //      exceeds that, and the truncated view forces filtering
       //      via tabs / Plenty-of-time rather than firehose render.
       const localToday = new Date();
-      const todayIso = `${localToday.getFullYear()}-${String(localToday.getMonth() + 1).padStart(2, "0")}-${String(localToday.getDate()).padStart(2, "0")}`;
-      const sevenDaysFromNow = new Date(localToday);
-      sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 6);
-      const horizonIso = `${sevenDaysFromNow.getFullYear()}-${String(sevenDaysFromNow.getMonth() + 1).padStart(2, "0")}-${String(sevenDaysFromNow.getDate()).padStart(2, "0")}`;
+      const todayIso = localISO(localToday);
+      const sevenDaysFromNow = addDays(localToday, 6);
+      const horizonIso = localISO(sevenDaysFromNow);
 
       // KIT3-B: region scoping. A kitchen_staff user with a
       // region_id set only sees orders for their branch. Single-
@@ -475,6 +503,21 @@ export default function KitchenDashboard() {
         .limit(50);
       if (regionId) {
         ordersQuery = ordersQuery.eq("region_id", regionId);
+      }
+
+      let planningOrdersQuery = (supabase as any)
+        .from("orders")
+        .select("id, order_number, event_name, client_name, event_date, event_time, pickup_time, guest_count, status, venue_address, special_instructions, dietary_requirements, kitchen_instructions")
+        .eq("company_id", user.company_id)
+        .is("deleted_at", null)
+        .gte("event_date", todayIso)
+        .lte("event_date", horizonIso)
+        .neq("status", "cancelled")
+        .order("event_date", { ascending: true })
+        .order("event_time", { ascending: true })
+        .limit(100);
+      if (regionId) {
+        planningOrdersQuery = planningOrdersQuery.eq("region_id", regionId);
       }
       // Load low stock items. PostgREST can't compare two columns in a
       // filter (the old `.filter("current_stock","lt","minimum_stock")` sent
@@ -499,8 +542,9 @@ export default function KitchenDashboard() {
       // the board load costs one round-trip instead of two.
       const [
         { data: ordersData, error: ordersError },
+        { data: planningOrdersData, error: planningOrdersError },
         { data: inventoryData, error: inventoryError },
-      ] = await Promise.all([ordersQuery, invQuery]);
+      ] = await Promise.all([ordersQuery, planningOrdersQuery, invQuery]);
 
       if (ordersError) {
         captureException(ordersError, {
@@ -508,6 +552,14 @@ export default function KitchenDashboard() {
         });
       } else {
         setOrders(ordersData || []);
+      }
+
+      if (planningOrdersError) {
+        captureException(planningOrdersError, {
+          tags: { route: "/team-portal/kitchen/dashboard", step: "load-planning-orders", companyId: user.company_id },
+        });
+      } else {
+        setPlanningOrders((planningOrdersData || []) as KitchenPlanningOrder[]);
       }
 
       if (inventoryError) {
@@ -695,9 +747,8 @@ export default function KitchenDashboard() {
       // YYYY-MM-DD string from local components, not toISOString,
       // so the SAST 23:00 boundary doesn't roll forward early.
       try {
-        const tomorrow = new Date();
-        tomorrow.setDate(tomorrow.getDate() + 1);
-        const tomorrowISO = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, "0")}-${String(tomorrow.getDate()).padStart(2, "0")}`;
+        const tomorrow = addDays(new Date(), 1);
+        const tomorrowISO = localISO(tomorrow);
         const tomorrowOrderIds = (ordersData || [])
           .filter((o: any) => o.event_date === tomorrowISO)
           .map((o: any) => o.id);
@@ -989,8 +1040,32 @@ export default function KitchenDashboard() {
   // tiles. Production Priority then narrows further to the next-
   // 4-hours window for the actual "imminent attention" call-out.
   const localToday = new Date();
-  const todayLocalISO = `${localToday.getFullYear()}-${String(localToday.getMonth() + 1).padStart(2, "0")}-${String(localToday.getDate()).padStart(2, "0")}`;
+  const todayLocalISO = localISO(localToday);
   const todayOrders = orders.filter((o) => o.event_date === todayLocalISO);
+  const calendarDays = useMemo(
+    () => Array.from({ length: 7 }, (_, index) => {
+      const date = addDays(new Date(), index);
+      return {
+        date,
+        iso: localISO(date),
+      };
+    }),
+    [todayLocalISO],
+  );
+  const planningOrdersByDate = useMemo(() => {
+    const map = new Map<string, KitchenPlanningOrder[]>();
+    for (const order of planningOrders) {
+      const list = map.get(order.event_date);
+      if (list) list.push(order);
+      else map.set(order.event_date, [order]);
+    }
+    return map;
+  }, [planningOrders]);
+  const selectedDayOrders = planningOrdersByDate.get(selectedDate) || [];
+  const selectedDayDate = new Date(`${selectedDate}T00:00:00`);
+  const selectedDayLabel = Number.isNaN(selectedDayDate.getTime())
+    ? selectedDate
+    : selectedDayDate.toLocaleDateString("en-ZA", { weekday: "long", day: "numeric", month: "short" });
   // Imminent = event_time within the next 4 hours. Catches the
   // "starting prep right now" cases without dragging dinner
   // events 8h away into the alarm list.
@@ -1284,6 +1359,157 @@ export default function KitchenDashboard() {
               </>
             )}
           </div>
+
+          <PortalCard className="mb-6 sm:mb-8">
+            <PortalCardHeader
+              title={
+                <span className="text-base sm:text-lg md:text-xl flex items-center gap-2">
+                  <Calendar className="w-5 h-5 text-brand-primary" />
+                  Event calendar
+                </span>
+              }
+              action={
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setSelectedDate(todayLocalISO)}
+                  className="h-9"
+                >
+                  Today
+                </Button>
+              }
+            />
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
+                {calendarDays.map(({ date, iso }) => {
+                  const dayOrders = planningOrdersByDate.get(iso) || [];
+                  const isSelected = iso === selectedDate;
+                  const dayLabel = iso === todayLocalISO
+                    ? "Today"
+                    : iso === localISO(addDays(new Date(), 1))
+                    ? "Tomorrow"
+                    : date.toLocaleDateString("en-ZA", { weekday: "short" });
+                  const guests = dayOrders.reduce((sum, order) => sum + (order.guest_count || 0), 0);
+                  return (
+                    <button
+                      key={iso}
+                      type="button"
+                      onClick={() => setSelectedDate(iso)}
+                      className={`min-h-[84px] rounded-lg border px-3 py-2 text-left transition-colors ${
+                        isSelected
+                          ? "border-brand-primary bg-brand-primary/10 text-slate-950 dark:text-white dark:border-brand-primary/60 dark:bg-brand-primary/15"
+                          : dayOrders.length > 0
+                          ? "border-slate-200 bg-white hover:border-brand-primary/40 hover:bg-brand-primary/5 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-brand-primary/50"
+                          : "border-slate-200 bg-slate-50 text-slate-500 hover:bg-white dark:border-slate-800 dark:bg-slate-900/60 dark:hover:bg-slate-900"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs font-semibold uppercase tracking-wide">{dayLabel}</span>
+                        <span className="text-[11px] tabular-nums text-slate-500 dark:text-slate-400">
+                          {date.toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}
+                        </span>
+                      </div>
+                      <div className="mt-3 flex items-end justify-between gap-2">
+                        <div>
+                          <p className="text-2xl font-semibold tabular-nums text-slate-900 dark:text-white">
+                            {dayOrders.length}
+                          </p>
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                            order{dayOrders.length === 1 ? "" : "s"}
+                          </p>
+                        </div>
+                        {guests > 0 && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-1 text-[11px] font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                            <Users className="w-3 h-3" />
+                            {guests}
+                          </span>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="rounded-lg border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-3 py-2 dark:border-slate-800">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900 dark:text-white">{selectedDayLabel}</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      {selectedDayOrders.length} order{selectedDayOrders.length === 1 ? "" : "s"}
+                    </p>
+                  </div>
+                  {loading && <Loader2 className="w-4 h-4 animate-spin text-slate-400" />}
+                </div>
+
+                {selectedDayOrders.length === 0 ? (
+                  <div className="px-3 py-8 text-center">
+                    <CheckCircle className="w-8 h-8 mx-auto text-slate-300 dark:text-slate-600" />
+                    <p className="mt-2 text-sm font-medium text-slate-700 dark:text-slate-200">No orders on this day</p>
+                  </div>
+                ) : (
+                  <ul className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {selectedDayOrders.map((order) => {
+                      const eventTime = order.event_time?.slice(0, 5) || "TBC";
+                      const pickupTime = order.pickup_time?.slice(0, 5) || null;
+                      return (
+                        <li key={order.id} className="px-3 py-3">
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">
+                                  {orderDisplayName({ event_name: order.event_name || "Event", client_name: order.client_name, order_number: order.order_number || undefined })}
+                                </p>
+                                <Badge variant="outline" className={`${getStatusColor(order.status)} text-[10px] capitalize`}>
+                                  {order.status.replace(/_/g, " ")}
+                                </Badge>
+                              </div>
+                              <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-600 dark:text-slate-400">
+                                <span className="inline-flex items-center gap-1 tabular-nums"><Clock className="w-3 h-3" />Eat {eventTime}</span>
+                                {pickupTime && <span className="inline-flex items-center gap-1 tabular-nums"><Truck className="w-3 h-3" />Collect {pickupTime}</span>}
+                                <span className="inline-flex items-center gap-1 tabular-nums"><Users className="w-3 h-3" />{order.guest_count ?? "?"} pax</span>
+                              </div>
+                              {order.venue_address && (
+                                <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                                  {order.venue_address}
+                                </p>
+                              )}
+                              {(order.dietary_requirements || order.kitchen_instructions || order.special_instructions) && (
+                                <div className="mt-2 space-y-1">
+                                  {order.dietary_requirements && (
+                                    <p className="rounded border border-rose-200 bg-rose-50 px-2 py-1 text-[11px] font-medium text-rose-800 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-300">
+                                      Dietary: {order.dietary_requirements}
+                                    </p>
+                                  )}
+                                  {order.kitchen_instructions && (
+                                    <p className="rounded border border-brand-primary/20 bg-brand-primary/5 px-2 py-1 text-[11px] text-slate-700 dark:border-brand-primary/30 dark:bg-brand-primary/10 dark:text-slate-200">
+                                      Kitchen: {order.kitchen_instructions}
+                                    </p>
+                                  )}
+                                  {order.special_instructions && (
+                                    <p className="rounded border border-amber-200 bg-amber-50 px-2 py-1 text-[11px] text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300">
+                                      Special: {order.special_instructions}
+                                    </p>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                            <Link
+                              href={withSlug(staffOrderHref(order.id, "kitchen_staff"))}
+                              className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-md bg-brand-primary px-3 text-sm font-semibold text-white shadow-sm transition-opacity duration-150 hover:opacity-90"
+                              title="Open the full order document"
+                            >
+                              <ChefHat className="w-4 h-4" />
+                              Open order
+                            </Link>
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+            </div>
+          </PortalCard>
 
           {damageAlerts.length > 0 && (
             <PortalCard className="mb-6 sm:mb-8 border-rose-200 bg-rose-50/40 dark:border-rose-900 dark:bg-rose-950/20">

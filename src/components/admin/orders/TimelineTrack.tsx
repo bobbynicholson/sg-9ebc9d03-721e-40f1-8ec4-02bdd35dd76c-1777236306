@@ -67,6 +67,9 @@ interface TimelineTrackProps {
    *  view. /c/order/[id] sets this true; admin surfaces keep the
    *  glossary so chefs / drivers / dispatchers can see the trigger. */
   hideOperatorGlossary?: boolean;
+  /** Keep hover detail but suppress admin/source links on role-scoped
+   *  order documents. */
+  disableSourceLinks?: boolean;
 }
 
 const CLUSTER_ORDER: StageGroup[] = [
@@ -221,6 +224,7 @@ function StageDot({
   onStageClick,
   withSlug,
   hideOperatorGlossary,
+  disableSourceLinks,
 }: {
   stage: OrderTimelineStage;
   size?: "default" | "small";
@@ -230,6 +234,7 @@ function StageDot({
    *  (Completes when / Owner). Set by the client magic-link surface so
    *  customers don't see internal table-name jargon. */
   hideOperatorGlossary?: boolean;
+  disableSourceLinks?: boolean;
 }) {
   const isCompleted = stage.status === "completed";
   const isCurrent = stage.status === "current";
@@ -247,7 +252,7 @@ function StageDot({
   const dotClasses = (() => {
     if (isCurrent) return `${currentSize} bg-orange-500 ring-4 ring-orange-100 shadow-md shadow-orange-200`;
     if (isBlocked) return `${currentSize} bg-red-500 ring-4 ring-red-100 animate-pulse shadow-md shadow-red-200`;
-    if (isCompleted) return `${baseSize} bg-brand-primary shadow-sm`;
+    if (isCompleted) return `${baseSize} bg-green-500 shadow-sm`;
     if (isUpcoming) return `${baseSize} bg-slate-300`;
     // not_applicable - render a faint hollow dot (instead of hiding it)
     // so EVERY order shows the full 22-stage pipeline at a consistent
@@ -280,7 +285,7 @@ function StageDot({
   const dotWithHover = (
     <HoverCard openDelay={150} closeDelay={50}>
       <HoverCardTrigger asChild>
-        {stage.sourceLink && (isCurrent || isBlocked || isCompleted) ? (
+        {stage.sourceLink && !disableSourceLinks && (isCurrent || isBlocked || isCompleted) ? (
           <Link
             href={withSlug(stage.sourceLink)}
             onClick={(e) => {
@@ -347,7 +352,7 @@ function StageDot({
           {completedAt && (
             <div className="text-xs">
               <span className="text-slate-500">Done: </span>
-              <span className="font-semibold text-brand-primary">{completedAt}</span>
+              <span className="font-semibold text-green-700">{completedAt}</span>
             </div>
           )}
 
@@ -363,7 +368,7 @@ function StageDot({
             </div>
           )}
 
-          {stage.sourceLink && (isCurrent || isBlocked || isCompleted) && (
+          {stage.sourceLink && !disableSourceLinks && (isCurrent || isBlocked || isCompleted) && (
             <Link
               href={withSlug(stage.sourceLink)}
               onClick={(e) => {
@@ -388,7 +393,7 @@ function StatusBadge({ stage }: { stage: OrderTimelineStage }) {
   const cfg = (() => {
     switch (stage.status) {
       case "completed":
-        return { label: "Done", cls: "bg-brand-primary/10 text-brand-primary border-brand-primary/20" };
+        return { label: "Done", cls: "bg-green-50 text-green-700 border-green-200" };
       case "current":
         // Wave 70.49f - distinguish "actually happening right now" from
         // "this is the next stage to focus on but nobody has started".
@@ -422,7 +427,7 @@ function StatusBadge({ stage }: { stage: OrderTimelineStage }) {
 
 function TimelineColourLegend({ compact = false }: { compact?: boolean }) {
   const items = [
-    { label: "Done", cls: "bg-brand-primary", text: "text-brand-primary" },
+    { label: "Done", cls: "bg-green-500", text: "text-green-700" },
     { label: "Problem", cls: "bg-red-500", text: "text-red-700" },
     { label: "Needs to be done", cls: "bg-orange-500", text: "text-orange-700" },
     { label: "Not started", cls: "bg-slate-300", text: "text-slate-600" },
@@ -447,12 +452,14 @@ function ClusterBand({
   onStageClick,
   withSlug,
   hideOperatorGlossary,
+  disableSourceLinks,
 }: {
   group: StageGroup;
   stages: OrderTimelineStage[];
   onStageClick?: (stage: OrderTimelineStage) => void;
   withSlug: (href: string) => string;
   hideOperatorGlossary?: boolean;
+  disableSourceLinks?: boolean;
 }) {
   // Show the FULL pipeline in every order - render a dot for EVERY
   // stage (incl not_applicable, shown faint) so the timeline is a
@@ -481,14 +488,14 @@ function ClusterBand({
         : null;
 
   const headerColor =
-    allCompleted ? "text-brand-primary" :
+    allCompleted ? "text-green-700" :
     hasBlocked ? "text-red-600" :
     hasCurrent ? "text-orange-600" :
     "text-slate-500";
 
   const progressBarColor =
     hasBlocked ? "bg-red-500" :
-    allCompleted ? "bg-brand-primary" :
+    allCompleted ? "bg-green-500" :
     hasCurrent ? "bg-orange-500" :
     "bg-slate-300";
 
@@ -513,9 +520,9 @@ function ClusterBand({
           const connectorClass = !next
             ? ""
             : s.status === "completed" && next.status === "completed"
-              ? "bg-brand-primary"
+              ? "bg-green-500"
               : s.status === "completed" && (next.status === "current" || next.status === "blocked")
-                ? "bg-gradient-to-r from-brand-primary via-orange-400 to-orange-300"
+                ? "bg-gradient-to-r from-green-500 via-orange-400 to-orange-300"
                 : s.status === "current"
                   ? "bg-gradient-to-r from-orange-400 to-slate-200"
                   : s.status === "blocked"
@@ -523,7 +530,13 @@ function ClusterBand({
                     : "bg-slate-200";
           return (
             <div key={s.key} className="flex items-center gap-1.5">
-              <StageDot stage={s} onStageClick={onStageClick} withSlug={withSlug} hideOperatorGlossary={hideOperatorGlossary} />
+              <StageDot
+                stage={s}
+                onStageClick={onStageClick}
+                withSlug={withSlug}
+                hideOperatorGlossary={hideOperatorGlossary}
+                disableSourceLinks={disableSourceLinks}
+              />
               {next && (
                 <div className={`h-[3px] w-5 rounded-full ${connectorClass}`} />
               )}
@@ -548,7 +561,7 @@ function ClusterBand({
         </div>
       )}
       {!focusStage && allCompleted && (
-        <div className="text-[10px] text-brand-primary font-medium leading-tight text-center">
+        <div className="text-[10px] text-green-700 font-medium leading-tight text-center">
           All done
         </div>
       )}
@@ -582,7 +595,7 @@ function ClusterPill({
   const tone = (() => {
     if (hasBlocked) return "bg-red-100 text-red-700 border-red-300";
     if (hasCurrent) return "bg-orange-100 text-orange-700 border-orange-300";
-    if (total > 0 && done === total) return "bg-brand-primary/15 text-brand-primary border-brand-primary/30";
+    if (total > 0 && done === total) return "bg-green-50 text-green-700 border-green-200";
     return "bg-slate-100 text-slate-500 border-slate-200";
   })();
 
@@ -597,7 +610,15 @@ function ClusterPill({
 
 // --- Now card --------------------------------------------------------------
 
-function NowCard({ stage, withSlug }: { stage: OrderTimelineStage | null; withSlug: (href: string) => string }) {
+function NowCard({
+  stage,
+  withSlug,
+  disableSourceLinks,
+}: {
+  stage: OrderTimelineStage | null;
+  withSlug: (href: string) => string;
+  disableSourceLinks?: boolean;
+}) {
   if (!stage) return null;
   const tone =
     stage.status === "blocked"
@@ -625,7 +646,7 @@ function NowCard({ stage, withSlug }: { stage: OrderTimelineStage | null; withSl
           <div className="text-xs">{stage.meta.actor}</div>
         )}
       </div>
-      {stage.sourceLink && (
+      {stage.sourceLink && !disableSourceLinks && (
         <Link
           href={withSlug(stage.sourceLink)}
           onClick={(e) => e.stopPropagation()}
@@ -641,7 +662,14 @@ function NowCard({ stage, withSlug }: { stage: OrderTimelineStage | null; withSl
 
 // --- Main export ------------------------------------------------------------
 
-export function TimelineTrack({ timeline, compact, onStageClick, hideOperatorBanner, hideOperatorGlossary }: TimelineTrackProps) {
+export function TimelineTrack({
+  timeline,
+  compact,
+  onStageClick,
+  hideOperatorBanner,
+  hideOperatorGlossary,
+  disableSourceLinks,
+}: TimelineTrackProps) {
   const [expanded, setExpanded] = useState(false);
   const { withSlug } = useTenantHref();
 
@@ -663,7 +691,7 @@ export function TimelineTrack({ timeline, compact, onStageClick, hideOperatorBan
   if (compact) {
     return (
       <div className="space-y-2">
-        <NowCard stage={currentStage} withSlug={withSlug} />
+        <NowCard stage={currentStage} withSlug={withSlug} disableSourceLinks={disableSourceLinks} />
         <TimelineColourLegend compact />
         <div className="flex flex-wrap items-center gap-1.5">
           {CLUSTER_ORDER.map((g) => (
@@ -689,9 +717,16 @@ export function TimelineTrack({ timeline, compact, onStageClick, hideOperatorBan
               .map((s) => (
                 <li key={s.key} className="flex items-center justify-between gap-2 text-xs">
                   <div className="flex items-center gap-2">
-                    <StageDot stage={s} size="small" onStageClick={onStageClick} withSlug={withSlug} hideOperatorGlossary={hideOperatorGlossary} />
+                    <StageDot
+                      stage={s}
+                      size="small"
+                      onStageClick={onStageClick}
+                      withSlug={withSlug}
+                      hideOperatorGlossary={hideOperatorGlossary}
+                      disableSourceLinks={disableSourceLinks}
+                    />
                     <span className={
-                      s.status === "completed" ? "text-brand-primary line-through opacity-70" :
+                      s.status === "completed" ? "text-green-700 line-through opacity-70" :
                       s.status === "current" ? "text-orange-700 font-semibold" :
                       s.status === "blocked" ? "text-red-700 font-semibold" :
                       s.status === "not_applicable" ? "text-slate-400 italic" :
@@ -782,7 +817,7 @@ export function TimelineTrack({ timeline, compact, onStageClick, hideOperatorBan
                   </div>
                 )}
             </div>
-            {currentStage.sourceLink && (
+            {currentStage.sourceLink && !disableSourceLinks && (
               <Link
                 href={withSlug(currentStage.sourceLink)}
                 onClick={(e) => e.stopPropagation()}
@@ -809,6 +844,7 @@ export function TimelineTrack({ timeline, compact, onStageClick, hideOperatorBan
                 onStageClick={onStageClick}
                 withSlug={withSlug}
                 hideOperatorGlossary={hideOperatorGlossary}
+                disableSourceLinks={disableSourceLinks}
               />
             </div>
             {idx < CLUSTER_ORDER.length - 1 && (

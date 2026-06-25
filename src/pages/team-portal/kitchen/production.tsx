@@ -28,6 +28,7 @@ import { orderDisplayName } from "@/lib/orderDisplayName";
 import { captureException } from "@/lib/observability";
 import { onOrderUpdated } from "@/lib/events/orderEvents";
 import { PortalShell, PortalHeader, PortalCard, StatTile } from "@/components/portal/ui";
+import { dedupeKitchenPrepTasks, formatKitchenPrepTaskType } from "@/lib/kitchen/prepTasks";
 
 interface Order {
   id: string;
@@ -101,10 +102,6 @@ const TASK_TONES: Record<string, string> = {
   skipped:     "bg-slate-100 border-slate-200 text-slate-500 hover:bg-slate-200 line-through",
 };
 
-const TASK_TYPE_LABEL: Record<string, string> = {
-  prep: "Prep", cook: "Cook", cool: "Cool", pack: "Pack", plate: "Plate",
-};
-
 // Day grid spans 06:00 -> 23:00 = 17 hours = 1020 minutes.
 const DAY_START_HOUR = 6;
 const DAY_END_HOUR = 23;
@@ -136,7 +133,7 @@ export default function KitchenProductionPage() {
   // null so the .eq is skipped and behaviour is unchanged.
   const regionId = profile?.region_id ?? null;
 
-  const [view, setView] = useState<ViewMode>("day");
+  const [view, setView] = useState<ViewMode>("week");
   const [anchor, setAnchor] = useState<Date>(startOfDay(new Date())); // pivots both views
   const [orders, setOrders] = useState<Order[]>([]);
   const [items, setItems] = useState<OrderItem[]>([]);
@@ -228,7 +225,7 @@ export default function KitchenProductionPage() {
       setOrders(ords);
       setStations(stationsRes);
       // Service returns Promise<any[]>; cast to our local PrepTask shape.
-      setTasks((tasksRes || []) as PrepTask[]);
+      setTasks(dedupeKitchenPrepTasks((tasksRes || []) as PrepTask[]));
 
       const orderIds = ords.map((o) => o.id);
       if (orderIds.length === 0) {
@@ -784,7 +781,7 @@ export default function KitchenProductionPage() {
                     {queued.map(({ task, minsFromNow }) => {
                       const ord = orderById.get(task.order_id);
                       const station = task.station_id ? stationById.get(task.station_id) : null;
-                      const taskTypeLabel = TASK_TYPE_LABEL[task.task_type as string] || task.task_type;
+                      const taskTypeLabel = formatKitchenPrepTaskType(task.task_type);
                       const lateClass =
                         minsFromNow < -15 ? "bg-rose-100 text-rose-900 border-rose-300 font-bold animate-pulse" :
                         minsFromNow < 0 ? "bg-rose-50 text-rose-800 border-rose-200 font-semibold" :
@@ -877,8 +874,8 @@ export default function KitchenProductionPage() {
                 {/* KIT3-D: "Generate prep plan" CTA. Renders when the
                     day has orders but at least one of them has zero
                     prep tasks. Fires ensurePrepTasksForOrder per
-                    order so the chef doesn't have to deep-link into
-                    each ticket manually. */}
+                    order so the chef does not have to open each order
+                    document manually. */}
                 {ordersWithoutPrep.length > 0 && (
                   <PortalCard padded={false} className="mb-3 bg-amber-50 border-l-4 border-l-amber-500 dark:bg-amber-950/30">
                     <div className="p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center gap-3">
@@ -986,11 +983,9 @@ export default function KitchenProductionPage() {
                             })}
 
                             {/* Task blocks. KIT3-C: each block links
-                                through to the kitchen ticket for the
-                                order so the chef can tap a block on
-                                the timeline and land on the printable
-                                prep sheet. The block was already
-                                cursor-pointer but did nothing on click. */}
+                                through to the unified order document so
+                                the chef can tap a block on the timeline
+                                and land on the kitchen section. */}
                             {stationTasks.map((t: any) => {
                               const pos = taskPosition(t);
                               if (!pos) return null;
@@ -1006,13 +1001,13 @@ export default function KitchenProductionPage() {
                                     width: `${pos.widthPct}%`,
                                     minWidth: "60px",
                                   }}
-                                  title={`Open kitchen ticket - ${TASK_TYPE_LABEL[t.task_type] || t.task_type} · ${t.menu_item_name} · ${eventName} · ${t.duration_min}m`}
+                                  title={`Open order document - ${formatKitchenPrepTaskType(t.task_type)} · ${t.menu_item_name} · ${eventName} · ${t.duration_min}m`}
                                 >
                                   <p className="font-semibold truncate leading-tight">
                                     {t.menu_item_name}
                                   </p>
                                   <p className="truncate text-[10px] opacity-80 leading-tight">
-                                    {TASK_TYPE_LABEL[t.task_type] || t.task_type} &middot; {t.duration_min}m &middot; {eventName}
+                                    {formatKitchenPrepTaskType(t.task_type)} &middot; {t.duration_min}m &middot; {eventName}
                                   </p>
                                 </Link>
                               );
@@ -1086,11 +1081,10 @@ export default function KitchenProductionPage() {
                           const lineItems = itemsByOrder[o.id] || [];
                           const orderTasks = tasks.filter((t: any) => t.order_id === o.id);
                           const tasksDone = orderTasks.filter((t: any) => t.status === "done").length;
-                          // Wave 70.43c - whole card becomes a link to
-                          // the print-friendly kitchen ticket. Bobby's
-                          // brief: "when I see the order, user must be
-                          // able to click on the order to see the kitchen
-                          // ticket". Hover lift + ring give the affordance.
+                          // Wave 70.43c - whole card links to the unified
+                          // order document. Kitchen details live in the
+                          // kitchen section; print mode still produces a
+                          // paper run sheet when needed.
                           return (
                             <Link
                               key={o.id}
@@ -1149,7 +1143,7 @@ export default function KitchenProductionPage() {
                                   </p>
                                 )}
                                 <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-800 text-[10px] text-brand-primary font-medium opacity-0 group-hover:opacity-100 transition-opacity">
-                                  Open kitchen ticket →
+                                  Open order document
                                 </div>
                               </div>
                             </PortalCard>

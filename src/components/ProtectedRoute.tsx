@@ -8,6 +8,7 @@ import { AlertCircle, Loader2, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { authService } from "@/services/authService";
 import { profileService } from "@/services/profileService";
+import { normalizeRoleValue, uniqueRoles } from "@/lib/roleDerivation";
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -25,7 +26,7 @@ export function ProtectedRoute({
   requireAuth = true,
   requireAdmin = false,
 }: ProtectedRouteProps) {
-  const { user, profile, loading } = useAuth();
+  const { user, profile, loading, userRoles, activeRole } = useAuth();
   const router = useRouter();
   const [authorized, setAuthorized] = useState(false);
   const [isChecking, setIsChecking] = useState(true);
@@ -71,8 +72,17 @@ export function ProtectedRoute({
       try {
         // Check if user has required role
         if (allowedRoles && allowedRoles.length > 0) {
+          const roleSet = uniqueRoles([
+            ...(userRoles || []),
+            normalizeRoleValue(user?.role),
+            normalizeRoleValue(user?.active_role),
+            normalizeRoleValue(profile.role),
+            normalizeRoleValue(profile.active_role),
+            normalizeRoleValue(activeRole),
+          ]);
+
           // GOD MODE: Super Admins bypass all role restrictions
-          if (profile.role === UserRole.SUPER_ADMIN || profile.active_role === UserRole.SUPER_ADMIN) {
+          if (roleSet.includes(UserRole.SUPER_ADMIN)) {
             setAuthorized(true);
             setIsChecking(false);
             return;
@@ -80,9 +90,9 @@ export function ProtectedRoute({
 
           const hasAccess = allowedRoles.some(role => {
             if (role === UserRole.ADMIN) {
-              return isAdmin(profile.role as UserRole) || isAdmin(profile.active_role as UserRole);
+              return roleSet.some((candidate) => isAdmin(candidate));
             }
-            return profile.role === role || profile.active_role === role;
+            return roleSet.includes(role);
           });
 
           if (!hasAccess) {
@@ -102,7 +112,7 @@ export function ProtectedRoute({
     };
 
     checkAuth();
-  }, [user, profile, allowedRoles]);
+  }, [user, profile, allowedRoles, userRoles, activeRole]);
 
   // Show loading state
   if (loading || isChecking) {
@@ -122,7 +132,8 @@ export function ProtectedRoute({
   // Show unauthorized message
   if (requireAuth && user && !authorized) {
     const redirectToHome = () => {
-      const landingPage = getRoleLandingPage(user.role, user.company_slug);
+      const landingRole = normalizeRoleValue(activeRole) || normalizeRoleValue(user.active_role) || user.role;
+      const landingPage = getRoleLandingPage(landingRole, user.company_slug);
       router.replace(landingPage);
     };
 

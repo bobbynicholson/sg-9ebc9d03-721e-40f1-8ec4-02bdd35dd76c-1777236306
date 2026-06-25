@@ -25,6 +25,7 @@ import type { NextRequest, NextResponse } from "next/server";
 export interface CachedProfilePayload {
   uid: string;
   role: string | null;
+  roles?: string[];
   company_id: string | null;
   slug: string | null;
   onboarding_completed_at: string | null;

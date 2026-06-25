@@ -273,6 +273,56 @@ function KitchenScheduleGrid() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [companyId, weekStart, monthCursor, viewMode, refreshSignal]);
 
+  useEffect(() => {
+    if (!companyId) return;
+
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    const refresh = () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        debounceTimer = null;
+        void load();
+      }, 400);
+    };
+
+    const channelSuffix = Math.random().toString(36).slice(2, 10);
+    const channel = supabase
+      .channel(`admin-kitchen-schedule-${companyId}-${channelSuffix}`)
+      .on("postgres_changes" as any, {
+        event: "*",
+        schema: "public",
+        table: "orders",
+        filter: `company_id=eq.${companyId}`,
+      }, refresh)
+      .on("postgres_changes" as any, {
+        event: "*",
+        schema: "public",
+        table: "kitchen_shifts",
+        filter: `company_id=eq.${companyId}`,
+      }, refresh)
+      .on("postgres_changes" as any, {
+        event: "*",
+        schema: "public",
+        table: "staff_shift_tasks",
+        filter: `company_id=eq.${companyId}`,
+      }, refresh)
+      .on("postgres_changes" as any, {
+        event: "*",
+        schema: "public",
+        table: "profiles",
+        filter: `company_id=eq.${companyId}`,
+      }, refresh)
+      .subscribe();
+
+    window.addEventListener("focus", refresh);
+    return () => {
+      window.removeEventListener("focus", refresh);
+      if (debounceTimer) clearTimeout(debounceTimer);
+      void channel.unsubscribe();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyId, weekStart, monthCursor, viewMode]);
+
   const shiftIndex = useMemo(() => {
     const map: Record<string, ShiftRow[]> = {};
     for (const s of shifts) {

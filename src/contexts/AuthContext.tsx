@@ -6,6 +6,7 @@ import type { Tables } from "@/integrations/supabase/types";
 import { UserRole } from "@/types/app";
 import { profileService } from "@/services/profileService";
 import { prewarmCompanyTemplates } from "@/services/messageTemplateService";
+import { deriveUserRoles } from "@/lib/roleDerivation";
 
 type Company = Tables<"companies">;
 type DbProfile = Tables<"profiles">;
@@ -64,7 +65,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [company, setCompany] = useState<Company | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [userRoles, setUserRoles] = useState<any[]>([]);
+  const [userRoles, setUserRoles] = useState<UserRole[]>([]);
   const [activeRole, setActiveRole] = useState<string>(UserRole.ADMIN);
 
   useEffect(() => {
@@ -113,7 +114,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(devUser);
       setProfile(null);
       setCompany(devCompany);
-      setUserRoles([]);
+      setUserRoles([UserRole.SUPER_ADMIN]);
       setActiveRole(UserRole.SUPER_ADMIN);
       setLoading(false);
       return;
@@ -199,14 +200,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             prewarmCompanyTemplates(userProfile.company_id).catch(() => {});
           }
 
-          const roleValue = (userProfile.role as UserRole) || UserRole.CLIENT;
+          const { data: departmentRows, error: departmentError } = await supabase
+            .from("user_departments")
+            .select("department, is_primary")
+            .eq("user_id", session.user.id)
+            .order("is_primary", { ascending: false });
+          if (departmentError) {
+            console.error("[AuthContext] user_departments fetch failed:", departmentError);
+          }
+
+          const derivedRoles = deriveUserRoles({
+            profileRole: userProfile.role,
+            activeRole: userProfile.active_role,
+            departments: departmentRows || [],
+          });
+          const roleValue = derivedRoles.roles[0] || UserRole.CLIENT;
 
           const authenticatedUser: AuthenticatedUser = {
             id: session.user.id,
             email: session.user.email || "",
             full_name: userProfile.full_name || "",
             role: roleValue,
-            active_role: roleValue as string,
+            active_role: derivedRoles.activeRole,
             avatar_url: userProfile.avatar_url || "",
             currency: userProfile.currency || "ZAR",
             company_id: userProfile.company_id || undefined,
@@ -221,8 +236,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setUser(authenticatedUser);
           setProfile(userProfile as DbProfile);
           setCompany(userCompany);
-          setUserRoles([]);
-          setActiveRole(roleValue);
+          setUserRoles(derivedRoles.roles);
+          setActiveRole(derivedRoles.activeRole);
 
           // Phase 6 follow-up: bind tenant tags to the observability
           // scope so every subsequent captureException carries company
@@ -234,7 +249,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setGlobalTags({
               companyId: userProfile.company_id || null,
               userId: session.user.id,
-              role: roleValue,
+              role: derivedRoles.activeRole,
             });
           } catch { /* non-fatal */ }
         }

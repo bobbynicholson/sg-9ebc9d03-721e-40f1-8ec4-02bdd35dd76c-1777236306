@@ -175,8 +175,9 @@ export function useAdminPortalMode(): AdminPortalModeState {
         eventsQ, transitQ, quotesQ, companyQ,
       ]);
 
-      setEventsToday(eventsRes?.count || 0);
-      setInTransitNow(transitRes?.count || 0);
+      const transitCount = transitRes?.count || 0;
+      setEventsToday(Math.max(eventsRes?.count || 0, transitCount));
+      setInTransitNow(transitCount);
       setQuotesOverdue(quotesRes?.count || 0);
 
       const c = companyRes?.data as { created_at: string | null; onboarding_completed_at: string | null } | null;

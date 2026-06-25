@@ -34,6 +34,56 @@ export const config = {
   api: { bodyParser: { sizeLimit: "8kb" } },
 };
 
+function asArray(value: any): any[] {
+  if (Array.isArray(value)) return value;
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
+function moneyNumber(...values: any[]): number {
+  for (const value of values) {
+    if (value === null || value === undefined || value === "") continue;
+    const n = Number(value);
+    if (Number.isFinite(n)) return n;
+  }
+  return 0;
+}
+
+function menuLineFromRow(row: any): any {
+  const quantity = moneyNumber(row?.quantity, row?.qty, 1) || 1;
+  const unitPrice = moneyNumber(row?.unitPrice, row?.unit_price, row?.price);
+  const total = moneyNumber(row?.total, row?.line_total, row?.lineTotal, quantity * unitPrice);
+  return {
+    description: row?.description || row?.item_name || row?.menu_item_name || row?.name || "Menu item",
+    quantity,
+    unitPrice,
+    total,
+    note: row?.notes || row?.note || null,
+  };
+}
+
+function equipmentLineFromRow(row: any): any {
+  const equipment = row?.equipment || {};
+  const quantity = moneyNumber(row?.quantity, row?.qty, 1) || 1;
+  const unitPrice = moneyNumber(row?.unitPrice, row?.unit_price, row?.rentalPrice, row?.rental_price, equipment?.rental_price);
+  const total = moneyNumber(row?.total, row?.line_total, row?.lineTotal, quantity * unitPrice);
+  return {
+    description: row?.description || row?.equipment_name || row?.name || equipment?.name || "Equipment",
+    quantity,
+    unitPrice,
+    total,
+    isHireIn: row?.isHireIn ?? row?.is_hire_in ?? equipment?.is_hire_in ?? false,
+    note: row?.notes || row?.note || null,
+  };
+}
+
 async function handler(req: NextApiRequest, res: NextApiResponse) {
   applyCorsHeaders(res);
   if (req.method === "OPTIONS") return res.status(204).end();
@@ -85,31 +135,75 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   }
 
   let invoiceForResponse = data as any;
-  const snapshotItems = Array.isArray(invoiceForResponse.invoice_data?.items)
-    ? invoiceForResponse.invoice_data.items
-    : [];
-  if (snapshotItems.length === 0 && invoiceForResponse.order_id) {
-    const { data: orderItems } = await supabase
-      .from("order_items")
-      .select("item_name, description, quantity, unit_price, line_total")
-      .eq("order_id", invoiceForResponse.order_id)
-      .order("created_at", { ascending: true });
+  const invoiceData = invoiceForResponse.invoice_data && typeof invoiceForResponse.invoice_data === "object"
+    ? { ...invoiceForResponse.invoice_data }
+    : {};
+  const snapshotItems = asArray(invoiceData.items);
+  const hasMenuSnapshot = asArray(invoiceData.menuItems).length > 0 || asArray(invoiceData.menu_items).length > 0;
+  const hasEquipmentSnapshot = asArray(invoiceData.equipmentItems).length > 0 || asArray(invoiceData.equipment_items).length > 0;
 
-    if (Array.isArray(orderItems) && orderItems.length > 0) {
-      invoiceForResponse = {
-        ...invoiceForResponse,
-        invoice_data: {
-          ...(invoiceForResponse.invoice_data || {}),
-          items: orderItems.map((item: any) => ({
-            description: item.description || item.item_name || "Item",
-            quantity: Number(item.quantity || 0),
-            unitPrice: Number(item.unit_price || 0),
-            total: Number(item.line_total ?? (Number(item.quantity || 0) * Number(item.unit_price || 0))),
-          })),
-        },
-      };
+  if (invoiceForResponse.order_id) {
+    const { data: orderMeta } = await supabase
+      .from("orders")
+      .select("id, quote_id, package_id")
+      .eq("id", invoiceForResponse.order_id)
+      .maybeSingle();
+
+    let quoteMenuItems: any[] = [];
+    let quoteEquipmentItems: any[] = [];
+    if ((orderMeta as any)?.quote_id) {
+      const { data: quote } = await supabase
+        .from("quotes")
+        .select("menu_items, equipment_items")
+        .eq("id", (orderMeta as any).quote_id)
+        .maybeSingle();
+      quoteMenuItems = asArray((quote as any)?.menu_items);
+      quoteEquipmentItems = asArray((quote as any)?.equipment_items);
+    }
+
+    if (!hasMenuSnapshot) {
+      let menuItems = quoteMenuItems.map(menuLineFromRow);
+      if (menuItems.length === 0) {
+        const { data: orderItems } = await supabase
+          .from("order_items")
+          .select("item_name, description, quantity, unit_price, line_total")
+          .eq("order_id", invoiceForResponse.order_id)
+          .order("created_at", { ascending: true });
+        menuItems = (orderItems || []).map(menuLineFromRow);
+      }
+      if (menuItems.length > 0) invoiceData.menuItems = menuItems;
+    }
+
+    if (!hasEquipmentSnapshot) {
+      let equipmentItems = quoteEquipmentItems.map(equipmentLineFromRow);
+      if (equipmentItems.length === 0) {
+        const { data: bookings } = await supabase
+          .from("equipment_bookings")
+          .select("id, quantity, equipment:equipment_id(name, rental_price, is_hire_in)")
+          .eq("order_id", invoiceForResponse.order_id)
+          .order("created_at", { ascending: true });
+        equipmentItems = (bookings || []).map(equipmentLineFromRow);
+      }
+      if (equipmentItems.length > 0) invoiceData.equipmentItems = equipmentItems;
+    }
+
+    if (!invoiceData.packageName && (orderMeta as any)?.package_id) {
+      const { data: bookingPackage } = await supabase
+        .from("booking_packages")
+        .select("name")
+        .eq("id", (orderMeta as any).package_id)
+        .maybeSingle();
+      if ((bookingPackage as any)?.name) invoiceData.packageName = (bookingPackage as any).name;
     }
   }
+
+  if (snapshotItems.length === 0 && asArray(invoiceData.menuItems).length > 0) {
+    invoiceData.items = asArray(invoiceData.menuItems);
+  }
+  invoiceForResponse = {
+    ...invoiceForResponse,
+    invoice_data: invoiceData,
+  };
 
   // Completed payments against this invoice, so the page can show WHEN
   // the deposit (and any further payment) actually landed, not just the

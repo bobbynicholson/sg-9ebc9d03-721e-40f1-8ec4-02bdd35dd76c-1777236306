@@ -18,14 +18,14 @@ export type SectionAccent = "slate" | "orange" | "emerald" | "indigo" | "amber" 
 
 const ACCENTS: Record<SectionAccent, { bar: string; ring: string; bg: string; text: string }> = {
   slate:   { bar: "bg-slate-400",   ring: "ring-slate-200",   bg: "bg-white",         text: "text-slate-900" },
-  orange:  { bar: "bg-orange-500",  ring: "ring-orange-200",  bg: "bg-orange-50/40",  text: "text-orange-900" },
+  orange:  { bar: "bg-brand-primary", ring: "ring-brand-primary/20", bg: "bg-brand-primary/10", text: "text-brand-primary" },
   emerald: { bar: "bg-brand-primary", ring: "ring-brand-primary/20", bg: "bg-brand-primary/10", text: "text-brand-primary" },
-  indigo:  { bar: "bg-indigo-500",  ring: "ring-indigo-200",  bg: "bg-indigo-50/40",  text: "text-indigo-900" },
-  amber:   { bar: "bg-amber-500",   ring: "ring-amber-200",   bg: "bg-amber-50/40",   text: "text-amber-900" },
-  purple:  { bar: "bg-purple-500",  ring: "ring-purple-200",  bg: "bg-purple-50/40",  text: "text-purple-900" },
+  indigo:  { bar: "bg-brand-primary", ring: "ring-brand-primary/20", bg: "bg-brand-primary/10", text: "text-brand-primary" },
+  amber:   { bar: "bg-brand-primary", ring: "ring-brand-primary/20", bg: "bg-brand-primary/10", text: "text-brand-primary" },
+  purple:  { bar: "bg-brand-primary", ring: "ring-brand-primary/20", bg: "bg-brand-primary/10", text: "text-brand-primary" },
   cyan:    { bar: "bg-brand-primary",    ring: "ring-brand-primary/20",    bg: "bg-brand-primary/10",    text: "text-brand-primary" },
-  rose:    { bar: "bg-rose-500",    ring: "ring-rose-200",    bg: "bg-rose-50/40",    text: "text-rose-900" },
-  blue:    { bar: "bg-blue-500",    ring: "ring-blue-200",    bg: "bg-blue-50/40",    text: "text-blue-900" },
+  rose:    { bar: "bg-brand-primary", ring: "ring-brand-primary/20", bg: "bg-brand-primary/10", text: "text-brand-primary" },
+  blue:    { bar: "bg-brand-primary", ring: "ring-brand-primary/20", bg: "bg-brand-primary/10", text: "text-brand-primary" },
 };
 
 export function CollapsibleSection({

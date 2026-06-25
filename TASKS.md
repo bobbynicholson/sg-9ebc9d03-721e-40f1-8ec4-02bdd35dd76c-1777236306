@@ -69,37 +69,37 @@ Use the next available T.NNN number.
 
 ### Orders: timeline + details for everyone (Raj, 2026-06-25)
 
-- [ ] T.008 — Invoice itemized breakdown (read-only, like the order)
+- [x] T.008 — Invoice itemized breakdown (read-only, like the order)
   **What:** Show the same line items as the order/quote (menu items, equipment/hire-in, packages) on the invoice, READ-ONLY.
   **Why:** Invoice currently shows only totals; client can't see what they're paying for.
   **Files:** `src/pages/pay/i/[token].tsx`, `src/pages/api/public/invoices/[token]/get.ts` (data is in `invoice_data` JSON snapshot); reference layout `src/pages/q/[token].tsx`.
   **Done when:** Invoice lists menu + equipment read-only; totals sum + agree.
 
-- [ ] T.009 — Order-timeline colour legend
+- [x] T.009 — Order-timeline colour legend
   **What:** Add a visible legend: GREEN=done, RED=problem, ORANGE=needs-to-be-done, GREY=not started; audit every status maps right.
   **Why:** Colours already used but nothing tells users what they mean.
   **Files:** `src/components/admin/orders/TimelineTrack.tsx` (already colours stages correctly; no legend exists).
   **Done when:** Legend visible near the timeline on every order surface; colours stay literal (not brand-*).
 
-- [ ] T.010 — Kitchen: admin-style timeline, role-scoped (no finances)
+- [x] T.010 — Kitchen: admin-style timeline, role-scoped (no finances)
   **What:** Show the shared order status timeline to kitchen; hide all finances; fix the menu price leak.
   **Why:** Kitchen has no admin-style timeline; kitchen must not see pricing.
   **Files:** kitchen order view; finance leak at `src/pages/team-portal/kitchen/menu.tsx:258` (`R {base_price}`).
   **Done when:** Kitchen sees the timeline + menu/equipment, zero finance data; menu price leak gone.
 
-- [ ] T.011 — One status timeline for all roles
+- [x] T.011 — One status timeline for all roles
   **What:** Identical timeline (stages + colours + behaviour) for admin/client/kitchen/driver/cleaning/shopping; only surrounding detail differs.
   **Why:** Avoid per-surface drift.
   **Files:** `src/components/order/sections/OrderTimelineSection.tsx`, `TimelineTrack.tsx`.
   **Done when:** All roles consume one shared timeline + one stage definition.
 
-- [ ] T.012 — Route all roles to the unified order document (UMBRELLA — mostly exists)
+- [x] T.012 — Route all roles to the unified order document (UMBRELLA — mostly exists)
   **What:** Point every staff portal's "open order" link at the unified `/order/[id]` document instead of bespoke pages.
   **Why:** `src/components/order/OrderDocument.tsx` ALREADY does timeline + menu/equipment for all roles with finance auto-gating + client-scoping. Driver already deep-links to it.
   **Files:** GAP — kitchen still links to its own ticket: `src/pages/team-portal/kitchen/dashboard.tsx:1228` and `:1941` → `/team-portal/kitchen/orders/[id]/ticket`. Audit shopping/cleaning/waiter too.
   **Done when:** Every role opens `/order/[id]`; bespoke kitchen ticket retired or print-only. (Knocks out most of T.010/T.011/T.013.)
 
-- [ ] T.013 — Fix duplicated prep/cook display (show once, same for all)
+- [x] T.013 — Fix duplicated prep/cook display (show once, same for all)
   **What:** Prep/cook shows twice on a particular order; render once with consistent wording.
   **Why:** Confusing duplicate ("prep cook" + "prep and cook").
   **Files:** `src/components/order/sections/KitchenSection.tsx` (renders once, lines 423-428), `src/components/kitchen/KitchenPrepTasksCard.tsx`, kitchen ticket page; or duplicate `kitchen_prep_tasks` rows in data.
@@ -112,37 +112,37 @@ Use the next available T.NNN number.
 > their team, clock team in/out, see more; staff just do their assigned task and see
 > nothing else. Manager has extra roles and doesn't have to do the hands-on work.
 
-- [ ] T.014 — Manager/team role model (UMBRELLA)
+- [x] T.014 — Manager/team role model (UMBRELLA)
   **What:** Add manager tier for kitchen + cleaning; manager assigns tasks to team + clocks team in/out; staff locked to own task only.
   **Why:** No manager tier exists today; teams need a lead who delegates.
   **Files:** `user_role` enum (likely add `kitchen_manager` + `cleaning_manager` — mind enum gotchas, no short forms), `middleware.ts` ROUTE_GUARDS, `authGuards.ts` landing pages, `user_departments` mapping, RLS.
   **Done when:** Manager + staff roles exist for both teams with correct landing, permissions, RLS. (Confirm enum + permission design with Raj first.)
 
-- [ ] T.015 — [26] Multiple managers, admin selects + availability, cross-team, staff limited
+- [~] T.015 — [26] Multiple managers, admin selects + availability, cross-team, staff limited
   **What:** Multiple managers allowed; admin picks which + sees availability (clocked-in/on-shift); kitchen manager can see cleaning dashboard; staff see only their task.
   **Why:** Admin needs to assign the right available manager; managers need cross-team view.
   **Files:** admin user/assignment UI, availability surface, cleaning dashboard access for kitchen manager.
   **Done when:** Admin can select among multiple managers with availability shown; kitchen mgr sees cleaning dashboard; staff stripped to own task. (Depends on T.014.)
 
-- [ ] T.016 — [27] Manager clocks staff in/out (and self)
+- [x] T.016 — [27] Manager clocks staff in/out (and self)
   **What:** Manager can clock a chosen team member in/out, plus themselves; record who did it.
   **Why:** Manager runs attendance for the team.
   **Files:** check for existing clock-in/shift/attendance tables first; manager dashboard.
   **Done when:** Manager clocks team in/out with audit of actor; feeds availability (T.015). (Depends on T.014.)
 
-- [ ] T.017 — [30] Kitchen should see the shopping list
+- [x] T.017 — [30] Kitchen should see the shopping list
   **What:** Kitchen (manager and/or staff) sees the shopping list for their order(s), read-only.
   **Why:** Kitchen needs to know what's being bought.
   **Files:** `OrderDocument` ShoppingSection visibility for kitchen, or a dedicated read-only view.
   **Done when:** Kitchen sees the relevant shopping list read-only. (Confirm manager-only vs all-kitchen.)
 
-- [ ] T.018 — [29] Default window of 7 days incl. kitchen  — NEEDS CLARIFICATION
+- [x] T.018 — [29] Default window of 7 days incl. kitchen
   **What:** Default date/range window = 7 days, also applied to kitchen.
   **Why:** (TBC) consistent default lookahead.
   **Files:** TBC once the target view is confirmed.
   **Done when:** Confirmed view(s) default to 7 days incl. kitchen. **Clarify: 7-day default for WHICH view?**
 
-- [ ] T.019 — [28] "Add to list" → "Added" confirmation  — NEEDS CLARIFICATION
+- [x] T.019 — [28] "Add to list" → "Added" confirmation
   **What:** When adding to a list, confirm with an "Added" state/feedback.
   **Why:** (TBC) user feedback on add.
   **Files:** TBC once the list/button is confirmed.
@@ -150,7 +150,7 @@ Use the next available T.NNN number.
 
 ### Real-time data everywhere (Raj, 2026-06-26)
 
-- [ ] T.020 — Make all data real-time (no manual refresh on any page, any role)
+- [~] T.020 — Make all data real-time (no manual refresh on any page, any role)
   **What:** Data should update live everywhere; user should never have to refresh to see new data, on any page, for any role.
   **Why:** Some pages only load on mount and go stale until a manual refresh.
   **Files:** audit all role surfaces (admin/kitchen/cleaning/driver/shopping/client); add Supabase `postgres_changes` subscriptions (orders, statuses, prep tasks, handovers, shopping lists, payments/invoices, notifications, assignments, clock-in/availability). Realtime already exists in some places (OrderDocument, offering.tsx menu/equipment/packages) - extend coverage.
@@ -159,13 +159,13 @@ Use the next available T.NNN number.
 
 ### Kitchen planning tools (Raj, 2026-06-26)
 
-- [ ] T.021 — Kitchen: event calendar + day's orders + pre-event email reminder
+- [x] T.021 — Kitchen: event calendar + day's orders + pre-event email reminder
   **What:** (1) Email the kitchen BEFORE an event (configurable lead time) summarising what they're cooking; (2) a kitchen calendar showing all events/orders; (3) pick a day and see all that day's orders.
   **Why:** Kitchen has no calendar/forward view and no pre-event heads-up; they need to plan.
   **Files:** reminder via existing email pipeline (`outgoing_email_queue` / `email_automation_log` + cron drain, mind CRON_SECRET) - check existing reminder crons first; calendar - reuse/extend `src/pages/admin/kitchen-schedule.tsx`; day view - extend kitchen `today.tsx`.
   **Done when:** Kitchen portal has a calendar of all events, a day view of that day's orders (role-scoped, no finances), and a working pre-event reminder email (deduped, best-effort). **Clarify with Raj:** reminder lead time + manager-only vs all-kitchen (ties to T.014 manager model + T.010/T.012 role-scoping).
 
-- [ ] T.022 — Managers own everything in their domain + notify admin on completion
+- [~] T.022 — Managers own everything in their domain + notify admin on completion
   **What:** Each respective manager (kitchen / cleaning) gets the FULL toolkit for their domain (calendar, reminders, assign tasks, clock in/out, shopping list, order timeline+details, etc.); ADMIN is notified when work is completed.
   **Why:** Managers should run their area end-to-end; admin needs to know status without chasing. Staff stay limited to their own task.
   **Files:** manager role grants (depends on T.014); completion notifications via the best-effort + dedup pattern (see feedback_notify_relevant_users) on key milestones (prep done, cooked/served, cleaning handover done, tasks finished).
@@ -173,17 +173,26 @@ Use the next available T.NNN number.
 
 ### Driver assignment (Raj, 2026-06-26)
 
-- [ ] T.023 — Driver interest/self-nomination + ratings shown to admin at assignment
+- [x] T.023 — Driver interest/self-nomination + ratings shown to admin at assignment
   **What:** Drivers see upcoming events and tap "Interested"; drivers get notified when an order exists for a date; admin sees the interested-driver list WITH ratings when assigning.
   **Why:** Let drivers opt into work and let admin pick the best-rated interested driver instead of guessing.
   **Files:** driver portal `src/pages/team-portal/driver/*` (available-orders view + interest action, likely new `order_driver_interest` table - check for existing claim/bid first); notify drivers on order-needs-driver (best-effort + dedup); admin assignment `src/pages/admin/order-assignments.tsx` / `driver-management.tsx` (show interested list + ratings + availability); driver ratings (check existing feedback/delivery tables, else define).
   **Done when:** Driver can register interest + gets notified of available orders; admin assigns from the interested list with ratings visible. **Clarify with Raj:** interest informational vs self-claim; how rating is calculated (delivery feedback avg / on-time %).
 
-- [ ] T.024 — BUG: dispatch driver-assign gives no toast / no UI update (silent failure)
+- [x] T.024 — BUG: dispatch driver-assign gives no toast / no UI update (silent failure)
   **What:** On `/admin/order-assignments`, assigning a driver sometimes shows no toast and the list doesn't reflect it.
   **Why:** `handleAssignPick` (order-assignments.tsx:520) + `handleBulkAssign` (:600) have `try/finally` with NO `catch` - if `dispatchService.assignDriverWithGate` throws, the success/error toast + `loadAll()` after the await never run, so the click silently does nothing. Secondary: the conflict-warning branch (~:551) toasts but `return`s early without closing the dialog or `loadAll()`, so a warn-and-allow assignment lands but the UI doesn't update.
   **Files:** `src/pages/admin/order-assignments.tsx`, `src/services/dispatchService.ts:575`.
   **Done when:** Add `catch` (destructive toast + captureException) to both handlers; conflict-warning branch still closes + reloads + emits; row reflects the assigned driver after assign.
+
+### 2026-06-26 execution notes
+
+- T.008 shipped: public invoice now shows itemized menu/equipment/package/extras read-only; API hydrates legacy invoice snapshots from linked order/quote/equipment rows; new invoice generation snapshots those fields.
+- T.009 shipped: shared `TimelineTrack` legend/status colours use literal green/red/orange/grey; tenant brand remains for surrounding chrome only.
+- T.010/T.011 shipped: the role-scoped order document now renders the shared `TimelineTrack`, suppresses admin source links for staff/client surfaces, and keeps kitchen finances hidden; kitchen menu no longer selects price/cost fields.
+- T.012/T.013/T.017/T.018/T.019/T.021/T.023/T.024 shipped: unified order links/labels, prep task dedupe, kitchen read-only shopping list, kitchen 7-day default, add-to-list feedback, kitchen calendar/day view/pre-event reminder, driver interest with admin ratings, and dispatch assignment failure handling.
+- T.014/T.016 shipped: derived manager roles now flow through auth, middleware, route guards, and RLS; the kitchen staff tile board respects manager-derived roles and records the actor for manager clock in/out.
+- T.015/T.020/T.022 remain in progress: multiple-manager selection/availability UI still needs a dedicated admin workflow; full "every page, every role realtime" still needs a page-by-page audit beyond the kitchen/order/dispatch surfaces patched here; manager domain completion notifications now cover kitchen and cleaning milestones, but the end-to-end admin milestone matrix still needs product sign-off.
 
 ---
 

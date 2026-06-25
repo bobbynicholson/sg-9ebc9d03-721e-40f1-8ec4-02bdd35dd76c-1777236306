@@ -25,12 +25,13 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Calendar, Clock, MapPin, Users, Loader2, Hand, Inbox, Phone } from "lucide-react";
+import { Calendar, Clock, MapPin, Users, Loader2, Hand, Inbox, Phone, Star } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { toLocalISO } from "@/lib/localDate";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
+import { orderDriverInterestService } from "@/services/orderDriverInterestService";
 
 interface OpenOrder {
   id: string;
@@ -66,6 +67,8 @@ export function AvailableJobsCard({ onClaimed }: Props) {
   const [rows, setRows] = useState<OpenOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [interestBusyId, setInterestBusyId] = useState<string | null>(null);
+  const [interestedOrderIds, setInterestedOrderIds] = useState<Set<string>>(new Set());
   // Bobby's brief: drivers were tapping Claim without realising the
   // commitment. Two-step confirm with the order facts spelled out so
   // the driver consciously accepts the date / time / venue before the
@@ -119,6 +122,12 @@ export function AvailableJobsCard({ onClaimed }: Props) {
     });
 
     setRows(filtered);
+    const interestIds = await orderDriverInterestService.getMyInterestedOrderIds(
+      companyId,
+      userId,
+      filtered.map((row) => row.id),
+    );
+    setInterestedOrderIds(interestIds);
     setLoading(false);
   }, [companyId, userId]);
 
@@ -220,6 +229,34 @@ export function AvailableJobsCard({ onClaimed }: Props) {
     }
   };
 
+  const onInterested = async (order: OpenOrder) => {
+    if (!companyId || !userId) return;
+    setInterestBusyId(order.id);
+    try {
+      await orderDriverInterestService.markInterested({
+        companyId,
+        orderId: order.id,
+        driverId: userId,
+      });
+      setInterestedOrderIds((prev) => new Set(prev).add(order.id));
+      toast({
+        title: "Interest sent",
+        description: `${order.order_number || order.client_name || "Order"} is flagged for dispatch.`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Could not mark interest",
+        description: dbErrorMessage(error, {
+          entity: "driver interest",
+          fallback: "Refresh and try again.",
+        }),
+        variant: "destructive",
+      });
+    } finally {
+      setInterestBusyId(null);
+    }
+  };
+
   if (!companyId || !userId) return null;
   if (loading) {
     return (
@@ -260,6 +297,8 @@ export function AvailableJobsCard({ onClaimed }: Props) {
       <CardContent className="space-y-2">
         {rows.map((o) => {
           const isBusy = busyId === o.id;
+          const isInterestBusy = interestBusyId === o.id;
+          const isInterested = interestedOrderIds.has(o.id);
           return (
             <div
               key={o.id}
@@ -322,19 +361,35 @@ export function AvailableJobsCard({ onClaimed }: Props) {
                   </p>
                 )}
               </div>
-              <Button
-                size="sm"
-                onClick={() => setConfirmRow(o)}
-                disabled={isBusy}
-                className="bg-brand-primary hover:bg-brand-primary/90"
-              >
-                {isBusy ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Hand className="w-4 h-4" />
-                )}
-                <span className="ml-1">Claim</span>
-              </Button>
+              <div className="flex shrink-0 items-center gap-2">
+                <Button
+                  size="sm"
+                  variant={isInterested ? "outline" : "secondary"}
+                  onClick={() => onInterested(o)}
+                  disabled={isInterestBusy || isInterested}
+                  className={isInterested ? "border-brand-primary/20 text-brand-primary bg-brand-primary/10" : ""}
+                >
+                  {isInterestBusy ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Star className="w-4 h-4" />
+                  )}
+                  <span className="ml-1">Interested</span>
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => setConfirmRow(o)}
+                  disabled={isBusy}
+                  className="bg-brand-primary hover:bg-brand-primary/90"
+                >
+                  {isBusy ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Hand className="w-4 h-4" />
+                  )}
+                  <span className="ml-1">Claim</span>
+                </Button>
+              </div>
             </div>
           );
         })}

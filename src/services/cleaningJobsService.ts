@@ -335,7 +335,7 @@ export async function completeJob(
   // 1. Pull equipment_id + quantity for the bump.
   const { data: jobRow, error: readErr } = await sb
     .from("cleaning_jobs")
-    .select("equipment_id, quantity")
+    .select("company_id, equipment_id, quantity, triggered_by_event_id, method")
     .eq("id", jobId)
     .maybeSingle();
   if (readErr) return { ok: false, error: readErr.message };
@@ -381,7 +381,47 @@ export async function completeJob(
     }
   }
 
-  // 4. Cross-tab signal. Listeners on admin /admin/equipment,
+  // 4. Notify admins that cleaning is complete. Kitchen task
+  // completion already pings admins; cleaning completion needs the
+  // same best-effort milestone so ops don't have to poll the board.
+  if (jobRow?.company_id) {
+    try {
+      let equipmentName = "equipment";
+      if (jobRow.equipment_id) {
+        const { data: equipmentRow, error: equipmentErr } = await sb
+          .from("equipment")
+          .select("name")
+          .eq("id", jobRow.equipment_id)
+          .maybeSingle();
+        if (equipmentErr) {
+          console.warn("[cleaningJobsService.completeJob] equipment name lookup failed:", equipmentErr);
+        } else if (equipmentRow?.name) {
+          equipmentName = equipmentRow.name;
+        }
+      }
+
+      const { notificationService } = await import("@/services/notificationService");
+      await notificationService.broadcastNotification({
+        companyId: jobRow.company_id,
+        type: "cleaning_job_completed",
+        title: "Cleaning job completed",
+        message: `${jobRow.quantity || 1}x ${equipmentName} marked clean and available.`,
+        targetRoles: ["company_admin" as any, "admin" as any, "owner" as any, "super_admin" as any],
+        priority: "normal",
+        link: jobRow.triggered_by_event_id
+          ? `/order/${jobRow.triggered_by_event_id}?role=admin#section-cleaning`
+          : "/admin/equipment",
+        relatedEntityType: "cleaning_job",
+        relatedEntityId: jobId,
+        dedup: true,
+        dedupWindowMinutes: 120,
+      }, supabase as any);
+    } catch (notifyErr) {
+      console.warn("[cleaningJobsService.completeJob] completion notification failed:", notifyErr);
+    }
+  }
+
+  // 5. Cross-tab signal. Listeners on admin /admin/equipment,
   // /admin/order-assignments, and the kitchen dashboard refetch.
   if (typeof window !== "undefined") {
     try {

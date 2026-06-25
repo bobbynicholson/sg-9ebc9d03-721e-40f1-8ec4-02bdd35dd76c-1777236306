@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { getLandingPageForRoleString } from "@/lib/authGuards";
 import { readCachedProfile, writeCachedProfile } from "@/lib/middleware/profileCache";
+import { deriveUserRoles, normalizeRoleValue } from "@/lib/roleDerivation";
 
 // Routes that don't require authentication
 const PUBLIC_ROUTES = [
@@ -91,6 +92,14 @@ const isAuthorizedForRoute = (pathname: string, userRole: string): boolean => {
   }
 
   return false;
+};
+
+const isAuthorizedForAnyRole = (pathname: string, userRoles: string[]): boolean => {
+  return userRoles.some((role) => isAuthorizedForRoute(pathname, role));
+};
+
+const hasAnyRole = (userRoles: string[], allowedRoles: string[]): boolean => {
+  return userRoles.some((role) => allowedRoles.includes(role));
 };
 
 // Check if path is a public route
@@ -329,6 +338,7 @@ export async function middleware(request: NextRequest) {
   // rapid navigations; on miss we run the original queries and rewrite
   // the cookie at the end of the request.
   let profileRole: string | null = null;
+  let profileRoles: string[] = [];
   let profileCompanyId: string | null = null;
   let userCompanySlug: string | undefined;
   let onboardingCompletedAt: string | null = null;
@@ -337,7 +347,16 @@ export async function middleware(request: NextRequest) {
 
   const cached = await readCachedProfile(request, user.id);
   if (cached) {
-    profileRole = cached.role;
+    profileRole = normalizeRoleValue(cached.role) || cached.role;
+    profileRoles = (cached.roles && cached.roles.length > 0 ? cached.roles : [cached.role])
+      .map((role) => normalizeRoleValue(role))
+      .filter((role): role is NonNullable<ReturnType<typeof normalizeRoleValue>> => !!role);
+    if (profileRoles.length === 0 && cached.role) {
+      profileRoles = [cached.role];
+    }
+    if (!profileRole && profileRoles.length > 0) {
+      profileRole = profileRoles[0];
+    }
     profileCompanyId = cached.company_id;
     userCompanySlug = cached.slug ?? undefined;
     onboardingCompletedAt = cached.onboarding_completed_at;
@@ -347,11 +366,31 @@ export async function middleware(request: NextRequest) {
     try {
       const { data: profile } = await supabase
         .from("profiles")
-        .select("role, company_id")
+        .select("role, active_role, company_id")
         .eq("id", user.id)
         .single();
-      profileRole = profile?.role ?? null;
       profileCompanyId = profile?.company_id ?? null;
+
+      const { data: departmentRows, error: departmentError } = await supabase
+        .from("user_departments")
+        .select("department, is_primary")
+        .eq("user_id", user.id)
+        .order("is_primary", { ascending: false });
+      if (departmentError) {
+        console.error("[Middleware] Error fetching user departments:", departmentError);
+      }
+
+      const derivedRoles = deriveUserRoles({
+        profileRole: profile?.role,
+        activeRole: profile?.active_role,
+        departments: departmentRows || [],
+      });
+      profileRoles = derivedRoles.roles;
+      profileRole = derivedRoles.activeRole;
+      if (profile?.role && !normalizeRoleValue(profile.role) && profile.role !== "client") {
+        profileRoles = [profile.role];
+        profileRole = profile.role;
+      }
     } catch (error) {
       console.error("[Middleware] Error fetching profile:", error);
     }
@@ -378,6 +417,7 @@ export async function middleware(request: NextRequest) {
   const baseLandingPage = profileRole
     ? getLandingPageForRoleString(profileRole, userCompanySlug)
     : undefined;
+  const isSuperAdmin = profileRoles.includes("super_admin");
 
   // Onboarding-aware landing override: a tenant admin/owner with
   // incomplete onboarding lands on /admin/onboarding instead of the
@@ -385,7 +425,7 @@ export async function middleware(request: NextRequest) {
   // at a wall of zeros. Once onboarding_completed_at is set on
   // companies, we revert to the normal landing.
   const isAdminish =
-    profileRole === "company_admin" || profileRole === "admin" || profileRole === "owner";
+    hasAnyRole(profileRoles, ["company_admin", "admin", "owner"]);
   const roleLandingPage =
     isAdminish && !onboardingCompletedAt && userCompanySlug
       ? `/${userCompanySlug}/admin/onboarding`
@@ -427,7 +467,7 @@ export async function middleware(request: NextRequest) {
   // (super-admin internal pages live at the bare path even for them).
   if (
     profileRole &&
-    profileRole !== "super_admin" &&
+    !isSuperAdmin &&
     userCompanySlug &&
     !pathname.startsWith("/admin/platform")
   ) {
@@ -451,7 +491,7 @@ export async function middleware(request: NextRequest) {
   // We already resolved userCompanySlug above (from cache or the
   // companies.select earlier) - compare against that instead of
   // re-querying.
-  if (companySlug && profileRole && profileRole !== "super_admin") {
+  if (companySlug && profileRole && !isSuperAdmin) {
     if (!profileCompanyId) {
       mwLog("DENY", "no_company", { role: profileRole, path: pathname });
       const url = request.nextUrl.clone();
@@ -484,8 +524,8 @@ export async function middleware(request: NextRequest) {
   const NON_ACCESS_STATUSES = new Set(["cancelled", "suspended"]);
   if (
     profileRole &&
-    profileRole !== "super_admin" &&
-    profileRole !== "client" &&
+    !isSuperAdmin &&
+    !profileRoles.every((role) => role === "client") &&
     subscriptionStatus &&
     NON_ACCESS_STATUSES.has(subscriptionStatus)
   ) {
@@ -495,7 +535,7 @@ export async function middleware(request: NextRequest) {
       guardPath.startsWith("/admin/subscription") || guardPath.startsWith("/account");
     if (!billingAllowed) {
       const url = request.nextUrl.clone();
-      if (ADMIN_PORTAL_ROLES.includes(profileRole) && userCompanySlug) {
+      if (hasAnyRole(profileRoles, ADMIN_PORTAL_ROLES) && userCompanySlug) {
         // Owners / admins -> the subscription page where they can pay.
         url.pathname = `/${userCompanySlug}/admin/subscription`;
         url.search = "";
@@ -512,8 +552,8 @@ export async function middleware(request: NextRequest) {
   }
 
   // ✅ Route authorization (deny-default for any non-public route)
-  if (!isPublic && profileRole) {
-    if (!isAuthorizedForRoute(guardPath, profileRole)) {
+  if (!isPublic && profileRoles.length > 0) {
+    if (!isAuthorizedForAnyRole(guardPath, profileRoles)) {
       mwLog("DENY", "unauthorized", { role: profileRole, path: pathname, guardPath });
       console.log(`[Middleware] Unauthorized: ${profileRole} attempted ${pathname}`);
       if (roleLandingPage) {
@@ -545,6 +585,7 @@ export async function middleware(request: NextRequest) {
     await writeCachedProfile(response, {
       uid: user.id,
       role: profileRole,
+      roles: profileRoles,
       company_id: profileCompanyId,
       slug: userCompanySlug ?? null,
       onboarding_completed_at: onboardingCompletedAt,

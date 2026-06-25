@@ -100,7 +100,7 @@ export function KitchenStaffTileBoard({
    *  callers don't need to change anything. */
   department?: string;
 } = {}) {
-  const { user, profile } = useAuth() as any;
+  const { user, profile, userRoles, activeRole } = useAuth() as any;
   const { toast } = useToast();
   // Wave 45 follow-up - fall back to profile.company_id when
   // user.company_id is undefined. AuthContext populates user.company_id
@@ -111,12 +111,14 @@ export function KitchenStaffTileBoard({
   const companyId = ((user as any)?.company_id || (profile as any)?.company_id) as string | undefined;
   const roleSet = useMemo(() => {
     return [
+      ...(Array.isArray(userRoles) ? userRoles : []),
+      activeRole,
       (user as any)?.role,
       (user as any)?.active_role,
       (profile as any)?.role,
       (profile as any)?.active_role,
     ].filter(Boolean) as UserRole[];
-  }, [user, profile]);
+  }, [user, profile, userRoles, activeRole]);
 
   const [staff, setStaff] = useState<KitchenStaffPublic[]>([]);
   const [openShifts, setOpenShifts] = useState<KitchenShift[]>([]);

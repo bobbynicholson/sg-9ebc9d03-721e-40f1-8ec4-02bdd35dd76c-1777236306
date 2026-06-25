@@ -23,6 +23,8 @@ import { useToast } from "@/hooks/use-toast";
 import { isAdmin } from "@/lib/authGuards";
 import { UserRole } from "@/types/app";
 import { Button } from "@/components/ui/button";
+import { TimelineTrack } from "@/components/admin/orders/TimelineTrack";
+import { computeOrderTimeline } from "@/services/order/orderTimeline";
 import {
   CheckCircle2, Circle, Clock, ChefHat, PackageCheck, Truck, MapPin,
   Sparkles, Users, PartyPopper, ArrowLeftRight, PackageOpen, Flag, Ban, Pause, FileSignature, Droplets,
@@ -704,6 +706,73 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen }: Props) {
   const stuckThreshold = currentStep ? STUCK_THRESHOLDS_HOURS[currentStep.key] : undefined;
   const isStuck = !cancelled && !postponed && currentHoursSince != null && stuckThreshold != null && stuckThreshold > 0 && currentHoursSince > stuckThreshold && order.status !== "completed" && order.status !== "delivered";
 
+  const sharedTimelineInput: any = {
+    order: {
+      ...order,
+      service_ended_at: effServiceEnded,
+      event_complete_at: effEventComplete,
+      equipment_return_method: order.equipment_return_method || (hasEquipmentSignal ? "deliver_and_collect" : null),
+    },
+    equipmentBookings: hasEquipmentSignal
+      ? Array.from({ length: Math.max(equipmentSignals.bookings, 1) }, (_, index) => ({
+          id: `order-doc-equipment-${index}`,
+          equipment_id: `order-doc-equipment-${index}`,
+          status: "booked",
+          pre_event_cleaning_done_at: equipmentReadyAt || null,
+        }))
+      : [],
+    equipmentHireOrders: Array.from({ length: equipmentSignals.hireOrdersTotal }, (_, index) => {
+      const confirmed = index < equipmentSignals.hireOrdersConfirmed;
+      return {
+        id: `order-doc-hire-${index}`,
+        status: confirmed ? "confirmed" : "draft",
+        expected_pickup_date: confirmed ? equipmentReadyAt || order.confirmed_at || order.created_at : null,
+        actual_pickup_date: confirmed && equipmentReadyAt ? equipmentReadyAt : null,
+      };
+    }),
+    kitchenPrepTasks: order.ready_at
+      ? [{ id: "order-doc-prep", status: "done", started_at: order.prep_started_at, completed_at: order.ready_at }]
+      : order.prep_started_at
+        ? [{ id: "order-doc-prep", status: "in_progress", started_at: order.prep_started_at, completed_at: null }]
+        : [],
+    driverAssignments: [
+      ...(order.picked_up_at || order.delivered_at || order.status === "in_transit"
+        ? [{
+            id: "order-doc-delivery",
+            assignment_type: "delivery",
+            status: order.delivered_at ? "completed" : "picked_up",
+            created_at: order.confirmed_at || order.created_at,
+            picked_up_at: order.picked_up_at,
+            completed_at: order.delivered_at,
+          }]
+        : []),
+      ...(hasEquipmentSignal
+        ? [{
+            id: "order-doc-collection",
+            assignment_type: "collection",
+            status: collectionPickedUpAt ? "picked_up" : "assigned",
+            created_at: order.departed_venue_at || effEventComplete || order.delivered_at || order.created_at,
+            picked_up_at: collectionPickedUpAt,
+            completed_at: collectionPickedUpAt,
+          }]
+        : []),
+    ],
+    cleaningJobsForOrder: hasCleaningJobs
+      ? [{
+          created_at: cleaningStarted,
+          actual_start: cleaningStarted,
+          actual_end: cleaningAllDone,
+          status: cleaningAllDone ? "complete" : "in_progress",
+        }]
+      : [],
+    hasOnSiteService: needsService,
+    serviceEndedAt: effServiceEnded,
+    eventCompleteAt: effEventComplete,
+    hasShopping: showShoppingStep,
+    shoppingReadyAt,
+  };
+  const sharedTimeline = computeOrderTimeline(sharedTimelineInput);
+
   const fmtRelative = (h: number): string => {
     if (h < 1) return `${Math.round(h * 60)}m ago`;
     if (h < 24) return `${Math.round(h)}h ago`;
@@ -798,9 +867,16 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen }: Props) {
           </div>
         )}
 
-        {/* Vertical stepper. Each row is icon-dot + connector line +
-            label + timestamp. Dots colour-match the responsible team. */}
-        <ol className="relative">
+        <div className="rounded-lg border border-slate-200 bg-white p-3">
+          <TimelineTrack
+            timeline={sharedTimeline}
+            hideOperatorGlossary
+            disableSourceLinks
+          />
+        </div>
+
+        {/* Compatibility fallback for the older summary/stuck logic. */}
+        <ol className="relative hidden" aria-hidden="true">
           {/* ODOC H.1: identify the "next" step (first pending) so
               we can highlight the owner whose turn it is. */}
           {(() => null)()}
@@ -975,7 +1051,7 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen }: Props) {
         {/* Lane legend - small helper so the dot colours mean
             something at a glance. Hidden when there's nothing
             interesting to disambiguate. */}
-        <div className="flex items-center gap-3 text-[10px] uppercase tracking-wider text-slate-500 pt-2 border-t border-slate-100 flex-wrap">
+        <div className="hidden items-center gap-3 text-[10px] uppercase tracking-wider text-slate-500 pt-2 border-t border-slate-100 flex-wrap">
           <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-slate-500" />Open</span>
           <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-rose-500" />Kitchen</span>
           <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-indigo-500" />Driver</span>

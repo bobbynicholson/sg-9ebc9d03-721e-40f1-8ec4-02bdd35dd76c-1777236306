@@ -6,6 +6,7 @@ import { ensureInvoiceForOrder } from "@/services/invoiceGenerationService";
 import { resolveClientUserId } from "@/services/lifecycle/resolveClientUserId";
 import { resolveEmailTemplate } from "@/services/email/templateResolver";
 import { mintOrderCustomerLink } from "@/lib/customerLinksServer";
+import { staffOrderAbsoluteUrl } from "@/lib/orderUrls";
 
 // Wave 24: orderWorkflow is called from BOTH the browser (admin pages
 // updating order status) AND the server (cron jobs, payment webhooks,
@@ -369,6 +370,11 @@ export async function updateOrderStatus(
         await ensureScheduledPreEventReminders(order);
       } catch (e) {
         console.warn("[orderWorkflow] pre-event reminders crashed (non-blocking):", e);
+      }
+      try {
+        await ensureScheduledKitchenPreEventReminder(order);
+      } catch (e) {
+        console.warn("[orderWorkflow] kitchen pre-event reminder crashed (non-blocking):", e);
       }
     }
 
@@ -2405,6 +2411,171 @@ async function ensureScheduledPreEventReminders(order: any): Promise<void> {
       scheduled_for: sendAt.toISOString(),
       template_type: r.templateType,
       variables: reminderVariables,
+    });
+  }
+
+  if (rows.length > 0) {
+    await (supabase as any).from("outgoing_email_queue").insert(rows);
+  }
+}
+
+async function ensureScheduledKitchenPreEventReminder(order: any): Promise<void> {
+  if (!order?.id || !order?.company_id || !order?.event_date) return;
+
+  const eventStart = new Date(`${order.event_date}T${order.event_time || "09:00"}`);
+  if (Number.isNaN(eventStart.getTime()) || eventStart.getTime() <= Date.now()) return;
+
+  const { data: company, error: companyErr } = await (supabase as any)
+    .from("companies")
+    .select("company_name, slug, kitchen_settings, kitchen_prep_lead_hours")
+    .eq("id", order.company_id)
+    .maybeSingle();
+  if (companyErr) {
+    console.error("[order/orderWorkflow] companies fetch failed:", companyErr);
+  }
+
+  const kitchenSettings = ((company as any)?.kitchen_settings || {}) as Record<string, any>;
+  const configuredLeadHours = Number(
+    kitchenSettings.preEventReminderLeadHours ??
+    kitchenSettings.pre_event_reminder_lead_hours ??
+    kitchenSettings.kitchenPreEventReminderLeadHours ??
+    kitchenSettings.kitchen_pre_event_reminder_lead_hours ??
+    (company as any)?.kitchen_prep_lead_hours ??
+    24,
+  );
+  const leadHours = Number.isFinite(configuredLeadHours) && configuredLeadHours > 0
+    ? Math.min(configuredLeadHours, 168)
+    : 24;
+
+  let sendAt = new Date(eventStart.getTime() - leadHours * 60 * 60 * 1000);
+  const now = new Date();
+  if (sendAt.getTime() < now.getTime()) {
+    sendAt = new Date(now.getTime() + 5 * 60 * 1000);
+  }
+
+  const { data: profileRows, error: profileErr } = await (supabase as any)
+    .from("profiles")
+    .select("id, full_name, email, role, region_id")
+    .eq("company_id", order.company_id)
+    .in("role", ["kitchen_manager", "kitchen_staff"])
+    .is("deleted_at", null)
+    .or("is_active.is.null,is_active.eq.true");
+  if (profileErr) {
+    console.error("[order/orderWorkflow] kitchen reminder profile fetch failed:", profileErr);
+    return;
+  }
+
+  const regionId = order.region_id || null;
+  const kitchenProfiles = ((profileRows || []) as any[])
+    .filter((p) => p.email && (!regionId || !p.region_id || p.region_id === regionId));
+  const managerProfiles = kitchenProfiles.filter((p) => p.role === "kitchen_manager");
+  const recipients = (managerProfiles.length > 0 ? managerProfiles : kitchenProfiles)
+    .filter((p, index, arr) => arr.findIndex((x) => String(x.email).toLowerCase() === String(p.email).toLowerCase()) === index);
+  if (recipients.length === 0) return;
+
+  const { data: existingRows, error: existingErr } = await (supabase as any)
+    .from("outgoing_email_queue")
+    .select("to_email")
+    .eq("company_id", order.company_id)
+    .eq("trigger_event", "kitchen_pre_event")
+    .eq("trigger_ref_id", order.id)
+    .in("status", ["queued", "in_progress", "paused", "sent"])
+    .limit(200);
+  if (existingErr) {
+    console.error("[order/orderWorkflow] kitchen reminder dedupe fetch failed:", existingErr);
+  }
+  const alreadyQueued = new Set(((existingRows || []) as any[]).map((row) => String(row.to_email || "").toLowerCase()));
+
+  const { data: itemRows, error: itemErr } = await (supabase as any)
+    .from("order_items")
+    .select("item_name, quantity, special_instructions")
+    .eq("order_id", order.id)
+    .order("created_at", { ascending: true });
+  if (itemErr) {
+    console.error("[order/orderWorkflow] kitchen reminder item fetch failed:", itemErr);
+  }
+  const menuSummary = ((itemRows || []) as any[]).length > 0
+    ? ((itemRows || []) as any[])
+        .map((item) => {
+          const qty = Number(item.quantity || 0);
+          const qtyLabel = qty > 0 ? `${qty}x ` : "";
+          const note = item.special_instructions ? ` (${item.special_instructions})` : "";
+          return `- ${qtyLabel}${item.item_name || "Menu item"}${note}`;
+        })
+        .join("\n")
+    : "- No menu items captured yet";
+
+  const tenantName = (company as any)?.company_name || "Kitchen";
+  const eventDateLabel = eventStart.toLocaleDateString("en-ZA", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+  const eventTimeLabel = order.event_time ? String(order.event_time).slice(0, 5) : "time TBC";
+  const pickupTimeLabel = order.pickup_time ? String(order.pickup_time).slice(0, 5) : "collection time TBC";
+  const eventName = order.event_name || order.client_name || order.order_number || "event";
+  const orderUrl = staffOrderAbsoluteUrl({
+    orderId: order.id,
+    role: "kitchen_staff",
+    slug: (company as any)?.slug || null,
+  });
+
+  const rows: any[] = [];
+  for (const recipient of recipients) {
+    const email = String(recipient.email || "").trim();
+    if (!email || alreadyQueued.has(email.toLowerCase())) continue;
+
+    const firstName = String(recipient.full_name || "team").trim().split(" ")[0] || "team";
+    const variables: Record<string, string | number> = {
+      first_name: firstName,
+      staff_name: recipient.full_name || "Kitchen team",
+      tenant_name: tenantName,
+      event_name: eventName,
+      event_date: eventDateLabel,
+      event_time: eventTimeLabel,
+      pickup_time: pickupTimeLabel,
+      guest_count: order.guest_count ?? "",
+      client_name: order.client_name || "",
+      order_number: order.order_number || "",
+      venue: order.venue_address || order.venue_name || "",
+      dietary_requirements: order.dietary_requirements || "None recorded",
+      kitchen_instructions: order.kitchen_instructions || "None recorded",
+      special_instructions: order.special_instructions || "None recorded",
+      menu_summary: menuSummary,
+      order_url: orderUrl,
+    };
+    const resolved = await resolveEmailTemplate({
+      companyId: order.company_id,
+      templateType: "kitchen_pre_event_reminder",
+      variables,
+      fallback: {
+        subject: `Kitchen reminder - ${eventName} on ${eventDateLabel}`,
+        bodyHtml:
+          `Hi {{first_name}},\n\n` +
+          `Kitchen reminder for {{event_name}} ({{order_number}}).\n\n` +
+          `Date: {{event_date}}\n` +
+          `Eat time: {{event_time}}\n` +
+          `Kitchen collection: {{pickup_time}}\n` +
+          `Guests: {{guest_count}}\n` +
+          `Venue: {{venue}}\n\n` +
+          `Menu:\n{{menu_summary}}\n\n` +
+          `Dietary: {{dietary_requirements}}\n` +
+          `Kitchen notes: {{kitchen_instructions}}\n` +
+          `Special notes: {{special_instructions}}\n\n` +
+          `Open order: {{order_url}}\n\n` +
+          `${tenantName}`,
+      },
+      client: supabase,
+    });
+
+    rows.push({
+      company_id: order.company_id,
+      to_email: email,
+      to_name: recipient.full_name || "Kitchen team",
+      subject: resolved.subject,
+      body: resolved.bodyHtml,
+      trigger_event: "kitchen_pre_event",
+      trigger_ref_id: order.id,
+      status: "queued",
+      scheduled_for: sendAt.toISOString(),
+      template_type: "kitchen_pre_event_reminder",
+      variables,
     });
   }
 

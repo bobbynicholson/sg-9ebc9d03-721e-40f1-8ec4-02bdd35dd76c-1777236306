@@ -85,6 +85,147 @@ function companyInitials(name: string | null | undefined): string {
   return (parts[0][0] + parts[1][0]).toUpperCase();
 }
 
+type InvoiceLine = {
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  total: number;
+  note?: string | null;
+  isAdjustment?: boolean;
+};
+
+type InvoiceBreakdownSection = {
+  key: string;
+  title: string;
+  lines: InvoiceLine[];
+};
+
+function asArray(value: any): any[] {
+  if (Array.isArray(value)) return value;
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
+function moneyNumber(...values: any[]): number {
+  for (const value of values) {
+    if (value === null || value === undefined || value === "") continue;
+    const n = Number(value);
+    if (Number.isFinite(n)) return n;
+  }
+  return 0;
+}
+
+function normaliseInvoiceLines(rows: any[]): InvoiceLine[] {
+  return rows
+    .map((row) => {
+      const description = String(
+        row?.description
+        || row?.item_name
+        || row?.menu_item_name
+        || row?.equipment_name
+        || row?.name
+        || row?.title
+        || "Item",
+      ).trim();
+      const quantity = moneyNumber(row?.quantity, row?.qty, 1) || 1;
+      const unitPrice = moneyNumber(row?.unitPrice, row?.unit_price, row?.price, row?.rentalPrice, row?.rental_price);
+      const explicitTotal = moneyNumber(row?.total, row?.line_total, row?.total_price, row?.lineTotal);
+      const total = explicitTotal || Number((quantity * unitPrice).toFixed(2));
+      return {
+        description,
+        quantity,
+        unitPrice,
+        total,
+        note: row?.note || row?.notes || null,
+        isAdjustment: !!row?.isAdjustment,
+      };
+    })
+    .filter((line) => line.description || Math.abs(line.total) > 0);
+}
+
+function isAdditionalChargeLine(line: InvoiceLine): boolean {
+  return /delivery|collection|waiter|service fee|damage|shortage|adjustment|discount|surcharge/i.test(line.description);
+}
+
+function buildInvoiceBreakdown(invoice: InvoiceView): {
+  sections: InvoiceBreakdownSection[];
+  hasStoredTax: boolean;
+} {
+  const idata = invoice.invoice_data || {};
+  const rawItems = normaliseInvoiceLines(asArray(idata.items));
+  const menuRows = asArray(idata.menuItems).length > 0
+    ? asArray(idata.menuItems)
+    : asArray(idata.menu_items);
+  const equipmentRows = asArray(idata.equipmentItems).length > 0
+    ? asArray(idata.equipmentItems)
+    : asArray(idata.equipment_items);
+
+  const menuLines = normaliseInvoiceLines(
+    menuRows.length > 0 ? menuRows : rawItems.filter((line) => !isAdditionalChargeLine(line)),
+  );
+  const equipmentLines = normaliseInvoiceLines(equipmentRows);
+  const additionalLines = rawItems.filter((line) => {
+    if (menuRows.length === 0 && !isAdditionalChargeLine(line)) return false;
+    return isAdditionalChargeLine(line);
+  });
+
+  const sections: InvoiceBreakdownSection[] = [];
+  if (menuLines.length > 0) sections.push({ key: "menu", title: "Menu and catering", lines: menuLines });
+  if (equipmentLines.length > 0) sections.push({ key: "equipment", title: "Equipment and hire-in", lines: equipmentLines });
+
+  const packageName = String(idata.packageName || idata.package_name || idata.package?.name || "").trim();
+  if (packageName) {
+    sections.push({
+      key: "package",
+      title: "Package",
+      lines: [{
+        description: packageName,
+        quantity: 1,
+        unitPrice: 0,
+        total: 0,
+        note: "Grouped booking package",
+      }],
+    });
+  }
+
+  if (additionalLines.length > 0) {
+    sections.push({ key: "additional", title: "Additional charges", lines: additionalLines });
+  }
+
+  const r2 = (n: number) => Math.round(n * 100) / 100;
+  const invTotal = r2(Number(invoice.total_amount || 0));
+  const storedSubtotal = r2(Number(idata.subtotal || 0));
+  const storedTax = r2(Number(idata.taxAmount || idata.tax_amount || 0));
+  const hasStoredTax = storedTax > 0 && Math.abs(r2(storedSubtotal + storedTax) - invTotal) <= 0.01;
+  const lineTarget = hasStoredTax ? storedSubtotal : invTotal;
+  const visibleLineSum = r2(sections.reduce(
+    (sum, section) => sum + section.lines.reduce((lineSum, line) => lineSum + Number(line.total || 0), 0),
+    0,
+  ));
+  const reconDiff = r2(lineTarget - visibleLineSum);
+  if (sections.length > 0 && Math.abs(reconDiff) > 0.01) {
+    const adjustment: InvoiceLine = {
+      description: "Invoice adjustment",
+      quantity: 1,
+      unitPrice: reconDiff,
+      total: reconDiff,
+      isAdjustment: true,
+    };
+    const extra = sections.find((section) => section.key === "additional");
+    if (extra) extra.lines.push(adjustment);
+    else sections.push({ key: "additional", title: "Additional charges", lines: [adjustment] });
+  }
+
+  return { sections, hasStoredTax };
+}
+
 export default function InvoicePaymentPage() {
   const router = useRouter();
   const token = typeof router.query.token === "string" ? router.query.token : null;
@@ -396,32 +537,12 @@ export default function InvoicePaymentPage() {
   const payNow = Math.max(0, Math.min(Number(payAmount) || 0, invoice.balance_due));
   const remainingAfter = Math.max(0, Math.round((invoice.balance_due - payNow) * 100) / 100);
 
-  // Reconciling breakdown: always show the stored invoice snapshot
-  // lines. If snapshot rows do not exactly add up to the invoice
-  // subtotal/total (tax, rounding, later adjustments), add a single
-  // adjustment line so the visible breakdown agrees with the total.
-  const r2 = (n: number) => Math.round(n * 100) / 100;
-  const rawItems: any[] = Array.isArray(invoice.invoice_data?.items) ? invoice.invoice_data.items : [];
-  const invTotal = r2(Number(invoice.total_amount || 0));
-  const rawItemsSum = r2(rawItems.reduce((s, it) => s + Number(it?.total || 0), 0));
-  const storedSubtotal = r2(Number(invoice.invoice_data?.subtotal || 0));
-  const storedTax = r2(Number(invoice.invoice_data?.taxAmount || 0));
-  const hasStoredTax = storedTax > 0 && Math.abs(r2(storedSubtotal + storedTax) - invTotal) <= 0.01;
-  const lineTarget = hasStoredTax ? storedSubtotal : invTotal;
-  const reconDiff = r2(lineTarget - rawItemsSum);
-  const itemsReconcile = rawItems.length > 0 && Math.abs(reconDiff) <= 0.01;
-  const breakdownLines: any[] = rawItems.length > 0
-    ? [
-        ...rawItems,
-        ...(!itemsReconcile
-          ? [{
-              description: "Invoice adjustment",
-              total: reconDiff,
-              isAdjustment: true,
-            }]
-          : []),
-      ]
-    : [];
+  const invoiceBreakdown = buildInvoiceBreakdown(invoice);
+  const breakdownSections = invoiceBreakdown.sections;
+  const breakdownLines = breakdownSections.flatMap((section) =>
+    section.lines.map((line) => ({ ...line, sectionTitle: section.title })),
+  );
+  const hasStoredTax = invoiceBreakdown.hasStoredTax;
 
   return (
     <>
@@ -602,15 +723,13 @@ export default function InvoicePaymentPage() {
                 <FileText className="w-10 h-10 text-brand-primary opacity-30" />
               </div>
 
-              {/* Itemised breakdown - what makes up the total, so the client
-                  sees WHAT they're paying for (catering lines + any damage
-                  charge) instead of a bare "pay R X". Driven by
-                  invoice_data.items; hidden when the invoice carries no
-                  line detail (legacy rows). */}
-              {breakdownLines.length > 0 && (
+              {/* Itemized breakdown - grouped source labels come from
+                  invoice_data menu/equipment/package snapshots, with
+                  order-linked fallback hydration from the public API. */}
+              {breakdownSections.length > 0 && (
                 <div className="rounded-lg border border-stone-200 overflow-hidden">
                   <p className="text-xs uppercase tracking-[0.15em] text-brand-primary font-bold px-4 pt-3 pb-2">
-                    What this is for
+                    Itemized breakdown
                   </p>
                   <ul className="divide-y divide-stone-100">
                     {breakdownLines.map((it: any, i: number) => {
@@ -619,18 +738,29 @@ export default function InvoicePaymentPage() {
                       return (
                         <li key={i} className="flex items-start justify-between gap-3 px-4 py-2.5 text-sm">
                           <div className="min-w-0">
+                            {it?.sectionTitle && (
+                              <p className="text-[10px] uppercase tracking-[0.12em] text-stone-500 font-bold mb-0.5">
+                                {it.sectionTitle}
+                              </p>
+                            )}
                             <p className={isDamage ? "text-rose-700 font-medium" : isAdjustment ? "text-stone-600 italic" : "text-stone-800"}>
                               {it?.description || "Item"}
                             </p>
                             {Number(it?.quantity) > 0 && Number(it?.unitPrice) > 0 && (
                               <p className="text-[11px] text-stone-500">
-                                {it.quantity} × {fmtMoney.format(Number(it.unitPrice) || 0)}
+                                {it.quantity} x {fmtMoney.format(Number(it.unitPrice) || 0)}
                               </p>
                             )}
                           </div>
-                          <p className="text-stone-900 tabular-nums font-medium whitespace-nowrap">
-                            {fmtMoney.format(Number(it?.total) || 0)}
-                          </p>
+                          {Math.abs(Number(it?.total || 0)) > 0 || Math.abs(Number(it?.unitPrice || 0)) > 0 ? (
+                            <p className="text-stone-900 tabular-nums font-medium whitespace-nowrap">
+                              {fmtMoney.format(Number(it?.total) || 0)}
+                            </p>
+                          ) : (
+                            <p className="text-stone-500 text-xs whitespace-nowrap">
+                              Included
+                            </p>
+                          )}
                         </li>
                       );
                     })}

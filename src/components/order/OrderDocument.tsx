@@ -530,8 +530,8 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
               orderId={order.id}
               companyId={order.company_id}
               forceOpen={forceAll}
-              defaultOpen={primary === "shopping"}
-              highlight={primary === "shopping"}
+              defaultOpen={primary === "shopping" || primary === "kitchen"}
+              highlight={primary === "shopping" || primary === "kitchen"}
             />
             <DriverSection
               order={order}

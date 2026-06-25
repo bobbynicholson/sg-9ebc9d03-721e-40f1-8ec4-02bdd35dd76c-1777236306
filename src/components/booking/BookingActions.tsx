@@ -6,11 +6,11 @@
  *
  * Each variant exposes only the CTAs that role is allowed to do:
  *
- *   admin    - Edit / Send invoice / Mark paid / Open ticket /
+ *   admin    - Edit / Send invoice / Mark paid / Print prep sheet /
  *               Cancel order / Force-close
  *   client   - Pay deposit (deep link to payment) / Accept changes
  *               / Request changes (compose follow-up)
- *   kitchen  - Open kitchen ticket / Mark prep done (when all
+ *   kitchen  - Open order document / Mark prep done (when all
  *               tasks complete)
  *   driver   - Open run sheet / Mark delivered (POD)
  *   cleaning - Open handover / Sign off / Log damage
@@ -72,7 +72,7 @@ interface BookingActionsProps {
   actions: BookingAction[];
   /** When true, lays out as a sticky bar at the bottom of the
    *  container. Useful for full-page surfaces (client portal,
-   *  kitchen ticket on mobile). Defaults false for in-flow. */
+   *  order document on mobile). Defaults false for in-flow. */
   sticky?: boolean;
 }
 
@@ -175,9 +175,9 @@ export function buildAdminActions(handlers: {
     hint: "Record a manual payment",
   });
   if (handlers.onOpenKitchenTicket) out.push({
-    key: "kitchen-ticket", label: "Open ticket", icon: Printer,
+    key: "kitchen-ticket", label: "Print prep sheet", icon: Printer,
     onClick: handlers.onOpenKitchenTicket,
-    hint: "Open the print-friendly kitchen ticket",
+    hint: "Open the print-friendly kitchen prep sheet",
   });
   if (handlers.onForceClose) out.push({
     key: "force-close", label: "Force-close", icon: FastForward,
@@ -222,9 +222,9 @@ export function buildKitchenActions(handlers: {
 }): BookingAction[] {
   const out: BookingAction[] = [];
   if (handlers.onOpenTicket) out.push({
-    key: "open-ticket", label: "Open ticket", icon: Printer, tone: "primary",
+    key: "open-ticket", label: "Open order document", icon: Printer, tone: "primary",
     onClick: handlers.onOpenTicket,
-    hint: "Open the print-friendly kitchen ticket",
+    hint: "Open the unified order document for kitchen prep",
   });
   if (handlers.onMarkPrepDone) out.push({
     key: "prep-done", label: "Mark all prep done", icon: CheckCircle2,
