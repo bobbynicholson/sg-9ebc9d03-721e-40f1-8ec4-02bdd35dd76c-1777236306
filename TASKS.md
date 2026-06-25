@@ -157,6 +157,14 @@ Use the next available T.NNN number.
   **Watch out:** unique channel names per subscription (the "realtime channel suffix" bug class) + RLS must let the subscribing role receive events.
   **Done when:** Mutable data on every page reflects changes live without refresh; manual refresh kept only as a fallback.
 
+### Kitchen planning tools (Raj, 2026-06-26)
+
+- [ ] T.021 — Kitchen: event calendar + day's orders + pre-event email reminder
+  **What:** (1) Email the kitchen BEFORE an event (configurable lead time) summarising what they're cooking; (2) a kitchen calendar showing all events/orders; (3) pick a day and see all that day's orders.
+  **Why:** Kitchen has no calendar/forward view and no pre-event heads-up; they need to plan.
+  **Files:** reminder via existing email pipeline (`outgoing_email_queue` / `email_automation_log` + cron drain, mind CRON_SECRET) - check existing reminder crons first; calendar - reuse/extend `src/pages/admin/kitchen-schedule.tsx`; day view - extend kitchen `today.tsx`.
+  **Done when:** Kitchen portal has a calendar of all events, a day view of that day's orders (role-scoped, no finances), and a working pre-event reminder email (deduped, best-effort). **Clarify with Raj:** reminder lead time + manager-only vs all-kitchen (ties to T.014 manager model + T.010/T.012 role-scoping).
+
 ---
 
 ## Completed
