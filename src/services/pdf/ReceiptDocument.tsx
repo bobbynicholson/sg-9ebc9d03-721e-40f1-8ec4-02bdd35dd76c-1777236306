@@ -126,12 +126,12 @@ const fmtDate = (raw: string | null | undefined): string | null => {
 };
 
 const safePrimary = (hex: string | null | undefined): string => {
-  if (!hex) return "#059669";
+  if (!hex) return "#d97706";
   const t = String(hex).trim();
   if (/^#?[0-9a-f]{3}$/i.test(t) || /^#?[0-9a-f]{6}$/i.test(t)) {
     return t.startsWith("#") ? t : `#${t}`;
   }
-  return "#059669";
+  return "#d97706";
 };
 
 const buildAddress = (c: ReceiptPdfData["company"]): string => {
@@ -140,6 +140,12 @@ const buildAddress = (c: ReceiptPdfData["company"]): string => {
     .filter(Boolean)
     .join(", ");
 };
+
+const joinFooterParts = (parts: Array<string | null | undefined>): string =>
+  parts
+    .map((part) => (part == null ? "" : String(part).trim()))
+    .filter(Boolean)
+    .join(" | ");
 
 /** Human-readable payment-method label. Falls back to the raw value
  *  when we don't have a translation - the operator-entered string is
@@ -167,7 +173,7 @@ const buildStyles = (primary: string) =>
   StyleSheet.create({
     page: {
       paddingTop: 36,
-      paddingBottom: 36,
+      paddingBottom: 62,
       paddingHorizontal: 36,
       fontSize: 10,
       fontFamily: "Helvetica",
@@ -209,7 +215,7 @@ const buildStyles = (primary: string) =>
     paidPill: {
       fontSize: 9,
       color: "#ffffff",
-      backgroundColor: "#059669",
+      backgroundColor: primary,
       paddingVertical: 4,
       paddingHorizontal: 8,
       borderRadius: 4,
@@ -305,6 +311,8 @@ const buildStyles = (primary: string) =>
       fontSize: 10,
       fontFamily: "Helvetica-Bold",
       color: "#1c1917",
+      textAlign: "right",
+      width: 86,
     },
 
     totalsBlock: {
@@ -348,7 +356,7 @@ const buildStyles = (primary: string) =>
     paidValue: {
       fontSize: 11,
       fontFamily: "Helvetica-Bold",
-      color: "#059669",
+      color: primary,
     },
 
     thanksBlock: {
@@ -372,11 +380,38 @@ const buildStyles = (primary: string) =>
       color: "#57534e",
       textAlign: "center",
     },
-    footer: {
-      marginTop: 14,
+    fixedFooter: {
+      position: "absolute",
+      left: 36,
+      right: 36,
+      bottom: 24,
+      paddingTop: 6,
+      borderTopWidth: 1,
+      borderTopColor: "#e7e5e4",
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "flex-start",
+    },
+    footerText: {
+      flex: 1,
+      paddingRight: 10,
+    },
+    footerLine: {
       fontSize: 8,
       color: "#a8a29e",
-      textAlign: "center",
+      lineHeight: 1.25,
+    },
+    footerLegal: {
+      fontSize: 7,
+      color: "#a8a29e",
+      lineHeight: 1.25,
+      marginTop: 2,
+    },
+    footerPage: {
+      width: 118,
+      fontSize: 8,
+      color: "#a8a29e",
+      textAlign: "right",
     },
   });
 
@@ -410,6 +445,17 @@ export const ReceiptDocument: React.FC<Props> = ({ data }) => {
   const fmt = (n: number | null | undefined): string => fmtMoney(n, data.currency);
 
   const billFromAddress = buildAddress(company);
+  const footerLine = joinFooterParts([
+    company.company_name,
+    company.email,
+    company.phone,
+  ]);
+  const footerLegalLine = joinFooterParts([
+    company.legal_name && company.legal_name !== company.company_name ? company.legal_name : null,
+    company.registration_number ? `Reg ${company.registration_number}` : null,
+    company.tax_number ? `Tax ${company.tax_number}` : null,
+    vatRegistered && vatNumber ? `VAT ${vatNumber}` : null,
+  ]);
 
   return (
     <Document
@@ -417,9 +463,9 @@ export const ReceiptDocument: React.FC<Props> = ({ data }) => {
       author={company.company_name || "CateringMS"}
       subject={heading}
     >
-      <Page size="A4" style={styles.page}>
+      <Page size="A4" style={styles.page} wrap>
         {/* HEADER BAND */}
-        <View style={styles.headerBand}>
+        <View style={styles.headerBand} wrap={false}>
           <View style={styles.headerRow}>
             <View style={{ flex: 1 }}>
               {company.logo_url ? (
@@ -467,7 +513,7 @@ export const ReceiptDocument: React.FC<Props> = ({ data }) => {
         </View>
 
         {/* BILL FROM / BILL TO */}
-        <View style={styles.columns}>
+        <View style={styles.columns} wrap={false}>
           <View style={styles.column}>
             <Text style={styles.sectionLabel}>From</Text>
             <Text style={styles.bodyText}>
@@ -517,7 +563,9 @@ export const ReceiptDocument: React.FC<Props> = ({ data }) => {
         {/* LINE ITEMS */}
         {lineItems.length > 0 ? (
           <View style={[styles.column, { marginBottom: 10 }]}>
-            <Text style={styles.sectionLabel}>What was paid for</Text>
+            <Text style={styles.sectionLabel} minPresenceAhead={44}>
+              What was paid for
+            </Text>
             {lineItems.map((row, i) => {
               const qty = Number(row?.quantity || 1);
               const unit = Number(row?.unit_price || 0);
@@ -529,7 +577,7 @@ export const ReceiptDocument: React.FC<Props> = ({ data }) => {
                 <View
                   key={`row-${i}`}
                   style={[styles.lineRow, isLast ? styles.lineRowLast : {}]}
-                  wrap={false}
+                  minPresenceAhead={32}
                 >
                   <View style={styles.lineLeft}>
                     <Text style={styles.lineName}>
@@ -552,7 +600,7 @@ export const ReceiptDocument: React.FC<Props> = ({ data }) => {
         ) : null}
 
         {/* TOTALS */}
-        <View style={styles.totalsBlock} wrap={false}>
+        <View style={styles.totalsBlock} wrap={false} minPresenceAhead={96}>
           <View style={styles.totalsRow}>
             <Text style={styles.totalsLabel}>Subtotal</Text>
             <Text style={styles.totalsValue}>{fmt(subtotal)}</Text>
@@ -595,12 +643,18 @@ export const ReceiptDocument: React.FC<Props> = ({ data }) => {
           </Text>
         </View>
 
-        {/* FOOTER */}
-        <Text style={styles.footer}>
-          {company.company_name ? `${company.company_name}` : ""}
-          {company.email ? `  |  ${company.email}` : ""}
-          {company.phone ? `  |  ${company.phone}` : ""}
-        </Text>
+        <View style={styles.fixedFooter} fixed>
+          <View style={styles.footerText}>
+            {footerLine ? <Text style={styles.footerLine}>{footerLine}</Text> : null}
+            {footerLegalLine ? <Text style={styles.footerLegal}>{footerLegalLine}</Text> : null}
+          </View>
+          <Text
+            style={styles.footerPage}
+            render={({ pageNumber, totalPages }) =>
+              `${data.invoice_number || "Receipt"} | Page ${pageNumber} of ${totalPages}`
+            }
+          />
+        </View>
       </Page>
     </Document>
   );

@@ -151,13 +151,19 @@ const friendlyTime = (raw: string | null | undefined): string | null => {
 };
 
 const safePrimary = (hex: string | null | undefined): string => {
-  if (!hex) return "#3B82F6";
+  if (!hex) return "#d97706";
   const t = String(hex).trim();
   if (/^#?[0-9a-f]{3}$/i.test(t) || /^#?[0-9a-f]{6}$/i.test(t)) {
     return t.startsWith("#") ? t : `#${t}`;
   }
-  return "#3B82F6";
+  return "#d97706";
 };
+
+const joinFooterParts = (parts: Array<string | null | undefined>): string =>
+  parts
+    .map((part) => (part == null ? "" : String(part).trim()))
+    .filter(Boolean)
+    .join(" | ");
 
 // --- Styles factory --------------------------------------------------------
 
@@ -165,7 +171,7 @@ const buildStyles = (primary: string) =>
   StyleSheet.create({
     page: {
       paddingTop: 36,
-      paddingBottom: 36,
+      paddingBottom: 62,
       paddingHorizontal: 36,
       fontSize: 10,
       fontFamily: "Helvetica",
@@ -224,7 +230,7 @@ const buildStyles = (primary: string) =>
       fontFamily: "Helvetica-Bold",
     },
     badgeAccepted: {
-      backgroundColor: "#059669",
+      backgroundColor: primary,
     },
 
     card: {
@@ -303,6 +309,8 @@ const buildStyles = (primary: string) =>
       fontSize: 10,
       fontFamily: "Helvetica-Bold",
       color: "#1c1917",
+      textAlign: "right",
+      width: 86,
     },
 
     totalsRow: {
@@ -347,11 +355,38 @@ const buildStyles = (primary: string) =>
       color: "#78716c",
       marginTop: 6,
     },
-    footer: {
-      marginTop: 14,
+    fixedFooter: {
+      position: "absolute",
+      left: 36,
+      right: 36,
+      bottom: 24,
+      paddingTop: 6,
+      borderTopWidth: 1,
+      borderTopColor: "#e7e5e4",
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "flex-start",
+    },
+    footerText: {
+      flex: 1,
+      paddingRight: 10,
+    },
+    footerLine: {
       fontSize: 8,
       color: "#a8a29e",
-      textAlign: "center",
+      lineHeight: 1.25,
+    },
+    footerLegal: {
+      fontSize: 7,
+      color: "#a8a29e",
+      lineHeight: 1.25,
+      marginTop: 2,
+    },
+    footerPage: {
+      width: 118,
+      fontSize: 8,
+      color: "#a8a29e",
+      textAlign: "right",
     },
   });
 
@@ -388,6 +423,18 @@ export const QuoteDocument: React.FC<Props> = ({ data }) => {
   const discount = Number(data.discount_amount || 0);
   const tax = Number(data.tax_amount || 0);
   const total = Number(data.total || 0);
+  const footerLine = joinFooterParts([
+    company.company_name,
+    company.email,
+    company.phone,
+    company.website,
+  ]);
+  const footerLegalLine = joinFooterParts([
+    company.legal_name,
+    company.registration_number ? `Reg ${company.registration_number}` : null,
+    company.tax_number ? `Tax ${company.tax_number}` : null,
+    company.vat_registered && company.vat_number ? `VAT ${company.vat_number}` : null,
+  ]);
 
   return (
     <Document
@@ -395,9 +442,9 @@ export const QuoteDocument: React.FC<Props> = ({ data }) => {
       author={company.company_name || "CateringMS"}
       subject={data.quote_name || "Quote"}
     >
-      <Page size="A4" style={styles.page}>
+      <Page size="A4" style={styles.page} wrap>
         {/* HEADER BAND */}
-        <View style={styles.headerBand}>
+        <View style={styles.headerBand} wrap={false}>
           <View style={styles.headerRow}>
             <View style={{ flex: 1 }}>
               {company.logo_url ? (
@@ -435,7 +482,7 @@ export const QuoteDocument: React.FC<Props> = ({ data }) => {
         </View>
 
         {/* EVENT DETAILS */}
-        <View style={styles.card}>
+        <View style={styles.card} wrap={false}>
           <View style={styles.grid}>
             {data.client_name ? (
               <View style={styles.gridCell}>
@@ -475,7 +522,9 @@ export const QuoteDocument: React.FC<Props> = ({ data }) => {
         {/* MENU ITEMS */}
         {menuItems.length > 0 ? (
           <View style={styles.card}>
-            <Text style={styles.sectionLabel}>From the kitchen</Text>
+            <Text style={styles.sectionLabel} minPresenceAhead={44}>
+              From the kitchen
+            </Text>
             {menuItems.map((item, i) => {
               const name = item?.name || `Item ${i + 1}`;
               const unitPrice = Number(item?.unit_price || 0);
@@ -488,7 +537,7 @@ export const QuoteDocument: React.FC<Props> = ({ data }) => {
                 <View
                   key={`menu-${i}`}
                   style={[styles.lineRow, isLast ? styles.lineRowLast : {}]}
-                  wrap={false}
+                  minPresenceAhead={32}
                 >
                   <View style={styles.lineLeft}>
                     <Text style={styles.lineName}>{name}</Text>
@@ -513,7 +562,9 @@ export const QuoteDocument: React.FC<Props> = ({ data }) => {
         {/* EQUIPMENT */}
         {equipmentItems.length > 0 ? (
           <View style={styles.card}>
-            <Text style={styles.sectionLabel}>Equipment</Text>
+            <Text style={styles.sectionLabel} minPresenceAhead={44}>
+              Equipment
+            </Text>
             {equipmentItems.map((item, i) => {
               const name = item?.name || `Equipment ${i + 1}`;
               const qty = Number(item?.quantity || 1);
@@ -526,7 +577,7 @@ export const QuoteDocument: React.FC<Props> = ({ data }) => {
                 <View
                   key={`eq-${i}`}
                   style={[styles.lineRow, isLast ? styles.lineRowLast : {}]}
-                  wrap={false}
+                  minPresenceAhead={32}
                 >
                   <View style={styles.lineLeft}>
                     <Text style={styles.lineName}>{name}</Text>
@@ -553,7 +604,7 @@ export const QuoteDocument: React.FC<Props> = ({ data }) => {
             too so it reconciles with the line items above. ex-VAT
             tenants keep the legacy "items net + delivery + VAT on top"
             layout. */}
-        <View style={styles.card} wrap={false}>
+        <View style={styles.card} wrap={false} minPresenceAhead={96}>
           {(() => {
             const incVat = company.pricing_includes_vat === true;
             const itemsLine = incVat
@@ -593,11 +644,11 @@ export const QuoteDocument: React.FC<Props> = ({ data }) => {
                   </View>
                 ) : null}
                 {discount > 0 ? (
-                  <View style={styles.totalsRow}>
-                    <Text style={styles.totalsLabel}>Discount</Text>
-                    <Text style={[styles.totalsValue, { color: "#047857" }]}>
-                      -{fmtZAR(discount)}
-                    </Text>
+                    <View style={styles.totalsRow}>
+                      <Text style={styles.totalsLabel}>Discount</Text>
+                      <Text style={[styles.totalsValue, { color: primary }]}>
+                        -{fmtZAR(discount)}
+                      </Text>
                   </View>
                 ) : null}
                 {!incVat && tax > 0 ? (
@@ -632,7 +683,9 @@ export const QuoteDocument: React.FC<Props> = ({ data }) => {
           <View style={styles.card}>
             {data.terms_and_conditions ? (
               <>
-                <Text style={styles.sectionLabel}>Terms</Text>
+                <Text style={styles.sectionLabel} minPresenceAhead={36}>
+                  Terms
+                </Text>
                 <Text style={styles.terms}>{data.terms_and_conditions}</Text>
               </>
             ) : null}
@@ -642,28 +695,18 @@ export const QuoteDocument: React.FC<Props> = ({ data }) => {
           </View>
         ) : null}
 
-        {/* FOOTER - contact line + (Phase 8 #2) legal identity
-            line so the client can verify the trading entity. We
-            split the two so the contact strip stays clean and the
-            legal IDs only render when the data is there. */}
-        <Text style={styles.footer}>
-          {[
-            company.company_name || null,
-            company.email || null,
-            company.phone || null,
-            company.website || null,
-          ].filter(Boolean).join("  |  ")}
-        </Text>
-        {(company.legal_name || company.registration_number || company.tax_number || (company.vat_registered && company.vat_number)) && (
-          <Text style={styles.footer}>
-            {[
-              company.legal_name || null,
-              company.registration_number ? `Reg ${company.registration_number}` : null,
-              company.tax_number ? `Tax ${company.tax_number}` : null,
-              company.vat_registered && company.vat_number ? `VAT ${company.vat_number}` : null,
-            ].filter(Boolean).join("  |  ")}
-          </Text>
-        )}
+        <View style={styles.fixedFooter} fixed>
+          <View style={styles.footerText}>
+            {footerLine ? <Text style={styles.footerLine}>{footerLine}</Text> : null}
+            {footerLegalLine ? <Text style={styles.footerLegal}>{footerLegalLine}</Text> : null}
+          </View>
+          <Text
+            style={styles.footerPage}
+            render={({ pageNumber, totalPages }) =>
+              `${data.quote_number || "Quote"} | Page ${pageNumber} of ${totalPages}`
+            }
+          />
+        </View>
       </Page>
     </Document>
   );
