@@ -14,6 +14,7 @@ import { createPagesServerClient } from "@/lib/supabase/server";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { withApiLogging } from "@/lib/withApiLogging";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
+import { notifyOutsourceDeclineForReassignment } from "@/services/outsourceDeclineService";
 
 
 const ALLOWED_ROLES = new Set([
@@ -95,6 +96,10 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         if (nextStatus === "on_site") patch.on_site_at = nowIso;
         if (nextStatus === "completed") patch.completed_at = nowIso;
         if (nextStatus === "accepted") patch.responded_at = nowIso;
+        if (nextStatus === "declined") {
+          patch.responded_at = nowIso;
+          patch.decline_reason = typeof body.reason === "string" ? body.reason.trim().slice(0, 500) : null;
+        }
         auditAction = `outsource_status_${nextStatus}`;
         break;
       }
@@ -144,6 +149,14 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       });
     } catch (auditErr) {
       console.warn("[admin/outsource-assignments/action] audit failed:", auditErr);
+    }
+
+    if (patch.status === "declined") {
+      await notifyOutsourceDeclineForReassignment(admin, assignmentId, {
+        reason: patch.decline_reason || null,
+        source: "admin_status_declined",
+        actorUserId: user.id,
+      });
     }
 
     return res.status(200).json({ ok: true });

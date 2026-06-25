@@ -416,7 +416,7 @@ export async function propagateQuoteEditToOrder(
           type: "amendment_approved",
           title: "Order updated - re-check your tasks",
           message: `Order ${orderLabel} was updated (${changed}). Prep, shopping quantities, delivery and equipment for it may have changed - please re-check your assigned work.`,
-          targetRoles: ["kitchen_staff", "shopping_staff", "driver", "cleaning_staff", "company_admin", "admin", "owner", "super_admin"] as any,
+          targetRoles: ["kitchen_manager", "kitchen_staff", "shopping_staff", "driver", "cleaning_manager", "cleaning_staff", "company_admin", "admin", "owner", "super_admin"] as any,
           priority: "high",
           link: `/admin/orders?orderId=${receipt.orderId}`,
           relatedEntityType: "order",

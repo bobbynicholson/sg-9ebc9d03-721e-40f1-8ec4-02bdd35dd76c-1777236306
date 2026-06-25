@@ -10,19 +10,23 @@
  */
 import Head from "next/head";
 import { Settings } from "lucide-react";
-import { AdminNav } from "@/components/admin/AdminNav";
+import { DynamicNav } from "@/components/DynamicNav";
 import { PortalShell, PortalHeader } from "@/components/portal/ui";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { KitchenRulesPanel } from "@/components/admin/KitchenRulesPanel";
+import { useAuth } from "@/contexts/AuthContext";
 
 function KitchenSettingsAdminPage() {
+  const { user } = useAuth() as any;
+  const userRole = (user?.active_role || user?.role || UserRole.ADMIN).toString();
+
   return (
     <>
       <NoIndexMeta />
       <Head><title>Kitchen rules - CateringMS</title></Head>
-      <AdminNav />
+      <DynamicNav userRole={userRole} />
 
       <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
@@ -52,6 +56,7 @@ export default function ProtectedKitchenSettingsAdminPage() {
       UserRole.OWNER,
       UserRole.COMPANY_ADMIN,
       UserRole.ADMIN,
+      UserRole.KITCHEN_MANAGER,
     ]}>
       <KitchenSettingsAdminPage />
     </ProtectedRoute>

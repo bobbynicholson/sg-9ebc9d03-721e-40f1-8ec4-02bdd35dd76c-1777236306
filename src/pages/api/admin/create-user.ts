@@ -23,7 +23,9 @@ import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 // equal their enum value).
 function mapRoleToDatabase(role: string): string {
   const roleMap: Record<string, string> = {
+    "kitchen_manager": "kitchen_manager",
     "kitchen_staff": "kitchen_staff",
+    "cleaning_manager": "cleaning_manager",
     "cleaning_staff": "cleaning_staff",
     "shopping_staff": "shopping_staff",
     "super_admin": "super_admin",
@@ -44,7 +46,7 @@ function mapRoleToDatabase(role: string): string {
 
 // Roles that are scoped to one or more branches. region_id +
 // regions_covered are only meaningful for these.
-const REGION_SCOPED_ROLES = new Set(["region_admin", "kitchen", "kitchen_staff", "driver", "shopping", "shopping_staff", "cleaning", "cleaning_staff"]);
+const REGION_SCOPED_ROLES = new Set(["region_admin", "kitchen", "kitchen_manager", "kitchen_staff", "driver", "shopping", "shopping_staff", "cleaning", "cleaning_manager", "cleaning_staff"]);
 
 // Map a profiles.role (enum, *_staff form) to the user_departments
 // .department value. NOTE the inversion vs profiles.role: the
@@ -55,7 +57,9 @@ const REGION_SCOPED_ROLES = new Set(["region_admin", "kitchen", "kitchen_staff",
 // it created showed "No departments assigned" on /admin/users (the old
 // invite flow seeded this via assignDepartments; create-user never did).
 const ROLE_TO_DEPARTMENT: Record<string, string> = {
+  kitchen_manager: "kitchen",
   kitchen_staff: "kitchen",
+  cleaning_manager: "cleaning",
   cleaning_staff: "cleaning",
   shopping_staff: "buyer",
   driver: "driver",

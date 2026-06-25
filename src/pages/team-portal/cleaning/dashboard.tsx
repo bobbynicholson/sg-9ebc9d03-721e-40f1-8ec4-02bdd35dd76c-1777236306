@@ -284,8 +284,8 @@ function CleaningDashboardInner() {
       <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <PortalHeader
-            title="Cleaning"
-            subtitle="Equipment maintenance and tracking"
+            title="Cleaning desk"
+            subtitle="Returns, washing queue, priority inspections, damages, and what is ready to send out again."
             icon={Sparkles}
             actions={
               /* CLN2-J (cleaning deep audit, CLN2-19): paper roster. The
@@ -299,7 +299,11 @@ function CleaningDashboardInner() {
                   if (equipment.length === 0) {
                     // No data to print - cheap feedback rather than
                     // a blank A4 surprise.
-                    alert("No equipment loaded yet. Wait a moment then try again.");
+                    toast({
+                      title: "Equipment still loading",
+                      description: "Wait a moment, then print the roster again.",
+                      variant: "destructive",
+                    });
                     return;
                   }
                   setTimeout(() => window.print(), 100);
@@ -768,7 +772,9 @@ export default function CleaningDashboard() {
   return (
     <ProtectedRoute
       allowedRoles={[
+        UserRole.CLEANING_MANAGER,
         UserRole.CLEANING_STAFF,
+        UserRole.KITCHEN_MANAGER,
         UserRole.KITCHEN_STAFF,
         UserRole.COMPANY_ADMIN,
         UserRole.ADMIN,

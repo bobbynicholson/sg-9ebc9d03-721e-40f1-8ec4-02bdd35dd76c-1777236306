@@ -121,6 +121,15 @@ export const ROLE_ROUTES: Record<UserRole, string[]> = {
     "/team-portal/general/*",
     "/order/*",
   ],
+  [UserRole.KITCHEN_MANAGER]: [
+    "/team-portal/kitchen/*",
+    "/team-portal/cleaning/*",
+    "/team-portal/general/*",
+    "/admin/teams/kitchen",
+    "/admin/kitchen-schedule",
+    "/admin/kitchen-settings",
+    "/order/*",
+  ],
   [UserRole.SHOPPING_STAFF]: [
     "/team-portal/shopping/*",
     "/team-portal/general/*",
@@ -143,6 +152,13 @@ export const ROLE_ROUTES: Record<UserRole, string[]> = {
   [UserRole.CLEANING_STAFF]: [
     "/team-portal/cleaning/*",
     "/team-portal/general/*",
+    "/order/*",
+  ],
+  [UserRole.CLEANING_MANAGER]: [
+    "/team-portal/cleaning/*",
+    "/team-portal/general/*",
+    "/admin/teams/cleaning",
+    "/admin/cleaning-schedule",
     "/order/*",
   ],
   [UserRole.CLIENT]: [
@@ -223,6 +239,7 @@ export const ROLE_NAMES: Record<UserRole, string> = {
   [UserRole.COMPANY_ADMIN]: "Company Administrator",
   [UserRole.REGION_ADMIN]: "Branch Manager",
   [UserRole.SALES_ADMIN]: "Sales Admin",
+  [UserRole.KITCHEN_MANAGER]: "Kitchen Manager",
   [UserRole.KITCHEN_STAFF]: "Kitchen Staff",
   [UserRole.SHOPPING_STAFF]: "Shopping Staff",
   // WTR-A: split driver and waiter naming. The DRIVER role is now
@@ -230,6 +247,7 @@ export const ROLE_NAMES: Record<UserRole, string> = {
   // WAITER is a first-class role.
   [UserRole.DRIVER]: "Driver",
   [UserRole.WAITER]: "Waiter / Server",
+  [UserRole.CLEANING_MANAGER]: "Cleaning Manager",
   [UserRole.CLEANING_STAFF]: "Cleaning Staff",
   [UserRole.CLIENT]: "Client",
 };
@@ -248,12 +266,14 @@ export const ROLE_LANDING_PAGES: Record<UserRole, (companySlug?: string) => stri
   [UserRole.REGION_ADMIN]: (slug) => slug ? `/${slug}/admin/dashboard` : "/admin/dashboard",
   [UserRole.SALES_ADMIN]: (slug) => slug ? `/${slug}/admin/dashboard` : "/admin/dashboard",
   [UserRole.ADMIN]: (slug) => slug ? `/${slug}/admin/dashboard` : "/admin/dashboard",
-  [UserRole.KITCHEN_STAFF]: (slug) => slug ? `/${slug}/team-portal/kitchen/dashboard` : "/team-portal/kitchen/dashboard",
+  [UserRole.KITCHEN_MANAGER]: (slug) => slug ? `/${slug}/team-portal/kitchen/today` : "/team-portal/kitchen/today",
+  [UserRole.KITCHEN_STAFF]: (slug) => slug ? `/${slug}/team-portal/kitchen/today` : "/team-portal/kitchen/today",
   [UserRole.SHOPPING_STAFF]: (slug) => slug ? `/${slug}/team-portal/shopping/dashboard` : "/team-portal/shopping/dashboard",
   [UserRole.DRIVER]: (slug) => slug ? `/${slug}/team-portal/driver/dashboard` : "/team-portal/driver/dashboard",
   // WTR-A: waiter lands on the same dashboard as driver - the page
   // fans out widgets based on the user's role.
   [UserRole.WAITER]: (slug) => slug ? `/${slug}/team-portal/driver/dashboard` : "/team-portal/driver/dashboard",
+  [UserRole.CLEANING_MANAGER]: (slug) => slug ? `/${slug}/team-portal/cleaning/dashboard` : "/team-portal/cleaning/dashboard",
   [UserRole.CLEANING_STAFF]: (slug) => slug ? `/${slug}/team-portal/cleaning/dashboard` : "/team-portal/cleaning/dashboard",
   [UserRole.CLIENT]: (slug) => slug ? `/${slug}/client-portal/dashboard` : "/client-portal/dashboard",
 };
@@ -268,13 +288,15 @@ export const ROLE_LANDING_PAGES_BY_STRING: Record<string, (slug?: string) => str
   sales_admin: (slug) => slug ? `/${slug}/admin/dashboard` : "/admin/dashboard",
   admin: (slug) => slug ? `/${slug}/admin/dashboard` : "/admin/dashboard",
   owner: (slug) => slug ? `/${slug}/admin/dashboard` : "/admin/dashboard",
-  kitchen_staff: (slug) => slug ? `/${slug}/team-portal/kitchen/dashboard` : "/team-portal/kitchen/dashboard",
-  kitchen: (slug) => slug ? `/${slug}/team-portal/kitchen/dashboard` : "/team-portal/kitchen/dashboard",
+  kitchen_manager: (slug) => slug ? `/${slug}/team-portal/kitchen/today` : "/team-portal/kitchen/today",
+  kitchen_staff: (slug) => slug ? `/${slug}/team-portal/kitchen/today` : "/team-portal/kitchen/today",
+  kitchen: (slug) => slug ? `/${slug}/team-portal/kitchen/today` : "/team-portal/kitchen/today",
   shopping_staff: (slug) => slug ? `/${slug}/team-portal/shopping/dashboard` : "/team-portal/shopping/dashboard",
   shopping: (slug) => slug ? `/${slug}/team-portal/shopping/dashboard` : "/team-portal/shopping/dashboard",
   driver: (slug) => slug ? `/${slug}/team-portal/driver/dashboard` : "/team-portal/driver/dashboard",
   // WTR-A: waiter alias in the string-keyed map for DB role strings.
   waiter: (slug) => slug ? `/${slug}/team-portal/driver/dashboard` : "/team-portal/driver/dashboard",
+  cleaning_manager: (slug) => slug ? `/${slug}/team-portal/cleaning/dashboard` : "/team-portal/cleaning/dashboard",
   cleaning_staff: (slug) => slug ? `/${slug}/team-portal/cleaning/dashboard` : "/team-portal/cleaning/dashboard",
   cleaning: (slug) => slug ? `/${slug}/team-portal/cleaning/dashboard` : "/team-portal/cleaning/dashboard",
   client: (slug) => slug ? `/${slug}/client-portal/dashboard` : "/client-portal/dashboard",
@@ -457,13 +479,37 @@ export function canManageBranch(userRole: UserRole): boolean {
  */
 export function isStaffRole(userRole: UserRole): boolean {
   const staffRoles: UserRole[] = [
+    UserRole.KITCHEN_MANAGER,
     UserRole.KITCHEN_STAFF,
     UserRole.SHOPPING_STAFF,
     UserRole.DRIVER,
     UserRole.WAITER,
+    UserRole.CLEANING_MANAGER,
     UserRole.CLEANING_STAFF,
   ];
   return staffRoles.includes(userRole);
+}
+
+export function isKitchenTeamRole(userRole: UserRole | null | undefined): boolean {
+  return userRole === UserRole.KITCHEN_STAFF || userRole === UserRole.KITCHEN_MANAGER;
+}
+
+export function isCleaningTeamRole(userRole: UserRole | null | undefined): boolean {
+  return userRole === UserRole.CLEANING_STAFF || userRole === UserRole.CLEANING_MANAGER;
+}
+
+export function isTeamManagerRole(userRole: UserRole | null | undefined): boolean {
+  return userRole === UserRole.KITCHEN_MANAGER || userRole === UserRole.CLEANING_MANAGER;
+}
+
+export function canManageKitchenTeam(roles: UserRole[]): boolean {
+  return roles.includes(UserRole.KITCHEN_MANAGER) || roles.some((r) => ADMIN_ROLES.includes(r));
+}
+
+export function canManageCleaningTeam(roles: UserRole[]): boolean {
+  return roles.includes(UserRole.CLEANING_MANAGER) ||
+    roles.includes(UserRole.KITCHEN_MANAGER) ||
+    roles.some((r) => ADMIN_ROLES.includes(r));
 }
 
 /**

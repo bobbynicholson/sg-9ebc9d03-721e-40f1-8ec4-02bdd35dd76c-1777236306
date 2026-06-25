@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { useToast } from "@/hooks/use-toast";
 import { routeStopService } from "@/services/routeStopService";
 import { formatLocalTime } from "@/lib/localFormat";
 
@@ -18,6 +19,7 @@ interface RouteStopManagerProps {
 }
 
 export function RouteStopManager({ orderId, driverId, isAdmin = false }: RouteStopManagerProps) {
+  const { toast } = useToast();
   const [stops, setStops] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [isAddingStop, setIsAddingStop] = useState(false);
@@ -44,7 +46,11 @@ export function RouteStopManager({ orderId, driverId, isAdmin = false }: RouteSt
 
   const handleAddStop = async () => {
     if (!newStop.stop_name || !newStop.stop_address) {
-      alert("Please fill in stop name and address");
+      toast({
+        title: "Stop details missing",
+        description: "Add the stop name and address before saving.",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -67,7 +73,11 @@ export function RouteStopManager({ orderId, driverId, isAdmin = false }: RouteSt
       await loadStops();
     } catch (error) {
       console.error("Error adding stop:", error);
-      alert("Failed to add stop");
+      toast({
+        title: "Stop not saved",
+        description: "The route stop could not be added. Try again.",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
@@ -79,7 +89,11 @@ export function RouteStopManager({ orderId, driverId, isAdmin = false }: RouteSt
       await loadStops();
     } catch (error) {
       console.error("Error marking arrival:", error);
-      alert("Failed to mark arrival");
+      toast({
+        title: "Arrival not saved",
+        description: "The stop arrival time could not be recorded.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -89,7 +103,11 @@ export function RouteStopManager({ orderId, driverId, isAdmin = false }: RouteSt
       await loadStops();
     } catch (error) {
       console.error("Error marking departure:", error);
-      alert("Failed to mark departure");
+      toast({
+        title: "Departure not saved",
+        description: "The stop departure time could not be recorded.",
+        variant: "destructive",
+      });
     }
   };
 

@@ -396,29 +396,32 @@ export default function InvoicePaymentPage() {
   const payNow = Math.max(0, Math.min(Number(payAmount) || 0, invoice.balance_due));
   const remainingAfter = Math.max(0, Math.round((invoice.balance_due - payNow) * 100) / 100);
 
-  // Reconciling breakdown: show the stored line items ONLY when they sum to
-  // the invoice total. If they're stale (e.g. the order was edited after the
-  // invoice was generated), collapse to a single "Catering & services" line
-  // plus any damage lines, so what's shown on screen ALWAYS sums to the total
-  // - the client never sees lines that don't add up.
+  // Reconciling breakdown: always show the stored invoice snapshot
+  // lines. If snapshot rows do not exactly add up to the invoice
+  // subtotal/total (tax, rounding, later adjustments), add a single
+  // adjustment line so the visible breakdown agrees with the total.
   const r2 = (n: number) => Math.round(n * 100) / 100;
   const rawItems: any[] = Array.isArray(invoice.invoice_data?.items) ? invoice.invoice_data.items : [];
   const invTotal = r2(Number(invoice.total_amount || 0));
-  const itemsSum = r2(rawItems.reduce((s, it) => s + Number(it?.total || 0), 0));
-  const itemsReconcile = rawItems.length > 0 && Math.abs(itemsSum - invTotal) <= 0.01;
-  const damageItems = rawItems.filter((it) => /damage/i.test(String(it?.description || "")));
-  const damageSum = r2(damageItems.reduce((s, it) => s + Number(it?.total || 0), 0));
-  const breakdownLines: any[] = itemsReconcile
-    ? rawItems
-    : rawItems.length > 0
-      ? [
-          {
-            description: `Catering & services${invoice.invoice_data?.orderNumber ? ` (${invoice.invoice_data.orderNumber})` : ""}`,
-            total: r2(invTotal - damageSum),
-          },
-          ...damageItems,
-        ]
-      : [];
+  const rawItemsSum = r2(rawItems.reduce((s, it) => s + Number(it?.total || 0), 0));
+  const storedSubtotal = r2(Number(invoice.invoice_data?.subtotal || 0));
+  const storedTax = r2(Number(invoice.invoice_data?.taxAmount || 0));
+  const hasStoredTax = storedTax > 0 && Math.abs(r2(storedSubtotal + storedTax) - invTotal) <= 0.01;
+  const lineTarget = hasStoredTax ? storedSubtotal : invTotal;
+  const reconDiff = r2(lineTarget - rawItemsSum);
+  const itemsReconcile = rawItems.length > 0 && Math.abs(reconDiff) <= 0.01;
+  const breakdownLines: any[] = rawItems.length > 0
+    ? [
+        ...rawItems,
+        ...(!itemsReconcile
+          ? [{
+              description: "Invoice adjustment",
+              total: reconDiff,
+              isAdjustment: true,
+            }]
+          : []),
+      ]
+    : [];
 
   return (
     <>
@@ -612,10 +615,11 @@ export default function InvoicePaymentPage() {
                   <ul className="divide-y divide-stone-100">
                     {breakdownLines.map((it: any, i: number) => {
                       const isDamage = /damage/i.test(String(it?.description || ""));
+                      const isAdjustment = !!it?.isAdjustment;
                       return (
                         <li key={i} className="flex items-start justify-between gap-3 px-4 py-2.5 text-sm">
                           <div className="min-w-0">
-                            <p className={isDamage ? "text-rose-700 font-medium" : "text-stone-800"}>
+                            <p className={isDamage ? "text-rose-700 font-medium" : isAdjustment ? "text-stone-600 italic" : "text-stone-800"}>
                               {it?.description || "Item"}
                             </p>
                             {Number(it?.quantity) > 0 && Number(it?.unitPrice) > 0 && (
@@ -632,7 +636,7 @@ export default function InvoicePaymentPage() {
                     })}
                   </ul>
                   <div className="border-t border-stone-200 bg-stone-50 px-4 py-2.5 space-y-1 text-sm">
-                    {itemsReconcile && Number(invoice.invoice_data?.taxAmount) > 0 && (
+                    {hasStoredTax && (
                       <>
                         <div className="flex items-center justify-between text-stone-600">
                           <span>Subtotal</span>

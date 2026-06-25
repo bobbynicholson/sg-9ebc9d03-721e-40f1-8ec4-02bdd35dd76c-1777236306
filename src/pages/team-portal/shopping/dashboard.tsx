@@ -24,6 +24,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import {
   Dialog,
@@ -53,6 +54,7 @@ import { BarcodeScanFab } from "@/components/shopping/BarcodeScanFab";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { useToast } from "@/hooks/use-toast";
+import { getShoppingCostVariance, formatShoppingVariance, parseMoneyInput } from "@/lib/shopping/completionRules";
 
 function ShoppingDashboardInner() {
   const { user } = useAuth();
@@ -66,6 +68,7 @@ function ShoppingDashboardInner() {
   const [completing, setCompleting] = useState(false);
   const [completeOpen, setCompleteOpen] = useState(false);
   const [actualTotalInput, setActualTotalInput] = useState("");
+  const [noReceiptReason, setNoReceiptReason] = useState("");
   // SHP2-G (shopping deep audit, SHP2-32 part b): live search input so
   // a shopper holding a phone in one hand at the supplier can type
   // "tom" and immediately see tomatoes - faster than scrolling 30
@@ -247,34 +250,57 @@ function ShoppingDashboardInner() {
 
   const handleCompleteOpen = () => {
     setActualTotalInput("");
+    setNoReceiptReason("");
     setCompleteOpen(true);
   };
 
   const handleCompleteConfirm = async () => {
-    const parsed = actualTotalInput.trim() ? Number(actualTotalInput) : undefined;
-    if (actualTotalInput.trim() && (Number.isNaN(parsed) || (parsed ?? 0) < 0)) {
+    const parsed = parseMoneyInput(actualTotalInput);
+    if (actualTotalInput.trim() && (parsed == null || parsed < 0)) {
       toast({ title: "Enter a valid total", variant: "destructive" });
+      return;
+    }
+    const reason = noReceiptReason.trim();
+    if (!activeList.list?.receipt_url && !reason) {
+      toast({
+        title: "Receipt status required",
+        description: "Enter a no-receipt reason before closing this list.",
+        variant: "destructive",
+      });
       return;
     }
     setCompleting(true);
     try {
-      await activeList.completeList(parsed);
+      const ok = await activeList.completeList(parsed, { noReceiptReason: reason });
+      if (!ok) {
+        toast({
+          title: "Could not complete",
+          description: activeList.error || "Receipt status is required before closing the list.",
+          variant: "destructive",
+        });
+        return;
+      }
       // SHP2-E (SHP2-30): completeList now writes supplier_payables
       // when an actual total was entered. The cashflow forecast
       // refreshes via the cateringms:shopping-updated event listener.
-      // Nudge the shopper to snap the receipt so the bookkeeper can
-      // reconcile against the payable.
+      // Receipt status is captured in the same closeout flow.
       toast({
         title: parsed && parsed > 0 ? "List complete · payable recorded" : "List complete",
         description: parsed && parsed > 0
-          ? "Snap the receipt to reconcile - cashflow is already updated."
-          : "Snap the receipt to close it out.",
+          ? "Cashflow is updated and receipt status is captured."
+          : "Receipt status is captured.",
       });
       setCompleteOpen(false);
     } finally {
       setCompleting(false);
     }
   };
+
+  const completionActual = parseMoneyInput(actualTotalInput);
+  const completionVariance = getShoppingCostVariance(
+    activeList.list?.estimated_total,
+    completionActual,
+  );
 
   return (
     <>
@@ -833,12 +859,18 @@ function ShoppingDashboardInner() {
       </div>
 
       {/* Complete-list dialog */}
-      <Dialog open={completeOpen} onOpenChange={setCompleteOpen}>
+      <Dialog
+        open={completeOpen}
+        onOpenChange={(open) => {
+          setCompleteOpen(open);
+          if (!open) setNoReceiptReason("");
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Mark list complete</DialogTitle>
             <DialogDescription>
-              Records the actual total spent and closes the list. You can still upload a receipt afterwards from the Receipts page.
+              Records the actual total spent and closes the list. A receipt or no-receipt reason is required.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
@@ -854,6 +886,28 @@ function ShoppingDashboardInner() {
                 placeholder="Leave blank if not known yet"
               />
             </div>
+            {completionVariance?.shouldFlag && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+                  <p>
+                    Actual spend is {formatShoppingVariance(completionVariance)} estimate; admins will be notified when this list closes.
+                  </p>
+                </div>
+              </div>
+            )}
+            {!activeList.list?.receipt_url && (
+              <div>
+                <Label htmlFor="no_receipt_reason">No receipt reason</Label>
+                <Textarea
+                  id="no_receipt_reason"
+                  value={noReceiptReason}
+                  onChange={(e) => setNoReceiptReason(e.target.value)}
+                  placeholder="Supplier did not provide a slip, till offline, cash purchase, etc."
+                  className="min-h-[84px]"
+                />
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setCompleteOpen(false)} disabled={completing}>

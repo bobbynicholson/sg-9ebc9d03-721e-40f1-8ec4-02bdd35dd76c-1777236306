@@ -25,21 +25,24 @@
  *     where the recipient may open it outside the tab
  *
  * Role param convention:
+ *   - kitchen_manager -> Kitchen section auto-expanded
  *   - kitchen_staff -> Kitchen section auto-expanded
  *   - driver        -> Driver section
  *   - waiter        -> Service team section
  *   - shopping_staff-> Shopping section
- *   - cleaning_staff-> Cleaning section
+ *   - cleaning_manager / cleaning_staff -> Cleaning section
  *   - admin/owner/region_admin/sales_admin/company_admin -> admin
  *     (the doc page normalises all of these via ROLE_TO_SECTION)
  *   - client        -> client mode (Finance hidden)
  */
 
 export type StaffOrderRole =
+  | "kitchen_manager"
   | "kitchen_staff"
   | "driver"
   | "waiter"
   | "shopping_staff"
+  | "cleaning_manager"
   | "cleaning_staff"
   | "admin"
   | "owner"

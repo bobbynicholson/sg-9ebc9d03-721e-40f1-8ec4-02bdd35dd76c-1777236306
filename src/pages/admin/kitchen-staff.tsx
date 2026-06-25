@@ -1384,7 +1384,9 @@ function KitchenStaffPage() {
                     onChange={(e) => setInviteRole(e.target.value)}
                     className="w-full h-9 rounded-md border border-slate-200 bg-white px-3 text-sm"
                   >
+                    <option value="kitchen_manager">Kitchen manager</option>
                     <option value="kitchen_staff">Kitchen staff</option>
+                    <option value="cleaning_manager">Cleaning manager</option>
                     <option value="cleaning_staff">Cleaning staff</option>
                     <option value="shopping_staff">Shopping staff</option>
                     <option value="driver">Driver</option>

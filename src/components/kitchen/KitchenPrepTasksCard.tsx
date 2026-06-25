@@ -19,6 +19,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { kitchenPrepService } from "@/services/kitchenPrepService";
+import { dedupeKitchenPrepTasks, formatKitchenPrepTaskType } from "@/lib/kitchen/prepTasks";
 
 interface PrepTaskRow {
   id: string;
@@ -51,7 +52,7 @@ export function KitchenPrepTasksCard({ orderId }: { orderId: string }) {
       .eq("order_id", orderId)
       .is("deleted_at", null)
       .order("start_at", { ascending: true, nullsFirst: false });
-    const rows = (data || []) as PrepTaskRow[];
+    const rows = dedupeKitchenPrepTasks((data || []) as PrepTaskRow[]);
     setTasks(rows);
     const ids = Array.from(new Set(rows.map((r) => r.completed_by).filter(Boolean))) as string[];
     if (ids.length > 0) {
@@ -137,7 +138,7 @@ export function KitchenPrepTasksCard({ orderId }: { orderId: string }) {
               )}
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium text-slate-900 truncate">
-                  <span className="capitalize">{t.task_type}</span>
+                  <span>{formatKitchenPrepTaskType(t.task_type)}</span>
                   {t.menu_item_name && <span className="text-slate-500"> · {t.menu_item_name}</span>}
                 </p>
                 {doneish && t.completed_at && (

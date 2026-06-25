@@ -93,8 +93,10 @@ export function StaffViewSwitcher({ companySlug }: ViewSwitcherProps) {
     setLoading(true);
     const roleRoutes: Record<string, string> = {
       driver: "/team-portal/driver/dashboard",
+      kitchen_manager: "/team-portal/kitchen/dashboard",
       kitchen_staff: "/team-portal/kitchen/dashboard",
       shopping_staff: "/team-portal/shopping/dashboard",
+      cleaning_manager: "/team-portal/cleaning/dashboard",
       cleaning_staff: "/team-portal/cleaning/dashboard",
     };
 
@@ -141,9 +143,9 @@ export function StaffViewSwitcher({ companySlug }: ViewSwitcherProps) {
   // Group staff by role
   const staffByRole = {
     driver: staffMembers.filter(s => s.active_role === "driver"),
-    kitchen_staff: staffMembers.filter(s => s.active_role === "kitchen_staff"),
+    kitchen_staff: staffMembers.filter(s => s.active_role === "kitchen_staff" || s.active_role === "kitchen_manager"),
     shopping_staff: staffMembers.filter(s => s.active_role === "shopping_staff"),
-    cleaning_staff: staffMembers.filter(s => s.active_role === "cleaning_staff"),
+    cleaning_staff: staffMembers.filter(s => s.active_role === "cleaning_staff" || s.active_role === "cleaning_manager"),
   };
 
   if (profile?.active_role !== "company_admin" && profile?.active_role !== "super_admin") {

@@ -34,12 +34,14 @@ type ForcedSection = "kitchen" | "driver" | "waiter" | "shopping" | "cleaning" |
  */
 const ROLE_TO_SECTION: Record<string, ForcedSection> = {
   kitchen: "kitchen",
+  kitchen_manager: "kitchen",
   kitchen_staff: "kitchen",
   driver: "driver",
   waiter: "waiter",
   shopping: "shopping",
   shopping_staff: "shopping",
   cleaning: "cleaning",
+  cleaning_manager: "cleaning",
   cleaning_staff: "cleaning",
   admin: "admin",
   owner: "admin",

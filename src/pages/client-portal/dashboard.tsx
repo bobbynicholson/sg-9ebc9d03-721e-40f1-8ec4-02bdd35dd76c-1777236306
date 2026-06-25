@@ -210,8 +210,21 @@ function pickHeadlineEvent(orders: Order[]): Order | null {
   );
   if (live) return live;
   const todayISO = toLocalISO(new Date());
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayISO = toLocalISO(yesterday);
+  const justDelivered = orders
+    .filter(
+      (o) =>
+        o.event_date <= todayISO &&
+        o.event_date >= yesterdayISO &&
+        o.status === "delivered",
+    )
+    .sort((a, b) => b.event_date.localeCompare(a.event_date));
+  if (justDelivered[0]) return justDelivered[0];
+
   const upcoming = orders
-    .filter((o) => o.event_date >= todayISO && !["cancelled", "completed"].includes(o.status))
+    .filter((o) => o.event_date >= todayISO && !["cancelled", "completed", "delivered"].includes(o.status))
     .sort((a, b) => a.event_date.localeCompare(b.event_date));
   if (upcoming[0]) return upcoming[0];
 
@@ -418,6 +431,8 @@ function ClientPortalDashboardInner() {
     () => fmtMoneyFor(((company as any)?.currency as string) || "ZAR"),
     [(company as any)?.currency],
   );
+  const quoteDisplayTotal = (quote: PortalQuote): number =>
+    Number(quote.total_amount ?? quote.total ?? 0);
 
   const greeting = useMemo(() => greetingFor(new Date()), []);
 
@@ -770,6 +785,18 @@ function ClientPortalDashboardInner() {
           if (!cancelled) load();
         },
       )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "delivery_feedback",
+          filter: `company_id=eq.${tenantCompanyId}`,
+        },
+        () => {
+          if (!cancelled) load();
+        },
+      )
       .subscribe();
 
     // CLI-D (CLI-16): cross-tab event bus listener.
@@ -1087,7 +1114,7 @@ function ClientPortalDashboardInner() {
 
                     <ul className="space-y-2">
                       {pending.slice(0, 3).map((q) => {
-                        const total = Number(q.total ?? q.total_amount ?? 0);
+                        const total = quoteDisplayTotal(q);
                         const eventLabel = q.event_date
                           ? new Date(q.event_date).toLocaleDateString("en-ZA", {
                               day: "numeric", month: "short", year: "numeric",

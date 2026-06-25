@@ -103,13 +103,13 @@ export function ClientNav() {
     },
     {
       id: "orders",
-      title: "Orders",
+      title: "Bookings",
       defaultOpen: true,
       items: [
         { name: "Quotes", href: "/client-portal/quotes", icon: FileText },
-        { name: "My Orders", href: "/client-portal/my-orders", icon: ShoppingCart },
-        { name: "Tracking", href: "/client-portal/tracking", icon: MapPin },
-        { name: "Billing", href: "/client-portal/billing", icon: Receipt },
+        { name: "Bookings", href: "/client-portal/my-orders", icon: ShoppingCart },
+        { name: "Live tracking", href: "/client-portal/tracking", icon: MapPin },
+        { name: "Billing & invoices", href: "/client-portal/billing", icon: Receipt },
       ]
     },
     {
@@ -177,9 +177,9 @@ export function ClientNav() {
               <MobileQuickActions
                 onNavigate={() => setOpen(false)}
                 actions={[
-                  { href: withSlug("/client-portal/my-orders"), label: "My orders",  sub: "Active + history", icon: ShoppingCart, accent: "from-brand-primary to-brand-secondary" },
-                  { href: withSlug("/client-portal/tracking"), label: "Track order", sub: "Live ETA",         icon: MapPin,       accent: "from-brand-primary to-brand-secondary" },
-                  { href: withSlug("/client-portal/billing"),  label: "Billing",     sub: "Pay + invoices",   icon: Receipt,      accent: "from-brand-primary to-brand-secondary" },
+                  { href: withSlug("/client-portal/my-orders"), label: "Bookings",        sub: "Active + history", icon: ShoppingCart, accent: "from-brand-primary to-brand-secondary" },
+                  { href: withSlug("/client-portal/tracking"), label: "Live tracking",    sub: "Driver ETA",       icon: MapPin,       accent: "from-brand-primary to-brand-secondary" },
+                  { href: withSlug("/client-portal/billing"),  label: "Billing",          sub: "Pay + invoices",   icon: Receipt,      accent: "from-brand-primary to-brand-secondary" },
                 ]}
               />
               <div className="pt-2 mt-2 border-t border-slate-100 space-y-4">

@@ -490,7 +490,7 @@ export default function ClientTracking() {
                 <h3 className="text-xl font-semibold text-slate-900 dark:text-white mb-2">No live deliveries right now</h3>
                 <p className="text-slate-600 dark:text-slate-400 max-w-md mx-auto mb-5">
                   Live tracking opens up once your next event is being prepared.
-                  Until then you can see all your bookings under &ldquo;My Orders&rdquo;.
+                  Until then you can see all your bookings under &ldquo;Bookings&rdquo;.
                 </p>
                 <div className="inline-flex gap-2">
                   <Button asChild className="bg-brand-primary hover:opacity-90 text-white">
@@ -681,7 +681,7 @@ export default function ClientTracking() {
             {/* Order List Sidebar */}
             <div>
               <PortalCard>
-                <h2 className="mb-4 text-base font-semibold text-slate-900 dark:text-white">Your Orders</h2>
+                <h2 className="mb-4 text-base font-semibold text-slate-900 dark:text-white">Your bookings</h2>
                 <div className="space-y-3">
                   {orders.map((order) => (
                     <div

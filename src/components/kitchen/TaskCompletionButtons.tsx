@@ -14,6 +14,7 @@ import { kitchenDutyService } from "@/services/kitchenDutyService";
 import { useAuth } from "@/contexts/AuthContext";
 import { Database } from "@/integrations/supabase/types";
 import { formatLocalTime } from "@/lib/localFormat";
+import { useToast } from "@/hooks/use-toast";
 
 type TaskCompletionWithStaff = Database["public"]["Tables"]["kitchen_task_completions"]["Row"] & {
   staff: {
@@ -40,25 +41,25 @@ interface TaskStatus {
 const TASK_TYPES = [
   {
     type: "food_ready",
-    label: "Food Ready",
+    label: "Food ready",
     icon: Grape,
     color: "bg-green-500",
   },
   {
     type: "cutlery_ready",
-    label: "Cutlery Ready",
+    label: "Cutlery ready",
     icon: UtensilsCrossed,
     color: "bg-blue-500",
   },
   {
     type: "crockery_ready",
-    label: "Crockery Ready",
+    label: "Crockery ready",
     icon: Package,
     color: "bg-purple-500",
   },
   {
     type: "ready_for_pickup",
-    label: "Ready for Pickup",
+    label: "Ready for pickup",
     icon: Truck,
     color: "bg-orange-500",
   },
@@ -70,6 +71,7 @@ export function TaskCompletionButtons({
   clientName 
 }: TaskCompletionButtonsProps) {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [tasks, setTasks] = useState<TaskStatus[]>([]);
   const [loading, setLoading] = useState<string | null>(null);
   const [currentShift, setCurrentShift] = useState<any>(null);
@@ -109,12 +111,20 @@ export function TaskCompletionButtons({
 
   const handleCompleteTask = async (taskType: string) => {
     if (!user?.id) {
-      alert("You must be logged in to complete tasks");
+      toast({
+        title: "Sign in required",
+        description: "Sign in again before completing kitchen tasks.",
+        variant: "destructive",
+      });
       return;
     }
 
     if (!currentShift?.is_active) {
-      alert("You must be on duty to complete tasks. Click 'Start Duty' first.");
+      toast({
+        title: "Start your shift first",
+        description: "Clock in before marking kitchen tasks complete.",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -130,7 +140,11 @@ export function TaskCompletionButtons({
       await loadTaskStatus();
     } catch (error) {
       console.error("Error completing task:", error);
-      alert("Failed to mark task as complete");
+      toast({
+        title: "Task not saved",
+        description: error instanceof Error ? error.message : "Try again before service leaves the kitchen.",
+        variant: "destructive",
+      });
     } finally {
       setLoading(null);
     }
@@ -183,7 +197,7 @@ export function TaskCompletionButtons({
         {!currentShift?.is_active && (
           <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
             <p className="text-sm text-amber-800">
-              ⚠️ You must be on duty to complete tasks. Click "Start Duty" above.
+              Start your shift before marking tasks complete.
             </p>
           </div>
         )}
@@ -191,8 +205,8 @@ export function TaskCompletionButtons({
         {allTasksComplete && (
           <div className="p-4 bg-green-50 border border-green-200 rounded-lg text-center">
             <CheckCircle2 className="h-8 w-8 text-green-600 mx-auto mb-2" />
-            <p className="font-semibold text-green-800">All tasks complete!</p>
-            <p className="text-sm text-green-700">Order is ready for pickup</p>
+            <p className="font-semibold text-green-800">All tasks complete</p>
+            <p className="text-sm text-green-700">Order is ready for pickup.</p>
           </div>
         )}
       </CardContent>

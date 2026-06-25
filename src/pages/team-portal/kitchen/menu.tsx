@@ -161,14 +161,14 @@ export default function KitchenMenuItemsPage() {
 
   return (
     <>
-      <Head><title>Menu items - CateringMS</title></Head>
+      <Head><title>Recipes - CateringMS</title></Head>
       <NoIndexMeta />
       <KitchenNav />
       <main className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <PortalHeader
-            title="Menu items"
-            subtitle="Recipes the kitchen owns, click any dish for ingredients and prep notes"
+            title="Recipes"
+            subtitle="Kitchen-owned dishes with ingredients, dietary tags, and prep notes. Open a dish before production starts."
             icon={BookOpen}
           />
 
@@ -255,7 +255,7 @@ export default function KitchenMenuItemsPage() {
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>{selected?.item_name}</DialogTitle>
-            <DialogDescription>{selected?.category ?? ""}{selected?.base_price != null ? `, R ${Number(selected.base_price).toFixed(2)}` : ""}</DialogDescription>
+            <DialogDescription>{selected?.category || "Recipe details"}</DialogDescription>
           </DialogHeader>
           {selected && (
             <div className="space-y-4 max-h-[70vh] overflow-y-auto">

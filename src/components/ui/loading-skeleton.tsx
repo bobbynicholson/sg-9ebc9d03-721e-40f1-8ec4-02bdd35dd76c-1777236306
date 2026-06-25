@@ -22,7 +22,7 @@ interface BaseProps {
 export function SkeletonBlock({ className, ...rest }: BaseProps & React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={cn("animate-pulse rounded-md bg-slate-200/70", className)}
+      className={cn("motion-safe:animate-pulse rounded-md bg-slate-200/70 dark:bg-slate-800", className)}
       {...rest}
     />
   );
@@ -42,7 +42,7 @@ export function ListSkeleton({
         </div>
       )}
       {Array.from({ length: rows }).map((_, i) => (
-        <div key={i} className="flex items-center gap-4 rounded-md border border-slate-200 bg-white p-4">
+        <div key={i} className="flex items-center gap-4 rounded-md border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
           <SkeletonBlock className="h-10 w-10 rounded-full" />
           <div className="flex-1 space-y-2">
             <SkeletonBlock className="h-3.5 w-2/5" />
@@ -70,7 +70,7 @@ export function CardSkeleton({
       aria-live="polite"
     >
       {Array.from({ length: tiles }).map((_, i) => (
-        <div key={i} className="rounded-md border border-slate-200 bg-white p-4 space-y-3">
+        <div key={i} className="space-y-3 rounded-md border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
           <SkeletonBlock className="h-3 w-1/3" />
           <SkeletonBlock className="h-7 w-1/2" />
           <SkeletonBlock className="h-2.5 w-2/3" />
@@ -92,7 +92,7 @@ export function DetailSkeleton({ className }: BaseProps) {
           <SkeletonBlock key={i} className="h-20 rounded-md" />
         ))}
       </div>
-      <div className="space-y-3 rounded-md border border-slate-200 bg-white p-5">
+      <div className="space-y-3 rounded-md border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
         <SkeletonBlock className="h-3.5 w-1/4" />
         <SkeletonBlock className="h-3 w-3/4" />
         <SkeletonBlock className="h-3 w-2/3" />

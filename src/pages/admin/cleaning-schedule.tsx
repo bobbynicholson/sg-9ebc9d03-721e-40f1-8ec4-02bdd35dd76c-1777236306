@@ -24,7 +24,7 @@ import { UserRole } from "@/types/app";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { AdminNav } from "@/components/admin/AdminNav";
+import { DynamicNav } from "@/components/DynamicNav";
 import { PortalShell, PortalHeader } from "@/components/portal/ui";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
@@ -97,6 +97,7 @@ const fmtTime = (t: string | null): string => (t ? t.slice(0, 5) : "");
 
 function CleaningScheduleGrid() {
   const { user } = useAuth() as any;
+  const userRole = ((user as any)?.active_role || (user as any)?.role || UserRole.ADMIN).toString();
   const router = useRouter();
   const companyId = user?.company_id;
   const [weekStart, setWeekStart] = useState<Date>(startOfWeek(new Date()));
@@ -215,7 +216,7 @@ function CleaningScheduleGrid() {
     <>
       <Head><title>Cleaning schedule - CateringMS</title></Head>
       <NoIndexMeta />
-      <AdminNav />
+      <DynamicNav userRole={userRole} />
       <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
 
@@ -484,7 +485,7 @@ function CleaningScheduleGrid() {
 
 export default function ProtectedCleaningSchedulePage() {
   return (
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN]}>
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.CLEANING_MANAGER]}>
       <CleaningScheduleGrid />
     </ProtectedRoute>
   );

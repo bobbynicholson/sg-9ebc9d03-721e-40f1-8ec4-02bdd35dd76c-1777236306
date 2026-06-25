@@ -258,10 +258,23 @@ export const equipmentTrackingService = {
       try {
         await notificationService.broadcastNotification({
           companyId: order.company_id,
-          type: "equipment_damage",
-          title: "Equipment short - item damaged",
+          type: "equipment_damage_kitchen_alert",
+          title: "Equipment damaged during service",
           message: `${params.quantityDamaged}x ${equipmentName} marked ${params.damageType} on order ${order.order_number} and pulled from stock. Check availability for upcoming events.`,
-          targetRoles: ["kitchen_staff" as any, "cleaning_staff" as any],
+          targetRoles: ["kitchen_manager" as any, "kitchen_staff" as any],
+          priority: "normal",
+          link: `/team-portal/kitchen/dashboard`,
+          relatedEntityType: "equipment",
+          relatedEntityId: params.equipmentId,
+          dedup: true,
+          dedupWindowMinutes: 60,
+        } as any);
+        await notificationService.broadcastNotification({
+          companyId: order.company_id,
+          type: "equipment_damage_cleaning_alert",
+          title: "Equipment short - item damaged",
+          message: `${params.quantityDamaged}x ${equipmentName} marked ${params.damageType} on order ${order.order_number} and pulled from stock.`,
+          targetRoles: ["cleaning_manager" as any, "cleaning_staff" as any],
           priority: "normal",
           link: `/team-portal/cleaning/dashboard`,
           relatedEntityType: "equipment",

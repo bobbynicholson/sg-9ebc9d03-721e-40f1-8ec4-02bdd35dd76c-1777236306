@@ -183,7 +183,7 @@ function HandoverDetailInner() {
         const { notificationService } = await import("@/services/notificationService");
         await notificationService.broadcastNotification({
           companyId: (handover as any).company_id,
-          targetRoles: ["kitchen_staff", "company_admin", "admin", "owner"] as any,
+          targetRoles: ["kitchen_manager", "kitchen_staff", "company_admin", "admin", "owner"] as any,
           title: "Cleaning handover complete",
           message: `Cleaning team signed off ${handover.order_number ? `order ${handover.order_number}` : "an event"}. ${totalReturned} item${totalReturned === 1 ? "" : "s"} verified - equipment is back in stock.`,
           type: "delivered" as any,
@@ -446,7 +446,7 @@ function HandoverDetailInner() {
 
 export default function ProtectedHandoverDetailPage() {
   return (
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.CLEANING_STAFF]}>
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.CLEANING_MANAGER, UserRole.CLEANING_STAFF, UserRole.KITCHEN_MANAGER]}>
       <HandoverDetailInner />
     </ProtectedRoute>
   );

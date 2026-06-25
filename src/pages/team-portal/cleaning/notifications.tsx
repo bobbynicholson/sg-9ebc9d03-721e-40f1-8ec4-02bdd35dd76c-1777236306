@@ -87,7 +87,7 @@ export default function CleaningNotificationsPage() {
       let q = supabase
         .from("notifications")
         .select("*")
-        .or(`recipient_id.eq.${user.id},user_id.eq.${user.id},target_role.eq.cleaning_staff`)
+        .or(`recipient_id.eq.${user.id},user_id.eq.${user.id},target_role.eq.cleaning_staff,target_role.eq.cleaning_manager`)
         .order("created_at", { ascending: false })
         .limit(100);
       if (tab === "unread") q = q.eq("is_read", false);

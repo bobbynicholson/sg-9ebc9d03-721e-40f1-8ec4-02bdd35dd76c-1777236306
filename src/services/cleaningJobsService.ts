@@ -281,7 +281,7 @@ export async function createJob(
         type: "cleaning_job_assigned",
         title: "New cleaning job",
         message: `${args.quantity}x ${(equipment as any).name} to clean (${args.method.replace("_", " ")}).`,
-        targetRoles: ["cleaning_staff" as any],
+        targetRoles: ["cleaning_manager" as any, "cleaning_staff" as any],
         priority: "normal",
         link: "/team-portal/cleaning",
         relatedEntityType: "cleaning_job",

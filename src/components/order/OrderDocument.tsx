@@ -68,8 +68,10 @@ function resolvePrimarySection(
   (userRoles || []).forEach((r) => all.add(String(r)));
   if (all.has(UserRole.WAITER)) return "waiter";
   if (all.has(UserRole.DRIVER)) return "driver";
+  if (all.has(UserRole.KITCHEN_MANAGER)) return "kitchen";
   if (all.has(UserRole.KITCHEN_STAFF)) return "kitchen";
   if (all.has(UserRole.SHOPPING_STAFF)) return "shopping";
+  if (all.has(UserRole.CLEANING_MANAGER)) return "cleaning";
   if (all.has(UserRole.CLEANING_STAFF)) return "cleaning";
   if (all.has(UserRole.CLIENT)) return "client";
   return "admin";

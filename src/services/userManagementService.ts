@@ -618,8 +618,10 @@ export const userManagementService = {
 
       const stats: Partial<Record<string, number>> = {};
       const normalise = (r: string) => {
+        if (r === "kitchen_manager") return "kitchen";
         if (r === "kitchen_staff") return "kitchen";
         if (r === "shopping_staff") return "shopping";
+        if (r === "cleaning_manager") return "cleaning";
         if (r === "cleaning_staff") return "cleaning";
         return r;
       };

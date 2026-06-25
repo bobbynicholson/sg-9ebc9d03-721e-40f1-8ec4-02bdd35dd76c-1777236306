@@ -39,6 +39,8 @@ import Link from "next/link";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { canManageCleaningTeam, canManageKitchenTeam } from "@/lib/authGuards";
+import { UserRole } from "@/types/app";
 import {
   kitchenStaffService,
   liveWorkedMinutes,
@@ -107,6 +109,14 @@ export function KitchenStaffTileBoard({
   // silent `if (!companyId) return` in click handlers below was making
   // tap-to-clock-in look broken with zero feedback.
   const companyId = ((user as any)?.company_id || (profile as any)?.company_id) as string | undefined;
+  const roleSet = useMemo(() => {
+    return [
+      (user as any)?.role,
+      (user as any)?.active_role,
+      (profile as any)?.role,
+      (profile as any)?.active_role,
+    ].filter(Boolean) as UserRole[];
+  }, [user, profile]);
 
   const [staff, setStaff] = useState<KitchenStaffPublic[]>([]);
   const [openShifts, setOpenShifts] = useState<KitchenShift[]>([]);
@@ -159,7 +169,7 @@ export function KitchenStaffTileBoard({
     }
   };
 
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [companyId]);
+  useEffect(() => { load(); /* eslint-disable-next-line */ }, [companyId, department]);
 
   // Live tick every 30s so the on-shift / on-break timers move without us
   // re-fetching the whole shifts list.
@@ -176,6 +186,22 @@ export function KitchenStaffTileBoard({
   }, [openShifts]);
 
   const onDutyCount = openShifts.length;
+  const availableCount = Math.max(0, staff.length - onDutyCount);
+  const canManageThisBoard = department === "cleaning"
+    ? canManageCleaningTeam(roleSet)
+    : canManageKitchenTeam(roleSet);
+  const hasOwnLinkedTile = useMemo(
+    () => !!user?.id && staff.some((s) => s.linked_profile_id === user.id),
+    [staff, user?.id],
+  );
+  const isLegacySharedTeamLogin =
+    !hasOwnLinkedTile &&
+    (
+      (department === "cleaning" && roleSet.includes(UserRole.CLEANING_STAFF)) ||
+      (department !== "cleaning" && roleSet.includes(UserRole.KITCHEN_STAFF))
+    );
+  const canControlStaff = (s: KitchenStaffPublic) =>
+    canManageThisBoard || isLegacySharedTeamLogin || (!!user?.id && s.linked_profile_id === user.id);
 
   // ── Click handlers ───────────────────────────────────────────────────────
 
@@ -403,9 +429,15 @@ export function KitchenStaffTileBoard({
             <Badge variant="outline" className={`tabular-nums ${onDutyCount > 0 ? "bg-emerald-50 text-emerald-700 border-emerald-200" : ""}`}>
               {onDutyCount} on duty
             </Badge>
-            <InfoTooltip content="Tap a person's tile to clock them in. Tap an on-shift tile to clock them out.\n\nLong-press (or tap the pencil) to back-date a clock-in or fix a missed clock-out, a reason is required and gets stamped on the shift." />
+            <Badge variant="outline" className="tabular-nums bg-slate-50 text-slate-600 border-slate-200">
+              {availableCount} available
+            </Badge>
+            <InfoTooltip content={canManageThisBoard
+              ? "Managers can clock the whole team in or out and fix missed shifts.\n\nLong-press (or tap the pencil) to back-date a clock-in or fix a missed clock-out. A reason is required and gets stamped on the shift."
+              : "Staff can clock their own linked tile in or out. Managers can clock the whole team and fix missed shifts."
+            } />
           </span>
-          {staff.length > 0 && (
+          {staff.length > 0 && canManageThisBoard && (
             <Link
               href={manageHref}
               className="text-xs font-normal text-slate-500 hover:text-brand-primary inline-flex items-center gap-1"
@@ -428,12 +460,14 @@ export function KitchenStaffTileBoard({
             <p className="text-sm text-slate-500 mt-1">
               The owner needs to add {department === "cleaning" ? "cleaning" : department === "shopping" ? "shopping" : "kitchen"} staff before anyone can clock in.
             </p>
-            <Link
-              href={manageHref}
-              className="inline-flex items-center gap-1 text-sm font-medium text-brand-primary hover:opacity-80 mt-3"
-            >
-              Open Staff settings <ChevronRight className="w-3 h-3" />
-            </Link>
+            {canManageThisBoard && (
+              <Link
+                href={manageHref}
+                className="inline-flex items-center gap-1 text-sm font-medium text-brand-primary hover:opacity-80 mt-3"
+              >
+                Open Staff settings <ChevronRight className="w-3 h-3" />
+              </Link>
+            )}
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 sm:gap-3">
@@ -441,6 +475,7 @@ export function KitchenStaffTileBoard({
               const sh = shiftByStaff.get(s.id);
               const isOnShift = !!sh;
               const isOnBreak = !!sh?.break_started_at;
+              const canControl = canControlStaff(s);
               const workedMin = sh ? liveWorkedMinutes(sh, now) : 0;
               const breakMin = sh?.break_started_at
                 ? Math.max(0, Math.floor((now.getTime() - new Date(sh.break_started_at).getTime()) / 60_000))
@@ -456,21 +491,22 @@ export function KitchenStaffTileBoard({
                   key={s.id}
                   className={`relative rounded-xl border-2 p-3 transition-all select-none ${tone}`}
                 >
-                  {/* Override pencil, always visible top-right */}
-                  <button
-                    type="button"
-                    aria-label="Manual override"
-                    onClick={(e) => { e.stopPropagation(); openOverride(s); }}
-                    className="absolute top-1.5 right-1.5 p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-white/60"
-                  >
-                    <Pencil className="w-3 h-3" />
-                  </button>
+                  {canControl && (
+                    <button
+                      type="button"
+                      aria-label="Manual override"
+                      onClick={(e) => { e.stopPropagation(); openOverride(s); }}
+                      className="absolute top-1.5 right-1.5 p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-white/60"
+                    >
+                      <Pencil className="w-3 h-3" />
+                    </button>
+                  )}
 
                   {/* Main tap target */}
                   <button
                     type="button"
-                    disabled={isBusy}
-                    className="w-full text-left disabled:cursor-wait"
+                    disabled={isBusy || !canControl}
+                    className="w-full text-left disabled:cursor-not-allowed"
                     onClick={() => {
                       // The long-press will set longPressFired = true; if so,
                       // the click handler that fires after the press should
@@ -486,10 +522,10 @@ export function KitchenStaffTileBoard({
                         promptClockIn(s);
                       }
                     }}
-                    onMouseDown={() => startLongPress(s)}
+                    onMouseDown={() => { if (canControl) startLongPress(s); }}
                     onMouseUp={cancelLongPress}
                     onMouseLeave={cancelLongPress}
-                    onTouchStart={() => startLongPress(s)}
+                    onTouchStart={() => { if (canControl) startLongPress(s); }}
                     onTouchEnd={cancelLongPress}
                     onTouchCancel={cancelLongPress}
                   >
@@ -514,14 +550,14 @@ export function KitchenStaffTileBoard({
                     {!isOnShift && (
                       <div className="text-xs text-slate-600 flex items-center gap-1.5">
                         <Clock className="w-3 h-3" />
-                        Tap to clock in
+                        {canControl ? "Tap to clock in" : "Available"}
                       </div>
                     )}
                     {isOnShift && !isOnBreak && (
                       <div className="space-y-0.5">
                         <div className="text-[10px] uppercase tracking-wider text-emerald-700">On shift</div>
                         <div className="text-base font-bold text-slate-900 tabular-nums">{fmtMins(workedMin)}</div>
-                        <div className="text-[10px] text-slate-500">Tap to clock out</div>
+                        <div className="text-[10px] text-slate-500">{canControl ? "Tap to clock out" : "Manager controlled"}</div>
                       </div>
                     )}
                     {isOnShift && isOnBreak && (
@@ -530,13 +566,13 @@ export function KitchenStaffTileBoard({
                           <Coffee className="w-3 h-3" />On break
                         </div>
                         <div className="text-base font-bold text-slate-900 tabular-nums">{fmtMins(breakMin)}</div>
-                        <div className="text-[10px] text-slate-500">Tap to end break</div>
+                        <div className="text-[10px] text-slate-500">{canControl ? "Tap to end break" : "Manager controlled"}</div>
                       </div>
                     )}
                   </button>
 
                   {/* On-shift secondary actions: small bar at bottom for break + clock out */}
-                  {isOnShift && sh && !isOnBreak && (
+                  {isOnShift && sh && !isOnBreak && canControl && (
                     <div className="mt-2 pt-2 border-t border-emerald-200/70 flex gap-1">
                       <button
                         type="button"

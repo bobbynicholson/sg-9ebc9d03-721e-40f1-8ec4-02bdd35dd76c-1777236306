@@ -63,7 +63,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   const { data, error } = await supabase
     .from("invoices")
     .select(`
-      id, public_token, invoice_number, invoice_date, due_date,
+      id, public_token, invoice_number, invoice_date, due_date, order_id,
       total_amount, amount_paid, balance_due, status, invoice_data,
       companies:company_id (
         id, company_name, logo_url, email, phone_number:phone,
@@ -84,6 +84,33 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     return res.status(404).json({ ok: false, error: "Not found" });
   }
 
+  let invoiceForResponse = data as any;
+  const snapshotItems = Array.isArray(invoiceForResponse.invoice_data?.items)
+    ? invoiceForResponse.invoice_data.items
+    : [];
+  if (snapshotItems.length === 0 && invoiceForResponse.order_id) {
+    const { data: orderItems } = await supabase
+      .from("order_items")
+      .select("item_name, description, quantity, unit_price, line_total")
+      .eq("order_id", invoiceForResponse.order_id)
+      .order("created_at", { ascending: true });
+
+    if (Array.isArray(orderItems) && orderItems.length > 0) {
+      invoiceForResponse = {
+        ...invoiceForResponse,
+        invoice_data: {
+          ...(invoiceForResponse.invoice_data || {}),
+          items: orderItems.map((item: any) => ({
+            description: item.description || item.item_name || "Item",
+            quantity: Number(item.quantity || 0),
+            unitPrice: Number(item.unit_price || 0),
+            total: Number(item.line_total ?? (Number(item.quantity || 0) * Number(item.unit_price || 0))),
+          })),
+        },
+      };
+    }
+  }
+
   // Completed payments against this invoice, so the page can show WHEN
   // the deposit (and any further payment) actually landed, not just the
   // running total. Ordered oldest-first so the deposit reads first.
@@ -94,7 +121,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     .eq("payment_status", "completed")
     .order("processed_at", { ascending: true });
 
-  return res.status(200).json({ ok: true, invoice: { ...data, payments: payments || [] } });
+  return res.status(200).json({ ok: true, invoice: { ...invoiceForResponse, payments: payments || [] } });
 }
 
 export default withApiLogging(handler);

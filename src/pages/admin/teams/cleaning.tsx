@@ -38,7 +38,7 @@
 import { useEffect, useState } from "react";
 import Head from "next/head";
 import Link from "next/link";
-import { AdminNav } from "@/components/admin/AdminNav";
+import { DynamicNav } from "@/components/DynamicNav";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -416,13 +416,16 @@ function CleaningTeamPage() {
     <>
       <NoIndexMeta />
       <Head><title>Cleaning team - CateringMS</title></Head>
-      <AdminNav />
+      <DynamicNav userRole={(userRole || UserRole.ADMIN).toString()} />
 
       <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
         <div className="px-3 sm:px-4 md:px-6 pt-20 lg:pt-6 pb-6 max-w-full">
 
-          <Link href={withSlug("/admin/teams")} className="inline-flex items-center gap-1.5 text-sm text-slate-600 hover:text-slate-900 mb-3">
-            <ArrowLeft className="w-4 h-4" /> All teams
+          <Link
+            href={withSlug(userRole === UserRole.CLEANING_MANAGER ? "/team-portal/cleaning/dashboard" : "/admin/teams")}
+            className="inline-flex items-center gap-1.5 text-sm text-slate-600 hover:text-slate-900 mb-3"
+          >
+            <ArrowLeft className="w-4 h-4" /> {userRole === UserRole.CLEANING_MANAGER ? "Cleaning desk" : "All teams"}
           </Link>
 
           <div className="relative h-[200px] rounded-xl overflow-hidden mb-6 bg-gradient-to-br from-brand-primary to-brand-secondary">
@@ -731,6 +734,7 @@ export default function AdminCleaningTeamPage() {
       UserRole.OWNER,
       UserRole.ADMIN,
       UserRole.REGION_ADMIN,
+      UserRole.CLEANING_MANAGER,
     ]}>
       <CleaningTeamPage />
     </ProtectedRoute>

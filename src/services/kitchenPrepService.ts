@@ -597,7 +597,7 @@ export const kitchenPrepService = {
         type: "kitchen_prep_planned",
         title: "Prep plan ready",
         message: `${rows.length} prep task${rows.length === 1 ? "" : "s"} scheduled. Open the order to start prep and tick tasks off.`,
-        targetRoles: ["kitchen_staff" as any],
+        targetRoles: ["kitchen_manager" as any, "kitchen_staff" as any],
         priority: "normal",
         // Link to the ORDER's kitchen view (Start/Done buttons live there),
         // NOT /kitchen/prep-list which is the ingredient pull/shortfall list
@@ -741,7 +741,7 @@ export const kitchenPrepService = {
             type: "kitchen_prep_start_requested",
             title: "Time to prep",
             message: `Prep has been kicked off for order ${(ord as any).order_number || ""}. Open the order and start cooking, then mark each task done.`,
-            targetRoles: [UserRole.KITCHEN_STAFF],
+            targetRoles: [UserRole.KITCHEN_MANAGER, UserRole.KITCHEN_STAFF],
             priority: "high",
             link: `/order/${orderId}?role=kitchen`,
             relatedEntityType: "order",

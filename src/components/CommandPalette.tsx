@@ -363,7 +363,7 @@ export function CommandPalette() {
 
     // ---- Client ----
     { id: "client-dash", label: "My Events", icon: LayoutDashboard, href: "/client-portal/dashboard", group: "Client", roles: ["client"] },
-    { id: "client-orders", label: "My Orders", icon: ShoppingCart, href: "/client-portal/my-orders", group: "Client", roles: ["client"] },
+    { id: "client-orders", label: "Bookings", icon: ShoppingCart, href: "/client-portal/my-orders", group: "Client", roles: ["client"], keywords: ["orders", "events"] },
     { id: "client-tracking", label: "Track delivery", icon: Truck, href: "/client-portal/tracking", group: "Client", roles: ["client"] },
     { id: "client-billing", label: "Billing & invoices", icon: CreditCard, href: "/client-portal/billing", group: "Client", roles: ["client"] },
 

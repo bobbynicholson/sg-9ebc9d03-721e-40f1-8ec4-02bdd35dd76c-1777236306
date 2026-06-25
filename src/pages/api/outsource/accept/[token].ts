@@ -18,6 +18,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { notifyOutsourceDeclineForReassignment } from "@/services/outsourceDeclineService";
 
 
 async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -139,6 +140,14 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     });
   } catch (auditErr) {
     console.warn("[outsource/accept] audit insert failed:", auditErr);
+  }
+
+  if (isDecline) {
+    await notifyOutsourceDeclineForReassignment(admin, assignment.id, {
+      reason: declineReason || null,
+      source: "provider_magic_link_decline",
+      actorUserId: null,
+    });
   }
 
   return res.status(200).json({

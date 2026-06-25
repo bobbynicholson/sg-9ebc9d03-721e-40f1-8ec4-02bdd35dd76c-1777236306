@@ -4,11 +4,13 @@ import { Clock, MapPin, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/hooks/use-toast";
 import { timeClockService } from "@/services/timeClockService";
 import { useAuth } from "@/contexts/AuthContext";
 
 export function TimeClockWidget() {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [currentSession, setCurrentSession] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [notes, setNotes] = useState("");
@@ -54,7 +56,11 @@ export function TimeClockWidget() {
       await loadCurrentSession();
     } catch (error) {
       console.error("Error clocking in:", error);
-      alert("Failed to clock in");
+      toast({
+        title: "Clock-in not saved",
+        description: "Your shift start could not be recorded. Try again.",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
@@ -69,7 +75,11 @@ export function TimeClockWidget() {
       await loadCurrentSession();
     } catch (error) {
       console.error("Error clocking out:", error);
-      alert("Failed to clock out");
+      toast({
+        title: "Clock-out not saved",
+        description: "Your shift end could not be recorded. Try again.",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }

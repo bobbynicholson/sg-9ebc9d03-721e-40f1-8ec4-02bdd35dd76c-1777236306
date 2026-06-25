@@ -69,8 +69,8 @@ export function OrderSuggestedAction({ order }: Props) {
   }, [user?.role, userRoles]);
 
   const isAssignedDriver = roles.has(UserRole.DRIVER) && order.assigned_driver_id === user?.id;
-  const isAssignedChef = roles.has(UserRole.KITCHEN_STAFF) && order.assigned_chef_id === user?.id;
-  const isKitchen = roles.has(UserRole.KITCHEN_STAFF);
+  const isAssignedChef = (roles.has(UserRole.KITCHEN_MANAGER) || roles.has(UserRole.KITCHEN_STAFF)) && order.assigned_chef_id === user?.id;
+  const isKitchen = roles.has(UserRole.KITCHEN_MANAGER) || roles.has(UserRole.KITCHEN_STAFF);
   const isDriver = roles.has(UserRole.DRIVER);
   const isWaiter = roles.has(UserRole.WAITER);
   const isShopping = roles.has(UserRole.SHOPPING_STAFF);

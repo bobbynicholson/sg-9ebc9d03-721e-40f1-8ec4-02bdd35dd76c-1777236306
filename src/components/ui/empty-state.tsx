@@ -59,13 +59,13 @@ export function EmptyState({
       )}
     >
       {Icon && (
-        <div className="mb-4 rounded-full bg-slate-100 p-3">
-          <Icon className="h-6 w-6 text-slate-500" aria-hidden="true" />
+        <div className="mb-4 rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-900">
+          <Icon className="h-6 w-6 text-slate-500 dark:text-slate-400" aria-hidden="true" />
         </div>
       )}
-      <h3 className="text-base font-semibold text-slate-900">{title}</h3>
+      <h3 className="text-base font-semibold text-slate-950 dark:text-white">{title}</h3>
       {description && (
-        <p className="mt-1.5 max-w-sm text-sm text-slate-600">{description}</p>
+        <p className="mt-1.5 max-w-md text-pretty text-sm leading-6 text-slate-600 dark:text-slate-400">{description}</p>
       )}
       {(cta || secondaryCta) && (
         <div className="mt-5 flex flex-wrap items-center justify-center gap-2">

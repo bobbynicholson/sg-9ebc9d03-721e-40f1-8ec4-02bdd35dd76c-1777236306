@@ -114,7 +114,7 @@ export default function KitchenPrepListPage() {
   // KIT3-E: horizon selector. Chef gets to pick how far out the pull
   // list looks. 30d (default) covers a whole month for tenants that
   // plan ahead; 7d / 14d narrows the view to the imminent prep load.
-  const [horizonDays, setHorizonDays] = useState<7 | 14 | 30>(30);
+  const [horizonDays, setHorizonDays] = useState<7 | 14 | 30>(7);
   // "As of" timestamp - last successful load. Surfaces in the
   // header so the chef knows whether the screen is fresh.
   const [lastLoadedAt, setLastLoadedAt] = useState<Date | null>(null);
@@ -478,7 +478,7 @@ export default function KitchenPrepListPage() {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       const fromStr = toLocalISO(today);
-      const toStr = toLocalISO(new Date(today.getTime() + 30 * 86400000));
+      const toStr = toLocalISO(new Date(today.getTime() + horizonDays * 86400000));
       const result = await kitchenPrepService.createShoppingListFromShortfall(
         companyId,
         userId,
@@ -593,7 +593,7 @@ export default function KitchenPrepListPage() {
                     {shortfallCount} ingredient{shortfallCount === 1 ? "" : "s"} short for upcoming orders
                   </p>
                   <p className="text-xs text-rose-700 dark:text-rose-300 mt-0.5">
-                    Aggregated across every confirmed booking in the next 30 days.
+                    Aggregated across every confirmed booking in the next {horizonDays} days.
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -709,7 +709,7 @@ export default function KitchenPrepListPage() {
               )
             ) : (
               <PortalCard>
-                <PortalCardHeader title="Total demand · next 30 days" />
+                <PortalCardHeader title={`Total demand - next ${horizonDays} days`} />
                 <p className="text-xs text-slate-600 dark:text-slate-400 -mt-2 mb-3">
                   Sums every confirmed order's ingredient need against your current stock.
                   Shortfalls float to the top.

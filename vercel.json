@@ -128,6 +128,14 @@
       "schedule": "0 */6 * * *"
     },
     {
+      "path": "/api/cron/late-equipment-return-alert",
+      "schedule": "0 */6 * * *"
+    },
+    {
+      "path": "/api/cron/stale-shopping-list-alert",
+      "schedule": "0 6 * * *"
+    },
+    {
       "path": "/api/cron/deposit-paid-sweeper",
       "schedule": "30 * * * *"
     },

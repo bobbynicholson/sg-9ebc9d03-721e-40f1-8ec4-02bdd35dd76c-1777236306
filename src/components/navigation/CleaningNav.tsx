@@ -52,6 +52,7 @@ import {
   Bell,
   Settings,
   Sparkles,
+  Users,
 } from "lucide-react";
 import { PortalSidebar, type PortalSidebarConfig } from "./PortalSidebar";
 // Wave 71 - cleaning gets its own theme combination (accent -> secondary)
@@ -63,6 +64,7 @@ import { useCleaningPortalMode } from "@/hooks/useCleaningPortalMode";
 import { CleaningModeBadge } from "@/components/cleaning/CleaningModeBadge";
 import { CleaningSmartQuickActions } from "@/components/cleaning/CleaningSmartQuickActions";
 import { useCleaningModeToast } from "@/hooks/useCleaningModeToast";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface CleaningNavProps {
   className?: string;
@@ -75,6 +77,7 @@ export function CleaningNav(_: CleaningNavProps = {}) {
   // across renders.
   const counts = useCleaningLiveCounts();
   const mode = useCleaningPortalMode();
+  const { user, profile } = useAuth() as any;
 
   // One-shot toast on auto-transition into returns mode. Mounted at
   // the nav level so it fires regardless of which cleaning page the
@@ -82,6 +85,8 @@ export function CleaningNav(_: CleaningNavProps = {}) {
   useCleaningModeToast();
 
   const isReturnsActive = mode.mode === "returns";
+  const activeRole = String(profile?.active_role || profile?.role || user?.active_role || user?.role || "").toLowerCase();
+  const isCleaningManager = activeRole === "cleaning_manager";
 
   const config: PortalSidebarConfig = {
     role: "cleaning",
@@ -201,6 +206,15 @@ export function CleaningNav(_: CleaningNavProps = {}) {
           { title: "Schedules", href: "/team-portal/cleaning/schedules", icon: CalendarClock, description: "Recurring cleaning plan" },
         ],
       },
+      ...(isCleaningManager ? [{
+        id: "manager",
+        title: "Manager",
+        defaultOpen: true,
+        items: [
+          { title: "Team overview", href: "/admin/teams/cleaning", icon: Users, description: "Roster, live handovers, staffing" },
+          { title: "Schedule", href: "/admin/cleaning-schedule", icon: CalendarClock, description: "Plan shifts + duties" },
+        ],
+      }] : []),
       {
         id: "footer",
         title: "",

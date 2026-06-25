@@ -18,6 +18,7 @@ import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { Reveal, Stagger, StaggerItem } from "@/components/motion/Reveal";
 import { cardBase, btnPress } from "@/components/motion/marketing";
+import { useToast } from "@/hooks/use-toast";
 import { supportTicketService } from "@/services/supportTicketService";
 import type { Database } from "@/integrations/supabase/types";
 
@@ -25,6 +26,7 @@ type SupportTicket = Database["public"]["Tables"]["support_tickets"]["Row"];
 
 export default function SupportPage() {
   const { user } = useAuth();
+  const { toast } = useToast();
   const router = useRouter();
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
   const [loading, setLoading] = useState(true);
@@ -96,7 +98,11 @@ export default function SupportPage() {
       await loadTickets();
     } catch (error) {
       console.error("Error creating ticket:", error);
-      alert("Failed to create support ticket. Please try again.");
+      toast({
+        title: "Ticket not created",
+        description: "The support request could not be saved. Try again.",
+        variant: "destructive",
+      });
     }
   };
 

@@ -94,7 +94,7 @@ export default function KitchenNotificationsPage() {
         .from("notifications")
         .select("*")
         .eq("company_id", user.company_id)
-        .or(`recipient_id.eq.${user.id},user_id.eq.${user.id},target_role.eq.kitchen_staff`)
+        .or(`recipient_id.eq.${user.id},user_id.eq.${user.id},target_role.eq.kitchen_staff,target_role.eq.kitchen_manager`)
         .order("created_at", { ascending: false })
         .limit(100);
       if (tab === "unread") q = q.eq("is_read", false);

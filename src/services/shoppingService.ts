@@ -1,8 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
+import { updateShoppingListWithReceiptStatus } from "@/lib/shopping/receiptStatus";
 import { notificationService } from "./notificationService";
 import { billingEmailService } from "./billingEmailService";
+import { recordShoppingCostVariance } from "./shoppingCompletionService";
 
 export type ShoppingList = Tables<"shopping_lists">;
 export type ShoppingListItem = Tables<"shopping_list_items">;
@@ -168,28 +170,69 @@ export const shoppingService = {
     return data;
   },
 
-  async completeShopping(listId: string, totalCost?: number): Promise<ShoppingList | null> {
+  async completeShopping(
+    listId: string,
+    totalCost?: number,
+    options?: { receiptUrl?: string | null; noReceiptReason?: string | null },
+  ): Promise<ShoppingList | null> {
     // shopping_lists has NO completed_at / total_cost / updated_at columns -
     // writing them made the UPDATE fail with column-not-found and (since the
     // error is re-thrown below) crash the caller. Real columns: `status` and
     // `actual_total`. The canonical useActiveShoppingList hook already learnt
     // this the hard way; mirror it here so this path is safe if ever wired up.
-    const { data, error } = await supabase
+    const { data: existing, error: readErr } = await supabase
       .from("shopping_lists")
-      .update({
-        status: "completed",
-        actual_total: totalCost ?? null,
-      } as any)
+      .select("id, company_id, user_id, list_date, title, notes, receipt_url, estimated_total")
       .eq("id", listId)
-      .select()
       .single();
+    if (readErr) {
+      console.error("Error reading shopping list before completion:", readErr);
+      throw readErr;
+    }
+
+    const receiptUrl = options?.receiptUrl ?? existing?.receipt_url ?? null;
+    const noReceiptReason = (options?.noReceiptReason || "").trim();
+    if (!receiptUrl && !noReceiptReason) {
+      throw new Error("Attach a receipt or enter a no-receipt reason before closing the shopping list.");
+    }
+
+    const patch: Record<string, unknown> = {
+      status: "completed",
+      actual_total: totalCost ?? null,
+      no_receipt_reason: receiptUrl ? null : noReceiptReason,
+    };
+    if (options?.receiptUrl) patch.receipt_url = options.receiptUrl;
+
+    const { error } = await updateShoppingListWithReceiptStatus(supabase as any, listId, patch, {
+      existingNotes: (existing as any)?.notes,
+      noReceiptReason,
+    });
 
     if (error) {
       console.error("Error completing shopping:", error);
       throw error;
     }
 
+    const { data, error: reloadErr } = await supabase
+      .from("shopping_lists")
+      .select()
+      .eq("id", listId)
+      .single();
+    if (reloadErr) {
+      console.error("Error reloading completed shopping list:", reloadErr);
+      throw reloadErr;
+    }
+
     if (data) {
+        await recordShoppingCostVariance({
+          sb: supabase as any,
+          companyId: data.company_id,
+          userId: data.user_id,
+          listId,
+          listTitle: (data as any).title || "Shopping list",
+          estimatedTotal: (existing as any)?.estimated_total,
+          actualTotal: totalCost,
+        });
         // Admin-facing completion ping - deep-link to the admin
         // shopping page so they can verify receipts + close out the
         // list.

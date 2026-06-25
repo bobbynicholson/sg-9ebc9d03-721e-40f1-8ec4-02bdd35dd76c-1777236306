@@ -29,6 +29,7 @@ import { kitchenPrepService } from "@/services/kitchenPrepService";
 import { canAccessDriverWidgets } from "@/lib/authGuards";
 import { UserRole } from "@/types/app";
 import { useTenantHref } from "@/lib/tenantUrl";
+import { dedupeKitchenPrepTasks, formatKitchenPrepTaskType } from "@/lib/kitchen/prepTasks";
 import { RecipeDialog } from "./RecipeDialog";
 import { SectionSkeleton } from "./SectionSkeleton";
 import { HandoverToDriverPanel } from "@/components/kitchen/HandoverToDriverPanel";
@@ -151,7 +152,7 @@ export function KitchenSection({
       activeRole,
       ...(Array.isArray(userRoles) ? userRoles : []),
     ].filter(Boolean) as UserRole[];
-    if (combined.includes(UserRole.KITCHEN_STAFF)) return true;
+    if (combined.includes(UserRole.KITCHEN_MANAGER) || combined.includes(UserRole.KITCHEN_STAFF)) return true;
     return canAccessDriverWidgets(combined); // admin / owner / super_admin pass through
   })();
 
@@ -220,7 +221,7 @@ export function KitchenSection({
             .eq("order_id", orderId),
         ]);
         if (cancelled) return;
-        const tasksRows = (tasksRes.data || []) as PrepTask[];
+        const tasksRows = dedupeKitchenPrepTasks((tasksRes.data || []) as PrepTask[]);
         const itemRows = (itemsRes.data || []) as OrderItemRow[];
         const eqRows = (eqRes.data || []) as EquipmentBookingRow[];
         setTasks(tasksRows);
@@ -286,7 +287,7 @@ export function KitchenSection({
             .eq("order_id", orderId)
             .is("deleted_at", null)
             .order("start_at", { ascending: true, nullsFirst: false });
-          setTasks((data || []) as PrepTask[]);
+          setTasks(dedupeKitchenPrepTasks((data || []) as PrepTask[]));
         },
       )
       .on("postgres_changes",
@@ -559,7 +560,7 @@ export function KitchenSection({
                       )}
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium text-slate-900 truncate">
-                          <span className="capitalize">{t.task_type}</span>
+                          <span>{formatKitchenPrepTaskType(t.task_type)}</span>
                           {t.menu_item_name && <span className="text-slate-500"> · {t.menu_item_name}</span>}
                         </p>
                         <p className="text-xs text-slate-500">

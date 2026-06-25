@@ -57,6 +57,16 @@ import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 type Order = Database["public"]["Tables"]["orders"]["Row"];
 type InventoryItem = Database["public"]["Tables"]["inventory_items"]["Row"];
 
+interface DamageAlert {
+  id: string;
+  orderId: string | null;
+  equipmentName: string;
+  orderLabel: string;
+  quantity: number;
+  damageType: string;
+  createdAt: string;
+}
+
 function formatCountdown(mins: number): string {
   if (!isFinite(mins)) return "-";
   const sign = mins < 0 ? "-" : "";
@@ -194,6 +204,7 @@ export default function KitchenDashboard() {
   // the same item replaces the prior entry instead of doubling up.
   // Cleared on the per-mount "Got it" dismiss action.
   const [restockDeltas, setRestockDeltas] = useState<Record<string, { name: string; delta: number; unit: string }>>({});
+  const [damageAlerts, setDamageAlerts] = useState<DamageAlert[]>([]);
 
   // Tick the clock every minute so countdowns stay live without polling the DB
   useEffect(() => {
@@ -221,6 +232,7 @@ export default function KitchenDashboard() {
   // is hidden so 8 open tabs in the kitchen don't burn CPU.
   useEffect(() => {
     if (!user?.company_id) return;
+    let closed = false;
     let pendingWhileHidden = false;
     // KIT3-A (task #244): debounce realtime refreshes. 5 channels x
     // postgres_changes can fire dozens of times per minute on a busy
@@ -249,6 +261,43 @@ export default function KitchenDashboard() {
     // Window focus also triggers a refresh - covers the case where
     // a chef switches back from a sibling tab.
     const onFocus = () => { refresh(); };
+
+    const pushDamageAlert = (alert: DamageAlert) => {
+      setDamageAlerts((prev) => [alert, ...prev.filter((a) => a.id !== alert.id)].slice(0, 5));
+      toast({
+        title: "Damage flagged during service",
+        description: `${alert.quantity}x ${alert.equipmentName} marked ${alert.damageType} on ${alert.orderLabel}.`,
+      });
+    };
+
+    const handleDamageInsert = async (payload: any) => {
+      const row = payload?.new;
+      if (!row || row.company_id !== user.company_id) return;
+      try {
+        const [eqRes, orderRes] = await Promise.all([
+          row.equipment_id
+            ? (supabase as any).from("equipment").select("name").eq("id", row.equipment_id).maybeSingle()
+            : Promise.resolve({ data: null }),
+          row.order_id
+            ? (supabase as any).from("orders").select("order_number, event_name, client_name").eq("id", row.order_id).maybeSingle()
+            : Promise.resolve({ data: null }),
+        ]);
+        if (closed) return;
+        const orderRow = orderRes?.data;
+        pushDamageAlert({
+          id: row.id,
+          orderId: row.order_id || null,
+          equipmentName: eqRes?.data?.name || "Equipment",
+          orderLabel: orderRow?.order_number || orderRow?.event_name || orderRow?.client_name || "an order",
+          quantity: Number(row.quantity_damaged || 1),
+          damageType: String(row.damage_type || "damaged").replace(/_/g, " "),
+          createdAt: row.created_at || new Date().toISOString(),
+        });
+      } catch (err) {
+        console.warn("[kitchen/dashboard] damage alert lookup failed:", err);
+      }
+      refresh();
+    };
 
     const sub = supabase
       .channel(`kitchen-dashboard-${user.company_id}`)
@@ -279,6 +328,14 @@ export default function KitchenDashboard() {
         event: "INSERT", schema: "public", table: "order_chat_messages",
         filter: `company_id=eq.${user.company_id}`,
       }, refresh)
+      // T.003: cleaning damage reports need to reach the kitchen lead
+      // while service is still live, not just the admin equipment queue.
+      // This INSERT listener drives the toast + alert strip below.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .on("postgres_changes" as any, {
+        event: "INSERT", schema: "public", table: "equipment_damages",
+        filter: `company_id=eq.${user.company_id}`,
+      }, handleDamageInsert)
       // KIT2-R (KIT2-34 / KIT2-85): inventory_items UPDATE feeds the
       // ingredient delta banner. We compute new.current_stock minus
       // old.current_stock and, if positive, surface the item name +
@@ -330,7 +387,18 @@ export default function KitchenDashboard() {
     // cleaning_jobs vs damages immediately. Postgres realtime on
     // cleaning_jobs is not subscribed here - this bus fills the
     // gap without paying for another channel.
-    const offDamage = onEquipmentDamaged(() => { refresh(); });
+    const offDamage = onEquipmentDamaged((detail) => {
+      pushDamageAlert({
+        id: `${detail.orderId || "order"}-${detail.equipmentId}-${Date.now()}`,
+        orderId: detail.orderId || null,
+        equipmentName: detail.equipmentId ? `Equipment ${detail.equipmentId.slice(0, 8)}` : "Equipment",
+        orderLabel: detail.orderId ? `order ${detail.orderId.slice(0, 8)}` : "an order",
+        quantity: Number(detail.quantity || 1),
+        damageType: detail.damageType,
+        createdAt: new Date().toISOString(),
+      });
+      refresh();
+    });
 
     // CLN2-F same-device fast path: the cleaning dashboard fires
     // cateringms:cleaning-ready as soon as the supabase write
@@ -341,6 +409,7 @@ export default function KitchenDashboard() {
     document.addEventListener("visibilitychange", onVisibility);
     window.addEventListener("focus", onFocus);
     return () => {
+      closed = true;
       document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("focus", onFocus);
       if (debounceTimer) clearTimeout(debounceTimer);
@@ -388,9 +457,9 @@ export default function KitchenDashboard() {
       //      via tabs / Plenty-of-time rather than firehose render.
       const localToday = new Date();
       const todayIso = `${localToday.getFullYear()}-${String(localToday.getMonth() + 1).padStart(2, "0")}-${String(localToday.getDate()).padStart(2, "0")}`;
-      const threeDaysFromNow = new Date(localToday);
-      threeDaysFromNow.setDate(threeDaysFromNow.getDate() + 2);
-      const horizonIso = `${threeDaysFromNow.getFullYear()}-${String(threeDaysFromNow.getMonth() + 1).padStart(2, "0")}-${String(threeDaysFromNow.getDate()).padStart(2, "0")}`;
+      const sevenDaysFromNow = new Date(localToday);
+      sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 6);
+      const horizonIso = `${sevenDaysFromNow.getFullYear()}-${String(sevenDaysFromNow.getMonth() + 1).padStart(2, "0")}-${String(sevenDaysFromNow.getDate()).padStart(2, "0")}`;
 
       // KIT3-B: region scoping. A kitchen_staff user with a
       // region_id set only sees orders for their branch. Single-
@@ -1033,7 +1102,7 @@ export default function KitchenDashboard() {
                       return;
                     }
                     if (orders.length === 0 && upcoming.length === 0) {
-                      toast({ title: "Nothing to print", description: "No orders today or in the next 2 days." });
+                      toast({ title: "Nothing to print", description: "No orders today or in the next 6 days." });
                       return;
                     }
                     setTimeout(() => window.print(), 100);
@@ -1156,9 +1225,9 @@ export default function KitchenDashboard() {
                               <span className="xs:hidden sm:hidden">Open</span>
                             </Link>
                             <Link
-                              href={withSlug(`/team-portal/kitchen/orders/${order.id}/ticket`)}
+                              href={withSlug(`${staffOrderHref(order.id, "kitchen_staff")}&print=1#section-kitchen`)}
                               className="inline-flex items-center justify-center min-h-11 w-11 rounded-md text-sm bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900 dark:bg-slate-900 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 transition-colors duration-150"
-                              title="Print kitchen ticket"
+                              title="Print order document"
                             >
                               <Printer className="w-4 h-4" />
                             </Link>
@@ -1233,6 +1302,54 @@ export default function KitchenDashboard() {
               </>
             )}
           </div>
+
+          {damageAlerts.length > 0 && (
+            <PortalCard className="mb-6 sm:mb-8 border-rose-200 bg-rose-50/40 dark:border-rose-900 dark:bg-rose-950/20">
+              <PortalCardHeader
+                title={
+                  <span className="flex items-center gap-2 text-base sm:text-lg text-rose-700 dark:text-rose-300">
+                    <AlertTriangle className="w-5 h-5" />
+                    Damage flagged
+                    <Badge variant="outline" className="bg-white text-rose-700 border-rose-200 dark:bg-rose-950 dark:text-rose-300 dark:border-rose-900">
+                      {damageAlerts.length}
+                    </Badge>
+                  </span>
+                }
+                action={
+                  <button
+                    type="button"
+                    onClick={() => setDamageAlerts([])}
+                    className="text-xs font-medium text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white min-h-11 px-3"
+                    aria-label="Clear damage alerts"
+                  >
+                    Clear
+                  </button>
+                }
+              />
+              <div>
+                <div className="flex flex-wrap gap-2">
+                  {damageAlerts.map((alert) => (
+                    <span
+                      key={alert.id}
+                      className="inline-flex items-center gap-2 rounded-full border border-rose-200 bg-white px-3 py-1.5 text-sm font-medium text-rose-800 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-200"
+                    >
+                      <span className="tabular-nums">{alert.quantity}x</span>
+                      <span>{alert.equipmentName}</span>
+                      <span className="text-rose-600 dark:text-rose-300">on {alert.orderLabel}</span>
+                      {alert.orderId && (
+                        <Link
+                          href={withSlug(staffOrderHref(alert.orderId, "kitchen_staff"))}
+                          className="inline-flex items-center gap-1 text-rose-700 underline underline-offset-2 dark:text-rose-200"
+                        >
+                          Open <ExternalLink className="w-3 h-3" />
+                        </Link>
+                      )}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </PortalCard>
+          )}
 
           {/* KIT2-R: ingredient delta banner. Sits ABOVE Low Stock so
               the moment butter arrives the chef sees "+2 kg butter"
@@ -1709,7 +1826,7 @@ export default function KitchenDashboard() {
                                 {/* Wave 70.18 - card title block + order
                                     number. No longer a tiny link --
                                     proper action buttons live below
-                                    (View ticket + View order). */}
+                                    (Open order + print document). */}
                                 <div className="flex items-start justify-between gap-2 mb-1">
                                   <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-1.5 min-w-0">
@@ -1795,22 +1912,14 @@ export default function KitchenDashboard() {
 
                                 {/* Wave 70.18 - proper action button row.
                                     Replaces the previous small text link
-                                    on the title. Two clear targets:
-                                      "Kitchen ticket" - the printable
-                                        prep sheet with allergens, prep
-                                        backplan, equipment, instructions.
-                                      "Order detail" - the full admin
-                                        order modal (for kitchen leads who
-                                        need the wider context, e.g.
-                                        payment + driver + handover).
-                                    Routes to the team-portal/kitchen URL
-                                    space so the middleware doesn't block
-                                    real kitchen-staff users. */}
+                                    on the title. Primary opens the unified
+                                    order document; secondary opens the same
+                                    document in print mode. */}
                                 {/* KIT2-K (KIT2-39): tap targets bumped
                                     from h-8 (32px) to min-h-11 (44px).
                                     Floured-hands tap landing. */}
                                 {/* ODOC G.3: primary = doc, secondary
-                                    = print-only ticket. */}
+                                    = print-mode doc. */}
                                 <div className="mt-2 grid grid-cols-[1fr_auto] gap-1.5">
                                   <Link
                                     href={withSlug(staffOrderHref(order.id, "kitchen_staff"))}
@@ -1821,9 +1930,9 @@ export default function KitchenDashboard() {
                                     Open order
                                   </Link>
                                   <Link
-                                    href={withSlug(`/team-portal/kitchen/orders/${order.id}/ticket`)}
+                                    href={withSlug(`${staffOrderHref(order.id, "kitchen_staff")}&print=1#section-kitchen`)}
                                     className="inline-flex items-center justify-center min-h-11 w-11 rounded-md text-sm bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900 dark:bg-slate-900 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 transition-colors duration-150"
-                                    title="Print kitchen ticket"
+                                    title="Print order document"
                                   >
                                     <Printer className="w-4 h-4" />
                                   </Link>
@@ -2053,7 +2162,7 @@ export default function KitchenDashboard() {
       {/* KIT2-N (kitchen deep audit, KIT2-53 / KIT2-83): print-only
           kitchen run sheet. Hidden on screen via the print CSS below.
           Bobby's brief: chef prep-day morning wants paper - one
-          run-sheet that covers today + tomorrow + day-after, not 12
+          run-sheet that covers today + the next six days, not 12
           per-order kitchen tickets. Allergens render with bold red
           flags so they survive the printer. */}
       <div id="print-kitchen-run-sheet" className="print-only">
@@ -2063,7 +2172,7 @@ export default function KitchenDashboard() {
         <p style={{ fontSize: "10pt", color: "#475569", marginBottom: "14pt", fontFamily: "sans-serif" }}>
           {new Date().toLocaleString("en-ZA", { weekday: "long", year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" })}
           {" - "}
-          {orders.length} {orders.length === 1 ? "order" : "orders"} today + next 2 days
+          {orders.length} {orders.length === 1 ? "order" : "orders"} today + next 6 days
         </p>
 
         {/* Today's active orders */}
@@ -2111,7 +2220,7 @@ export default function KitchenDashboard() {
                       <td style={{ padding: "5pt 4pt" }}>
                         {o.dietary_requirements ? (
                           <span style={{ color: "#dc2626", fontWeight: 700 }}>
-                            ⚠ {o.dietary_requirements}
+                            Dietary: {o.dietary_requirements}
                           </span>
                         ) : null}
                         {o.special_instructions ? (

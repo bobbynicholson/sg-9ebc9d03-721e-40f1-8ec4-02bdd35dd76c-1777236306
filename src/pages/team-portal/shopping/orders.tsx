@@ -21,6 +21,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toLocalISO } from "@/lib/localDate";
+import { getShoppingCostVariance, formatShoppingVariance, parseMoneyInput } from "@/lib/shopping/completionRules";
+import { updateShoppingListWithReceiptStatus } from "@/lib/shopping/receiptStatus";
+import { recordShoppingCostVariance } from "@/services/shoppingCompletionService";
 
 interface ShoppingList {
   id: string;
@@ -28,7 +31,9 @@ interface ShoppingList {
   status: string | null;
   shopper_id: string | null;
   receipt_url: string | null;
+  no_receipt_reason: string | null;
   notes: string | null;
+  title: string | null;
   estimated_total: number | null;
   actual_total: number | null;
   created_at: string | null;
@@ -104,6 +109,7 @@ export default function ShoppingOrdersPage() {
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [receiptPreview, setReceiptPreview] = useState<string | null>(null);
   const [actualTotal, setActualTotal] = useState<string>("");
+  const [noReceiptReason, setNoReceiptReason] = useState("");
   const [completing, setCompleting] = useState(false);
   const receiptInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -199,6 +205,7 @@ export default function ShoppingOrdersPage() {
     setReceiptFile(null);
     setReceiptPreview(null);
     setActualTotal("");
+    setNoReceiptReason("");
   };
   const closeComplete = () => {
     setCompletingId(null);
@@ -206,6 +213,7 @@ export default function ShoppingOrdersPage() {
     if (receiptPreview) URL.revokeObjectURL(receiptPreview);
     setReceiptPreview(null);
     setActualTotal("");
+    setNoReceiptReason("");
   };
   const onReceiptPicked = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0] || null;
@@ -213,8 +221,30 @@ export default function ShoppingOrdersPage() {
     if (receiptPreview) URL.revokeObjectURL(receiptPreview);
     setReceiptPreview(f ? URL.createObjectURL(f) : null);
   };
+  const completingList = useMemo(
+    () => lists.find((l) => l.id === completingId) || null,
+    [lists, completingId],
+  );
+  const parsedActualTotal = parseMoneyInput(actualTotal);
+  const completionVariance = getShoppingCostVariance(
+    completingList?.estimated_total,
+    parsedActualTotal,
+  );
   const completeList = async () => {
     if (!completingId) return;
+    const reason = noReceiptReason.trim();
+    if (actualTotal.trim() && (parsedActualTotal == null || parsedActualTotal < 0)) {
+      toast({ title: "Enter a valid total", variant: "destructive" });
+      return;
+    }
+    if (!receiptFile && !completingList?.receipt_url && !reason) {
+      toast({
+        title: "Receipt status required",
+        description: "Attach a receipt photo or enter a no-receipt reason.",
+        variant: "destructive",
+      });
+      return;
+    }
     setCompleting(true);
     try {
       let receipt_url: string | null = null;
@@ -236,18 +266,28 @@ export default function ShoppingOrdersPage() {
       }
       const updates: Record<string, any> = {
         status: "completed",
+        no_receipt_reason: receipt_url || completingList?.receipt_url ? null : reason,
       };
       if (receipt_url) updates.receipt_url = receipt_url;
-      if (actualTotal.trim()) {
-        const n = Number(actualTotal.replace(/[^0-9.]/g, ""));
-        if (!isNaN(n)) updates.actual_total = n;
-      }
-      const { error } = await supabase
-        .from("shopping_lists")
-        .update(updates as never)
-        .eq("id", completingId);
+      if (parsedActualTotal != null) updates.actual_total = parsedActualTotal;
+      const { error } = await updateShoppingListWithReceiptStatus(supabase as any, completingId, updates, {
+        existingNotes: completingList?.notes,
+        noReceiptReason: reason,
+      });
       if (error) throw error;
-      toast({ title: "List completed", description: receipt_url ? "Receipt attached." : undefined });
+      await recordShoppingCostVariance({
+        sb: supabase as any,
+        companyId: user?.company_id,
+        userId: user?.id,
+        listId: completingId,
+        listTitle: completingList?.title || "Shopping list",
+        estimatedTotal: completingList?.estimated_total,
+        actualTotal: parsedActualTotal,
+      });
+      toast({
+        title: "List completed",
+        description: receipt_url ? "Receipt attached." : "Receipt status captured.",
+      });
       closeComplete();
       load();
     } catch (e: any) {
@@ -265,18 +305,18 @@ export default function ShoppingOrdersPage() {
 
   return (
     <>
-      <Head><title>Shopping orders - CateringMS</title></Head>
+      <Head><title>Active shop - CateringMS</title></Head>
       <NoIndexMeta />
       <ShoppingNav />
       <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <PortalHeader
-            title="Shopping orders"
-            subtitle="Active shopping lists and upcoming events that need procurement"
+            title="Active shop"
+            subtitle="Open team shopping lists, what is still left to buy, and upcoming events that need procurement."
             icon={ShoppingCart}
             actions={
               <Button onClick={openCreate} className="bg-amber-600 hover:bg-amber-700 text-white rounded-lg">
-                <Plus className="h-4 w-4 mr-2" />New shopping list
+                <Plus className="h-4 w-4 mr-2" />Create list
               </Button>
             }
           />
@@ -505,7 +545,7 @@ export default function ShoppingOrdersPage() {
           <DialogHeader>
             <DialogTitle>Complete shopping list</DialogTitle>
             <DialogDescription>
-              Snap the till slip and capture the actual amount paid.
+              Snap the till slip and capture the actual amount paid. A receipt or no-receipt reason is required.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -520,6 +560,16 @@ export default function ShoppingOrdersPage() {
                 onChange={(e) => setActualTotal(e.target.value)}
               />
             </div>
+            {completionVariance?.shouldFlag && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
+                <div className="flex items-start gap-2">
+                  <InfoTooltip content="Admins are notified because the actual spend is more than 15% away from the estimate." />
+                  <p>
+                    Actual spend is {formatShoppingVariance(completionVariance)} estimate; admins will be notified when this list closes.
+                  </p>
+                </div>
+              </div>
+            )}
             <div>
               <Label>Receipt photo</Label>
               <input
@@ -558,9 +608,21 @@ export default function ShoppingOrdersPage() {
                 </Button>
               )}
               <p className="text-xs text-slate-600 dark:text-slate-400 mt-1.5">
-                Optional but recommended. Goes into the imports bucket and surfaces on the list as a receipt-attached badge.
+                Required unless a no-receipt reason is entered. Goes into the imports bucket and surfaces on the list as a receipt-attached badge.
               </p>
             </div>
+            {!receiptFile && !completingList?.receipt_url && (
+              <div>
+                <Label htmlFor="orders_no_receipt_reason">No receipt reason</Label>
+                <Textarea
+                  id="orders_no_receipt_reason"
+                  value={noReceiptReason}
+                  onChange={(e) => setNoReceiptReason(e.target.value)}
+                  placeholder="Supplier did not provide a slip, till offline, cash purchase, etc."
+                  className="min-h-[84px]"
+                />
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={closeComplete} disabled={completing} className="border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg">

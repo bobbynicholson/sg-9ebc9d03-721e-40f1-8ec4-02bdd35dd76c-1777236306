@@ -33,7 +33,7 @@
 import { useEffect, useState } from "react";
 import Head from "next/head";
 import Link from "next/link";
-import { AdminNav } from "@/components/admin/AdminNav";
+import { DynamicNav } from "@/components/DynamicNav";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -458,7 +458,7 @@ function KitchenTeamPage() {
     <>
       <NoIndexMeta />
       <Head><title>Kitchen team - CateringMS</title></Head>
-      <AdminNav />
+      <DynamicNav userRole={(userRole || UserRole.ADMIN).toString()} />
 
       <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
         <div className="px-3 sm:px-4 md:px-6 pt-20 lg:pt-6 pb-6 max-w-full">
@@ -467,8 +467,11 @@ function KitchenTeamPage() {
               back link + Print prep schedule + Send prep list to
               clocked-in. Hidden in print via no-print. */}
           <div className="flex items-center justify-between gap-3 mb-3 no-print flex-wrap">
-            <Link href={withSlug("/admin/teams")} className="inline-flex items-center gap-1.5 text-sm text-slate-600 hover:text-slate-900">
-              <ArrowLeft className="w-4 h-4" /> All teams
+            <Link
+              href={withSlug(userRole === UserRole.KITCHEN_MANAGER ? "/team-portal/kitchen/today" : "/admin/teams")}
+              className="inline-flex items-center gap-1.5 text-sm text-slate-600 hover:text-slate-900"
+            >
+              <ArrowLeft className="w-4 h-4" /> {userRole === UserRole.KITCHEN_MANAGER ? "Kitchen today" : "All teams"}
             </Link>
             <div className="flex items-center gap-2">
               <Button
@@ -1060,7 +1063,7 @@ export default function AdminKitchenTeamPage() {
     // despite seeing finance everywhere else, and a regional admin
     // couldn't open this even though the page now respects their
     // region filter.
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.OWNER, UserRole.ADMIN, UserRole.REGION_ADMIN]}>
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.OWNER, UserRole.ADMIN, UserRole.REGION_ADMIN, UserRole.KITCHEN_MANAGER]}>
       <KitchenTeamPage />
     </ProtectedRoute>
   );

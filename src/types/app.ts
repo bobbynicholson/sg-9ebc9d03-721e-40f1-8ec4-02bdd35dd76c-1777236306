@@ -266,8 +266,10 @@ export enum UserRole {
   REGION_ADMIN = "region_admin",
   SALES_ADMIN = "sales_admin",
   ADMIN = "admin",
+  KITCHEN_MANAGER = "kitchen_manager",
   KITCHEN_STAFF = "kitchen_staff",
   SHOPPING_STAFF = "shopping_staff",
+  CLEANING_MANAGER = "cleaning_manager",
   CLEANING_STAFF = "cleaning_staff",
   DRIVER = "driver",
   // WTR-A: waiter / on-site server role. Combined with driver in

@@ -499,12 +499,20 @@ export function OrderDetailsPanel({ order, fromName, companyName, onClose }: Pro
                     });
                     const data = await r.json();
                     if (!r.ok || !data?.url) {
-                      alert(data?.error || "Could not generate client preview link");
+                      toast({
+                        title: "Preview link not created",
+                        description: data?.error || "Could not generate the client preview link.",
+                        variant: "destructive",
+                      });
                       return;
                     }
                     window.open(data.url, "_blank", "noopener");
                   } catch (err: any) {
-                    alert(err?.message || "Could not generate client preview link");
+                    toast({
+                      title: "Preview link not created",
+                      description: err?.message || "Could not generate the client preview link.",
+                      variant: "destructive",
+                    });
                   }
                 }}
               >

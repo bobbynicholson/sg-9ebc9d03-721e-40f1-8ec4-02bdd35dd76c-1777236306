@@ -64,15 +64,21 @@ export function PortalHeader({
       <div className="flex min-w-0 items-start gap-3">
         {Icon && (
           <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-portal-accent dark:border-slate-700 dark:bg-slate-900 dark:text-portal-accent">
-            <Icon className="h-5 w-5" />
+            <Icon className="h-5 w-5" aria-hidden="true" />
           </span>
         )}
         <div className="min-w-0">
-          <h1 className="font-brand-display text-2xl font-semibold tracking-tight text-slate-900 dark:text-white">{title}</h1>
-          {subtitle && <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">{subtitle}</p>}
+          <h1 className="font-brand-display text-balance text-2xl font-semibold leading-tight tracking-tight text-slate-950 dark:text-white">
+            {title}
+          </h1>
+          {subtitle && (
+            <p className="mt-1 max-w-3xl text-pretty text-sm leading-6 text-slate-600 dark:text-slate-400">
+              {subtitle}
+            </p>
+          )}
         </div>
       </div>
-      {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
+      {actions && <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">{actions}</div>}
     </header>
   );
 }
@@ -93,11 +99,11 @@ export function PortalCard({
   return (
     <div
       className={cn(
-        "rounded-2xl border border-slate-200/80 bg-white dark:border-slate-800 dark:bg-slate-900",
+        "rounded-2xl border border-slate-200/80 bg-white/95 dark:border-slate-800 dark:bg-slate-900",
         SOFT_SHADOW,
         interactive &&
-          "cursor-pointer transition-[box-shadow,border-color,transform] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-[0_2px_4px_rgba(15,23,42,0.05),0_16px_40px_-18px_rgba(15,23,42,0.22)] dark:hover:border-slate-700",
-        padded && "p-5",
+          "cursor-pointer transition-[box-shadow,border-color,transform] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] hover:-translate-y-px hover:border-slate-300 hover:shadow-[0_2px_4px_rgba(15,23,42,0.05),0_16px_40px_-18px_rgba(15,23,42,0.22)] dark:hover:border-slate-700",
+        padded && "p-4 sm:p-5",
         className,
       )}
       {...rest}
@@ -119,7 +125,7 @@ export function PortalCardHeader({
 }) {
   return (
     <div className={cn("mb-3 flex items-center justify-between gap-3", className)}>
-      <h2 className="text-sm font-semibold text-slate-900 dark:text-white">{title}</h2>
+      <h2 className="text-sm font-semibold leading-5 text-slate-950 dark:text-white">{title}</h2>
       {action}
     </div>
   );
@@ -146,13 +152,13 @@ export function StatTile({
   return (
     <div
       className={cn(
-        "rounded-2xl border border-slate-200/80 bg-white p-4 dark:border-slate-800 dark:bg-slate-900",
+        "rounded-2xl border border-slate-200/80 bg-white/95 p-4 dark:border-slate-800 dark:bg-slate-900",
         SOFT_SHADOW,
         className,
       )}
     >
       <div className="flex items-center justify-between gap-2">
-        <p className="text-xs font-medium text-slate-500 dark:text-slate-400">{label}</p>
+        <p className="text-xs font-medium leading-4 text-slate-600 dark:text-slate-400">{label}</p>
         {Icon && (
           <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-50 text-slate-400 dark:bg-slate-800 dark:text-slate-500">
             <Icon className="h-4 w-4" />
@@ -160,7 +166,7 @@ export function StatTile({
         )}
       </div>
       <div className="mt-1.5 flex items-end justify-between gap-2">
-        <p className="text-[1.75rem] font-semibold leading-none tracking-tight tabular-nums text-slate-900 dark:text-white">
+        <p className="text-2xl font-semibold leading-none tracking-tight tabular-nums text-slate-950 dark:text-white sm:text-[1.75rem]">
           {value}
         </p>
         {trend && (
@@ -180,7 +186,7 @@ export function StatTile({
           </span>
         )}
       </div>
-      {hint && <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{hint}</p>}
+      {hint && <p className="mt-1 text-xs leading-4 text-slate-600 dark:text-slate-400">{hint}</p>}
     </div>
   );
 }

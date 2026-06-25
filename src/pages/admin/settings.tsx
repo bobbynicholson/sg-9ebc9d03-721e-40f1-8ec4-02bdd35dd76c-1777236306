@@ -43,6 +43,7 @@ import { EmailAutomationSettingsTab } from "@/components/admin/settings/EmailAut
 import { FinancialSettingsTab } from "@/components/admin/settings/FinancialSettingsTab";
 import type { AdminSettings } from "@/components/admin/settings/types";
 import { useTenantHref } from "@/lib/tenantUrl";
+import { useToast } from "@/hooks/use-toast";
 
 export default function ProtectedSettingsPage() {
   return (
@@ -54,6 +55,7 @@ export default function ProtectedSettingsPage() {
 
 function SettingsPage() {
   const { withSlug } = useTenantHref();
+  const { toast } = useToast();
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   // Snapshot of the last persisted settings, used to derive a clean
@@ -323,9 +325,12 @@ function SettingsPage() {
       setSavedSnapshot(JSON.stringify(settings));
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
-    } else if (typeof window !== "undefined") {
-      // eslint-disable-next-line no-alert
-      window.alert(`Settings did not save to the company record: ${dbErrorMessage}. Try again or contact support.`);
+    } else {
+      toast({
+        title: "Settings not saved",
+        description: `${dbErrorMessage} Try again or contact support.`,
+        variant: "destructive",
+      });
     }
     setSaving(false);
   };

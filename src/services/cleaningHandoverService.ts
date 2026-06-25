@@ -239,7 +239,7 @@ export async function generateJobsForHandover(
           type: "cleaning_job_assigned",
           title: "Cleaning worklist ready",
           message: `${created} item type${created === 1 ? "" : "s"} queued for cleaning from a returned event.`,
-          targetRoles: ["cleaning_staff" as any],
+          targetRoles: ["cleaning_manager" as any, "cleaning_staff" as any],
           priority: "normal",
           link: "/team-portal/cleaning/dashboard",
           relatedEntityType: "cleaning_handover",

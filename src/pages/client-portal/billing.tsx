@@ -365,7 +365,7 @@ export default function ClientBillingPage() {
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <PortalHeader
             title="Billing & invoices"
-            subtitle="Pay outstanding invoices, view payment history, and download receipts."
+            subtitle="Pay balances, check due dates, open invoice details, and download receipts for completed payments."
             icon={Receipt}
           />
 
@@ -430,13 +430,13 @@ export default function ClientBillingPage() {
               {/* Filters and Search */}
               <PortalCard className="mb-6">
                 <PortalCardHeader
-                  title="All invoices"
+                  title={`Invoices (${filteredInvoices.length})`}
                   action={
                     <div className="flex flex-col sm:flex-row gap-2">
                       <div className="relative flex-1 sm:flex-none">
                         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-500" />
                         <Input
-                          placeholder="Search invoices..."
+                          placeholder="Search invoice, order, or venue..."
                           value={searchQuery}
                           onChange={(e) => setSearchQuery(e.target.value)}
                           className="pl-9 w-full sm:w-64"
@@ -448,7 +448,7 @@ export default function ClientBillingPage() {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="all">All Status</SelectItem>
+                          <SelectItem value="all">All statuses</SelectItem>
                           <SelectItem value="pending">Pending</SelectItem>
                           <SelectItem value="paid">Paid</SelectItem>
                           <SelectItem value="overdue">Overdue</SelectItem>
@@ -461,9 +461,9 @@ export default function ClientBillingPage() {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="date">Sort by Date</SelectItem>
-                          <SelectItem value="amount">Sort by Amount</SelectItem>
-                          <SelectItem value="status">Sort by Status</SelectItem>
+                          <SelectItem value="date">Due date</SelectItem>
+                          <SelectItem value="amount">Amount</SelectItem>
+                          <SelectItem value="status">Status</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>

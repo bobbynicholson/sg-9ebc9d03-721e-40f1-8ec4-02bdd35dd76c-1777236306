@@ -30,6 +30,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useToast } from "@/hooks/use-toast";
 import { UserRole } from "@/types/app";
 
 // Role icons mapping
@@ -71,6 +72,7 @@ interface RoleSwitcherProps {
 
 export function RoleSwitcher({ variant = "default", showLabel = true }: RoleSwitcherProps) {
   const { userRoles, activeRole, switchRole } = useAuth();
+  const { toast } = useToast();
   const [switching, setSwitching] = useState(false);
 
   // The picker only ever offers roles the user has actually been
@@ -92,7 +94,11 @@ export function RoleSwitcher({ variant = "default", showLabel = true }: RoleSwit
       await switchRole(newRole);
     } catch (error) {
       console.error("Failed to switch role:", error);
-      alert("Failed to switch role. Please try again.");
+      toast({
+        title: "Role not switched",
+        description: "Refresh and try switching roles again.",
+        variant: "destructive",
+      });
     } finally {
       setSwitching(false);
     }

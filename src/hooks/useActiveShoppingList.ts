@@ -21,7 +21,9 @@ import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toLocalISO } from "@/lib/localDate";
+import { updateShoppingListWithReceiptStatus } from "@/lib/shopping/receiptStatus";
 import { notificationService } from "@/services/notificationService";
+import { recordShoppingCostVariance } from "@/services/shoppingCompletionService";
 import { UserRole } from "@/types/app";
 
 export interface ActiveListItem {
@@ -62,10 +64,16 @@ export interface ActiveList {
   estimated_total: number | null;
   actual_total: number | null;
   receipt_url: string | null;
+  no_receipt_reason: string | null;
   source: string | null;
   /** True when shopper_id matches the current user. Drives the
    *  "Your list" vs "Team list" framing in nav + dashboard. */
   isYours: boolean;
+}
+
+export interface CompleteShoppingListOptions {
+  receiptUrl?: string | null;
+  noReceiptReason?: string | null;
 }
 
 export interface UseActiveShoppingList {
@@ -99,7 +107,7 @@ export interface UseActiveShoppingList {
   }>) => Promise<{ listId: string; itemCount: number } | null>;
   /** Mark the entire list complete (records actual_total, sets
    *  status='completed', stamps completed_at). */
-  completeList: (actualTotal?: number) => Promise<void>;
+  completeList: (actualTotal?: number, options?: CompleteShoppingListOptions) => Promise<boolean>;
   /** SHP2-I: toggle the "out of stock at supplier" tag on an item.
    *  Stored as a notes prefix `[OOS@SupplierName]`. Tapping again
    *  removes the tag (idempotent). */
@@ -194,6 +202,7 @@ export function useActiveShoppingList(): UseActiveShoppingList {
         estimated_total: row.estimated_total ?? null,
         actual_total: row.actual_total ?? null,
         receipt_url: row.receipt_url ?? null,
+        no_receipt_reason: row.no_receipt_reason ?? null,
         source: row.source ?? null,
         isYours,
       });
@@ -504,26 +513,43 @@ export function useActiveShoppingList(): UseActiveShoppingList {
     return { listId, itemCount: rows.length };
   }, [ensureList, userId, load]);
 
-  const completeList = useCallback(async (actualTotal?: number) => {
-    if (!list) return;
+  const completeList = useCallback(async (actualTotal?: number, options?: CompleteShoppingListOptions) => {
+    if (!list) return false;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const sb = supabase as any;
+    const receiptUrl = options?.receiptUrl ?? list.receipt_url ?? null;
+    const noReceiptReason = (options?.noReceiptReason ?? "").trim();
+    if (!receiptUrl && !noReceiptReason) {
+      setError("Attach a receipt or enter a no-receipt reason before closing the list.");
+      return false;
+    }
     // shopping_lists has neither completed_at nor updated_at columns
     // (only created_at). Writing them made the UPDATE fail with
     // column-not-found, so a list could never be marked complete. Set
     // only the columns that exist: status (+ actual_total when given).
     const patch: Record<string, unknown> = {
       status: "completed",
+      no_receipt_reason: receiptUrl ? null : noReceiptReason,
     };
+    if (receiptUrl && receiptUrl !== list.receipt_url) patch.receipt_url = receiptUrl;
     if (typeof actualTotal === "number") patch.actual_total = actualTotal;
-    const { error: cErr } = await sb
-      .from("shopping_lists")
-      .update(patch)
-      .eq("id", list.id);
+    const { error: cErr } = await updateShoppingListWithReceiptStatus(sb, list.id, patch, {
+      existingNotes: list.notes,
+      noReceiptReason,
+    });
     if (cErr) {
       setError(cErr.message || "Could not complete list");
-      return;
+      return false;
     }
+    await recordShoppingCostVariance({
+      sb,
+      companyId,
+      userId,
+      listId: list.id,
+      listTitle: list.title,
+      estimatedTotal: list.estimated_total,
+      actualTotal,
+    });
     // SHP2-E (shopping deep audit, SHP2-30): when the shopper records
     // an actual spend, write a matching supplier_payables row so the
     // cashflow forecast immediately picks it up instead of waiting on
@@ -579,8 +605,8 @@ export function useActiveShoppingList(): UseActiveShoppingList {
           type: "shopping_completed",
           title: "Shopping completed",
           message: typeof actualTotal === "number" && actualTotal > 0
-            ? `${list.title || "A shopping list"} is done - actual spend recorded. Snap the receipt to reconcile.`
-            : `${list.title || "A shopping list"} is done. Awaiting a receipt to close it out.`,
+            ? `${list.title || "A shopping list"} is done - actual spend recorded. Receipt status captured.`
+            : `${list.title || "A shopping list"} is done. Receipt status captured.`,
           targetRoles: [UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.OWNER, UserRole.ADMIN],
           priority: "normal",
           link: `/admin/shopping?listId=${list.id}`,
@@ -624,6 +650,7 @@ export function useActiveShoppingList(): UseActiveShoppingList {
       }
     }
     await load();
+    return true;
   }, [list, load, userId, companyId]);
 
   // SHP2-I (shopping deep audit, SHP2-33): toggle "out of stock at

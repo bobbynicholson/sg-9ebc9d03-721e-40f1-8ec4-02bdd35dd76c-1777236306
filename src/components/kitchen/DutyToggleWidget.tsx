@@ -7,6 +7,7 @@ import { Clock, Power, PowerOff } from "lucide-react";
 import { kitchenDutyService } from "@/services/kitchenDutyService";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatLocalTime } from "@/lib/localFormat";
+import { useToast } from "@/hooks/use-toast";
 
 interface DutyShift {
   id: string;
@@ -16,6 +17,7 @@ interface DutyShift {
 
 export function DutyToggleWidget() {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [currentShift, setCurrentShift] = useState<DutyShift | null>(null);
   const [loading, setLoading] = useState(false);
   const [elapsedTime, setElapsedTime] = useState("");
@@ -63,7 +65,11 @@ export function DutyToggleWidget() {
       }
     } catch (error) {
       console.error("Error toggling duty:", error);
-      alert("Failed to toggle duty status");
+      toast({
+        title: "Duty status not saved",
+        description: error instanceof Error ? error.message : "Try again before continuing kitchen work.",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
@@ -76,7 +82,7 @@ export function DutyToggleWidget() {
       <CardHeader className="pb-3">
         <CardTitle className="text-lg flex items-center gap-2">
           <Clock className="h-5 w-5" />
-          Duty Status
+          Duty status
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -85,11 +91,11 @@ export function DutyToggleWidget() {
             <div className="flex items-center gap-2">
               {isOnDuty ? (
                 <Badge variant="default" className="bg-green-500 hover:bg-green-600">
-                  ON DUTY
+                  On duty
                 </Badge>
               ) : (
                 <Badge variant="secondary">
-                  OFF DUTY
+                  Off duty
                 </Badge>
               )}
               {isOnDuty && elapsedTime && (
@@ -112,12 +118,12 @@ export function DutyToggleWidget() {
             {isOnDuty ? (
               <>
                 <PowerOff className="h-5 w-5" />
-                End Duty
+                End duty
               </>
             ) : (
               <>
                 <Power className="h-5 w-5" />
-                Start Duty
+                Start duty
               </>
             )}
           </Button>
@@ -125,7 +131,7 @@ export function DutyToggleWidget() {
         {isOnDuty && (
           <div className="pt-2 border-t">
             <p className="text-sm text-muted-foreground">
-              You are responsible for all kitchen tasks completed during your shift
+              You are responsible for kitchen tasks completed during this shift.
             </p>
           </div>
         )}

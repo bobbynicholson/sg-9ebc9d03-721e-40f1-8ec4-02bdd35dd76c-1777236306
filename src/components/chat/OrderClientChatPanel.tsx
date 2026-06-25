@@ -165,6 +165,7 @@ export function OrderClientChatPanel({
             UserRole.SUPER_ADMIN,
             UserRole.SALES_ADMIN,
             UserRole.REGION_ADMIN,
+            UserRole.KITCHEN_MANAGER,
             UserRole.KITCHEN_STAFF,
           ],
           priority: "high",

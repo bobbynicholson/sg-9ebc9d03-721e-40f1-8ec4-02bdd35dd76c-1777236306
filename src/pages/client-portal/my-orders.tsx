@@ -240,7 +240,7 @@ export default function MyOrders() {
     <>
       <NoIndexMeta />
       <Head>
-        <title>My orders - CateringMS</title>
+        <title>Your bookings - CateringMS</title>
       </Head>
 
       <ClientNav />
@@ -248,8 +248,8 @@ export default function MyOrders() {
       <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <PortalHeader
-            title="My orders"
-            subtitle="Every booking, active or done. Tap one to track, request a change, or grab the invoice."
+            title="Your bookings"
+            subtitle="Every confirmed booking, active or completed. Open one to track delivery, request a change, view the invoice, or rebook."
             icon={Package}
           />
 
@@ -262,7 +262,7 @@ export default function MyOrders() {
               onClick={() => setFilter("all")}
               className={filter === "all" ? "bg-brand-primary hover:opacity-90" : ""}
             >
-              All Orders
+              All bookings
             </Button>
             <Button
               size="sm"
@@ -283,7 +283,7 @@ export default function MyOrders() {
           </div>
 
           <PortalCard>
-            <PortalCardHeader title={`Orders (${filteredOrders.length})`} />
+            <PortalCardHeader title={`Bookings (${filteredOrders.length})`} />
             <div>
               {loading ? (
                 // Skeleton placeholder rows so the layout doesn't jump
@@ -303,12 +303,12 @@ export default function MyOrders() {
                     <Package className="w-6 h-6 text-slate-400 dark:text-slate-500" />
                   </div>
                   <h3 className="text-base font-semibold text-slate-900 dark:text-white mb-1.5">
-                    {filter === "all" ? "No orders yet" : "Nothing in this view"}
+                    {filter === "all" ? "No bookings yet" : "Nothing in this view"}
                   </h3>
                   <p className="text-sm text-slate-600 dark:text-slate-400 max-w-md mx-auto">
                     {filter === "all"
                       ? "Your bookings show up here once your caterer confirms a quote. Want something on the calendar? Ask them for a quote and accept it - it lands here automatically."
-                      : "No orders match this filter. Switch back to All Orders to see everything, active or done."}
+                      : "No bookings match this filter. Switch back to All bookings to see everything, active or done."}
                   </p>
                   {filter !== "all" && (
                     <Button

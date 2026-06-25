@@ -74,7 +74,7 @@ export default function KitchenStockPage() {
   // sat on the chef's screen forever unless they walked to the
   // shopping page and manually typed a list. Now they can convert
   // every below-par item into a shopping_lists row + line items
-  // with one tap, with a 14-day horizon stamp so the shopping team
+  // with one tap, with a 7-day horizon stamp so the shopping team
   // knows the timeframe.
   const [pushOpen, setPushOpen] = useState(false);
   const [pushing, setPushing] = useState(false);
@@ -120,7 +120,7 @@ export default function KitchenStockPage() {
       });
       const today = new Date();
       const horizon = new Date();
-      horizon.setDate(today.getDate() + 14);
+      horizon.setDate(today.getDate() + 7);
       const result = await kitchenPrepService.createShoppingListFromShortfall(
         user.company_id,
         user.id,
@@ -129,17 +129,17 @@ export default function KitchenStockPage() {
         `Kitchen restock ${toLocalISO(today)}`,
       );
       if (!result) {
-        toast({ title: "Nothing to push", description: "All below-par items already at or above par." });
+        toast({ title: "Nothing to add", description: "All below-par items already at or above par." });
       } else {
         setPushResult({ listId: result.id, itemCount: result.itemCount });
         toast({
-          title: "Pushed to shopping",
+          title: "Added to shopping list",
           description: `${result.itemCount} item${result.itemCount === 1 ? "" : "s"} on the new list`,
         });
       }
     } catch (e: any) {
       captureException(e, { tags: { route: ROUTE, step: "pushToShopping", companyId: user.company_id } });
-      toast({ title: "Could not push to shopping", description: e?.message ?? "Unknown error", variant: "destructive" });
+      toast({ title: "Could not add to shopping list", description: e?.message ?? "Unknown error", variant: "destructive" });
     } finally {
       setPushing(false);
     }
@@ -486,7 +486,7 @@ export default function KitchenStockPage() {
                 disabled={pushing}
               >
                 <ShoppingCart className="w-4 h-4 mr-2" />
-                Push to shopping
+                Add to list
               </Button>
             </PortalCard>
           )}

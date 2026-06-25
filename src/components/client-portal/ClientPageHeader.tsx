@@ -5,7 +5,7 @@
  *
  * Why one component: the dashboard had a beautiful tenant-branded
  * header (logo + greeting on a gradient, badges on the right) while
- * Quotes / My Orders / Tracking / Billing each had their own
+ * Quotes / Bookings / Tracking / Billing each had their own
  * mismatched header. From the client's eye that read as "the
  * dashboard is the proper page, the rest of these are admin tools."
  * Bobby pointed at it: every inner page now uses this band so the
@@ -53,7 +53,7 @@ export function ClientPageHeader({
       style={{ background: brandGradient }}
     >
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="flex items-center gap-3 min-w-0">
+        <div className="flex min-w-0 items-start gap-3">
           <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center shadow-lg flex-shrink-0">
             {companyLogo ? (
               <img
@@ -66,14 +66,14 @@ export function ClientPageHeader({
             )}
           </div>
           <div className="min-w-0">
-            <p className="text-xs sm:text-sm text-white/80 font-medium truncate">
+            <p className="text-xs font-medium text-white/85 sm:text-sm">
               {companyName}
             </p>
-            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold truncate">
+            <h1 className="text-balance text-xl font-semibold leading-tight tracking-tight sm:text-2xl md:text-3xl">
               {title}
             </h1>
             {subtitle ? (
-              <p className="text-xs sm:text-sm text-white/85 mt-1 max-w-2xl">
+              <p className="mt-1 max-w-2xl text-pretty text-xs leading-5 text-white/85 sm:text-sm">
                 {subtitle}
               </p>
             ) : null}

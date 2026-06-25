@@ -187,6 +187,12 @@ function AdminUsersPage() {
     // Operational portals - hands-on roles. Each opens a specific
     // mobile portal optimised for that job.
     {
+      value: "kitchen_manager" as UserRole, label: "Kitchen Manager", icon: ChefHat,
+      color: "bg-amber-100 text-amber-800 border-amber-200",
+      group: "operational",
+      description: "Kitchen manager portal: team clock-in/out, prep control, cleaning visibility, no finance.",
+    },
+    {
       value: "kitchen" as UserRole, label: "Kitchen Team", icon: ChefHat,
       color: "bg-orange-100 text-orange-700 border-orange-200",
       group: "operational",
@@ -203,6 +209,12 @@ function AdminUsersPage() {
       color: "bg-green-100 text-green-700 border-green-200",
       group: "operational",
       description: "Shopping portal: Buy-now list, snap-a-slip receipts, supplier contacts.",
+    },
+    {
+      value: "cleaning_manager" as UserRole, label: "Cleaning Manager", icon: Sparkles,
+      color: "bg-teal-100 text-teal-700 border-teal-200",
+      group: "operational",
+      description: "Cleaning manager portal: cleaning queue, team availability, handovers, no finance.",
     },
     {
       value: "cleaning" as UserRole, label: "Cleaning Team", icon: Sparkles,
@@ -1361,9 +1373,11 @@ function AdminUsersPage() {
                 <SelectContent>
                   <SelectItem value="admin">Admin</SelectItem>
                   <SelectItem value="company_admin">Company Admin</SelectItem>
+                  <SelectItem value="kitchen_manager">Kitchen Manager</SelectItem>
                   <SelectItem value="kitchen_staff">Kitchen Team</SelectItem>
                   <SelectItem value="driver">Driver</SelectItem>
                   <SelectItem value="shopping_staff">Shopping Team</SelectItem>
+                  <SelectItem value="cleaning_manager">Cleaning Manager</SelectItem>
                   <SelectItem value="cleaning_staff">Cleaning Team</SelectItem>
                   <SelectItem value="sales_admin">Sales Admin</SelectItem>
                   <SelectItem value="region_admin">Region Admin</SelectItem>

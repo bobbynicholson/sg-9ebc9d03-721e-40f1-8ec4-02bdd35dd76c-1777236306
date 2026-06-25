@@ -43,10 +43,18 @@ export function ShoppingSection({ orderId, companyId, defaultOpen, forceOpen, hi
   const [pushing, setPushing] = useState(false);
   const [pushed, setPushed] = useState<{ id: string; itemCount: number } | null>(null);
 
-  // ODOC Phase 2: shopping push gate - kitchen, shopping staff, admins.
+  // ODOC Phase 2: shopping action gate. Kitchen roles can see the
+  // list for the order, but adding shortfalls is owned by shopping
+  // and admin roles.
   const canPush = (() => {
-    const roles = Array.isArray(userRoles) ? userRoles : [];
-    if (roles.includes(UserRole.KITCHEN_STAFF) || roles.includes(UserRole.SHOPPING_STAFF)) return true;
+    const role = user?.role as UserRole | undefined;
+    const activeRole = (user as { active_role?: UserRole } | null)?.active_role;
+    const roles = [
+      role,
+      activeRole,
+      ...(Array.isArray(userRoles) ? userRoles : []),
+    ].filter(Boolean) as UserRole[];
+    if (roles.includes(UserRole.SHOPPING_STAFF)) return true;
     return canAccessDriverWidgets(roles);
   })();
 
@@ -66,12 +74,12 @@ export function ShoppingSection({ orderId, companyId, defaultOpen, forceOpen, hi
           used_by: [],
         }));
       if (items.length === 0) {
-        toast({ title: "Nothing to push", description: "All in stock." });
+        toast({ title: "Nothing to add", description: "All in stock." });
         return;
       }
       const today = new Date();
       const horizon = new Date();
-      horizon.setDate(today.getDate() + 14);
+      horizon.setDate(today.getDate() + 7);
       const result = await kitchenPrepService.createShoppingListFromShortfall(
         user.company_id,
         user.id,
@@ -81,11 +89,11 @@ export function ShoppingSection({ orderId, companyId, defaultOpen, forceOpen, hi
       );
       if (result) {
         setPushed(result);
-        toast({ title: "Pushed to shopping", description: `${result.itemCount} item${result.itemCount === 1 ? "" : "s"} on the new list` });
+        toast({ title: "Added to shopping list", description: `${result.itemCount} item${result.itemCount === 1 ? "" : "s"} on the new list` });
       }
     } catch (e: any) {
       captureException(e, { tags: { route: "/order/[id]", step: "pushShoppingFromDoc", orderId, companyId } });
-      toast({ title: "Could not push", description: e?.message, variant: "destructive" });
+      toast({ title: "Could not add", description: e?.message, variant: "destructive" });
     } finally {
       setPushing(false);
     }
@@ -212,13 +220,13 @@ export function ShoppingSection({ orderId, companyId, defaultOpen, forceOpen, hi
                     className="h-7 text-xs bg-amber-600 hover:bg-amber-700"
                   >
                     {pushing ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <ShoppingCart className="w-3 h-3 mr-1" />}
-                    Push to shopping
+                    Add to list
                   </Button>
                 )}
                 {pushed && (
                   <span className="inline-flex items-center gap-1 text-[11px] text-emerald-700 bg-emerald-50 border border-emerald-200 rounded px-1.5 py-0.5">
                     <CheckCircle2 className="w-3 h-3" />
-                    Pushed ({pushed.itemCount})
+                    Added ({pushed.itemCount})
                   </span>
                 )}
               </div>

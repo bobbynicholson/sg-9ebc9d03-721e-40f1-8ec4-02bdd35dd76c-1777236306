@@ -24,7 +24,7 @@ import { UserRole } from "@/types/app";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { AdminNav } from "@/components/admin/AdminNav";
+import { DynamicNav } from "@/components/DynamicNav";
 import { PortalShell, PortalHeader } from "@/components/portal/ui";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
@@ -130,6 +130,7 @@ function fmtTime(t: string | null): string {
 
 function KitchenScheduleGrid() {
   const { user } = useAuth() as any;
+  const userRole = ((user as any)?.active_role || (user as any)?.role || UserRole.ADMIN).toString();
   const router = useRouter();
   const { withSlug } = useTenantHref();
   const companyId = user?.company_id;
@@ -327,7 +328,7 @@ function KitchenScheduleGrid() {
     <>
       <Head><title>Kitchen schedule - CateringMS</title></Head>
       <NoIndexMeta />
-      <AdminNav />
+      <DynamicNav userRole={userRole} />
       <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <div className="space-y-4">
@@ -923,7 +924,7 @@ function KitchenScheduleGrid() {
 
 export default function ProtectedKitchenSchedulePage() {
   return (
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN]}>
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.KITCHEN_MANAGER]}>
       <KitchenScheduleGrid />
     </ProtectedRoute>
   );

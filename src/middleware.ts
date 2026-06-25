@@ -38,15 +38,20 @@ const PUBLIC_ROUTES = [
 // way as company_admin - RLS narrows their data, not the route.
 const ALL_AUTHENTICATED_ROLES = [
   "super_admin", "company_admin", "region_admin", "sales_admin", "admin", "owner",
-  "kitchen_staff", "shopping_staff", "driver", "waiter", "cleaning_staff", "client",
+  "kitchen_manager", "kitchen_staff", "shopping_staff", "driver", "waiter", "cleaning_manager", "cleaning_staff", "client",
 ];
 
 const ADMIN_PORTAL_ROLES = ["super_admin", "company_admin", "region_admin", "sales_admin", "admin", "owner"];
 
 const ROUTE_GUARDS: Record<string, string[]> = {
   "/admin/platform": ["super_admin"],
+  "/admin/teams/kitchen": [...ADMIN_PORTAL_ROLES, "kitchen_manager"],
+  "/admin/kitchen-schedule": [...ADMIN_PORTAL_ROLES, "kitchen_manager"],
+  "/admin/kitchen-settings": [...ADMIN_PORTAL_ROLES, "kitchen_manager"],
+  "/admin/teams/cleaning": [...ADMIN_PORTAL_ROLES, "cleaning_manager"],
+  "/admin/cleaning-schedule": [...ADMIN_PORTAL_ROLES, "cleaning_manager"],
   "/admin": ADMIN_PORTAL_ROLES,
-  "/team-portal/kitchen": [...ADMIN_PORTAL_ROLES, "kitchen_staff"],
+  "/team-portal/kitchen": [...ADMIN_PORTAL_ROLES, "kitchen_manager", "kitchen_staff"],
   "/team-portal/shopping": [...ADMIN_PORTAL_ROLES, "shopping_staff"],
   "/team-portal/driver": [...ADMIN_PORTAL_ROLES, "driver"],
   // CLN2-C follow-up (2026-05-19): admit kitchen_staff to
@@ -58,9 +63,9 @@ const ROUTE_GUARDS: Record<string, string[]> = {
   // role or the CTA 403s. Write actions on the cleaning dashboard
   // (clock-in button, damage report) stay gated per-component, so a
   // kitchen lead reading this page can still only read - not write.
-  "/team-portal/cleaning": [...ADMIN_PORTAL_ROLES, "cleaning_staff", "kitchen_staff"],
-  "/team-portal/general": [...ADMIN_PORTAL_ROLES, "kitchen_staff", "shopping_staff", "driver", "cleaning_staff"],
-  "/team-portal": [...ADMIN_PORTAL_ROLES, "kitchen_staff", "shopping_staff", "driver", "cleaning_staff"],
+  "/team-portal/cleaning": [...ADMIN_PORTAL_ROLES, "cleaning_manager", "cleaning_staff", "kitchen_manager", "kitchen_staff"],
+  "/team-portal/general": [...ADMIN_PORTAL_ROLES, "kitchen_manager", "kitchen_staff", "shopping_staff", "driver", "cleaning_manager", "cleaning_staff"],
+  "/team-portal": [...ADMIN_PORTAL_ROLES, "kitchen_manager", "kitchen_staff", "shopping_staff", "driver", "cleaning_manager", "cleaning_staff"],
   "/client-portal": [...ADMIN_PORTAL_ROLES, "client"],
   "/client": [...ADMIN_PORTAL_ROLES, "client"],
   "/subscription": ADMIN_PORTAL_ROLES,
@@ -71,7 +76,7 @@ const ROUTE_GUARDS: Record<string, string[]> = {
   // renders a client-appropriate view), and RLS still scopes which
   // order rows a client can read. (Magic-link visitors keep using the
   // token path /c/order/[token].)
-  "/order": [...ADMIN_PORTAL_ROLES, "kitchen_staff", "shopping_staff", "driver", "waiter", "cleaning_staff", "client"],
+  "/order": [...ADMIN_PORTAL_ROLES, "kitchen_manager", "kitchen_staff", "shopping_staff", "driver", "waiter", "cleaning_manager", "cleaning_staff", "client"],
 };
 
 // Check if user role has access to a specific route.

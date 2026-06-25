@@ -35,6 +35,8 @@ import {
   BookOpen,
   Flame,
   Clock,
+  CalendarClock,
+  Settings,
 } from "lucide-react";
 import { PortalSidebar, type PortalSidebarConfig } from "./PortalSidebar";
 import { BRAND_PORTAL_PALETTE, BRAND_ACCENT } from "@/lib/branding/portalPalette";
@@ -43,6 +45,7 @@ import { usePortalServiceMode } from "@/hooks/usePortalServiceMode";
 import { KitchenServiceModeBadge } from "@/components/kitchen/KitchenServiceModeBadge";
 import { KitchenSmartQuickActions } from "@/components/kitchen/KitchenSmartQuickActions";
 import { useServiceModeToast } from "@/hooks/useServiceModeToast";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface KitchenNavProps {
   className?: string;
@@ -55,6 +58,7 @@ export function KitchenNav(_: KitchenNavProps = {}) {
   // these closures via per-item `badge` / `iconOverlay` functions.
   const counts = useKitchenLiveCounts();
   const serviceMode = usePortalServiceMode();
+  const { user, profile } = useAuth() as any;
 
   // Wave 70.7c - fires a single toast on the first transition to
   // service mode each browser session. Mounted at the nav level so
@@ -62,6 +66,8 @@ export function KitchenNav(_: KitchenNavProps = {}) {
   useServiceModeToast();
 
   const isService = serviceMode.mode === "service";
+  const activeRole = String(profile?.active_role || profile?.role || user?.active_role || user?.role || "").toLowerCase();
+  const isKitchenManager = activeRole === "kitchen_manager";
 
   const config: PortalSidebarConfig = {
     role: "kitchen",
@@ -148,6 +154,16 @@ export function KitchenNav(_: KitchenNavProps = {}) {
           { title: "Recipes", href: "/team-portal/kitchen/menu",  icon: BookOpen, description: "Recipe library" },
         ],
       },
+      ...(isKitchenManager ? [{
+        id: "manager",
+        title: "Manager",
+        defaultOpen: true,
+        items: [
+          { title: "Team overview", href: "/admin/teams/kitchen", icon: Users, description: "Roster, duties, prep broadcast" },
+          { title: "Schedule", href: "/admin/kitchen-schedule", icon: CalendarClock, description: "Plan shifts + clock-ins" },
+          { title: "Rules", href: "/admin/kitchen-settings", icon: Settings, description: "Prep timing + alerts" },
+        ],
+      }] : []),
       {
         id: "footer",
         title: "",

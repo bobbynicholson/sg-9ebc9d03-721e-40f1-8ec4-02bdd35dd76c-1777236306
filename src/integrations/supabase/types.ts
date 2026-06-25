@@ -9352,6 +9352,7 @@ export type Database = {
           id: string
           list_date: string | null
           notes: string | null
+          no_receipt_reason: string | null
           receipt_url: string | null
           shopper_id: string | null
           source: string | null
@@ -9369,6 +9370,7 @@ export type Database = {
           id?: string
           list_date?: string | null
           notes?: string | null
+          no_receipt_reason?: string | null
           receipt_url?: string | null
           shopper_id?: string | null
           source?: string | null
@@ -9386,6 +9388,7 @@ export type Database = {
           id?: string
           list_date?: string | null
           notes?: string | null
+          no_receipt_reason?: string | null
           receipt_url?: string | null
           shopper_id?: string | null
           source?: string | null
@@ -12406,9 +12409,11 @@ export type Database = {
         | "super_admin"
         | "company_admin"
         | "admin"
+        | "kitchen_manager"
         | "kitchen_staff"
         | "driver"
         | "shopping_staff"
+        | "cleaning_manager"
         | "cleaning_staff"
         | "client"
         | "region_admin"
@@ -12689,9 +12694,11 @@ export const Constants = {
         "super_admin",
         "company_admin",
         "admin",
+        "kitchen_manager",
         "kitchen_staff",
         "driver",
         "shopping_staff",
+        "cleaning_manager",
         "cleaning_staff",
         "client",
         "region_admin",

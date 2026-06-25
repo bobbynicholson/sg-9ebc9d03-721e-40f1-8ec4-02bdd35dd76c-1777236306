@@ -666,7 +666,7 @@ export const driverConfirmationService = {
           type: "equipment_returned",
           title: "Equipment returned for cleaning",
           message: `Gear from order ${(orderRow2 as any)?.order_number || orderId.slice(0, 8)} is back at the hub and ready for cleaning intake.`,
-          targetRoles: ["cleaning_staff" as any],
+          targetRoles: ["cleaning_manager" as any, "cleaning_staff" as any],
           priority: "normal",
           link: "/team-portal/cleaning",
           relatedEntityType: "order",
@@ -1129,7 +1129,7 @@ export const driverConfirmationService = {
         message: atKitchen
           ? `${driver.full_name} is AT the kitchen for Order #${order.order_number}. Hand the food + equipment over and tap "Sign over to driver".`
           : `${driver.full_name} is on the way to collect Order #${order.order_number}. Get it ready and sign it over when they arrive.`,
-        targetRoles: ["kitchen_staff" as any],
+        targetRoles: ["kitchen_manager" as any, "kitchen_staff" as any],
         priority: atKitchen ? "high" : "medium",
         link: "/team-portal/kitchen/dashboard",
         relatedEntityType: "order",

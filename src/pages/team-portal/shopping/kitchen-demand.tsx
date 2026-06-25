@@ -43,7 +43,7 @@ export default function ShoppingKitchenDemandPage() {
   const { toast } = useToast();
   const companyId = (profile as any)?.company_id || user?.company_id;
 
-  const [horizon, setHorizon] = useState(14);
+  const [horizon, setHorizon] = useState(7);
   const [demand, setDemand] = useState<IngredientDemand[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");

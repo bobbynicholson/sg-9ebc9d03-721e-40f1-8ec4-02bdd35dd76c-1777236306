@@ -38,6 +38,7 @@ import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { formatDate } from "@/lib/formatters";
 import { toLocalISO } from "@/lib/localDate";
 import { downloadOrderIcs } from "@/lib/orderToIcs";
+import { staffOrderHref } from "@/lib/orderUrls";
 import {
   deriveOrderIntelligence,
   summariseAutoEmailsByOrder,
@@ -943,9 +944,9 @@ return (
                   )}
                   {selectedOrder && (
                     <DropdownMenuItem asChild>
-                      <Link href={withSlug(`/admin/orders/${selectedOrder.id}/ticket`)} target="_blank">
+                      <Link href={withSlug(`${staffOrderHref(selectedOrder.id, "kitchen_staff")}&print=1#section-kitchen`)} target="_blank">
                         <FileText className="w-4 h-4 mr-2" />
-                        Kitchen ticket
+                        Print order document
                       </Link>
                     </DropdownMenuItem>
                   )}

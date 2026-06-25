@@ -94,7 +94,7 @@ export default function ShoppingInvoicesPage() {
 
   return (
     <>
-      <Head><title>Shopping receipts - CateringMS</title></Head>
+      <Head><title>Shopping spend - CateringMS</title></Head>
       <NoIndexMeta />
       <ShoppingNav />
       {/* Offset for the fixed shopping nav (top bar on mobile, side rail on
@@ -106,8 +106,8 @@ export default function ShoppingInvoicesPage() {
               action; everything else stays neutral slate. */}
           <PortalHeader
             icon={Receipt}
-            title="Purchase Receipts"
-            subtitle="All your purchase runs with their receipts and actual spend"
+            title="Spend"
+            subtitle="Completed shopping runs, uploaded supplier slips, actual spend, and estimate variance."
           />
 
           <div className="mb-6 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">

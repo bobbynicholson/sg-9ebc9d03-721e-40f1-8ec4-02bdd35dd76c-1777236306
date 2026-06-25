@@ -420,6 +420,25 @@ function StatusBadge({ stage }: { stage: OrderTimelineStage }) {
   );
 }
 
+function TimelineColourLegend({ compact = false }: { compact?: boolean }) {
+  const items = [
+    { label: "Done", cls: "bg-green-500", text: "text-green-700" },
+    { label: "Problem", cls: "bg-red-500", text: "text-red-700" },
+    { label: "Needs to be done", cls: "bg-orange-500", text: "text-orange-700" },
+    { label: "Not started", cls: "bg-slate-300", text: "text-slate-600" },
+  ];
+  return (
+    <div className={`flex flex-wrap items-center gap-x-3 gap-y-1 ${compact ? "text-[10px]" : "text-[11px]"}`}>
+      {items.map((item) => (
+        <span key={item.label} className={`inline-flex items-center gap-1.5 font-medium ${item.text}`}>
+          <span className={`w-2.5 h-2.5 rounded-full ${item.cls}`} aria-hidden="true" />
+          {item.label}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 // --- Cluster band -----------------------------------------------------------
 
 function ClusterBand({
@@ -645,6 +664,7 @@ export function TimelineTrack({ timeline, compact, onStageClick, hideOperatorBan
     return (
       <div className="space-y-2">
         <NowCard stage={currentStage} withSlug={withSlug} />
+        <TimelineColourLegend compact />
         <div className="flex flex-wrap items-center gap-1.5">
           {CLUSTER_ORDER.map((g) => (
             <ClusterPill key={g} group={g} stages={stagesByCluster.get(g) || []} />
@@ -775,6 +795,8 @@ export function TimelineTrack({ timeline, compact, onStageClick, hideOperatorBan
           </div>
         );
       })()}
+
+      <TimelineColourLegend />
 
       {/* Cluster band */}
       <div className="flex items-stretch gap-1 w-full overflow-x-auto pb-1">

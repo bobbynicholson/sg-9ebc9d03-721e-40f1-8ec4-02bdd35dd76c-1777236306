@@ -5,7 +5,7 @@
  * The admin pages each rolled their own <h1> - some used a brand
  * gradient, some flat slate, in sizes from text-2xl to text-4xl, with
  * inconsistent spacing. This component gives them all the SAME header:
- * optional icon tile, gradient brand title, optional subtitle, and an
+ * optional icon tile, solid readable title, optional subtitle, and an
  * optional right-aligned actions slot - so headers never drift again.
  *
  * Usage:
@@ -38,22 +38,22 @@ export function AdminPageHeader({
   return (
     <div
       className={cn(
-        "mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between",
+        "mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between",
         className,
       )}
     >
-      <div className="flex items-center gap-3 min-w-0">
+      <div className="flex min-w-0 items-start gap-3">
         {Icon && (
-          <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-brand-primary/10">
-            <Icon className="h-5 w-5 text-brand-primary" />
+          <div className="mt-0.5 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl border border-brand-primary/20 bg-brand-primary/10 text-brand-primary">
+            <Icon className="h-5 w-5" aria-hidden="true" />
           </div>
         )}
         <div className="min-w-0">
-          <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-brand-primary to-brand-secondary bg-clip-text text-transparent leading-tight truncate">
+          <h1 className="text-balance text-2xl font-semibold leading-tight tracking-tight text-slate-950 dark:text-white sm:text-3xl">
             {title}
           </h1>
           {subtitle && (
-            <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5 truncate">
+            <p className="mt-1 max-w-3xl text-pretty text-sm leading-6 text-slate-600 dark:text-slate-400">
               {subtitle}
             </p>
           )}

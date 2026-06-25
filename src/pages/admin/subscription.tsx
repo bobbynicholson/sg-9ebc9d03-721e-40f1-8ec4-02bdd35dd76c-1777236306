@@ -34,6 +34,7 @@ import { PortalShell, PortalHeader } from "@/components/portal/ui";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import {  UserRole  } from "@/types/app";
+import { useToast } from "@/hooks/use-toast";
 
 type Subscription = Database["public"]["Tables"]["subscriptions"]["Row"];
 type BillingHistory = Database["public"]["Tables"]["billing_history"]["Row"];
@@ -48,6 +49,7 @@ export default function ProtectedSubscriptionPage() {
 
 function SubscriptionPage() {
   const { user } = useAuth();
+  const { toast } = useToast();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [subscription, setSubscription] = useState<Subscription | null>(null);
@@ -120,7 +122,11 @@ function SubscriptionPage() {
       await loadSubscriptionData();
     } catch (error) {
       console.error("Error cancelling subscription:", error);
-      alert("Failed to cancel subscription. Please try again.");
+      toast({
+        title: "Cancellation not saved",
+        description: "The subscription cancellation request could not be saved. Try again.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -132,7 +138,11 @@ function SubscriptionPage() {
       await loadSubscriptionData();
     } catch (error) {
       console.error("Error reactivating subscription:", error);
-      alert("Failed to reactivate subscription. Please try again.");
+      toast({
+        title: "Subscription not reactivated",
+        description: "The reactivation request could not be saved. Try again.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -167,7 +177,11 @@ function SubscriptionPage() {
           // surfaced via a warning and the user can retry from this
           // page after the deletion request lands.
           console.warn("[subscription] data export failed:", exportErr);
-          alert(`Data export failed: ${exportErr?.message || "Unknown error"}. You can retry the export from this page before the deletion processes.`);
+          toast({
+            title: "Data export failed",
+            description: `${exportErr?.message || "Unknown error"}. You can retry the export before deletion is processed.`,
+            variant: "destructive",
+          });
         }
       }
 
@@ -176,7 +190,11 @@ function SubscriptionPage() {
       await loadSubscriptionData();
     } catch (error) {
       console.error("Error requesting account deletion:", error);
-      alert("Failed to request account deletion. Please try again.");
+      toast({
+        title: "Deletion request not saved",
+        description: "The account deletion request could not be saved. Try again.",
+        variant: "destructive",
+      });
     }
   };
 
