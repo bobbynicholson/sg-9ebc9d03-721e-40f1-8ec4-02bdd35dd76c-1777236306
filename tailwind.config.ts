@@ -68,12 +68,11 @@ const config: Config = {
         "brand-primary":   "rgb(var(--brand-primary-rgb)   / <alpha-value>)",
         "brand-secondary": "rgb(var(--brand-secondary-rgb) / <alpha-value>)",
         "brand-accent":    "rgb(var(--brand-accent-rgb)    / <alpha-value>)",
-        // Per-portal lead accent. Each portal's sidebar sets
-        // --portal-accent-rgb to its lead brand token (kitchen/shopping =
-        // primary teal, driver/cleaning = accent gold). Falls back to the
-        // brand primary when unset (admin + any non-portal surface), so
-        // shared portal chrome (PortalHeader icon, etc.) matches the nav.
-        "portal-accent":   "rgb(var(--portal-accent-rgb, var(--brand-primary-rgb)) / <alpha-value>)",
+        // Shared portal accent. Each portal sidebar sets
+        // --portal-accent-rgb from the tenant's brand tokens. Falls back to
+        // brand accent when unset so portal chrome does not collapse to a
+        // green-only primary/secondary palette.
+        "portal-accent":   "rgb(var(--portal-accent-rgb, var(--brand-accent-rgb)) / <alpha-value>)",
       },
       fontFamily: {
         // Marketing typography, self-hosted via next/font in _app.tsx and

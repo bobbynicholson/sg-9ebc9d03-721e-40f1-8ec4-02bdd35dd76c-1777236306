@@ -52,9 +52,8 @@ import {
   Settings,
 } from "lucide-react";
 import { PortalSidebar, type PortalSidebarConfig } from "./PortalSidebar";
-// Wave 71 - shopping gets its own theme combination (accent -> primary)
-// so the portal is visually distinct from kitchen/driver/cleaning while
-// still drawing only from the tenant's brand tokens. See portalPalette.ts.
+// Shared tenant palette: all role portals use the admin-selected brand
+// tokens, with the accent token used for small chrome accents.
 import { SHOPPING_PORTAL_PALETTE as BRAND_PORTAL_PALETTE, SHOPPING_ACCENT as BRAND_ACCENT } from "@/lib/branding/portalPalette";
 import { useShoppingLiveCounts } from "@/hooks/useShoppingLiveCounts";
 import { useShoppingPortalMode } from "@/hooks/useShoppingPortalMode";

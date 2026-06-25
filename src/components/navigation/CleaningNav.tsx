@@ -54,9 +54,8 @@ import {
   Users,
 } from "lucide-react";
 import { PortalSidebar, type PortalSidebarConfig } from "./PortalSidebar";
-// Wave 71 - cleaning gets its own theme combination (accent -> secondary)
-// so the portal is visually distinct from kitchen/driver/shopping while
-// still drawing only from the tenant's brand tokens. See portalPalette.ts.
+// Shared tenant palette: all role portals use the admin-selected brand
+// tokens, with the accent token used for small chrome accents.
 import { CLEANING_PORTAL_PALETTE as BRAND_PORTAL_PALETTE, CLEANING_ACCENT as BRAND_ACCENT } from "@/lib/branding/portalPalette";
 import { useCleaningLiveCounts } from "@/hooks/useCleaningLiveCounts";
 import { useCleaningPortalMode } from "@/hooks/useCleaningPortalMode";
@@ -94,9 +93,7 @@ export function CleaningNav(_: CleaningNavProps = {}) {
     brandIcon: SprayCan,
     // Tenant brand accent via brand-* CSS vars (amber default). See portalPalette.ts.
     ...BRAND_PORTAL_PALETTE,
-    // Unified (2026-06-25): all portals lead with the primary brand colour
-    // so every role looks the same. Publishes primary to --portal-accent-rgb.
-    leadToken: "primary",
+    leadToken: "accent",
     searchHint: "Search handovers, equipment, supplies...",
     dashboardHref: "/team-portal/cleaning/dashboard",
     // Static fallback mobile quick actions - only used if the smart

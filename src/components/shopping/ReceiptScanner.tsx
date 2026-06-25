@@ -61,18 +61,70 @@ const buildFmt = (code: string) => (v: any) => {
   }
 };
 
+type ReceiptScannerAccent = "brand" | "accent" | "secondary" | "purple" | "emerald" | "amber";
+
+const RECEIPT_SCANNER_ACCENTS = {
+  brand: {
+    text: "text-brand-primary dark:text-brand-primary",
+    icon: "text-brand-primary/60",
+    iconStrong: "text-brand-primary dark:text-brand-primary",
+    iconWrap: "bg-brand-primary/10 dark:bg-brand-primary/15",
+    resultCard: "border-brand-primary/20 bg-brand-primary/10 dark:border-brand-primary/30 dark:bg-brand-primary/10",
+    badge: "bg-brand-primary/15 text-brand-primary border-brand-primary/20 border dark:bg-brand-primary/15 dark:text-brand-primary dark:border-brand-primary/30",
+    dropzone: "border-slate-300 dark:border-slate-700 hover:border-brand-primary/70 hover:bg-brand-primary/5 dark:hover:border-brand-primary/60 dark:hover:bg-brand-primary/10",
+    focusRing: "focus-visible:ring-brand-primary/60",
+    gradientButton: "bg-gradient-to-r from-brand-primary to-brand-secondary hover:brightness-105 text-white rounded-lg",
+    solidButton: "bg-brand-primary hover:bg-brand-primary/90 text-white rounded-lg",
+  },
+  accent: {
+    text: "text-brand-accent dark:text-brand-accent",
+    icon: "text-brand-accent/70",
+    iconStrong: "text-brand-accent dark:text-brand-accent",
+    iconWrap: "bg-brand-accent/10 dark:bg-brand-accent/15",
+    resultCard: "border-brand-accent/20 bg-brand-accent/10 dark:border-brand-accent/30 dark:bg-brand-accent/10",
+    badge: "bg-brand-accent/15 text-brand-accent border-brand-accent/20 border dark:bg-brand-accent/15 dark:text-brand-accent dark:border-brand-accent/30",
+    dropzone: "border-slate-300 dark:border-slate-700 hover:border-brand-accent/70 hover:bg-brand-accent/5 dark:hover:border-brand-accent/60 dark:hover:bg-brand-accent/10",
+    focusRing: "focus-visible:ring-brand-accent/60",
+    gradientButton: "bg-gradient-to-r from-brand-accent to-brand-secondary hover:brightness-105 text-white rounded-lg",
+    solidButton: "bg-brand-accent hover:bg-brand-accent/90 text-white rounded-lg",
+  },
+  secondary: {
+    text: "text-brand-secondary dark:text-brand-secondary",
+    icon: "text-brand-secondary/70",
+    iconStrong: "text-brand-secondary dark:text-brand-secondary",
+    iconWrap: "bg-brand-secondary/10 dark:bg-brand-secondary/15",
+    resultCard: "border-brand-secondary/20 bg-brand-secondary/10 dark:border-brand-secondary/30 dark:bg-brand-secondary/10",
+    badge: "bg-brand-secondary/15 text-brand-secondary border-brand-secondary/20 border dark:bg-brand-secondary/15 dark:text-brand-secondary dark:border-brand-secondary/30",
+    dropzone: "border-slate-300 dark:border-slate-700 hover:border-brand-secondary/70 hover:bg-brand-secondary/5 dark:hover:border-brand-secondary/60 dark:hover:bg-brand-secondary/10",
+    focusRing: "focus-visible:ring-brand-secondary/60",
+    gradientButton: "bg-gradient-to-r from-brand-secondary to-brand-accent hover:brightness-105 text-white rounded-lg",
+    solidButton: "bg-brand-secondary hover:bg-brand-secondary/90 text-white rounded-lg",
+  },
+} as const;
+
+function resolveReceiptScannerAccent(accent: ReceiptScannerAccent) {
+  if (accent === "accent" || accent === "amber" || accent === "purple") {
+    return RECEIPT_SCANNER_ACCENTS.accent;
+  }
+  if (accent === "secondary") {
+    return RECEIPT_SCANNER_ACCENTS.secondary;
+  }
+  return RECEIPT_SCANNER_ACCENTS.brand;
+}
+
 interface ReceiptScannerProps {
   /** Where the imports-history link points. Defaults to the admin
    *  onboarding hub but the shopping surface can override to keep
    *  shopping staff inside their portal. */
   historyHref?: string;
-  /** Legacy tone prop retained for callers; visual accent is now the
-   *  tenant brand so every portal follows the admin palette. */
-  accent?: "purple" | "emerald" | "amber";
+  /** Brand token used for success/action accents. Legacy tone names are
+   *  accepted so older callers still follow the tenant palette. */
+  accent?: ReceiptScannerAccent;
 }
 
 export function ReceiptScanner({
   historyHref,
+  accent = "brand",
 }: ReceiptScannerProps) {
   const { toast } = useToast();
   const { user, profile } = useAuth() as any;
@@ -113,14 +165,15 @@ export function ReceiptScanner({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [companyId, jobId]);
 
-  // Admin brand maps. The scanner is used by admin + shopping portal,
-  // so all decorative accents follow the tenant's selected palette.
-  const accentText = "text-brand-primary";
+  // Admin brand maps. Shopping should not become "all green" when the
+  // tenant's primary is green, so callers can lead with accent/secondary.
+  const accentPalette = resolveReceiptScannerAccent(accent);
+  const accentText = accentPalette.text;
   // Dropzone is a standard affordance: a quiet neutral dashed border at
   // rest that switches to brand on hover without becoming noisy.
-  const accentBorder = "border-slate-300 dark:border-slate-700 hover:border-brand-primary/70 hover:bg-brand-primary/5 dark:hover:border-brand-primary/60 dark:hover:bg-brand-primary/10";
-  const accentIcon = "text-brand-primary/60";
-  const accentBtn = "bg-gradient-to-r from-brand-primary to-brand-secondary hover:brightness-105 text-white rounded-lg";
+  const accentBorder = accentPalette.dropzone;
+  const accentIcon = accentPalette.icon;
+  const accentBtn = accentPalette.gradientButton;
 
   const onPickFiles = (files: FileList | null) => {
     if (!files) return;
@@ -260,7 +313,7 @@ export function ReceiptScanner({
             onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); inputRef.current?.click(); } }}
             onDragOver={(e) => { e.preventDefault(); }}
             onDrop={(e) => { e.preventDefault(); onPickFiles(e.dataTransfer.files); }}
-            className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-[border-color,background-color] duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/60 ${accentBorder}`}
+            className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-[border-color,background-color] duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 ${accentPalette.focusRing} ${accentBorder}`}
           >
             <FileImage className={`w-10 h-10 mx-auto mb-2 ${accentIcon}`} />
             <p className="text-sm font-medium text-slate-700 dark:text-slate-200">
@@ -347,7 +400,7 @@ export function ReceiptScanner({
         <Card
           className={`border rounded-xl mb-4 ${
             scanStatus.kind === "success"
-              ? "border-brand-primary/20 bg-brand-primary/10 dark:border-brand-primary/30 dark:bg-brand-primary/10"
+              ? accentPalette.resultCard
               : scanStatus.kind === "empty"
                 ? "border-amber-200 bg-amber-50 dark:border-amber-500/30 dark:bg-amber-500/10"
                 : "border-rose-200 bg-rose-50 dark:border-rose-500/30 dark:bg-rose-500/10"
@@ -355,7 +408,7 @@ export function ReceiptScanner({
         >
           <CardContent className="p-4 flex items-start gap-2 text-sm">
             {scanStatus.kind === "success" ? (
-              <CheckCircle2 className="w-4 h-4 text-brand-primary dark:text-brand-primary mt-0.5 flex-shrink-0" />
+              <CheckCircle2 className={`w-4 h-4 ${accentPalette.iconStrong} mt-0.5 flex-shrink-0`} />
             ) : (
               <AlertTriangle
                 className={`w-4 h-4 mt-0.5 flex-shrink-0 ${scanStatus.kind === "empty" ? "text-amber-600 dark:text-amber-400" : "text-rose-600 dark:text-rose-400"}`}
@@ -364,7 +417,7 @@ export function ReceiptScanner({
             <span
               className={
                 scanStatus.kind === "success"
-                  ? "text-brand-primary dark:text-brand-primary"
+                  ? accentPalette.text
                   : scanStatus.kind === "empty"
                     ? "text-amber-800 dark:text-amber-200"
                     : "text-rose-800 dark:text-rose-200"
@@ -381,8 +434,8 @@ export function ReceiptScanner({
       {!busy && rows.length === 0 && !scanStatus && picked.length === 0 && (
         <Card className="rounded-xl border border-dashed border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
           <CardContent className="p-6 sm:p-8 text-center">
-            <div className="w-11 h-11 mx-auto mb-3 rounded-xl bg-brand-primary/10 dark:bg-brand-primary/15 flex items-center justify-center">
-              <FileImage className="w-5 h-5 text-brand-primary" />
+            <div className={`w-11 h-11 mx-auto mb-3 rounded-xl ${accentPalette.iconWrap} flex items-center justify-center`}>
+              <FileImage className={`w-5 h-5 ${accentPalette.iconStrong}`} />
             </div>
             <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
               No receipts scanned yet
@@ -399,7 +452,7 @@ export function ReceiptScanner({
       {stats && (
         <Card className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm mb-4">
           <CardContent className="p-4 flex flex-wrap items-center gap-4 text-sm">
-            <span className="inline-flex items-center gap-1 text-brand-primary dark:text-brand-primary">
+            <span className={`inline-flex items-center gap-1 ${accentPalette.text}`}>
               <CheckCircle2 className="w-4 h-4" />
               <strong>{stats.okCount}</strong> read
             </span>
@@ -451,7 +504,7 @@ export function ReceiptScanner({
                         ) : (warnings.length > 0 ? (
                           <Badge className="bg-amber-100 text-amber-800 border-amber-200 border dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30">Review</Badge>
                         ) : (
-                          <Badge className="bg-brand-primary/15 text-brand-primary border-brand-primary/20 border dark:bg-brand-primary/15 dark:text-brand-primary dark:border-brand-primary/30">Clean</Badge>
+                          <Badge className={accentPalette.badge}>Clean</Badge>
                         ))}
                       </div>
                       <p className="text-xs text-slate-500 dark:text-slate-400 flex flex-wrap items-center gap-x-3 gap-y-0.5">
@@ -476,13 +529,13 @@ export function ReceiptScanner({
                       <p className="text-xl font-bold text-slate-900 dark:text-slate-50">{fmtR(m.total)}</p>
                       {!hasError && (
                         savedRowIds.has(r.id) ? (
-                          <Badge className="mt-1 bg-brand-primary/15 text-brand-primary border-brand-primary/20 border dark:bg-brand-primary/15 dark:text-brand-primary dark:border-brand-primary/30">
+                          <Badge className={`mt-1 ${accentPalette.badge}`}>
                             <CheckCircle2 className="w-3 h-3 mr-1" /> Saved
                           </Badge>
                         ) : (
                           <Button
                             size="sm"
-                            className="mt-1 bg-brand-primary hover:bg-brand-primary/90 text-white rounded-lg"
+                            className={`mt-1 ${accentPalette.solidButton}`}
                             onClick={() => setReconcileRow(r)}
                           >
                             <ListChecks className="w-3.5 h-3.5 mr-1.5" />

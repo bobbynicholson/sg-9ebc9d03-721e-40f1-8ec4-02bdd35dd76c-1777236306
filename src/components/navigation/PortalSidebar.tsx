@@ -82,7 +82,7 @@ export interface PortalSidebarConfig {
   mobileSubtitle: string;
   brandIcon: React.ComponentType<{ className?: string }>;
   /** Tailwind gradient for the mobile drawer header + active link
-   *  background, usually "from-brand-primary to-brand-secondary". */
+   *  background, usually the full tenant palette. */
   accentGradient: string;
   /** Same gradient for the desktop logo tile. */
   accentGradientDark: string;
@@ -110,11 +110,11 @@ export interface PortalSidebarConfig {
    *  rotating by service mode). Receives `onNavigate` so the
    *  custom component can close the drawer after a tap. */
   renderMobileQuickActions?: (ctx: { onNavigate: () => void }) => React.ReactNode;
-  /** Wave 71 - which brand token this portal LEADS with. Drives the
+  /** Which brand token this portal uses for small chrome accents. Drives the
    *  shared `--portal-accent-rgb` var so portal chrome that isn't in
    *  the nav (PortalHeader icon tile, etc.) matches the nav colour.
-   *  kitchen/shopping lead "primary" (teal); driver/cleaning lead
-   *  "accent" (gold). Defaults to "primary". */
+   *  Defaults to "accent" so the interface uses more than a green primary
+   *  when primary/secondary are visually close. */
   leadToken?: "primary" | "accent" | "secondary";
 }
 
@@ -142,22 +142,22 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
     return () => window.removeEventListener(eventName, handler);
   }, [config.role]);
 
-  // Wave 71 - publish this portal's lead accent to a shared CSS var so
+  // Publish this portal's lead accent to a shared CSS var so
   // portal chrome rendered outside the nav (PortalHeader icon tile, page
   // accents that opt into `portal-accent`) matches the nav colour. The
   // value points at the existing brand-*-rgb triplet, so it tracks
-  // white-label re-theming live. Reset to primary on unmount so leaving a
-  // gold portal for a teal one doesn't leave gold chrome behind.
+  // white-label re-theming live. Reset to accent on unmount so neutral
+  // portal chrome keeps using the balanced palette.
   useEffect(() => {
     if (typeof document === "undefined") return;
     const root = document.documentElement;
-    const token = config.leadToken ?? "primary";
+    const token = config.leadToken ?? "accent";
     const ref =
       token === "accent" ? "var(--brand-accent-rgb)" :
       token === "secondary" ? "var(--brand-secondary-rgb)" :
       "var(--brand-primary-rgb)";
     root.style.setProperty("--portal-accent-rgb", ref);
-    return () => { root.style.setProperty("--portal-accent-rgb", "var(--brand-primary-rgb)"); };
+    return () => { root.style.setProperty("--portal-accent-rgb", "var(--brand-accent-rgb)"); };
   }, [config.leadToken]);
 
   const collapseKey = `${config.role}Nav-collapsed`;
@@ -230,7 +230,7 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
     const badgeTone =
       badge?.tone === "critical" ? "bg-rose-100 text-rose-800 border-rose-200" :
       badge?.tone === "warning"  ? "bg-amber-100 text-amber-800 border-amber-200" :
-      badge?.tone === "info"     ? "bg-brand-primary/10 text-brand-primary border-brand-primary/20" :
+      badge?.tone === "info"     ? "bg-brand-accent/10 text-brand-accent border-brand-accent/20" :
       "bg-slate-100 text-slate-700 border-slate-200";
 
     return (

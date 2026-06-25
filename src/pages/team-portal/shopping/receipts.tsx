@@ -68,7 +68,7 @@ export default function ShoppingReceipts() {
 
           <ReceiptScanner
             historyHref={`${slugPrefix}/team-portal/shopping/invoices`}
-            accent="amber"
+            accent="accent"
           />
 
           <Footer />

@@ -26,9 +26,8 @@ import {
   Clock,
 } from "lucide-react";
 import { PortalSidebar, type PortalSidebarConfig } from "./PortalSidebar";
-// Wave 71 - driver gets its own theme combination (secondary -> accent)
-// so the portal is visually distinct from kitchen/shopping/cleaning while
-// still drawing only from the tenant's brand tokens. See portalPalette.ts.
+// Shared tenant palette: all role portals use the admin-selected brand
+// tokens, with the accent token used for small chrome accents.
 import { DRIVER_PORTAL_PALETTE as BRAND_PORTAL_PALETTE, DRIVER_ACCENT as BRAND_ACCENT } from "@/lib/branding/portalPalette";
 
 const config: PortalSidebarConfig = {
@@ -38,9 +37,7 @@ const config: PortalSidebarConfig = {
   brandIcon: Truck,
   // Tenant brand accent via brand-* CSS vars (amber default). See portalPalette.ts.
   ...BRAND_PORTAL_PALETTE,
-  // Unified (2026-06-25): all portals lead with the primary brand colour
-  // so every role looks the same. Publishes primary to --portal-accent-rgb.
-  leadToken: "primary",
+  leadToken: "accent",
   searchHint: "Search routes, deliveries...",
   dashboardHref: "/team-portal/driver/dashboard",
   mobileQuickActions: [

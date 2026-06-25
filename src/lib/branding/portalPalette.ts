@@ -25,64 +25,37 @@
  * at runtime) so Tailwind's JIT scanner generates them at build time.
  */
 export const BRAND_PORTAL_PALETTE = {
-  accentGradient: "from-brand-primary to-brand-secondary",
-  accentGradientDark: "from-brand-primary to-brand-secondary",
+  accentGradient: "from-brand-primary via-brand-secondary to-brand-accent",
+  accentGradientDark: "from-brand-primary via-brand-secondary to-brand-accent",
   hoverClasses:
-    "hover:bg-brand-primary/10 hover:text-brand-primary dark:hover:bg-brand-primary/10",
-  activeHoverClasses: "hover:from-brand-primary hover:to-brand-secondary",
+    "hover:bg-brand-accent/10 hover:text-brand-accent dark:hover:bg-brand-accent/10",
+  activeHoverClasses:
+    "hover:from-brand-primary hover:via-brand-secondary hover:to-brand-accent",
   // Light text on the brand gradient header. White-with-alpha reads
   // correctly on any brand hue (the old text-amber-100 assumed amber).
   mobileSubtitleClasses: "text-white/80",
   searchAccent:
-    "bg-brand-primary/10 hover:bg-brand-primary/20 text-brand-primary",
+    "bg-brand-accent/10 hover:bg-brand-accent/20 text-brand-accent",
 } as const;
 
 /** Brand gradient for the mobile quick-action tiles. */
-export const BRAND_ACCENT = "from-brand-primary to-brand-secondary";
+export const BRAND_ACCENT = "from-brand-primary via-brand-secondary to-brand-accent";
 
 /**
- * Per-portal palettes (Wave 71).
+ * Role palettes.
  *
- * Every team portal used to spread the SAME BRAND_PORTAL_PALETTE, so the
- * kitchen / driver / shopping / cleaning rails were visually identical -
- * all "primary -> secondary" (the tenant's green for Spit Braai). Operators
- * who jump between portals had no colour cue for which surface they're on.
+ * The team portals intentionally share the same admin-controlled palette.
+ * That keeps kitchen / driver / shopping / cleaning consistent while still
+ * drawing from all three tenant tokens, so tenants whose primary and
+ * secondary are close together do not end up with a one-colour interface.
  *
- * To give each portal its own identity WITHOUT leaving the tenant's theme,
- * each one leads with a different one of the three brand tokens and pairs it
- * with another, so the colours are always combinations of the SAME theme
- * (--brand-primary / -secondary / -accent), never invented hues:
- *
- *   admin    primary -> secondary   (owner surface, the "main" brand)
- *   kitchen  primary -> secondary   (solid green - keeps its identity)
- *   shopping primary -> accent      (green, gold tail)
- *   driver   accent  -> accent      (SOLID GOLD - its own identity)
- *   cleaning accent  -> primary     (gold, teal tail)
- *
- * For a tenant like Spit Braai whose primary and secondary are nearly the
- * same teal, the only two truly different hues are that teal and the gold
- * accent. The four combinations above still read as four distinct surfaces:
- * solid teal (kitchen), teal->gold (shopping), solid gold (driver),
- * gold->teal (cleaning). Driver leads with the accent so it is unmistakably
- * the GOLD portal, not another green one - and its PAGES use `brand-accent`
- * for chrome to match (see the driver pages). Kitchen/shopping lead with
- * `brand-primary`; driver/cleaning lead with `brand-accent`.
- *
- * For a tenant who customises all three colours these read as four distinct
- * portals; for a tenant on the amber defaults they stay a harmonious warm
- * set. The class strings are full literals (no runtime interpolation) so
- * Tailwind's JIT scanner still emits every brand-* utility - same rule that
- * applies to BRAND_PORTAL_PALETTE above.
+ * Keep these class strings as full literals (no runtime interpolation) so
+ * Tailwind's JIT scanner emits every brand-* utility.
  */
-// UNIFIED (2026-06-25): Raj wants ONE consistent colour across every
-// portal/role, not the per-portal identity. All four team portals now
-// spread the single brand gradient (primary -> secondary) exactly like
-// the tenant admin, so kitchen / shopping / driver / cleaning / admin
-// look identical. Still 100% theme-driven (brand-* tokens). The Wave 71
-// per-portal palettes were retired here; re-introduce distinct combos
-// (e.g. driver = accent->accent) only if a colour cue per portal is
-// wanted again. Driver PAGES were re-aligned from brand-accent back to
-// brand-primary to match this unified nav.
+// UNIFIED (2026-06-25): Raj wants ONE consistent admin-controlled palette
+// across every portal/role, not hardcoded role colours. Use the full tenant
+// palette (primary -> secondary -> accent) everywhere so a company whose
+// primary/secondary are both green does not get a green-only interface.
 export const KITCHEN_PORTAL_PALETTE = BRAND_PORTAL_PALETTE;
 export const KITCHEN_ACCENT = BRAND_ACCENT;
 
