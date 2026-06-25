@@ -148,6 +148,15 @@ Use the next available T.NNN number.
   **Files:** TBC once the list/button is confirmed.
   **Done when:** Add action shows confirmation. **Clarify: which list/button, and label vs toast vs real persistence?**
 
+### Real-time data everywhere (Raj, 2026-06-26)
+
+- [ ] T.020 — Make all data real-time (no manual refresh on any page, any role)
+  **What:** Data should update live everywhere; user should never have to refresh to see new data, on any page, for any role.
+  **Why:** Some pages only load on mount and go stale until a manual refresh.
+  **Files:** audit all role surfaces (admin/kitchen/cleaning/driver/shopping/client); add Supabase `postgres_changes` subscriptions (orders, statuses, prep tasks, handovers, shopping lists, payments/invoices, notifications, assignments, clock-in/availability). Realtime already exists in some places (OrderDocument, offering.tsx menu/equipment/packages) - extend coverage.
+  **Watch out:** unique channel names per subscription (the "realtime channel suffix" bug class) + RLS must let the subscribing role receive events.
+  **Done when:** Mutable data on every page reflects changes live without refresh; manual refresh kept only as a fallback.
+
 ---
 
 ## Completed
