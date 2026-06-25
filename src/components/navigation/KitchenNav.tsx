@@ -138,9 +138,6 @@ export function KitchenNav(_: KitchenNavProps = {}) {
             href: "/team-portal/kitchen/prep-list",
             icon: ClipboardList,
             description: "Daily prep tasks",
-            liveDescription: () => counts.inPrep === 0 && !counts.loading
-              ? "All caught up"
-              : null,
           },
         ],
       },

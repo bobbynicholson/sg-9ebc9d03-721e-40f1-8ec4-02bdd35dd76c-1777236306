@@ -43,7 +43,7 @@ import {
   LayoutDashboard,
   PackageOpen,
   Droplets,
-  Clock,
+  ClipboardCheck,
   Package,
   SprayCan,
   BookOpen,
@@ -165,11 +165,8 @@ export function CleaningNav(_: CleaningNavProps = {}) {
           {
             title: "Task board",
             href: "/team-portal/cleaning/tasks",
-            icon: Clock,
-            description: "Start, finish, note tasks",
-            liveDescription: () => counts.onDutyNow > 0
-              ? `${counts.onDutyNow} on duty`
-              : "No one clocked in",
+            icon: ClipboardCheck,
+            description: "Scheduled checklist work",
           },
         ],
       },

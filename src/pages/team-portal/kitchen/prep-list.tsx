@@ -508,7 +508,7 @@ export default function KitchenPrepListPage() {
   return (
     <>
       <NoIndexMeta />
-      <Head><title>Pull list - CateringMS</title></Head>
+      <Head><title>Prep List - CateringMS</title></Head>
       <KitchenNav />
 
       <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
@@ -517,7 +517,7 @@ export default function KitchenPrepListPage() {
             icon={ClipboardList}
             title={
               <span className="flex items-center gap-2">
-                Pull list
+                Prep List
                 <InfoTooltip content={`Everything you need to pull from stores. Two views: by order (one card per booking) or by ingredient (totals across the next ${horizonDays} days).`} />
               </span>
             }

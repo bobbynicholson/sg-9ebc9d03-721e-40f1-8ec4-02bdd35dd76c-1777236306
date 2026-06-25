@@ -1,17 +1,13 @@
 import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { MapPin, Clock, Package, User, Phone, Navigation, RefreshCw, Star } from "lucide-react";
+import { MapPin, Clock, Package, User, Phone, Navigation, RefreshCw } from "lucide-react";
 import Head from "next/head";
 import Link from "next/link";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { useAuth } from "@/contexts/AuthContext";
-import { orderService } from "@/services/orderService";
-import { feedbackService } from "@/services/feedbackService";
 import { ChatBot } from "@/components/ChatBot";
-import { DeliveryFeedbackModal, FeedbackData } from "@/components/DeliveryFeedbackModal";
 import { formatLocalTime } from "@/lib/localFormat";
-import { useToast } from "@/hooks/use-toast";
 import dynamic from "next/dynamic";
 import { ClientNav } from "@/components/navigation/ClientNav";
 import { PortalShell, PortalHeader, PortalCard } from "@/components/portal/ui";
@@ -45,11 +41,9 @@ interface OrderDetails {
   driver_phone?: string;
   estimated_arrival?: string;
   items?: any[];
-  // Wave 70.x - live collection trip. When the post-event equipment
-  // collection is en-route, the order is still status='delivered' but we
-  // surface it as a live trip (pin + ETA + "Collecting" state) the same
-  // way the delivery leg is shown. collection_driver_id is the driver on
-  // the collection assignment (may differ from the delivery driver).
+  // Live collection trip. When the post-event equipment collection is
+  // en-route, the order can still be status='delivered', but this page
+  // treats the active collection assignment as the trackable trip.
   collecting?: boolean;
   collection_driver_id?: string | null;
 }
@@ -64,7 +58,6 @@ interface DriverLocation {
 
 export default function ClientTracking() {
   const { user, company } = useAuth() as any;
-  const { toast } = useToast();
   const [orders, setOrders] = useState<OrderDetails[]>([]);
   const [selectedOrder, setSelectedOrder] = useState<OrderDetails | null>(null);
   const [driverLocation, setDriverLocation] = useState<DriverLocation | null>(null);
@@ -79,9 +72,6 @@ export default function ClientTracking() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [lastRefresh, setLastRefresh] = useState(new Date());
-  const [feedbackModalOpen, setFeedbackModalOpen] = useState(false);
-  const [feedbackOrder, setFeedbackOrder] = useState<OrderDetails | null>(null);
-  const [deliveredOrders, setDeliveredOrders] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     loadOrders();
@@ -95,25 +85,6 @@ export default function ClientTracking() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, company?.id]);
 
-  // Check for newly delivered orders and prompt feedback
-  useEffect(() => {
-    orders.forEach(async (order) => {
-      if (order.status === "delivered" && !deliveredOrders.has(order.id)) {
-        // Check if feedback already exists
-        const feedbackExists = await feedbackService.checkFeedbackExists(order.id);
-        
-        if (!feedbackExists) {
-          // Delay to let the "delivered" status sink in
-          setTimeout(() => {
-            setFeedbackOrder(order);
-            setFeedbackModalOpen(true);
-            setDeliveredOrders(prev => new Set([...prev, order.id]));
-          }, 2000); // 2 second delay
-        }
-      }
-    });
-  }, [orders, deliveredOrders]);
-
   const loadOrders = async (silent = false) => {
     if (!silent) setLoading(true);
     if (!silent) setLoadError(null);
@@ -121,6 +92,9 @@ export default function ClientTracking() {
       // Tenant scope: only this catering company's orders.
       const tenantCompanyId: string | null = company?.id ?? null;
       if (!user?.id || !tenantCompanyId) {
+        setOrders([]);
+        setSelectedOrder(null);
+        setDriverLocation(null);
         setLoading(false);
         return;
       }
@@ -132,17 +106,24 @@ export default function ClientTracking() {
         .eq("company_id", tenantCompanyId);
       const clientIds = ((clientRows as any[]) || []).map((r) => r.id);
       if (clientIds.length === 0 && !user?.email) {
+        setOrders([]);
+        setSelectedOrder(null);
+        setDriverLocation(null);
         setLoading(false);
         return;
       }
 
-      // Get active orders for this client. Union pattern catches
-      // orphan rows linked by email when client_id is NULL.
+      // Get only rows that can become live tracking entries:
+      // - in_transit delivery trips
+      // - delivered orders that may have a live equipment collection trip
+      // Preparing/ready/completed history belongs on Bookings, not here.
+      // Union pattern catches orphan rows linked by email when client_id is NULL.
       let q = supabase
         .from("orders")
         .select(`*, assigned_driver:profiles!orders_assigned_driver_id_fkey(id, full_name, phone)`)
         .eq("company_id", tenantCompanyId)
         .is("deleted_at", null)
+        .in("status", ["in_transit", "delivered"])
         .order("event_date", { ascending: false });
       const normEmail = (user.email || "").toLowerCase();
       if (clientIds.length > 0 && normEmail) {
@@ -156,13 +137,10 @@ export default function ClientTracking() {
       }
       const { data: fetchedOrders } = await q;
       
-      // Filter to show orders that are active or recently delivered.
       // We expose driver_id on the mapped order so that loadDriverLocation
       // can look up the driver's GPS row - the join produces
       // `assigned_driver.id` but the rest of this page reads `driver_id`.
-      let activeOrders = (fetchedOrders || []).filter((o: any) =>
-        ["preparing", "ready", "in_transit", "delivered"].includes(o.status)
-      ).map((o: any) => ({
+      let candidateOrders = (fetchedOrders || []).map((o: any) => ({
         ...o,
         driver_id: o.driver_id || o.assigned_driver_id || o.assigned_driver?.id,
         driver_name: o.assigned_driver?.full_name,
@@ -170,35 +148,62 @@ export default function ClientTracking() {
       }));
 
       // Live collection trip: a delivered order whose equipment-collection
-      // assignment is en route to collect (en_route / at_venue) is shown as
-      // a live trip, not a static "Delivered". 'assigned' / 'accepted'
-      // don't count - the driver hasn't rolled yet. 'picked_up' is no
-      // longer live either: once the gear is collected the client's part is
-      // finished (they've had the "all done" ping), so the order settles
-      // back to a static state rather than tracking the driver's return.
-      const activeIds = activeOrders.map((o: any) => o.id);
-      if (activeIds.length > 0) {
+      // assignment is en route or at the venue is shown as a live trip.
+      // Assigned/accepted rows are scheduled but not tracking yet; picked_up
+      // and completed rows are done and stay in Bookings/history.
+      const candidateIds = candidateOrders.map((o: any) => o.id);
+      if (candidateIds.length > 0) {
         const { data: collRows } = await supabase
           .from("driver_assignments")
           .select("order_id, driver_id, status")
           .eq("assignment_type", "collection")
-          .in("order_id", activeIds)
+          .in("order_id", candidateIds)
           .in("status", ["en_route", "at_venue"]);
-        const collByOrder = new Map<string, string | null>();
-        for (const c of (collRows as any[]) || []) collByOrder.set(c.order_id, c.driver_id || null);
-        activeOrders = activeOrders.map((o: any) =>
+        const collectionAssignments = ((collRows as any[]) || []);
+        const collectionDriverIds = Array.from(new Set(
+          collectionAssignments.map((c) => c.driver_id).filter(Boolean),
+        ));
+        const { data: collectionDrivers } = collectionDriverIds.length > 0
+          ? await supabase
+              .from("profiles")
+              .select("id, full_name, phone")
+              .in("id", collectionDriverIds)
+          : { data: [] as any[] };
+        const collectionDriverById = new Map(
+          ((collectionDrivers as any[]) || []).map((driver) => [driver.id, driver]),
+        );
+        const collByOrder = new Map<string, any>();
+        for (const c of collectionAssignments) collByOrder.set(c.order_id, c);
+        candidateOrders = candidateOrders.map((o: any) =>
           collByOrder.has(o.id)
-            ? { ...o, collecting: true, collection_driver_id: collByOrder.get(o.id) }
+            ? {
+                ...o,
+                collecting: true,
+                collection_driver_id: collByOrder.get(o.id)?.driver_id || null,
+                driver_id: collByOrder.get(o.id)?.driver_id || o.driver_id,
+                driver_name: collectionDriverById.get(collByOrder.get(o.id)?.driver_id)?.full_name || o.driver_name,
+                driver_phone: collectionDriverById.get(collByOrder.get(o.id)?.driver_id)?.phone || o.driver_phone,
+              }
             : o,
         );
       }
 
-      setOrders(activeOrders as any);
-      
-      // Auto-select first order if none selected
-      if (activeOrders.length > 0 && !selectedOrder) {
-        setSelectedOrder(activeOrders[0] as any);
-        loadDriverLocation(activeOrders[0] as any);
+      const liveTrips = candidateOrders.filter((order: OrderDetails) => (
+        (order.status === "in_transit" && !!order.driver_id) ||
+        (order.collecting && !!order.collection_driver_id)
+      ));
+
+      setOrders(liveTrips as any);
+
+      const nextSelectedOrder =
+        (selectedOrder && liveTrips.find((order: OrderDetails) => order.id === selectedOrder.id)) ||
+        liveTrips[0] ||
+        null;
+      setSelectedOrder(nextSelectedOrder as OrderDetails | null);
+      if (nextSelectedOrder) {
+        await loadDriverLocation(nextSelectedOrder as OrderDetails);
+      } else {
+        setDriverLocation(null);
       }
       
       setLastRefresh(new Date());
@@ -219,7 +224,10 @@ export default function ClientTracking() {
     const trackDriverId = order.collecting && order.collection_driver_id
       ? order.collection_driver_id
       : order.driver_id;
-    if (!trackDriverId) return;
+    if (!trackDriverId) {
+      setDriverLocation(null);
+      return;
+    }
 
     try {
       // Single-row-per-driver lookup off driver_locations (P1-23 split).
@@ -239,18 +247,18 @@ export default function ClientTracking() {
           driver_phone: order.driver_phone,
           last_updated: new Date().toISOString(),
         });
+      } else {
+        setDriverLocation(null);
       }
     } catch (error) {
       console.error("Error loading driver location:", error);
+      setDriverLocation(null);
     }
   };
 
   const handleRefresh = async () => {
     setRefreshing(true);
     await loadOrders();
-    if (selectedOrder) {
-      await loadDriverLocation(selectedOrder);
-    }
     setRefreshing(false);
   };
 
@@ -268,49 +276,6 @@ export default function ClientTracking() {
         last_updated: new Date().toISOString(),
       });
     }
-  };
-
-  const handleFeedbackSubmit = async (feedback: FeedbackData) => {
-    try {
-      // delivery_feedback needs client_id + company_id (both NOT NULL) and
-      // the RLS INSERT policy requires the client_id to belong to this
-      // logged-in user. The order's own client_id can be NULL (orphan rows
-      // linked by email), so resolve the *user's* client row for the order's
-      // company instead - that's what RLS checks against.
-      const companyId: string | null =
-        (feedbackOrder as any)?.company_id ?? company?.id ?? null;
-      if (!user?.id || !companyId) {
-        throw new Error("Missing account context for feedback.");
-      }
-      const { data: clientRow } = await supabase
-        .from("clients")
-        .select("id")
-        .eq("user_id", user.id)
-        .eq("company_id", companyId)
-        .limit(1)
-        .maybeSingle();
-      const clientId = (clientRow as any)?.id;
-      if (!clientId) {
-        throw new Error("Couldn't find your client profile for this order.");
-      }
-
-      await feedbackService.submitFeedback(feedback, {
-        client_id: clientId,
-        company_id: companyId,
-      });
-      toast({
-        title: "Feedback Submitted! 🎉",
-        description: "Thank you for helping us improve our service.",
-      });
-    } catch (error) {
-      console.error("Error submitting feedback:", error);
-      throw error;
-    }
-  };
-
-  const handleRateOrder = (order: OrderDetails) => {
-    setFeedbackOrder(order);
-    setFeedbackModalOpen(true);
   };
 
   // Restrained semantic tints: subtle bg + readable text + hairline
@@ -479,7 +444,7 @@ export default function ClientTracking() {
           <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
             <PortalHeader
               title="Live tracking"
-              subtitle="Watch your driver as they roll out - map, ETA, and the option to call them direct."
+              subtitle="Track deliveries and equipment collections while a driver is on the road."
               icon={MapPin}
             />
             <PortalCard padded={false}>
@@ -487,14 +452,14 @@ export default function ClientTracking() {
                 <div className="w-16 h-16 mx-auto mb-4 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 flex items-center justify-center">
                   <Package className="w-8 h-8 text-slate-400 dark:text-slate-500" />
                 </div>
-                <h3 className="text-xl font-semibold text-slate-900 dark:text-white mb-2">No live deliveries right now</h3>
+                <h3 className="text-xl font-semibold text-slate-900 dark:text-white mb-2">No live trips right now</h3>
                 <p className="text-slate-600 dark:text-slate-400 max-w-md mx-auto mb-5">
-                  Live tracking opens up once your next event is being prepared.
-                  Until then you can see all your bookings under &ldquo;Bookings&rdquo;.
+                  Live tracking appears once a delivery is in transit or an equipment collection is underway.
+                  Use Bookings for upcoming, completed, and full order history.
                 </p>
                 <div className="inline-flex gap-2">
                   <Button asChild className="bg-brand-primary hover:opacity-90 text-white">
-                    <Link href="/client-portal/my-orders">View my orders</Link>
+                    <Link href="/client-portal/my-orders">View bookings</Link>
                   </Button>
                   <Button asChild variant="outline">
                     <Link href="/client-portal/dashboard">Back to dashboard</Link>
@@ -522,7 +487,7 @@ export default function ClientTracking() {
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <PortalHeader
             title="Live tracking"
-            subtitle="Real-time delivery tracking with driver pin and ETA."
+            subtitle="Real-time delivery and collection tracking with driver pin and ETA."
             icon={MapPin}
             actions={
               <Button
@@ -554,7 +519,7 @@ export default function ClientTracking() {
                 event_date: selectedOrder.event_date ?? null,
                 event_time: selectedOrder.event_time ?? null,
                 guest_count: selectedOrder.guest_count ?? null,
-                status: selectedOrder.status,
+                status: selectedOrder.collecting ? "collecting" : selectedOrder.status,
                 client_name: selectedOrder.client_name,
                 venue_address: selectedOrder.venue_address,
                 total_amount: selectedOrder.total_amount ?? null,
@@ -678,10 +643,12 @@ export default function ClientTracking() {
               )}
             </div>
 
-            {/* Order List Sidebar */}
+            {/* Live trip selector. Full booking history and ratings live
+                under Bookings; this page only lists trips with a driver
+                actively on the road. */}
             <div>
               <PortalCard>
-                <h2 className="mb-4 text-base font-semibold text-slate-900 dark:text-white">Your bookings</h2>
+                <h2 className="mb-4 text-base font-semibold text-slate-900 dark:text-white">Live trips</h2>
                 <div className="space-y-3">
                   {orders.map((order) => (
                     <div
@@ -716,21 +683,6 @@ export default function ClientTracking() {
                         )}
                       </div>
 
-                      {/* Rate Order Button for Delivered Orders */}
-                      {order.status === "delivered" && (
-                        <Button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleRateOrder(order);
-                          }}
-                          variant="outline"
-                          size="sm"
-                          className="w-full mt-3"
-                        >
-                          <Star className="w-4 h-4 mr-2" />
-                          Rate This Delivery
-                        </Button>
-                      )}
                     </div>
                   ))}
 
@@ -744,25 +696,6 @@ export default function ClientTracking() {
           </div>
         </PortalShell>
       </div>
-
-      {/* Feedback Modal */}
-      {feedbackOrder && (
-        <DeliveryFeedbackModal
-          isOpen={feedbackModalOpen}
-          onClose={() => {
-            setFeedbackModalOpen(false);
-            setFeedbackOrder(null);
-          }}
-          orderId={feedbackOrder.id}
-          orderDetails={{
-            client_name: feedbackOrder.client_name,
-            venue_address: feedbackOrder.venue_address,
-            driver_name: feedbackOrder.driver_name,
-            delivery_time: feedbackOrder.delivery_time,
-          }}
-          onSubmit={handleFeedbackSubmit}
-        />
-      )}
 
       <ChatBot userRole="client" />
     </>

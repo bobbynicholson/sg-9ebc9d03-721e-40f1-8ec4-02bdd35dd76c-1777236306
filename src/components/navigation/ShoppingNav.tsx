@@ -139,10 +139,10 @@ export function ShoppingNav(_: ShoppingNavProps = {}) {
             icon: TrendingDown,
             description: "Shortfall + low-stock",
             badge: () => counts.shortItems > 0
-              ? { text: `${counts.shortItems} short`, tone: "critical", pulse: true }
+              ? { text: `${counts.shortItems} to buy`, tone: "critical", pulse: true }
               : null,
             liveDescription: () => counts.shortItems === 0 && !counts.loading
-              ? "Stock covers next 7 days"
+              ? "No buy-list rows"
               : null,
           },
           {

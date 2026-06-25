@@ -190,7 +190,7 @@ export default function ShoppingInventoryPage() {
   return (
     <>
       <Head>
-        <title>Current stock - CateringMS</title>
+        <title>Inventory - CateringMS</title>
       </Head>
       <NoIndexMeta />
       <ShoppingNav />
@@ -200,7 +200,7 @@ export default function ShoppingInventoryPage() {
               tile with an amber glyph, solid heading. Amber is reserved
               for primary actions and selected state only. */}
           <PortalHeader
-            title="Current stock"
+            title="Inventory"
             subtitle="Live inventory levels. Click any row to adjust stock with an audit entry."
             icon={Warehouse}
             actions={

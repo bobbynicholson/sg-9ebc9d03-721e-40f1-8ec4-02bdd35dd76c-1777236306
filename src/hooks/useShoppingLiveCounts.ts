@@ -4,9 +4,8 @@
  * Returns the five numbers that drive the shopping portal's nav
  * live-state strip + per-item badges:
  *
- *   shortItems       - inventory_demand_outlook rows with
- *                       status='shortfall' (7-day window) - items
- *                       the kitchen will run out of soon
+ *   shortItems       - inventory_demand_outlook rows needing action:
+ *                       shortfall, below_minimum, or low
  *   activeListItems  - count of items on the current active
  *                       shopping_list (any draft / in_progress /
  *                       pending list). Company-wide - shoppers
@@ -67,12 +66,12 @@ export function useShoppingLiveCounts(): ShoppingLiveCounts {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const sb = supabase as any;
       const [shortRes, activeListsRes, unfiledRes, spendRes, notifRes] = await Promise.all([
-        // Short items: outlook rows where the kitchen will run out
+        // Buy-list rows: every non-OK status the Buy list shows.
         sb
           .from("inventory_demand_outlook")
           .select("inventory_item_id", { count: "exact", head: true })
           .eq("company_id", companyId)
-          .eq("status", "shortfall"),
+          .in("status", ["shortfall", "below_minimum", "low"]),
         // Active shopping_list rows. Prefer lists assigned to the
         // current shopper - "your list" beats "team list" for the
         // one-shopper-per-tenant dominant case (Wave 70.30). Fall
@@ -107,13 +106,13 @@ export function useShoppingLiveCounts(): ShoppingLiveCounts {
           .eq("status", "completed")
           .gte("list_date", todayIso)
           .lte("list_date", todayIso),
-        // Shopping-targeted unread notifications
+        // Same audience as /team-portal/shopping/notifications.
         userId
           ? sb
               .from("notifications")
               .select("id", { count: "exact", head: true })
               .eq("company_id", companyId)
-              .or(`recipient_id.eq.${userId},target_role.eq.shopping`)
+              .or(`recipient_id.eq.${userId},user_id.eq.${userId},target_role.eq.shopping_staff`)
               .eq("is_read", false)
           : Promise.resolve({ count: 0 }),
       ]);

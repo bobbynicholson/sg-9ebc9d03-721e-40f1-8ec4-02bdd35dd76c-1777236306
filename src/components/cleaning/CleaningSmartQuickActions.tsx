@@ -51,12 +51,12 @@ export function CleaningSmartQuickActions({ onNavigate }: CleaningSmartQuickActi
     returns: [
       { href: "/team-portal/cleaning/dashboard#returns", label: "Verify a return", sub: "Equipment coming back", icon: PackageOpen, accent: "from-cyan-500 to-blue-500" },
       { href: "/team-portal/cleaning/dashboard#washing", label: "Active washes",   sub: "Jobs in progress",      icon: Droplets,    accent: "from-blue-500 to-indigo-500" },
-      { href: "/team-portal/cleaning/tasks",             label: "Clock in",        sub: "Start your shift",      icon: Clock,       accent: "from-emerald-500 to-teal-500" },
+      { href: "/team-portal/cleaning/dashboard#duty",    label: "Clock in",        sub: "Start your shift",      icon: Clock,       accent: "from-emerald-500 to-teal-500" },
     ],
     wrap: [
       { href: "/team-portal/cleaning/dashboard#washing", label: "Sign off jobs", sub: "Mark handovers done", icon: CheckCircle2,  accent: "from-emerald-500 to-teal-500" },
       { href: "/team-portal/cleaning/damage",            label: "Open damages",  sub: "End-of-day log",      icon: AlertTriangle, accent: "from-amber-500 to-orange-500" },
-      { href: "/team-portal/cleaning/tasks",             label: "Clock out",     sub: "End your shift",      icon: Clock,         accent: "from-slate-500 to-slate-600" },
+      { href: "/team-portal/cleaning/dashboard#duty",    label: "Clock out",     sub: "End your shift",      icon: Clock,         accent: "from-slate-500 to-slate-600" },
     ],
   } as const;
 

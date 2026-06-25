@@ -52,7 +52,7 @@ export default function ShoppingNotificationsPage() {
   // without a manual refresh (admin + client portals already do this).
   const [refreshKey, setRefreshKey] = useState(0);
 
-  useEffect(() => { if (user?.id) load(); }, [user?.id, tab, refreshKey]);
+  useEffect(() => { if (user?.id && user?.company_id) load(); }, [user?.id, user?.company_id, tab, refreshKey]);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -68,12 +68,13 @@ export default function ShoppingNotificationsPage() {
   }, [user?.id]);
 
   const load = async () => {
-    if (!user?.id) return;
+    if (!user?.id || !user?.company_id) return;
     setLoading(true);
     try {
       let q = supabase
         .from("notifications")
         .select("*")
+        .eq("company_id", user.company_id)
         .or(`recipient_id.eq.${user.id},user_id.eq.${user.id},target_role.eq.shopping_staff`)
         .order("created_at", { ascending: false })
         .limit(100);

@@ -8,7 +8,7 @@
  * one item each, wasting hierarchy on quiet items.
  *
  * Now:
- *   LIVE NOW    - Today (was Overview), Routes, GPS Tracking
+ *   LIVE NOW    - Today (was Overview), Routes, Current Delivery
  *   HISTORY     - All Deliveries, Earnings, Schedule
  *   Footer      - Notifications, Profile
  *
@@ -45,7 +45,7 @@ const config: PortalSidebarConfig = {
   dashboardHref: "/team-portal/driver/dashboard",
   mobileQuickActions: [
     { href: "/team-portal/driver/routes",   label: "Today's routes", sub: "What you're driving", icon: Navigation, accent: BRAND_ACCENT },
-    { href: "/team-portal/driver/tracking", label: "Live tracking",  sub: "Update status",       icon: MapPin,     accent: BRAND_ACCENT },
+    { href: "/team-portal/driver/tracking", label: "Current delivery", sub: "Brief + status",    icon: MapPin,     accent: BRAND_ACCENT },
     { href: "/team-portal/driver/earnings", label: "My earnings",    sub: "Hours + pay",         icon: Banknote, accent: BRAND_ACCENT },
   ],
   sections: [
@@ -61,7 +61,7 @@ const config: PortalSidebarConfig = {
         { title: "Clock",        href: "/team-portal/driver/dashboard#clock", icon: Clock,           description: "Clock in / out for your shift" },
         { title: "Routes",       href: "/team-portal/driver/routes",    icon: Navigation,      description: "What you're driving" },
         { title: "Calendar",     href: "/team-portal/driver/calendar",  icon: Calendar,        description: "Your bookings and jobs you can claim" },
-        { title: "GPS Tracking", href: "/team-portal/driver/tracking",  icon: MapPin,          description: "Live status updates" },
+        { title: "Current Delivery", href: "/team-portal/driver/tracking", icon: MapPin,      description: "Brief, manifest and status" },
       ],
     },
     {

@@ -90,13 +90,13 @@ export function useCleaningLiveCounts(): CleaningLiveCounts {
           .select("id", { count: "exact", head: true })
           .eq("company_id", companyId)
           .eq("on_duty", true),
-        // Cleaning-targeted unread notifications
+        // Same audience as /team-portal/cleaning/notifications.
         userId
           ? sb
               .from("notifications")
               .select("id", { count: "exact", head: true })
               .eq("company_id", companyId)
-              .or(`recipient_id.eq.${userId},target_role.eq.cleaning`)
+              .or(`recipient_id.eq.${userId},user_id.eq.${userId},target_role.eq.cleaning_staff,target_role.eq.cleaning_manager`)
               .eq("is_read", false)
           : Promise.resolve({ count: 0 }),
       ]);

@@ -83,13 +83,13 @@ export function useKitchenLiveCounts(): KitchenLiveCounts {
           .eq("company_id", companyId)
           .eq("event_date", todayIso)
           .in("status", ["preparing", "confirmed"]),
-        // Notifications targeted at kitchen role + unread
+        // Same audience as /team-portal/kitchen/notifications.
         userId
           ? (supabase as any)
               .from("notifications")
               .select("id", { count: "exact", head: true })
               .eq("company_id", companyId)
-              .or(`recipient_id.eq.${userId},target_role.eq.kitchen`)
+              .or(`recipient_id.eq.${userId},user_id.eq.${userId},target_role.eq.kitchen_staff,target_role.eq.kitchen_manager`)
               .eq("is_read", false)
           : Promise.resolve({ count: 0 }),
       ]);

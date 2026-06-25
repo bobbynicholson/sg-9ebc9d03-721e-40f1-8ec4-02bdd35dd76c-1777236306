@@ -249,9 +249,9 @@ function DriverTrackingInner() {
 
   return (
     <DriverPageShell
-      pageTitle="Delivery Tracking - Driver Portal"
+      pageTitle="Current Delivery - Driver Portal"
       heading="Current Delivery"
-      subheading="Track your active delivery"
+      subheading="Collect time, manifest, venue contact and arrival actions"
       icon={Navigation}
       width="full"
       hideFooter

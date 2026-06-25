@@ -317,7 +317,9 @@ function CleaningDashboardInner() {
               but was imported and never rendered. Wave 39 also fixed
               4 stacked bugs in the widget itself (company_id scoped
               wrong, missing schema columns added via migration). */}
-          <CleaningDutyWidget />
+          <div id="duty" className="scroll-mt-20 lg:scroll-mt-6">
+            <CleaningDutyWidget />
+          </div>
 
           {/* CLN2-F (cleaning deep audit, CLN2-15): pre-event
               cleanliness checklist for tomorrow's events. The
