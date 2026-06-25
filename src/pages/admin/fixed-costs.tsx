@@ -101,7 +101,7 @@ function daysBetween(a: Date, b: Date): number {
 export default function ProtectedFixedCostsPage() {
   return (
     <ProtectedRoute allowedRoles={[
-      UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN,
+      UserRole.SUPER_ADMIN, UserRole.OWNER, UserRole.COMPANY_ADMIN,
     ]}>
       <FixedCostsPage />
     </ProtectedRoute>

@@ -3,7 +3,7 @@ import { useRouter } from "next/router";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { SprayCan, ClipboardCheck, AlertTriangle, Users, CheckCircle, Truck, Clock, Package, Printer, Loader2, Camera } from "lucide-react";
+import { SprayCan, ClipboardCheck, AlertTriangle, CheckCircle, Truck, Clock, Package, Printer, Loader2, Camera } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
@@ -17,7 +17,6 @@ import { CleaningDutyWidget } from "@/components/cleaning/CleaningDutyWidget";
 import { CleaningJobsQueue } from "@/components/cleaning/CleaningJobsQueue";
 import { CleaningEventBoard } from "@/components/cleaning/CleaningEventBoard";
 import { PreEventCleanlinessPanel } from "@/components/cleaning/PreEventCleanlinessPanel";
-import { KitchenStaffTileBoard } from "@/components/kitchen/KitchenStaffTileBoard";
 import { EquipmentVerificationPanel } from "@/components/cleaning/EquipmentVerificationPanel";
 import { DamageFlagForm } from "@/components/cleaning/DamageFlagForm";
 import { RecentDamagesStrip } from "@/components/cleaning/RecentDamagesStrip";
@@ -429,7 +428,7 @@ function CleaningDashboardInner() {
               saw them pending elsewhere. Component file kept in case
               another surface needs it later. */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-            <TabsList className="grid w-full grid-cols-3 gap-2 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
+            <TabsList className="grid w-full grid-cols-2 gap-2 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
               <TabsTrigger
                 value="verification"
                 className="gap-2 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-900 data-[state=active]:shadow-sm"
@@ -445,14 +444,6 @@ function CleaningDashboardInner() {
                 <AlertTriangle className="h-4 w-4" />
                 <span className="hidden sm:inline">Damages & Losses</span>
                 <span className="sm:hidden">Damages</span>
-              </TabsTrigger>
-              <TabsTrigger
-                value="team"
-                className="gap-2 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-900 data-[state=active]:shadow-sm"
-              >
-                <Users className="h-4 w-4" />
-                <span className="hidden sm:inline">Team Status</span>
-                <span className="sm:hidden">Team</span>
               </TabsTrigger>
             </TabsList>
 
@@ -487,15 +478,6 @@ function CleaningDashboardInner() {
               </PortalCard>
             </TabsContent>
 
-            <TabsContent value="team" className="space-y-6">
-              {/* Cleaning duty board - same tile-board the kitchen
-                  uses, scoped to the cleaning department. Manager
-                  taps each cleaner's tile to clock them in / out;
-                  staff don't need their own logins. Cross-over staff
-                  (kitchen + cleaning) appear on both boards because
-                  their departments[] array contains both. */}
-              <KitchenStaffTileBoard department="cleaning" />
-            </TabsContent>
           </Tabs>
 
           <PortalCard className="mt-6">

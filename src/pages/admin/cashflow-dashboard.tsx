@@ -78,7 +78,6 @@ export default function ProtectedCashflowDashboardPage() {
       allowedRoles={[
         UserRole.SUPER_ADMIN,
         UserRole.COMPANY_ADMIN,
-        UserRole.ADMIN,
         // CASH-A (cashflow dashboard audit): the OWNER role landed in
         // task #104 but never picked up this gate. Owners are the
         // single most likely persona to want a "can I pay this week?"

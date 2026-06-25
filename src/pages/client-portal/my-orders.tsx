@@ -418,12 +418,14 @@ export default function MyOrders() {
                                 className="w-full sm:w-auto justify-center"
                               />
                             )}
-                          <Link href={`/client-portal/tracking?orderId=${order.id}`}>
-                            <Button size="sm" variant="outline" className="w-full sm:w-auto">
-                              <Truck className="w-4 h-4 mr-2" />
-                              Track
-                            </Button>
-                          </Link>
+                          {order.status === "in_transit" && (
+                            <Link href={`/client-portal/tracking?orderId=${order.id}`}>
+                              <Button size="sm" variant="outline" className="w-full sm:w-auto">
+                                <Truck className="w-4 h-4 mr-2" />
+                                Track live
+                              </Button>
+                            </Link>
+                          )}
                           {/* Request a change - only when the order is
                               still in a state where amendments make
                               sense. The server-side is_order_amendable
@@ -483,10 +485,10 @@ export default function MyOrders() {
                               View details
                             </Button>
                           </Link>
-                          {/* Book again - only on completed orders. Opens
+                          {/* Book again - only on completed/delivered orders. Opens
                               the same RebookDialog the dashboard uses;
                               prefills via sourceOrder on the dialog side. */}
-                          {order.status === "completed" && (
+                          {["completed", "delivered"].includes(order.status) && (
                             <Button
                               size="sm"
                               className="w-full sm:w-auto bg-brand-primary hover:opacity-90"
@@ -506,7 +508,7 @@ export default function MyOrders() {
                           orders (the badge already says it). */}
                       {clientTl && (
                         <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800">
-                          <TimelineTrack timeline={clientTl} compact />
+                          <TimelineTrack timeline={clientTl} compact hideOperatorGlossary />
                         </div>
                       )}
                     </div>

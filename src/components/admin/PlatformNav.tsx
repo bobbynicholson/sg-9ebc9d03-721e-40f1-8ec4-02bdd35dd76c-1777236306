@@ -81,7 +81,7 @@ function PlatformTopSlot() {
               variant="outline"
               className="h-4 flex-shrink-0 border-amber-200 bg-amber-50 px-1 text-[9px] text-amber-700"
             >
-              Owner
+              Platform
             </Badge>
           </div>
           <div className="truncate text-[11px] leading-tight text-slate-400">

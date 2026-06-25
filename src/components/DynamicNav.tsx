@@ -12,6 +12,8 @@ export function DynamicNav({ userRole }: { userRole: string }) {
     company_admin: AdminNav,
     admin: AdminNav,
     owner: AdminNav,
+    region_admin: AdminNav,
+    sales_admin: AdminNav,
     client: ClientNav,
     driver: DriverNav,
     kitchen_manager: KitchenNav,

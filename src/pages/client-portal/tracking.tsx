@@ -31,6 +31,7 @@ interface OrderDetails {
   guest_count?: number | null;
   total_amount?: number | null;
   client_name: string;
+  venue_name?: string | null;
   venue_address: string;
   venue_lat?: number;
   venue_lng?: number;
@@ -662,7 +663,9 @@ export default function ClientTracking() {
                     >
                       <div className="flex items-start justify-between gap-2 mb-2">
                         <div className="min-w-0">
-                          <p className="font-semibold text-slate-900 dark:text-white truncate">{order.client_name}</p>
+                          <p className="font-semibold text-slate-900 dark:text-white truncate">
+                            {order.event_name || order.order_number || order.venue_name || "Live trip"}
+                          </p>
                           <p className="text-sm text-slate-600 dark:text-slate-400">{order.venue_address}</p>
                         </div>
                         <Badge variant="outline" className={`${getStatusColor(order.collecting ? "collecting" : order.status)} text-xs shrink-0`}>

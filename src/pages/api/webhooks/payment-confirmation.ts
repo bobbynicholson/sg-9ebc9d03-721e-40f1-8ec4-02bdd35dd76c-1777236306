@@ -968,7 +968,7 @@ async function sendClientPaymentConfirmation(
         title,
         message,
         priority: "high",
-        link: `/client-portal?orderId=${order.id}`,
+        link: `/client-portal/billing?orderId=${order.id}`,
       }]);
     } catch (e) {
       console.warn("Client in-app notification failed:", e);

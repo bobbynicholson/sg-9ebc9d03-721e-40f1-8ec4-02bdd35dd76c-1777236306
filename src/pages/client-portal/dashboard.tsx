@@ -213,6 +213,11 @@ function pickHeadlineEvent(orders: Order[]): Order | null {
   const yesterday = new Date();
   yesterday.setDate(yesterday.getDate() - 1);
   const yesterdayISO = toLocalISO(yesterday);
+  const upcoming = orders
+    .filter((o) => o.event_date >= todayISO && !["cancelled", "completed", "delivered"].includes(o.status))
+    .sort((a, b) => a.event_date.localeCompare(b.event_date));
+  if (upcoming[0]) return upcoming[0];
+
   const justDelivered = orders
     .filter(
       (o) =>
@@ -222,11 +227,6 @@ function pickHeadlineEvent(orders: Order[]): Order | null {
     )
     .sort((a, b) => b.event_date.localeCompare(a.event_date));
   if (justDelivered[0]) return justDelivered[0];
-
-  const upcoming = orders
-    .filter((o) => o.event_date >= todayISO && !["cancelled", "completed", "delivered"].includes(o.status))
-    .sort((a, b) => a.event_date.localeCompare(b.event_date));
-  if (upcoming[0]) return upcoming[0];
 
   // Recent-past fallback. We only care about confirmed/in-flight bookings
   // whose date has just passed - not draft, not cancelled. 3 days is the
@@ -633,7 +633,7 @@ function ClientPortalDashboardInner() {
             const total = rows.reduce((sum, r) => sum + Number(r.balance_due ?? r.total_amount ?? 0), 0);
             const overdueCount = rows.filter((r) => {
               if (r.status === "overdue") return true;
-              if (r.status !== "pending" || !r.due_date) return false;
+              if (!["sent", "partially_paid"].includes(r.status) || !r.due_date) return false;
               const due = new Date(r.due_date).getTime();
               return Number.isFinite(due) && due < todayMS;
             }).length;
@@ -1535,12 +1535,11 @@ function ClientPortalDashboardInner() {
         quoteNumber={editsQuote?.quote_number || null}
         onSuccess={() => {
           // Drop the quote out of the pending bucket locally so the
-          // hero band updates without a full refetch. The server-side
-          // edit endpoint stamps a fresh sent_at + clears viewed_at;
-          // we no longer flip status to 'revised' (status stays 'sent').
-          // TIGHTEN I.75: 'revised' status no longer exists.
+          // hero band updates without a full refetch. The server keeps
+          // quote.status at sent and writes quote_change_requests for the
+          // operator queue, but this client has already acted.
           setQuotes((prev) =>
-            prev.map((q) => (q.id === editsQuote?.id ? { ...q, status: "sent" } : q)),
+            prev.map((q) => (q.id === editsQuote?.id ? { ...q, status: "change_requested" } : q)),
           );
           setEditsQuote(null);
         }}

@@ -452,7 +452,6 @@ export default function ClientBillingPage() {
                           <SelectItem value="pending">Pending</SelectItem>
                           <SelectItem value="paid">Paid</SelectItem>
                           <SelectItem value="overdue">Overdue</SelectItem>
-                          <SelectItem value="failed">Failed</SelectItem>
                         </SelectContent>
                       </Select>
                       <Select value={sortBy} onValueChange={(val) => setSortBy(val as any)}>
@@ -478,7 +477,7 @@ export default function ClientBillingPage() {
                     <p className="text-sm text-slate-600 dark:text-slate-400 max-w-md mx-auto">
                       {searchQuery || statusFilter !== "all"
                         ? "Try adjusting your filters."
-                        : "Invoices will appear here when you place an order."}
+                        : "Invoices will appear here once the team issues them."}
                     </p>
                   </div>
                 ) : (

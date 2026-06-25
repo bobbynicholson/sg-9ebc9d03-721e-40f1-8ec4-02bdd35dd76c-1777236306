@@ -119,7 +119,10 @@ export default function DriverCalendarPage() {
       const rows = ((data as any[]) || [])
         .map((o) => {
           const mine = o.assigned_driver_id === user.id || o.driver_id === user.id;
-          const claimable = !o.assigned_driver_id && !o.driver_id;
+          const claimable =
+            !o.assigned_driver_id &&
+            !o.driver_id &&
+            !["delivered", "completed"].includes(String(o.status));
           // We surface a row if it's MINE or unclaimed-in-tenant.
           // Other drivers' jobs we leave out - the driver can't
           // act on those and they'd just clutter the grid.

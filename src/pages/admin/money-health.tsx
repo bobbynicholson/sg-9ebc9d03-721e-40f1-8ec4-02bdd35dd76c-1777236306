@@ -169,7 +169,7 @@ function MoneyHealthPage() {
 
 export default function ProtectedMoneyHealthPage() {
   return (
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.OWNER, UserRole.ADMIN, UserRole.REGION_ADMIN]}>
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.OWNER, UserRole.COMPANY_ADMIN]}>
       <MoneyHealthPage />
     </ProtectedRoute>
   );

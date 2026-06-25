@@ -79,7 +79,7 @@ const buildFmt = (code: string) => {
 export default function OutstandingBalancesRoute() {
   return (
     <ProtectedRoute allowedRoles={[
-      UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.OWNER,
+      UserRole.SUPER_ADMIN, UserRole.OWNER, UserRole.COMPANY_ADMIN,
     ]}>
       <OutstandingBalancesPage />
     </ProtectedRoute>

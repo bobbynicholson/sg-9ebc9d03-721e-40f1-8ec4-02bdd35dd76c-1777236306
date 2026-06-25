@@ -252,7 +252,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
                     title: "Order completed",
                     message: `Order ${orderRow.order_number} is fully paid and wrapped up. Thanks for booking with us.`,
                     priority: "normal",
-                    link: `/client-portal?orderId=${orderRow.id}`,
+                    link: `/client-portal/billing?orderId=${orderRow.id}`,
                     related_entity_type: "order",
                     related_entity_id: orderRow.id,
                     channels: ["in_app"],

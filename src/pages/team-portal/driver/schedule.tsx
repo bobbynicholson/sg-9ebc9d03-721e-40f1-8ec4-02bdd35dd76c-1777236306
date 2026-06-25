@@ -54,7 +54,7 @@ export default function DriverSchedulePage() {
         .select("id, event_date, event_time, venue_address, guest_count, status, client_name")
         .or(`assigned_driver_id.eq.${user.id},driver_id.eq.${user.id}`)
         .gte("event_date", toLocalISO(today))
-        .neq("status", "cancelled")
+        .in("status", ["confirmed", "preparing", "ready", "in_transit"])
         .order("event_date", { ascending: true });
       if (!cancelled) {
         if (error) console.error("Error loading schedule:", error);

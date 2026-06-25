@@ -401,7 +401,7 @@ export const whatsappIntegrationService = {
                 `Amount Due: ${order.currency || "R"} ${order.total_amount}\n` +
                 `Due Date: ${order.event_date}\n\n` +
                 `Please complete your payment to confirm your booking.\n\n` +
-                `Pay now: ${process.env.NEXT_PUBLIC_APP_URL}/client-portal?order=${order.id}`
+                `Pay now: ${process.env.NEXT_PUBLIC_APP_URL}/client-portal/billing?order=${order.id}`
         }
       };
 

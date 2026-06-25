@@ -316,10 +316,10 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       // return to the portal.
       successUrl: viaPublicToken
         ? `${baseUrl}/pay/i/${(invoice as any).public_token}/success`
-        : `${baseUrl}/client-portal?paid=1&invoice=${invoice.invoice_number}`,
+        : `${baseUrl}/client-portal/billing?paid=1&invoice=${invoice.invoice_number}`,
       cancelUrl: viaPublicToken
         ? `${baseUrl}/pay/i/${(invoice as any).public_token}?cancelled=1`
-        : `${baseUrl}/client-portal?cancelled=1&invoice=${invoice.invoice_number}`,
+        : `${baseUrl}/client-portal/billing?cancelled=1&invoice=${invoice.invoice_number}`,
       notifyUrl: notifyUrlFor(baseUrl, invoice.company_id),
       customer: {
         email: ownership.email || orderRow?.client_email || "",

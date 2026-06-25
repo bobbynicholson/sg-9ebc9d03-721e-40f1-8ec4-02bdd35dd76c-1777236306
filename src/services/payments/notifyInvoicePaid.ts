@@ -102,7 +102,7 @@ export async function notifyInvoicePaid(input: InvoicePaidNotifyInput): Promise<
             ? `We received your payment of ${amountFmt}. Your booking is fully paid.`
             : `We received your payment of ${amountFmt}. Thank you.`,
           priority: "high",
-          link: orderId ? `/client-portal?orderId=${orderId}` : null,
+          link: orderId ? `/client-portal/billing?orderId=${orderId}` : null,
         }]);
       }
     } catch (e) {

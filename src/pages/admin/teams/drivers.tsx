@@ -423,7 +423,7 @@ function DriversTeamPage() {
                 {stats.hoursWeek}h this week
               </Badge>
             </Link>
-            <Link href={withSlug(`/admin/dispatch-queue?date=${toLocalISO(new Date())}`)}>
+            <Link href={withSlug(`/admin/order-assignments?date=${toLocalISO(new Date())}`)}>
               <Badge variant="secondary" className="px-3 py-1.5 text-sm cursor-pointer hover:bg-slate-200">
                 <ClipboardList className="w-3 h-3 mr-1" />
                 {stats.jobsToday} assignment{stats.jobsToday === 1 ? "" : "s"} today
@@ -445,7 +445,7 @@ function DriversTeamPage() {
               </Badge>
             )}
             {stats.unassignedToday > 0 && (
-              <Link href={withSlug("/admin/dispatch-queue?filter=unassigned")}>
+              <Link href={withSlug("/admin/order-assignments?filter=unassigned")}>
                 <Badge variant="outline" className="px-3 py-1.5 text-sm border-rose-300 text-rose-800 bg-rose-50 cursor-pointer hover:bg-rose-100">
                   <AlertTriangle className="w-3 h-3 mr-1" />
                   {stats.unassignedToday} unassigned today
@@ -506,7 +506,7 @@ function DriversTeamPage() {
           {/* DRV-A: 4-card intel grid above the tile shortcuts. */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-4">
             {/* Today's deliveries pipeline. */}
-            <Link href={withSlug("/admin/dispatch-queue")}>
+            <Link href={withSlug("/admin/order-assignments")}>
               <Card className={`border-0 shadow-md hover:shadow-lg transition-shadow ${stats.asnOverdue > 0 ? "bg-gradient-to-br from-rose-50 to-amber-50" : "bg-gradient-to-br from-sky-50 to-blue-50"}`}>
                 <CardContent className="p-5">
                   <div className="flex items-start gap-3">
@@ -613,7 +613,7 @@ function DriversTeamPage() {
             </Link>
 
             {/* Recent issues. */}
-            <Link href={withSlug("/admin/dispatch-queue?filter=issues")}>
+            <Link href={withSlug("/admin/order-assignments?filter=issues")}>
               <Card className={`border-0 shadow-md hover:shadow-lg transition-shadow ${stats.issuesThisWeek > 0 ? "bg-gradient-to-br from-rose-50 to-pink-50" : "bg-gradient-to-br from-slate-50 to-slate-100"}`}>
                 <CardContent className="p-5">
                   <div className="flex items-start gap-3">
@@ -658,8 +658,8 @@ function DriversTeamPage() {
 
           {/* Bottom hint - deeper drilldowns. */}
           <p className="text-xs text-slate-500 text-center mt-6">
-            Live tracking at <Link href={withSlug("/admin/live-operations")} className="text-sky-700 hover:underline">/admin/live-operations</Link> ·
-            dispatch queue at <Link href={withSlug("/admin/dispatch-queue")} className="text-sky-700 hover:underline">/admin/dispatch-queue</Link> ·
+            Live tracking at <Link href={withSlug("/admin/tracking")} className="text-sky-700 hover:underline">/admin/tracking</Link> ·
+            dispatch queue at <Link href={withSlug("/admin/order-assignments")} className="text-sky-700 hover:underline">/admin/order-assignments</Link> ·
             wages drivers tab at <Link href={withSlug("/admin/wages?tab=drivers")} className="text-sky-700 hover:underline">/admin/wages</Link>.
           </p>
         </div>

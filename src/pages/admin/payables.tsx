@@ -170,7 +170,7 @@ function parseBulkCsv(
 export default function ProtectedPayablesPage() {
   return (
     <ProtectedRoute allowedRoles={[
-      UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN,
+      UserRole.SUPER_ADMIN, UserRole.OWNER, UserRole.COMPANY_ADMIN,
     ]}>
       <PayablesPage />
     </ProtectedRoute>

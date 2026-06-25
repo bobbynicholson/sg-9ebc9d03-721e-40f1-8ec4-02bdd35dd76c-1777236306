@@ -109,7 +109,7 @@ function ProtectedRefundsPage() {
   // even though the directors-folder rule says they MUST see finance.
   return (
     <ProtectedRoute allowedRoles={[
-      UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.OWNER,
+      UserRole.SUPER_ADMIN, UserRole.OWNER, UserRole.COMPANY_ADMIN,
     ]}>
       <RefundsPage />
     </ProtectedRoute>

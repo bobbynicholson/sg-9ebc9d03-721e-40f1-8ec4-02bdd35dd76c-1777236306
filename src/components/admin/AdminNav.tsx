@@ -73,7 +73,7 @@ import {
 import { useRouter } from "next/router";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
-import { canAccessFinance, isCompanyAdmin } from "@/lib/authGuards";
+import { canAccessFinance } from "@/lib/authGuards";
 import { UserRole } from "@/types/app";
 import { PortalSidebar, type PortalSidebarConfig, type PortalSidebarSection } from "@/components/navigation/PortalSidebar";
 import { BRAND_PORTAL_PALETTE, BRAND_ACCENT } from "@/lib/branding/portalPalette";
@@ -232,6 +232,15 @@ export function AdminNav(_: AdminNavProps = {}) {
             : null,
         },
         { title: "Orders",        href: "/admin/orders",        icon: Package,          description: "All orders" },
+        {
+          title: "Invoices",
+          href: "/admin/invoices",
+          icon: Receipt,
+          description: "Issued + payment status",
+          badge: () => liveCounts.unpaidValue > 0
+            ? { text: "overdue", tone: "critical" as const }
+            : null,
+        },
         { title: "Packages",      href: "/admin/packages",      icon: Layers,           description: "Multi-day event groupings" },
         { title: "Client search", href: "/admin/client-search", icon: Search,           description: "Find any client" },
         { title: "Reviews",       href: "/admin/reviews",       icon: Star,             description: "Client ratings + comments" },
@@ -256,15 +265,6 @@ export function AdminNav(_: AdminNavProps = {}) {
       items: [
         { title: "Financial dashboard", href: "/admin/financial-dashboard", icon: Banknote, description: "Revenue + profitability snapshot" },
         { title: "Cashflow dashboard",  href: "/admin/cashflow-dashboard",  icon: TrendingUp, description: "30-day forecast, payables and fixed costs" },
-        {
-          title: "Invoices",
-          href: "/admin/invoices",
-          icon: Receipt,
-          description: "Issued + payment status",
-          badge: () => liveCounts.unpaidValue > 0
-            ? { text: "overdue", tone: "critical" as const }
-            : null,
-        },
         { title: "Outstanding balances", href: "/admin/outstanding-balances", icon: Wallet, description: "Clients who still owe a balance (deposit paid, balance due)" },
         { title: "Payables",        href: "/admin/payables",      icon: FileText,   description: "Supplier invoices owed - feeds cashflow forecast" },
         { title: "Fixed costs",     href: "/admin/fixed-costs",   icon: Wallet,     description: "Recurring rent, software, vehicles - feeds cashflow forecast" },
@@ -310,8 +310,12 @@ export function AdminNav(_: AdminNavProps = {}) {
         ] : []),
       ],
     },
-    // SETTINGS - config nucleus, gated to company-admin.
-    ...(profile && isCompanyAdmin(profile.role as UserRole) ? [{
+    // SETTINGS - config nucleus, gated to full-company owners/admins.
+    ...(profile && [
+      UserRole.SUPER_ADMIN,
+      UserRole.OWNER,
+      UserRole.COMPANY_ADMIN,
+    ].includes(profile.role as UserRole) ? [{
       id: "settings",
       title: "Settings",
       defaultOpen: false,
@@ -325,7 +329,9 @@ export function AdminNav(_: AdminNavProps = {}) {
         { title: "Messages & templates",  href: "/admin/email-templates",       icon: MessageSquare, description: "Edit every email + WhatsApp message, see what's been sent, manage automation" },
         { title: "Notifications",         href: "/admin/notification-settings", icon: Bell,          description: "Channel routing + opt-ins" },
         { title: "Audit log",             href: "/admin/audit-logs",            icon: Shield,        description: "Compliance trail - who did what" },
-        { title: "Smoke test",            href: "/admin/smoke-test",            icon: FlaskConical,  description: "Run end-to-end regression" },
+        ...([UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN].includes(profile.role as UserRole)
+          ? [{ title: "Smoke test", href: "/admin/smoke-test", icon: FlaskConical, description: "Run end-to-end regression" }]
+          : []),
         { title: "System",                href: "/admin/settings",              icon: Settings,      description: "General configuration" },
       ],
     } as PortalSidebarSection] : []),

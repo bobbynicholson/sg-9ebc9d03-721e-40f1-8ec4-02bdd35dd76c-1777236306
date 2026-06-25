@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { supabase } from "@/integrations/supabase/client";
 
 export interface WhatsAppTemplate {
@@ -15,13 +14,13 @@ export interface WhatsAppTemplate {
 
 export const whatsappTemplateService = {
   /**
-   * Get all WhatsApp templates
+   * Get all WhatsApp templates.
    */
   async getAllTemplates() {
     const { data, error } = await supabase
-      .from('whatsapp_templates')
-      .select('*')
-      .order('template_name', { ascending: true });
+      .from("whatsapp_templates")
+      .select("*")
+      .order("template_name", { ascending: true });
 
     if (error) throw error;
 
@@ -29,14 +28,14 @@ export const whatsappTemplateService = {
   },
 
   /**
-   * Get enabled templates only
+   * Get enabled templates only.
    */
   async getEnabledTemplates() {
     const { data, error } = await supabase
-      .from('whatsapp_templates')
-      .select('*')
-      .eq('is_enabled', true)
-      .order('template_name', { ascending: true });
+      .from("whatsapp_templates")
+      .select("*")
+      .eq("is_enabled", true)
+      .order("template_name", { ascending: true });
 
     if (error) throw error;
 
@@ -44,13 +43,13 @@ export const whatsappTemplateService = {
   },
 
   /**
-   * Get template by key
+   * Get template by key.
    */
   async getTemplateByKey(templateKey: string) {
     const { data, error } = await supabase
-      .from('whatsapp_templates')
-      .select('*')
-      .eq('template_key', templateKey)
+      .from("whatsapp_templates")
+      .select("*")
+      .eq("template_key", templateKey)
       .single();
 
     if (error) throw error;
@@ -59,31 +58,28 @@ export const whatsappTemplateService = {
   },
 
   /**
-   * Send game invitation to client while waiting for driver
+   * Send a live-tracking prompt to the client while waiting for the driver.
    */
   async sendGameInvitation(clientPhone: string, orderNumber: string, clientName?: string) {
-    const gameUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://cateringms.com'}/client-portal?game=true`;
-    
-    const message = `🎮 Hi${clientName ? ' ' + clientName : ''}!\n\n` +
-                   `While you wait for your driver (Order #${orderNumber}), why not have some fun?\n\n` +
-                   `Play our Catering Dash game and compete for a spot on the leaderboard! 🏆\n\n` +
-                   `🎯 Click here to play: ${gameUrl}\n\n` +
-                   `Challenge: Can you beat the Top 10? 😊`;
+    void clientPhone;
+    const trackingUrl = `${process.env.NEXT_PUBLIC_APP_URL || "https://cateringms.com"}/client-portal/tracking`;
 
-    return message;
+    return `Hi${clientName ? ` ${clientName}` : ""},\n\n` +
+      `Your driver update for order #${orderNumber} is available in your client portal.\n\n` +
+      `Track the live trip here: ${trackingUrl}`;
   },
 
   /**
-   * Update template content
+   * Update template content.
    */
   async updateTemplate(id: string, updates: Partial<WhatsAppTemplate>) {
     const { data, error } = await supabase
-      .from('whatsapp_templates')
+      .from("whatsapp_templates")
       .update({
         ...updates,
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
       })
-      .eq('id', id)
+      .eq("id", id)
       .select()
       .single();
 
@@ -93,16 +89,16 @@ export const whatsappTemplateService = {
   },
 
   /**
-   * Enable/disable template
+   * Enable/disable template.
    */
   async toggleTemplate(id: string, isEnabled: boolean) {
     const { data, error } = await supabase
-      .from('whatsapp_templates')
+      .from("whatsapp_templates")
       .update({
         is_enabled: isEnabled,
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
       })
-      .eq('id', id)
+      .eq("id", id)
       .select()
       .single();
 
@@ -112,26 +108,26 @@ export const whatsappTemplateService = {
   },
 
   /**
-   * Preview template with sample data
+   * Preview template with sample data.
    */
   previewTemplate(template: WhatsAppTemplate, sampleData: Record<string, string>) {
     let preview = template.template_content;
 
     Object.entries(sampleData).forEach(([key, value]) => {
-      preview = preview.replace(new RegExp(`{{${key}}}`, 'g'), value);
+      preview = preview.replace(new RegExp(`{{${key}}}`, "g"), value);
     });
 
     return preview;
   },
 
   /**
-   * Validate template variables
+   * Validate template variables.
    */
   validateTemplate(content: string, requiredVariables: string[]) {
     const errors: string[] = [];
 
-    requiredVariables.forEach(variable => {
-      const regex = new RegExp(`{{${variable}}}`, 'g');
+    requiredVariables.forEach((variable) => {
+      const regex = new RegExp(`{{${variable}}}`, "g");
       if (!regex.test(content)) {
         errors.push(`Missing required variable: {{${variable}}}`);
       }
@@ -141,24 +137,24 @@ export const whatsappTemplateService = {
   },
 
   /**
-   * Get template statistics
+   * Get template statistics.
    */
   async getTemplateStats() {
     const { data, error } = await supabase
-      .from('whatsapp_templates')
-      .select('is_enabled');
+      .from("whatsapp_templates")
+      .select("is_enabled");
 
     if (error) throw error;
 
     const total = data.length;
-    const enabled = data.filter(t => t.is_enabled).length;
+    const enabled = data.filter((t) => t.is_enabled).length;
     const disabled = total - enabled;
 
     return {
       total,
       enabled,
       disabled,
-      enabledPercentage: total > 0 ? Math.round((enabled / total) * 100) : 0
+      enabledPercentage: total > 0 ? Math.round((enabled / total) * 100) : 0,
     };
-  }
+  },
 };

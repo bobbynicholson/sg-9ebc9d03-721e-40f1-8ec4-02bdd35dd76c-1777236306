@@ -135,7 +135,7 @@ export default function ShoppingOrdersPage() {
           .select("id, order_number, event_name, event_date, event_time, guest_count, status, venue_address, client_name")
           .eq("company_id", user.company_id)
           .gte("event_date", toLocalISO(new Date()))
-          .in("status", ["pending", "confirmed", "preparing"])
+          .in("status", ["confirmed", "preparing", "ready"])
           .order("event_date", { ascending: true })
           .limit(50)
           .returns<Order[]>(),
@@ -460,7 +460,7 @@ export default function ShoppingOrdersPage() {
                   <Calendar className="h-6 w-6 text-slate-400 dark:text-slate-500" />
                 </div>
                 <p className="font-semibold text-slate-900 dark:text-white">No upcoming events</p>
-                <p className="text-sm text-slate-600 dark:text-slate-400 mt-1 max-w-sm mx-auto">Once orders are confirmed or pending for today or later, they appear here so you can shop for them.</p>
+                <p className="text-sm text-slate-600 dark:text-slate-400 mt-1 max-w-sm mx-auto">Once confirmed orders need procurement, they appear here so you can shop for them.</p>
               </PortalCard>
             ) : (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

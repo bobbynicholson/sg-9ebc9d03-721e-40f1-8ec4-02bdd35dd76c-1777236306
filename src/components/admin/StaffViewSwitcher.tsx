@@ -74,15 +74,15 @@ export function StaffViewSwitcher({ companySlug }: ViewSwitcherProps) {
     }
   };
 
-  // Team-portal pages currently live at /team-portal/* (no slug). Only the
-  // admin dashboard has a /[slug]/admin/dashboard wrapper.
+  const withTeamSlug = (href: string) => companySlug ? `/${companySlug}${href}` : href;
+
   const switchToDepartmentView = (department: string) => {
     setLoading(true);
     const routes: Record<string, string> = {
-      driver: "/team-portal/driver/dashboard",
-      kitchen: "/team-portal/kitchen/dashboard",
-      shopping: "/team-portal/shopping/dashboard",
-      cleaning: "/team-portal/cleaning/dashboard",
+      driver: withTeamSlug("/team-portal/driver/dashboard"),
+      kitchen: withTeamSlug("/team-portal/kitchen/today"),
+      shopping: withTeamSlug("/team-portal/shopping/dashboard"),
+      cleaning: withTeamSlug("/team-portal/cleaning/dashboard"),
       admin: companySlug ? `/${companySlug}/admin/dashboard` : "/admin/dashboard",
     };
 
@@ -92,12 +92,12 @@ export function StaffViewSwitcher({ companySlug }: ViewSwitcherProps) {
   const switchToStaffView = (staffMember: StaffMember) => {
     setLoading(true);
     const roleRoutes: Record<string, string> = {
-      driver: "/team-portal/driver/dashboard",
-      kitchen_manager: "/team-portal/kitchen/dashboard",
-      kitchen_staff: "/team-portal/kitchen/dashboard",
-      shopping_staff: "/team-portal/shopping/dashboard",
-      cleaning_manager: "/team-portal/cleaning/dashboard",
-      cleaning_staff: "/team-portal/cleaning/dashboard",
+      driver: withTeamSlug("/team-portal/driver/dashboard"),
+      kitchen_manager: withTeamSlug("/team-portal/kitchen/today"),
+      kitchen_staff: withTeamSlug("/team-portal/kitchen/today"),
+      shopping_staff: withTeamSlug("/team-portal/shopping/dashboard"),
+      cleaning_manager: withTeamSlug("/team-portal/cleaning/dashboard"),
+      cleaning_staff: withTeamSlug("/team-portal/cleaning/dashboard"),
     };
 
     const route = roleRoutes[staffMember.active_role];
@@ -133,7 +133,7 @@ export function StaffViewSwitcher({ companySlug }: ViewSwitcherProps) {
     const labels: Record<string, string> = {
       admin: "Admin View",
       driver: "Driver Dashboard",
-      kitchen: "Kitchen Dashboard",
+      kitchen: "Kitchen Today",
       shopping: "Shopping Dashboard",
       cleaning: "Cleaning Dashboard",
     };

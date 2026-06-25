@@ -316,7 +316,7 @@ export function CommandPalette() {
     // Dropped from the palette; orders/dispatch/tracking cover the
     // same job. See docs/personas/admin.md.
     { id: "go-tax",         label: "Tax Overview",        icon: FileText,     href: "/admin/tax-purchases",       group: "Navigate", roles: ["company_admin","owner","super_admin"], keywords: ["tax","sars","deductible"] },
-    { id: "go-wages",       label: "All Wages Dashboard", icon: Banknote,   href: "/admin/wages",               group: "Navigate", roles: ["admin","company_admin","owner"], keywords: ["pay","wage","payroll"] },
+    { id: "go-wages",       label: "Wage dashboard", icon: Banknote,   href: "/admin/wages",               group: "Navigate", roles: ["company_admin","owner","super_admin"], keywords: ["pay","wage","payroll"] },
     { id: "go-staff-rates", label: "Staff & Rates",       icon: Users,        href: "/admin/staff",               group: "Navigate", roles: ["admin","company_admin","owner"], keywords: ["pay","rates"] },
     { id: "go-staff-hrs",   label: "Staff Hours",         icon: Calendar,     href: "/admin/staff-hours",         group: "Navigate", roles: ["admin","company_admin","owner"], keywords: ["hours","timesheet"] },
     { id: "go-driver-set",  label: "Driver Settlement",   icon: Banknote,   href: "/admin/driver-settlement",   group: "Navigate", roles: ["admin","company_admin","owner"], keywords: ["pay","driver"] },
@@ -357,14 +357,14 @@ export function CommandPalette() {
 
     // ---- Team portals ----
     { id: "team-driver", label: "Driver Dashboard", icon: Truck, href: "/team-portal/driver/dashboard", group: "Team portals", roles: ["driver","admin","company_admin","owner","super_admin"] },
-    { id: "team-kitchen", label: "Kitchen Dashboard", icon: ChefHat, href: "/team-portal/kitchen/dashboard", group: "Team portals", roles: ["kitchen_staff","admin","company_admin","owner","super_admin"] },
+    { id: "team-kitchen", label: "Kitchen Today", icon: ChefHat, href: "/team-portal/kitchen/today", group: "Team portals", roles: ["kitchen_staff","admin","company_admin","owner","super_admin"] },
     { id: "team-shopping", label: "Shopping Dashboard", icon: ShoppingCart, href: "/team-portal/shopping/dashboard", group: "Team portals", roles: ["shopping_staff","admin","company_admin","owner","super_admin"] },
     { id: "team-cleaning", label: "Cleaning Dashboard", icon: Sparkles, href: "/team-portal/cleaning/dashboard", group: "Team portals", roles: ["cleaning_staff","admin","company_admin","owner","super_admin"] },
 
     // ---- Client ----
     { id: "client-dash", label: "My Events", icon: LayoutDashboard, href: "/client-portal/dashboard", group: "Client", roles: ["client"] },
     { id: "client-orders", label: "Bookings", icon: ShoppingCart, href: "/client-portal/my-orders", group: "Client", roles: ["client"], keywords: ["orders", "events"] },
-    { id: "client-tracking", label: "Track delivery", icon: Truck, href: "/client-portal/tracking", group: "Client", roles: ["client"] },
+    { id: "client-tracking", label: "Live tracking", icon: Truck, href: "/client-portal/tracking", group: "Client", roles: ["client"] },
     { id: "client-billing", label: "Billing & invoices", icon: CreditCard, href: "/client-portal/billing", group: "Client", roles: ["client"] },
 
     // ---- Account (everyone) ----

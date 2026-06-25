@@ -110,7 +110,7 @@ export function useShoppingPortalMode(): ShoppingPortalModeState {
           .from("inventory_demand_outlook")
           .select("inventory_item_id", { count: "exact", head: true })
           .eq("company_id", companyId)
-          .eq("status", "shortfall"),
+          .in("status", ["shortfall", "below_minimum", "low"]),
         sb
           .from("orders")
           .select("id", { count: "exact", head: true })

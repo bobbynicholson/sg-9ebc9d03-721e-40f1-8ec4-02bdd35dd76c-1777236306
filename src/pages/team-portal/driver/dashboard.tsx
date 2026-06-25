@@ -585,7 +585,7 @@ function DriverDashboardInner() {
                   Welcome back, {driverName.split(" ")[0]}
                 </h1>
                 <p className="text-xs sm:text-sm md:text-base text-slate-600 dark:text-slate-400">
-                  {loading ? "Loading your deliveries..." : `${jobs.length} active ${jobs.length === 1 ? "delivery" : "deliveries"}`}
+                  {loading ? "Loading your deliveries..." : `${jobs.length} assigned ${jobs.length === 1 ? "job" : "jobs"} in your work window`}
                 </p>
                 {/* Bobby's brief: after a claim, the driver should
                     see an unmistakable path to the route page where
@@ -597,7 +597,7 @@ function DriverDashboardInner() {
                     className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-brand-primary/20 bg-brand-primary/10 text-sm font-medium text-brand-primary hover:bg-brand-primary/20 transition-colors duration-150 dark:border-brand-primary/20 dark:bg-brand-primary/20 dark:text-brand-primary dark:hover:bg-brand-primary/30"
                   >
                     <RouteIcon className="w-3.5 h-3.5" />
-                    View today's route
+                    View route board
                     <Badge variant="outline" className="ml-1 tabular-nums bg-white dark:bg-slate-900 dark:border-slate-700">
                       {jobs.length}
                     </Badge>
@@ -622,7 +622,7 @@ function DriverDashboardInner() {
                   variant="outline"
                   onClick={() => {
                     if (jobs.length === 0) {
-                      toast({ title: "Nothing to print", description: "No deliveries scheduled in the next 14 days." });
+                      toast({ title: "Nothing to print", description: "No assigned jobs in your work window." });
                       return;
                     }
                     setTimeout(() => window.print(), 100);

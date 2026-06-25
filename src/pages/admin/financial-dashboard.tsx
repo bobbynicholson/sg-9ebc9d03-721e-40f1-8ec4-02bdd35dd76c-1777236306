@@ -1541,7 +1541,7 @@ function FinancialDashboardInner() {
 // resolved. Tight finance roles only per Skylight rule.
 export default function FinancialDashboardPage() {
   return (
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN]}>
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.OWNER, UserRole.COMPANY_ADMIN]}>
       <FinancialDashboardInner />
     </ProtectedRoute>
   );

@@ -326,7 +326,7 @@ export function PaymentModal({ invoice, open, onClose, onPaymentSuccess, onShowR
             <h3 className="text-2xl font-bold text-slate-900 mb-2">Thanks - we've let them know</h3>
             <p className="text-slate-600 mb-4">
               The team will reconcile against the bank statement and mark{" "}
-              <span className="font-semibold">{invoice.invoice_number}</span> as paid once the deposit lands.
+              <span className="font-semibold">{invoice.invoice_number}</span> as paid once the transfer lands.
             </p>
             <p className="text-sm text-slate-500 mb-6">
               You'll see the status update on your billing page within 1-2 business days.

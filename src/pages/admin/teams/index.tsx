@@ -893,7 +893,7 @@ function TeamsIndexPage() {
                       )}
                     </ul>
                   </div>
-                  <Link href={withSlug("/admin/dispatch-queue")}>
+                  <Link href={withSlug("/admin/order-assignments")}>
                     <Button size="sm" variant="outline" className="gap-1.5 border-rose-300 text-rose-800 hover:bg-rose-100">
                       Assign drivers <ArrowRight className="w-3.5 h-3.5" />
                     </Button>

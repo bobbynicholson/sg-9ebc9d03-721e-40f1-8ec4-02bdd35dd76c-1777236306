@@ -902,7 +902,7 @@ function LineRow({
 
 export default function ProtectedTaxPurchasesPage() {
   return (
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.OWNER, UserRole.ADMIN]}>
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.OWNER, UserRole.COMPANY_ADMIN]}>
       <TaxPurchasesPage />
     </ProtectedRoute>
   );

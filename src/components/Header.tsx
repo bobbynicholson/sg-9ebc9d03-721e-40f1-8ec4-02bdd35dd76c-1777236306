@@ -40,8 +40,7 @@ const getDashboardPath = (role: UserRole, companySlug?: string): string => {
       return "/team-portal/driver/dashboard";
     case UserRole.KITCHEN_MANAGER:
     case UserRole.KITCHEN_STAFF:
-      return "/team-portal/kitchen/dashboard";
-    case UserRole.SHOPPING_STAFF:
+      return "/team-portal/kitchen/today";
     case UserRole.SHOPPING_STAFF:
       return "/team-portal/shopping/dashboard";
     case UserRole.CLEANING_MANAGER:

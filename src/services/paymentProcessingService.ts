@@ -684,7 +684,7 @@ ${status.daysRemaining <= 1 ? "\n⚠️ THIS IS YOUR FINAL NOTICE - Changes MUST
 Why the deadline? 
 We begin preparations ${status.daysRemaining + 2} days before your event to ensure everything is perfect.
 
-Make Changes Now: ${typeof window !== "undefined" ? window.location.origin : (process.env.NEXT_PUBLIC_APP_URL || "https://cateringms.com")}/client-portal?orderId=${orderData.id}
+Make Changes Now: ${typeof window !== "undefined" ? window.location.origin : (process.env.NEXT_PUBLIC_APP_URL || "https://cateringms.com")}/client-portal/my-orders?focus=${orderData.id}
 
 Questions? Contact us immediately.
 
