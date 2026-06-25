@@ -467,7 +467,7 @@ export function OrderDetailsPanel({ order, fromName, companyName, onClose }: Pro
                 the placeholder admin view. /team-portal/kitchen/prep-list
                 shows the per-order prep tasks and is the canonical
                 source the kitchen team works off. */}
-            <Link href={`/team-portal/kitchen/prep-list?orderId=${order.id}`} legacyBehavior>
+            <Link href={withSlug(`/team-portal/kitchen/prep-list?orderId=${order.id}`)} legacyBehavior>
               <a><Button size="sm" variant="outline" className="gap-1 h-7 text-xs">
                 <ChefHat className="h-3 w-3" /> Kitchen prep
               </Button></a>

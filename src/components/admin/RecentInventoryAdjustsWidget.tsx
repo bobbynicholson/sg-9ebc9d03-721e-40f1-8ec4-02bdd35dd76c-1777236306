@@ -19,6 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { Package, ArrowUp, ArrowDown, ArrowRight } from "lucide-react";
 import { useReportWidgetError } from "@/components/dashboard/WidgetErrorBoundary";
 import { daysAgoIso } from "@/lib/dashboardWindows";
+import { useTenantHref } from "@/lib/tenantUrl";
 
 interface TxRow {
   id: string;
@@ -44,6 +45,7 @@ const fmtRelative = (iso: string | null): string => {
 
 export function RecentInventoryAdjustsWidget({ companyId }: { companyId: string | null }) {
   const { reportError, retryNonce } = useReportWidgetError();
+  const { withSlug } = useTenantHref();
   const [rows, setRows] = useState<TxRow[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -97,7 +99,7 @@ export function RecentInventoryAdjustsWidget({ companyId }: { companyId: string 
               inventory_transactions in the last 7 days. Newest first.
             </CardDescription>
           </div>
-          <Link href="/team-portal/shopping/inventory">
+          <Link href={withSlug("/team-portal/shopping/inventory")}>
             <Button variant="ghost" size="sm" className="text-purple-700">
               Inventory <ArrowRight className="w-3.5 h-3.5 ml-1" />
             </Button>

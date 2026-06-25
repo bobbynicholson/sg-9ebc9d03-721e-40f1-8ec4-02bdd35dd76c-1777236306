@@ -324,7 +324,7 @@ export function CommandPalette() {
     { id: "go-hr",          label: "HR Solutions",        icon: Users,        href: "/admin/hr-solutions",        group: "Navigate", roles: ["admin","company_admin","owner"], keywords: ["hr","compliance"] },
     { id: "go-onboarding",  label: "Onboarding",          icon: Sparkles,     href: "/admin/onboarding",          group: "Navigate", roles: ["admin","company_admin","owner"], keywords: ["import","setup"] },
     { id: "go-email-life",  label: "Lifecycle Emails",    icon: Sparkles,     href: "/admin/email-templates",     group: "Navigate", roles: ["admin","company_admin","owner"], keywords: ["after-sales","automation","template"] },
-    { id: "go-templates",   label: "Messaging Templates", icon: Sparkles,     href: "/admin/messaging-templates", group: "Navigate", roles: ["admin","company_admin","owner"], keywords: ["whatsapp","email","template"] },
+    { id: "go-templates",   label: "Messaging Templates", icon: Sparkles,     href: "/admin/email-templates?tab=templates", group: "Navigate", roles: ["admin","company_admin","owner"], keywords: ["whatsapp","email","template"] },
     { id: "go-notifs",      label: "Notification Settings", icon: Settings,   href: "/admin/notification-settings", group: "Navigate", roles: ["admin","company_admin","owner"], keywords: ["alert","push"] },
     // Stage-2 hubs and team indexes.
     { id: "go-offering",    label: "Offering Hub",        icon: Sparkles,     href: "/admin/offering",            group: "Navigate", roles: ["admin","company_admin","owner"], keywords: ["menu","equipment","catalog","what we sell"] },

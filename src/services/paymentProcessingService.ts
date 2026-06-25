@@ -11,13 +11,14 @@ import { notificationService } from "./notificationService";
 import { PayFastService } from "@/lib/payfastService";
 import { sendEmailViaAPI } from "@/lib/emailClient";
 import { updateOrderStatus } from "./order/orderWorkflow";
+import { buildPayInvoiceUrlServer } from "@/lib/customerLinksServer";
 
 // Wave 24: paymentProcessingService is the entry point that the
 // PayFast / Stripe / Yoco webhooks call to flip an order's
 // deposit_paid / balance_paid columns and write the matching payment
 // rows. Webhooks have no auth session, so the imported browser anon
 // supabase fails RLS on orders / payments / orders.deposit_paid
-// updates - the deposit lands on the gateway side but the order
+// updates - the gateway accepts the payment but the order
 // never flips to "deposit paid" on our side. Same resolveServerClient
 // pattern as orderWorkflow / cancellationEmails: pick service-role
 // on the server, browser anon in the browser.
@@ -543,6 +544,23 @@ class PaymentProcessingService {
             );
             const urgency = daysUntilDue <= 1 ? "⚠️ URGENT: " : "";
             const subject = `${urgency}Payment Reminder - Balance Due ${daysUntilDue === 1 ? "Tomorrow" : `in ${daysUntilDue} Days`}`;
+            const fallbackPayUrl = `${process.env.NEXT_PUBLIC_APP_URL || "https://cateringms.com"}/client-portal/billing?orderId=${reminder.order_id}`;
+            let payNowUrl = fallbackPayUrl;
+            try {
+              const { data: invoiceRow } = await supabase
+                .from("invoices")
+                .select("public_token")
+                .eq("order_id", reminder.order_id)
+                .is("deleted_at", null)
+                .gt("balance_due", 0)
+                .neq("status", "paid")
+                .order("due_date", { ascending: true, nullsFirst: false })
+                .limit(1)
+                .maybeSingle();
+              payNowUrl = buildPayInvoiceUrlServer((invoiceRow as any)?.public_token) || fallbackPayUrl;
+            } catch (linkErr) {
+              console.warn("[paymentProcessingService] balance pay link lookup failed:", linkErr);
+            }
             
             const body = `Dear ${orderData.client_name || "Valued Client"},
 
@@ -556,7 +574,7 @@ Due Date: ${new Date(orderData.balance_due_date).toLocaleDateString()}
 ${daysUntilDue <= 1 ? "\n⚠️ THIS PAYMENT IS DUE TOMORROW!\n" : ""}
 To ensure your event proceeds smoothly, please complete your payment by the due date.
 
-Pay Now: ${typeof window !== "undefined" ? window.location.origin : (process.env.NEXT_PUBLIC_APP_URL || "https://cateringms.com")}/checkout?orderId=${reminder.order_id}&type=balance
+Pay Now: ${payNowUrl}
 
 Questions? Contact us immediately.
 
@@ -684,7 +702,7 @@ ${status.daysRemaining <= 1 ? "\n⚠️ THIS IS YOUR FINAL NOTICE - Changes MUST
 Why the deadline? 
 We begin preparations ${status.daysRemaining + 2} days before your event to ensure everything is perfect.
 
-Make Changes Now: ${typeof window !== "undefined" ? window.location.origin : (process.env.NEXT_PUBLIC_APP_URL || "https://cateringms.com")}/client-portal/my-orders?focus=${orderData.id}
+Make Changes Now: ${typeof window !== "undefined" ? window.location.origin : (process.env.NEXT_PUBLIC_APP_URL || "https://cateringms.com")}/client-portal/my-orders?orderId=${orderData.id}
 
 Questions? Contact us immediately.
 
@@ -814,9 +832,8 @@ Your Catering Company`;
       const testMode = process.env.NODE_ENV !== "production";
 
       if (!merchantId || !merchantKey) {
-        console.warn("PayFast credentials not configured - returning checkout URL");
-        // Fallback to local checkout page if PayFast not configured
-        return `/checkout?orderId=${orderId}&type=${paymentType}&amount=${amount}`;
+        console.warn("PayFast credentials not configured - returning billing URL");
+        return `/client-portal/billing?orderId=${orderId}&type=${paymentType}&amount=${amount}`;
       }
 
       // Initialize PayFast service

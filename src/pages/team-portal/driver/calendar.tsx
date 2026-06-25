@@ -422,7 +422,7 @@ export default function DriverCalendarPage() {
                               Open brief
                             </Link>
                             {o.is_mine ? (
-                              <Link href="/team-portal/driver/routes">
+                              <Link href={withSlug("/team-portal/driver/routes")}>
                                 <Button size="sm" variant="outline" className="min-h-11">
                                   <ExternalLink className="w-3.5 h-3.5 mr-1.5" />
                                   Open route

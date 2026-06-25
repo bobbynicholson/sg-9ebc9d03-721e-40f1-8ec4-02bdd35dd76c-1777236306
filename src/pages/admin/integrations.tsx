@@ -115,7 +115,7 @@ const RECIPES: Recipe[] = [
   },
   {
     title: "Payment received -> Slack #money",
-    description: "EFT confirmed, deposit lands, balance paid - whichever fires, your finance channel pops. Includes amount, client name and the invoice link. Team morale + cashflow awareness in one beat.",
+    description: "EFT confirmed, deposit received, balance paid - whichever fires, your finance channel pops. Includes amount, client name and the invoice link. Team morale + cashflow awareness in one beat.",
     trigger: "order.status_changed",
     action: "Slack - Post #money (filter: payment_status IN paid,partial)",
     icon: Banknote,

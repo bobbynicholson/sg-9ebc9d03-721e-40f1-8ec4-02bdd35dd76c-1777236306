@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { supabase } from "@/integrations/supabase/client";
 import { isCommsAllowed } from "@/services/commsGuardService";
+import { buildPayInvoiceUrlServer, mintOrderCustomerLink } from "@/lib/customerLinksServer";
 
 export interface WhatsAppConfig {
   phoneNumberId: string;
@@ -23,6 +24,35 @@ export interface WhatsAppMessage {
       parameters: Array<{ type: string; text: string }>;
     }>;
   };
+}
+
+async function buildCustomerOrderLink(order: any, label: string): Promise<string> {
+  return mintOrderCustomerLink({
+    sb: supabase as any,
+    companyId: order.company_id,
+    orderId: order.id,
+    label,
+  });
+}
+
+async function buildOrderPaymentLink(order: any): Promise<string> {
+  const fallback = `${process.env.NEXT_PUBLIC_APP_URL || "https://cateringms.com"}/client-portal/billing?orderId=${order.id}`;
+  try {
+    const { data } = await supabase
+      .from("invoices")
+      .select("public_token")
+      .eq("order_id", order.id)
+      .is("deleted_at", null)
+      .gt("balance_due", 0)
+      .neq("status", "paid")
+      .order("due_date", { ascending: true, nullsFirst: false })
+      .limit(1)
+      .maybeSingle();
+    return buildPayInvoiceUrlServer((data as any)?.public_token) || fallback;
+  } catch (e) {
+    console.warn("[whatsappIntegrationService] payment link lookup failed:", e);
+    return fallback;
+  }
 }
 
 export const whatsappIntegrationService = {
@@ -291,6 +321,7 @@ export const whatsappIntegrationService = {
         return false;
       }
 
+      const trackingLink = await buildCustomerOrderLink(order, "whatsapp-order-confirmation");
       const message: WhatsAppMessage = {
         to: profile.phone,
         type: "text",
@@ -300,7 +331,7 @@ export const whatsappIntegrationService = {
                 `Event Date: ${order.event_date}\n` +
                 `Location: ${(order as any).event_location || "TBD"}\n\n` +
                 `Thank you for your order! We'll send you updates as your delivery progresses.\n\n` +
-                `Track your order: ${process.env.NEXT_PUBLIC_APP_URL}/client-portal/tracking?orderId=${order.id}`
+                `Track your order: ${trackingLink}`
         }
       };
 
@@ -348,13 +379,14 @@ export const whatsappIntegrationService = {
         delivered: "✨ Your order has been delivered. Enjoy!"
       };
 
+      const trackingLink = await buildCustomerOrderLink(order, `whatsapp-delivery-${status}`);
       const message: WhatsAppMessage = {
         to: profile.phone,
         type: "text",
         text: {
           body: `${statusMessages[status] || "📦 Order Update"}\n\n` +
                 `Order #${order.id.substring(0, 8).toUpperCase()}\n\n` +
-                `Track live: ${process.env.NEXT_PUBLIC_APP_URL}/client-portal/tracking?orderId=${order.id}`
+                `Track live: ${trackingLink}`
         }
       };
 
@@ -392,6 +424,7 @@ export const whatsappIntegrationService = {
         return false;
       }
 
+      const paymentLink = await buildOrderPaymentLink(order);
       const message: WhatsAppMessage = {
         to: profile.phone,
         type: "text",
@@ -401,7 +434,7 @@ export const whatsappIntegrationService = {
                 `Amount Due: ${order.currency || "R"} ${order.total_amount}\n` +
                 `Due Date: ${order.event_date}\n\n` +
                 `Please complete your payment to confirm your booking.\n\n` +
-                `Pay now: ${process.env.NEXT_PUBLIC_APP_URL}/client-portal/billing?order=${order.id}`
+                `Pay now: ${paymentLink}`
         }
       };
 

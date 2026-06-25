@@ -2,6 +2,8 @@
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import Head from "next/head";
 import Link from "next/link";
+import { useRouter } from "next/router";
+import { useRef } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -66,6 +68,7 @@ function currencySymbolFor(code: string): string {
 
 export default function ClientBillingPage() {
   const { user, company } = useAuth() as any;
+  const router = useRouter();
   // CLI-B (client deep audit, CLI-10): unified tenant-scoped client-id
   // lookup. Same hook drives /billing here so future pages added under
   // /client-portal/ inherit the canonical resolver instead of
@@ -83,12 +86,14 @@ export default function ClientBillingPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [sortBy, setSortBy] = useState<"date" | "amount" | "status">("date");
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
+  const [deepLinkedInvoiceId, setDeepLinkedInvoiceId] = useState<string | null>(null);
   const [showInvoiceDetail, setShowInvoiceDetail] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   // Receipt dialog state. Lives at the page level (not the row) so the
   // dialog stays mounted across row reorders + the PaymentModal success
   // hand-off can target the same instance.
   const [receiptInvoiceId, setReceiptInvoiceId] = useState<string | null>(null);
+  const appliedDeepLinkRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (user && !clientIdsLoading) {
@@ -133,6 +138,49 @@ export default function ClientBillingPage() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, company?.id]);
+
+  useEffect(() => {
+    if (!router.isReady || loading || invoices.length === 0) return;
+    const invoiceId =
+      (typeof router.query.invoiceId === "string" && router.query.invoiceId) ||
+      (typeof router.query.invoice === "string" && router.query.invoice) ||
+      "";
+    const orderId = typeof router.query.orderId === "string" ? router.query.orderId : "";
+    const paid = router.query.paid != null;
+    const cancelled = router.query.cancelled != null;
+    if (!invoiceId && !orderId && !paid && !cancelled) return;
+    const key = `${invoiceId}|${orderId}|${paid ? "paid" : ""}|${cancelled ? "cancelled" : ""}`;
+    if (appliedDeepLinkRef.current === key) return;
+    appliedDeepLinkRef.current = key;
+
+    const target = invoiceId
+      ? invoices.find((inv) => inv.id === invoiceId || inv.invoice_number === invoiceId)
+      : orderId
+        ? invoices.find((inv) => inv.order_id === orderId)
+        : null;
+
+    if (target) {
+      setDeepLinkedInvoiceId(target.id);
+      setStatusFilter("all");
+      setSelectedInvoice(target);
+      setShowInvoiceDetail(true);
+      window.requestAnimationFrame(() => {
+        document.getElementById(`invoice-${target.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+      });
+    }
+
+    if (paid) {
+      toast({
+        title: "Payment received",
+        description: target ? `Invoice ${target.invoice_number} is updated below.` : "Your billing page is updated below.",
+      });
+    } else if (cancelled) {
+      toast({
+        title: "Payment cancelled",
+        description: target ? `Invoice ${target.invoice_number} is still open.` : "No payment was recorded.",
+      });
+    }
+  }, [router.isReady, router.query, loading, invoices, toast]);
 
   // Status filter + sort happen first; the fuzzy hook ranks the rest.
   const statusSortedInvoices = useMemo(() => {
@@ -482,10 +530,17 @@ export default function ClientBillingPage() {
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {filteredInvoices.map((invoice) => (
+                    {filteredInvoices.map((invoice) => {
+                      const isDeepLinked = deepLinkedInvoiceId === invoice.id;
+                      return (
                       <div
+                        id={`invoice-${invoice.id}`}
                         key={invoice.id}
-                        className="p-4 border border-slate-200 dark:border-slate-800 rounded-xl bg-white dark:bg-slate-900 hover:border-brand-primary/40 dark:hover:border-brand-primary/40 transition-colors"
+                        className={`p-4 border rounded-xl transition-colors ${
+                          isDeepLinked
+                            ? "border-amber-400 bg-amber-50/70 ring-2 ring-amber-200 dark:border-amber-700 dark:bg-amber-950/20 dark:ring-amber-900"
+                            : "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-brand-primary/40 dark:hover:border-brand-primary/40"
+                        }`}
                       >
                         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                           <div className="flex-1">
@@ -561,7 +616,8 @@ export default function ClientBillingPage() {
                           </div>
                         </div>
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </PortalCard>

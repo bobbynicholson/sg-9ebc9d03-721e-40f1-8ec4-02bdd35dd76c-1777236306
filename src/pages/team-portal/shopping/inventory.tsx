@@ -31,10 +31,12 @@ import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { useToast } from "@/hooks/use-toast";
 import { inventoryService, type Inventory } from "@/services/inventoryService";
 import { PortalShell, PortalHeader, PortalCard, PortalCardHeader, StatTile } from "@/components/portal/ui";
+import { useTenantHref } from "@/lib/tenantUrl";
 
 export default function ShoppingInventoryPage() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { withSlug } = useTenantHref();
   // Phase 11 #9: tenant currency for the stock-value stat card +
   // every cost / cost-per-unit render below. Drops the hardcoded
   // R prefix so a UK / US tenant sees the right symbol.
@@ -274,7 +276,7 @@ export default function ShoppingInventoryPage() {
                       description: `${j.item_count} item${j.item_count === 1 ? "" : "s"} on the list. Review supplier + quantity before assigning.`,
                     });
                     if (j.list_id) {
-                      window.location.href = `/admin/shopping?listId=${j.list_id}`;
+                      window.location.href = withSlug(`/team-portal/shopping/orders?listId=${j.list_id}`);
                     }
                   } catch (e: any) {
                     toast({

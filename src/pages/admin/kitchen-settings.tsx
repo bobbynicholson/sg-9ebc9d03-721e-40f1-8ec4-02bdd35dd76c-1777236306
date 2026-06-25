@@ -48,7 +48,7 @@ function KitchenSettingsAdminPage() {
 
 export default function ProtectedKitchenSettingsAdminPage() {
   // KS-B + I.30 preserved role gate. The intro copy says
-  // "Owner / admin only" - allowlist mirrors the original page's
+  // admin-managed rules - allowlist mirrors the original page's
   // four-role set so the OWNER persona doesn't 403 here.
   return (
     <ProtectedRoute allowedRoles={[

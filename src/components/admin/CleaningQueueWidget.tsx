@@ -25,6 +25,7 @@ import {
   type CleaningMethod,
 } from "@/services/cleaningJobsService";
 import { useReportWidgetError } from "@/components/dashboard/WidgetErrorBoundary";
+import { useTenantHref } from "@/lib/tenantUrl";
 
 const METHOD_TONE: Record<CleaningMethod, { label: string; chip: string; icon: any }> = {
   dishwasher: {
@@ -58,6 +59,7 @@ function formatEta(plannedEnd: string): string {
 
 export function CleaningQueueWidget({ companyId }: { companyId: string | null }) {
   const { reportError, retryNonce } = useReportWidgetError();
+  const { withSlug } = useTenantHref();
   const [rows, setRows] = useState<CleaningJobWithEquipment[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -102,7 +104,7 @@ export function CleaningQueueWidget({ companyId }: { companyId: string | null })
               Equipment currently being cleaned. ETA = back in inventory.
             </CardDescription>
           </div>
-          <Link href="/team-portal/cleaning/dashboard">
+          <Link href={withSlug("/team-portal/cleaning/dashboard")}>
             <Button variant="ghost" size="sm" className="text-cyan-700">
               All cleaning <ArrowRight className="w-3.5 h-3.5 ml-1" />
             </Button>
@@ -125,7 +127,7 @@ export function CleaningQueueWidget({ companyId }: { companyId: string | null })
               return (
                 <li key={r.id}>
                   <Link
-                    href="/team-portal/cleaning/dashboard"
+                    href={withSlug("/team-portal/cleaning/dashboard")}
                     className="py-2 flex items-center gap-3 hover:bg-cyan-50/60 rounded transition"
                   >
                     <Badge variant="outline" className={`shrink-0 ${meta.chip} text-[10px] inline-flex items-center gap-1`}>

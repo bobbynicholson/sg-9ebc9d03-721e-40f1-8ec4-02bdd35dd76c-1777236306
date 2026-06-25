@@ -1706,7 +1706,7 @@ function MenuPage() {
                   <div className="mt-3 pt-3 border-t border-slate-100 space-y-1.5">
                     <Label className="flex items-center gap-1 text-xs text-slate-600">
                       Cost per unit (R)
-                      <InfoTooltip content="Per-unit COGS for this menu item - food cost, packaging, anything you spend to deliver one serving. Owner / admin only; staff never see this number. Drives the Profit Margin tile + Cashflow Forecast on /admin/financial-dashboard. Saved at quote-accept time so historical reports stay stable." />
+                      <InfoTooltip content="Per-unit COGS for this menu item - food cost, packaging, anything you spend to deliver one serving. Finance roles only; staff never see this number. Drives the Profit Margin tile + Cashflow Forecast on /admin/financial-dashboard. Saved at quote-accept time so historical reports stay stable." />
                     </Label>
                     <Input
                       type="number"

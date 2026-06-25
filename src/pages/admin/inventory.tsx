@@ -47,6 +47,7 @@ import Link from "next/link";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { inventoryService } from "@/services/inventoryService";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTenantHref } from "@/lib/tenantUrl";
 import { useOrderRefreshSignal } from "@/hooks/useOrderRefreshSignal";
 import { usePricingMode } from "@/hooks/usePricingMode";
 import { toExVat, toIncVat } from "@/lib/vatMath";
@@ -211,6 +212,7 @@ function readableTransactionType(t: string): string {
 // ProtectedInventoryPage being defined - it was orphaned.
 function AdminInventory() {
   const { user } = useAuth();
+  const { withSlug } = useTenantHref();
   const { toast } = useToast();
   const companyId = (user as any)?.company_id ?? null;
   // TIGHTEN I.119 (2026-06-02): refetch when an order edit lands in any tab.
@@ -1130,7 +1132,7 @@ function AdminInventory() {
                   // Phase 3d shopping sweep: re-pointed from /alerts
                   // (legacy passive table) to /buy-list (canonical
                   // action surface with bulk-add).
-                  <Link href="/team-portal/shopping/buy-list">
+                  <Link href={withSlug("/team-portal/shopping/buy-list")}>
                     <Button size="sm" variant="outline" className="gap-2">
                       <TrendingDown className="w-4 h-4" />
                       Build shopping list

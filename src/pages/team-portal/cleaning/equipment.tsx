@@ -20,6 +20,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { PortalShell, PortalHeader, PortalCard, StatTile } from "@/components/portal/ui";
+import { useTenantHref } from "@/lib/tenantUrl";
 
 interface Equipment {
   id: string;
@@ -44,6 +45,7 @@ const conditionTone: Record<string, string> = {
 export default function CleaningEquipmentPage() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { withSlug } = useTenantHref();
 
   const [items, setItems] = useState<Equipment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -246,7 +248,7 @@ export default function CleaningEquipmentPage() {
                           "how do I clean this category?". */}
                       {i.category && (
                         <Link
-                          href={`/team-portal/cleaning/workflows?category=${encodeURIComponent(i.category)}`}
+                          href={withSlug(`/team-portal/cleaning/workflows?category=${encodeURIComponent(i.category)}`)}
                           className="inline-flex items-center text-xs text-amber-700 dark:text-amber-400 hover:underline"
                           title={`How to clean ${i.category}`}
                         >
@@ -271,7 +273,7 @@ export default function CleaningEquipmentPage() {
           <DialogHeader>
             <DialogTitle>Verify {verifyItem?.name}</DialogTitle>
             <DialogDescription>
-              {verifyItem && `Sent out ${verifyItem.quantity ?? 0}, check what came back. Missing items auto-bill the client at R ${Number(verifyItem.replacement_cost || 0).toFixed(0)} each.`}
+              {verifyItem && `Sent out ${verifyItem.quantity ?? 0}, check what came back. Missing items are recorded for admin review at R ${Number(verifyItem.replacement_cost || 0).toFixed(0)} each.`}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">

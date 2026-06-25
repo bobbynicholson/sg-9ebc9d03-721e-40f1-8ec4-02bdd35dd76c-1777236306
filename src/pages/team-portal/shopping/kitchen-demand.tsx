@@ -42,6 +42,8 @@ export default function ShoppingKitchenDemandPage() {
   const { regionFilterId } = useRegionFilter();
   const { toast } = useToast();
   const companyId = (profile as any)?.company_id || user?.company_id;
+  const role = String((profile as any)?.role || (user as any)?.role || "");
+  const canOpenMenuBuilder = ["super_admin", "owner", "company_admin", "admin"].includes(role);
 
   const [horizon, setHorizon] = useState(7);
   const [demand, setDemand] = useState<IngredientDemand[]>([]);
@@ -259,13 +261,18 @@ export default function ShoppingKitchenDemandPage() {
                     ? "Everything in this window is covered by stock. Toggle 'Shortfall only' off to see the full pull list."
                     : "Nothing matches that search. Try a different ingredient or unit."}
               </p>
-              {demand.length === 0 && (
+              {demand.length === 0 && canOpenMenuBuilder && (
                 <Link
-                  href="/admin/menu"
+                  href={withSlug("/admin/menu")}
                   className="inline-flex items-center gap-1.5 mt-4 px-3 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium transition-[background-color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97]"
                 >
                   Open menu builder <ExternalLink className="w-3.5 h-3.5" />
                 </Link>
+              )}
+              {demand.length === 0 && !canOpenMenuBuilder && (
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-4">
+                  Ask an admin or owner to attach recipes to the menu items.
+                </p>
               )}
             </PortalCard>
           ) : (
@@ -357,8 +364,14 @@ export default function ShoppingKitchenDemandPage() {
 
           {/* Helper line */}
           <p className="text-xs text-slate-600 dark:text-slate-400 mt-4 text-center">
-            Demand math comes from menu item recipes, if something's missing, ask the owner to attach a recipe in
-            <Link href="/admin/menu" className="text-amber-700 hover:text-amber-800 dark:text-amber-500 dark:hover:text-amber-400 ml-1 underline">/admin/menu</Link>.
+            Demand math comes from menu item recipes. If something&apos;s missing, {canOpenMenuBuilder ? (
+              <>
+                attach the recipe in
+                <Link href={withSlug("/admin/menu")} className="text-amber-700 hover:text-amber-800 dark:text-amber-500 dark:hover:text-amber-400 ml-1 underline">Menu builder</Link>.
+              </>
+            ) : (
+              "ask an admin or owner to attach the recipe."
+            )}
           </p>
         </PortalShell>
         <Footer />

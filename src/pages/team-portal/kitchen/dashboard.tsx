@@ -1031,7 +1031,7 @@ export default function KitchenDashboard() {
   return (
     <>
       <Head>
-        <title>Kitchen dashboard - CateringMS</title>
+        <title>Kitchen today - CateringMS</title>
       </Head>
       <NoIndexMeta />
 
@@ -1598,7 +1598,7 @@ export default function KitchenDashboard() {
                     <Badge variant="outline" className="bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-900 dark:text-amber-300 dark:border-amber-800 text-[10px]">
                       {needsClosureOrders.length}
                     </Badge>
-                    <InfoTooltip content="Orders whose event was hours ago but the team didn't tick them through. Force-close cascades all the prep tasks + ready + collected + delivered stamps in one click. Audit-logged. Owner / admin only." />
+                    <InfoTooltip content="Orders whose event was hours ago but the team didn't tick them through. Force-close cascades all the prep tasks + ready + collected + delivered stamps in one click. Audit-logged. Admin roles only." />
                   </span>
                 }
               />

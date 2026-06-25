@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { notificationService } from "./notificationService";
 import { UserRole } from "@/types/app";
 import { toLocalISO } from "@/lib/localDate";
+import { mintOrderCustomerLink } from "@/lib/customerLinksServer";
 
 // Admin-side roles that should receive dispatch / driver-status pings.
 // Audit (May 2026) found notifyAdminOfConfirmation + sendEnRouteAlert
@@ -1131,7 +1132,7 @@ export const driverConfirmationService = {
           : `${driver.full_name} is on the way to collect Order #${order.order_number}. Get it ready and sign it over when they arrive.`,
         targetRoles: ["kitchen_manager" as any, "kitchen_staff" as any],
         priority: atKitchen ? "high" : "medium",
-        link: "/team-portal/kitchen/dashboard",
+        link: "/team-portal/kitchen/today",
         relatedEntityType: "order",
         relatedEntityId: orderId,
       });
@@ -1174,15 +1175,18 @@ export const driverConfirmationService = {
       // into the WhatsApp body, and the link now points at the actual
       // client-portal tracking route (the /tracking/client URL did
       // not exist in this codebase).
-      const baseUrl = typeof window !== "undefined"
-        ? window.location.origin
-        : (process.env.NEXT_PUBLIC_APP_URL || "https://cateringms.com");
+      const trackingLink = await mintOrderCustomerLink({
+        sb: supabase as any,
+        companyId: order.company_id,
+        orderId,
+        label: `driver-whatsapp-${templateKey}`,
+      });
       let message = template.template_content;
       const variables: Record<string, string> = {
         driver_name: order.driver?.full_name || 'Your driver',
         order_number: order.order_number || '',
         collection_time: order.event_time || '',
-        tracking_link: `${baseUrl}/client-portal/tracking?orderId=${orderId}`,
+        tracking_link: trackingLink,
         venue_name: order.venue_address || ''
       };
 

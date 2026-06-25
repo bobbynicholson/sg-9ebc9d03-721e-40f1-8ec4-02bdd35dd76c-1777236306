@@ -821,21 +821,12 @@ export default function KitchenStockPage() {
               <p className="text-sm text-slate-700 dark:text-slate-300 text-center">
                 <strong className="text-slate-900 dark:text-white">{pushResult.itemCount}</strong> item{pushResult.itemCount === 1 ? "" : "s"} pushed.
               </p>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => { setPushOpen(false); setPushResult(null); }}
-                >
-                  Done
-                </Button>
-                <a
-                  href={user?.company_slug ? `/${user.company_slug}/team-portal/shopping` : "/team-portal/shopping"}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-md bg-brand-primary hover:opacity-90 text-white text-sm font-medium"
-                >
-                  <ShoppingCart className="w-4 h-4" />
-                  Open shopping
-                </a>
-              </div>
+              <Button
+                variant="outline"
+                onClick={() => { setPushOpen(false); setPushResult(null); }}
+              >
+                Done
+              </Button>
             </div>
           ) : (
             <>

@@ -43,6 +43,13 @@ interface EquipmentRow {
 function CleaningDashboardInner() {
   const { user } = useAuth();
   const router = useRouter();
+  const canManageCleaning = [
+    UserRole.CLEANING_MANAGER,
+    UserRole.CLEANING_STAFF,
+    UserRole.COMPANY_ADMIN,
+    UserRole.ADMIN,
+    UserRole.SUPER_ADMIN,
+  ].includes(user?.role as UserRole);
   // TIGHTEN I.119 (2026-06-02): refetch when an order edit lands in any tab.
   const refreshSignal = useOrderRefreshSignal(user?.company_id ?? null);
   const [activeTab, setActiveTab] = useState("verification");
@@ -316,9 +323,11 @@ function CleaningDashboardInner() {
               but was imported and never rendered. Wave 39 also fixed
               4 stacked bugs in the widget itself (company_id scoped
               wrong, missing schema columns added via migration). */}
-          <div id="duty" className="scroll-mt-20 lg:scroll-mt-6">
-            <CleaningDutyWidget />
-          </div>
+          {canManageCleaning && (
+            <div id="duty" className="scroll-mt-20 lg:scroll-mt-6">
+              <CleaningDutyWidget />
+            </div>
+          )}
 
           {/* CLN2-F (cleaning deep audit, CLN2-15): pre-event
               cleanliness checklist for tomorrow's events. The
@@ -326,7 +335,16 @@ function CleaningDashboardInner() {
               loop that KIT2-O's chip was a v1 stand-in for. Mobile
               first - accordion strip per event so a 6-event day
               doesn't render a 30-cell table on a tablet. */}
-          <PreEventCleanlinessPanel />
+          {canManageCleaning ? (
+            <PreEventCleanlinessPanel />
+          ) : (
+            <PortalCard className="border-amber-200 bg-amber-50/70 dark:border-amber-900 dark:bg-amber-950/20">
+              <p className="text-sm font-semibold text-amber-900 dark:text-amber-200">Cleaning status is read-only here</p>
+              <p className="mt-1 text-sm text-amber-800 dark:text-amber-300">
+                Kitchen can monitor returns and readiness. Cleaning clock-in, washing, verification, and damage updates stay with the cleaning team.
+              </p>
+            </PortalCard>
+          )}
 
           {/* Wave 70.24 - new event-grouped board is the primary
               cleaning surface. Shows expected handovers (anticipation),
@@ -345,9 +363,11 @@ function CleaningDashboardInner() {
               event-grouped board.
               Wave 70.28 - id="washing" is the deep-link target from
               the cleaning nav "Washing" item + live state strip. */}
-          <div id="washing" className="scroll-mt-20 lg:scroll-mt-6">
-            <CleaningJobsQueue />
-          </div>
+          {canManageCleaning && (
+            <div id="washing" className="scroll-mt-20 lg:scroll-mt-6">
+              <CleaningJobsQueue />
+            </div>
+          )}
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8">
             <StatTile
@@ -402,9 +422,11 @@ function CleaningDashboardInner() {
                             </p>
                           </div>
                         </div>
-                        <Button size="sm" variant="outline" onClick={() => openInspect(item)} className="flex-shrink-0">
-                          Inspect
-                        </Button>
+                        {canManageCleaning && (
+                          <Button size="sm" variant="outline" onClick={() => openInspect(item)} className="flex-shrink-0">
+                            Inspect
+                          </Button>
+                        )}
                       </div>
                     ))}
                   {equipment.filter(e => e.status === 'cleaning' || e.status === 'damaged').length === 0 && (
@@ -456,7 +478,13 @@ function CleaningDashboardInner() {
                 <p className="text-sm text-slate-600 dark:text-slate-400 -mt-2 mb-4">
                   Verify returned equipment from functions and report any damages or losses
                 </p>
-                <EquipmentVerificationPanel />
+                {canManageCleaning ? (
+                  <EquipmentVerificationPanel />
+                ) : (
+                  <p className="text-sm text-slate-600 dark:text-slate-400">
+                    Cleaning verification is handled by the cleaning team. Kitchen can use the return board above for readiness.
+                  </p>
+                )}
               </PortalCard>
             </TabsContent>
 
@@ -467,12 +495,14 @@ function CleaningDashboardInner() {
                   <h2 className="text-sm font-semibold text-slate-900 dark:text-white">Flag damaged equipment</h2>
                 </div>
                 <p className="text-sm text-slate-600 dark:text-slate-400 -mt-2 mb-4">
-                  Mark broken, lost, or damaged items. Cost breakdown lives on /admin/equipment.
+                  {canManageCleaning
+                    ? "Mark broken, lost, or damaged items. Cost breakdown lives on /admin/equipment."
+                    : "Damage reports are read-only for kitchen roles. Ask cleaning or admin to update the damage log."}
                 </p>
                 {/* CLN2-I: cleaner gets a tight flag-form + recent
                     strip only. Cost analytics moved to admin. */}
                 <div className="space-y-4">
-                  <DamageFlagForm />
+                  {canManageCleaning && <DamageFlagForm />}
                   <RecentDamagesStrip />
                 </div>
               </PortalCard>
@@ -623,7 +653,7 @@ function CleaningDashboardInner() {
           + mark-available (requires all SOP checks), or report
           damage (routes through equipmentTrackingService.reportDamage
           for the admin damages tab). */}
-      <Dialog open={!!inspectItem} onOpenChange={(o) => { if (!o) closeInspect(); }}>
+      <Dialog open={canManageCleaning && !!inspectItem} onOpenChange={(o) => { if (!o) closeInspect(); }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">

@@ -1255,7 +1255,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
       `Hi {{first_name}},\n\n` +
       `{{tenant_name}} issued the deposit invoice {{invoice_number}} for {{event_name}}. Deposit due: {{amount}}.\n\n` +
       `Open the invoice: {{invoice_link}}\n\n` +
-      `Once the deposit lands, your event date is locked in.\n\n` +
+      `Once the payment clears, your event date is locked in.\n\n` +
       `Thanks,\n{{tenant_name}}`,
     variables: [
       { name: "first_name",     description: "Client's first name",          example: "Bobby" },
@@ -1700,8 +1700,8 @@ const DELIVERY_WIRING: Record<string, { delivery: MessageDelivery; trigger?: str
   whatsapp_quote_accepted:   { delivery: "manual", trigger: "Click WhatsApp on an accepted quote.",              settingsLink: "/admin/quotes" },
   whatsapp_event_week:       { delivery: "manual", trigger: "Click WhatsApp on an upcoming event in /admin/orders.", settingsLink: "/admin/orders" },
   whatsapp_event_day_morning:{ delivery: "manual", trigger: "Click WhatsApp on an event-day order in /admin/orders.", settingsLink: "/admin/orders" },
-  whatsapp_event_arrived:    { delivery: "manual", trigger: "Click On-site WhatsApp on a delivery in /admin/live-operations.", settingsLink: "/admin/live-operations" },
-  whatsapp_delay_alert:      { delivery: "manual", trigger: "Click Running late WhatsApp on a delivery in /admin/live-operations.", settingsLink: "/admin/live-operations" },
+  whatsapp_event_arrived:    { delivery: "manual", trigger: "Click On-site WhatsApp on a delivery in /admin/tracking.", settingsLink: "/admin/tracking" },
+  whatsapp_delay_alert:      { delivery: "manual", trigger: "Click Running late WhatsApp on a delivery in /admin/tracking.", settingsLink: "/admin/tracking" },
 
   // --- MANUAL: staff WhatsApp ---
   whatsapp_staff_welcome_login:    { delivery: "manual", trigger: "Click WhatsApp welcome on a staff invite in /admin/users.", settingsLink: "/admin/users" },

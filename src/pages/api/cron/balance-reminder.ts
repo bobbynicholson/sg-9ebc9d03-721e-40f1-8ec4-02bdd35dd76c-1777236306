@@ -4,6 +4,7 @@ import { getServiceSupabase } from "@/lib/supabase/service";
 import { requireCronAuth } from "@/lib/cronAuth";
 import { recordCronHeartbeat } from "@/lib/cronHeartbeat";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { buildPayInvoiceUrlServer } from "@/lib/customerLinksServer";
 
 
 const CRON_NAME = "balance-reminder";
@@ -79,12 +80,19 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         const { resolveEmailTemplate } = await import("@/services/email/templateResolver");
         const { emailService } = await import("@/services/emailService");
 
+        const invoiceLink = buildPayInvoiceUrlServer(inv.public_token) ||
+          `${process.env.NEXT_PUBLIC_APP_URL || "https://cateringms.com"}/client-portal/billing?invoiceId=${inv.id}`;
+        const formattedAmount = `R ${Number(inv.balance_due || 0).toFixed(2)}`;
         const variables: Record<string, string> = {
           first_name: ((order as any).client_name || "there").split(" ")[0],
           client_name: (order as any).client_name || "there",
           order_number: (order as any).order_number || (order as any).id,
           event_name: (order as any).event_name || "your event",
-          balance_amount: Number(inv.balance_due || 0).toFixed(2),
+          amount: formattedAmount,
+          balance_amount: formattedAmount,
+          amount_due: formattedAmount,
+          invoice_link: invoiceLink,
+          pay_link: invoiceLink,
           due_date: inv.due_date || "soon",
         };
         const resolved = await resolveEmailTemplate({

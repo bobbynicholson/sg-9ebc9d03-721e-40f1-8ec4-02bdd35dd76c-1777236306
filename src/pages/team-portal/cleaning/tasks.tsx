@@ -14,6 +14,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { toLocalISO } from "@/lib/localDate";
+import { useTenantHref } from "@/lib/tenantUrl";
 
 interface Schedule {
   id: string;
@@ -41,6 +42,7 @@ const statusTone: Record<string, string> = {
 export default function CleaningTasksPage() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { withSlug } = useTenantHref();
 
   const [tasks, setTasks] = useState<Schedule[]>([]);
   const [loading, setLoading] = useState(true);
@@ -138,7 +140,7 @@ export default function CleaningTasksPage() {
             subtitle={
               <>
                 Scheduled checklist work lives here. Equipment returns and washing queues stay on the Cleaning desk.{" "}
-                <a href="/team-portal/cleaning/schedules" className="text-amber-600 dark:text-amber-400 underline">Manage the recurring schedule</a> if you need to add a new repeating area.
+                <a href={withSlug("/team-portal/cleaning/schedules")} className="text-amber-600 dark:text-amber-400 underline">Manage the recurring schedule</a> if you need to add a new repeating area.
               </>
             }
             icon={ClipboardCheck}

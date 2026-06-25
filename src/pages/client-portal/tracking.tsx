@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { MapPin, Clock, Package, User, Phone, Navigation, RefreshCw } from "lucide-react";
 import Head from "next/head";
 import Link from "next/link";
+import { useRouter } from "next/router";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { useAuth } from "@/contexts/AuthContext";
 import { ChatBot } from "@/components/ChatBot";
@@ -13,6 +14,7 @@ import { ClientNav } from "@/components/navigation/ClientNav";
 import { PortalShell, PortalHeader, PortalCard } from "@/components/portal/ui";
 import { BookingHeader } from "@/components/booking/BookingHeader";
 import { supabase } from "@/integrations/supabase/client";
+import { useTenantHref } from "@/lib/tenantUrl";
 
 const ClientTrackingMap = dynamic(
   () => import("@/components/tracking/ClientTrackingMap").then((mod) => mod.ClientTrackingMap),
@@ -59,6 +61,9 @@ interface DriverLocation {
 
 export default function ClientTracking() {
   const { user, company } = useAuth() as any;
+  const router = useRouter();
+  const { withSlug } = useTenantHref();
+  const requestedOrderId = typeof router.query.orderId === "string" ? router.query.orderId : null;
   const [orders, setOrders] = useState<OrderDetails[]>([]);
   const [selectedOrder, setSelectedOrder] = useState<OrderDetails | null>(null);
   const [driverLocation, setDriverLocation] = useState<DriverLocation | null>(null);
@@ -71,6 +76,7 @@ export default function ClientTracking() {
   // deliveries" silently substituted for "we couldn't reach the
   // server" was confusing customers.
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [requestedOrderMissing, setRequestedOrderMissing] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [lastRefresh, setLastRefresh] = useState(new Date());
 
@@ -84,7 +90,7 @@ export default function ClientTracking() {
 
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, company?.id]);
+  }, [user, company?.id, requestedOrderId]);
 
   const loadOrders = async (silent = false) => {
     if (!silent) setLoading(true);
@@ -193,10 +199,15 @@ export default function ClientTracking() {
         (order.status === "in_transit" && !!order.driver_id) ||
         (order.collecting && !!order.collection_driver_id)
       ));
+      const requestedLiveTrip = requestedOrderId
+        ? liveTrips.find((order: OrderDetails) => order.id === requestedOrderId)
+        : null;
+      setRequestedOrderMissing(Boolean(requestedOrderId && !requestedLiveTrip));
 
       setOrders(liveTrips as any);
 
       const nextSelectedOrder =
+        requestedLiveTrip ||
         (selectedOrder && liveTrips.find((order: OrderDetails) => order.id === selectedOrder.id)) ||
         liveTrips[0] ||
         null;
@@ -453,17 +464,20 @@ export default function ClientTracking() {
                 <div className="w-16 h-16 mx-auto mb-4 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 flex items-center justify-center">
                   <Package className="w-8 h-8 text-slate-400 dark:text-slate-500" />
                 </div>
-                <h3 className="text-xl font-semibold text-slate-900 dark:text-white mb-2">No live trips right now</h3>
+                <h3 className="text-xl font-semibold text-slate-900 dark:text-white mb-2">
+                  {requestedOrderMissing ? "That booking is not live right now" : "No live trips right now"}
+                </h3>
                 <p className="text-slate-600 dark:text-slate-400 max-w-md mx-auto mb-5">
-                  Live tracking appears once a delivery is in transit or an equipment collection is underway.
-                  Use Bookings for upcoming, completed, and full order history.
+                  {requestedOrderMissing
+                    ? "Live tracking appears only while the driver is in transit or an equipment collection is underway. Open Bookings for the full status."
+                    : "Live tracking appears once a delivery is in transit or an equipment collection is underway. Use Bookings for upcoming, completed, and full order history."}
                 </p>
                 <div className="inline-flex gap-2">
                   <Button asChild className="bg-brand-primary hover:opacity-90 text-white">
-                    <Link href="/client-portal/my-orders">View bookings</Link>
+                    <Link href={withSlug(requestedOrderId ? `/client-portal/my-orders?orderId=${requestedOrderId}` : "/client-portal/my-orders")}>View bookings</Link>
                   </Button>
                   <Button asChild variant="outline">
-                    <Link href="/client-portal/dashboard">Back to dashboard</Link>
+                    <Link href={withSlug("/client-portal/dashboard")}>Back to dashboard</Link>
                   </Button>
                 </div>
               </div>
@@ -503,6 +517,17 @@ export default function ClientTracking() {
           />
 
           <div className="space-y-6">
+          {requestedOrderMissing && requestedOrderId && (
+            <PortalCard className="border-amber-200 bg-amber-50/70 dark:border-amber-900 dark:bg-amber-950/20">
+              <p className="text-sm font-semibold text-amber-900 dark:text-amber-200">Requested booking is not live right now</p>
+              <p className="mt-1 text-sm text-amber-800 dark:text-amber-300">
+                Showing another live trip. Open Bookings to view the requested order&apos;s full status.
+              </p>
+              <Button asChild size="sm" variant="outline" className="mt-3">
+                <Link href={withSlug(`/client-portal/my-orders?orderId=${requestedOrderId}`)}>View requested booking</Link>
+              </Button>
+            </PortalCard>
+          )}
           {/* Wave 70.45c - canonical BookingHeader (client variant).
               Same component the client sees on every event document
               (quote, order tracking, order detail). Replaces the

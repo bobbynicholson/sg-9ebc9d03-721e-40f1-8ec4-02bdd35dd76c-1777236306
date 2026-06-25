@@ -359,7 +359,7 @@ export function PaymentModal({ invoice, open, onClose, onPaymentSuccess, onShowR
               reference <code className="px-1.5 py-0.5 rounded bg-slate-100 font-mono">{invoice.invoice_number}</code>.
             </p>
             <p>
-              If the reference is wrong or the amount doesn't match, the deposit might bounce
+              If the reference is wrong or the amount doesn't match, the transfer might bounce
               back to you and the invoice stays unpaid - so double-check before confirming.
             </p>
           </div>
@@ -585,7 +585,7 @@ function EftPanel({
     <div className="space-y-4">
       {/*
         The reference is the entire point of the flow - if the client
-        types something else into their banking app, the deposit becomes
+        types something else into their banking app, the payment becomes
         a needle in a haystack on the caterer's side. Make it the
         biggest, most copy-able thing on the screen.
       */}

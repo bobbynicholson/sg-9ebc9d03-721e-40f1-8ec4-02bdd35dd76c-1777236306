@@ -24,7 +24,7 @@ const CRON_NAME = "deposit-reminder";
  * Pacing: one reminder per 3 days per order (email_automation_log
  * dedup window), capped at 3 reminders total - after that it's an
  * operator conversation, not an automation. Stops the moment the
- * deposit lands (deposit_paid flips) or the event date passes.
+ * deposit is received (deposit_paid flips) or the event date passes.
  *
  * Auth: Vercel cron bearer OR super_admin session.
  */

@@ -593,7 +593,7 @@ function DriverDashboardInner() {
                     above is informational; this chip is the action. */}
                 {!loading && jobs.length > 0 && (
                   <Link
-                    href="/team-portal/driver/routes"
+                    href={withSlug("/team-portal/driver/routes")}
                     className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-brand-primary/20 bg-brand-primary/10 text-sm font-medium text-brand-primary hover:bg-brand-primary/20 transition-colors duration-150 dark:border-brand-primary/20 dark:bg-brand-primary/20 dark:text-brand-primary dark:hover:bg-brand-primary/30"
                   >
                     <RouteIcon className="w-3.5 h-3.5" />

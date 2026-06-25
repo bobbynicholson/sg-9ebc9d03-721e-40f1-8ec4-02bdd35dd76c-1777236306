@@ -28,6 +28,7 @@ import { captureException } from "@/lib/observability";
 import { onOrderUpdated } from "@/lib/events/orderEvents";
 import { orderDisplayName } from "@/lib/orderDisplayName";
 import { RefreshCw } from "lucide-react";
+import { useTenantHref } from "@/lib/tenantUrl";
 
 interface DemandRow {
   order_id: string;
@@ -87,6 +88,7 @@ export default function KitchenPrepListPage() {
   // view-switch into the kitchen portal still see the link so they
   // can fix recipes inline.
   const canEditMenu = canAccessAdminDashboard((profile?.role || "") as UserRole);
+  const { withSlug } = useTenantHref();
   const { regionFilterId } = useRegionFilter();
   const { toast } = useToast();
   const [rows, setRows] = useState<DemandRow[]>([]);
@@ -690,7 +692,7 @@ export default function KitchenPrepListPage() {
                         view-switched into the kitchen portal still
                         see it so they can fix recipes inline. */}
                     {canEditMenu && (
-                      <Link href="/admin/menu" className="inline-flex items-center gap-1 text-xs text-brand-primary hover:opacity-80 hover:underline mt-3 font-semibold">
+                    <Link href={withSlug("/admin/menu")} className="inline-flex items-center gap-1 text-xs text-brand-primary hover:opacity-80 hover:underline mt-3 font-semibold">
                         Open menu editor <ExternalLink className="w-3 h-3" />
                       </Link>
                     )}
@@ -794,12 +796,12 @@ export default function KitchenPrepListPage() {
                     The menu items on these orders don&apos;t have recipes attached, so the prep list can&apos;t show ingredients. Open the Production grid to see prep tasks (which use simpler timing fields), or ask admin to add recipes in <span className="font-mono text-xs">Menu &rarr; edit item &rarr; Recipe</span>.
                   </p>
                   <div className="inline-flex items-center gap-3 mt-3">
-                    <Link href="/team-portal/kitchen/production" className="inline-flex items-center gap-1 text-xs text-brand-primary hover:opacity-80 hover:underline font-semibold">
+                    <Link href={withSlug("/team-portal/kitchen/production")} className="inline-flex items-center gap-1 text-xs text-brand-primary hover:opacity-80 hover:underline font-semibold">
                       Open production <ExternalLink className="w-3 h-3" />
                     </Link>
                     {/* Wave 70.44b - role-gated; see comment above. */}
                     {canEditMenu && (
-                      <Link href="/admin/menu" className="inline-flex items-center gap-1 text-xs text-slate-600 dark:text-slate-400 hover:underline font-semibold">
+                      <Link href={withSlug("/admin/menu")} className="inline-flex items-center gap-1 text-xs text-slate-600 dark:text-slate-400 hover:underline font-semibold">
                         Add recipes <ExternalLink className="w-3 h-3" />
                       </Link>
                     )}

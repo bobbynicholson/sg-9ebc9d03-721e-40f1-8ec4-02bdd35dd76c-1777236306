@@ -1,5 +1,6 @@
 ﻿import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRef } from "react";
 import { useRouter } from "next/router";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -68,6 +69,11 @@ export default function MyOrders() {
     (typeof router.query.company_slug === "string" && router.query.company_slug) ||
     (user as any)?.user_metadata?.last_company_slug ||
     "";
+  const targetOrderId =
+    (typeof router.query.orderId === "string" && router.query.orderId) ||
+    (typeof router.query.focus === "string" && router.query.focus) ||
+    "";
+  const clientPortalHref = (href: string) => resolvedSlug ? `/${resolvedSlug}${href}` : href;
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "active" | "completed">("all");
@@ -100,6 +106,7 @@ export default function MyOrders() {
   const { toast } = useToast();
   // TIGHTEN I.119 (2026-06-02): refetch when an order edit lands - admin moving the event date should update the client view immediately.
   const refreshSignal = useOrderRefreshSignal(company?.id ?? null);
+  const highlightedOrderRef = useRef<string | null>(null);
 
   // Pull a refund preview when the cancel/postpone dialog opens so the
   // client sees what they'd get back before submitting.
@@ -212,6 +219,17 @@ export default function MyOrders() {
     })();
     return () => { cancelled = true; };
   }, [user, company?.id, refreshSignal]);
+
+  useEffect(() => {
+    if (!targetOrderId || loading || orders.length === 0) return;
+    if (!orders.some((order) => order.id === targetOrderId)) return;
+    setFilter("all");
+    if (highlightedOrderRef.current === targetOrderId) return;
+    highlightedOrderRef.current = targetOrderId;
+    window.requestAnimationFrame(() => {
+      document.getElementById(`order-${targetOrderId}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+  }, [targetOrderId, loading, orders]);
 
   const filteredOrders = orders.filter((o) => {
     // "Completed" tab covers both `delivered` (driver dropped off,
@@ -334,11 +352,15 @@ export default function MyOrders() {
                     const clientTl = order.status !== "cancelled"
                       ? toClientTimeline(computeOrderTimeline({ order }))
                       : null;
+                    const isTargetOrder = targetOrderId === order.id;
                     return (
                     <div
+                      id={`order-${order.id}`}
                       key={order.id}
                       className={`p-4 md:p-6 border rounded-2xl transition-colors duration-200 ${
-                        clientTl?.blocked
+                        isTargetOrder
+                          ? "border-amber-400 bg-amber-50/70 ring-2 ring-amber-200 dark:border-amber-700 dark:bg-amber-950/20 dark:ring-amber-900"
+                          : clientTl?.blocked
                           ? "border-l-4 border-l-rose-500 border-y-rose-100 border-r-rose-100 bg-rose-50/40 dark:border-l-rose-500 dark:border-y-rose-900/40 dark:border-r-rose-900/40 dark:bg-rose-950/20"
                           : "border-slate-200/80 bg-white hover:border-brand-primary/40 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-brand-primary/40"
                       }`}
@@ -419,7 +441,7 @@ export default function MyOrders() {
                               />
                             )}
                           {order.status === "in_transit" && (
-                            <Link href={`/client-portal/tracking?orderId=${order.id}`}>
+                            <Link href={clientPortalHref(`/client-portal/tracking?orderId=${order.id}`)}>
                               <Button size="sm" variant="outline" className="w-full sm:w-auto">
                                 <Truck className="w-4 h-4 mr-2" />
                                 Track live

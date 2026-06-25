@@ -629,7 +629,7 @@ export default function KitchenProductionPage() {
                   {view === "day" ? "Tomorrow" : "Next"}
                   <ChevronRight className="h-4 w-4 ml-1" />
                 </Button>
-                {/* KIT3-C: print button. Matches the Kitchen Dashboard
+                {/* KIT3-C: print button. Matches the Kitchen Today
                     print run-sheet pattern - chef wants paper backup
                     on prep mornings. Uses the browser's native print
                     flow against the on-screen layout. */}

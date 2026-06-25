@@ -263,7 +263,7 @@ export const equipmentTrackingService = {
           message: `${params.quantityDamaged}x ${equipmentName} marked ${params.damageType} on order ${order.order_number} and pulled from stock. Check availability for upcoming events.`,
           targetRoles: ["kitchen_manager" as any, "kitchen_staff" as any],
           priority: "normal",
-          link: `/team-portal/kitchen/dashboard`,
+          link: `/team-portal/kitchen/today`,
           relatedEntityType: "equipment",
           relatedEntityId: params.equipmentId,
           dedup: true,

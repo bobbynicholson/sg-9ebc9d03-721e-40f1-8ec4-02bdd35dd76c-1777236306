@@ -2795,7 +2795,7 @@ function AdminQuotesInner() {
                     </div>
                   ) : (
                     <p className="text-[11px] text-slate-600">
-                      Leave unticked if you're accepting before the deposit lands. Invoice will be generated as outstanding. The client can pay via the public link, and you can record the payment manually on the invoice once it clears.
+                      Leave unticked if you're accepting before the deposit is received. Invoice will be generated as outstanding. The client can pay via the public link, and you can record the payment manually on the invoice once it clears.
                     </p>
                   )}
                 </div>

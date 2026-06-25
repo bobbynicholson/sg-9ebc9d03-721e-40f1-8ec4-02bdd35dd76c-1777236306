@@ -134,7 +134,7 @@ export function InventoryExpiryWidget({ companyId }: { companyId: string | null 
               Batches with stock on hand expiring within {WINDOW_DAYS} days. Soonest first.
             </CardDescription>
           </div>
-          <Link href="/team-portal/shopping/inventory">
+          <Link href={withSlug("/team-portal/shopping/inventory")}>
             <Button variant="ghost" size="sm" className="text-amber-700">
               All inventory <ArrowRight className="w-3.5 h-3.5 ml-1" />
             </Button>

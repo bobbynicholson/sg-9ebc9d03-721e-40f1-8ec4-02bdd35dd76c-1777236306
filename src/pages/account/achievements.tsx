@@ -5,8 +5,7 @@
  * Universal points + achievements + leaderboard view. Any signed-in
  * user lands here from a `gamification_points` or `gamification_
  * achievement` notification. Powered entirely by the existing
- * gamificationService methods so it stays in sync with what the
- * driver portal's CateringDashGame already shows.
+ * gamificationService methods so it stays in sync with team activity.
  *
  * Highlight handling: `?highlight=points|achievement` and an optional
  * `&awardedAt=ISO` from the notification trigger an animated ring

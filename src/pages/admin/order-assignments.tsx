@@ -213,8 +213,8 @@ function DispatchQueuePage() {
         // An in-transit order MUST already have a driver (the
         // truck's rolling). Keeping it in the queue was confusing
         // operators - the page reads as "waiting on a driver" but
-        // an in_transit order is past that phase. The live-ops
-        // surface (/admin/live-operations) is the right place to
+        // an in_transit order is past that phase. The tracking
+        // surface (/admin/tracking) is the right place to
         // watch in-flight orders.
         .in("status", ["confirmed", "preparing", "ready"])
         .order("event_date", { ascending: true })
@@ -280,7 +280,7 @@ function DispatchQueuePage() {
   useEffect(() => { loadAll(); }, [loadAll, refreshSignal]);
 
   // Realtime: any order change for THIS tenant refetches KPIs + queue.
-  // Phase 6 audit fix: the channel was previously "dispatch-queue" with
+  // Phase 6 audit fix: the channel was previously global with
   // no postgres_changes filter, so cross-tenant order edits triggered
   // re-fetches here. Same amplification + row-content-in-transit issue
   // as /admin/dashboard. Per-tenant channel name + company_id filter
@@ -288,7 +288,7 @@ function DispatchQueuePage() {
   useEffect(() => {
     if (!companyId) return;
     const sub = supabase
-      .channel(`dispatch-queue:${companyId}`)
+      .channel(`order-assignments:${companyId}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "orders", filter: `company_id=eq.${companyId}` },
@@ -767,7 +767,7 @@ function DispatchQueuePage() {
                   const url = URL.createObjectURL(blob);
                   const a = document.createElement("a");
                   a.href = url;
-                  a.download = `dispatch-queue-${toLocalISO(new Date())}.csv`;
+                  a.download = `order-assignments-${toLocalISO(new Date())}.csv`;
                   document.body.appendChild(a);
                   a.click();
                   document.body.removeChild(a);

@@ -19,6 +19,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { toLocalISO } from "@/lib/localDate";
+import { useTenantHref } from "@/lib/tenantUrl";
 
 interface Schedule {
   id: string;
@@ -45,6 +46,7 @@ const STATUS_FALLBACK = "bg-slate-100 text-slate-700 border-slate-200 dark:bg-sl
 export default function CleaningSchedulesPage() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { withSlug } = useTenantHref();
 
   const [items, setItems] = useState<Schedule[]>([]);
   const [loading, setLoading] = useState(true);
@@ -142,7 +144,7 @@ export default function CleaningSchedulesPage() {
             subtitle={
               <>
                 Recurring plan - daily / weekly / monthly cadence per area. Spawns the day's{" "}
-                <a href="/team-portal/cleaning/tasks" className="text-amber-600 dark:text-amber-400 underline">tasks</a>{" "}
+                <a href={withSlug("/team-portal/cleaning/tasks")} className="text-amber-600 dark:text-amber-400 underline">tasks</a>{" "}
                 that the team actually ticks off.
               </>
             }

@@ -28,6 +28,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { equipmentTrackingService } from "@/services/equipmentTrackingService";
 import { listActiveJobs, type CleaningJobWithEquipment } from "@/services/cleaningJobsService";
+import { useTenantHref } from "@/lib/tenantUrl";
 
 interface Props {
   open: boolean;
@@ -59,6 +60,7 @@ export function CleaningScheduleDialog({
   companyId,
   cleaningReadiness,
 }: Props) {
+  const { withSlug } = useTenantHref();
   const [loading, setLoading] = useState(false);
   const [onDuty, setOnDuty] = useState<Array<{ id: string; name: string | null; role: string | null }>>([]);
   const [activeJobs, setActiveJobs] = useState<CleaningJobWithEquipment[]>([]);
@@ -267,7 +269,7 @@ export function CleaningScheduleDialog({
               <p className="text-xs text-slate-500">
                 Need to actually manage cleaning, not just view it?
               </p>
-              <Link href="/team-portal/cleaning/dashboard" target="_blank" rel="noopener">
+              <Link href={withSlug("/team-portal/cleaning/dashboard")} target="_blank" rel="noopener">
                 <Button variant="outline" size="sm" className="gap-1.5">
                   <ExternalLink className="w-3.5 h-3.5" />
                   Open full cleaning portal

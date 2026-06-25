@@ -416,7 +416,9 @@ export default function ShoppingOrdersPage() {
             ) : (
               <PortalCard padded={false}>
                 <ul className="divide-y divide-slate-100 dark:divide-slate-800">
-                  {lists.map((l) => (
+                  {lists.map((l) => {
+                    const listIsOpen = !["completed", "cancelled"].includes(String(l.status || ""));
+                    return (
                     <li key={l.id} className="p-5 flex flex-col sm:flex-row sm:items-center gap-3 transition-colors duration-150 hover:bg-slate-50 dark:hover:bg-slate-800/50 first:rounded-t-2xl last:rounded-b-2xl">
                       <div className="flex-1 min-w-0">
                         <div className="flex flex-wrap items-center gap-2 mb-1">
@@ -439,17 +441,18 @@ export default function ShoppingOrdersPage() {
                         </div>
                       </div>
                       <div className="flex gap-2 flex-shrink-0">
-                        {l.status !== "completed" && !l.shopper_id && (
+                        {listIsOpen && !l.shopper_id && (
                           <Button size="sm" variant="outline" onClick={() => claimList(l.id)} className="border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg">Claim</Button>
                         )}
-                        {l.status !== "completed" && (
+                        {listIsOpen && (
                           <Button size="sm" onClick={() => openComplete(l.id)} className="bg-amber-600 hover:bg-amber-700 text-white rounded-lg">
                             <Check className="h-4 w-4 mr-1" />Complete
                           </Button>
                         )}
                       </div>
                     </li>
-                  ))}
+                    );
+                  })}
                 </ul>
               </PortalCard>
             )

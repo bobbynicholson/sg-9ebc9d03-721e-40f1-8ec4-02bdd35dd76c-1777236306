@@ -144,7 +144,7 @@ export function OrderClientChatPanel({
           priority: "normal",
           related_entity_type: "order",
           related_entity_id: orderId,
-          link: `/client-portal/my-orders?focus=${orderId}`,
+          link: `/client-portal/my-orders?orderId=${orderId}`,
         });
       } catch (e) {
         console.warn("[OrderClientChatPanel] staff->client notification failed:", e);

@@ -58,18 +58,6 @@ export const whatsappTemplateService = {
   },
 
   /**
-   * Send a live-tracking prompt to the client while waiting for the driver.
-   */
-  async sendGameInvitation(clientPhone: string, orderNumber: string, clientName?: string) {
-    void clientPhone;
-    const trackingUrl = `${process.env.NEXT_PUBLIC_APP_URL || "https://cateringms.com"}/client-portal/tracking`;
-
-    return `Hi${clientName ? ` ${clientName}` : ""},\n\n` +
-      `Your driver update for order #${orderNumber} is available in your client portal.\n\n` +
-      `Track the live trip here: ${trackingUrl}`;
-  },
-
-  /**
    * Update template content.
    */
   async updateTemplate(id: string, updates: Partial<WhatsAppTemplate>) {

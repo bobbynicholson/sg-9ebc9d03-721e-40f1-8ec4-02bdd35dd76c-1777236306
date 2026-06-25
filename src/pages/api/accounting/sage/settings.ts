@@ -12,7 +12,7 @@
  *           if not yet connected.
  *
  *   POST - writes the chosen defaults back to
- *           accounting_integrations.metadata. Owner / admin only.
+ *           accounting_integrations.metadata. Finance admin roles only.
  *           Validates each id against the live Sage lists so a stale
  *           browser tab can't save an id that no longer exists.
  *

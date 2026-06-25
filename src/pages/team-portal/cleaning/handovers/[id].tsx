@@ -76,6 +76,13 @@ function HandoverDetailInner() {
   const [completing, setCompleting] = useState(false);
   const [busyJobId, setBusyJobId] = useState<string | null>(null);
   const [notes, setNotes] = useState("");
+  const canManageCleaning = [
+    UserRole.SUPER_ADMIN,
+    UserRole.COMPANY_ADMIN,
+    UserRole.ADMIN,
+    UserRole.CLEANING_MANAGER,
+    UserRole.CLEANING_STAFF,
+  ].includes(user?.role as UserRole);
   // Damage flagged on this order, keyed by equipment_id, so each job row
   // can show "which item isn't fine" at a glance (count + types).
   const [damageByEq, setDamageByEq] = useState<Record<string, { qty: number; types: string[] }>>({});
@@ -114,6 +121,7 @@ function HandoverDetailInner() {
   useEffect(() => { void load(); /* eslint-disable-next-line */ }, [handoverId]);
 
   const handleStartJob = async (jobId: string) => {
+    if (!canManageCleaning) return;
     setBusyJobId(jobId);
     const r = await startJob(supabase as any, jobId);
     setBusyJobId(null);
@@ -125,6 +133,7 @@ function HandoverDetailInner() {
   };
 
   const handleCompleteJob = async (jobId: string) => {
+    if (!canManageCleaning) return;
     setBusyJobId(jobId);
     const r = await completeJob(supabase as any, jobId);
     setBusyJobId(null);
@@ -158,6 +167,7 @@ function HandoverDetailInner() {
   };
 
   const handleCompleteHandover = async () => {
+    if (!canManageCleaning) return;
     if (!handover) return;
     if (!confirm("Mark this entire handover complete? Any unfinished cleaning jobs stay open underneath.")) return;
     setCompleting(true);
@@ -355,7 +365,7 @@ function HandoverDetailInner() {
                               {/* Flag stays available on done jobs too - damage
                                   is usually found WHILE washing, i.e. right as
                                   the cleaner marks the item complete. */}
-                              {j.equipment_id && (
+                              {canManageCleaning && j.equipment_id && (
                                 <JobDamageButton
                                   equipmentId={j.equipment_id}
                                   equipmentName={itemName}
@@ -365,7 +375,7 @@ function HandoverDetailInner() {
                                   onFlagged={load}
                                 />
                               )}
-                              {j.status === "queued" && (
+                              {canManageCleaning && j.status === "queued" && (
                                 <Button
                                   size="sm"
                                   variant="outline"
@@ -376,7 +386,7 @@ function HandoverDetailInner() {
                                   {busyJobId === j.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Start"}
                                 </Button>
                               )}
-                              {(j.status === "queued" || j.status === "in_progress") && (
+                              {canManageCleaning && (j.status === "queued" || j.status === "in_progress") && (
                                 <Button
                                   size="sm"
                                   disabled={busyJobId === j.id}
@@ -397,7 +407,7 @@ function HandoverDetailInner() {
               </Card>
 
               {/* Sign-off */}
-              {canComplete && (
+              {canManageCleaning && canComplete && (
                 <Card className="border-0 shadow-md mb-4 border-l-4 border-l-emerald-500 bg-emerald-50/30">
                   <CardContent className="p-4 space-y-3">
                     <div className="flex items-start gap-2">
@@ -446,7 +456,7 @@ function HandoverDetailInner() {
 
 export default function ProtectedHandoverDetailPage() {
   return (
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.CLEANING_MANAGER, UserRole.CLEANING_STAFF, UserRole.KITCHEN_MANAGER]}>
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.CLEANING_MANAGER, UserRole.CLEANING_STAFF, UserRole.KITCHEN_MANAGER, UserRole.KITCHEN_STAFF]}>
       <HandoverDetailInner />
     </ProtectedRoute>
   );

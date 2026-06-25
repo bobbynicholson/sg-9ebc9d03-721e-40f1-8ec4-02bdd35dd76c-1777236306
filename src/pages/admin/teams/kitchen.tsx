@@ -765,12 +765,6 @@ function KitchenTeamPage() {
             wage reports at <Link href={withSlug("/admin/wages")} className="text-amber-700 hover:underline">/admin/wages</Link> /
             equipment handovers live in the cleaning portal.
           </p>
-          <p className="hidden">
-            Detailed live ops live at <Link href={withSlug("/admin/live-operations")} className="text-amber-700 hover:underline">/admin/live-operations</Link> ·
-            wage reports at <Link href={withSlug("/admin/wages")} className="text-amber-700 hover:underline">/admin/wages</Link> ·
-            kitchen handover history at <Link href={withSlug("/team-portal/kitchen/handovers")} className="text-amber-700 hover:underline">/team-portal/kitchen/handovers</Link>.
-          </p>
-
           {/* TIGHTEN I.30 (admin.md section 7 follow-up #5):
               Kitchen rules co-located with the kitchen team.
               Kitchen rules are operational policy (prep timing,

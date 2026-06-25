@@ -1403,7 +1403,7 @@ function ClientPortalDashboardInner() {
               <ActionTile
                 label="Note for chef"
                 icon={MessageSquare}
-                href={withSlug(`/client-portal/my-orders?focus=${headline.id}`)}
+                href={withSlug(`/client-portal/my-orders?orderId=${headline.id}`)}
               />
               <ActionTile
                 label="Contact us"
@@ -1982,7 +1982,7 @@ function PastEventTile({
   const [hover, setHover] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const date = new Date(order.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" });
-  const myOrdersHref = `${slugPrefix}/client-portal/my-orders?focus=${order.id}`;
+  const myOrdersHref = `${slugPrefix}/client-portal/my-orders?orderId=${order.id}`;
   return (
     <div className="snap-start flex-shrink-0 w-[260px] bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 transition-[box-shadow,border-color] duration-200 hover:border-slate-300 dark:hover:border-slate-700 hover:shadow-[0_2px_4px_rgba(15,23,42,0.05),0_16px_40px_-18px_rgba(15,23,42,0.22)]">
       {/*

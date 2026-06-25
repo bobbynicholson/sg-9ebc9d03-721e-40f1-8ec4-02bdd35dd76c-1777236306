@@ -82,13 +82,13 @@ VALUES
 
   -- Invoicing ---------------------------------------------------------------
   (NULL, NULL, 'deposit_invoice_issued',
-    'Deposit invoice for {{event_name}} -- R {{deposit_amount}}',
-    E'Hi {{first_name}},\n\n{{tenant_name}} has issued the deposit invoice for {{event_name}}. Amount due: R {{deposit_amount}}.\n\nPay or download here: {{invoice_link}}\n\nOnce the deposit lands, your event date is locked in.\n\nThanks,\n{{tenant_name}}',
+    'Deposit invoice {{invoice_number}} - {{event_name}}',
+    E'Hi {{first_name}},\n\n{{tenant_name}} issued the deposit invoice {{invoice_number}} for {{event_name}}. Deposit due: {{amount}}.\n\nOpen the invoice: {{invoice_link}}\n\nOnce the payment clears, your event date is locked in.\n\nThanks,\n{{tenant_name}}',
     true),
 
   (NULL, NULL, 'balance_invoice_issued',
-    'Balance invoice for {{event_name}} -- R {{balance_amount}}',
-    E'Hi {{first_name}},\n\n{{tenant_name}} has issued the balance invoice for {{event_name}}. Amount due: R {{balance_amount}}.\n\nPay or download here: {{invoice_link}}\n\nThanks,\n{{tenant_name}}',
+    'Balance invoice {{invoice_number}} - {{event_name}}',
+    E'Hi {{first_name}},\n\n{{tenant_name}} issued the balance invoice {{invoice_number}} for {{event_name}}. Balance due: {{amount}}.\n\nOpen the invoice: {{invoice_link}}\n\nThanks,\n{{tenant_name}}',
     true),
 
   (NULL, NULL, 'invoice_issued',
