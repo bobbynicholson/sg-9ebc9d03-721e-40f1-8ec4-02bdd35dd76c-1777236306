@@ -372,10 +372,10 @@ function IntegrationsPage() {
           />
 
           {/* Quickstart */}
-          <Card className="border-0 shadow-lg mb-6 bg-gradient-to-r from-orange-50 to-pink-50">
+          <Card className="border-0 shadow-lg mb-6 bg-gradient-to-r from-brand-primary/10 to-brand-secondary/10">
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-base">
-                <Sparkles className="w-5 h-5 text-orange-600" />
+                <Sparkles className="w-5 h-5 text-brand-primary" />
                 Get a Zap running in 60 seconds
               </CardTitle>
             </CardHeader>
@@ -773,10 +773,10 @@ function IntegrationsPage() {
                 {RECIPES.map((r) => {
                   const Icon = r.icon;
                   return (
-                    <div key={r.title} className="border border-slate-200 rounded-xl p-4 hover:border-orange-300 hover:shadow-md transition-all">
+                    <div key={r.title} className="border border-slate-200 rounded-xl p-4 hover:border-brand-primary/40 hover:shadow-md transition-all">
                       <div className="flex items-start justify-between gap-2 mb-2">
-                        <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-orange-100 to-pink-100 flex items-center justify-center flex-shrink-0">
-                          <Icon className="w-4 h-4 text-orange-600" />
+                        <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-brand-primary/15 to-brand-secondary/15 flex items-center justify-center flex-shrink-0">
+                          <Icon className="w-4 h-4 text-brand-primary" />
                         </div>
                         <Badge variant="outline" className="text-[10px]">{r.badge}</Badge>
                       </div>

@@ -348,7 +348,7 @@ function OnboardingWizard() {
             </div>
             <div className="h-2 rounded-full bg-slate-200 overflow-hidden">
               <div
-                className="h-full bg-gradient-to-r from-orange-500 to-amber-500 transition-all"
+                className="h-full bg-gradient-to-r from-brand-primary to-brand-secondary transition-all"
                 style={{ width: `${progressPct}%` }}
               />
             </div>
@@ -568,7 +568,7 @@ function WelcomeStep({
   return (
     <div className="space-y-5">
       <div className="text-center">
-        <div className="inline-flex w-16 h-16 rounded-2xl bg-gradient-to-br from-orange-500 to-amber-500 items-center justify-center shadow-lg mb-4">
+        <div className="inline-flex w-16 h-16 rounded-2xl bg-gradient-to-br from-brand-primary to-brand-secondary items-center justify-center shadow-lg mb-4">
           <Sparkles className="w-8 h-8 text-white" />
         </div>
         <h2 className="text-2xl sm:text-3xl font-bold text-slate-900">

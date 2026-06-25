@@ -604,11 +604,11 @@ function OfferingPage() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 mb-6">
             {/* Menu tile */}
             <Card className="border-0 shadow-lg overflow-hidden">
-              <CardHeader className="bg-gradient-to-r from-amber-50 to-orange-50 border-b">
+              <CardHeader className="bg-gradient-to-r from-brand-primary/10 to-brand-secondary/10 border-b">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-amber-500/10 flex items-center justify-center">
-                      <UtensilsCrossed className="w-5 h-5 text-amber-700" />
+                    <div className="w-10 h-10 rounded-lg bg-brand-primary/10 flex items-center justify-center">
+                      <UtensilsCrossed className="w-5 h-5 text-brand-primary" />
                     </div>
                     <div>
                       <CardTitle className="text-lg sm:text-xl">Menu</CardTitle>

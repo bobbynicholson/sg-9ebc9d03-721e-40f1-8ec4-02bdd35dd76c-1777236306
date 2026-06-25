@@ -59,11 +59,11 @@ export function FirstStepsCard({ companyId, slug }: Props) {
   };
 
   return (
-    <Card className="border-0 shadow-lg mb-6 bg-gradient-to-br from-purple-50 via-pink-50 to-amber-50">
+    <Card className="border-0 shadow-lg mb-6 bg-gradient-to-br from-brand-primary/10 via-brand-secondary/10 to-brand-accent/10">
       <CardHeader className="pb-3 flex flex-row items-start justify-between gap-3">
         <div>
           <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-            <Rocket className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600" />
+            <Rocket className="w-4 h-4 sm:w-5 sm:h-5 text-brand-primary" />
             First steps
           </CardTitle>
           <p className="text-xs sm:text-sm text-slate-600 mt-1">

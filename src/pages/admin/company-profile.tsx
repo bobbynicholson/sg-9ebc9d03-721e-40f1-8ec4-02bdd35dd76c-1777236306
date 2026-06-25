@@ -392,7 +392,7 @@ function CompanyProfilePage() {
             const allDone = requiredDone === requiredTotal && optionalDone === optionalTotal;
             if (allDone) return null;
             return (
-              <Card className="border-0 shadow mb-6 bg-gradient-to-br from-amber-50 to-orange-50">
+              <Card className="border-0 shadow mb-6 bg-gradient-to-br from-brand-primary/10 to-brand-secondary/10">
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
                     <div className="flex items-center gap-2">
