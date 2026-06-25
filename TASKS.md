@@ -171,6 +171,14 @@ Use the next available T.NNN number.
   **Files:** manager role grants (depends on T.014); completion notifications via the best-effort + dedup pattern (see feedback_notify_relevant_users) on key milestones (prep done, cooked/served, cleaning handover done, tasks finished).
   **Done when:** Manager has full domain access; admin gets an in-app (and email where apt) notification on each domain's completion milestones. Depends on T.014; related T.010/T.012/T.016/T.017/T.021.
 
+### Driver assignment (Raj, 2026-06-26)
+
+- [ ] T.023 — Driver interest/self-nomination + ratings shown to admin at assignment
+  **What:** Drivers see upcoming events and tap "Interested"; drivers get notified when an order exists for a date; admin sees the interested-driver list WITH ratings when assigning.
+  **Why:** Let drivers opt into work and let admin pick the best-rated interested driver instead of guessing.
+  **Files:** driver portal `src/pages/team-portal/driver/*` (available-orders view + interest action, likely new `order_driver_interest` table - check for existing claim/bid first); notify drivers on order-needs-driver (best-effort + dedup); admin assignment `src/pages/admin/order-assignments.tsx` / `driver-management.tsx` (show interested list + ratings + availability); driver ratings (check existing feedback/delivery tables, else define).
+  **Done when:** Driver can register interest + gets notified of available orders; admin assigns from the interested list with ratings visible. **Clarify with Raj:** interest informational vs self-claim; how rating is calculated (delivery feedback avg / on-time %).
+
 ---
 
 ## Completed
