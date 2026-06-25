@@ -2455,9 +2455,8 @@ async function ensureScheduledKitchenPreEventReminder(order: any): Promise<void>
 
   const { data: profileRows, error: profileErr } = await (supabase as any)
     .from("profiles")
-    .select("id, full_name, email, role, region_id")
+    .select("id, full_name, email, role, active_role, region_id")
     .eq("company_id", order.company_id)
-    .in("role", ["kitchen_manager", "kitchen_staff"])
     .is("deleted_at", null)
     .or("is_active.is.null,is_active.eq.true");
   if (profileErr) {
@@ -2465,10 +2464,44 @@ async function ensureScheduledKitchenPreEventReminder(order: any): Promise<void>
     return;
   }
 
+  const activeProfiles = ((profileRows || []) as any[]);
+  const activeProfileIds = activeProfiles.map((p) => p.id).filter(Boolean);
+  let departmentByUser = new Map<string, string[]>();
+  if (activeProfileIds.length > 0) {
+    const { data: departmentRows, error: departmentErr } = await (supabase as any)
+      .from("user_departments")
+      .select("user_id, department")
+      .eq("company_id", order.company_id)
+      .in("user_id", activeProfileIds)
+      .in("department", ["kitchen", "kitchen_staff", "kitchen_manager"]);
+    if (departmentErr) {
+      console.error("[order/orderWorkflow] kitchen reminder department fetch failed:", departmentErr);
+    } else {
+      departmentByUser = new Map<string, string[]>();
+      for (const row of (departmentRows || []) as any[]) {
+        const userId = String(row.user_id || "");
+        if (!userId) continue;
+        const list = departmentByUser.get(userId) || [];
+        list.push(String(row.department || ""));
+        departmentByUser.set(userId, list);
+      }
+    }
+  }
+
   const regionId = order.region_id || null;
-  const kitchenProfiles = ((profileRows || []) as any[])
+  const kitchenProfiles = activeProfiles
+    .filter((p) => {
+      const departments = departmentByUser.get(String(p.id)) || [];
+      const roles = [p.role, p.active_role, ...departments].map((value) => String(value || ""));
+      return roles.some((role) => role === "kitchen" || role === "kitchen_staff" || role === "kitchen_manager");
+    })
     .filter((p) => p.email && (!regionId || !p.region_id || p.region_id === regionId));
-  const managerProfiles = kitchenProfiles.filter((p) => p.role === "kitchen_manager");
+  const managerProfiles = kitchenProfiles.filter((p) => {
+    const departments = departmentByUser.get(String(p.id)) || [];
+    return p.role === "kitchen_manager"
+      || p.active_role === "kitchen_manager"
+      || departments.includes("kitchen_manager");
+  });
   const recipients = (managerProfiles.length > 0 ? managerProfiles : kitchenProfiles)
     .filter((p, index, arr) => arr.findIndex((x) => String(x.email).toLowerCase() === String(p.email).toLowerCase()) === index);
   if (recipients.length === 0) return;

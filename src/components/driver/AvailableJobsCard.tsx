@@ -351,7 +351,8 @@ export function AvailableJobsCard({ onClaimed }: Props) {
                       onClick={(e) => e.stopPropagation()}
                       className="inline-flex items-center gap-1 text-brand-primary hover:underline tabular-nums"
                     >
-                      📞 {o.client_phone}
+                      <Phone className="h-3 w-3" aria-hidden="true" />
+                      {o.client_phone}
                     </a>
                   )}
                 </div>
