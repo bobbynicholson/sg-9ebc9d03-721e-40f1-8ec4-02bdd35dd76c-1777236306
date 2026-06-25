@@ -85,7 +85,7 @@ function fmtEventDate(iso: string | null | undefined): string {
 const STATUS_LABELS: Record<string, { label: string; tone: string }> = {
   assigned: { label: "Assigned", tone: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300" },
   accepted: { label: "Accepted", tone: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300" },
-  en_route: { label: "En Route", tone: "bg-brand-accent/10 text-brand-accent border border-brand-accent/20 dark:bg-brand-accent/20 dark:text-brand-accent" },
+  en_route: { label: "En Route", tone: "bg-brand-primary/10 text-brand-primary border border-brand-primary/20 dark:bg-brand-primary/20 dark:text-brand-primary" },
   picked_up: { label: "Picked Up", tone: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300" },
 };
 
@@ -285,7 +285,7 @@ function DriverTrackingInner() {
                 <div className="p-5 border-b border-slate-200 dark:border-slate-800">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="text-xs font-semibold uppercase tracking-wider text-brand-accent">
+                      <p className="text-xs font-semibold uppercase tracking-wider text-brand-primary">
                         {delivery.orderNumber}
                       </p>
                       <h2 className="text-xl font-semibold text-slate-900 dark:text-white truncate">
@@ -359,7 +359,7 @@ function DriverTrackingInner() {
                             </span>
                           )}
                           {delivery.eventTime && (
-                            <span className="inline-flex items-center gap-1.5 font-medium tabular-nums text-brand-accent">
+                            <span className="inline-flex items-center gap-1.5 font-medium tabular-nums text-brand-primary">
                               <Clock className="w-3.5 h-3.5" />
                               Event {fmtClockTime(delivery.eventTime)}
                             </span>
@@ -527,7 +527,7 @@ function DriverTrackingInner() {
                           {delivery.clientPhone}
                         </p>
                       </div>
-                      <span className="text-xs text-brand-accent font-medium shrink-0">Tap to call / click to copy</span>
+                      <span className="text-xs text-brand-primary font-medium shrink-0">Tap to call / click to copy</span>
                     </a>
                   )}
 
@@ -537,14 +537,14 @@ function DriverTrackingInner() {
                   <div className="p-5 space-y-2">
                     <Link
                       href={withSlug(staffOrderHref(delivery.orderId, "driver"))}
-                      className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-brand-accent/30 text-brand-accent hover:bg-brand-accent/5 font-semibold min-h-[32px] transition-colors duration-150"
+                      className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-brand-primary/30 text-brand-primary hover:bg-brand-primary/5 font-semibold min-h-[32px] transition-colors duration-150"
                       title="Open the driver brief for this order"
                     >
                       <ExternalLink className="w-3.5 h-3.5" />
                       Open brief
                     </Link>
                     <Button
-                      className="w-full bg-brand-accent hover:opacity-90 text-white"
+                      className="w-full bg-brand-primary hover:opacity-90 text-white"
                       size="lg"
                       onClick={() => openNavigation()}
                     >

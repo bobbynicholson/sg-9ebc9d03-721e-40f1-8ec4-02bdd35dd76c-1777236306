@@ -536,7 +536,7 @@ function DriverDashboardInner() {
         return "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700";
       case "en_route":
       case "picked_up":
-        return "bg-brand-accent/10 text-brand-accent border-brand-accent/20 dark:bg-brand-accent/20 dark:text-brand-accent dark:border-brand-accent/20";
+        return "bg-brand-primary/10 text-brand-primary border-brand-primary/20 dark:bg-brand-primary/20 dark:text-brand-primary dark:border-brand-primary/20";
       case "delivered":
       case "completed":
         return "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-900";
@@ -599,7 +599,7 @@ function DriverDashboardInner() {
                 {!loading && jobs.length > 0 && (
                   <Link
                     href="/team-portal/driver/routes"
-                    className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-brand-accent/20 bg-brand-accent/10 text-sm font-medium text-brand-accent hover:bg-brand-accent/20 transition-colors duration-150 dark:border-brand-accent/20 dark:bg-brand-accent/20 dark:text-brand-accent dark:hover:bg-brand-accent/30"
+                    className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-brand-primary/20 bg-brand-primary/10 text-sm font-medium text-brand-primary hover:bg-brand-primary/20 transition-colors duration-150 dark:border-brand-primary/20 dark:bg-brand-primary/20 dark:text-brand-primary dark:hover:bg-brand-primary/30"
                   >
                     <RouteIcon className="w-3.5 h-3.5" />
                     View today's route
@@ -667,8 +667,8 @@ function DriverDashboardInner() {
               if (!nextPickup) return null;
               const pickupLabel = nextPickup.pickup_time || nextPickup.event_time;
               return (
-                <PortalCard className="mb-4 sm:mb-6 border-l-4 border-l-brand-accent">
-                  <p className="text-xs sm:text-sm uppercase tracking-wide font-semibold text-brand-accent mb-1.5">Next pickup</p>
+                <PortalCard className="mb-4 sm:mb-6 border-l-4 border-l-brand-primary">
+                  <p className="text-xs sm:text-sm uppercase tracking-wide font-semibold text-brand-primary mb-1.5">Next pickup</p>
                   <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
                     <div className="flex-1 min-w-0">
                       <p className="text-3xl sm:text-4xl md:text-5xl font-semibold tabular-nums leading-tight text-slate-900 dark:text-white">
@@ -684,7 +684,7 @@ function DriverDashboardInner() {
                     {nextPickup.client_phone && (
                       <a
                         href={`tel:${nextPickup.client_phone}`}
-                        className="inline-flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-brand-accent text-white font-semibold min-h-11 hover:opacity-90 transition-opacity duration-150"
+                        className="inline-flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-brand-primary text-white font-semibold min-h-11 hover:opacity-90 transition-opacity duration-150"
                       >
                         <Bell className="w-4 h-4" />
                         Call client
@@ -736,7 +736,7 @@ function DriverDashboardInner() {
                 </div>
                 <div className="text-left sm:text-right w-full sm:w-auto">
                   <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl border border-slate-200 bg-slate-50 flex items-center justify-center mb-2 mx-auto sm:mx-0 dark:border-slate-700 dark:bg-slate-800">
-                    <TrendingUp className="w-7 h-7 sm:w-8 sm:h-8 text-brand-accent" />
+                    <TrendingUp className="w-7 h-7 sm:w-8 sm:h-8 text-brand-primary" />
                   </div>
                   <p className="text-xs text-slate-500 dark:text-slate-400 text-center sm:text-right">This month</p>
                   <p className="text-base sm:text-lg font-semibold tabular-nums text-slate-900 dark:text-white text-center sm:text-right">
@@ -802,7 +802,7 @@ function DriverDashboardInner() {
                     jobs.map((job) => (
                       <div
                         key={job.id}
-                        className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-xl border border-slate-200 hover:border-brand-accent/50 transition-colors duration-150 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-brand-accent/50"
+                        className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-xl border border-slate-200 hover:border-brand-primary/50 transition-colors duration-150 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-brand-primary/50"
                       >
                         <div className="flex-1 min-w-0">
                           <div className="flex flex-wrap items-center gap-2 mb-2">
@@ -814,7 +814,7 @@ function DriverDashboardInner() {
                             </Badge>
                             <Link
                               href={withSlug(staffOrderHref(job.id, "driver"))}
-                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold text-brand-accent bg-brand-accent/10 border border-brand-accent/20 hover:bg-brand-accent/20 transition-colors duration-150 dark:text-brand-accent dark:bg-brand-accent/20 dark:border-brand-accent/20 dark:hover:bg-brand-accent/30"
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold text-brand-primary bg-brand-primary/10 border border-brand-primary/20 hover:bg-brand-primary/20 transition-colors duration-150 dark:text-brand-primary dark:bg-brand-primary/20 dark:border-brand-primary/20 dark:hover:bg-brand-primary/30"
                               title="Open the driver brief for this order"
                             >
                               <ExternalLink className="w-3 h-3" />
@@ -865,7 +865,7 @@ function DriverDashboardInner() {
                           </Button>
                           {["ready", "in_transit", "delivered"].includes(job.status) && (
                             <Button
-                              className="flex-1 sm:flex-none min-h-11 px-3 text-sm bg-brand-accent hover:opacity-90 text-white gap-1"
+                              className="flex-1 sm:flex-none min-h-11 px-3 text-sm bg-brand-primary hover:opacity-90 text-white gap-1"
                               onClick={() => setPodJob(job)}
                             >
                               <Camera className="w-4 h-4" />

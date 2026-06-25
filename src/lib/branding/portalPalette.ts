@@ -74,46 +74,23 @@ export const BRAND_ACCENT = "from-brand-primary to-brand-secondary";
  * Tailwind's JIT scanner still emits every brand-* utility - same rule that
  * applies to BRAND_PORTAL_PALETTE above.
  */
+// UNIFIED (2026-06-25): Raj wants ONE consistent colour across every
+// portal/role, not the per-portal identity. All four team portals now
+// spread the single brand gradient (primary -> secondary) exactly like
+// the tenant admin, so kitchen / shopping / driver / cleaning / admin
+// look identical. Still 100% theme-driven (brand-* tokens). The Wave 71
+// per-portal palettes were retired here; re-introduce distinct combos
+// (e.g. driver = accent->accent) only if a colour cue per portal is
+// wanted again. Driver PAGES were re-aligned from brand-accent back to
+// brand-primary to match this unified nav.
 export const KITCHEN_PORTAL_PALETTE = BRAND_PORTAL_PALETTE;
 export const KITCHEN_ACCENT = BRAND_ACCENT;
 
-// driver - SOLID GOLD (accent). Its own identity, clearly not green.
-// Driver PAGES also lead with `brand-accent` to match this nav.
-export const DRIVER_PORTAL_PALETTE = {
-  accentGradient: "from-brand-accent to-brand-accent",
-  accentGradientDark: "from-brand-accent to-brand-accent",
-  hoverClasses:
-    "hover:bg-brand-accent/10 hover:text-brand-accent dark:hover:bg-brand-accent/10",
-  activeHoverClasses: "hover:from-brand-accent hover:to-brand-accent",
-  mobileSubtitleClasses: "text-white/80",
-  searchAccent:
-    "bg-brand-accent/10 hover:bg-brand-accent/20 text-brand-accent",
-} as const;
-export const DRIVER_ACCENT = "from-brand-accent to-brand-accent";
+export const DRIVER_PORTAL_PALETTE = BRAND_PORTAL_PALETTE;
+export const DRIVER_ACCENT = BRAND_ACCENT;
 
-// shopping - GREEN with a gold tail (primary -> accent). Leads primary,
-// so shopping pages keep using `brand-primary`.
-export const SHOPPING_PORTAL_PALETTE = {
-  accentGradient: "from-brand-primary to-brand-accent",
-  accentGradientDark: "from-brand-primary to-brand-accent",
-  hoverClasses:
-    "hover:bg-brand-primary/10 hover:text-brand-primary dark:hover:bg-brand-primary/10",
-  activeHoverClasses: "hover:from-brand-primary hover:to-brand-accent",
-  mobileSubtitleClasses: "text-white/80",
-  searchAccent:
-    "bg-brand-primary/10 hover:bg-brand-primary/20 text-brand-primary",
-} as const;
-export const SHOPPING_ACCENT = "from-brand-primary to-brand-accent";
+export const SHOPPING_PORTAL_PALETTE = BRAND_PORTAL_PALETTE;
+export const SHOPPING_ACCENT = BRAND_ACCENT;
 
-// cleaning - GOLD with a teal tail (accent -> primary). Leads accent.
-export const CLEANING_PORTAL_PALETTE = {
-  accentGradient: "from-brand-accent to-brand-primary",
-  accentGradientDark: "from-brand-accent to-brand-primary",
-  hoverClasses:
-    "hover:bg-brand-accent/10 hover:text-brand-accent dark:hover:bg-brand-accent/10",
-  activeHoverClasses: "hover:from-brand-accent hover:to-brand-primary",
-  mobileSubtitleClasses: "text-white/80",
-  searchAccent:
-    "bg-brand-accent/10 hover:bg-brand-accent/20 text-brand-accent",
-} as const;
-export const CLEANING_ACCENT = "from-brand-accent to-brand-primary";
+export const CLEANING_PORTAL_PALETTE = BRAND_PORTAL_PALETTE;
+export const CLEANING_ACCENT = BRAND_ACCENT;

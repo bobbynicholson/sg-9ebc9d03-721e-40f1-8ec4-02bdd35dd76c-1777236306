@@ -202,7 +202,7 @@ export default function DriverNotificationsPage() {
               variant={tab === "all" ? "default" : "outline"}
               size="sm"
               onClick={() => setTab("all")}
-              className={cn("flex-1 justify-center min-w-[120px] whitespace-nowrap", tab === "all" && "bg-brand-accent hover:opacity-90 text-white")}
+              className={cn("flex-1 justify-center min-w-[120px] whitespace-nowrap", tab === "all" && "bg-brand-primary hover:opacity-90 text-white")}
             >
               All
             </Button>
@@ -210,7 +210,7 @@ export default function DriverNotificationsPage() {
               variant={tab === "unread" ? "default" : "outline"}
               size="sm"
               onClick={() => setTab("unread")}
-              className={cn("flex-1 justify-center min-w-[120px] whitespace-nowrap", tab === "unread" && "bg-brand-accent hover:opacity-90 text-white")}
+              className={cn("flex-1 justify-center min-w-[120px] whitespace-nowrap", tab === "unread" && "bg-brand-primary hover:opacity-90 text-white")}
             >
               Unread
               {unreadCount > 0 && <span className="ml-1.5 bg-white/20 px-1.5 rounded text-[10px] tabular-nums">{unreadCount}</span>}
@@ -253,12 +253,12 @@ export default function DriverNotificationsPage() {
                       className={`w-full p-4 ${
                         n.is_read
                           ? ""
-                          : "border-brand-accent/40 bg-brand-accent/5 dark:bg-brand-accent/10"
+                          : "border-brand-primary/40 bg-brand-primary/5 dark:bg-brand-primary/10"
                       }`}
                     >
                         <div className="flex items-start gap-3">
                           {!n.is_read && (
-                            <div className="w-2 h-2 mt-2 rounded-full bg-brand-accent flex-shrink-0" />
+                            <div className="w-2 h-2 mt-2 rounded-full bg-brand-primary flex-shrink-0" />
                           )}
                           <div
                             className={`flex-1 min-w-0 ${n.link ? "cursor-pointer" : ""}`}
@@ -277,7 +277,7 @@ export default function DriverNotificationsPage() {
                             <div className="flex items-center justify-between gap-2 mt-2">
                               <p className="text-xs text-slate-400 dark:text-slate-500">{ago}</p>
                               {n.link && (
-                                <span className="text-xs text-brand-accent hover:opacity-80 inline-flex items-center gap-1 font-medium">
+                                <span className="text-xs text-brand-primary hover:opacity-80 inline-flex items-center gap-1 font-medium">
                                   <ExternalLink className="w-3 h-3" />
                                   Tap to open
                                 </span>
