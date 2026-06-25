@@ -165,6 +165,12 @@ Use the next available T.NNN number.
   **Files:** reminder via existing email pipeline (`outgoing_email_queue` / `email_automation_log` + cron drain, mind CRON_SECRET) - check existing reminder crons first; calendar - reuse/extend `src/pages/admin/kitchen-schedule.tsx`; day view - extend kitchen `today.tsx`.
   **Done when:** Kitchen portal has a calendar of all events, a day view of that day's orders (role-scoped, no finances), and a working pre-event reminder email (deduped, best-effort). **Clarify with Raj:** reminder lead time + manager-only vs all-kitchen (ties to T.014 manager model + T.010/T.012 role-scoping).
 
+- [ ] T.022 — Managers own everything in their domain + notify admin on completion
+  **What:** Each respective manager (kitchen / cleaning) gets the FULL toolkit for their domain (calendar, reminders, assign tasks, clock in/out, shopping list, order timeline+details, etc.); ADMIN is notified when work is completed.
+  **Why:** Managers should run their area end-to-end; admin needs to know status without chasing. Staff stay limited to their own task.
+  **Files:** manager role grants (depends on T.014); completion notifications via the best-effort + dedup pattern (see feedback_notify_relevant_users) on key milestones (prep done, cooked/served, cleaning handover done, tasks finished).
+  **Done when:** Manager has full domain access; admin gets an in-app (and email where apt) notification on each domain's completion milestones. Depends on T.014; related T.010/T.012/T.016/T.017/T.021.
+
 ---
 
 ## Completed
