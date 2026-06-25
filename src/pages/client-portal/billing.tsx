@@ -538,7 +538,7 @@ export default function ClientBillingPage() {
                         key={invoice.id}
                         className={`p-4 border rounded-xl transition-colors ${
                           isDeepLinked
-                            ? "border-amber-400 bg-amber-50/70 ring-2 ring-amber-200 dark:border-amber-700 dark:bg-amber-950/20 dark:ring-amber-900"
+                            ? "border-brand-primary/50 bg-brand-primary/5 ring-2 ring-brand-primary/20 dark:border-brand-primary/50 dark:bg-brand-primary/10 dark:ring-brand-primary/30"
                             : "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-brand-primary/40 dark:hover:border-brand-primary/40"
                         }`}
                       >

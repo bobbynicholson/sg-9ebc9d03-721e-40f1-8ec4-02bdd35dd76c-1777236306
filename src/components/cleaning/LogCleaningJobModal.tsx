@@ -200,7 +200,7 @@ export function LogCleaningJobModal({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Droplets className="w-5 h-5 text-cyan-600" />
+            <Droplets className="w-5 h-5 text-brand-primary" />
             Log cleaning job
           </DialogTitle>
           <DialogDescription>
@@ -297,7 +297,7 @@ export function LogCleaningJobModal({
           </div>
 
           {etaLabel && (
-            <div className="rounded-md border border-cyan-200 bg-cyan-50 px-3 py-2 text-sm text-cyan-900">
+            <div className="rounded-md border border-brand-primary/20 bg-brand-primary/5 px-3 py-2 text-sm text-brand-primary">
               ETA back in inventory: <strong>{etaLabel}</strong>
             </div>
           )}
@@ -310,7 +310,7 @@ export function LogCleaningJobModal({
           <Button
             onClick={submit}
             disabled={busy || !equipmentId}
-            className="bg-cyan-600 hover:bg-cyan-700"
+            className="bg-brand-primary hover:bg-brand-primary/90"
           >
             {busy ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
             Log job

@@ -648,7 +648,7 @@ export function ReconcileSlipDrawer({
     <ComposeDrawerHost open={open} onClose={onClose}>
       <div className="space-y-4">
         <div className="flex items-center gap-2 mb-2">
-          <ReceiptIcon className="w-5 h-5 text-purple-600" />
+          <ReceiptIcon className="w-5 h-5 text-brand-primary" />
           <h2 className="text-lg font-bold text-slate-900">
             {manualMode ? "Manual shopping entry" : existingReceiptId ? "Rescan results" : "Reconcile slip"}
           </h2>
@@ -715,7 +715,7 @@ export function ReconcileSlipDrawer({
               "bg-slate-100 text-slate-600 border-slate-200";
 
             return (
-              <Card key={idx} className={`border-l-4 ${ln.keep ? "border-l-purple-500" : "border-l-slate-200 opacity-60"}`}>
+              <Card key={idx} className={`border-l-4 ${ln.keep ? "border-l-brand-primary" : "border-l-slate-200 opacity-60"}`}>
                 <CardContent className="pt-4 space-y-3">
                   <div className="flex items-start gap-2">
                     <div className="flex-1">
@@ -898,7 +898,7 @@ export function ReconcileSlipDrawer({
           <Button
             onClick={handleSave}
             disabled={saving || lines.filter((l) => l.keep).length === 0}
-            className="bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:from-purple-700 hover:to-pink-700"
+            className="bg-gradient-to-r from-brand-primary to-brand-secondary text-white hover:brightness-105"
           >
             {saving ? <><Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> Saving...</> : <><Save className="w-4 h-4 mr-1.5" /> Save & receive</>}
           </Button>

@@ -335,7 +335,7 @@ export default function CleaningDamagePage() {
                           <span className="text-[11px] text-slate-500 dark:text-slate-400">Reported by {d.responsible_name}</span>
                         )}
                         {d.photo_url && (
-                          <a href={d.photo_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[11px] text-cyan-700 hover:underline dark:text-cyan-400">
+                          <a href={d.photo_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[11px] text-brand-primary hover:underline">
                             <ImageIcon className="w-3 h-3" /> View photo
                           </a>
                         )}

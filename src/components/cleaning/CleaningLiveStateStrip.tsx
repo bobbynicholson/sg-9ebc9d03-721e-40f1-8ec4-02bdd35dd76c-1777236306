@@ -35,18 +35,18 @@ interface Pill {
 }
 
 const TONE_BG: Record<Pill["tone"], string> = {
-  default:  "bg-cyan-50 hover:bg-cyan-100 border-cyan-200 text-cyan-900",
+  default:  "bg-brand-primary/10 hover:bg-brand-primary/15 border-brand-primary/20 text-brand-primary",
   warning:  "bg-amber-50 hover:bg-amber-100 border-amber-200 text-amber-900",
   critical: "bg-rose-50 hover:bg-rose-100 border-rose-200 text-rose-900",
-  info:     "bg-blue-50 hover:bg-blue-100 border-blue-200 text-blue-900",
+  info:     "bg-brand-primary/10 hover:bg-brand-primary/15 border-brand-primary/20 text-brand-primary",
   muted:    "bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-500",
 };
 
 const TONE_ICON_BG: Record<Pill["tone"], string> = {
-  default:  "bg-cyan-200/70 text-cyan-700",
+  default:  "bg-brand-primary/15 text-brand-primary",
   warning:  "bg-amber-200/70 text-amber-700",
   critical: "bg-rose-200/70 text-rose-700",
-  info:     "bg-blue-200/70 text-blue-700",
+  info:     "bg-brand-primary/15 text-brand-primary",
   muted:    "bg-slate-200/40 text-slate-400",
 };
 

@@ -359,7 +359,7 @@ export default function MyOrders() {
                       key={order.id}
                       className={`p-4 md:p-6 border rounded-2xl transition-colors duration-200 ${
                         isTargetOrder
-                          ? "border-amber-400 bg-amber-50/70 ring-2 ring-amber-200 dark:border-amber-700 dark:bg-amber-950/20 dark:ring-amber-900"
+                          ? "border-brand-primary/50 bg-brand-primary/5 ring-2 ring-brand-primary/20 dark:border-brand-primary/50 dark:bg-brand-primary/10 dark:ring-brand-primary/30"
                           : clientTl?.blocked
                           ? "border-l-4 border-l-rose-500 border-y-rose-100 border-r-rose-100 bg-rose-50/40 dark:border-l-rose-500 dark:border-y-rose-900/40 dark:border-r-rose-900/40 dark:bg-rose-950/20"
                           : "border-slate-200/80 bg-white hover:border-brand-primary/40 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-brand-primary/40"
@@ -471,7 +471,7 @@ export default function MyOrders() {
                               <Button
                                 size="sm"
                                 variant="outline"
-                                className="w-full sm:w-auto text-amber-700 border-amber-200 hover:bg-amber-50"
+                                className="w-full sm:w-auto text-brand-primary border-brand-primary/20 hover:bg-brand-primary/5"
                                 onClick={() => {
                                   setCancelRequestOrder(order);
                                   setCancelPostponeDate("");

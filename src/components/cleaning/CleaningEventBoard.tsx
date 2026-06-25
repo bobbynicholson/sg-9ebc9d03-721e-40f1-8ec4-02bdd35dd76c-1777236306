@@ -68,7 +68,7 @@ function HandoverCard({ h }: { h: HandoverWithOrderMeta }) {
   return (
     <Link
       href={withSlug(`/team-portal/cleaning/handovers/${h.id}`)}
-      className="block bg-white rounded-lg border border-slate-200 hover:border-cyan-300 hover:shadow-md transition-all p-3"
+      className="block bg-white rounded-lg border border-slate-200 hover:border-brand-primary/40 hover:shadow-md transition-all p-3"
     >
       <div className="flex items-start justify-between gap-2 mb-1">
         <div className="min-w-0 flex-1">
@@ -109,7 +109,7 @@ function HandoverCard({ h }: { h: HandoverWithOrderMeta }) {
         </p>
       )}
       <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-100">
-        <span className="text-[11px] text-cyan-700 font-medium inline-flex items-center gap-1">
+        <span className="text-[11px] text-brand-primary font-medium inline-flex items-center gap-1">
           Open <ChevronRight className="w-3 h-3" />
         </span>
         {h.status === "complete" && (
@@ -191,7 +191,7 @@ export function CleaningEventBoard() {
     <Card className="border-0 shadow-lg mb-6">
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-base">
-          <Sparkles className="w-4 h-4 text-cyan-600" />
+          <Sparkles className="w-4 h-4 text-brand-primary" />
           Cleaning handovers by event
           <span className="ml-2 text-xs font-normal text-slate-500">
             {expected.length + inProgress.length} active
@@ -210,9 +210,9 @@ export function CleaningEventBoard() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             {/* Expected */}
-            <div className="rounded-lg border border-amber-200 bg-amber-50/40 overflow-hidden">
-              <div className="px-3 py-2 border-b border-amber-200 bg-amber-50 flex items-center justify-between">
-                <p className="text-xs font-semibold uppercase tracking-wide text-amber-900">
+            <div className="rounded-lg border border-brand-primary/20 bg-brand-primary/5 overflow-hidden">
+              <div className="px-3 py-2 border-b border-brand-primary/20 bg-brand-primary/10 flex items-center justify-between">
+                <p className="text-xs font-semibold uppercase tracking-wide text-brand-primary">
                   Expected
                 </p>
                 <Badge variant="outline" className="text-[10px] tabular-nums bg-white">
@@ -231,9 +231,9 @@ export function CleaningEventBoard() {
             </div>
 
             {/* In progress */}
-            <div className="rounded-lg border border-cyan-200 bg-cyan-50/40 overflow-hidden">
-              <div className="px-3 py-2 border-b border-cyan-200 bg-cyan-50 flex items-center justify-between">
-                <p className="text-xs font-semibold uppercase tracking-wide text-cyan-900">
+            <div className="rounded-lg border border-brand-primary/20 bg-brand-primary/5 overflow-hidden">
+              <div className="px-3 py-2 border-b border-brand-primary/20 bg-brand-primary/10 flex items-center justify-between">
+                <p className="text-xs font-semibold uppercase tracking-wide text-brand-primary">
                   In progress
                 </p>
                 <Badge variant="outline" className="text-[10px] tabular-nums bg-white">

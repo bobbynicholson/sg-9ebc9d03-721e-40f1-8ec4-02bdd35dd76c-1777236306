@@ -3,7 +3,7 @@
  *
  * Sits at the top of the shopping nav above the live state strip.
  * Communicates which phase of the day the shopping team is in
- * (quiet / plan / run / reconcile) with a colour treatment + a
+ * (quiet / plan / run / reconcile) with the tenant brand treatment + a
  * subline showing the next signal (e.g. "5 items short" or
  * "12 items left on the list").
  *
@@ -12,9 +12,9 @@
  *
  * Tones (WCAG AA on white sidebar bg):
  *   quiet     - slate, neutral
- *   plan      - emerald, gearing up
- *   run       - green pulse (the "live" state)
- *   reconcile - amber, winding down
+ *   plan      - brand, gearing up
+ *   run       - brand solid pulse (the "live" state)
+ *   reconcile - brand, winding down
  */
 import { useState } from "react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -45,8 +45,8 @@ const MODE_META: Record<ShoppingPortalMode, {
     shortLabel: "Plan",
     description: "Shortfalls or upcoming events. Build today's buy list.",
     icon: ListChecks,
-    bg: "bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/30",
-    text: "text-amber-800 dark:text-amber-200",
+    bg: "bg-brand-primary/10 dark:bg-brand-primary/15 border-brand-primary/20 dark:border-brand-primary/30",
+    text: "text-brand-primary dark:text-brand-primary",
     pulse: false,
   },
   run: {
@@ -63,8 +63,8 @@ const MODE_META: Record<ShoppingPortalMode, {
     shortLabel: "Reconcile",
     description: "Today's shops are done. Upload receipts and log actual totals.",
     icon: Receipt,
-    bg: "bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/30",
-    text: "text-amber-800 dark:text-amber-200",
+    bg: "bg-brand-primary/10 dark:bg-brand-primary/15 border-brand-primary/20 dark:border-brand-primary/30",
+    text: "text-brand-primary dark:text-brand-primary",
     pulse: false,
   },
 };
@@ -141,7 +141,7 @@ export function ShoppingModeBadge() {
             {state.override && (
               <>
                 <span className="text-slate-400">·</span>
-                <span className="text-amber-700 font-medium">manually overridden</span>
+                <span className="text-brand-primary font-medium">manually overridden</span>
               </>
             )}
           </div>

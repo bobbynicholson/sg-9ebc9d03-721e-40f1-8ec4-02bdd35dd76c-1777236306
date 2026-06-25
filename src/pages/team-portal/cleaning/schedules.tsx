@@ -144,7 +144,7 @@ export default function CleaningSchedulesPage() {
             subtitle={
               <>
                 Recurring plan - daily / weekly / monthly cadence per area. Spawns the day's{" "}
-                <a href={withSlug("/team-portal/cleaning/tasks")} className="text-amber-600 dark:text-amber-400 underline">tasks</a>{" "}
+                <a href={withSlug("/team-portal/cleaning/tasks")} className="text-brand-primary underline">tasks</a>{" "}
                 that the team actually ticks off.
               </>
             }

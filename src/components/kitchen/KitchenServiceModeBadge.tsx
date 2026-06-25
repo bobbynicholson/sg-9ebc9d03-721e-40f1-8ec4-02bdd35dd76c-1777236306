@@ -13,9 +13,9 @@
  *
  * Tones:
  *   off     - slate, neutral
- *   prep    - amber, warming up
- *   service - orange-to-red gradient, pulses, the "live" state
- *   close   - emerald, winding down
+ *   prep    - brand, warming up
+ *   service - brand gradient, pulses, the "live" state
+ *   close   - brand, winding down
  */
 import { useState } from "react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -40,8 +40,8 @@ const MODE_META: Record<PortalServiceMode, {
   prep: {
     label: "Prep mode",
     icon: ChefHat,
-    bg: "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800",
-    text: "text-amber-800 dark:text-amber-300",
+    bg: "bg-brand-primary/10 dark:bg-brand-primary/15 border-brand-primary/20 dark:border-brand-primary/30",
+    text: "text-brand-primary dark:text-brand-primary",
     pulse: false,
   },
   service: {
@@ -54,8 +54,8 @@ const MODE_META: Record<PortalServiceMode, {
   close: {
     label: "Close-down",
     icon: Coffee,
-    bg: "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800",
-    text: "text-emerald-800 dark:text-emerald-300",
+    bg: "bg-brand-primary/10 dark:bg-brand-primary/15 border-brand-primary/20 dark:border-brand-primary/30",
+    text: "text-brand-primary dark:text-brand-primary",
     pulse: false,
   },
 };
@@ -135,7 +135,7 @@ export function KitchenServiceModeBadge() {
             <p className="text-xs text-slate-600">
               Auto-detected: <span className="font-semibold capitalize">{state.autoMode}</span>
               {state.override && (
-                <> &middot; <span className="text-amber-700">overridden</span></>
+                <> &middot; <span className="text-brand-primary">overridden</span></>
               )}
             </p>
           </div>
@@ -155,7 +155,7 @@ export function KitchenServiceModeBadge() {
                   className={cn(
                     "flex items-center gap-1.5 rounded-md border px-2 py-1.5 text-[11px] font-medium transition-all",
                     active
-                      ? "border-orange-500 bg-orange-50 text-orange-800"
+                      ? "border-brand-primary/40 bg-brand-primary/10 text-brand-primary"
                       : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
                   )}
                 >

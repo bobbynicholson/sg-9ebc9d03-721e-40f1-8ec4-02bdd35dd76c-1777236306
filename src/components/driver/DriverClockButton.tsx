@@ -205,14 +205,14 @@ export function DriverClockButton({
 
   if (openShift) {
     return (
-      <Card className="border-amber-200 bg-amber-50">
+      <Card className="border-brand-primary/20 bg-brand-primary/5">
         <CardContent className="p-3 flex items-center gap-3">
-          <div className="w-9 h-9 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
-            <Clock className="w-5 h-5 text-amber-700 animate-pulse" />
+          <div className="w-9 h-9 rounded-full bg-brand-primary/10 flex items-center justify-center shrink-0">
+            <Clock className="w-5 h-5 text-brand-primary animate-pulse" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-amber-900">On shift</p>
-            <p className="text-xs text-amber-800/80 tabular-nums">
+            <p className="text-sm font-semibold text-brand-primary">On shift</p>
+            <p className="text-xs text-slate-700 tabular-nums">
               {fmtElapsed(openShift.actual_start)} since clock in
             </p>
           </div>
@@ -247,19 +247,19 @@ export function DriverClockButton({
   })();
 
   return (
-    <Card className={`${rosterLateMin > 0 ? "border-rose-300 bg-rose-50" : "border-emerald-200 bg-emerald-50"}`}>
+    <Card className={`${rosterLateMin > 0 ? "border-rose-300 bg-rose-50" : "border-brand-primary/20 bg-brand-primary/5"}`}>
       <CardContent className="p-3 flex items-center gap-3">
         <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${
-          rosterLateMin > 0 ? "bg-rose-100" : "bg-emerald-100"
+          rosterLateMin > 0 ? "bg-rose-100" : "bg-brand-primary/10"
         }`}>
-          <Clock className={`w-5 h-5 ${rosterLateMin > 0 ? "text-rose-700" : "text-emerald-700"}`} />
+          <Clock className={`w-5 h-5 ${rosterLateMin > 0 ? "text-rose-700" : "text-brand-primary"}`} />
         </div>
         <div className="flex-1 min-w-0">
-          <p className={`text-sm font-semibold ${rosterLateMin > 0 ? "text-rose-900" : "text-emerald-900"}`}>
+          <p className={`text-sm font-semibold ${rosterLateMin > 0 ? "text-rose-900" : "text-brand-primary"}`}>
             Off shift
           </p>
           {plannedToday?.planned_start && plannedToday?.planned_end ? (
-            <p className={`text-xs ${rosterLateMin > 0 ? "text-rose-800" : "text-emerald-800/80"} flex items-center gap-1.5 flex-wrap`}>
+            <p className={`text-xs ${rosterLateMin > 0 ? "text-rose-800" : "text-slate-700"} flex items-center gap-1.5 flex-wrap`}>
               Rostered <strong className="tabular-nums">{plannedToday.planned_start.slice(0, 5)}-{plannedToday.planned_end.slice(0, 5)}</strong> today
               {rosterLateMin > 0 && (
                 <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-rose-200 text-rose-900 text-[10px] font-bold tabular-nums">
@@ -268,14 +268,14 @@ export function DriverClockButton({
               )}
             </p>
           ) : (
-            <p className="text-xs text-emerald-800/80">Tap clock in when you start work.</p>
+            <p className="text-xs text-slate-700">Tap clock in when you start work.</p>
           )}
         </div>
         <Button
           size="sm"
           onClick={clockIn}
           disabled={busy}
-          className={`shrink-0 ${rosterLateMin > 0 ? "bg-rose-600 hover:bg-rose-700" : "bg-emerald-600 hover:bg-emerald-700"}`}
+          className={`shrink-0 ${rosterLateMin > 0 ? "bg-rose-600 hover:bg-rose-700" : "bg-brand-primary hover:bg-brand-primary/90"}`}
         >
           {busy ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Play className="w-4 h-4 mr-1" />}
           Clock in

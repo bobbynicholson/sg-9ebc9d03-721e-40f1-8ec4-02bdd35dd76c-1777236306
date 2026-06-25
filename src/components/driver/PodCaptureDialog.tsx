@@ -322,7 +322,7 @@ export function PodCaptureDialog({ open, onOpenChange, orderId, clientName, onSa
           <DialogClose asChild>
             <Button variant="outline" disabled={saving}>Cancel</Button>
           </DialogClose>
-          <Button onClick={handleSave} disabled={saving} className="bg-emerald-600 hover:bg-emerald-700">
+          <Button onClick={handleSave} disabled={saving} className="bg-brand-primary hover:bg-brand-primary/90">
             {saving ? "Saving..." : "Confirm delivered"}
           </Button>
         </DialogFooter>

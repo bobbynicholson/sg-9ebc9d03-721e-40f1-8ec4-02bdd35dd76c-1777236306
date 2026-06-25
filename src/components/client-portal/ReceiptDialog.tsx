@@ -547,7 +547,7 @@ export function ReceiptDialog({
             <Button variant="outline" onClick={() => onOpenChange(false)}>
               Close
             </Button>
-            <Button onClick={handlePrint} className="bg-emerald-600 hover:bg-emerald-700">
+            <Button onClick={handlePrint} className="bg-brand-primary hover:bg-brand-primary/90">
               <Printer className="w-4 h-4 mr-2" />
               Print / Save as PDF
             </Button>

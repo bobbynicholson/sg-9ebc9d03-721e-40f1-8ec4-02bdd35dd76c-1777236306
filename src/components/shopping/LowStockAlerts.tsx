@@ -191,7 +191,7 @@ export function LowStockAlerts() {
       <Card>
         <CardContent className="py-6">
           <div className="flex items-center justify-center">
-            <Package className="h-6 w-6 animate-spin text-purple-600" />
+            <Package className="h-6 w-6 animate-spin text-brand-primary" />
             <span className="ml-2 text-slate-600">Loading alerts...</span>
           </div>
         </CardContent>
@@ -217,11 +217,11 @@ export function LowStockAlerts() {
   const criticalCount = lowStockItems.filter(item => item.current_stock > 0 && item.current_stock <= item.minimum_stock).length;
 
   return (
-    <Card className="border-orange-200">
+    <Card className="border-brand-primary/20">
       <CardHeader>
         <div className="flex items-center justify-between">
           <div>
-            <CardTitle className="flex items-center gap-2 text-orange-700">
+            <CardTitle className="flex items-center gap-2 text-brand-primary">
               <AlertTriangle className="h-5 w-5" />
               Low Stock Alerts ({lowStockItems.length})
             </CardTitle>
@@ -250,7 +250,7 @@ export function LowStockAlerts() {
               <div
                 key={item.id}
                 className={`p-4 rounded-lg border-2 ${
-                  isOutOfStock ? 'border-red-300 bg-red-50' : 'border-orange-200 bg-orange-50'
+                  isOutOfStock ? 'border-red-300 bg-red-50' : 'border-brand-primary/20 bg-brand-primary/5'
                 }`}
               >
                 <div className="flex items-start justify-between mb-2">
@@ -281,7 +281,7 @@ export function LowStockAlerts() {
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-slate-600">Current Stock:</span>
-                    <span className={`font-semibold ${isOutOfStock ? 'text-red-700' : 'text-orange-700'}`}>
+                    <span className={`font-semibold ${isOutOfStock ? 'text-red-700' : 'text-brand-primary'}`}>
                       {item.current_stock} {item.unit_of_measure}
                     </span>
                   </div>
@@ -289,7 +289,7 @@ export function LowStockAlerts() {
                   <div className="w-full bg-white rounded-full h-2">
                     <div
                       className={`h-2 rounded-full ${
-                        isOutOfStock ? 'bg-red-500' : 'bg-orange-500'
+                        isOutOfStock ? 'bg-red-500' : 'bg-brand-primary'
                       }`}
                       style={{ width: `${Math.max(percentRemaining, 5)}%` }}
                     />

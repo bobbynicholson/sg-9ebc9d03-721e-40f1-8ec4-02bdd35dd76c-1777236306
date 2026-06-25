@@ -40,12 +40,12 @@ const METHOD_META: Record<CleaningMethod, { label: string; icon: any; chip: stri
   dishwasher: {
     label: "Dishwasher",
     icon: Sparkles,
-    chip: "bg-cyan-100 text-cyan-800 border-cyan-300",
+    chip: "bg-brand-primary/10 text-brand-primary border-brand-primary/20",
   },
   manual: {
     label: "Manual",
     icon: Droplets,
-    chip: "bg-blue-100 text-blue-800 border-blue-300",
+    chip: "bg-brand-primary/10 text-brand-primary border-brand-primary/20",
   },
   outsourced_hire: {
     label: "Outsourced",
@@ -184,10 +184,10 @@ export function CleaningJobsQueue() {
       <Card className="border-0 shadow-lg mb-6">
         <CardHeader className="pb-3 flex flex-row items-center justify-between">
           <CardTitle className="flex items-center gap-2">
-            <Droplets className="w-5 h-5 text-cyan-600" />
+            <Droplets className="w-5 h-5 text-brand-primary" />
             Cleaning queue
             {rows.length > 0 && (
-              <Badge variant="outline" className="ml-2 bg-cyan-50 text-cyan-700">
+              <Badge variant="outline" className="ml-2 bg-brand-primary/5 text-brand-primary border-brand-primary/20">
                 {rows.length} active
               </Badge>
             )}
@@ -195,7 +195,7 @@ export function CleaningJobsQueue() {
           <Button
             size="sm"
             onClick={() => setShowLog(true)}
-            className="bg-cyan-600 hover:bg-cyan-700"
+            className="bg-brand-primary hover:bg-brand-primary/90"
           >
             <Plus className="w-4 h-4 mr-1" />
             New job
@@ -206,7 +206,7 @@ export function CleaningJobsQueue() {
             <div className="text-center py-6 text-slate-500 text-sm">Loading queue...</div>
           ) : rows.length === 0 ? (
             <div className="text-center py-8 text-slate-500">
-              <Sparkles className="w-10 h-10 mx-auto mb-2 text-cyan-400" />
+              <Sparkles className="w-10 h-10 mx-auto mb-2 text-brand-primary/50" />
               <p className="text-sm">No active cleaning jobs.</p>
               <p className="text-xs mt-1 text-slate-400">
                 Items return here when the team logs a cleaning job after a function.
@@ -283,7 +283,7 @@ export function CleaningJobsQueue() {
                         onKeyDown={(e) => { if (e.key === " " || e.key === "Enter") onHoldStart(r.id); }}
                         onKeyUp={onHoldEnd}
                         disabled={isBusy}
-                        className="relative overflow-hidden bg-emerald-600 hover:bg-emerald-700 min-h-11 px-3"
+                        className="relative overflow-hidden bg-brand-primary hover:bg-brand-primary/90 min-h-11 px-3"
                         aria-label="Hold to complete cleaning job"
                       >
                         {holdingId === r.id && (

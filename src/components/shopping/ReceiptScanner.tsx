@@ -66,14 +66,13 @@ interface ReceiptScannerProps {
    *  onboarding hub but the shopping surface can override to keep
    *  shopping staff inside their portal. */
   historyHref?: string;
-  /** Tone of the upload card title. Both surfaces use purple today
-   *  but kept as a prop so a future surface can override. */
+  /** Legacy tone prop retained for callers; visual accent is now the
+   *  tenant brand so every portal follows the admin palette. */
   accent?: "purple" | "emerald" | "amber";
 }
 
 export function ReceiptScanner({
   historyHref,
-  accent = "purple",
 }: ReceiptScannerProps) {
   const { toast } = useToast();
   const { user, profile } = useAuth() as any;
@@ -114,24 +113,14 @@ export function ReceiptScanner({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [companyId, jobId]);
 
-  // Accent maps. Amber is the shopping portal's primary-action colour; it
-  // uses a solid fill (no gradient) so the scan/upload action reads as the
-  // one true CTA on the surface. Other branches keep their prior treatment.
-  const accentText = accent === "amber" ? "text-amber-700 dark:text-amber-400" : accent === "emerald" ? "text-emerald-600" : "text-purple-600";
-  // Dropzone is a standard affordance: a quiet neutral dashed border at rest
-  // that warms to the accent only on hover, so amber stays reserved for the
-  // active CTA rather than decorating the idle drop target.
-  const accentBorder = accent === "amber"
-    ? "border-slate-300 dark:border-slate-700 hover:border-amber-500 hover:bg-amber-50 dark:hover:border-amber-500/60 dark:hover:bg-amber-500/10"
-    : accent === "emerald"
-    ? "border-emerald-300 hover:border-emerald-500 hover:bg-emerald-50"
-    : "border-purple-300 hover:border-purple-500 hover:bg-purple-50";
-  const accentIcon = accent === "amber" ? "text-slate-400 dark:text-slate-500" : accent === "emerald" ? "text-emerald-400" : "text-purple-400";
-  const accentBtn = accent === "amber"
-    ? "bg-brand-primary hover:bg-brand-primary/90 text-white rounded-lg"
-    : accent === "emerald"
-    ? "bg-gradient-to-r from-emerald-600 to-teal-600"
-    : "bg-gradient-to-r from-purple-600 to-pink-600";
+  // Admin brand maps. The scanner is used by admin + shopping portal,
+  // so all decorative accents follow the tenant's selected palette.
+  const accentText = "text-brand-primary";
+  // Dropzone is a standard affordance: a quiet neutral dashed border at
+  // rest that switches to brand on hover without becoming noisy.
+  const accentBorder = "border-slate-300 dark:border-slate-700 hover:border-brand-primary/70 hover:bg-brand-primary/5 dark:hover:border-brand-primary/60 dark:hover:bg-brand-primary/10";
+  const accentIcon = "text-brand-primary/60";
+  const accentBtn = "bg-gradient-to-r from-brand-primary to-brand-secondary hover:brightness-105 text-white rounded-lg";
 
   const onPickFiles = (files: FileList | null) => {
     if (!files) return;
@@ -271,7 +260,7 @@ export function ReceiptScanner({
             onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); inputRef.current?.click(); } }}
             onDragOver={(e) => { e.preventDefault(); }}
             onDrop={(e) => { e.preventDefault(); onPickFiles(e.dataTransfer.files); }}
-            className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-[border-color,background-color] duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/60 ${accentBorder}`}
+            className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-[border-color,background-color] duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/60 ${accentBorder}`}
           >
             <FileImage className={`w-10 h-10 mx-auto mb-2 ${accentIcon}`} />
             <p className="text-sm font-medium text-slate-700 dark:text-slate-200">
@@ -392,8 +381,8 @@ export function ReceiptScanner({
       {!busy && rows.length === 0 && !scanStatus && picked.length === 0 && (
         <Card className="rounded-xl border border-dashed border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
           <CardContent className="p-6 sm:p-8 text-center">
-            <div className="w-11 h-11 mx-auto mb-3 rounded-xl bg-amber-50 dark:bg-amber-500/10 flex items-center justify-center">
-              <FileImage className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+            <div className="w-11 h-11 mx-auto mb-3 rounded-xl bg-brand-primary/10 dark:bg-brand-primary/15 flex items-center justify-center">
+              <FileImage className="w-5 h-5 text-brand-primary" />
             </div>
             <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
               No receipts scanned yet

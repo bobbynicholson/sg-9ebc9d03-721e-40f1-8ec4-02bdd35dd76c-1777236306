@@ -113,16 +113,16 @@ export function PWAInstallPrompt() {
   };
 
   return (
-    <Card className="border-emerald-200 bg-emerald-50">
+    <Card className="border-brand-primary/20 bg-brand-primary/5">
       <CardContent className="p-3 flex items-center gap-3">
-        <div className="w-9 h-9 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
-          <Smartphone className="w-5 h-5 text-emerald-700" />
+        <div className="w-9 h-9 rounded-full bg-brand-primary/10 flex items-center justify-center shrink-0">
+          <Smartphone className="w-5 h-5 text-brand-primary" />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-emerald-900">
+          <p className="text-sm font-medium text-brand-primary">
             Install the driver app
           </p>
-          <p className="text-xs text-emerald-800/80">
+          <p className="text-xs text-slate-700">
             {showIosHint
               ? "Tap the Share icon in Safari, then \"Add to Home Screen\" for a faster, full-screen experience."
               : "Add it to your home screen so it opens like a regular app - faster login, full-screen, works on patchy signal."}
@@ -132,7 +132,7 @@ export function PWAInstallPrompt() {
           <Button
             size="sm"
             onClick={install}
-            className="bg-emerald-600 hover:bg-emerald-700 shrink-0"
+            className="bg-brand-primary hover:bg-brand-primary/90 shrink-0"
           >
             <Download className="w-4 h-4 mr-1" />
             Install
@@ -142,7 +142,7 @@ export function PWAInstallPrompt() {
           variant="ghost"
           size="icon"
           onClick={dismiss}
-          className="shrink-0 text-emerald-800 hover:bg-emerald-100"
+          className="shrink-0 text-brand-primary hover:bg-brand-primary/10"
           aria-label="Dismiss"
         >
           <X className="w-4 h-4" />

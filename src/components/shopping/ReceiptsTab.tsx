@@ -331,7 +331,7 @@ export function ReceiptsTab({ companyId, userId }: Props) {
       <div className="flex items-start justify-between gap-3 flex-wrap mb-4">
         <div>
           <h2 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
-            <Receipt className="w-5 h-5 text-amber-600" />
+            <Receipt className="w-5 h-5 text-brand-primary" />
             Receipts &amp; tax-deductible log
           </h2>
           <p className="text-xs text-slate-600 mt-0.5">
@@ -375,10 +375,10 @@ export function ReceiptsTab({ companyId, userId }: Props) {
             showed it. SARS-input use case for VAT-registered
             tenants. Mismatch chip overlays when lines diverge
             from slip totals on N receipts in this window. */}
-        <Card className="border-0 shadow-sm bg-gradient-to-br from-blue-50 to-indigo-100">
+        <Card className="border-0 shadow-sm bg-gradient-to-br from-brand-primary/5 to-brand-secondary/10">
           <CardContent className="py-4 px-4">
-            <p className="text-xs uppercase tracking-wide text-blue-700 font-semibold">VAT input</p>
-            <p className="text-2xl font-bold text-blue-900 mt-1 tabular-nums">{fmtR(summary.vatClaimableTotal)}</p>
+            <p className="text-xs uppercase tracking-wide text-brand-primary font-semibold">VAT input</p>
+            <p className="text-2xl font-bold text-slate-900 mt-1 tabular-nums">{fmtR(summary.vatClaimableTotal)}</p>
             {summary.mismatchCount > 0 && (
               <p className="text-[10px] text-rose-700 mt-0.5 font-medium">
                 {summary.mismatchCount} mismatch{summary.mismatchCount === 1 ? "" : "es"} - review before filing
@@ -457,11 +457,11 @@ export function ReceiptsTab({ companyId, userId }: Props) {
             <button
               type="button"
               onClick={() => setVendorFilter(null)}
-              className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md border border-amber-300 bg-amber-50 text-amber-800"
+              className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md border border-brand-primary/20 bg-brand-primary/5 text-brand-primary"
               title="Clear vendor filter"
             >
               <span>Vendor: <strong>{vendorFilter}</strong></span>
-              <span className="text-amber-600">×</span>
+              <span className="text-brand-primary">×</span>
             </button>
           )}
         </CardContent>
@@ -542,7 +542,7 @@ export function ReceiptsTab({ companyId, userId }: Props) {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Camera className="w-5 h-5 text-amber-600" />
+              <Camera className="w-5 h-5 text-brand-primary" />
               Add slip by hand
             </DialogTitle>
           </DialogHeader>
@@ -820,7 +820,7 @@ function ReceiptRow({
                   onClick={(e) => { e.stopPropagation(); onRescan(receipt.id); }}
                   disabled={rescanning}
                   title="Re-run the AI on this slip image to extract line items + tax tags"
-                  className="ml-1 inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-semibold rounded-full bg-purple-100 text-purple-700 border border-purple-200 hover:bg-purple-200 disabled:opacity-60"
+                  className="ml-1 inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-semibold rounded-full bg-brand-primary/10 text-brand-primary border border-brand-primary/20 hover:bg-brand-primary/15 disabled:opacity-60"
                 >
                   {rescanning ? (
                     <><Loader2 className="w-3 h-3 animate-spin" /> Reading...</>

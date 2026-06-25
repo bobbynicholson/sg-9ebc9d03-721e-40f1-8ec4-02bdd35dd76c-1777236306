@@ -657,7 +657,7 @@ function CleaningDashboardInner() {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <ClipboardCheck className="w-5 h-5 text-amber-600 dark:text-amber-500" />
+              <ClipboardCheck className="w-5 h-5 text-brand-primary" />
               Inspect {inspectItem?.name}
             </DialogTitle>
             <DialogDescription>

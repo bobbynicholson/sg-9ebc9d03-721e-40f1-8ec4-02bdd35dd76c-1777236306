@@ -36,23 +36,21 @@ interface Pill {
   aria: string;
 }
 
-// Restrained palette: neutral slate base, with an accent ONLY when a pill
-// genuinely needs attention (amber = something to do, rose = urgent shortfall).
-// Informational counts (active list, spend) stay neutral so the strip reads
-// calm and consistent instead of a four-colour rainbow.
+// Restrained palette: tenant brand for normal active pills, with warm/rose
+// only when a pill genuinely needs attention.
 const TONE_BG: Record<Pill["tone"], string> = {
-  default:  "bg-slate-100 hover:bg-slate-200 border-slate-200 text-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 dark:border-slate-700 dark:text-slate-100",
+  default:  "bg-brand-primary/10 hover:bg-brand-primary/15 border-brand-primary/20 text-brand-primary dark:bg-brand-primary/15 dark:hover:bg-brand-primary/20 dark:border-brand-primary/30 dark:text-brand-primary",
   warning:  "bg-amber-50 hover:bg-amber-100 border-amber-200 text-amber-900 dark:bg-amber-500/10 dark:hover:bg-amber-500/15 dark:border-amber-500/30 dark:text-amber-200",
   critical: "bg-rose-50 hover:bg-rose-100 border-rose-200 text-rose-900 dark:bg-rose-500/10 dark:hover:bg-rose-500/15 dark:border-rose-500/30 dark:text-rose-200",
-  info:     "bg-slate-100 hover:bg-slate-200 border-slate-200 text-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 dark:border-slate-700 dark:text-slate-100",
+  info:     "bg-brand-primary/10 hover:bg-brand-primary/15 border-brand-primary/20 text-brand-primary dark:bg-brand-primary/15 dark:hover:bg-brand-primary/20 dark:border-brand-primary/30 dark:text-brand-primary",
   muted:    "bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-500 dark:bg-slate-900 dark:hover:bg-slate-800 dark:border-slate-700 dark:text-slate-400",
 };
 
 const TONE_ICON_BG: Record<Pill["tone"], string> = {
-  default:  "bg-slate-200/70 text-slate-600 dark:bg-slate-700 dark:text-slate-300",
+  default:  "bg-brand-primary/15 text-brand-primary dark:bg-brand-primary/20 dark:text-brand-primary",
   warning:  "bg-amber-200/70 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300",
   critical: "bg-rose-200/70 text-rose-700 dark:bg-rose-500/20 dark:text-rose-300",
-  info:     "bg-slate-200/70 text-slate-600 dark:bg-slate-700 dark:text-slate-300",
+  info:     "bg-brand-primary/15 text-brand-primary dark:bg-brand-primary/20 dark:text-brand-primary",
   muted:    "bg-slate-200/40 text-slate-400 dark:bg-slate-800 dark:text-slate-500",
 };
 

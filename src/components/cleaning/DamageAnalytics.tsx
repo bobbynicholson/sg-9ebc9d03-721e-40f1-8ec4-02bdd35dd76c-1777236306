@@ -185,9 +185,9 @@ export function DamageAnalytics() {
 
   const damageTypeColours: Record<DamageType, string> = {
     broken: "bg-red-500",
-    lost: "bg-orange-500",
-    stolen: "bg-purple-500",
-    damaged: "bg-amber-500",
+    lost: "bg-brand-primary",
+    stolen: "bg-brand-primary",
+    damaged: "bg-brand-primary",
   };
 
   const damageTypeLabels: Record<DamageType, string> = {
@@ -589,7 +589,7 @@ export function DamageAnalytics() {
                 variant={statusFilter === s.key ? "default" : "outline"}
                 onClick={() => setStatusFilter(s.key)}
                 size="sm"
-                className={statusFilter === s.key && s.key === "billed" ? "bg-emerald-600 hover:bg-emerald-700" : ""}
+                className={statusFilter === s.key && s.key === "billed" ? "bg-brand-primary hover:bg-brand-primary/90" : ""}
               >
                 {s.label}
               </Button>
@@ -654,7 +654,7 @@ export function DamageAnalytics() {
                             <p className="mt-1 text-emerald-700 dark:text-emerald-400">Resolution: {damage.resolution_notes}</p>
                           )}
                           {damage.photo_url && (
-                            <a href={damage.photo_url} target="_blank" rel="noopener noreferrer" className="inline-block text-cyan-700 hover:underline">
+                            <a href={damage.photo_url} target="_blank" rel="noopener noreferrer" className="inline-block text-brand-primary hover:underline">
                               View photo
                             </a>
                           )}
@@ -682,7 +682,7 @@ export function DamageAnalytics() {
                         <Button
                           type="button"
                           size="sm"
-                          className="gap-1.5 min-h-11 bg-emerald-600 hover:bg-emerald-700"
+                          className="gap-1.5 min-h-11 bg-brand-primary hover:bg-brand-primary/90"
                           onClick={() => handleBillClient(damage)}
                           disabled={pendingDamageId === damage.id || Number(damage.total_cost || 0) <= 0 || !damage.order_id}
                           aria-label={`Bill client for ${damage.equipment?.name || "this damage"}`}

@@ -1290,11 +1290,11 @@ function ClientPortalDashboardInner() {
               when justDelivered is non-null (closes itself after the
               rating is left, or after 7 days regardless). */}
           {!headline && justDelivered && (
-            <div className="rounded-2xl border border-amber-300 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/20 p-4 sm:p-5 flex items-center justify-between gap-3">
+            <div className="rounded-2xl border border-brand-primary/30 bg-brand-primary/5 dark:border-brand-primary/30 dark:bg-brand-primary/10 p-4 sm:p-5 flex items-center justify-between gap-3">
               <div className="flex items-center gap-3 min-w-0">
-                <PartyPopper className="w-8 h-8 shrink-0 text-amber-600" />
+                <PartyPopper className="w-8 h-8 shrink-0 text-brand-primary" />
                 <div className="min-w-0">
-                  <p className="text-xs uppercase tracking-wide font-semibold text-amber-700 dark:text-amber-400">
+                  <p className="text-xs uppercase tracking-wide font-semibold text-brand-primary">
                     How was it?
                   </p>
                   <p className="text-sm sm:text-base font-semibold text-slate-900 dark:text-white mt-0.5">
@@ -1791,13 +1791,13 @@ function HeroCard({
           const todayISO = toLocalISO(new Date());
           if (order.event_date !== todayISO) return null;
           return (
-            <div className="flex items-start gap-3 p-3 rounded-lg bg-amber-50 border border-amber-200">
-              <div className="w-9 h-9 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
-                <Truck className="w-4 h-4 text-amber-700" />
+            <div className="flex items-start gap-3 p-3 rounded-lg bg-brand-primary/5 border border-brand-primary/20">
+              <div className="w-9 h-9 rounded-full bg-brand-primary/10 flex items-center justify-center flex-shrink-0">
+                <Truck className="w-4 h-4 text-brand-primary" />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold text-amber-900">Driver being assigned</p>
-                <p className="text-xs text-amber-800 mt-0.5">
+                <p className="text-sm font-semibold text-brand-primary">Driver being assigned</p>
+                <p className="text-xs text-slate-700 dark:text-slate-300 mt-0.5">
                   {order.status === "ready"
                     ? "Your order is ready and dispatch is sorting a driver. You'll see the live map here the moment they're on the way."
                     : "Your order is confirmed for today. Dispatch will assign a driver closer to your start time."}

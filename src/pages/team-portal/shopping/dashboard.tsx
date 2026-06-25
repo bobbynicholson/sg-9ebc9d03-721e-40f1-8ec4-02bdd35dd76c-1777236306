@@ -608,7 +608,7 @@ function ShoppingDashboardInner() {
                                   className={`flex items-center gap-3 p-3 sm:p-4 rounded-lg border transition-colors duration-150 cursor-pointer select-none min-h-11 ${
                                     item.purchased
                                       ? "bg-slate-50 border-slate-200 dark:bg-slate-900/60 dark:border-slate-800"
-                                      : "bg-white border-slate-200 hover:border-amber-400 active:bg-amber-50 dark:bg-slate-900 dark:border-slate-700 dark:hover:border-amber-600 dark:active:bg-amber-950/40"
+                                      : "bg-white border-slate-200 hover:border-brand-primary/50 active:bg-brand-primary/5 dark:bg-slate-900 dark:border-slate-700 dark:hover:border-brand-primary/50 dark:active:bg-brand-primary/10"
                                   }`}
                                   aria-pressed={item.purchased}
                                   aria-label={`Mark ${item.name} as ${item.purchased ? "not bought" : "bought"}`}
@@ -719,7 +719,7 @@ function ShoppingDashboardInner() {
                                   {item.purchased ? (
                                     <CheckCircle className="w-5 h-5 text-emerald-600 dark:text-emerald-500 flex-shrink-0" />
                                   ) : (
-                                    <Clock className="w-5 h-5 text-amber-600 dark:text-amber-500 flex-shrink-0" />
+                                    <Clock className="w-5 h-5 text-brand-primary flex-shrink-0" />
                                   )}
                                 </div>
                               ))}
@@ -743,7 +743,7 @@ function ShoppingDashboardInner() {
                           className={`flex items-center gap-3 p-3 sm:p-4 rounded-lg border transition-colors duration-150 cursor-pointer select-none min-h-11 ${
                             item.purchased
                               ? "bg-slate-50 border-slate-200 dark:bg-slate-900/60 dark:border-slate-800"
-                              : "bg-white border-slate-200 hover:border-amber-400 active:bg-amber-50 dark:bg-slate-900 dark:border-slate-700 dark:hover:border-amber-600 dark:active:bg-amber-950/40"
+                              : "bg-white border-slate-200 hover:border-brand-primary/50 active:bg-brand-primary/5 dark:bg-slate-900 dark:border-slate-700 dark:hover:border-brand-primary/50 dark:active:bg-brand-primary/10"
                           }`}
                           aria-pressed={item.purchased}
                           aria-label={`Mark ${item.name} as ${item.purchased ? "not bought" : "bought"}`}
@@ -832,7 +832,7 @@ function ShoppingDashboardInner() {
                           {item.purchased ? (
                             <CheckCircle className="w-5 h-5 text-emerald-600 dark:text-emerald-500 flex-shrink-0" />
                           ) : (
-                            <Clock className="w-5 h-5 text-amber-600 dark:text-amber-500 flex-shrink-0" />
+                            <Clock className="w-5 h-5 text-brand-primary flex-shrink-0" />
                           )}
                         </div>
                       ))

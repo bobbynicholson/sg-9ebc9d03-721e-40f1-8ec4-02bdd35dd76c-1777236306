@@ -191,7 +191,7 @@ export function BarcodeScanFab({ companyId, onScanMatch, visible }: Props) {
         <SheetContent side="bottom" className="h-[85vh] flex flex-col p-0">
           <SheetHeader className="px-4 pt-4 pb-2 border-b">
             <SheetTitle className="flex items-center gap-2">
-              <ScanLine className="w-5 h-5 text-amber-600" />
+              <ScanLine className="w-5 h-5 text-brand-primary" />
               Scan a barcode
             </SheetTitle>
             <SheetDescription>
@@ -204,7 +204,7 @@ export function BarcodeScanFab({ companyId, onScanMatch, visible }: Props) {
               <video ref={videoRef} className="w-full h-full object-cover" playsInline muted />
               {cameraState.kind === "scanning" && (
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                  <div className="border-2 border-amber-400 rounded-lg w-3/4 h-1/2 shadow-[0_0_0_9999px_rgba(0,0,0,0.45)]" />
+                  <div className="border-2 border-brand-primary rounded-lg w-3/4 h-1/2 shadow-[0_0_0_9999px_rgba(0,0,0,0.45)]" />
                 </div>
               )}
               {cameraState.kind === "idle" && (
@@ -221,7 +221,7 @@ export function BarcodeScanFab({ companyId, onScanMatch, visible }: Props) {
             </div>
 
             {(cameraState.kind === "denied" || cameraState.kind === "unsupported") && (
-              <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+              <div className="rounded-md border border-brand-primary/20 bg-brand-primary/10 px-3 py-2 text-sm text-brand-primary">
                 <p className="font-semibold flex items-center gap-1.5">
                   <Keyboard className="w-4 h-4" />
                   Manual entry

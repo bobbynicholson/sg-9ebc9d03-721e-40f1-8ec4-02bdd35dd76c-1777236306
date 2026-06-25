@@ -130,7 +130,7 @@ export function KitchenNav(_: KitchenNavProps = {}) {
             // shape isn't disrupted; a small flame badge sits in the
             // top-right corner only during service hours.
             iconOverlay: () => isService ? (
-              <Flame className="h-2.5 w-2.5 text-amber-600 drop-shadow-sm" />
+              <Flame className="h-2.5 w-2.5 text-brand-primary drop-shadow-sm" />
             ) : null,
           },
           {

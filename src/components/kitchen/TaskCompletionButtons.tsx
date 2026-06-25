@@ -43,25 +43,25 @@ const TASK_TYPES = [
     type: "food_ready",
     label: "Food ready",
     icon: Grape,
-    color: "bg-green-500",
+    color: "bg-brand-primary",
   },
   {
     type: "cutlery_ready",
     label: "Cutlery ready",
     icon: UtensilsCrossed,
-    color: "bg-blue-500",
+    color: "bg-brand-primary",
   },
   {
     type: "crockery_ready",
     label: "Crockery ready",
     icon: Package,
-    color: "bg-purple-500",
+    color: "bg-brand-primary",
   },
   {
     type: "ready_for_pickup",
     label: "Ready for pickup",
     icon: Truck,
-    color: "bg-orange-500",
+    color: "bg-brand-primary",
   },
 ];
 

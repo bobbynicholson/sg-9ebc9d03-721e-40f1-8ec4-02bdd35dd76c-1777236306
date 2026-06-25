@@ -82,16 +82,15 @@ export interface PortalSidebarConfig {
   mobileSubtitle: string;
   brandIcon: React.ComponentType<{ className?: string }>;
   /** Tailwind gradient for the mobile drawer header + active link
-   *  background, e.g. "from-orange-500 to-red-500". */
+   *  background, usually "from-brand-primary to-brand-secondary". */
   accentGradient: string;
-  /** Same gradient one shade deeper for the desktop logo tile,
-   *  e.g. "from-orange-600 to-red-600". */
+  /** Same gradient for the desktop logo tile. */
   accentGradientDark: string;
-  /** Hover classes for nav links, e.g. "hover:bg-orange-50 hover:text-orange-700". */
+  /** Hover classes for nav links, usually brand-token based. */
   hoverClasses: string;
-  /** Active-link hover override, e.g. "hover:from-orange-600 hover:to-red-600". */
+  /** Active-link hover override. */
   activeHoverClasses: string;
-  /** Mobile drawer subtitle text colour, e.g. "text-orange-100". */
+  /** Mobile drawer subtitle text colour. */
   mobileSubtitleClasses: string;
   /** Mobile search accent classes + hint copy. */
   searchAccent: string;
@@ -231,7 +230,7 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
     const badgeTone =
       badge?.tone === "critical" ? "bg-rose-100 text-rose-800 border-rose-200" :
       badge?.tone === "warning"  ? "bg-amber-100 text-amber-800 border-amber-200" :
-      badge?.tone === "info"     ? "bg-blue-100 text-blue-800 border-blue-200" :
+      badge?.tone === "info"     ? "bg-brand-primary/10 text-brand-primary border-brand-primary/20" :
       "bg-slate-100 text-slate-700 border-slate-200";
 
     return (

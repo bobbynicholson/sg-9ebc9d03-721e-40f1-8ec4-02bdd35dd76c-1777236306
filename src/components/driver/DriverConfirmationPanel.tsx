@@ -457,9 +457,9 @@ export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venue
             mirror the delivery-leg pattern so the UX is familiar.
             Wave 11 #11. */}
         {collectionAssignment && (
-          <div className="rounded-lg border border-amber-200 bg-amber-50/50 p-4 space-y-3">
+          <div className="rounded-lg border border-brand-primary/20 bg-brand-primary/5 p-4 space-y-3">
             <div className="flex items-center gap-2">
-              <Package className="h-5 w-5 text-amber-600" />
+              <Package className="h-5 w-5 text-brand-primary" />
               <p className="font-semibold text-slate-900">Collection trip</p>
               {collectionAssignment.scheduled_for && (
                 <span className="text-xs text-slate-500">
@@ -477,7 +477,7 @@ export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venue
                 )}
               </div>
               {collectionAssignment.en_route_at || collectionAssignment.status === "in_progress" || collectionAssignment.status === "completed" ? (
-                <Badge variant="default" className="bg-amber-500">
+                <Badge variant="default" className="bg-brand-primary">
                   <CheckCircle className="h-3 w-3 mr-1" />
                   Started
                 </Badge>

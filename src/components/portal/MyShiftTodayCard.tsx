@@ -52,10 +52,10 @@ interface Props {
 }
 
 const SHIFT_TONE: Record<string, string> = {
-  kitchen: "border-orange-200 bg-orange-50",
-  cleaning: "border-cyan-200 bg-cyan-50",
-  kitchen_and_cleaning: "border-violet-200 bg-violet-50",
-  delivery: "border-teal-200 bg-teal-50",
+  kitchen: "border-brand-primary/20 bg-brand-primary/5",
+  cleaning: "border-brand-primary/20 bg-brand-primary/5",
+  kitchen_and_cleaning: "border-brand-primary/20 bg-brand-primary/5",
+  delivery: "border-brand-primary/20 bg-brand-primary/5",
   general: "border-slate-200 bg-slate-50",
 };
 

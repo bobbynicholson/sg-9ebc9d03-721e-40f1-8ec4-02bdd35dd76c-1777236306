@@ -140,7 +140,7 @@ export default function CleaningTasksPage() {
             subtitle={
               <>
                 Scheduled checklist work lives here. Equipment returns and washing queues stay on the Cleaning desk.{" "}
-                <a href={withSlug("/team-portal/cleaning/schedules")} className="text-amber-600 dark:text-amber-400 underline">Manage the recurring schedule</a> if you need to add a new repeating area.
+                <a href={withSlug("/team-portal/cleaning/schedules")} className="text-brand-primary underline">Manage the recurring schedule</a> if you need to add a new repeating area.
               </>
             }
             icon={ClipboardCheck}

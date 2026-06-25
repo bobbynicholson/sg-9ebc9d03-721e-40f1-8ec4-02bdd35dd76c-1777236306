@@ -379,14 +379,14 @@ export default function ClientProfilePage() {
               {/* Mobile-missing banner - the smart nudge for clients
                   who only gave a landline at quote time. */}
               {!form.mobile_number.trim() && (
-                <PortalCard padded={false} className="bg-amber-50 dark:bg-amber-950/30 border-l-4 border-amber-500">
+                <PortalCard padded={false} className="bg-brand-primary/5 dark:bg-brand-primary/10 border-l-4 border-brand-primary">
                   <div className="p-4 flex items-start gap-3">
-                    <MessageCircle className="w-5 h-5 text-amber-600 dark:text-amber-500 flex-shrink-0 mt-0.5" />
+                    <MessageCircle className="w-5 h-5 text-brand-primary flex-shrink-0 mt-0.5" />
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-amber-900 dark:text-amber-100">
+                      <p className="text-sm font-semibold text-brand-primary">
                         Add your mobile for WhatsApp updates
                       </p>
-                      <p className="text-xs text-amber-800 dark:text-amber-200 mt-1">
+                      <p className="text-xs text-slate-700 dark:text-slate-300 mt-1">
                         {companyName} uses WhatsApp for driver ETAs, last-minute changes and quick
                         confirmations on the day. Pop your mobile in below and you&apos;ll be sorted.
                         It&apos;s entirely optional - they&apos;ll keep using email + phone if you skip it.
@@ -548,7 +548,7 @@ export default function ClientProfilePage() {
                         />
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-slate-900 dark:text-white inline-flex items-center gap-1.5">
-                            <MessageCircle className="w-4 h-4 text-amber-600 dark:text-amber-500" />
+                            <MessageCircle className="w-4 h-4 text-brand-primary" />
                             Send me WhatsApp updates from {companyName}
                           </p>
                           <p className="text-xs text-slate-500 mt-1">
@@ -563,9 +563,9 @@ export default function ClientProfilePage() {
 
                   {/* Mobile present but opt-in off - gentle nudge */}
                   {form.mobile_number.trim() && !form.whatsapp_opt_in && (
-                    <div className="rounded-md border border-amber-200 bg-amber-50 dark:bg-amber-950/30 p-3 flex items-start gap-2">
-                      <Info className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
-                      <p className="text-xs text-amber-900 dark:text-amber-100">
+                    <div className="rounded-md border border-brand-primary/20 bg-brand-primary/5 dark:bg-brand-primary/10 p-3 flex items-start gap-2">
+                      <Info className="w-4 h-4 text-brand-primary flex-shrink-0 mt-0.5" />
+                      <p className="text-xs text-slate-700 dark:text-slate-300">
                         WhatsApp updates are off. {companyName} will reach you on email + phone
                         instead. Tick the box above if you&apos;d rather get faster updates by WhatsApp.
                       </p>
@@ -578,7 +578,7 @@ export default function ClientProfilePage() {
                 <PortalCard padded={false}>
                   <div className="p-5 sm:p-6 space-y-4">
                     <div className="flex items-center gap-2">
-                      <Building2 className="w-5 h-5 text-amber-600 dark:text-amber-500" />
+                      <Building2 className="w-5 h-5 text-brand-primary" />
                       <h3 className="text-base font-semibold text-slate-900 dark:text-white">
                         How {companyName} addresses you
                       </h3>

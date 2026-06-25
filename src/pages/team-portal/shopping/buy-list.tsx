@@ -399,7 +399,7 @@ export default function ShoppingBuyListPage() {
               className="mb-0 p-5"
               title={
                 <span className="flex items-center gap-2">
-                  <ListChecks className="h-4 w-4 text-amber-600 dark:text-amber-500" />
+                  <ListChecks className="h-4 w-4 text-brand-primary" />
                   {visible.length} item{visible.length === 1 ? "" : "s"} to consider
                 </span>
               }

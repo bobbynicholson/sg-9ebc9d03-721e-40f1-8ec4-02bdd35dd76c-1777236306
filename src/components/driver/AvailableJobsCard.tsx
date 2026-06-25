@@ -283,10 +283,10 @@ export function AvailableJobsCard({ onClaimed }: Props) {
                   </span>
                   {/* Collection time is what the driver wants to know
                       first - "when do I leave the kitchen?". Render
-                      as a blue pill so it stands out from the event
-                      time. */}
+                      with the tenant brand so it stands out from the
+                      event time without introducing another role color. */}
                   {o.pickup_time && (
-                    <span className="inline-flex items-center gap-1 text-blue-700 font-medium">
+                    <span className="inline-flex items-center gap-1 text-brand-primary font-medium">
                       <Clock className="w-3 h-3" />
                       Collect {o.pickup_time.slice(0, 5)}
                     </span>
@@ -310,7 +310,7 @@ export function AvailableJobsCard({ onClaimed }: Props) {
                     <a
                       href={`tel:${String(o.client_phone).replace(/\s+/g, "")}`}
                       onClick={(e) => e.stopPropagation()}
-                      className="inline-flex items-center gap-1 text-blue-700 hover:underline tabular-nums"
+                      className="inline-flex items-center gap-1 text-brand-primary hover:underline tabular-nums"
                     >
                       📞 {o.client_phone}
                     </a>
@@ -326,7 +326,7 @@ export function AvailableJobsCard({ onClaimed }: Props) {
                 size="sm"
                 onClick={() => setConfirmRow(o)}
                 disabled={isBusy}
-                className="bg-emerald-600 hover:bg-emerald-700"
+                className="bg-brand-primary hover:bg-brand-primary/90"
               >
                 {isBusy ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
@@ -373,7 +373,7 @@ export function AvailableJobsCard({ onClaimed }: Props) {
                       )}
                     </div>
                     {confirmRow.pickup_time && (
-                      <div className="flex items-center gap-2 text-blue-700 font-medium">
+                      <div className="flex items-center gap-2 text-brand-primary font-medium">
                         <Clock className="w-3.5 h-3.5" />
                         <span>
                           Collect from kitchen at{" "}
@@ -422,7 +422,7 @@ export function AvailableJobsCard({ onClaimed }: Props) {
                 setConfirmRow(null);
                 if (id) void onClaim(id);
               }}
-              className="bg-emerald-600 hover:bg-emerald-700"
+              className="bg-brand-primary hover:bg-brand-primary/90"
             >
               Yes, claim it
             </AlertDialogAction>

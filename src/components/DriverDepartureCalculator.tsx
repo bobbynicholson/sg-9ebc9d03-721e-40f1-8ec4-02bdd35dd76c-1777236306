@@ -77,7 +77,7 @@ export function DriverDepartureCalculator({
   const minutesUntilDeparture = Math.ceil((leaveForKitchen.getTime() - now.getTime()) / 60000);
 
   return (
-    <Card className={isTimeToLeave ? "border-orange-500 border-2 animate-pulse" : ""}>
+    <Card className={isTimeToLeave ? "border-brand-primary border-2 animate-pulse" : ""}>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Clock className="w-5 h-5" />
@@ -88,16 +88,16 @@ export function DriverDepartureCalculator({
         {/* Time to Leave for Kitchen */}
         <div className={`p-4 rounded-lg border-2 ${
           isTimeToLeave 
-            ? "bg-orange-50 border-orange-500" 
-            : "bg-blue-50 border-blue-200"
+            ? "bg-brand-primary/10 border-brand-primary"
+            : "bg-brand-primary/5 border-brand-primary/20"
         }`}>
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
-              <Navigation className={`w-5 h-5 ${isTimeToLeave ? "text-orange-600" : "text-blue-600"}`} />
+              <Navigation className="w-5 h-5 text-brand-primary" />
               <h4 className="font-semibold">Leave for Kitchen</h4>
             </div>
             {isTimeToLeave && (
-              <Badge className="bg-orange-600 text-white animate-pulse">
+              <Badge className="bg-brand-primary text-white animate-pulse">
                 TIME TO GO!
               </Badge>
             )}
@@ -129,7 +129,7 @@ export function DriverDepartureCalculator({
         {/* Leave for Venue */}
         <div className="p-4 rounded-lg border bg-gray-50">
           <div className="flex items-center gap-2 mb-2">
-            <MapPin className="w-5 h-5 text-purple-600" />
+            <MapPin className="w-5 h-5 text-brand-primary" />
             <h4 className="font-semibold">Leave for Venue</h4>
           </div>
           <p className="text-lg font-bold mb-1">
@@ -146,8 +146,8 @@ export function DriverDepartureCalculator({
             onClick={handleStartTrip}
             className={`w-full ${
               isTimeToLeave
-                ? "bg-orange-600 hover:bg-orange-700 animate-pulse"
-                : "bg-blue-600 hover:bg-blue-700"
+                ? "bg-brand-primary hover:bg-brand-primary/90 animate-pulse"
+                : "bg-brand-primary hover:bg-brand-primary/90"
             }`}
             size="lg"
           >
@@ -165,10 +165,10 @@ export function DriverDepartureCalculator({
         )}
 
         {/* Helpful Tips */}
-        <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+        <div className="p-3 bg-brand-primary/5 border border-brand-primary/20 rounded-lg">
           <div className="flex items-start gap-2">
-            <AlertCircle className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
-            <div className="text-xs text-blue-700">
+            <AlertCircle className="w-4 h-4 text-brand-primary mt-0.5 flex-shrink-0" />
+            <div className="text-xs text-slate-700">
               <p className="font-semibold mb-1">Important:</p>
               <ul className="list-disc list-inside space-y-1">
                 <li>15-minute buffer included before collection</li>

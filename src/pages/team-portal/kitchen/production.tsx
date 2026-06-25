@@ -96,7 +96,7 @@ const STATUS_TONES: Record<string, string> = {
 // striped grid without screaming.
 const TASK_TONES: Record<string, string> = {
   pending:     "bg-slate-200 border-slate-300 text-slate-800 hover:bg-slate-300",
-  in_progress: "bg-amber-200 border-amber-400 text-amber-900 hover:bg-amber-300",
+  in_progress: "bg-brand-primary/15 border-brand-primary/30 text-brand-primary hover:bg-brand-primary/20",
   done:        "bg-emerald-200 border-emerald-400 text-emerald-900 hover:bg-emerald-300",
   skipped:     "bg-slate-100 border-slate-200 text-slate-500 hover:bg-slate-200 line-through",
 };
@@ -1169,7 +1169,7 @@ export default function KitchenProductionPage() {
             <div className="mt-3 flex items-center gap-3 text-[11px] text-slate-500 dark:text-slate-400 flex-wrap">
               <span className="font-semibold">Status:</span>
               <span className="inline-flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-slate-200 border border-slate-300" /> Pending</span>
-              <span className="inline-flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-amber-200 border border-amber-400" /> In progress</span>
+              <span className="inline-flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-brand-primary/15 border border-brand-primary/30" /> In progress</span>
               <span className="inline-flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-emerald-200 border border-emerald-400" /> Done</span>
             </div>
           )}

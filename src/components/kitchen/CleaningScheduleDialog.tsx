@@ -109,7 +109,7 @@ export function CleaningScheduleDialog({
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base">
-            <Sparkles className="w-5 h-5 text-cyan-600" />
+            <Sparkles className="w-5 h-5 text-brand-primary" />
             Cleaning schedule
             {cleaningReadiness && (
               <Badge
@@ -119,7 +119,7 @@ export function CleaningScheduleDialog({
                     ? "bg-emerald-100 text-emerald-800 border-emerald-300"
                     : cleaningReadiness.complete > 0
                     ? "bg-amber-100 text-amber-800 border-amber-300"
-                    : "bg-cyan-100 text-cyan-800 border-cyan-300"
+                    : "bg-brand-primary/10 text-brand-primary border-brand-primary/20"
                 }`}
               >
                 Tomorrow {cleaningReadiness.complete}/{cleaningReadiness.total}
@@ -156,7 +156,7 @@ export function CleaningScheduleDialog({
                       key={p.id}
                       className="flex items-center gap-2 p-2 rounded-md border border-slate-200 bg-white"
                     >
-                      <div className="w-8 h-8 rounded-full bg-cyan-100 text-cyan-700 flex items-center justify-center text-sm font-semibold">
+                      <div className="w-8 h-8 rounded-full bg-brand-primary/10 text-brand-primary flex items-center justify-center text-sm font-semibold">
                         {(p.name || "?").slice(0, 1).toUpperCase()}
                       </div>
                       <div className="min-w-0">
@@ -174,7 +174,7 @@ export function CleaningScheduleDialog({
             {/* Live cleaning jobs queue. */}
             <section>
               <h3 className="text-sm font-semibold text-slate-700 flex items-center gap-1.5 mb-2">
-                <Droplets className="w-4 h-4 text-cyan-500" />
+                <Droplets className="w-4 h-4 text-brand-primary" />
                 Active cleaning jobs
                 <Badge variant="outline" className="ml-1 tabular-nums">
                   {activeJobs.length}

@@ -52,17 +52,17 @@ const roleIcons: Record<string, React.ReactNode> = {
 // Role colors for badges
 const roleColors: Record<string, string> = {
   super_admin: "bg-slate-100 text-slate-700 dark:bg-slate-900 dark:text-slate-300",
-  company_admin: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300",
-  admin: "bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300",
-  owner: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300",
-  driver: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300",
-  client: "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300",
-  cleaning: "bg-cyan-100 text-cyan-700 dark:bg-cyan-900 dark:text-cyan-300",
-  shopping: "bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300",
-  kitchen: "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300",
-  shopping_staff: "bg-orange-50 text-orange-600 dark:bg-orange-950 dark:text-orange-400",
-  cleaning_staff: "bg-cyan-50 text-cyan-600 dark:bg-cyan-950 dark:text-cyan-400",
-  kitchen_staff: "bg-red-50 text-red-600 dark:bg-red-950 dark:text-red-400",
+  company_admin: "bg-brand-primary/10 text-brand-primary dark:bg-brand-primary/15 dark:text-brand-primary",
+  admin: "bg-brand-primary/10 text-brand-primary dark:bg-brand-primary/15 dark:text-brand-primary",
+  owner: "bg-brand-primary/10 text-brand-primary dark:bg-brand-primary/15 dark:text-brand-primary",
+  driver: "bg-brand-primary/10 text-brand-primary dark:bg-brand-primary/15 dark:text-brand-primary",
+  client: "bg-brand-primary/10 text-brand-primary dark:bg-brand-primary/15 dark:text-brand-primary",
+  cleaning: "bg-brand-primary/10 text-brand-primary dark:bg-brand-primary/15 dark:text-brand-primary",
+  shopping: "bg-brand-primary/10 text-brand-primary dark:bg-brand-primary/15 dark:text-brand-primary",
+  kitchen: "bg-brand-primary/10 text-brand-primary dark:bg-brand-primary/15 dark:text-brand-primary",
+  shopping_staff: "bg-brand-primary/5 text-brand-primary dark:bg-brand-primary/10 dark:text-brand-primary",
+  cleaning_staff: "bg-brand-primary/5 text-brand-primary dark:bg-brand-primary/10 dark:text-brand-primary",
+  kitchen_staff: "bg-brand-primary/5 text-brand-primary dark:bg-brand-primary/10 dark:text-brand-primary",
 };
 
 interface RoleSwitcherProps {

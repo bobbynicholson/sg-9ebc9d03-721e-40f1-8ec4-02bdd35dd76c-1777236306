@@ -122,10 +122,10 @@ export function KitchenPrepTasksCard({ orderId, companyId: companyIdProp }: { or
   const allDone = doneCount === tasks.length;
 
   return (
-    <div className="no-print rounded-xl border border-orange-200 bg-orange-50/60 p-4 mb-4">
+    <div className="no-print rounded-xl border border-brand-primary/20 bg-brand-primary/5 p-4 mb-4">
       <div className="flex items-center justify-between mb-2">
-        <h3 className="text-sm font-semibold uppercase tracking-wider text-orange-800">Prep tasks - tick as you go</h3>
-        <span className="text-xs font-semibold text-orange-700 tabular-nums">{doneCount}/{tasks.length} done</span>
+        <h3 className="text-sm font-semibold uppercase tracking-wider text-brand-primary">Prep tasks - tick as you go</h3>
+        <span className="text-xs font-semibold text-brand-primary tabular-nums">{doneCount}/{tasks.length} done</span>
       </div>
       <ul className="space-y-1.5">
         {tasks.map((t) => {
@@ -150,7 +150,7 @@ export function KitchenPrepTasksCard({ orderId, companyId: companyIdProp }: { or
                   </p>
                 )}
                 {inProgress && t.started_at && (
-                  <p className="text-[11px] text-orange-700">Started · {fmt(t.started_at)}</p>
+                  <p className="text-[11px] text-brand-primary">Started · {fmt(t.started_at)}</p>
                 )}
               </div>
               {!doneish ? (
@@ -160,7 +160,7 @@ export function KitchenPrepTasksCard({ orderId, companyId: companyIdProp }: { or
                       {isActing ? <Loader2 className="w-3 h-3 animate-spin" /> : <><Play className="w-3 h-3 mr-1" />Start</>}
                     </Button>
                   )}
-                  <Button size="sm" onClick={() => onDone(t.id)} disabled={isActing} className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700">
+                  <Button size="sm" onClick={() => onDone(t.id)} disabled={isActing} className="h-8 text-xs bg-brand-primary hover:bg-brand-primary/90">
                     {isActing ? <Loader2 className="w-3 h-3 animate-spin" /> : <><CheckCircle2 className="w-3 h-3 mr-1" />Done</>}
                   </Button>
                 </div>

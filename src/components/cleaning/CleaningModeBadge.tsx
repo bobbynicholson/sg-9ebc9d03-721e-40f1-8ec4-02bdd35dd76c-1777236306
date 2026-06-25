@@ -3,7 +3,7 @@
  *
  * Sits at the top of the cleaning nav above the live state strip.
  * Communicates which phase of the day the cleaning team is in
- * (quiet / dispatch / returns / wrap) with a colour treatment + a
+ * (quiet / dispatch / returns / wrap) with the tenant brand treatment + a
  * subline showing the next signal (e.g. "Next return 14:30" or
  * "3 still being washed").
  *
@@ -14,9 +14,9 @@
  *
  * Tones (designed to pass WCAG AA on white sidebar bg):
  *   quiet     - slate, neutral
- *   dispatch  - amber, warming up
- *   returns   - cyan-strong gradient, pulses (the "live" state)
- *   wrap      - emerald, winding down
+ *   dispatch  - brand, warming up
+ *   returns   - brand gradient, pulses (the "live" state)
+ *   wrap      - brand, winding down
  */
 import { useState } from "react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -47,8 +47,8 @@ const MODE_META: Record<CleaningPortalMode, {
     shortLabel: "Dispatch",
     description: "Events going out today. Verify equipment before it leaves.",
     icon: Truck,
-    bg: "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800",
-    text: "text-amber-800 dark:text-amber-300",
+    bg: "bg-brand-primary/10 dark:bg-brand-primary/15 border-brand-primary/20 dark:border-brand-primary/30",
+    text: "text-brand-primary dark:text-brand-primary",
     pulse: false,
   },
   returns: {
@@ -56,7 +56,7 @@ const MODE_META: Record<CleaningPortalMode, {
     shortLabel: "Returns",
     description: "Equipment is coming back. Verify each handover as it lands.",
     icon: PackageOpen,
-    bg: "bg-gradient-to-r from-cyan-500 to-blue-500 border-cyan-600",
+    bg: "bg-gradient-to-r from-brand-primary to-brand-secondary border-brand-primary",
     text: "text-white",
     pulse: true,
   },
@@ -65,8 +65,8 @@ const MODE_META: Record<CleaningPortalMode, {
     shortLabel: "Wrap",
     description: "Last washes of the day. Sign off jobs and clock out.",
     icon: CheckCircle2,
-    bg: "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800",
-    text: "text-emerald-800 dark:text-emerald-300",
+    bg: "bg-brand-primary/10 dark:bg-brand-primary/15 border-brand-primary/20 dark:border-brand-primary/30",
+    text: "text-brand-primary dark:text-brand-primary",
     pulse: false,
   },
 };
@@ -162,7 +162,7 @@ export function CleaningModeBadge() {
             {state.override && (
               <>
                 <span className="text-slate-400">·</span>
-                <span className="text-amber-700 font-medium">manually overridden</span>
+                <span className="text-brand-primary font-medium">manually overridden</span>
               </>
             )}
           </div>
@@ -187,13 +187,13 @@ export function CleaningModeBadge() {
                 className={cn(
                   "w-full flex items-start gap-2.5 rounded-md border px-2.5 py-2 text-left transition-all",
                   active
-                    ? "border-cyan-500 bg-cyan-50"
+                    ? "border-brand-primary/40 bg-brand-primary/10"
                     : "border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300",
                 )}
               >
                 <span className={cn(
                   "flex-shrink-0 w-7 h-7 rounded-md flex items-center justify-center mt-0.5",
-                  active ? "bg-cyan-500 text-white" : "bg-slate-100 text-slate-600",
+                  active ? "bg-brand-primary text-white" : "bg-slate-100 text-slate-600",
                 )}>
                   <MIcon className="h-3.5 w-3.5" />
                 </span>
@@ -201,12 +201,12 @@ export function CleaningModeBadge() {
                   <span className="flex items-center gap-1.5">
                     <span className={cn(
                       "text-[12px] font-semibold",
-                      active ? "text-cyan-900" : "text-slate-800",
+                      active ? "text-brand-primary" : "text-slate-800",
                     )}>
                       {M.shortLabel}
                     </span>
                     {active && (
-                      <span className="text-[9px] uppercase tracking-wider bg-cyan-500 text-white px-1.5 py-0.5 rounded font-bold">
+                      <span className="text-[9px] uppercase tracking-wider bg-brand-primary text-white px-1.5 py-0.5 rounded font-bold">
                         Active
                       </span>
                     )}

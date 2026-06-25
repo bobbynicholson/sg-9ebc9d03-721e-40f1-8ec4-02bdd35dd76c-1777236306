@@ -622,7 +622,7 @@ export function KitchenStaffTileBoard({
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Wait, not yet</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmClockIn} className="bg-emerald-600 hover:bg-emerald-700">
+            <AlertDialogAction onClick={handleConfirmClockIn} className="bg-brand-primary hover:bg-brand-primary/90">
               Yes, start the shift
             </AlertDialogAction>
           </AlertDialogFooter>

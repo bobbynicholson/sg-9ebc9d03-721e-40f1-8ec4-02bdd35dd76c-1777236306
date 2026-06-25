@@ -14,12 +14,12 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useTenantHref } from "@/lib/tenantUrl";
 
 const PORTALS = [
-  { name: "Admin", route: "/admin/dashboard", icon: LayoutDashboard, color: "text-blue-600" },
-  { name: "Client", route: "/client-portal/dashboard", icon: Users, color: "text-green-600" },
-  { name: "Driver", route: "/team-portal/driver/dashboard", icon: Truck, color: "text-orange-600" },
-  { name: "Kitchen", route: "/team-portal/kitchen/today", icon: ChefHat, color: "text-red-600" },
-  { name: "Shopping", route: "/team-portal/shopping/dashboard", icon: ShoppingCart, color: "text-purple-600" },
-  { name: "Cleaning", route: "/team-portal/cleaning/dashboard", icon: Sparkles, color: "text-teal-600" },
+  { name: "Admin", route: "/admin/dashboard", icon: LayoutDashboard, color: "text-brand-primary" },
+  { name: "Client", route: "/client-portal/dashboard", icon: Users, color: "text-brand-primary" },
+  { name: "Driver", route: "/team-portal/driver/dashboard", icon: Truck, color: "text-brand-primary" },
+  { name: "Kitchen", route: "/team-portal/kitchen/today", icon: ChefHat, color: "text-brand-primary" },
+  { name: "Shopping", route: "/team-portal/shopping/dashboard", icon: ShoppingCart, color: "text-brand-primary" },
+  { name: "Cleaning", route: "/team-portal/cleaning/dashboard", icon: Sparkles, color: "text-brand-primary" },
 ];
 
 export function PortalSwitcher() {
@@ -44,7 +44,7 @@ export function PortalSwitcher() {
     <>
       {/* Floating Badge - Top Right */}
       <div className="fixed top-4 right-4 z-50">
-        <Badge className="bg-gradient-to-r from-amber-500 to-amber-600 text-white px-4 py-2 shadow-lg animate-pulse border-2 border-amber-400">
+        <Badge className="bg-gradient-to-r from-brand-primary to-brand-secondary text-white px-4 py-2 shadow-lg animate-pulse border-2 border-brand-primary/40">
           <Crown className="w-4 h-4 mr-2" />
           SUPER ADMIN
         </Badge>
@@ -56,7 +56,7 @@ export function PortalSwitcher() {
         <Button
           onClick={handleBackToDashboard}
           size="lg"
-          className="h-12 px-4 rounded-full shadow-2xl bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-semibold"
+          className="h-12 px-4 rounded-full shadow-2xl bg-gradient-to-r from-brand-primary to-brand-secondary hover:brightness-105 text-white font-semibold"
           title="Return to Super Admin Dashboard"
         >
           <Crown className="w-5 h-5 mr-2" />
@@ -68,7 +68,7 @@ export function PortalSwitcher() {
           <DropdownMenuTrigger asChild>
             <Button 
               size="lg"
-              className="h-14 w-14 rounded-full shadow-2xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white"
+              className="h-14 w-14 rounded-full shadow-2xl bg-gradient-to-r from-brand-primary to-brand-secondary hover:brightness-105 text-white"
               title="Quick Portal Switch"
             >
               <LayoutDashboard className="w-6 h-6" />
@@ -88,7 +88,7 @@ export function PortalSwitcher() {
                 <DropdownMenuItem
                   key={portal.route}
                   onClick={() => router.push(portal.route)}
-                  className={`cursor-pointer py-3 ${isActive ? "bg-blue-50" : ""}`}
+                  className={`cursor-pointer py-3 ${isActive ? "bg-brand-primary/10" : ""}`}
                 >
                   <Icon className={`w-4 h-4 mr-3 ${portal.color}`} />
                   <span className={isActive ? "font-semibold" : ""}>{portal.name}</span>

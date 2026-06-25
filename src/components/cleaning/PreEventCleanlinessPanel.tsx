@@ -238,7 +238,7 @@ export function PreEventCleanlinessPanel() {
     <Card className="border-0 shadow-lg mb-8">
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 flex-wrap">
-          <ClipboardCheck className="w-5 h-5 text-cyan-600" />
+          <ClipboardCheck className="w-5 h-5 text-brand-primary" />
           Pre-event cleanliness
           <Badge variant="outline" className="ml-1 text-xs">Tomorrow</Badge>
         </CardTitle>

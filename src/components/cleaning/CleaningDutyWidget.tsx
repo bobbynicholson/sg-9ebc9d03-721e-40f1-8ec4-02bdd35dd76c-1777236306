@@ -226,9 +226,9 @@ export function CleaningDutyWidget() {
 
   return (
     <Card
-      className={`border-2 ${
-        onShift
-          ? "border-cyan-200 bg-gradient-to-r from-cyan-50 to-blue-50"
+        className={`border-2 ${
+          onShift
+          ? "border-brand-primary/20 bg-gradient-to-r from-brand-primary/5 to-brand-secondary/5"
           : "border-slate-200 bg-white"
       } shadow-sm mb-6`}
     >
@@ -239,7 +239,7 @@ export function CleaningDutyWidget() {
             <div className="relative flex-shrink-0">
               <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-semibold shadow-sm ${
                 onShift
-                  ? "bg-gradient-to-br from-cyan-500 to-blue-600"
+                  ? "bg-gradient-to-br from-brand-primary to-brand-secondary"
                   : "bg-slate-300"
               }`}>
                 {initialsOf(user?.full_name, user?.email)}
@@ -298,7 +298,7 @@ export function CleaningDutyWidget() {
               <Button
                 onClick={handleStartDuty}
                 disabled={busy}
-                className="bg-emerald-600 hover:bg-emerald-700 gap-2"
+                className="bg-brand-primary hover:bg-brand-primary/90 gap-2"
               >
                 {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
                 Clock in
@@ -310,7 +310,7 @@ export function CleaningDutyWidget() {
         {/* Live floor */}
         <div>
           <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2 mb-2">
-            <Sparkles className="w-4 h-4 text-cyan-600" />
+            <Sparkles className="w-4 h-4 text-brand-primary" />
             Live floor
             <span className="text-xs font-normal text-slate-500 tabular-nums">
               · {onDutyStaff.length} on duty
@@ -338,7 +338,7 @@ export function CleaningDutyWidget() {
                   className="flex items-center gap-3 p-3 bg-white rounded-lg border border-slate-200"
                 >
                   <div className="relative flex-shrink-0">
-                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center text-white font-semibold text-xs shadow-sm">
+                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-brand-primary to-brand-secondary flex items-center justify-center text-white font-semibold text-xs shadow-sm">
                       {initialsOf(s.profile?.full_name, s.profile?.email)}
                     </div>
                     <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-500 border-2 border-white" />

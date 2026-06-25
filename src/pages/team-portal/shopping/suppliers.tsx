@@ -401,7 +401,7 @@ export default function ShoppingSuppliersPage() {
                 <Textarea id="nt" rows={2} value={editing.notes ?? ""} onChange={(e) => update("notes", e.target.value)} />
               </div>
               <div className="col-span-2 flex items-center gap-2 pt-1">
-                <input type="checkbox" id="ia" checked={editing.is_active !== false} onChange={(e) => update("is_active", e.target.checked)} className="h-4 w-4 rounded border-slate-300 dark:border-slate-600 text-amber-600 accent-amber-600 focus-visible:ring-1 focus-visible:ring-ring" />
+                <input type="checkbox" id="ia" checked={editing.is_active !== false} onChange={(e) => update("is_active", e.target.checked)} className="h-4 w-4 rounded border-slate-300 dark:border-slate-600 text-brand-primary accent-brand-primary focus-visible:ring-1 focus-visible:ring-ring" />
                 <Label htmlFor="ia" className="cursor-pointer text-slate-700 dark:text-slate-300">Active supplier</Label>
               </div>
             </div>

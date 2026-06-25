@@ -91,7 +91,7 @@ function PrepTaskTimerRow({
               ? "bg-red-100 text-red-800 border border-red-300"
               : remainingMin <= 5
                 ? "bg-amber-100 text-amber-800 border border-amber-300"
-                : "bg-blue-100 text-blue-800 border border-blue-300"
+                : "bg-brand-primary/10 text-brand-primary border border-brand-primary/20"
           }`}
           title={overrun ? "Overrun" : "Remaining"}
         >
@@ -118,7 +118,7 @@ function PrepTaskTimerRow({
       {task.status === "in_progress" && (
         <Button
           size="sm"
-          className="min-h-9 px-2 text-xs bg-emerald-600 hover:bg-emerald-700"
+          className="min-h-9 px-2 text-xs bg-brand-primary hover:bg-brand-primary/90"
           disabled={busy}
           onClick={async () => {
             setBusy(true);

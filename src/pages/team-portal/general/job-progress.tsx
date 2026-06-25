@@ -103,8 +103,8 @@ export default function StaffJobProgress() {
   const getStatusColor = (status: string) => {
     const colors = {
       pending: "bg-slate-100 text-slate-800",
-      preparing: "bg-orange-100 text-orange-800",
-      assigned: "bg-blue-100 text-blue-800",
+      preparing: "bg-brand-primary/10 text-brand-primary",
+      assigned: "bg-brand-primary/10 text-brand-primary",
       ready: "bg-green-100 text-green-800",
       completed: "bg-green-100 text-green-800",
     };
@@ -113,8 +113,8 @@ export default function StaffJobProgress() {
 
   const getProgressColor = (progress: number) => {
     if (progress >= 75) return "bg-green-500";
-    if (progress >= 50) return "bg-blue-500";
-    if (progress >= 25) return "bg-orange-500";
+    if (progress >= 50) return "bg-brand-primary";
+    if (progress >= 25) return "bg-brand-primary";
     return "bg-slate-300";
   };
 
@@ -192,7 +192,7 @@ export default function StaffJobProgress() {
                       <div className="p-4 bg-slate-50 border border-slate-200 dark:bg-slate-800/50 dark:border-slate-700 rounded-lg">
                         <div className="flex items-center justify-between mb-3">
                           <div className="flex items-center gap-2">
-                            <ChefHat className="w-5 h-5 text-amber-600 dark:text-amber-500" />
+                            <ChefHat className="w-5 h-5 text-brand-primary" />
                             <span className="font-medium text-slate-900 flex items-center gap-1">
                               Kitchen Status
                               <InfoTooltip content="Where the kitchen is with prep: pending, preparing, or ready to go." />
@@ -207,7 +207,7 @@ export default function StaffJobProgress() {
                             {job.kitchenStatus === "ready" ? (
                               <CheckCircle className="w-4 h-4 text-green-600" />
                             ) : job.kitchenStatus === "preparing" ? (
-                              <Clock className="w-4 h-4 text-orange-600" />
+                              <Clock className="w-4 h-4 text-brand-primary" />
                             ) : (
                               <AlertCircle className="w-4 h-4 text-slate-400" />
                             )}
@@ -225,7 +225,7 @@ export default function StaffJobProgress() {
                       <div className="p-4 bg-slate-50 border border-slate-200 dark:bg-slate-800/50 dark:border-slate-700 rounded-lg">
                         <div className="flex items-center justify-between mb-3">
                           <div className="flex items-center gap-2">
-                            <Truck className="w-5 h-5 text-amber-600 dark:text-amber-500" />
+                            <Truck className="w-5 h-5 text-brand-primary" />
                             <span className="font-medium text-slate-900 flex items-center gap-1">
                               Driver Status
                               <InfoTooltip content="Where the delivery is at: pending, assigned to a driver, or completed." />
@@ -240,7 +240,7 @@ export default function StaffJobProgress() {
                             {job.driverStatus === "completed" ? (
                               <CheckCircle className="w-4 h-4 text-green-600" />
                             ) : job.driverStatus === "assigned" ? (
-                              <Clock className="w-4 h-4 text-blue-600" />
+                              <Clock className="w-4 h-4 text-brand-primary" />
                             ) : (
                               <AlertCircle className="w-4 h-4 text-slate-400" />
                             )}
