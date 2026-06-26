@@ -45,12 +45,19 @@ import {
   listTasksForShifts,
   type ShiftTaskRow,
 } from "@/services/staffShiftTasksService";
+import {
+  displayRosterRole,
+  filterRosterStaff,
+  rosterDepartmentAliases,
+  type RosterDepartmentRow,
+} from "@/lib/rosterStaff";
 
 interface Staffer {
   id: string;
   full_name: string;
   email: string;
   role: string;
+  active_role: string | null;
 }
 
 interface ShiftRow {
@@ -198,20 +205,13 @@ function KitchenScheduleGrid() {
       const fromIso = toLocalISO(fetchRange.from);
       const toIso = toLocalISO(fetchRange.to);
       const [staffRes, shiftsRes, ordersRes] = await Promise.all([
-        // Wave 36.1: kitchen_staff role for chefs. Some tenants
-        // also flag head chefs as company_admin - pull both so the
-        // grid shows everyone who could be on a kitchen shift.
-        // Wave 64.5 - "owner" was in this filter but isn't a valid
-        // user_role enum label, so PostgREST rejected the whole
-        // query and the catch block silently set staff=[]. The page
-        // then read as "0 chefs" even when Sarah Kitchen + Callum
-        // Rogers obviously qualified. Same trap caught and fixed
-        // previously on /admin/vehicles. Valid roles only here.
+        // Kitchen roster eligibility is department-specific. Admins
+        // can manage the page, but they should not appear as chefs
+        // unless their profile/active role or department says kitchen.
         (supabase as any)
           .from("profiles")
-          .select("id, full_name, email, role")
+          .select("id, full_name, email, role, active_role")
           .eq("company_id", companyId)
-          .in("role", ["kitchen_staff", "company_admin", "admin"])
           .is("deleted_at", null)
           .order("full_name", { ascending: true }),
         // Wave 40.4: kitchen_shifts now backs both kitchen + cleaning
@@ -240,7 +240,22 @@ function KitchenScheduleGrid() {
           .neq("status", "cancelled")
           .order("event_date", { ascending: true }),
       ]);
-      setStaff((staffRes.data || []) as Staffer[]);
+      if (staffRes.error) throw staffRes.error;
+      if (shiftsRes.error) throw shiftsRes.error;
+      if (ordersRes.error) throw ordersRes.error;
+      const staffRows = (staffRes.data || []) as Staffer[];
+      let departmentRows: RosterDepartmentRow[] = [];
+      if (staffRows.length > 0) {
+        const departmentRes = await (supabase as any)
+          .from("user_departments")
+          .select("user_id, department")
+          .in("user_id", staffRows.map((row) => row.id))
+          .in("department", rosterDepartmentAliases("kitchen"));
+        if (!departmentRes.error) {
+          departmentRows = (departmentRes.data || []) as RosterDepartmentRow[];
+        }
+      }
+      setStaff(filterRosterStaff(staffRows, departmentRows, "kitchen"));
       const shiftRows = (shiftsRes.data || []) as ShiftRow[];
       setShifts(shiftRows);
       setOrders((ordersRes.data || []) as OrderForCal[]);
@@ -518,7 +533,7 @@ function KitchenScheduleGrid() {
                   </div>
                 ) : staff.length === 0 ? (
                   <div className="text-center py-12 text-slate-500 text-sm">
-                    No kitchen staff in this company yet. Add one from /admin/kitchen-staff.
+                    No kitchen staff assigned yet. Add a kitchen worker or assign a kitchen department in Admin Users.
                   </div>
                 ) : viewMode === "week" ? (
                   <>
@@ -704,7 +719,7 @@ function KitchenScheduleGrid() {
                             <tr key={p.id} className="hover:bg-slate-50">
                               <td className="px-3 py-2 sticky left-0 bg-white">
                                 <div className="font-medium text-slate-900 truncate">{p.full_name || p.email}</div>
-                                <div className="text-[11px] text-slate-500 truncate">{p.email}</div>
+                                <div className="text-[11px] text-slate-500 truncate capitalize">{displayRosterRole(p)}</div>
                               </td>
                               {weekDays.map((day, i) => {
                                 const iso = toLocalISO(day);

@@ -4,16 +4,16 @@
  *
  * Wave 40.4. Direct sibling of /admin/kitchen-schedule.tsx - same
  * UI shape, same week-grid pattern, same modal for adding shifts.
- * Difference is the role filter (cleaning_staff + dual-role staff)
- * and the shift_type ('cleaning') passed to the roster modal.
+ * Difference is the department filter (cleaning roles/departments
+ * only) and the shift_type ('cleaning') passed to the roster modal.
  *
  * Architecturally: cleaning shifts share the kitchen_shifts table
  * via the shift_type column added in 20260515180000 - so a person
- * who does both cooking + cleaning logs ONE shift_type
- * 'kitchen_and_cleaning' or two separate ones, depending on how
- * the roster lead wants to split the day. Same payslip math
- * regardless. Bobby's brief: "each user dashboard must be the
- * same" - this clone keeps the visual contract tight.
+ * who is explicitly assigned to both departments can log one
+ * 'kitchen_and_cleaning' shift or two separate ones, depending on
+ * how the roster lead wants to split the day. Same payslip math
+ * regardless, but kitchen-only people do not appear as cleaners by
+ * default.
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useMemo, useState } from "react";
@@ -41,12 +41,19 @@ import {
   listTasksForShifts,
   type ShiftTaskRow,
 } from "@/services/staffShiftTasksService";
+import {
+  displayRosterRole,
+  filterRosterStaff,
+  rosterDepartmentAliases,
+  type RosterDepartmentRow,
+} from "@/lib/rosterStaff";
 
 interface Staffer {
   id: string;
   full_name: string;
   email: string;
   role: string;
+  active_role: string | null;
 }
 
 interface ShiftRow {
@@ -137,16 +144,13 @@ function CleaningScheduleGrid() {
       const fromIso = toLocalISO(weekStart);
       const toIso = toLocalISO(addDays(weekStart, 6));
       const [staffRes, shiftsRes] = await Promise.all([
-        // Cleaning roster eligibility: cleaning_staff + dual-role
-        // staff (anyone who might pick up a cleaning shift). Same
-        // person who shows on /admin/kitchen-schedule shows up here
-        // when they're flagged as cleaning_staff - avoids the "I
-        // need two logins" problem Bobby flagged.
+        // Cleaning roster eligibility is department-specific. Admins
+        // can manage the page, but they should not appear as cleaners
+        // unless their profile/active role or department says cleaning.
         (supabase as any)
           .from("profiles")
-          .select("id, full_name, email, role")
+          .select("id, full_name, email, role, active_role")
           .eq("company_id", companyId)
-          .in("role", ["cleaning_staff", "company_admin", "owner", "kitchen_staff"])
           .is("deleted_at", null)
           .order("full_name", { ascending: true }),
         (supabase as any)
@@ -158,7 +162,21 @@ function CleaningScheduleGrid() {
           .lte("shift_date", toIso)
           .is("deleted_at", null),
       ]);
-      setStaff((staffRes.data || []) as Staffer[]);
+      if (staffRes.error) throw staffRes.error;
+      if (shiftsRes.error) throw shiftsRes.error;
+      const staffRows = (staffRes.data || []) as Staffer[];
+      let departmentRows: RosterDepartmentRow[] = [];
+      if (staffRows.length > 0) {
+        const departmentRes = await (supabase as any)
+          .from("user_departments")
+          .select("user_id, department")
+          .in("user_id", staffRows.map((row) => row.id))
+          .in("department", rosterDepartmentAliases("cleaning"));
+        if (!departmentRes.error) {
+          departmentRows = (departmentRes.data || []) as RosterDepartmentRow[];
+        }
+      }
+      setStaff(filterRosterStaff(staffRows, departmentRows, "cleaning"));
       const shiftRows = (shiftsRes.data || []) as ShiftRow[];
       setShifts(shiftRows);
       const shiftIds = shiftRows.map((s) => s.id);
@@ -299,7 +317,7 @@ function CleaningScheduleGrid() {
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-base">
-                  {staff.length} staff member{staff.length === 1 ? "" : "s"}
+                  {staff.length} cleaning team member{staff.length === 1 ? "" : "s"}
                 </CardTitle>
                 <CardDescription className="text-xs">
                   Cells show planned hours. Once the cleaner clocks in via the team portal, the cell flips to actual hours.
@@ -312,7 +330,7 @@ function CleaningScheduleGrid() {
                   </div>
                 ) : staff.length === 0 ? (
                   <div className="text-center py-12 text-slate-500 text-sm">
-                    No cleaning-eligible staff in this company yet. Add a cleaner via /admin/users.
+                    No cleaning staff assigned yet. Add a cleaner or assign a cleaning department in Admin Users.
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
@@ -344,7 +362,7 @@ function CleaningScheduleGrid() {
                             <tr key={p.id} className="hover:bg-slate-50">
                               <td className="px-3 py-2 sticky left-0 bg-white">
                                 <div className="font-medium text-slate-900 truncate">{p.full_name || p.email}</div>
-                                <div className="text-[11px] text-slate-500 truncate capitalize">{p.role.replace(/_/g, " ")}</div>
+                                <div className="text-[11px] text-slate-500 truncate capitalize">{displayRosterRole(p)}</div>
                               </td>
                               {weekDays.map((day, i) => {
                                 const iso = toLocalISO(day);
