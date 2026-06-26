@@ -444,7 +444,7 @@ function KitchenTeamPage() {
   }, [companyId, regionFilterId, refreshTick]);
 
   const tiles = [
-    { href: "/admin/kitchen-staff", icon: Users, label: "Kitchen staff", sub: "Roster, rates, departments", bg: "from-amber-50 to-orange-50", iconColor: "text-amber-600" },
+    { href: "/admin/kitchen-staff", icon: Users, label: "Kitchen staff", sub: "Roster, rates, departments", bg: "from-brand-primary/10 to-brand-secondary/10", iconColor: "text-brand-primary" },
     // Phase 3 admin sweep note: /admin/kitchen-duty-tracking redirects
     // to the kitchen portal; /admin/kitchen-schedule is the live admin
     // view with late/missed badges, so we route there directly.
@@ -606,10 +606,10 @@ function KitchenTeamPage() {
                 chip. Done-percent caption frames where the kitchen
                 actually is right now. */}
             <Link href={withSlug("/admin/kitchen-schedule")}>
-              <Card className={`border-0 shadow-md hover:shadow-lg transition-shadow ${stats.prepOverdue > 0 ? "bg-gradient-to-br from-rose-50 to-amber-50" : "bg-gradient-to-br from-amber-50 to-orange-50"}`}>
+              <Card className={`border-0 shadow-md hover:shadow-lg transition-shadow ${stats.prepOverdue > 0 ? "bg-gradient-to-br from-rose-50 to-rose-50" : "bg-gradient-to-br from-brand-primary/10 to-brand-secondary/10"}`}>
                 <CardContent className="p-5">
                   <div className="flex items-start gap-3">
-                    <Flame className={`w-6 h-6 ${stats.prepOverdue > 0 ? "text-rose-600" : "text-amber-600"} flex-shrink-0`} />
+                    <Flame className={`w-6 h-6 ${stats.prepOverdue > 0 ? "text-rose-600" : "text-brand-primary"} flex-shrink-0`} />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 flex-wrap">
                         <p className="font-semibold text-slate-900">
@@ -703,10 +703,10 @@ function KitchenTeamPage() {
             {/* Stock at risk - perishable. The manager's "what do I
                 need to check on the fly today" prompt. */}
             <Link href={withSlug("/admin/stock?filter=perishable-risk")}>
-              <Card className={`border-0 shadow-md hover:shadow-lg transition-shadow ${stats.stockAtRisk > 0 ? "bg-gradient-to-br from-amber-50 to-yellow-50" : "bg-gradient-to-br from-slate-50 to-slate-100"}`}>
+              <Card className={`border-0 shadow-md hover:shadow-lg transition-shadow ${stats.stockAtRisk > 0 ? "bg-gradient-to-br from-rose-50 to-rose-50" : "bg-gradient-to-br from-slate-50 to-slate-100"}`}>
                 <CardContent className="p-5">
                   <div className="flex items-start gap-3">
-                    <Package className={`w-6 h-6 ${stats.stockAtRisk > 0 ? "text-amber-700" : "text-slate-400"} flex-shrink-0`} />
+                    <Package className={`w-6 h-6 ${stats.stockAtRisk > 0 ? "text-rose-600" : "text-slate-400"} flex-shrink-0`} />
                     <div className="min-w-0">
                       <p className="font-semibold text-slate-900">
                         {stats.stockAtRisk === 0
@@ -749,8 +749,8 @@ function KitchenTeamPage() {
               the bottom so a new operator knows the deeper drilldowns
               exist (handovers / wages / live ops). */}
           <p className="text-xs text-slate-500 text-center mt-6 no-print">
-            Detailed live ops live at <Link href={withSlug("/admin/tracking")} className="text-amber-700 hover:underline">/admin/tracking</Link> /
-            wage reports at <Link href={withSlug("/admin/wages")} className="text-amber-700 hover:underline">/admin/wages</Link> /
+            Detailed live ops live at <Link href={withSlug("/admin/tracking")} className="text-brand-primary hover:underline">/admin/tracking</Link> /
+            wage reports at <Link href={withSlug("/admin/wages")} className="text-brand-primary hover:underline">/admin/wages</Link> /
             equipment handovers live in the cleaning portal.
           </p>
           {/* TIGHTEN I.30 (admin.md section 7 follow-up #5):
@@ -859,7 +859,7 @@ function KitchenRulesSection() {
           aria-expanded={open}
         >
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-9 h-9 rounded-lg bg-orange-100 text-orange-700 flex items-center justify-center shrink-0">
+            <div className="w-9 h-9 rounded-lg bg-brand-primary/10 text-brand-primary flex items-center justify-center shrink-0">
               <SettingsIcon className="w-4 h-4" />
             </div>
             <div className="min-w-0">

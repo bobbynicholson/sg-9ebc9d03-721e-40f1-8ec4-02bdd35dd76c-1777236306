@@ -16,7 +16,9 @@ import { KitchenNav } from "@/components/navigation/KitchenNav";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { PortalShell, PortalHeader, PortalCard } from "@/components/portal/ui";
+import { PortalShell, PortalHeader, PortalCard,
+  PageWorkbench,
+} from "@/components/portal/ui";
 
 interface MenuItem {
   id: string;
@@ -174,6 +176,7 @@ export default function KitchenMenuItemsPage() {
             subtitle="Kitchen-owned dishes with ingredients, dietary tags, and prep notes. Open a dish before production starts."
             icon={BookOpen}
           />
+          <PageWorkbench />
 
           <PortalCard className="mb-6 flex flex-col gap-3 sm:flex-row" padded>
             <div className="relative flex-1">

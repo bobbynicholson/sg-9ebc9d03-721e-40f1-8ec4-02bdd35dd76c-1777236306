@@ -15,7 +15,9 @@ import {
 import { Package, Search, AlertTriangle, Loader2, ChefHat, RefreshCw, MapPin, ArrowUpDown, Plus, Minus, Trash2, ShoppingCart, CheckCircle2 } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
-import { PortalShell, PortalHeader, PortalCard, StatTile } from "@/components/portal/ui";
+import { PortalShell, PortalHeader, PortalCard, StatTile,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { KitchenNav } from "@/components/navigation/KitchenNav";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -461,6 +463,7 @@ export default function KitchenStockPage() {
               </>
             }
           />
+          <PageWorkbench />
 
           {/* KS-B: push-to-shopping banner. Renders only when there's
               something to push. Surfaces the gap + offers the

@@ -11,7 +11,9 @@ import {
   AlertTriangle, CheckCircle2, ShoppingCart, Layers, Package, Info, ExternalLink,
   RotateCcw,
 } from "lucide-react";
-import { PortalShell, PortalHeader, PortalCard, PortalCardHeader } from "@/components/portal/ui";
+import { PortalShell, PortalHeader, PortalCard, PortalCardHeader,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { KitchenNav } from "@/components/navigation/KitchenNav";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
@@ -573,6 +575,7 @@ export default function KitchenPrepListPage() {
               </div>
             }
           />
+          <PageWorkbench />
 
           {/* KIT3-E: recipe-gap banner. When the by-order view has
               ingredients (sourced from the order_ingredient_demand

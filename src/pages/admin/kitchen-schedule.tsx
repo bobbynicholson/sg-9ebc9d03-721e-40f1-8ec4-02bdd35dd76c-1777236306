@@ -399,7 +399,7 @@ function KitchenScheduleGrid() {
                   <button
                     type="button"
                     onClick={() => setViewMode("week")}
-                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition ${viewMode === "week" ? "bg-orange-600 text-white" : "bg-white text-slate-700 hover:bg-slate-50"}`}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition ${viewMode === "week" ? "bg-brand-primary text-white" : "bg-white text-slate-700 hover:bg-slate-50"}`}
                     title="Daily-ops view - one week, one cell per chef per day"
                   >
                     <LayoutGrid className="w-3.5 h-3.5" />
@@ -408,7 +408,7 @@ function KitchenScheduleGrid() {
                   <button
                     type="button"
                     onClick={() => setViewMode("month")}
-                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border-l border-slate-200 transition ${viewMode === "month" ? "bg-orange-600 text-white" : "bg-white text-slate-700 hover:bg-slate-50"}`}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border-l border-slate-200 transition ${viewMode === "month" ? "bg-brand-primary text-white" : "bg-white text-slate-700 hover:bg-slate-50"}`}
                     title="Planning view - a month at a glance, chef + event load per day"
                   >
                     <CalendarIcon className="w-3.5 h-3.5" />
@@ -551,7 +551,7 @@ function KitchenScheduleGrid() {
                         <Card
                           key={dayIdx}
                           className={`border ${
-                            isToday ? "border-orange-300 ring-1 ring-orange-200" :
+                            isToday ? "border-brand-primary/40 ring-1 ring-brand-primary/20" :
                             needsCover ? "border-rose-300 ring-1 ring-rose-200" :
                             "border-slate-200"
                           }`}
@@ -559,7 +559,7 @@ function KitchenScheduleGrid() {
                           <CardContent className="p-3 space-y-2">
                             <div className="flex items-center justify-between gap-2">
                               <div>
-                                <p className={`text-sm font-semibold ${isToday ? "text-orange-700" : "text-slate-900"}`}>
+                                <p className={`text-sm font-semibold ${isToday ? "text-brand-primary" : "text-slate-900"}`}>
                                   {DAY_LABELS[dayIdx]}
                                 </p>
                                 <p className="text-xs text-slate-500 tabular-nums">
@@ -632,9 +632,9 @@ function KitchenScheduleGrid() {
                             const iso = toLocalISO(d);
                             const isToday = iso === todayIso;
                             return (
-                              <th key={i} className={`px-2 py-2 text-xs uppercase tracking-wider font-semibold text-center min-w-[110px] ${isToday ? "text-orange-700" : "text-slate-500"}`}>
+                              <th key={i} className={`px-2 py-2 text-xs uppercase tracking-wider font-semibold text-center min-w-[110px] ${isToday ? "text-brand-primary" : "text-slate-500"}`}>
                                 <div>{DAY_LABELS[i]}</div>
-                                <div className={`text-[10px] tabular-nums ${isToday ? "text-orange-600" : "text-slate-400"}`}>
+                                <div className={`text-[10px] tabular-nums ${isToday ? "text-brand-primary" : "text-slate-400"}`}>
                                   {d.toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}
                                 </div>
                               </th>
@@ -729,14 +729,14 @@ function KitchenScheduleGrid() {
                                                   ? "border-rose-200 bg-rose-50"
                                                   : hasActual
                                                     ? "border-brand-primary/20 bg-brand-primary/10"
-                                                    : "border-orange-200 bg-orange-50"
+                                                    : "border-slate-200 bg-slate-50"
                                               }`}
                                             >
                                               <div className="flex items-center justify-between gap-1">
                                                 <span className={`text-xs font-semibold tabular-nums ${
                                                   isMissed ? "text-rose-900" :
                                                   hasActual ? "text-brand-primary" :
-                                                              "text-orange-900"
+                                                              "text-slate-900"
                                                 }`}>
                                                   {fmtTime(s.planned_start)}-{fmtTime(s.planned_end)}
                                                 </span>
@@ -755,7 +755,7 @@ function KitchenScheduleGrid() {
                                                   <AlertTriangle className="w-2.5 h-2.5" /> Missed
                                                 </div>
                                               ) : (
-                                                <div className="text-[10px] text-orange-700 mt-0.5 tabular-nums">
+                                                <div className="text-[10px] text-slate-500 mt-0.5 tabular-nums">
                                                   {plannedHours(s.planned_start, s.planned_end).toFixed(1)}h planned
                                                 </div>
                                               )}
@@ -773,7 +773,7 @@ function KitchenScheduleGrid() {
                                       <button
                                         type="button"
                                         onClick={() => setLogTarget({ staffId: p.id, staffName: p.full_name || p.email, date: iso })}
-                                        className="w-full text-slate-300 hover:text-orange-600 hover:bg-orange-50 rounded-md py-2 transition-colors"
+                                        className="w-full text-slate-300 hover:text-brand-primary hover:bg-brand-primary/10 rounded-md py-2 transition-colors"
                                         title="Roster a shift on this day"
                                       >
                                         <Plus className="w-4 h-4 mx-auto" />
@@ -860,12 +860,12 @@ function KitchenScheduleGrid() {
                                 className={`text-left min-h-[60px] sm:min-h-[88px] p-1 sm:p-1.5 transition ${
                                   !inMonth ? "bg-slate-50 text-slate-400" :
                                   needsCover ? "bg-rose-50 hover:bg-rose-100 ring-1 ring-inset ring-rose-200" :
-                                  isToday ? "bg-orange-50 hover:bg-orange-100" :
+                                  isToday ? "bg-brand-primary/10 hover:bg-brand-primary/15" :
                                   "bg-white hover:bg-slate-50"
                                 }`}
                                 title={`${d.toLocaleDateString("en-ZA", { weekday: "long", day: "numeric", month: "long" })} - click to open the week`}
                               >
-                                <div className={`text-[11px] sm:text-xs font-semibold tabular-nums ${isToday ? "text-orange-700" : inMonth ? "text-slate-700" : "text-slate-400"}`}>
+                                <div className={`text-[11px] sm:text-xs font-semibold tabular-nums ${isToday ? "text-brand-primary" : inMonth ? "text-slate-700" : "text-slate-400"}`}>
                                   {d.getDate()}
                                 </div>
                                 {/* Event labels: 1 row on mobile, up
@@ -928,7 +928,7 @@ function KitchenScheduleGrid() {
                             No chef rostered
                           </span>
                           <span className="inline-flex items-center gap-1">
-                            <span className="w-2.5 h-2.5 rounded-sm bg-orange-50 border border-orange-200"></span>
+                            <span className="w-2.5 h-2.5 rounded-sm bg-slate-50 border border-slate-200"></span>
                             Today
                           </span>
                           <span className="hidden sm:inline ml-auto text-slate-400">Click a day to open the week and roster shifts.</span>

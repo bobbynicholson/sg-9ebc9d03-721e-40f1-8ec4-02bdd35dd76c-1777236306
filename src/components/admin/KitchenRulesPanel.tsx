@@ -241,7 +241,7 @@ export function KitchenRulesPanel({ contextNote }: Props) {
           <Card className="border-0 shadow-md">
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
-                <ChefHat className="w-4 h-4 text-orange-600" />
+                <ChefHat className="w-4 h-4 text-brand-primary" />
                 Production timing
               </CardTitle>
               <p className="text-xs text-slate-500 mt-1">
@@ -364,7 +364,7 @@ export function KitchenRulesPanel({ contextNote }: Props) {
           <Card className="border-0 shadow-md">
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 text-red-600" />
+                <AlertTriangle className="w-4 h-4 text-rose-600" />
                 Dietary alert thresholds
               </CardTitle>
               <p className="text-xs text-slate-500 mt-1">
@@ -401,7 +401,7 @@ export function KitchenRulesPanel({ contextNote }: Props) {
             <Button
               onClick={handleSave}
               disabled={saving || !dirty}
-              className="bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-lg"
+              className="bg-brand-primary text-white shadow-lg hover:bg-brand-primary/90"
             >
               {saving ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Save className="w-4 h-4 mr-1.5" />}
               {saving ? "Saving..." : dirty ? "Save changes" : "Saved"}

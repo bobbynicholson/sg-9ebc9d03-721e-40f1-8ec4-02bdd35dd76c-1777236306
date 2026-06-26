@@ -88,7 +88,7 @@ function PrepTaskTimerRow({
         <span
           className={`inline-flex items-center gap-1 text-[11px] font-semibold tabular-nums px-1.5 py-0.5 rounded ${
             overrun
-              ? "bg-red-100 text-red-800 border border-red-300"
+              ? "bg-rose-100 text-rose-800 border border-rose-300"
               : remainingMin <= 5
                 ? "bg-amber-100 text-amber-800 border border-amber-300"
                 : "bg-brand-primary/10 text-brand-primary border border-brand-primary/20"
@@ -358,7 +358,7 @@ export function PrepTaskTimer({ orderId, companyId: companyIdProp }: PrepTaskTim
           {alerts.map(a => (
             <div
               key={a.id}
-              className="flex items-center justify-between gap-2 text-[11px] font-semibold text-red-900 bg-red-100 border border-red-300 rounded px-2 py-1 animate-pulse"
+              className="flex items-center justify-between gap-2 text-[11px] font-semibold text-rose-900 bg-rose-100 border border-rose-300 rounded px-2 py-1 animate-pulse"
               role="alert"
             >
               <span className="inline-flex items-center gap-1 truncate">
@@ -368,7 +368,7 @@ export function PrepTaskTimer({ orderId, companyId: companyIdProp }: PrepTaskTim
               <button
                 type="button"
                 onClick={() => setAlerts(prev => prev.filter(x => x.id !== a.id))}
-                className="shrink-0 inline-flex items-center justify-center w-5 h-5 rounded hover:bg-red-200"
+                className="shrink-0 inline-flex items-center justify-center w-5 h-5 rounded hover:bg-rose-200"
                 aria-label="Dismiss alert"
               >
                 <X className="w-3 h-3" />
@@ -390,7 +390,7 @@ export function PrepTaskTimer({ orderId, companyId: companyIdProp }: PrepTaskTim
             type="button"
             size="sm"
             variant={listening ? "default" : "outline"}
-            className={`min-h-9 min-w-11 px-2 text-xs ${listening ? "bg-red-600 hover:bg-red-700 animate-pulse" : ""}`}
+            className={`min-h-9 min-w-11 px-2 text-xs ${listening ? "bg-rose-600 hover:bg-rose-700 animate-pulse" : ""}`}
             onClick={listening ? stopListening : startListening}
             aria-label={listening ? "Stop listening" : "Start voice tick"}
           >

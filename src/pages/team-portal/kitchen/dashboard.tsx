@@ -20,7 +20,9 @@ import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { DynamicNav } from "@/components/DynamicNav";
-import { PortalShell, PortalHeader, PortalCard, PortalCardHeader, StatTile } from "@/components/portal/ui";
+import { PortalShell, PortalHeader, PortalCard, PortalCardHeader, StatTile,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { CleaningScheduleDialog } from "@/components/kitchen/CleaningScheduleDialog";
 import { ChatBot } from "@/components/ChatBot";
 import { KitchenServiceFAB } from "@/components/kitchen/KitchenServiceFAB";
@@ -1188,6 +1190,7 @@ export default function KitchenDashboard() {
               </>
             }
           />
+          <PageWorkbench />
 
           {/* Phase 5C: tile board replaces the per-user Start/End Duty
               widget. One login on the tablet, one tap per staff member. */}
@@ -1650,7 +1653,7 @@ export default function KitchenDashboard() {
                 </div>
                 <Link
                   href={withSlug(staffOrderHref(bottleneckTask.orderId, "kitchen_staff"))}
-                  className="inline-flex items-center gap-1 text-xs text-amber-700 dark:text-amber-400 underline hover:text-amber-900 dark:hover:text-amber-200 shrink-0"
+                  className="inline-flex items-center gap-1 text-xs font-medium text-brand-primary underline underline-offset-2 hover:opacity-80 shrink-0"
                 >
                   Open order
                 </Link>
@@ -1922,7 +1925,7 @@ export default function KitchenDashboard() {
           )}
 
           {/* Active orders, kanban (Confirmed / In prep / Ready) */}
-          <PortalCard>
+          <PortalCard id="handover" className="scroll-mt-24">
             <PortalCardHeader
               title={
                 <span className="text-base sm:text-lg md:text-xl flex items-center gap-2">
@@ -2283,15 +2286,15 @@ export default function KitchenDashboard() {
       <AlertDialog open={!!allergenDialog} onOpenChange={(open) => { if (!open) setAllergenDialog(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2 text-red-700">
+            <AlertDialogTitle className="flex items-center gap-2 text-rose-700">
               <AlertTriangle className="h-5 w-5" />
               Allergen warning, check before serving
             </AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-3 text-sm">
-                <div className="rounded-lg bg-red-50 border border-red-200 p-3">
-                  <div className="font-semibold text-red-900 mb-1">Customer dietary note</div>
-                  <div className="text-red-800 italic">"{allergenDialog?.dietary}"</div>
+                <div className="rounded-lg bg-rose-50 border border-rose-200 p-3">
+                  <div className="font-semibold text-rose-900 mb-1">Customer dietary note</div>
+                  <div className="text-rose-800 italic">"{allergenDialog?.dietary}"</div>
                 </div>
                 <div>
                   <div className="font-semibold mb-2">Items that may conflict:</div>
@@ -2299,7 +2302,7 @@ export default function KitchenDashboard() {
                     {allergenDialog?.conflicts.map((c, i) => (
                       <li key={i} className="flex items-start gap-2">
                         <span className="font-medium">{c.menuItem}:</span>
-                        <span className="text-red-700">{c.allergens.join(", ")}</span>
+                        <span className="text-rose-700">{c.allergens.join(", ")}</span>
                       </li>
                     ))}
                   </ul>
@@ -2313,7 +2316,7 @@ export default function KitchenDashboard() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel, recheck</AlertDialogCancel>
             <AlertDialogAction
-              className="bg-red-600 hover:bg-red-700"
+              className="bg-rose-600 hover:bg-rose-700"
               onClick={() => {
                 if (allergenDialog) {
                   const { orderId, clientName } = allergenDialog;

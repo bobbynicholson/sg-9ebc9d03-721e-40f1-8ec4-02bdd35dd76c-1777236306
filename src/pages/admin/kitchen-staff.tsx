@@ -712,7 +712,7 @@ function KitchenStaffPage() {
                   <p className="text-xs uppercase tracking-wider text-slate-500 mb-1">Wage dashboard</p>
                   <p className="text-sm font-medium text-slate-700">Hours x rates roll-up</p>
                 </div>
-                <Link href={withSlug("/admin/wages")} className="text-orange-600 hover:text-orange-700 inline-flex items-center gap-1 text-sm font-medium">
+                <Link href={withSlug("/admin/wages")} className="text-brand-primary hover:opacity-80 inline-flex items-center gap-1 text-sm font-medium">
                   Open <ExternalLink className="w-3 h-3" />
                 </Link>
               </CardContent>
@@ -738,7 +738,7 @@ function KitchenStaffPage() {
                   onClick={() => setFilterDept(d.id)}
                   className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${
                     active
-                      ? "bg-orange-100 text-orange-700 border-orange-200"
+                      ? "bg-brand-primary/10 text-brand-primary border-brand-primary/20"
                       : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
                   }`}
                 >
@@ -845,8 +845,8 @@ function KitchenStaffPage() {
                     const act = activity.get(s.id);
                     return (
                       <li key={s.id} className={`p-4 flex flex-col sm:flex-row sm:items-center gap-3 ${archived ? "opacity-60" : ""}`}>
-                        <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center flex-shrink-0">
-                          <ChefHat className="w-5 h-5 text-orange-600" />
+                        <div className="w-10 h-10 rounded-full bg-brand-primary/10 flex items-center justify-center flex-shrink-0">
+                          <ChefHat className="w-5 h-5 text-brand-primary" />
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
@@ -1217,7 +1217,7 @@ function KitchenStaffPage() {
                       }))}
                       className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${
                         checked
-                          ? "bg-orange-100 text-orange-700 border-orange-200"
+                          ? "bg-brand-primary/10 text-brand-primary border-brand-primary/20"
                           : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
                       }`}
                     >
@@ -1241,7 +1241,7 @@ function KitchenStaffPage() {
                     onClick={() => setDraft({ ...draft, pay_type: p })}
                     className={`px-3 py-2 rounded-md text-sm font-semibold border transition-all ${
                       draft.pay_type === p
-                        ? "bg-orange-100 text-orange-700 border-orange-200"
+                        ? "bg-brand-primary/10 text-brand-primary border-brand-primary/20"
                         : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
                     }`}
                   >
@@ -1401,7 +1401,7 @@ function KitchenStaffPage() {
                   variant="outline"
                   onClick={handleSendInvite}
                   disabled={inviting || saving || (!editTarget.email && !draft.email.trim())}
-                  className="border-orange-200 text-orange-700 hover:bg-orange-50"
+                  className="border-brand-primary/30 text-brand-primary hover:bg-brand-primary/10"
                 >
                   {inviting ? "Sending..." : "Send portal invite"}
                 </Button>
@@ -1453,8 +1453,8 @@ function KitchenStaffPage() {
                 const payType = s.pay_type || "hourly";
                 return (
                   <div key={staffId} className="flex items-center gap-2 p-2 rounded-md border border-slate-200">
-                    <div className="w-7 h-7 rounded-full bg-orange-100 flex items-center justify-center shrink-0">
-                      <ChefHat className="w-3.5 h-3.5 text-orange-600" />
+                    <div className="w-7 h-7 rounded-full bg-brand-primary/10 flex items-center justify-center shrink-0">
+                      <ChefHat className="w-3.5 h-3.5 text-brand-primary" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-medium text-slate-900 truncate">{s.full_name}</div>

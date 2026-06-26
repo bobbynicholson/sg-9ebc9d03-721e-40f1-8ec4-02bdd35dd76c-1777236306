@@ -580,7 +580,7 @@ export function KitchenStaffTileBoard({
                         type="button"
                         disabled={isBusy}
                         onClick={(e) => { e.stopPropagation(); handleToggleBreak(s, sh); }}
-                        className="flex-1 text-[10px] font-medium text-amber-700 hover:bg-amber-100 rounded px-1.5 py-1 inline-flex items-center justify-center gap-1"
+                        className="flex-1 text-[10px] font-medium text-brand-primary hover:bg-brand-primary/10 rounded px-1.5 py-1 inline-flex items-center justify-center gap-1"
                       >
                         <Coffee className="w-3 h-3" />Break
                       </button>

@@ -373,7 +373,7 @@ function KitchenSettlementPage() {
               <Card className="border-0 shadow-sm">
                 <CardContent className="p-4">
                   <div className="text-[10px] uppercase tracking-wider text-slate-500">Total pay</div>
-                  <div className="text-2xl font-bold tabular-nums text-orange-700 mt-1">{fmtCurrency(totals.total)}</div>
+                  <div className="text-2xl font-bold tabular-nums text-brand-primary mt-1">{fmtCurrency(totals.total)}</div>
                 </CardContent>
               </Card>
             </div>
@@ -429,7 +429,7 @@ function KitchenSettlementPage() {
                               <td className="px-3 py-3 text-right tabular-nums text-slate-700">{sum ? fmtCurrency(sum.basePay, sum.currency) : "-"}</td>
                               <td className="px-3 py-3 text-right tabular-nums text-amber-700">{sum && sum.overtimePay > 0 ? fmtCurrency(sum.overtimePay, sum.currency) : "-"}</td>
                               <td className="px-3 py-3 text-right tabular-nums text-amber-700">{sum && sum.multiplierPay > 0 ? fmtCurrency(sum.multiplierPay, sum.currency) : "-"}</td>
-                              <td className="px-3 py-3 text-right tabular-nums font-bold text-orange-700">{sum ? fmtCurrency(sum.totalPay, sum.currency) : "-"}</td>
+                              <td className="px-3 py-3 text-right tabular-nums font-bold text-brand-primary">{sum ? fmtCurrency(sum.totalPay, sum.currency) : "-"}</td>
                               <td className="px-3 py-3 text-right">
                                 {ps ? (
                                   <Badge className={

@@ -19,7 +19,9 @@ import { canSeeOtherStaffPay } from "@/lib/authGuards";
 import { UserRole } from "@/types/app";
 import { toLocalISO } from "@/lib/localDate";
 import { captureException } from "@/lib/observability";
-import { PortalShell, PortalHeader, PortalCard, StatTile } from "@/components/portal/ui";
+import { PortalShell, PortalHeader, PortalCard, StatTile,
+  PageWorkbench,
+} from "@/components/portal/ui";
 
 interface Shift {
   id: string;
@@ -764,6 +766,7 @@ export default function KitchenDutyRosterPage() {
               </div>
             }
           />
+          <PageWorkbench />
 
           {/* Wave 35: team-stat strip. Four headline numbers derived
               from existing data - no new queries. Hours-today ticks
@@ -1231,7 +1234,7 @@ export default function KitchenDutyRosterPage() {
                     const onTimeTone =
                       p.on_time_rate >= 90 ? "from-brand-primary to-brand-secondary" :
                       p.on_time_rate >= 70 ? "from-brand-primary to-brand-secondary" :
-                                              "from-rose-400 to-red-600";
+                                              "from-rose-400 to-rose-600";
                     return (
                       <li key={p.chef_id} className="p-4 flex items-center gap-4 hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors">
                         <div className="relative flex-shrink-0">

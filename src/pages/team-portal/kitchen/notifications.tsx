@@ -11,7 +11,9 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { formatDistanceToNow } from "date-fns";
 import { effectivePriority, isStaleNotification, STALE_NOTIFICATION_DAYS } from "@/lib/notificationDisplay";
-import { PortalShell, PortalHeader, PortalCard } from "@/components/portal/ui";
+import { PortalShell, PortalHeader, PortalCard,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { cn } from "@/lib/utils";
 
@@ -195,6 +197,7 @@ export default function KitchenNotificationsPage() {
               </>
             }
           />
+          <PageWorkbench />
 
           <div className="flex w-full gap-1 overflow-x-auto mb-4">
             <Button variant={tab === "all" ? "default" : "outline"} size="sm" onClick={() => setTab("all")} className={cn("flex-1 justify-center min-w-[120px] whitespace-nowrap", tab === "all" && "bg-brand-primary hover:opacity-90 text-white")}>

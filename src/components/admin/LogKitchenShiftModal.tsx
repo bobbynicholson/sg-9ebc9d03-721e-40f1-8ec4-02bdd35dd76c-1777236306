@@ -144,7 +144,7 @@ export function LogKitchenShiftModal({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <CalendarClock className="w-5 h-5 text-orange-600" />
+            <CalendarClock className="w-5 h-5 text-brand-primary" />
             Roster shift - {staffName}
           </DialogTitle>
           <DialogDescription>
@@ -228,7 +228,7 @@ export function LogKitchenShiftModal({
           </div>
 
           {previewHours !== null && (
-            <div className="rounded-md border border-orange-200 bg-orange-50 px-3 py-2 text-sm text-orange-900">
+            <div className="rounded-md border border-brand-primary/20 bg-brand-primary/10 px-3 py-2 text-sm text-slate-800">
               <strong>{previewHours} hours</strong> rostered at the {multiplier}x multiplier.
             </div>
           )}
@@ -241,7 +241,7 @@ export function LogKitchenShiftModal({
           <Button
             onClick={submit}
             disabled={busy || previewHours === null}
-            className="bg-orange-600 hover:bg-orange-700"
+            className="bg-brand-primary hover:bg-brand-primary/90"
           >
             {busy ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
             Roster shift

@@ -27,7 +27,9 @@ import { staffOrderHref } from "@/lib/orderUrls";
 import { orderDisplayName } from "@/lib/orderDisplayName";
 import { captureException } from "@/lib/observability";
 import { onOrderUpdated } from "@/lib/events/orderEvents";
-import { PortalShell, PortalHeader, PortalCard, StatTile } from "@/components/portal/ui";
+import { PortalShell, PortalHeader, PortalCard, StatTile,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { dedupeKitchenPrepTasks, formatKitchenPrepTaskType } from "@/lib/kitchen/prepTasks";
 
 interface Order {
@@ -651,6 +653,7 @@ export default function KitchenProductionPage() {
               </div>
             }
           />
+          <PageWorkbench />
 
           {/* Stat cards - KIT3-D adds the Utilisation tile (cook-
               hours scheduled / available staff-hours) so the chef
