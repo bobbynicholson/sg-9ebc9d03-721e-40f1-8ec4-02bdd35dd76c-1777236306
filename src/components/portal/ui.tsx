@@ -98,7 +98,11 @@ export function PortalHeader({
           )}
         </div>
       </div>
-      {actions && <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">{actions}</div>}
+      {actions && (
+        <div className="flex w-full max-w-full flex-wrap items-center justify-start gap-2 sm:w-auto sm:justify-end">
+          {actions}
+        </div>
+      )}
     </header>
   );
 }
@@ -109,6 +113,14 @@ function humanizeSegment(segment: string) {
     .replace(/\?.*$/, "")
     .replace(/-/g, " ")
     .replace(/\b\w/g, (m) => m.toUpperCase());
+}
+
+function visibleRouteSegments(pathname: string) {
+  const hidden = new Set(["admin", "account", "client-portal", "team-portal", "c"]);
+  return pathname
+    .split("/")
+    .filter(Boolean)
+    .filter((segment) => !hidden.has(segment) && !segment.startsWith("[") && segment !== "index");
 }
 
 function routeSurface(pathname: string) {
@@ -151,15 +163,16 @@ export function PageWorkbench({
   const router = useRouter();
   const pathname = router.pathname || "";
   const surface = routeSurface(pathname);
-  const segments = pathname.split("/").filter(Boolean);
+  const segments = visibleRouteSegments(pathname);
   const page = humanizeSegment(segments[segments.length - 1] || "dashboard") || "Dashboard";
-  const parent = humanizeSegment(segments[segments.length - 2] || "");
+  const parentCandidate = humanizeSegment(segments[segments.length - 2] || "");
+  const parent = parentCandidate === surface.scope ? "" : parentCandidate;
 
   return (
     <nav
       aria-label="Page context"
       className={cn(
-        "-mt-2 mb-5 flex flex-col gap-2 border-b border-slate-200/80 pb-3 text-xs text-slate-500 dark:border-slate-800 dark:text-slate-400 sm:flex-row sm:items-center sm:justify-between",
+        "!mb-7 flex flex-col gap-2 border-b border-slate-200/80 pb-4 text-xs text-slate-500 dark:border-slate-800 dark:text-slate-400 sm:flex-row sm:items-center sm:justify-between",
         className,
       )}
     >

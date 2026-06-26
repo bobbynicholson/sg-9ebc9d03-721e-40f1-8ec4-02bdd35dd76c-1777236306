@@ -658,10 +658,10 @@ function RoutePlanningInner() {
                         return (
                           <div
                             key={order.id}
-                            className={`p-3 border-l-4 rounded-md text-sm ${
-                              atRisk             ? "border-l-red-500 bg-rose-50/40" :
-                              minsToEvent && minsToEvent < 1440 ? "border-l-amber-500" :
-                                                                   "border-l-transparent border border-slate-200"
+                            className={`rounded-md border p-3 text-sm ${
+                              atRisk             ? "border-rose-300 bg-rose-50/50" :
+                              minsToEvent && minsToEvent < 1440 ? "border-amber-300 bg-amber-50/40" :
+                                                                   "border-slate-200 bg-white"
                             }`}
                           >
                             <div className="flex items-start justify-between gap-2">

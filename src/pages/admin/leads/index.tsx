@@ -46,7 +46,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { staffOrderHref } from "@/lib/orderUrls";
-import { PageWorkbench } from "@/components/portal/ui";
+import { PageWorkbench, PortalHeader, PortalShell } from "@/components/portal/ui";
 
 // Per-lead provenance summary - which quotes/orders/clients have
 // been spawned from this lead. Surfaced on the row so the catering
@@ -1039,25 +1039,21 @@ function AdminLeadsInner() {
       <AdminNav />
 
       <div className="admin-page-shell">
-        <div className="px-4 py-6 md:py-8 lg:py-12 max-w-full">
-          <PageWorkbench className="mb-5" />
-          <div className="flex items-center justify-between mb-8">
-            <div className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-xl bg-brand-primary/10 flex items-center justify-center flex-shrink-0">
-                <TrendingUp className="w-5 h-5 text-brand-primary" />
-              </div>
-              <div>
-                <h1 className="text-2xl md:text-3xl font-bold text-slate-900">Leads</h1>
-                <p className="text-sm text-slate-600 mt-1">
-                  Structured enquiry capture. When someone asks for catering through an embed form, email, or phone call, create a lead to track event details (type, guest count, budget, venue, source) before quoting. Leads also appear in your{" "}
-                  <Link href={withSlug("/admin/contacts")} className="text-brand-primary hover:underline font-medium">
-                    Contacts inbox
-                  </Link>
-                  {" "}automatically.
-                </p>
-              </div>
-            </div>
-            <div className="flex gap-2">
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+          <PortalHeader
+            title="Leads"
+            icon={TrendingUp}
+            subtitle={
+              <>
+                Structured enquiry capture. When someone asks for catering through an embed form, email, or phone call, create a lead to track event details before quoting. Leads also appear in your{" "}
+                <Link href={withSlug("/admin/contacts")} className="font-medium text-brand-primary hover:underline">
+                  Contacts inbox
+                </Link>
+                {" "}automatically.
+              </>
+            }
+            actions={
+              <div className="flex max-w-full flex-wrap justify-end gap-2">
               {/*
                 Bulk import lives on /admin/contacts only - one
                 import surface across the whole CRM. The unified
@@ -1147,8 +1143,10 @@ function AdminLeadsInner() {
                   Add Lead
                 </Button>
               </Link>
-            </div>
-          </div>
+              </div>
+            }
+          />
+          <PageWorkbench />
 
           {/* Email-settings warning banner. Renders only when we've
               resolved the email_settings row AND it's not configured.
@@ -1835,7 +1833,7 @@ function AdminLeadsInner() {
               )}
             </CardContent>
           </Card>
-        </div>
+        </PortalShell>
 
         <Footer />
       </div>
