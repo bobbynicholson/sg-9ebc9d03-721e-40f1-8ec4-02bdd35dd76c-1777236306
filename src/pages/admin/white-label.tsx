@@ -17,6 +17,8 @@ import {
   Image as ImageIcon,
   AlertTriangle,
   Clock,
+  Loader2,
+  CheckCircle2,
 } from "lucide-react";
 import { captureException } from "@/lib/observability";
 import { useAuth } from "@/contexts/AuthContext";
@@ -39,6 +41,11 @@ import {
 import { BRAND_FONTS, fontFamilyValue } from "@/lib/branding/fonts";
 import { clearBrandingCache } from "@/lib/branding/store";
 import { useTenantHref } from "@/lib/tenantUrl";
+import {
+  arrangePaletteSuggestion,
+  type BrandPalette,
+  type PaletteSuggestion,
+} from "@/lib/branding/paletteAdvisor";
 
 const LOGO_BUCKET = "branding-logos";
 const MAX_LOGO_BYTES = 2 * 1024 * 1024;
@@ -154,6 +161,9 @@ function WhiteLabelPage() {
   // "" = use the CateringMS default font (stored as NULL).
   const [fontBody, setFontBody] = useState("");
   const [fontDisplay, setFontDisplay] = useState("");
+  const [suggestingPalette, setSuggestingPalette] = useState(false);
+  const [paletteSuggestion, setPaletteSuggestion] = useState<PaletteSuggestion | null>(null);
+  const [paletteSuggestionWarning, setPaletteSuggestionWarning] = useState("");
 
   // WL-B (task #219, 2026-05-25): savedSnapshot is the canonical
   // "last persisted" string for the four-field set the Save button
@@ -186,6 +196,12 @@ function WhiteLabelPage() {
   }, [fontBody, fontDisplay]);
 
   const isWhiteLabeled = isWhiteLabelRow(branding);
+
+  const currentPalette: BrandPalette = {
+    primary: primaryColor,
+    secondary: secondaryColor,
+    accent: accentColor,
+  };
 
   // Load tenant row directly from companies. Single canonical source of
   // truth - no parallel context state.
@@ -384,6 +400,64 @@ function WhiteLabelPage() {
     setPrimaryColor(preset.primary);
     setSecondaryColor(preset.secondary);
     setAccentColor(preset.accent);
+    setPaletteSuggestion(null);
+    setPaletteSuggestionWarning("");
+  };
+
+  const applyPalette = (suggestion: PaletteSuggestion) => {
+    setPrimaryColor(suggestion.primary);
+    setSecondaryColor(suggestion.secondary);
+    setAccentColor(suggestion.accent);
+    setPaletteSuggestion(suggestion);
+  };
+
+  const handleAutoFixPalette = () => {
+    const suggestion = arrangePaletteSuggestion(currentPalette);
+    applyPalette(suggestion);
+    setPaletteSuggestionWarning("");
+    toast({
+      title: "Colours arranged",
+      description: "The selected colours were assigned to primary, secondary, and accent with readable contrast.",
+    });
+  };
+
+  const handleSuggestPalette = async () => {
+    setSuggestingPalette(true);
+    setPaletteSuggestionWarning("");
+    try {
+      const response = await fetch("/api/admin/brand-palette-suggest", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          organizationName,
+          primaryColor,
+          secondaryColor,
+          accentColor,
+        }),
+      });
+      const json = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(json?.error || "Could not generate a palette suggestion");
+      }
+      const suggestion = json?.suggestion as PaletteSuggestion | undefined;
+      if (!suggestion?.primary || !suggestion?.secondary || !suggestion?.accent) {
+        throw new Error("The palette suggestion was incomplete");
+      }
+      applyPalette(suggestion);
+      setPaletteSuggestionWarning(String(json?.warning || ""));
+      toast({
+        title: suggestion.source === "ai" ? "AI arranged the colours" : "Colours arranged",
+        description: "Review the live preview, then save the branding changes.",
+      });
+    } catch (e: any) {
+      toast({
+        title: "Palette suggestion failed",
+        description: e?.message || "Try again, or use the readable auto-fix.",
+        variant: "destructive",
+      });
+    } finally {
+      setSuggestingPalette(false);
+    }
   };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -627,6 +701,29 @@ function WhiteLabelPage() {
                         </button>
                       ))}
                     </div>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleAutoFixPalette}
+                        className="gap-2"
+                      >
+                        <CheckCircle2 className="w-4 h-4" />
+                        Arrange colours
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleSuggestPalette}
+                        disabled={suggestingPalette}
+                        className="gap-2 border-brand-primary/30 text-brand-primary hover:bg-brand-primary/10"
+                      >
+                        {suggestingPalette ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                        {suggestingPalette ? "Asking AI..." : "AI arrange colours"}
+                      </Button>
+                    </div>
                   </div>
 
                   {/* WL-B: WCAG-AA contrast warning. White text on
@@ -638,6 +735,7 @@ function WhiteLabelPage() {
                     const ratio = contrastRatio(primaryColor, "#ffffff");
                     if (ratio == null) return null;
                     if (ratio >= 4.5) return null;
+                    const readable = arrangePaletteSuggestion(currentPalette);
                     return (
                       <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900 flex items-start gap-2">
                         <AlertTriangle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
@@ -648,10 +746,61 @@ function WhiteLabelPage() {
                             WCAG-AA needs 4.5:1 for body text. Pick a darker primary, or expect
                             "Save" / "Confirm" / "Pay" buttons to be hard to read on the client portal.
                           </p>
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            <Button
+                              type="button"
+                              size="sm"
+                              onClick={() => applyPalette(readable)}
+                              className="h-8 bg-amber-900 text-white hover:bg-amber-950"
+                            >
+                              Use arranged safe palette
+                            </Button>
+                            <span className="inline-flex items-center gap-1.5 rounded-md border border-amber-200 bg-white px-2 py-1 font-mono text-[11px] text-amber-950">
+                              Primary {readable.primary}
+                            </span>
+                          </div>
                         </div>
                       </div>
                     );
                   })()}
+
+                  {paletteSuggestion && (
+                    <div className="rounded-lg border border-brand-primary/20 bg-brand-primary/5 p-3 text-xs text-slate-700">
+                      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                        <p className="flex items-center gap-1.5 font-semibold text-slate-900">
+                          {paletteSuggestion.source === "ai" ? <Sparkles className="w-3.5 h-3.5 text-brand-primary" /> : <CheckCircle2 className="w-3.5 h-3.5 text-brand-primary" />}
+                          {paletteSuggestion.source === "ai" ? "AI colour arrangement" : "Colour arrangement"}
+                        </p>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => applyPalette(paletteSuggestion)}
+                          className="h-8"
+                        >
+                          Apply again
+                        </Button>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
+                        {([
+                          ["Primary", paletteSuggestion.primary, paletteSuggestion.contrast?.primary],
+                          ["Secondary", paletteSuggestion.secondary, paletteSuggestion.contrast?.secondary],
+                          ["Accent", paletteSuggestion.accent, paletteSuggestion.contrast?.accent],
+                        ] as Array<[string, string, number | null | undefined]>).map(([label, value, ratioValue]) => (
+                          <div key={label} className="rounded-md border border-slate-200 bg-white p-2">
+                            <span className="mb-1 block h-6 rounded" style={{ backgroundColor: value }} />
+                            <p className="font-medium text-slate-900">{label}</p>
+                            <p className="font-mono text-[11px] text-slate-600">{value}</p>
+                            <p className="text-[11px] text-slate-500">{ratioValue ? `${ratioValue.toFixed(2)}:1` : "contrast ok"}</p>
+                          </div>
+                        ))}
+                      </div>
+                      <p className="mt-2 leading-relaxed">{paletteSuggestion.rationale}</p>
+                      {paletteSuggestionWarning && (
+                        <p className="mt-1 text-amber-800">{paletteSuggestionWarning}</p>
+                      )}
+                    </div>
+                  )}
 
                   <div>
                     <Label htmlFor="primaryColor">Primary Color</Label>
