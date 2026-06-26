@@ -40,7 +40,7 @@ import {
 } from "@/lib/branding/applyBranding";
 import { BRAND_FONTS, fontFamilyValue } from "@/lib/branding/fonts";
 import { clearBrandingCache } from "@/lib/branding/store";
-import { useTenantHref } from "@/lib/tenantUrl";
+import { useResolvedTenantSlug, useTenantHref } from "@/lib/tenantUrl";
 import {
   arrangePaletteSuggestion,
   type BrandPalette,
@@ -142,15 +142,19 @@ export default function ProtectedWhiteLabelPage() {
 }
 
 function WhiteLabelPage() {
-  const { user } = useAuth() as any;
+  const { user, profile, company } = useAuth() as any;
   // Wave 27.3: tenant-slug wrapper for internal navigations.
   const { withSlug } = useTenantHref();
-  const companyId: string | undefined = user?.company_id;
+  const resolvedSlug = useResolvedTenantSlug();
+  const authCompanyId: string | undefined =
+    company?.id || profile?.company_id || user?.company_id || user?.user_metadata?.company_id;
   const { toast } = useToast();
 
   const [branding, setBranding] = useState<BrandingRow | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [slugCompanyId, setSlugCompanyId] = useState<string | undefined>(undefined);
+  const companyId: string | undefined = authCompanyId || slugCompanyId;
 
   const [organizationName, setOrganizationName] = useState("");
   const [primaryColor, setPrimaryColor] = useState(DEFAULT_PALETTE.primary);
@@ -202,6 +206,35 @@ function WhiteLabelPage() {
     secondary: secondaryColor,
     accent: accentColor,
   };
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (authCompanyId) {
+      setSlugCompanyId(undefined);
+      return;
+    }
+
+    if (!resolvedSlug) {
+      setSlugCompanyId(undefined);
+      return;
+    }
+
+    (async () => {
+      const { data, error } = await supabase
+        .from("companies")
+        .select("id")
+        .eq("slug", resolvedSlug)
+        .maybeSingle();
+
+      if (cancelled) return;
+      setSlugCompanyId(error ? undefined : (data as { id?: string } | null)?.id);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [authCompanyId, resolvedSlug]);
 
   // Load tenant row directly from companies. Single canonical source of
   // truth - no parallel context state.
