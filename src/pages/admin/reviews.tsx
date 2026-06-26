@@ -186,7 +186,7 @@ export default function AdminReviewsPage() {
         {[1, 2, 3, 4, 5].map((i) => (
           <Star
             key={i}
-            className={`w-3.5 h-3.5 ${i <= v ? "text-amber-500 fill-amber-500" : "text-slate-300"}`}
+            className={`w-3.5 h-3.5 ${i <= v ? "text-brand-primary fill-brand-primary" : "text-slate-300"}`}
           />
         ))}
       </span>
@@ -226,7 +226,7 @@ export default function AdminReviewsPage() {
             </CardContent></Card>
             <Card><CardContent className="p-4">
               <p className="text-xs text-slate-600">Average rating</p>
-              <p className="text-2xl font-bold tabular-nums text-amber-600">{stats.avg || "-"}<span className="text-sm text-slate-500 ml-1">/5</span></p>
+              <p className="text-2xl font-bold tabular-nums text-brand-primary">{stats.avg || "-"}<span className="text-sm text-slate-500 ml-1">/5</span></p>
             </CardContent></Card>
             <Card><CardContent className="p-4">
               <p className="text-xs text-slate-600">Promoters (4-5)</p>
@@ -293,7 +293,7 @@ export default function AdminReviewsPage() {
                     const rating = Number(r.overall_rating || 0);
                     const tone = rating >= 4 ? "bg-brand-primary/10" : rating <= 2 ? "bg-rose-50" : "";
                     return (
-                      <li key={r.id} className={`p-4 ${needsFollow ? "bg-amber-50/40 border-l-4 border-amber-400" : tone}`}>
+                      <li key={r.id} className={`p-4 ${needsFollow ? "bg-rose-50/60" : tone}`}>
                         <div className="flex items-start justify-between gap-3 flex-wrap">
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2 flex-wrap">
@@ -302,14 +302,14 @@ export default function AdminReviewsPage() {
                               {r.order?.order_number && (
                                 <Link
                                   href={user?.company_slug ? `/${user.company_slug}${staffOrderHref(r.order_id, "admin")}` : staffOrderHref(r.order_id, "admin")}
-                                  className="inline-flex items-center gap-0.5 text-xs text-orange-700 hover:text-orange-800 hover:underline"
+                                  className="inline-flex items-center gap-0.5 text-xs text-brand-primary hover:underline"
                                 >
                                   {r.order.order_number}
                                   <ExternalLink className="w-3 h-3" />
                                 </Link>
                               )}
                               {needsFollow && (
-                                <Badge variant="outline" className="bg-amber-100 text-amber-800 border-amber-300 text-[10px]">
+                                <Badge variant="outline" className="bg-rose-100 text-rose-800 border-rose-200 text-[10px]">
                                   <AlertTriangle className="w-2.5 h-2.5 mr-1" />Needs follow-up
                                 </Badge>
                               )}
@@ -341,7 +341,7 @@ export default function AdminReviewsPage() {
                               variant="outline"
                               onClick={() => markFollowedUp(r.id)}
                               disabled={acking === r.id}
-                              className="border-amber-300 text-amber-800 hover:bg-amber-100"
+                              className="border-rose-300 text-rose-800 hover:bg-rose-50"
                             >
                               {acking === r.id ? <><Loader2 className="w-3 h-3 mr-1 animate-spin" />Saving</> : <><CheckCircle2 className="w-3 h-3 mr-1" />Mark followed up</>}
                             </Button>

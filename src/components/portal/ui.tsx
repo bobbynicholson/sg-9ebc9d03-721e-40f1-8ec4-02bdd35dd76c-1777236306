@@ -77,7 +77,7 @@ export function PortalHeader({
   return (
     <header
       className={cn(
-        "mb-5 flex flex-wrap items-end justify-between gap-4 border-b border-slate-300/70 pb-4 dark:border-slate-800",
+        "mb-6 grid gap-4 border-b border-slate-300/70 pb-5 dark:border-slate-800 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end",
         className,
       )}
     >
@@ -99,7 +99,7 @@ export function PortalHeader({
         </div>
       </div>
       {actions && (
-        <div className="flex w-full max-w-full flex-wrap items-center justify-start gap-2 sm:w-auto sm:justify-end">
+        <div className="flex w-full max-w-full flex-wrap items-center justify-start gap-2 lg:w-auto lg:justify-end">
           {actions}
         </div>
       )}
