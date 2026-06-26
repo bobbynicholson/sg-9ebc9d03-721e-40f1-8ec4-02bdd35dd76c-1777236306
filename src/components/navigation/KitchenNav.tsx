@@ -74,7 +74,7 @@ export function KitchenNav(_: KitchenNavProps = {}) {
     title: "Kitchen Portal",
     mobileSubtitle: "Manage production",
     brandIcon: ChefHat,
-    // Tenant brand accent via brand-* CSS vars (amber default). See portalPalette.ts.
+    // Tenant brand palette via brand-* CSS vars. See portalPalette.ts.
     ...BRAND_PORTAL_PALETTE,
     searchHint: "Search recipes, prep...",
     dashboardHref: "/team-portal/kitchen/today",

@@ -53,7 +53,7 @@ import {
 } from "lucide-react";
 import { PortalSidebar, type PortalSidebarConfig } from "./PortalSidebar";
 // Shared tenant palette: all role portals use the admin-selected brand
-// tokens, with the accent token used for small chrome accents.
+// tokens, with primary leading normal navigation chrome.
 import { SHOPPING_PORTAL_PALETTE as BRAND_PORTAL_PALETTE, SHOPPING_ACCENT as BRAND_ACCENT } from "@/lib/branding/portalPalette";
 import { useShoppingLiveCounts } from "@/hooks/useShoppingLiveCounts";
 import { useShoppingPortalMode } from "@/hooks/useShoppingPortalMode";
@@ -87,8 +87,7 @@ export function ShoppingNav(_: ShoppingNavProps = {}) {
     title: "Shopping Portal",
     mobileSubtitle: "Plan, run, reconcile",
     brandIcon: ShoppingCart,
-    // Tenant brand accent via brand-* CSS vars (amber default). See
-    // portalPalette.ts. (Was green/emerald, then hardcoded amber.)
+    // Tenant brand palette via brand-* CSS vars. See portalPalette.ts.
     ...BRAND_PORTAL_PALETTE,
     searchHint: "Search items, suppliers, lists...",
     dashboardHref: "/team-portal/shopping/dashboard",

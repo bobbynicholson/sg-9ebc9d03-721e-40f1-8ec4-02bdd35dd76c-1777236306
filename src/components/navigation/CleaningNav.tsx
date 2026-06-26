@@ -55,7 +55,7 @@ import {
 } from "lucide-react";
 import { PortalSidebar, type PortalSidebarConfig } from "./PortalSidebar";
 // Shared tenant palette: all role portals use the admin-selected brand
-// tokens, with the accent token used for small chrome accents.
+// tokens, with primary leading normal navigation chrome.
 import { CLEANING_PORTAL_PALETTE as BRAND_PORTAL_PALETTE, CLEANING_ACCENT as BRAND_ACCENT } from "@/lib/branding/portalPalette";
 import { useCleaningLiveCounts } from "@/hooks/useCleaningLiveCounts";
 import { useCleaningPortalMode } from "@/hooks/useCleaningPortalMode";
@@ -91,9 +91,9 @@ export function CleaningNav(_: CleaningNavProps = {}) {
     title: "Cleaning Portal",
     mobileSubtitle: "Returns, washes, damages",
     brandIcon: SprayCan,
-    // Tenant brand accent via brand-* CSS vars (amber default). See portalPalette.ts.
+    // Tenant brand palette via brand-* CSS vars. See portalPalette.ts.
     ...BRAND_PORTAL_PALETTE,
-    leadToken: "accent",
+    leadToken: "primary",
     searchHint: "Search handovers, equipment, supplies...",
     dashboardHref: "/team-portal/cleaning/dashboard",
     // Static fallback mobile quick actions - only used if the smart

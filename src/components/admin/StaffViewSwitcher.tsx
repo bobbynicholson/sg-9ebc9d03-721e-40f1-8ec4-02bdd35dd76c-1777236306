@@ -106,27 +106,8 @@ export function StaffViewSwitcher({ companySlug }: ViewSwitcherProps) {
     }
   };
 
-  const getDepartmentIcon = (dept: string) => {
-    const icons: Record<string, any> = {
-      driver: Truck,
-      kitchen: ChefHat,
-      shopping: ShoppingCart,
-      cleaning: Sparkles,
-      admin: LayoutDashboard,
-    };
-    const Icon = icons[dept] || LayoutDashboard;
-    return <Icon className="h-4 w-4" />;
-  };
-
   const getViewBadgeColor = () => {
-    const colors: Record<string, string> = {
-      admin: "bg-blue-500",
-      driver: "bg-purple-500",
-      kitchen: "bg-orange-500",
-      shopping: "bg-brand-primary",
-      cleaning: "bg-brand-primary",
-    };
-    return colors[currentView] || "bg-gray-500";
+    return "bg-brand-primary";
   };
 
   const getViewLabel = () => {
@@ -160,15 +141,21 @@ export function StaffViewSwitcher({ companySlug }: ViewSwitcherProps) {
           size="icon"
           disabled={loading}
           title={`Switch view (currently ${getViewLabel()})`}
-          className="relative"
+          className="relative h-9 w-9 shrink-0 rounded-lg border-slate-300 bg-white text-slate-700 hover:bg-slate-100 hover:text-slate-950 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
         >
           <Eye className="h-4 w-4" />
           <span
-            className={`absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full ring-2 ring-white ${getViewBadgeColor()}`}
+            className={`absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full ring-2 ring-white dark:ring-slate-900 ${getViewBadgeColor()}`}
           />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-72">
+      <DropdownMenuContent
+        side="right"
+        align="start"
+        sideOffset={10}
+        collisionPadding={12}
+        className="z-[1200] max-h-[min(80vh,34rem)] w-[min(22rem,calc(100vw-2rem))] overflow-x-hidden overflow-y-auto"
+      >
         <DropdownMenuLabel className="font-normal">
           <div className="flex flex-col space-y-1">
             <p className="text-sm font-medium">Switch View</p>
@@ -188,7 +175,7 @@ export function StaffViewSwitcher({ companySlug }: ViewSwitcherProps) {
             <LayoutDashboard className="mr-2 h-4 w-4" />
             <span>Admin Dashboard</span>
             {currentView === "admin" && (
-              <Badge className="ml-auto bg-blue-500 text-white text-xs">Current</Badge>
+              <Badge className="ml-auto bg-slate-900 text-white text-xs dark:bg-white dark:text-slate-950">Current</Badge>
             )}
           </DropdownMenuItem>
         </DropdownMenuGroup>
@@ -204,9 +191,9 @@ export function StaffViewSwitcher({ companySlug }: ViewSwitcherProps) {
             <Truck className="mr-2 h-4 w-4" />
             <span>Driver Portal</span>
             {currentView === "driver" && (
-              <Badge className="ml-auto bg-purple-500 text-white text-xs">Current</Badge>
+              <Badge className="ml-auto bg-slate-900 text-white text-xs dark:bg-white dark:text-slate-950">Current</Badge>
             )}
-            {staffByRole.driver.length > 0 && (
+            {currentView !== "driver" && staffByRole.driver.length > 0 && (
               <Badge variant="secondary" className="ml-auto text-xs">
                 {staffByRole.driver.length}
               </Badge>
@@ -216,9 +203,9 @@ export function StaffViewSwitcher({ companySlug }: ViewSwitcherProps) {
             <ChefHat className="mr-2 h-4 w-4" />
             <span>Kitchen Portal</span>
             {currentView === "kitchen" && (
-              <Badge className="ml-auto bg-orange-500 text-white text-xs">Current</Badge>
+              <Badge className="ml-auto bg-slate-900 text-white text-xs dark:bg-white dark:text-slate-950">Current</Badge>
             )}
-            {staffByRole.kitchen_staff.length > 0 && (
+            {currentView !== "kitchen" && staffByRole.kitchen_staff.length > 0 && (
               <Badge variant="secondary" className="ml-auto text-xs">
                 {staffByRole.kitchen_staff.length}
               </Badge>
@@ -228,9 +215,9 @@ export function StaffViewSwitcher({ companySlug }: ViewSwitcherProps) {
             <ShoppingCart className="mr-2 h-4 w-4" />
             <span>Shopping Portal</span>
             {currentView === "shopping" && (
-              <Badge className="ml-auto bg-brand-primary text-white text-xs">Current</Badge>
+              <Badge className="ml-auto bg-slate-900 text-white text-xs dark:bg-white dark:text-slate-950">Current</Badge>
             )}
-            {staffByRole.shopping_staff.length > 0 && (
+            {currentView !== "shopping" && staffByRole.shopping_staff.length > 0 && (
               <Badge variant="secondary" className="ml-auto text-xs">
                 {staffByRole.shopping_staff.length}
               </Badge>
@@ -240,9 +227,9 @@ export function StaffViewSwitcher({ companySlug }: ViewSwitcherProps) {
             <Sparkles className="mr-2 h-4 w-4" />
             <span>Cleaning Portal</span>
             {currentView === "cleaning" && (
-              <Badge className="ml-auto bg-brand-primary text-white text-xs">Current</Badge>
+              <Badge className="ml-auto bg-slate-900 text-white text-xs dark:bg-white dark:text-slate-950">Current</Badge>
             )}
-            {staffByRole.cleaning_staff.length > 0 && (
+            {currentView !== "cleaning" && staffByRole.cleaning_staff.length > 0 && (
               <Badge variant="secondary" className="ml-auto text-xs">
                 {staffByRole.cleaning_staff.length}
               </Badge>
@@ -262,7 +249,7 @@ export function StaffViewSwitcher({ companySlug }: ViewSwitcherProps) {
               {/* Drivers */}
               {staffByRole.driver.length > 0 && (
                 <>
-                  <div className="px-2 py-1.5 text-xs font-semibold text-purple-600">
+                  <div className="px-2 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300">
                     Drivers
                   </div>
                   {staffByRole.driver.map((staff) => (
@@ -281,7 +268,7 @@ export function StaffViewSwitcher({ companySlug }: ViewSwitcherProps) {
               {/* Kitchen Staff */}
               {staffByRole.kitchen_staff.length > 0 && (
                 <>
-                  <div className="px-2 py-1.5 text-xs font-semibold text-orange-600 mt-2">
+                  <div className="px-2 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300 mt-2">
                     Kitchen Staff
                   </div>
                   {staffByRole.kitchen_staff.map((staff) => (
@@ -300,7 +287,7 @@ export function StaffViewSwitcher({ companySlug }: ViewSwitcherProps) {
               {/* Shopping Staff */}
               {staffByRole.shopping_staff.length > 0 && (
                 <>
-                  <div className="px-2 py-1.5 text-xs font-semibold text-brand-primary mt-2">
+                  <div className="px-2 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300 mt-2">
                     Shopping Staff
                   </div>
                   {staffByRole.shopping_staff.map((staff) => (
@@ -319,7 +306,7 @@ export function StaffViewSwitcher({ companySlug }: ViewSwitcherProps) {
               {/* Cleaning Staff */}
               {staffByRole.cleaning_staff.length > 0 && (
                 <>
-                  <div className="px-2 py-1.5 text-xs font-semibold text-brand-primary mt-2">
+                  <div className="px-2 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300 mt-2">
                     Cleaning Staff
                   </div>
                   {staffByRole.cleaning_staff.map((staff) => (

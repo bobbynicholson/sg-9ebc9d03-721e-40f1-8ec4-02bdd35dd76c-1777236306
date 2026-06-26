@@ -112,8 +112,8 @@ export interface PortalSidebarConfig {
   /** Which brand token this portal uses for small chrome accents. Drives the
    *  shared `--portal-accent-rgb` var so portal chrome that isn't in
    *  the nav (PortalHeader icon tile, etc.) matches the nav colour.
-   *  Defaults to "accent" so the interface uses more than a green primary
-   *  when primary/secondary are visually close. */
+   *  Defaults to "primary" so admin-selected primary remains the lead
+   *  colour across every portal. */
   leadToken?: "primary" | "accent" | "secondary";
 }
 
@@ -145,18 +145,18 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
   // portal chrome rendered outside the nav (PortalHeader icon tile, page
   // accents that opt into `portal-accent`) matches the nav colour. The
   // value points at the existing brand-*-rgb triplet, so it tracks
-  // white-label re-theming live. Reset to accent on unmount so neutral
-  // portal chrome keeps using the balanced palette.
+  // white-label re-theming live. Reset to primary on unmount so neutral
+  // portal chrome keeps using the admin-selected lead colour.
   useEffect(() => {
     if (typeof document === "undefined") return;
     const root = document.documentElement;
-    const token = config.leadToken ?? "accent";
+    const token = config.leadToken ?? "primary";
     const ref =
       token === "accent" ? "var(--brand-accent-rgb)" :
       token === "secondary" ? "var(--brand-secondary-rgb)" :
       "var(--brand-primary-rgb)";
     root.style.setProperty("--portal-accent-rgb", ref);
-    return () => { root.style.setProperty("--portal-accent-rgb", "var(--brand-accent-rgb)"); };
+    return () => { root.style.setProperty("--portal-accent-rgb", "var(--brand-primary-rgb)"); };
   }, [config.leadToken]);
 
   const collapseKey = `${config.role}Nav-collapsed`;

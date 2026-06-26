@@ -371,8 +371,7 @@ export function AdminNav(_: AdminNavProps = {}) {
     brandIcon: LayoutDashboard,
     // Tenant brand accent - resolves to THIS company's colours via the
     // brand-* CSS vars (set by TenantBrandingApplier), falling back to
-    // the CateringMS amber default for non-white-label tenants. The
-    // platform / super-admin sidebar stays fixed amber (PlatformNav).
+    // the CateringMS default for non-white-label tenants.
     ...BRAND_PORTAL_PALETTE,
     searchHint: "Search anywhere...",
     dashboardHref: "/admin/dashboard",

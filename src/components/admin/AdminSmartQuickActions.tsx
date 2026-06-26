@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { useAdminPortalMode } from "@/hooks/useAdminPortalMode";
+import { BRAND_ACCENT } from "@/lib/branding/portalPalette";
 
 interface AdminSmartQuickActionsProps {
   /** Called after the user taps a tile so the drawer can close. */
@@ -32,29 +33,29 @@ export function AdminSmartQuickActions({ onNavigate }: AdminSmartQuickActionsPro
 
   const ACTIONS_BY_MODE = {
     setup: [
-      { href: "/admin/onboarding", label: "Continue setup",  sub: "Finish onboarding",     icon: Wand2,     accent: "from-indigo-500 to-purple-500" },
-      { href: "/admin/contacts",   label: "Add client",      sub: "Build your CRM",        icon: UserPlus,  accent: "from-blue-500 to-indigo-500" },
-      { href: "/admin/inventory",  label: "Stock setup",     sub: "Items + par levels",    icon: Package,   accent: "from-brand-primary to-brand-secondary" },
+      { href: "/admin/onboarding", label: "Continue setup",  sub: "Finish onboarding",     icon: Wand2,     accent: BRAND_ACCENT },
+      { href: "/admin/contacts",   label: "Add client",      sub: "Build your CRM",        icon: UserPlus,  accent: BRAND_ACCENT },
+      { href: "/admin/inventory",  label: "Stock setup",     sub: "Items + par levels",    icon: Package,   accent: BRAND_ACCENT },
     ],
     quiet: [
-      { href: "/admin/calendar",   label: "Today's events",  sub: "Calendar",              icon: Calendar,  accent: "from-purple-500 to-pink-500" },
-      { href: "/admin/leads",      label: "New leads",       sub: "Inbox",                 icon: UserPlus,  accent: "from-blue-500 to-indigo-500" },
-      { href: "/admin/stock",      label: "Stock outlook",   sub: "Pressure feed",         icon: Package,   accent: "from-brand-primary to-brand-secondary" },
+      { href: "/admin/calendar",   label: "Today's events",  sub: "Calendar",              icon: Calendar,  accent: BRAND_ACCENT },
+      { href: "/admin/leads",      label: "New leads",       sub: "Inbox",                 icon: UserPlus,  accent: BRAND_ACCENT },
+      { href: "/admin/stock",      label: "Stock outlook",   sub: "Pressure feed",         icon: Package,   accent: BRAND_ACCENT },
     ],
     pipeline: [
-      { href: "/admin/quotes",     label: "Quotes to chase", sub: "> 48h overdue",         icon: FileSpreadsheet, accent: "from-blue-500 to-indigo-500" },
-      { href: "/admin/leads",      label: "Lead inbox",      sub: "New today",             icon: UserPlus,  accent: "from-purple-500 to-pink-500" },
-      { href: "/admin/calendar",   label: "Calendar",        sub: "What's coming",         icon: Calendar,  accent: "from-brand-primary to-brand-secondary" },
+      { href: "/admin/quotes",     label: "Quotes to chase", sub: "> 48h overdue",         icon: FileSpreadsheet, accent: BRAND_ACCENT },
+      { href: "/admin/leads",      label: "Lead inbox",      sub: "New today",             icon: UserPlus,  accent: BRAND_ACCENT },
+      { href: "/admin/calendar",   label: "Calendar",        sub: "What's coming",         icon: Calendar,  accent: BRAND_ACCENT },
     ],
     ops: [
-      { href: "/admin/tracking",          label: "Live ops",      sub: "Today's jobs in flight", icon: MapPin,        accent: "from-purple-500 to-pink-500" },
-      { href: "/admin/order-assignments", label: "Dispatch",      sub: "Assign drivers",         icon: ClipboardList, accent: "from-rose-500 to-orange-500" },
-      { href: "/admin/calendar",          label: "Today",         sub: "Full schedule",          icon: Activity,      accent: "from-blue-500 to-indigo-500" },
+      { href: "/admin/tracking",          label: "Live ops",      sub: "Today's jobs in flight", icon: MapPin,        accent: BRAND_ACCENT },
+      { href: "/admin/order-assignments", label: "Dispatch",      sub: "Assign drivers",         icon: ClipboardList, accent: BRAND_ACCENT },
+      { href: "/admin/calendar",          label: "Today",         sub: "Full schedule",          icon: Activity,      accent: BRAND_ACCENT },
     ],
     review: [
-      { href: "/admin/financial-dashboard", label: "Revenue today", sub: "Day's numbers",      icon: BarChart3, accent: "from-brand-primary to-brand-secondary" },
-      { href: "/admin/invoices",            label: "Unpaid",        sub: "Chase outstanding",  icon: Wallet,    accent: "from-amber-500 to-orange-500" },
-      { href: "/admin/refunds",             label: "Refunds",       sub: "Pending payouts",    icon: Receipt,   accent: "from-rose-500 to-pink-500" },
+      { href: "/admin/financial-dashboard", label: "Revenue today", sub: "Day's numbers",      icon: BarChart3, accent: BRAND_ACCENT },
+      { href: "/admin/invoices",            label: "Unpaid",        sub: "Chase outstanding",  icon: Wallet,    accent: BRAND_ACCENT },
+      { href: "/admin/refunds",             label: "Refunds",       sub: "Pending payouts",    icon: Receipt,   accent: BRAND_ACCENT },
     ],
   } as const;
 

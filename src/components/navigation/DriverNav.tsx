@@ -27,7 +27,7 @@ import {
 } from "lucide-react";
 import { PortalSidebar, type PortalSidebarConfig } from "./PortalSidebar";
 // Shared tenant palette: all role portals use the admin-selected brand
-// tokens, with the accent token used for small chrome accents.
+// tokens, with primary leading normal navigation chrome.
 import { DRIVER_PORTAL_PALETTE as BRAND_PORTAL_PALETTE, DRIVER_ACCENT as BRAND_ACCENT } from "@/lib/branding/portalPalette";
 
 const config: PortalSidebarConfig = {
@@ -35,9 +35,9 @@ const config: PortalSidebarConfig = {
   title: "Driver Portal",
   mobileSubtitle: "Manage deliveries",
   brandIcon: Truck,
-  // Tenant brand accent via brand-* CSS vars (amber default). See portalPalette.ts.
+  // Tenant brand palette via brand-* CSS vars. See portalPalette.ts.
   ...BRAND_PORTAL_PALETTE,
-  leadToken: "accent",
+  leadToken: "primary",
   searchHint: "Search routes, deliveries...",
   dashboardHref: "/team-portal/driver/dashboard",
   mobileQuickActions: [

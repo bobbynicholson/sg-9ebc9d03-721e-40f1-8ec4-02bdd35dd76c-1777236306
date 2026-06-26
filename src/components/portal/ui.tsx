@@ -133,6 +133,9 @@ function routeSurface(pathname: string) {
   if (pathname.includes("/admin")) {
     return { scope: "Admin", area: "Tenant" };
   }
+  if (pathname.includes("/account/")) {
+    return { scope: "Account", area: "Personal" };
+  }
   if (pathname.includes("/order/")) {
     return { scope: "Order", area: "Shared" };
   }

@@ -1,21 +1,15 @@
 import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { PortalLayout } from "@/components/Layout";
+import { PortalHeader } from "@/components/portal/ui";
 import Head from "next/head";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { User, CheckCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { NotificationsTab } from "@/components/account/settings/NotificationsTab";
 import { PrivacyTab } from "@/components/account/settings/PrivacyTab";
 import { ProfileTab } from "@/components/account/settings/ProfileTab";
@@ -384,7 +378,7 @@ function ProfileSettingsPage() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-2 border-slate-200 border-t-brand-primary dark:border-slate-700"></div>
           <p className="text-slate-600 dark:text-slate-400">Loading profile...</p>
         </div>
       </div>
@@ -400,49 +394,34 @@ function ProfileSettingsPage() {
 
       <PortalLayout maxWidth="full">
         <div className="space-y-6">
-          {/* Header - matches the admin page convention: icon in a
-              brand-coloured rounded square sat next to the title +
-              subtitle. Uses the standard admin orange so it sits in
-              the same family as Staff & Rates, Calendar, Inventory
-              etc. without bringing in tenant-brand colours (which
-              live on the company profile page itself, not in the
-              user's own account-level settings). */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-brand-primary to-brand-secondary flex items-center justify-center shadow-lg flex-shrink-0">
-                <User className="w-6 h-6 text-white" />
-              </div>
-              <div className="min-w-0">
-                <h1 className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white">
-                  Account settings
-                </h1>
-                <p className="text-sm sm:text-base text-slate-600 dark:text-slate-400 mt-1">
-                  Manage your personal information and preferences.
-                </p>
-              </div>
-            </div>
-          </div>
+          <PortalHeader
+            title="Account settings"
+            subtitle="Manage your personal information and preferences."
+            icon={User}
+          />
 
           {saved && (
-            <Card className="border-0 shadow-lg bg-gradient-to-r from-brand-primary/10 to-brand-secondary/10 dark:from-brand-primary/10 dark:to-brand-secondary/10 border-l-4 border-l-brand-primary">
-              <CardContent className="py-4 px-6">
-                <div className="flex items-center gap-2">
-                  <CheckCircle className="w-5 h-5 text-brand-primary dark:text-brand-primary" />
-                  <p className="font-semibold text-brand-primary dark:text-brand-primary">Profile updated successfully!</p>
-                </div>
-              </CardContent>
-            </Card>
+            <div
+              role="status"
+              className="flex items-center gap-3 rounded-lg border border-brand-primary/20 bg-white/90 px-4 py-3 text-sm shadow-sm dark:bg-slate-900/90"
+            >
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand-primary/10 text-brand-primary">
+                <CheckCircle className="h-4 w-4" />
+              </span>
+              <p className="font-semibold text-slate-900 dark:text-white">Profile updated successfully.</p>
+            </div>
           )}
 
           {passwordSaved && (
-            <Card className="border-0 shadow-lg bg-gradient-to-r from-brand-primary/10 to-brand-secondary/10 dark:from-brand-primary/10 dark:to-brand-secondary/10 border-l-4 border-l-brand-primary">
-              <CardContent className="py-4 px-6">
-                <div className="flex items-center gap-2">
-                  <CheckCircle className="w-5 h-5 text-brand-primary dark:text-brand-primary" />
-                  <p className="font-semibold text-brand-primary dark:text-brand-primary">Password changed successfully!</p>
-                </div>
-              </CardContent>
-            </Card>
+            <div
+              role="status"
+              className="flex items-center gap-3 rounded-lg border border-brand-primary/20 bg-white/90 px-4 py-3 text-sm shadow-sm dark:bg-slate-900/90"
+            >
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand-primary/10 text-brand-primary">
+                <CheckCircle className="h-4 w-4" />
+              </span>
+              <p className="font-semibold text-slate-900 dark:text-white">Password changed successfully.</p>
+            </div>
           )}
 
           {/* Tabs for different sections */}

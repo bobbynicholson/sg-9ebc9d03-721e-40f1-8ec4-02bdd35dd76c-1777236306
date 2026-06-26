@@ -17,9 +17,8 @@
  * every tenant's admin to the platform palette. Spread this constant
  * instead of re-typing colour classes.
  *
- * The platform / super-admin chrome (PlatformNav) intentionally does
- * NOT use this - it stays on the fixed amber reference palette,
- * because it's the SaaS owner's own product surface, not a tenant's.
+ * PlatformNav also uses this shared palette so the global admin surface
+ * does not reintroduce a separate fixed gold/orange sidebar treatment.
  *
  * The full class strings are written out as literals here (not built
  * at runtime) so Tailwind's JIT scanner generates them at build time.
@@ -28,14 +27,14 @@ export const BRAND_PORTAL_PALETTE = {
   accentGradient: "from-brand-primary via-brand-secondary to-brand-accent",
   accentGradientDark: "from-brand-primary via-brand-secondary to-brand-accent",
   hoverClasses:
-    "hover:bg-brand-accent/10 hover:text-brand-accent dark:hover:bg-brand-accent/10",
+    "hover:bg-brand-primary/10 hover:text-brand-primary dark:hover:bg-brand-primary/10",
   activeHoverClasses:
     "hover:from-brand-primary hover:via-brand-secondary hover:to-brand-accent",
   // Light text on the brand gradient header. White-with-alpha reads
   // correctly on any brand hue (the old text-amber-100 assumed amber).
   mobileSubtitleClasses: "text-white/80",
   searchAccent:
-    "bg-brand-accent/10 hover:bg-brand-accent/20 text-brand-accent",
+    "bg-brand-primary/10 hover:bg-brand-primary/20 text-brand-primary",
 } as const;
 
 /** Brand gradient for the mobile quick-action tiles. */
@@ -45,9 +44,9 @@ export const BRAND_ACCENT = "from-brand-primary via-brand-secondary to-brand-acc
  * Role palettes.
  *
  * The team portals intentionally share the same admin-controlled palette.
- * That keeps kitchen / driver / shopping / cleaning consistent while still
- * drawing from all three tenant tokens, so tenants whose primary and
- * secondary are close together do not end up with a one-colour interface.
+ * Primary leads navigation chrome. Secondary/accent still appear in the
+ * brand gradient and quick actions, but day-to-day active/hover/search
+ * states are not driven by the accent token.
  *
  * Keep these class strings as full literals (no runtime interpolation) so
  * Tailwind's JIT scanner emits every brand-* utility.

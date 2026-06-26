@@ -5,8 +5,8 @@
  * same component the kitchen / driver / shopping / cleaning portals use)
  * so the platform admin matches the rest of the product - item
  * descriptions, toned badges, footer treatment, collapse, notification
- * bell + theme switch + clock, mobile drawer - all for free. The
- * shopping portal is the design reference.
+ * bell, theme switch, and mobile drawer - all for free. The shared
+ * portal sidebar is the design reference.
  *
  * Platform paths are global super-admin routes (/admin/platform/*),
  * which tenantUrl's GLOBAL_PREFIXES leaves un-prefixed, so PortalSidebar's
@@ -48,6 +48,7 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { CommandPaletteHint } from "@/components/CommandPaletteHint";
 import { PortalSidebar, type PortalSidebarConfig } from "@/components/navigation/PortalSidebar";
+import { BRAND_ACCENT, BRAND_PORTAL_PALETTE } from "@/lib/branding/portalPalette";
 
 interface PlatformNavProps {
   className?: string;
@@ -69,8 +70,8 @@ function PlatformTopSlot() {
     <div className="space-y-3">
       <CommandPaletteHint className="w-full justify-center" />
       <div className="flex items-center gap-2.5 rounded-xl border border-slate-200/80 bg-white px-3 py-2.5 dark:border-slate-800 dark:bg-slate-900">
-        <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full border-2 border-amber-300 bg-amber-100">
-          <span className="text-[11px] font-bold text-amber-700">{initials}</span>
+        <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full border-2 border-brand-primary/30 bg-brand-primary/10">
+          <span className="text-[11px] font-bold text-brand-primary">{initials}</span>
         </div>
         <div className="min-w-0 flex-1 overflow-hidden">
           <div className="flex items-center gap-1.5">
@@ -79,7 +80,7 @@ function PlatformTopSlot() {
             </span>
             <Badge
               variant="outline"
-              className="h-4 flex-shrink-0 border-amber-200 bg-amber-50 px-1 text-[9px] text-amber-700"
+              className="h-4 flex-shrink-0 border-brand-primary/20 bg-brand-primary/10 px-1 text-[9px] text-brand-primary"
             >
               Platform
             </Badge>
@@ -99,20 +100,13 @@ export function PlatformNav(_: PlatformNavProps = {}) {
     title: "Platform Admin",
     mobileSubtitle: "CateringMS internal",
     brandIcon: Crown,
-    // Unified warm CateringMS brand accent (matches shopping + auth +
-    // landing). Was the bespoke amber-on-slate treatment.
-    accentGradient: "from-amber-500 to-orange-500",
-    accentGradientDark: "from-amber-600 to-orange-600",
-    hoverClasses: "hover:bg-amber-50 hover:text-amber-700 dark:hover:bg-amber-500/10",
-    activeHoverClasses: "hover:from-amber-600 hover:to-orange-600",
-    mobileSubtitleClasses: "text-amber-100",
-    searchAccent: "bg-amber-50 hover:bg-amber-100 text-amber-700",
+    ...BRAND_PORTAL_PALETTE,
     searchHint: "Search tenants, users, orders...",
     dashboardHref: "/admin/platform/dashboard",
     mobileQuickActions: [
-      { href: "/admin/platform/company-database",       label: "Companies",     sub: "All tenants",    icon: Building2,   accent: "from-amber-500 to-orange-500" },
-      { href: "/admin/platform/user-management",        label: "Users",         sub: "Cross-tenant",   icon: Users,       accent: "from-amber-500 to-orange-500" },
-      { href: "/admin/platform/subscription-management", label: "Subscriptions", sub: "Plans + billing", icon: CreditCard,  accent: "from-amber-500 to-orange-500" },
+      { href: "/admin/platform/company-database",       label: "Companies",     sub: "All tenants",    icon: Building2,   accent: BRAND_ACCENT },
+      { href: "/admin/platform/user-management",        label: "Users",         sub: "Cross-tenant",   icon: Users,       accent: BRAND_ACCENT },
+      { href: "/admin/platform/subscription-management", label: "Subscriptions", sub: "Plans + billing", icon: CreditCard,  accent: BRAND_ACCENT },
     ],
     renderTopSlot: () => <PlatformTopSlot />,
     sections: [
