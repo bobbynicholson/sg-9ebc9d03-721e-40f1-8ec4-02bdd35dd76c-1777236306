@@ -46,7 +46,7 @@ export function PortalShell({
       />
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 top-0 h-56 bg-[linear-gradient(90deg,rgb(var(--brand-primary-rgb)/0.10),rgb(var(--brand-secondary-rgb)/0.08),rgb(var(--brand-accent-rgb)/0.10))] dark:opacity-35"
+        className="pointer-events-none absolute inset-x-0 top-0 h-48 bg-[linear-gradient(90deg,rgb(var(--brand-primary-rgb)/0.035),rgb(var(--brand-secondary-rgb)/0.025),rgb(var(--brand-accent-rgb)/0.035))] dark:opacity-20"
       />
       <div
         className={cn(
