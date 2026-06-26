@@ -920,6 +920,27 @@ function WhiteLabelPage() {
                       </p>
                     </div>
                   </div>
+
+                  <div className="rounded-lg border border-brand-primary/20 bg-brand-primary/5 p-3">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p className="text-sm font-semibold text-slate-900">Apply branding changes</p>
+                        <p className="text-xs text-slate-600">
+                          Save the selected colours, logo, and fonts for this tenant.
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        onClick={handleSave}
+                        disabled={saving || loading || !isDirty}
+                        className="shrink-0 bg-brand-primary text-white hover:bg-brand-primary/90"
+                        title={isDirty ? "Save your branding changes" : "Nothing to save yet"}
+                      >
+                        <Save className="w-4 h-4 mr-2" />
+                        {saving ? "Saving..." : "Save colour changes"}
+                      </Button>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
 
