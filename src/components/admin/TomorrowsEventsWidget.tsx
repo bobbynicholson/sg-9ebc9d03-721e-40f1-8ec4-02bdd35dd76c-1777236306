@@ -33,6 +33,7 @@ import {
 import { toLocalISO } from "@/lib/localDate";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { useToast } from "@/hooks/use-toast";
+import { staffOrderHref } from "@/lib/orderUrls";
 import { useReportWidgetError } from "@/components/dashboard/WidgetErrorBoundary";
 import { PRE_DISPATCH_STATUSES } from "@/lib/orderRevenueClassification";
 
@@ -140,12 +141,12 @@ export function TomorrowsEventsWidget({ companyId }: { companyId: string | null 
   const totalGuests = rows.reduce((acc, r) => acc + Number(r.guest_count || 0), 0);
 
   return (
-    <Card className="mb-6 border-indigo-200 bg-indigo-50/30">
+    <Card className="mb-6 border-blue-200 bg-blue-50/30">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between gap-2">
           <div>
             <CardTitle className="flex items-center gap-2 text-base">
-              <CalendarDays className="w-4 h-4 text-indigo-600" />
+              <CalendarDays className="w-4 h-4 text-blue-600" />
               Tomorrow's events
             </CardTitle>
             <CardDescription className="text-xs">
@@ -157,7 +158,7 @@ export function TomorrowsEventsWidget({ companyId }: { companyId: string | null 
               defaulting to today (which left operators staring at an
               empty sheet on a quiet today / busy tomorrow). */}
           <Link href={withSlug(`/admin/orders/delivery-sheet?date=${tomorrowIso}`)}>
-            <Button variant="ghost" size="sm" className="text-indigo-700">
+            <Button variant="ghost" size="sm" className="text-blue-700">
               Print sheet <ArrowRight className="w-3.5 h-3.5 ml-1" />
             </Button>
           </Link>
@@ -168,7 +169,7 @@ export function TomorrowsEventsWidget({ companyId }: { companyId: string | null 
           <p className="text-xs text-slate-500 py-4">Loading...</p>
         ) : (
           <>
-            <ul className="divide-y divide-indigo-100">
+            <ul className="divide-y divide-blue-100">
               {rows.map((o) => {
                 const driverName = o.assigned_driver?.full_name || null;
                 const isPreviewing = previewingId === o.id;
@@ -179,8 +180,8 @@ export function TomorrowsEventsWidget({ companyId }: { companyId: string | null 
                           block stays a single click target into the
                           admin order drawer, same as before. */}
                       <Link
-                        href={withSlug(`/order/${o.id}`)}
-                        className="flex-1 min-w-0 flex items-baseline gap-3 hover:bg-indigo-50/60 rounded transition px-1"
+                        href={withSlug(staffOrderHref(o.id, "admin"))}
+                        className="flex-1 min-w-0 flex items-baseline gap-3 hover:bg-blue-50/60 rounded transition px-1"
                       >
                         <span className="text-base font-bold tabular-nums text-slate-900 w-14 shrink-0">
                           {fmtTime(o.event_time)}
@@ -222,7 +223,7 @@ export function TomorrowsEventsWidget({ companyId }: { companyId: string | null 
                       <Button
                         size="sm"
                         variant="outline"
-                        className="h-7 text-[11px] gap-1 shrink-0 border-indigo-200 text-indigo-700 hover:bg-indigo-50"
+                        className="h-7 text-[11px] gap-1 shrink-0 border-blue-200 text-blue-700 hover:bg-blue-50"
                         onClick={() => previewAsClient(o.id)}
                         disabled={isPreviewing}
                         title="Open the client-facing view of this booking in a new tab"
@@ -237,7 +238,7 @@ export function TomorrowsEventsWidget({ companyId }: { companyId: string | null 
                 );
               })}
             </ul>
-            <div className="mt-3 pt-2 border-t border-indigo-100 text-[11px] text-slate-500 flex items-center justify-between">
+            <div className="mt-3 pt-2 border-t border-blue-100 text-[11px] text-slate-500 flex items-center justify-between">
               <span>{rows.length} event{rows.length === 1 ? "" : "s"}</span>
               {totalGuests > 0 && (
                 <span className="tabular-nums font-medium text-slate-700">{totalGuests} guests total</span>

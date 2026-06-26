@@ -36,6 +36,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { staffOrderHref } from "@/lib/orderUrls";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -283,7 +284,7 @@ export function MarkPaidDialog({ open, invoice, onOpenChange, onPaid, formatMone
             )}
             {orderId && (
               <Link
-                href={withSlug(`/order/${orderId}`)}
+                href={withSlug(staffOrderHref(orderId, "admin"))}
                 target="_blank"
                 className="inline-flex items-center gap-1 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-md px-2 py-1 hover:bg-slate-50"
                 title={orderNumber || "Open the order"}

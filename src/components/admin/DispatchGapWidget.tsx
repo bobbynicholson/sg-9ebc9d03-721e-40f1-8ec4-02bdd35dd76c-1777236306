@@ -21,6 +21,7 @@ import { toLocalISO } from "@/lib/localDate";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { useReportWidgetError } from "@/components/dashboard/WidgetErrorBoundary";
 import { PRE_DISPATCH_STATUSES } from "@/lib/orderRevenueClassification";
+import { staffOrderHref } from "@/lib/orderUrls";
 
 interface OrderRow {
   id: string;
@@ -136,7 +137,7 @@ export function DispatchGapWidget({ companyId }: { companyId: string | null }) {
                       {o.guest_count != null && ` · ${o.guest_count} guests`}
                     </p>
                   </div>
-                  <Link href={withSlug(`/order/${o.id}?role=driver`)}>
+                  <Link href={withSlug(staffOrderHref(o.id, "driver"))}>
                     <Button size="sm" variant="outline" className="shrink-0">
                       Open
                     </Button>

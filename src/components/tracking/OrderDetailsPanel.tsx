@@ -52,6 +52,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Camera, FileSignature } from "lucide-react";
 import { toLocalISO } from "@/lib/localDate";
 import { useTenantHref } from "@/lib/tenantUrl";
+import { staffOrderHref } from "@/lib/orderUrls";
 
 const fmtMoney = new Intl.NumberFormat("en-ZA", { style: "currency", currency: "ZAR", maximumFractionDigits: 0 });
 
@@ -117,10 +118,10 @@ const STATUS_TONE: Record<string, string> = {
   pending: "bg-slate-100 text-slate-800",
   confirmed: "bg-blue-100 text-blue-800",
   preparing: "bg-yellow-100 text-yellow-800",
-  ready: "bg-purple-100 text-purple-800",
+  ready: "bg-slate-100 text-slate-800",
   in_transit: "bg-orange-100 text-orange-800",
   delivered: "bg-brand-primary/15 text-brand-primary",
-  cancelled: "bg-red-100 text-red-800",
+  cancelled: "bg-rose-100 text-rose-800",
 };
 
 function statusIndex(status: string) {
@@ -249,7 +250,7 @@ export function OrderDetailsPanel({ order, fromName, companyName, onClose }: Pro
     const event = new Date(order.event_date);
     event.setHours(0, 0, 0, 0);
     const diffDays = Math.round((event.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-    if (diffDays < 0 && order.status !== "delivered") return { text: "Overdue", tone: "bg-red-100 text-red-800" };
+    if (diffDays < 0 && order.status !== "delivered") return { text: "Overdue", tone: "bg-rose-100 text-rose-800" };
     if (diffDays === 0) return { text: "Today", tone: "bg-amber-100 text-amber-800" };
     if (diffDays === 1) return { text: "Tomorrow", tone: "bg-blue-100 text-blue-800" };
     return null;
@@ -453,7 +454,7 @@ export function OrderDetailsPanel({ order, fromName, companyName, onClose }: Pro
             <ArrowRight className="h-3 w-3" /> Quick actions
           </div>
           <div className="flex flex-wrap gap-1.5">
-            <Link href={withSlug(`/order/${order.id}`)} legacyBehavior>
+            <Link href={withSlug(staffOrderHref(order.id, "admin"))} legacyBehavior>
               <a><Button size="sm" variant="outline" className="gap-1 h-7 text-xs">
                 <FileText className="h-3 w-3" /> Full order
               </Button></a>

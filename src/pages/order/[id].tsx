@@ -17,6 +17,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { DynamicNav } from "@/components/DynamicNav";
 import { useAuth } from "@/contexts/AuthContext";
+import { PageWorkbench } from "@/components/portal/ui";
 
 type ForcedSection = "kitchen" | "driver" | "waiter" | "shopping" | "cleaning" | "admin" | "client";
 
@@ -78,9 +79,10 @@ function OrderDocumentInner({ id, print, forceSection }: {
         className={
           print
             ? "min-h-screen bg-white"
-            : "min-h-screen bg-gradient-to-br from-slate-50 via-white to-orange-50 lg:pl-72 xl:pl-80 pt-20 lg:pt-0"
+            : "min-h-screen bg-slate-50 lg:pl-72 xl:pl-80 pt-20 lg:pt-0"
         }
       >
+        {!print && <PageWorkbench className="mx-4 mt-4 lg:mx-8" />}
         <OrderDocument
           orderId={id}
           mode={print ? "print" : "interactive"}

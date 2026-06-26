@@ -355,7 +355,7 @@ function OutstandingBalancesPage() {
                             </td>
                             <td className="py-2.5 px-3">
                               {r.orderId ? (
-                                <Link href={withSlug(staffOrderHref(r.orderId))} className="text-blue-600 hover:underline inline-flex items-center gap-1">
+                                <Link href={withSlug(staffOrderHref(r.orderId, "admin"))} className="text-blue-600 hover:underline inline-flex items-center gap-1">
                                   {r.orderNumber || "Order"} <ExternalLink className="w-3 h-3" />
                                 </Link>
                               ) : <span className="text-slate-400">-</span>}

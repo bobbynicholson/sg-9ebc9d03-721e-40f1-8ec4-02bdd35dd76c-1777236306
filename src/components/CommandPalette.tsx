@@ -42,6 +42,7 @@ import { quoteService } from "@/services/quoteService";
 import { leadService } from "@/services/leadService";
 import { clientManagementService } from "@/services/clientManagementService";
 import { inventoryService } from "@/services/inventoryService";
+import { staffOrderHref } from "@/lib/orderUrls";
 
 interface PaletteItem {
   id: string;
@@ -94,7 +95,7 @@ function saveRecent(term: string) {
 
 const badgeTone: Record<DataResult["badge"], string> = {
   Order: "bg-blue-100 text-blue-700",
-  Client: "bg-purple-100 text-purple-700",
+  Client: "bg-slate-100 text-slate-700",
   Lead: "bg-amber-100 text-amber-700",
   Quote: "bg-brand-primary/15 text-brand-primary",
   Inventory: "bg-slate-100 text-slate-700",
@@ -199,7 +200,7 @@ export function CommandPalette() {
             label,
             sublabel,
             badge: "Order",
-            href: `/order/${o.id}`,
+            href: staffOrderHref(o.id, "admin"),
             haystack: [ref, o.order_number, o.client_name, o.venue_address, o.event_name, o.id].filter(Boolean).join(" "),
           });
         });

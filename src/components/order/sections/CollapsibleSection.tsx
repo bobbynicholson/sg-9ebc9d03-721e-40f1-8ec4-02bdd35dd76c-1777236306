@@ -16,16 +16,23 @@ import { ChevronDown } from "lucide-react";
 
 export type SectionAccent = "slate" | "orange" | "emerald" | "indigo" | "amber" | "purple" | "cyan" | "rose" | "blue";
 
+const neutralAccent = {
+  bar: "bg-slate-300",
+  ring: "ring-brand-primary/20",
+  bg: "bg-white",
+  text: "text-slate-900",
+};
+
 const ACCENTS: Record<SectionAccent, { bar: string; ring: string; bg: string; text: string }> = {
-  slate:   { bar: "bg-slate-400",   ring: "ring-slate-200",   bg: "bg-white",         text: "text-slate-900" },
-  orange:  { bar: "bg-brand-primary", ring: "ring-brand-primary/20", bg: "bg-brand-primary/10", text: "text-brand-primary" },
-  emerald: { bar: "bg-brand-primary", ring: "ring-brand-primary/20", bg: "bg-brand-primary/10", text: "text-brand-primary" },
-  indigo:  { bar: "bg-brand-primary", ring: "ring-brand-primary/20", bg: "bg-brand-primary/10", text: "text-brand-primary" },
-  amber:   { bar: "bg-brand-primary", ring: "ring-brand-primary/20", bg: "bg-brand-primary/10", text: "text-brand-primary" },
-  purple:  { bar: "bg-brand-primary", ring: "ring-brand-primary/20", bg: "bg-brand-primary/10", text: "text-brand-primary" },
-  cyan:    { bar: "bg-brand-primary",    ring: "ring-brand-primary/20",    bg: "bg-brand-primary/10",    text: "text-brand-primary" },
-  rose:    { bar: "bg-brand-primary", ring: "ring-brand-primary/20", bg: "bg-brand-primary/10", text: "text-brand-primary" },
-  blue:    { bar: "bg-brand-primary", ring: "ring-brand-primary/20", bg: "bg-brand-primary/10", text: "text-brand-primary" },
+  slate: neutralAccent,
+  orange: neutralAccent,
+  emerald: neutralAccent,
+  indigo: neutralAccent,
+  amber: neutralAccent,
+  purple: neutralAccent,
+  cyan: neutralAccent,
+  rose: neutralAccent,
+  blue: neutralAccent,
 };
 
 export function CollapsibleSection({
@@ -52,6 +59,7 @@ export function CollapsibleSection({
   const [open, setOpen] = useState(defaultOpen);
   const isOpen = forceOpen || open;
   const a = ACCENTS[accent];
+  const bar = highlight ? "bg-brand-primary" : a.bar;
 
   // ODOC: open this section when an explicit expand event targets
   // it (chip tap in the anchor nav). Decoupled via a custom event
@@ -79,12 +87,12 @@ export function CollapsibleSection({
       className={`relative rounded-xl border bg-white shadow-sm overflow-hidden scroll-mt-[72px] ${highlight ? `ring-2 ring-offset-1 ${a.ring}` : ""}`}
     >
       {/* Coloured left stripe so the eye locates the section type at a glance */}
-      <span className={`absolute left-0 top-0 bottom-0 w-1.5 ${a.bar}`} aria-hidden />
+      <span className={`absolute left-0 top-0 bottom-0 w-1.5 ${bar}`} aria-hidden />
       <button
         type="button"
         onClick={() => { if (!forceOpen) setOpen((v) => !v); }}
         disabled={forceOpen}
-        className={`w-full text-left flex items-start justify-between gap-3 p-4 sm:p-5 ${forceOpen ? "cursor-default" : "hover:bg-slate-50/60"} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-1`}
+        className={`w-full text-left flex items-start justify-between gap-3 p-4 sm:p-5 ${forceOpen ? "cursor-default" : "hover:bg-slate-50/60"} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-1`}
         aria-expanded={isOpen}
         aria-controls={`${id}-body`}
       >

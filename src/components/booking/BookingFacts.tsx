@@ -23,6 +23,7 @@ import { ChefHat, Truck, Users, Sparkles, ShoppingBag, AlertCircle, CheckCircle2
 import { useTenantHref } from "@/lib/tenantUrl";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { useAuth } from "@/contexts/AuthContext";
+import { staffOrderHref } from "@/lib/orderUrls";
 import type {
   BookingFacts as BookingFactsData,
   BookingFactsAdmin,
@@ -123,7 +124,7 @@ function AdminFacts({ facts }: { facts: BookingFactsAdmin }) {
 
   type Panel = { key: string; title: string; status: { label: string; tone: keyof typeof TONE; icon: React.ComponentType<{ className?: string }> }; href: string; brandIcon: React.ComponentType<{ className?: string }> };
   const panels: Panel[] = [
-    { key: "kitchen", title: "Kitchen", status: kitchenStatus, href: `/admin/orders?id=${facts.id}`, brandIcon: ChefHat },
+    { key: "kitchen", title: "Kitchen", status: kitchenStatus, href: staffOrderHref(facts.id, "kitchen_staff"), brandIcon: ChefHat },
     { key: "dispatch", title: "Driver", status: dispatchStatus, href: `/admin/order-assignments?orderId=${facts.id}`, brandIcon: Truck },
     { key: "staff", title: "Staff", status: { label: `${k.staffOnShiftCount} on shift`, tone: k.staffOnShiftCount > 0 ? "emerald" : "amber", icon: k.staffOnShiftCount > 0 ? CheckCircle2 : AlertCircle }, href: `/admin/teams/kitchen?date=${facts.event_date || ""}`, brandIcon: Users },
     { key: "cleaning", title: "Cleaning", status: cleaningStatus, href: c.handoverExpectedAt ? `/team-portal/cleaning/dashboard` : `/admin/teams/cleaning`, brandIcon: Sparkles },
@@ -186,7 +187,7 @@ function AdminFacts({ facts }: { facts: BookingFactsAdmin }) {
             {/* Tiny progress bar */}
             <div className="mt-2 h-1.5 rounded-full bg-slate-100 overflow-hidden">
               <div
-                className="h-full bg-gradient-to-r from-purple-500 to-pink-500 transition-all"
+                className="h-full bg-gradient-to-r from-slate-500 to-rose-500 transition-all"
                 style={{ width: `${(k.prepDone / k.prepTaskCount) * 100}%` }}
               />
             </div>
@@ -261,7 +262,7 @@ function KitchenFacts({ facts }: { facts: BookingFactsKitchen }) {
           to be ready? Driver pickup_time is the deadline; setup_time
           is the kitchen's setup window. NO money fields anywhere on
           the kitchen variant - stripped server-side. */}
-      <Card className="border-0 shadow-sm bg-gradient-to-r from-orange-50 to-red-50 print:bg-white print:shadow-none print:border print:border-slate-300">
+      <Card className="border-0 shadow-sm bg-gradient-to-r from-orange-50 to-rose-50 print:bg-white print:shadow-none print:border print:border-slate-300">
         <CardContent className="p-4">
           <p className="text-[10px] uppercase tracking-widest text-orange-700 font-bold mb-2">Kitchen timing</p>
           <div className="grid grid-cols-3 gap-3">
@@ -321,7 +322,7 @@ function DriverFacts({ facts }: { facts: BookingFactsDriver }) {
     : null;
   return (
     <div className="space-y-3">
-      <Card className="border-0 shadow-sm bg-gradient-to-r from-blue-50 to-indigo-50 print:bg-white print:shadow-none print:border print:border-slate-300">
+      <Card className="border-0 shadow-sm bg-gradient-to-r from-blue-50 to-blue-50 print:bg-white print:shadow-none print:border print:border-slate-300">
         <CardContent className="p-4">
           <p className="text-[10px] uppercase tracking-widest text-blue-700 font-bold mb-2">Run sheet</p>
           <div className="grid grid-cols-3 gap-3">

@@ -20,6 +20,7 @@ import { Star, ArrowRight } from "lucide-react";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { useReportWidgetError } from "@/components/dashboard/WidgetErrorBoundary";
 import { daysAgoIso } from "@/lib/dashboardWindows";
+import { staffOrderHref } from "@/lib/orderUrls";
 
 interface RatingRow {
   entity_id: string;
@@ -146,7 +147,7 @@ export function RecentRatingsWidget({ companyId }: { companyId: string | null })
               // rating or post-mortem.
               <li key={r.entity_id}>
                 <Link
-                  href={withSlug(`/order/${r.entity_id}`)}
+                  href={withSlug(staffOrderHref(r.entity_id, "admin"))}
                   className="py-2 flex items-center gap-3 hover:bg-yellow-50/60 rounded transition"
                 >
                   <div className="shrink-0 flex items-center">

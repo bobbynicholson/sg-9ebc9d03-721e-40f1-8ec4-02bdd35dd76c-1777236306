@@ -43,6 +43,7 @@ import { useRegionFilter } from "@/contexts/RegionFilterContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toLocalISO } from "@/lib/localDate";
 import { useTenantHref } from "@/lib/tenantUrl";
+import { staffOrderHref } from "@/lib/orderUrls";
 import { captureException } from "@/lib/observability";
 import { canAccessFinance } from "@/lib/authGuards";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
@@ -877,7 +878,7 @@ function TeamsIndexPage() {
                       {risks.slice(0, 5).map((r) => (
                         <li key={r.orderId} className="text-xs text-rose-800/90">
                           <Link
-                            href={withSlug(`/admin/orders?id=${r.orderId}`)}
+                            href={withSlug(staffOrderHref(r.orderId, "driver"))}
                             className="hover:underline"
                           >
                             <span className="tabular-nums font-medium">{r.eventTime?.slice(0, 5) || "??:??"}</span>

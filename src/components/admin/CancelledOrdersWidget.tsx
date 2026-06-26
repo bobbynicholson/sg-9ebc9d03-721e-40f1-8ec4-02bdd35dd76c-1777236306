@@ -23,6 +23,7 @@ import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { useReportWidgetError } from "@/components/dashboard/WidgetErrorBoundary";
 import { daysAgoIso, daysSince } from "@/lib/dashboardWindows";
+import { staffOrderHref } from "@/lib/orderUrls";
 
 interface CancelRow {
   id: string;
@@ -129,7 +130,7 @@ export function CancelledOrdersWidget({ companyId }: { companyId: string | null 
               // Phase 22.
               <li key={r.id}>
                 <Link
-                  href={withSlug(`/order/${r.id}`)}
+                  href={withSlug(staffOrderHref(r.id, "admin"))}
                   className="py-2 flex items-center gap-3 hover:bg-slate-100/60 rounded transition"
                 >
                   <Badge className="shrink-0 text-[10px] uppercase tracking-wide font-semibold bg-slate-100 text-slate-700 border-slate-200">

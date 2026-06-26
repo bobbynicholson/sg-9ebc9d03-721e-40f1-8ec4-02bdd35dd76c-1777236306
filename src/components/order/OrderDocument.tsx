@@ -427,11 +427,11 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
                   onClick={() => scrollToSection(item.id)}
                   aria-current={isActive ? "location" : undefined}
                   className={
-                    "inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors flex-shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-1 " +
+                    "inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors flex-shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-1 " +
                     (isActive
-                      ? "bg-indigo-600 text-white shadow-sm"
+                      ? "bg-slate-900 text-white shadow-sm"
                       : isPrimary
-                        ? "bg-indigo-100 text-indigo-800 ring-1 ring-indigo-300"
+                        ? "bg-white text-slate-900 ring-1 ring-slate-300"
                         : "bg-slate-100 text-slate-700 hover:bg-slate-200")
                   }
                   title={`Jump to ${item.label}`}

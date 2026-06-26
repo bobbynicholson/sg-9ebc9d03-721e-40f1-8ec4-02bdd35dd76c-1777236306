@@ -38,6 +38,7 @@ import { UserRole } from "@/types/app";
 import { ListSkeleton } from "@/components/ui/loading-skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ScrollText, RefreshCw, ExternalLink, ChevronLeft, ChevronRight } from "lucide-react";
+import { staffOrderHref } from "@/lib/orderUrls";
 
 interface AuditRow {
   id: string;
@@ -83,7 +84,7 @@ const entityHref = (entityType: string, entityId: string | null): string | null 
   if (!entityId) return null;
   switch (entityType) {
     case "order":
-      return `/order/${entityId}`;
+      return staffOrderHref(entityId, "admin");
     case "quote":
       return `/admin/quotes/${entityId}`;
     case "payment":

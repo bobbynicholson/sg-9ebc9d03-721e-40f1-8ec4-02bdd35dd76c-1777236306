@@ -22,6 +22,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { UserRole } from "@/types/app";
 import { useTenantHref } from "@/lib/tenantUrl";
+import { staffOrderHref } from "@/lib/orderUrls";
 import { useToast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/formatters";
 import { onOrderUpdated } from "@/lib/events/orderEvents";
@@ -498,7 +499,7 @@ function PackageDetailPage() {
                         <div key={o.id} className="flex items-center justify-between gap-3 py-2.5">
                           <div className="min-w-0 flex-1">
                             <Link
-                              href={tenantHref(`/admin/orders?id=${o.id}`)}
+                              href={tenantHref(staffOrderHref(o.id, "admin"))}
                               className="font-medium text-slate-900 hover:underline truncate block"
                             >
                               {o.event_name || o.order_number || "Untitled event"}

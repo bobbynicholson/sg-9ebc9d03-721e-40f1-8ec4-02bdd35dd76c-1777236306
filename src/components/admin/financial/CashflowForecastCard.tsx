@@ -33,6 +33,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { captureException } from "@/lib/observability";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { useToast } from "@/hooks/use-toast";
+import { staffOrderHref } from "@/lib/orderUrls";
 import { toLocalISO } from "@/lib/localDate";
 import * as currencyUtils from "@/lib/currencyUtils";
 import { isPipelineRevenue } from "@/lib/orderRevenueClassification";
@@ -790,7 +791,7 @@ export function CashflowForecastCard({
             </div>
             <div
               className={`text-2xl font-bold tabular-nums ${
-                isPositive ? (isTight ? "text-amber-700" : "text-brand-primary") : "text-red-700"
+                isPositive ? (isTight ? "text-amber-700" : "text-brand-primary") : "text-rose-700"
               }`}
             >
               {(currencyUtils.formatCurrency as (a: number, c: string) => string)(forecast, currency)}
@@ -816,14 +817,14 @@ export function CashflowForecastCard({
               </div>
               <div className="flex justify-between text-slate-600">
                 <span>Wages owed</span>
-                <span className="tabular-nums text-red-700">
+                <span className="tabular-nums text-rose-700">
                   -{(currencyUtils.formatCurrency as (a: number, c: string) => string)(projectedCostsForWindow, currency)}
                 </span>
               </div>
               {totalHireForWindow > 0 && (
                 <div className="flex justify-between text-slate-600">
                   <span>Equipment hire</span>
-                  <span className="tabular-nums text-red-700">
+                  <span className="tabular-nums text-rose-700">
                     -{(currencyUtils.formatCurrency as (a: number, c: string) => string)(totalHireForWindow, currency)}
                   </span>
                 </div>
@@ -831,7 +832,7 @@ export function CashflowForecastCard({
               {totalShoppingForWindow > 0 && (
                 <div className="flex justify-between text-slate-600">
                   <span>Shopping</span>
-                  <span className="tabular-nums text-red-700">
+                  <span className="tabular-nums text-rose-700">
                     -{(currencyUtils.formatCurrency as (a: number, c: string) => string)(totalShoppingForWindow, currency)}
                   </span>
                 </div>
@@ -839,7 +840,7 @@ export function CashflowForecastCard({
               {totalCogsForWindow > 0 && (
                 <div className="flex justify-between text-slate-600">
                   <span>Food cost (COGS)</span>
-                  <span className="tabular-nums text-red-700">
+                  <span className="tabular-nums text-rose-700">
                     -{(currencyUtils.formatCurrency as (a: number, c: string) => string)(totalCogsForWindow, currency)}
                   </span>
                 </div>
@@ -847,7 +848,7 @@ export function CashflowForecastCard({
               {totalPayablesForWindow > 0 && (
                 <div className="flex justify-between text-slate-600">
                   <span>Supplier payables</span>
-                  <span className="tabular-nums text-red-700">
+                  <span className="tabular-nums text-rose-700">
                     -{(currencyUtils.formatCurrency as (a: number, c: string) => string)(totalPayablesForWindow, currency)}
                   </span>
                 </div>
@@ -855,7 +856,7 @@ export function CashflowForecastCard({
               {totalFixedForWindow > 0 && (
                 <div className="flex justify-between text-slate-600">
                   <span>Fixed costs</span>
-                  <span className="tabular-nums text-red-700">
+                  <span className="tabular-nums text-rose-700">
                     -{(currencyUtils.formatCurrency as (a: number, c: string) => string)(totalFixedForWindow, currency)}
                   </span>
                 </div>
@@ -1009,7 +1010,7 @@ export function CashflowForecastCard({
                     <div className="text-xs text-slate-500">Projected balance</div>
                     <div
                       className={`text-2xl font-bold tabular-nums ${
-                        point.balance < 0 ? "text-red-700" : "text-slate-900"
+                        point.balance < 0 ? "text-rose-700" : "text-slate-900"
                       }`}
                     >
                       {fmt(point.balance, currency)}
@@ -1038,7 +1039,7 @@ export function CashflowForecastCard({
                             Wages owed
                             <span className="ml-1.5 text-[10px] uppercase tracking-wide text-slate-400">staff</span>
                           </span>
-                          <span className="ml-3 tabular-nums text-sm text-red-700">
+                          <span className="ml-3 tabular-nums text-sm text-rose-700">
                             -{fmt(staffPaymentsOwed, currency)}
                           </span>
                         </div>
@@ -1049,7 +1050,7 @@ export function CashflowForecastCard({
                             Contingency
                             <span className="ml-1.5 text-[10px] uppercase tracking-wide text-slate-400">your buffer</span>
                           </span>
-                          <span className="ml-3 tabular-nums text-sm text-red-700">
+                          <span className="ml-3 tabular-nums text-sm text-rose-700">
                             -{fmt(probableSpend || 0, currency)}
                           </span>
                         </div>
@@ -1074,7 +1075,7 @@ export function CashflowForecastCard({
                           {point.orders.map((o) => (
                             <a
                               key={o.id}
-                              href={withSlug(`/order/${o.id}`)}
+                              href={withSlug(staffOrderHref(o.id, "admin"))}
                               className="flex items-center justify-between rounded-md border border-slate-200 px-3 py-2 hover:border-brand-primary/30 hover:bg-brand-primary/10"
                             >
                               <span className="text-sm text-slate-900 truncate flex-1">
@@ -1113,7 +1114,7 @@ export function CashflowForecastCard({
                                 }
                                 </span>
                               </span>
-                              <span className="ml-3 tabular-nums text-sm text-red-700">
+                              <span className="ml-3 tabular-nums text-sm text-rose-700">
                                 -{fmt(c.amount, currency)}
                               </span>
                             </div>
@@ -1161,7 +1162,7 @@ function CashflowTooltip({ active, payload, currency }: TooltipProps) {
         <span className="text-slate-600">Balance</span>
         <span
           className={`tabular-nums font-semibold ${
-            row.balance < 0 ? "text-red-700" : "text-slate-900"
+            row.balance < 0 ? "text-rose-700" : "text-slate-900"
           }`}
         >
           {fmt(row.balance, currency)}

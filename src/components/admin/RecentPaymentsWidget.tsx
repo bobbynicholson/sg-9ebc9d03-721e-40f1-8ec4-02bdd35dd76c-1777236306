@@ -20,6 +20,7 @@ import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { useReportWidgetError } from "@/components/dashboard/WidgetErrorBoundary";
 import { daysAgoIso } from "@/lib/dashboardWindows";
+import { staffOrderHref } from "@/lib/orderUrls";
 
 interface PaymentRow {
   id: string;
@@ -149,7 +150,7 @@ export function RecentPaymentsWidget({ companyId }: { companyId: string | null }
                   <li key={r.id}>
                     {r.order_id ? (
                       <Link
-                        href={withSlug(`/order/${r.order_id}`)}
+                        href={withSlug(staffOrderHref(r.order_id, "admin"))}
                         className="py-2 flex items-center gap-3 hover:bg-brand-primary/10 rounded transition"
                       >
                         {Row}
