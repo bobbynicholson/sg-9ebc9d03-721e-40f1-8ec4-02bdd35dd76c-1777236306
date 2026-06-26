@@ -93,6 +93,8 @@ interface InventoryItem {
   isPerishable: boolean;
   shelfLifeDays: number | null;
   allergenCodes: string[];
+  regionId: string | null;
+  isShared: boolean;
   lastUpdated: string;
 }
 
@@ -223,6 +225,11 @@ function AdminInventory() {
   // Wave 24: tenant-currency aware so "Stock on hand" tile + per-item
   // last-cost sparkline render in the right symbol for non-ZAR tenants.
   const tenantCurrency = useTenantCurrency(companyId);
+  const { kitchens } = useCompanyKitchens(companyId);
+  const branchNameById = useMemo(
+    () => new Map(kitchens.filter((k) => k.source === "region").map((k) => [k.id, k.name])),
+    [kitchens],
+  );
 
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -427,6 +434,8 @@ function AdminInventory() {
         isPerishable: Boolean(row.is_perishable),
         shelfLifeDays: row.shelf_life_days ?? null,
         allergenCodes: Array.isArray(row.allergen_codes) ? row.allergen_codes : [],
+        regionId: row.region_id ?? null,
+        isShared: row.is_shared !== false || !row.region_id,
         lastUpdated: row.updated_at ?? "",
       }));
       setInventory(mapped);
@@ -580,8 +589,8 @@ function AdminInventory() {
       sku: item.sku,
       storage_location: item.storageLocation,
       preferred_supplier_id: item.supplierId || "",
-      branch_scope: (item as any).region_id
-        ? String((item as any).region_id)
+      branch_scope: item.regionId && !item.isShared
+        ? item.regionId
         : "shared",
       allergen_codes: item.allergenCodes || [],
     });
@@ -842,12 +851,13 @@ function AdminInventory() {
     const headers = [
       "SKU", "Item name", "Category", "On hand", "Unit", "Reorder point",
       "Par level", "Cost per unit", "Supplier", "Storage location",
-      "Perishable", "Shelf life (days)",
+      "Scope", "Perishable", "Shelf life (days)",
     ];
     const escape = (s: unknown) => `"${String(s ?? "").replace(/"/g, '""')}"`;
     const rows = filteredInventory.map(item => [
       item.sku, item.name, item.category, item.quantity, item.unit,
       item.minStock, item.maxStock, item.costPerUnit, item.supplierName, item.storageLocation,
+      item.regionId && !item.isShared ? (branchNameById.get(item.regionId) || "Branch only") : "Shared",
       item.isPerishable ? "Yes" : "No",
       item.shelfLifeDays ?? "",
     ]);
@@ -1380,6 +1390,9 @@ function AdminInventory() {
                   isOut ? "border-l-red-500" :
                   isLow ? "border-l-amber-500" :
                   "border-l-transparent";
+                const scopeLabel = item.regionId && !item.isShared
+                  ? `${branchNameById.get(item.regionId) || "Branch"} only`
+                  : "Shared";
 
                 const isExpanded = expandedRowId === item.id;
 
@@ -1413,6 +1426,12 @@ function AdminInventory() {
                             {item.storageLocation && <span>{item.storageLocation}</span>}
                           </p>
                         )}
+                        <Badge
+                          variant="outline"
+                          className="mt-1 text-[10px] font-normal border-brand-primary/20 bg-brand-primary/10 text-brand-primary"
+                        >
+                          {scopeLabel}
+                        </Badge>
                       </div>
                       <div className="min-w-0">
                         <Badge variant="outline" className="text-xs font-normal text-slate-600 border-slate-200 bg-slate-50">
