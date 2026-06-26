@@ -20,7 +20,9 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { AdminNav } from "@/components/admin/AdminNav";
-import { PortalShell, PortalHeader } from "@/components/portal/ui";
+import { PortalShell, PortalHeader,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import {
   Users,
   ArrowLeft,
@@ -80,15 +82,13 @@ function AdminUsersPage() {
   const router = useRouter();
   const [users, setUsers] = useState<UserWithDepartments[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
-  // USR-C: tab between live staff (default) and pending invites.
-  const [activeTab, setActiveTab] = useState<"staff" | "pending">("staff");
   const [invitations, setInvitations] = useState<PendingInvitation[]>([]);
   const [invitationsLoading, setInvitationsLoading] = useState(false);
   // USR-C: Invite User dialog state.
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteName, setInviteName] = useState("");
-  const [inviteRole, setInviteRole] = useState<UserRole>("kitchen_staff" as UserRole);
+  const [inviteRole, setInviteRole] = useState<UserRole>(UserRole.KITCHEN_STAFF);
   const [inviting, setInviting] = useState(false);
   // After Add user: the server-generated temp password (a real, working
   // login) + whether an invite email also went out. Drives the
@@ -126,7 +126,6 @@ function AdminUsersPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [stats, setStats] = useState<Partial<Record<UserRole, number>> | null>(null);
   const { user } = useAuth();
   // Wave 27.3: tenant-slug wrapper for internal navigations.
   const { withSlug } = useTenantHref();
@@ -153,7 +152,7 @@ function AdminUsersPage() {
     // Leadership - founder / shareholder access. Sees finance + all
     // company controls.
     {
-      value: "owner" as UserRole, label: "Owner", icon: Shield,
+      value: UserRole.OWNER, label: "Owner", icon: Shield,
       color: "bg-amber-100 text-amber-800 border-amber-200",
       group: "leadership",
       description: "Full company control: finance, settings, every operational surface. Pick this for shareholders / directors.",
@@ -161,25 +160,25 @@ function AdminUsersPage() {
     // Administrative - day-to-day admin. Two levels: company-wide
     // (admin everything) vs region-scoped.
     {
-      value: "company_admin" as UserRole, label: "Company Admin", icon: Shield,
-      color: "bg-indigo-100 text-indigo-700 border-indigo-200",
+      value: UserRole.COMPANY_ADMIN, label: "Company Admin", icon: Shield,
+      color: "bg-blue-100 text-blue-700 border-blue-200",
       group: "administrative",
       description: "Runs the business day-to-day: every order, every region, every report. Same finance access as owner.",
     },
     {
-      value: "admin" as UserRole, label: "Admin", icon: Shield,
-      color: "bg-purple-100 text-purple-700 border-purple-200",
+      value: UserRole.ADMIN, label: "Admin", icon: Shield,
+      color: "bg-slate-100 text-slate-700 border-slate-200",
       group: "administrative",
       description: "General admin access without owner-level finance settings. Manages orders, calendar, dispatch, staff.",
     },
     {
-      value: "sales_admin" as UserRole, label: "Sales Admin", icon: UserCircle,
-      color: "bg-fuchsia-100 text-fuchsia-700 border-fuchsia-200",
+      value: UserRole.SALES_ADMIN, label: "Sales Admin", icon: UserCircle,
+      color: "bg-rose-100 text-rose-700 border-rose-200",
       group: "administrative",
       description: "Leads, quotes, client communications. Sees order pipeline but not kitchen / driver tooling.",
     },
     {
-      value: "region_admin" as UserRole, label: "Region Admin", icon: Shield,
+      value: UserRole.REGION_ADMIN, label: "Region Admin", icon: Shield,
       color: "bg-rose-100 text-rose-700 border-rose-200",
       group: "administrative",
       description: "Admin scoped to a single region. Like Admin but rows outside their region are filtered out.",
@@ -187,49 +186,81 @@ function AdminUsersPage() {
     // Operational portals - hands-on roles. Each opens a specific
     // mobile portal optimised for that job.
     {
-      value: "kitchen_manager" as UserRole, label: "Kitchen Manager", icon: ChefHat,
+      value: UserRole.KITCHEN_MANAGER, label: "Kitchen Manager", icon: ChefHat,
       color: "bg-amber-100 text-amber-800 border-amber-200",
       group: "operational",
       description: "Kitchen manager portal: team clock-in/out, prep control, cleaning visibility, no finance.",
     },
     {
-      value: "kitchen" as UserRole, label: "Kitchen Team", icon: ChefHat,
+      value: UserRole.KITCHEN_STAFF, label: "Kitchen Team", icon: ChefHat,
       color: "bg-orange-100 text-orange-700 border-orange-200",
       group: "operational",
       description: "Kitchen portal: today's prep tasks, clock-in / clock-out, handover notes.",
     },
     {
-      value: "driver" as UserRole, label: "Driver", icon: Truck,
+      value: UserRole.DRIVER, label: "Driver", icon: Truck,
       color: "bg-blue-100 text-blue-700 border-blue-200",
       group: "operational",
       description: "Driver portal on mobile: assigned routes, accept / reject jobs, proof-of-delivery.",
     },
     {
-      value: "shopping" as UserRole, label: "Shopping Team", icon: ShoppingCart,
+      value: UserRole.WAITER, label: "Waiter / Server", icon: UserCheck,
+      color: "bg-cyan-100 text-cyan-700 border-cyan-200",
+      group: "operational",
+      description: "On-site service portal: event tasks, attendance, service handover.",
+    },
+    {
+      value: UserRole.SHOPPING_STAFF, label: "Shopping Team", icon: ShoppingCart,
       color: "bg-brand-primary/15 text-brand-primary border-brand-primary/20",
       group: "operational",
       description: "Shopping portal: Buy-now list, snap-a-slip receipts, supplier contacts.",
     },
     {
-      value: "cleaning_manager" as UserRole, label: "Cleaning Manager", icon: Sparkles,
+      value: UserRole.CLEANING_MANAGER, label: "Cleaning Manager", icon: Sparkles,
       color: "bg-brand-primary/15 text-brand-primary border-brand-primary/20",
       group: "operational",
       description: "Cleaning manager portal: cleaning queue, team availability, handovers, no finance.",
     },
     {
-      value: "cleaning" as UserRole, label: "Cleaning Team", icon: Sparkles,
+      value: UserRole.CLEANING_STAFF, label: "Cleaning Team", icon: Sparkles,
       color: "bg-brand-primary/15 text-brand-primary border-brand-primary/20",
       group: "operational",
       description: "Cleaning portal: post-event handovers, equipment damages log, low-supplies alerts.",
     },
     // Client - the outside-facing portal. Lives on /c/* paths.
     {
-      value: "client" as UserRole, label: "Client", icon: UserCircle,
+      value: UserRole.CLIENT, label: "Client", icon: UserCircle,
       color: "bg-slate-100 text-slate-700 border-slate-200",
       group: "client",
       description: "Client portal at /c/. Sees their own quotes, orders, payments. Never sees other clients.",
     },
   ];
+
+  const normalizeRoleValue = (value?: UserRole | string | null): UserRole | null => {
+    if (!value) return null;
+    if (value === "kitchen") return UserRole.KITCHEN_STAFF;
+    if (value === "shopping") return UserRole.SHOPPING_STAFF;
+    if (value === "cleaning") return UserRole.CLEANING_STAFF;
+    if (Object.values(UserRole).includes(value as UserRole)) return value as UserRole;
+    return null;
+  };
+
+  const roleMetaFor = (value?: UserRole | string | null) => {
+    const normalized = normalizeRoleValue(value);
+    return normalized ? roleConfig.find((role) => role.value === normalized) : undefined;
+  };
+
+  const userAccessRoles = (targetUser: UserWithDepartments): UserRole[] => {
+    const roles = [
+      targetUser.role,
+      (targetUser as any).active_role,
+      targetUser.primary_department,
+      ...(targetUser.departments || []),
+    ]
+      .map((role) => normalizeRoleValue(role as string | null | undefined))
+      .filter((role): role is UserRole => Boolean(role));
+    return Array.from(new Set(roles));
+  };
 
   // USR-D: group labels + intro copy for the picker. Pure data so
   // the render below can stay tight.
@@ -268,7 +299,6 @@ function AdminUsersPage() {
   useEffect(() => {
     if (user) {
       loadUsers();
-      loadStats();
     } else if (user === null) {
       setLoading(false);
       setError("Please log in to manage users.");
@@ -293,17 +323,6 @@ function AdminUsersPage() {
       });
     } finally {
       setLoading(false);
-    }
-  };
-
-  const loadStats = async () => {
-    try {
-      const fetchedStats = await userManagementService.getDepartmentStats(user?.company_id, {
-        excludeRoles: ["client"],
-      });
-      setStats(fetchedStats);
-    } catch (error) {
-      console.error("Error loading stats:", error);
     }
   };
 
@@ -333,32 +352,30 @@ function AdminUsersPage() {
     }
   };
 
-  // USR-C: URL persistence on q, sort, tab. Reads on mount; the
+  // USR-C: URL persistence on q. Reads on mount; the
   // sort sync writes back via SortMenu's setSort indirectly through
   // userSort below.
   useEffect(() => {
     const q = typeof router.query.q === "string" ? router.query.q : "";
-    const tab = router.query.tab === "pending" ? "pending" : "staff";
     if (q !== searchTerm) setSearchTerm(q);
-    if (tab !== activeTab) setActiveTab(tab);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router.isReady]);
 
-  // Write q + tab back to the URL with shallow replace so the URL
+  // Write q back to the URL with shallow replace so the URL
   // reflects the current view but doesn't push history entries on
   // every keystroke.
   useEffect(() => {
     if (!router.isReady) return;
     const next: Record<string, string> = { ...router.query } as Record<string, string>;
     if (searchTerm) next.q = searchTerm; else delete next.q;
-    if (activeTab !== "staff") next.tab = activeTab; else delete next.tab;
+    delete next.tab;
     const desired = new URLSearchParams(next).toString();
     const current = new URLSearchParams(router.query as Record<string, string>).toString();
     if (desired !== current) {
       router.replace({ pathname: router.pathname, query: next }, undefined, { shallow: true });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchTerm, activeTab]);
+  }, [searchTerm]);
 
   // USR-C: realtime debounce. New signup / department change /
   // invitation accept should refresh the page without manual click.
@@ -370,7 +387,6 @@ function AdminUsersPage() {
       if (timer) clearTimeout(timer);
       timer = setTimeout(() => {
         void loadUsers();
-        void loadStats();
         void loadInvitations();
       }, 1500);
     };
@@ -539,9 +555,19 @@ function AdminUsersPage() {
   const handleEditUser = (userId: string) => {
     const targetUser = users.find(u => u.id === userId);
     if (targetUser) {
+      const normalizedDepartments = (targetUser.departments || [])
+        .map((dept) => normalizeRoleValue(dept))
+        .filter((dept): dept is UserRole => Boolean(dept));
+      const fallbackRole = normalizeRoleValue(targetUser.role as string | null | undefined);
+      const nextDepartments = normalizedDepartments.length > 0
+        ? Array.from(new Set(normalizedDepartments))
+        : fallbackRole
+          ? [fallbackRole]
+          : [];
+      const nextPrimary = normalizeRoleValue(targetUser.primary_department) || nextDepartments[0] || null;
       setEditingUser(userId);
-      setSelectedDepartments(targetUser.departments);
-      setPrimaryDepartment(targetUser.primary_department || targetUser.departments[0] || null);
+      setSelectedDepartments(nextDepartments);
+      setPrimaryDepartment(nextPrimary);
     }
   };
 
@@ -567,14 +593,24 @@ function AdminUsersPage() {
     try {
       setSaving(true);
 
-      const assignments: { department: UserRole; is_primary: boolean; }[] = selectedDepartments.map(dept => ({
+      const normalizedPrimary = normalizeRoleValue(primaryDepartment);
+      const normalizedDepartments = Array.from(new Set(
+        selectedDepartments
+          .map((dept) => normalizeRoleValue(dept))
+          .filter((dept): dept is UserRole => Boolean(dept)),
+      ));
+
+      if (!normalizedPrimary || normalizedDepartments.length === 0) {
+        throw new Error("Please select at least one valid department");
+      }
+
+      const assignments: { department: UserRole; is_primary: boolean; }[] = normalizedDepartments.map(dept => ({
         department: dept,
-        is_primary: dept === primaryDepartment,
+        is_primary: dept === normalizedPrimary,
       }));
 
       await userManagementService.assignDepartments(userId, assignments, user!.id);
       await loadUsers();
-      await loadStats();
 
       setEditingUser(null);
       setSelectedDepartments([]);
@@ -597,10 +633,12 @@ function AdminUsersPage() {
   };
 
   const handleDepartmentToggle = (dept: UserRole) => {
+    const normalizedDept = normalizeRoleValue(dept);
+    if (!normalizedDept) return;
     setSelectedDepartments(prev => {
-      if (prev.includes(dept)) {
-        const newDepts = prev.filter(d => d !== dept);
-        if (primaryDepartment === dept && newDepts.length > 0) {
+      if (prev.includes(normalizedDept)) {
+        const newDepts = prev.filter(d => d !== normalizedDept);
+        if (primaryDepartment === normalizedDept && newDepts.length > 0) {
           setPrimaryDepartment(newDepts[0]);
         } else if (newDepts.length === 0) {
           setPrimaryDepartment(null);
@@ -608,16 +646,17 @@ function AdminUsersPage() {
         return newDepts;
       } else {
         if (prev.length === 0) {
-          setPrimaryDepartment(dept);
+          setPrimaryDepartment(normalizedDept);
         }
-        return [...prev, dept];
+        return [...prev, normalizedDept];
       }
     });
   };
 
   const handleSetPrimary = (dept: UserRole) => {
-    if (selectedDepartments.includes(dept)) {
-      setPrimaryDepartment(dept);
+    const normalizedDept = normalizeRoleValue(dept);
+    if (normalizedDept && selectedDepartments.includes(normalizedDept)) {
+      setPrimaryDepartment(normalizedDept);
     }
   };
 
@@ -642,6 +681,15 @@ function AdminUsersPage() {
   ], []);
   const userSort = useSortable<UserWithDepartments>(fuzzyOrAll, userSortColumns, { defaultKey: "name", defaultDir: "asc" });
   const filteredUsers = userSort.rows;
+  const activeUserCount = users.filter((u) => u.is_active).length;
+  const inactiveUserCount = Math.max(users.length - activeUserCount, 0);
+  const pendingInviteCount = invitations.length;
+  const roleCount = (role: UserRole) =>
+    users.filter((targetUser) => userAccessRoles(targetUser).includes(role)).length;
+  const visibleUserLabel =
+    filteredUsers.length === users.length
+      ? `${users.length} staff users`
+      : `${filteredUsers.length} of ${users.length} staff users`;
 
   if (loading) {
     return (
@@ -658,7 +706,7 @@ function AdminUsersPage() {
           <div className="px-4 py-8">
             <div className="flex items-center justify-center h-64">
               <div className="text-center">
-                <Loader2 className="w-12 h-12 animate-spin text-purple-600 mx-auto mb-4" />
+                <Loader2 className="w-12 h-12 animate-spin text-slate-600 mx-auto mb-4" />
                 <p className="text-gray-600">Loading users...</p>
               </div>
             </div>
@@ -681,9 +729,9 @@ function AdminUsersPage() {
         
         <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
           <div className="px-4 py-8">
-            <Card className="border-2 border-red-200 bg-red-50">
+            <Card className="border-2 border-rose-200 bg-rose-50">
               <CardContent className="pt-12 pb-12 text-center">
-                <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
+                <AlertCircle className="w-16 h-16 text-rose-500 mx-auto mb-4" />
                 <p className="text-xl font-semibold text-gray-900 mb-2">Access Denied</p>
                 <p className="text-gray-600 mb-4">{error}</p>
                 <Link href="/auth/login">
@@ -728,7 +776,7 @@ function AdminUsersPage() {
           <PortalHeader
             title="Full team"
             icon={Users}
-            subtitle="Everyone with a staff login: owners, admins, kitchen, drivers, shopping, cleaning. Assign departments here; client portal accounts are managed under /admin/contacts."
+            subtitle="Everyone with a staff login: owners, admins, kitchen, drivers, waiters, shopping, cleaning. Assign departments here; client portal accounts are managed under /admin/contacts."
             actions={
             <>
                 <InfoTooltip
@@ -807,117 +855,130 @@ function AdminUsersPage() {
             </>
             }
           />
+          <PageWorkbench />
 
-          <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 md:gap-4 mb-6">
-            <Card className="border-0 shadow-lg">
-              <CardContent className="p-4">
-                <p className="text-xs md:text-sm text-slate-600 mb-1 flex items-center gap-1.5">Total Users <InfoTooltip content={"Everyone on your team. Clients are not counted here."} /></p>
-                <p className="text-2xl md:text-3xl font-bold text-slate-900">{users.length}</p>
-              </CardContent>
-            </Card>
-            <Card className="border-0 shadow-lg">
-              <CardContent className="p-4">
-                <p className="text-xs md:text-sm text-slate-600 mb-1 flex items-center gap-1.5">Active <InfoTooltip content={"Users currently enabled and able to log in."} /></p>
-                <p className="text-2xl md:text-3xl font-bold text-brand-primary">
-                  {users.filter(u => u.is_active).length}
-                </p>
-              </CardContent>
-            </Card>
-            {stats && roleConfig.slice(0, 4).map((role) => (
-              <Card key={role.value} className="border-0 shadow-lg">
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-2 mb-1">
-                    <role.icon className="w-3 h-3 md:w-4 md:h-4 text-slate-600" />
-                    <p className="text-xs md:text-sm text-slate-600 flex items-center gap-1.5">{role.label} <InfoTooltip content={`Number of users assigned to the ${role.label} department.`} /></p>
+          <div className="space-y-5">
+            <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="grid gap-5 xl:grid-cols-[minmax(0,0.7fr)_minmax(0,1.3fr)]">
+                <div>
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    {[
+                      { label: "Staff", value: users.length, tone: "text-slate-900" },
+                      { label: "Active", value: activeUserCount, tone: "text-brand-primary" },
+                      { label: "Inactive", value: inactiveUserCount, tone: "text-slate-700" },
+                      { label: "Pending", value: pendingInviteCount, tone: "text-amber-700" },
+                    ].map((item) => (
+                      <div key={item.label} className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
+                        <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">{item.label}</p>
+                        <p className={`mt-1 text-2xl font-semibold ${item.tone}`}>{item.value}</p>
+                      </div>
+                    ))}
                   </div>
-                  <p className="text-2xl md:text-3xl font-bold text-slate-900">
-                    {stats[role.value] || 0}
+                  <p className="mt-3 text-xs text-slate-500">
+                    Client portal accounts stay with Contacts; this page controls staff and admin access.
                   </p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+                </div>
 
-          {/* USR-C (task #208, 2026-05-24): tab switcher between
-              the live staff list and pending invitations. */}
-          <div className="mb-4 flex items-center gap-1 rounded-lg border border-slate-200 bg-white p-1 w-fit text-sm">
-            <button
-              type="button"
-              onClick={() => setActiveTab("staff")}
-              className={`px-3 py-1.5 rounded-md transition ${
-                activeTab === "staff"
-                  ? "bg-purple-600 text-white font-medium"
-                  : "text-slate-600 hover:bg-slate-50"
-              }`}
-            >
-              Staff <span className="ml-1 text-xs opacity-75">({users.length})</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab("pending")}
-              className={`px-3 py-1.5 rounded-md transition flex items-center gap-1.5 ${
-                activeTab === "pending"
-                  ? "bg-purple-600 text-white font-medium"
-                  : "text-slate-600 hover:bg-slate-50"
-              }`}
-            >
-              <Mail className="w-3.5 h-3.5" />
-              Pending invites
-              {invitations.length > 0 && (
-                <span className={`text-xs px-1.5 py-0.5 rounded-full ${activeTab === "pending" ? "bg-white/30" : "bg-amber-100 text-amber-800"}`}>
-                  {invitations.length}
-                </span>
-              )}
-            </button>
-          </div>
+                <div className="space-y-3">
+                  {ROLE_GROUPS.map((group) => {
+                    const rolesInGroup = roleConfig.filter((role) => role.group === group.key);
+                    if (rolesInGroup.length === 0) return null;
+                    return (
+                      <div key={group.key}>
+                        <div className="mb-1.5 flex items-center justify-between gap-2">
+                          <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500">{group.label}</h2>
+                          <span className="text-[11px] text-slate-400">{group.hint}</span>
+                        </div>
+                        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                          {rolesInGroup.map((role) => {
+                            const count = roleCount(role.value);
+                            return (
+                              <div key={role.value} className="flex min-h-[52px] items-center justify-between rounded-md border border-slate-200 px-3 py-2">
+                                <div className="flex min-w-0 items-center gap-2">
+                                  <role.icon className="h-4 w-4 shrink-0 text-slate-500" />
+                                  <span className="truncate text-sm font-medium text-slate-800">{role.label}</span>
+                                </div>
+                                <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700">
+                                  {count}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </section>
 
-          <div className="mb-6">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 md:w-5 md:h-5 text-slate-400" />
-              <Input
-                ref={searchRef}
-                type="text"
-                placeholder="Search by name or email... (press /)"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9 md:pl-10 pr-9 text-sm md:text-base"
-              />
-              {/* Phase 25 #3: clear-search affordance, matching
-                  the rest of the admin list pages. */}
-              {searchTerm && (
-                <button
-                  type="button"
-                  onClick={() => setSearchTerm("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
-                  title="Clear search"
-                  aria-label="Clear search"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              )}
-            </div>
-            <SortMenu
-              activeKey={userSort.sortKey}
-              activeDir={userSort.sortDir}
-              onPick={userSort.setSort}
-              options={[
-                { key: "name",    dir: "asc",  label: "Name (A to Z)" },
-                { key: "name",    dir: "desc", label: "Name (Z to A)" },
-                { key: "role",    dir: "asc",  label: "Role (A to Z)" },
-                { key: "email",   dir: "asc",  label: "Email (A to Z)" },
-                { key: "created", dir: "desc", label: "Newest first" },
-                { key: "created", dir: "asc",  label: "Oldest first" },
-              ]}
-            />
-          </div>
+            {(invitationsLoading || invitations.length > 0) && (
+              <section>
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <div>
+                    <h2 className="text-sm font-semibold text-slate-900">Pending invitations</h2>
+                    <p className="text-xs text-slate-500">{pendingInviteCount} waiting to accept</p>
+                  </div>
+                  <Button variant="outline" size="sm" onClick={loadInvitations} disabled={invitationsLoading}>
+                    <RefreshCw className={`mr-2 h-4 w-4 ${invitationsLoading ? "animate-spin" : ""}`} />
+                    Refresh
+                  </Button>
+                </div>
+                <PendingInvitationsList
+                  invitations={invitations}
+                  loading={invitationsLoading}
+                  onCancel={handleCancelInvitation}
+                />
+              </section>
+            )}
 
-          {activeTab === "pending" ? (
-            <PendingInvitationsList
-              invitations={invitations}
-              loading={invitationsLoading}
-              onCancel={handleCancelInvitation}
-            />
-          ) : filteredUsers.length === 0 ? (
+            <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                  <h2 className="text-base font-semibold text-slate-900">Team members</h2>
+                  <p className="text-xs text-slate-500">{visibleUserLabel}</p>
+                </div>
+                <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] lg:w-[560px]">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    <Input
+                      ref={searchRef}
+                      type="text"
+                      placeholder="Search by name, email, or role"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-9 pr-9 text-sm"
+                    />
+                    {searchTerm && (
+                      <button
+                        type="button"
+                        onClick={() => setSearchTerm("")}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
+                        title="Clear search"
+                        aria-label="Clear search"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+                  <SortMenu
+                    activeKey={userSort.sortKey}
+                    activeDir={userSort.sortDir}
+                    onPick={userSort.setSort}
+                    options={[
+                      { key: "name",    dir: "asc",  label: "Name (A to Z)" },
+                      { key: "name",    dir: "desc", label: "Name (Z to A)" },
+                      { key: "role",    dir: "asc",  label: "Role (A to Z)" },
+                      { key: "email",   dir: "asc",  label: "Email (A to Z)" },
+                      { key: "created", dir: "desc", label: "Newest first" },
+                      { key: "created", dir: "asc",  label: "Oldest first" },
+                    ]}
+                  />
+                </div>
+              </div>
+            </section>
+
+            {filteredUsers.length === 0 ? (
             <Card className="border-0 shadow-md">
               <CardContent className="pt-12 pb-12 text-center">
                 <Users className="w-16 h-16 text-slate-400 mx-auto mb-4" />
@@ -1026,13 +1087,13 @@ function AdminUsersPage() {
 
                           {editingUser !== targetUser.id && (
                             <div className="flex gap-2 flex-wrap">
-                              {targetUser.departments && targetUser.departments.length > 0 ? (
-                                targetUser.departments.map((dept) => {
-                                  const config = roleConfig.find(r => r.value === dept);
+                              {userAccessRoles(targetUser).length > 0 ? (
+                                userAccessRoles(targetUser).map((dept) => {
+                                  const config = roleMetaFor(dept);
                                   const Icon = config?.icon || UserCircle;
-                                  const isPrimary = dept === targetUser.primary_department;
+                                  const isPrimary = dept === normalizeRoleValue(targetUser.primary_department);
                                   return (
-                                    <Badge key={dept} className={`text-xs ${config?.color} ${isPrimary ? "ring-2 ring-offset-2 ring-purple-500" : ""}`}>
+                                    <Badge key={dept} className={`text-xs ${config?.color} ${isPrimary ? "ring-2 ring-offset-2 ring-slate-500" : ""}`}>
                                       <Icon className="w-3 h-3 mr-1" />
                                       {config?.label || dept}
                                       {isPrimary && " (Primary)"}
@@ -1098,7 +1159,7 @@ function AdminUsersPage() {
                       </div>
 
                       {editingUser === targetUser.id && (
-                        <div className="space-y-4 p-3 md:p-4 bg-slate-50 rounded-lg border-2 border-purple-200">
+                        <div className="space-y-4 p-3 md:p-4 bg-slate-50 rounded-lg border-2 border-slate-200">
                           {/* USR-D (task #209, 2026-05-25): grouped
                               picker with per-role descriptions. The
                               old flat 7-checkbox grid gave no hint
@@ -1158,7 +1219,7 @@ function AdminUsersPage() {
                                             key={role.value}
                                             className={`relative rounded-md border-2 transition-all p-2.5 ${
                                               isPrimary
-                                                ? "border-purple-500 bg-purple-50"
+                                                ? "border-slate-500 bg-slate-50"
                                                 : isSelected
                                                   ? "border-slate-400 bg-white"
                                                   : "border-slate-200 bg-slate-50/60 hover:bg-white"
@@ -1179,7 +1240,7 @@ function AdminUsersPage() {
                                                   <role.icon className="w-3.5 h-3.5 flex-shrink-0" />
                                                   <span className="truncate">{role.label}</span>
                                                   {isPrimary && (
-                                                    <Badge className="bg-purple-100 text-purple-700 border-0 text-[9px] ml-1">
+                                                    <Badge className="bg-slate-100 text-slate-700 border-0 text-[9px] ml-1">
                                                       Primary
                                                     </Badge>
                                                   )}
@@ -1191,7 +1252,7 @@ function AdminUsersPage() {
                                                   <button
                                                     type="button"
                                                     onClick={() => handleSetPrimary(role.value)}
-                                                    className="text-[10px] text-purple-700 hover:underline mt-1"
+                                                    className="text-[10px] text-slate-700 hover:underline mt-1"
                                                   >
                                                     Set as Primary
                                                   </button>
@@ -1209,7 +1270,7 @@ function AdminUsersPage() {
 
                             <p className="text-xs text-slate-600 mt-3">
                               {primaryDepartment
-                                ? <>Primary: <strong>{roleConfig.find(r => r.value === primaryDepartment)?.label}</strong>. They land here after login; can switch portals from the persona menu.</>
+                                ? <>Primary: <strong>{roleMetaFor(primaryDepartment)?.label}</strong>. They land here after login; can switch portals from the persona menu.</>
                                 : "Select at least one role above."}
                             </p>
                           </div>
@@ -1222,7 +1283,7 @@ function AdminUsersPage() {
                               />
                               <Button 
                                 onClick={() => handleSaveRoles(targetUser.id)}
-                                className="bg-gradient-to-r from-brand-primary to-brand-secondary hover:from-brand-primary/90 hover:to-brand-secondary/90 flex-1 sm:flex-initial text-sm"
+                                className="bg-brand-primary hover:bg-brand-primary/90 flex-1 sm:flex-initial text-sm"
                                 disabled={selectedDepartments.length === 0 || saving}
                                 size="sm"
                               >
@@ -1261,6 +1322,7 @@ function AdminUsersPage() {
               ))}
             </div>
           )}
+          </div>
         </PortalShell>
       </div>
 
@@ -1275,7 +1337,7 @@ function AdminUsersPage() {
             setCreateResult(null);
             setInviteEmail("");
             setInviteName("");
-            setInviteRole("kitchen_staff" as UserRole);
+            setInviteRole(UserRole.KITCHEN_STAFF);
           }
         }}
       >
@@ -1324,7 +1386,7 @@ function AdminUsersPage() {
                     setCreateResult(null);
                     setInviteEmail("");
                     setInviteName("");
-                    setInviteRole("kitchen_staff" as UserRole);
+                    setInviteRole(UserRole.KITCHEN_STAFF);
                   }}
                   className="bg-brand-primary hover:opacity-90"
                 >
@@ -1336,7 +1398,7 @@ function AdminUsersPage() {
           <>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <UserPlus className="w-5 h-5 text-purple-600" />
+              <UserPlus className="w-5 h-5 text-slate-600" />
               Add new user
             </DialogTitle>
             <DialogDescription>
@@ -1371,16 +1433,17 @@ function AdminUsersPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="admin">Admin</SelectItem>
-                  <SelectItem value="company_admin">Company Admin</SelectItem>
-                  <SelectItem value="kitchen_manager">Kitchen Manager</SelectItem>
-                  <SelectItem value="kitchen_staff">Kitchen Team</SelectItem>
-                  <SelectItem value="driver">Driver</SelectItem>
-                  <SelectItem value="shopping_staff">Shopping Team</SelectItem>
-                  <SelectItem value="cleaning_manager">Cleaning Manager</SelectItem>
-                  <SelectItem value="cleaning_staff">Cleaning Team</SelectItem>
-                  <SelectItem value="sales_admin">Sales Admin</SelectItem>
-                  <SelectItem value="region_admin">Region Admin</SelectItem>
+                  <SelectItem value={UserRole.ADMIN}>Admin</SelectItem>
+                  <SelectItem value={UserRole.COMPANY_ADMIN}>Company Admin</SelectItem>
+                  <SelectItem value={UserRole.KITCHEN_MANAGER}>Kitchen Manager</SelectItem>
+                  <SelectItem value={UserRole.KITCHEN_STAFF}>Kitchen Team</SelectItem>
+                  <SelectItem value={UserRole.DRIVER}>Driver</SelectItem>
+                  <SelectItem value={UserRole.WAITER}>Waiter / Server</SelectItem>
+                  <SelectItem value={UserRole.SHOPPING_STAFF}>Shopping Team</SelectItem>
+                  <SelectItem value={UserRole.CLEANING_MANAGER}>Cleaning Manager</SelectItem>
+                  <SelectItem value={UserRole.CLEANING_STAFF}>Cleaning Team</SelectItem>
+                  <SelectItem value={UserRole.SALES_ADMIN}>Sales Admin</SelectItem>
+                  <SelectItem value={UserRole.REGION_ADMIN}>Region Admin</SelectItem>
                 </SelectContent>
               </Select>
             </div>
