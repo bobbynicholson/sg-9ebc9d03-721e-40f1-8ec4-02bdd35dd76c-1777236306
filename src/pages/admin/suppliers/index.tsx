@@ -47,7 +47,7 @@ import { supplierService, type SupplierWithStats } from "@/services/supplierServ
 import { useTenantHref } from "@/lib/tenantUrl";
 import { supabase } from "@/integrations/supabase/client";
 import { captureException } from "@/lib/observability";
-import { PageWorkbench } from "@/components/portal/ui";
+import { PageWorkbench, PortalHeader, PortalShell } from "@/components/portal/ui";
 
 const fmtR = (v: number | null | undefined) =>
   v == null ? "-" : `R ${Number(v).toLocaleString("en-ZA", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
@@ -235,24 +235,13 @@ function SuppliersList() {
       <AdminNav />
 
       <div className="admin-page-shell">
-        <div className="px-3 sm:px-4 md:px-6 pt-20 lg:pt-6 pb-6 max-w-full">
-          <PageWorkbench className="mb-5" />
-
-          <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-brand-primary to-brand-secondary flex items-center justify-center shadow-lg flex-shrink-0">
-                <Building2 className="w-6 h-6 text-white" />
-              </div>
-              <div className="min-w-0">
-                <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold text-slate-900">
-                  Suppliers
-                </h1>
-                <p className="text-sm sm:text-base text-slate-600 mt-1">
-                  Every supplier you buy from, what they sell you, and what you've spent.
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 flex-wrap">
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+          <PortalHeader
+            title="Suppliers"
+            icon={Building2}
+            subtitle="Every supplier you buy from, what they sell you, and what you've spent."
+            actions={
+              <>
               <Button
                 variant="outline"
                 onClick={() => setImportOpen(true)}
@@ -266,8 +255,10 @@ function SuppliersList() {
               >
                 <Plus className="w-4 h-4 mr-1.5" /> Add supplier
               </Button>
-            </div>
-          </div>
+              </>
+            }
+          />
+          <PageWorkbench />
 
           {/* Top stat tiles. Rand tiles are gated behind finance-vis. */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
@@ -585,7 +576,7 @@ function SuppliersList() {
               Open outsource providers
             </Link>
           </p>
-        </div>
+        </PortalShell>
       </div>
 
       <SupplierFormDialog

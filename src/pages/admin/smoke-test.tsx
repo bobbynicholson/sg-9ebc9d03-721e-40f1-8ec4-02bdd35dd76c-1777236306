@@ -24,7 +24,7 @@ import { UserRole } from "@/types/app";
 import { useToast } from "@/hooks/use-toast";
 import { CheckCircle2, XCircle, Play, Loader2, AlertTriangle, FlaskConical } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { PageWorkbench } from "@/components/portal/ui";
+import { PageWorkbench, PortalHeader, PortalShell } from "@/components/portal/ui";
 
 interface Stage {
   name: string;
@@ -90,21 +90,13 @@ function SmokeTestPage() {
       <NoIndexMeta />
       <AdminNav />
       <div className="admin-page-shell">
-        <div className="space-y-4 w-full px-4 sm:px-6 pt-20 lg:pt-6 pb-6">
-          <PageWorkbench className="mb-5" />
-          <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-slate-900 flex items-center gap-2">
-              <FlaskConical className="w-5 h-5 text-slate-500" />
-              End-to-end smoke test
-            </h1>
-            <p className="text-sm text-slate-600 mt-1 max-w-3xl">
-              Runs the full lifecycle on a tagged test row - client,
-              order, deposit, status transitions, invoice trigger,
-              package cancel cascade. Cleans up after itself unless you
-              tick the box below. Use before claiming the platform
-              works end-to-end.
-            </p>
-          </div>
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+          <PortalHeader
+            title="End-to-end smoke test"
+            icon={FlaskConical}
+            subtitle="Runs the full lifecycle on a tagged test row: client, order, deposit, status transitions, invoice trigger, package cancel cascade."
+          />
+          <PageWorkbench />
 
           <Card>
             <CardHeader>
@@ -217,7 +209,7 @@ function SmokeTestPage() {
               </CardContent>
             </Card>
           )}
-        </div>
+        </PortalShell>
       </div>
     </>
   );

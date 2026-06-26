@@ -57,7 +57,7 @@ import { SnippetDialog } from "@/components/admin/embed/SnippetDialog";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { captureException } from "@/lib/observability";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
-import { PageWorkbench } from "@/components/portal/ui";
+import { PageWorkbench, PortalHeader, PortalShell } from "@/components/portal/ui";
 
 interface EmbedFormRow {
   id: string;
@@ -228,25 +228,12 @@ export default function AdminEmbedFormsPage() {
       <AdminNav />
 
       <div className="admin-page-shell">
-        <div className="px-4 py-6 md:py-8 lg:py-12 max-w-full">
-          <PageWorkbench className="mb-5" />
-
-          {/* Header */}
-          <div className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="p-3 bg-gradient-to-br from-brand-primary to-brand-secondary rounded-2xl shadow-lg">
-                <Code2 className="w-8 h-8 text-white" />
-              </div>
-              <div>
-                <h1 className="text-3xl md:text-4xl font-bold text-slate-900">
-                  Lead Capture Forms
-                </h1>
-                <p className="text-sm md:text-base text-slate-600 mt-1">
-                  Embeddable enquiry forms for your marketing site. Pick a template, customise, paste the snippet.
-                </p>
-              </div>
-            </div>
-            {!isEmpty && (
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+          <PortalHeader
+            title="Lead Capture Forms"
+            icon={Code2}
+            subtitle="Embeddable enquiry forms for your marketing site. Pick a template, customise, paste the snippet."
+            actions={!isEmpty && (
               <Button
                 onClick={() => setGalleryOpen(true)}
                 className="gap-2 bg-brand-primary hover:bg-brand-primary/90"
@@ -255,7 +242,8 @@ export default function AdminEmbedFormsPage() {
                 New form
               </Button>
             )}
-          </div>
+          />
+          <PageWorkbench />
 
           {/* KPI strip */}
           {!isEmpty && (
@@ -375,7 +363,7 @@ export default function AdminEmbedFormsPage() {
             </div>
           )}
 
-        </div>
+        </PortalShell>
         <Footer />
       </div>
 

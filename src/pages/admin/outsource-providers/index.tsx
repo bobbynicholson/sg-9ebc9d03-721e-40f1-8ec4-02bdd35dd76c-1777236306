@@ -57,6 +57,7 @@ import { UserRole } from "@/types/app";
 import { useRouter } from "next/router";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { useTenantHref } from "@/lib/tenantUrl";
 import { supabase } from "@/integrations/supabase/client";
 import { captureException } from "@/lib/observability";
 import {
@@ -85,7 +86,7 @@ import {
   CheckCircle2,
   AlertTriangle,
 } from "lucide-react";
-import { PageWorkbench } from "@/components/portal/ui";
+import { PageWorkbench, PortalHeader, PortalShell } from "@/components/portal/ui";
 
 interface FormState {
   provider_name: string;
@@ -159,6 +160,7 @@ function ProvidersList() {
     financeRole === "super_admin";
 
   const router = useRouter();
+  const { withSlug } = useTenantHref();
   const [providers, setProviders] = useState<OutsourceProviderWithStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -499,22 +501,13 @@ function ProvidersList() {
       <Head><title>Outsource providers - CateringMS</title></Head>
       <AdminNav />
       <div className="admin-page-shell">
-        <div className="py-8 px-4">
-          <PageWorkbench className="mb-5" />
-          <div className="flex items-end justify-between mb-6 gap-3 flex-wrap">
-            <div>
-              <h1 className="text-3xl font-bold text-slate-900 inline-flex items-center gap-2">
-                <HardHat className="w-7 h-7 text-blue-600" />
-                Outsource providers
-              </h1>
-              <p className="text-slate-600 text-sm mt-1 max-w-2xl">
-                Per-event service providers: on-site chefs, florists, photographers, sound, security.
-                Distinct from suppliers (procurement) and staff (payroll). Attach them to orders from the
-                order modal - they get a magic-link to accept or decline, and reminder + invoice-nudge
-                comms fire automatically.
-              </p>
-            </div>
-            <div className="flex items-center gap-2 flex-wrap">
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+          <PortalHeader
+            title="Outsource providers"
+            icon={HardHat}
+            subtitle="Per-event service providers: on-site chefs, florists, photographers, sound, security."
+            actions={
+              <>
               <Button variant="outline" onClick={() => setImportOpen(true)} title="Import providers from CSV">
                 Import CSV
               </Button>
@@ -522,8 +515,10 @@ function ProvidersList() {
                 <Plus className="w-4 h-4 mr-2" />
                 Add provider
               </Button>
-            </div>
-          </div>
+              </>
+            }
+          />
+          <PageWorkbench />
 
           {/* OUT-B: cron dry-run tester. Demoted from always-on
               yellow banner to a collapsed disclosure. Only owner /
@@ -758,12 +753,12 @@ function ProvidersList() {
           {/* Suppliers cross-link so admins find the right home for what they're entering */}
           <p className="text-[11px] text-slate-500 mt-6">
             Looking for goods suppliers (ingredients, equipment)?{" "}
-            <Link href="/admin/suppliers" className="underline hover:text-slate-900">
+            <Link href={withSlug("/admin/suppliers")} className="underline hover:text-slate-900">
               Open suppliers <ExternalLink className="w-2.5 h-2.5 inline-block" />
             </Link>
             .
           </p>
-        </div>
+        </PortalShell>
       </div>
 
       {/* Add / Edit dialog */}

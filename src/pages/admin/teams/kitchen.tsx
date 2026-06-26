@@ -62,7 +62,7 @@ import {
   Settings as SettingsIcon, ChevronDown, ChevronUp,
 } from "lucide-react";
 import { KitchenRulesPanel } from "@/components/admin/KitchenRulesPanel";
-import { PageWorkbench } from "@/components/portal/ui";
+import { PageWorkbench, PortalHeader, PortalShell } from "@/components/portal/ui";
 
 function startOfWeek(): Date {
   const d = new Date();
@@ -462,20 +462,19 @@ function KitchenTeamPage() {
       <DynamicNav userRole={(userRole || UserRole.ADMIN).toString()} />
 
       <div className="admin-page-shell">
-        <div className="px-3 sm:px-4 md:px-6 pt-20 lg:pt-6 pb-6 max-w-full">
-          <PageWorkbench className="mb-5" />
-
-          {/* KIT-B (task #211, 2026-05-25): top toolbar - All teams
-              back link + Print prep schedule + Send prep list to
-              clocked-in. Hidden in print via no-print. */}
-          <div className="flex items-center justify-between gap-3 mb-3 no-print flex-wrap">
-            <Link
-              href={withSlug(userRole === UserRole.KITCHEN_MANAGER ? "/team-portal/kitchen/today" : "/admin/teams")}
-              className="inline-flex items-center gap-1.5 text-sm text-slate-600 hover:text-slate-900"
-            >
-              <ArrowLeft className="w-4 h-4" /> {userRole === UserRole.KITCHEN_MANAGER ? "Kitchen today" : "All teams"}
-            </Link>
-            <div className="flex items-center gap-2">
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+          <PortalHeader
+            title="Kitchen"
+            icon={ChefHat}
+            subtitle="Prep, plating and pass-through."
+            actions={
+              <>
+              <Link href={withSlug(userRole === UserRole.KITCHEN_MANAGER ? "/team-portal/kitchen/today" : "/admin/teams")}>
+                <Button variant="outline" size="sm">
+                  <ArrowLeft className="w-4 h-4 mr-1.5" />
+                  {userRole === UserRole.KITCHEN_MANAGER ? "Kitchen today" : "All teams"}
+                </Button>
+              </Link>
               <Button
                 variant="outline"
                 size="sm"
@@ -496,23 +495,10 @@ function KitchenTeamPage() {
                 <Printer className="w-3.5 h-3.5" />
                 Print
               </Button>
-            </div>
-          </div>
-
-          <div className="relative h-[200px] rounded-xl overflow-hidden mb-6 bg-gradient-to-br from-brand-primary to-brand-secondary">
-            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/30 to-transparent" />
-            <div className="relative h-full flex items-end p-5 sm:p-6">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
-                  <ChefHat className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-2xl sm:text-3xl xl:text-4xl font-bold text-white">Kitchen</h1>
-                  <p className="text-sm text-white/90 mt-0.5">Prep, plating and pass-through.</p>
-                </div>
-              </div>
-            </div>
-          </div>
+              </>
+            }
+          />
+          <PageWorkbench />
 
           {/* KIT-A: linkified quick-stat badges. The hub already lets
               the operator drill in; the landing page should too. */}
@@ -823,7 +809,7 @@ function KitchenTeamPage() {
               </table>
             )}
           </div>
-        </div>
+        </PortalShell>
       </div>
 
       {/* KIT-B: send-prep-list-to-clocked-in WhatsApp dialog. Fans

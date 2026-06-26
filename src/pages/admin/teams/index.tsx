@@ -57,7 +57,7 @@ import {
   Loader2, ArrowRight, MapPin, TrendingUp, Calendar, Clock,
   MessageCircle, FileText, Banknote,
 } from "lucide-react";
-import { PageWorkbench } from "@/components/portal/ui";
+import { PageWorkbench, PortalHeader, PortalShell } from "@/components/portal/ui";
 
 interface TeamRow {
   key: "kitchen" | "drivers" | "shopping" | "cleaning" | "sales" | "outsource";
@@ -822,34 +822,28 @@ function TeamsIndexPage() {
       <AdminNav />
 
       <div className="admin-page-shell">
-        <div className="px-3 sm:px-4 md:px-6 pt-20 lg:pt-6 pb-6 max-w-full">
-          <PageWorkbench className="mb-5" />
-
-          <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-brand-primary to-brand-secondary flex items-center justify-center shadow-lg flex-shrink-0">
-                <Users className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
-              </div>
-              <div className="min-w-0">
-                <h1 className="text-2xl sm:text-3xl xl:text-4xl font-bold text-slate-900">
-                  Teams
-                </h1>
-                <p className="text-sm sm:text-base text-slate-600 mt-1">
-                  Cross-team glance. Where everyone is on today's prep, dispatch, cleaning, and shopping. Click any tile to open that team.
-                </p>
-                <p className="text-xs text-slate-500 mt-1 flex flex-wrap items-center gap-2">
-                  <span className="inline-flex items-center gap-1">
-                    <Calendar className="w-3.5 h-3.5" /> {todayLabel}
-                  </span>
-                  {regionLabel && (
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+          <PortalHeader
+            title="Teams"
+            icon={Users}
+            subtitle={
+              <>
+                Cross-team glance for prep, dispatch, cleaning, and shopping.{" "}
+                <span className="inline-flex items-center gap-1">
+                  <Calendar className="h-3.5 w-3.5" /> {todayLabel}
+                </span>
+                {regionLabel && (
+                  <>
+                    {" "}
                     <span className="inline-flex items-center gap-1">
-                      <MapPin className="w-3 h-3" /> {regionLabel}
+                      <MapPin className="h-3 w-3" /> {regionLabel}
                     </span>
-                  )}
-                </p>
-              </div>
-            </div>
-            <div className="flex flex-wrap items-center gap-2 lg:flex-shrink-0">
+                  </>
+                )}
+              </>
+            }
+            actions={
+              <>
               {totalAnomalies > 0 && (
                 <Badge variant="destructive">
                   <AlertTriangle className="w-3 h-3 mr-1" />
@@ -860,8 +854,10 @@ function TeamsIndexPage() {
                 {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <TrendingUp className="w-4 h-4" />}
                 Refresh
               </Button>
-            </div>
-          </div>
+              </>
+            }
+          />
+          <PageWorkbench />
 
           {/* TMS-B: cross-team risk banner. Confirmed events in the
               next 4 hours that don't have a driver accepted yet.
@@ -869,7 +865,7 @@ function TeamsIndexPage() {
               with nobody assigned at 4pm - this calls it out before
               the panic. */}
           {!loading && risks.length > 0 && (
-            <Card className="border-0 shadow-md mb-4 bg-rose-50 border-l-4 border-l-rose-500">
+            <Card className="mb-4 border-rose-200 bg-rose-50 shadow-sm">
               <CardContent className="py-3 px-4">
                 <div className="flex items-start gap-3">
                   <AlertTriangle className="w-5 h-5 text-rose-700 shrink-0 mt-0.5" />
@@ -1091,7 +1087,7 @@ function TeamsIndexPage() {
             onClose={() => setBroadcastTeam(null)}
             companyId={companyId}
           />
-        </div>
+        </PortalShell>
       </div>
     </>
   );

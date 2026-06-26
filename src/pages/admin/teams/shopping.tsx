@@ -17,6 +17,7 @@ import { AdminNav } from "@/components/admin/AdminNav";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { useAuth } from "@/contexts/AuthContext";
@@ -30,7 +31,7 @@ import {
   ShoppingBag, ArrowLeft, Users, ClipboardList, Loader2, AlertTriangle,
   Receipt, Truck, Banknote, TrendingDown,
 } from "lucide-react";
-import { PageWorkbench } from "@/components/portal/ui";
+import { PageWorkbench, PortalHeader, PortalShell } from "@/components/portal/ui";
 
 interface ShoppingStats {
   active: number;
@@ -172,27 +173,20 @@ function ShoppingTeamPage() {
       <AdminNav />
 
       <div className="admin-page-shell">
-        <div className="px-3 sm:px-4 md:px-6 pt-20 lg:pt-6 pb-6 max-w-full">
-          <PageWorkbench className="mb-5" />
-
-          <Link href={withSlug("/admin/teams")} className="inline-flex items-center gap-1.5 text-sm text-slate-600 hover:text-slate-900 mb-3">
-            <ArrowLeft className="w-4 h-4" /> All teams
-          </Link>
-
-          <div className="relative h-[200px] rounded-xl overflow-hidden mb-6 bg-gradient-to-br from-brand-primary to-brand-secondary">
-            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/30 to-transparent" />
-            <div className="relative h-full flex items-end p-5 sm:p-6">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
-                  <ShoppingBag className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-2xl sm:text-3xl xl:text-4xl font-bold text-white">Shopping</h1>
-                  <p className="text-sm text-white/90 mt-0.5">Procurement, receipts and supplier ops.</p>
-                </div>
-              </div>
-            </div>
-          </div>
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+          <PortalHeader
+            title="Shopping"
+            icon={ShoppingBag}
+            subtitle="Procurement, receipts and supplier ops."
+            actions={
+              <Link href={withSlug("/admin/teams")}>
+                <Button variant="outline" size="sm">
+                  <ArrowLeft className="w-4 h-4 mr-1.5" /> All teams
+                </Button>
+              </Link>
+            }
+          />
+          <PageWorkbench />
 
           <div className="flex flex-wrap gap-2 mb-6">
             <Badge variant="secondary" className="px-3 py-1.5 text-sm">
@@ -284,7 +278,7 @@ function ShoppingTeamPage() {
               </Link>
             ))}
           </div>
-        </div>
+        </PortalShell>
       </div>
     </>
   );

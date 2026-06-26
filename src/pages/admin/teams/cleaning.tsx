@@ -42,6 +42,7 @@ import { DynamicNav } from "@/components/DynamicNav";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { useAuth } from "@/contexts/AuthContext";
@@ -57,7 +58,7 @@ import {
   AlertTriangle, Wrench, Banknote, Flame, Droplets,
   CheckCircle2, ArrowRight, Package, CalendarDays,
 } from "lucide-react";
-import { PageWorkbench } from "@/components/portal/ui";
+import { PageWorkbench, PortalHeader, PortalShell } from "@/components/portal/ui";
 
 function startOfWeek(): Date {
   const d = new Date();
@@ -420,30 +421,21 @@ function CleaningTeamPage() {
       <DynamicNav userRole={(userRole || UserRole.ADMIN).toString()} />
 
       <div className="admin-page-shell">
-        <div className="px-3 sm:px-4 md:px-6 pt-20 lg:pt-6 pb-6 max-w-full">
-          <PageWorkbench className="mb-5" />
-
-          <Link
-            href={withSlug(userRole === UserRole.CLEANING_MANAGER ? "/team-portal/cleaning/dashboard" : "/admin/teams")}
-            className="inline-flex items-center gap-1.5 text-sm text-slate-600 hover:text-slate-900 mb-3"
-          >
-            <ArrowLeft className="w-4 h-4" /> {userRole === UserRole.CLEANING_MANAGER ? "Cleaning desk" : "All teams"}
-          </Link>
-
-          <div className="relative h-[200px] rounded-xl overflow-hidden mb-6 bg-gradient-to-br from-brand-primary to-brand-secondary">
-            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/30 to-transparent" />
-            <div className="relative h-full flex items-end p-5 sm:p-6">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
-                  <Sparkles className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-2xl sm:text-3xl xl:text-4xl font-bold text-white">Cleaning</h1>
-                  <p className="text-sm text-white/90 mt-0.5">Wash-up, kit return and venue strike.</p>
-                </div>
-              </div>
-            </div>
-          </div>
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+          <PortalHeader
+            title="Cleaning"
+            icon={Sparkles}
+            subtitle="Wash-up, kit return and venue strike."
+            actions={
+              <Link href={withSlug(userRole === UserRole.CLEANING_MANAGER ? "/team-portal/cleaning/dashboard" : "/admin/teams")}>
+                <Button variant="outline" size="sm">
+                  <ArrowLeft className="w-4 h-4 mr-1.5" />
+                  {userRole === UserRole.CLEANING_MANAGER ? "Cleaning desk" : "All teams"}
+                </Button>
+              </Link>
+            }
+          />
+          <PageWorkbench />
 
           {/* CLN-A: linkified quick-stat chip row. Same shape as the
               kitchen + drivers landings. Tints communicate health. */}
@@ -722,7 +714,7 @@ function CleaningTeamPage() {
             </Link>{" "}
             for the cleaner's-eye view.
           </p>
-        </div>
+        </PortalShell>
       </div>
     </>
   );

@@ -36,7 +36,7 @@ export function PortalShell({
   return (
     <div
       className={cn(
-        "relative min-h-screen overflow-hidden bg-[linear-gradient(180deg,#eef2f6_0%,#f8fafc_260px,#f8fafc_100%)] dark:bg-[linear-gradient(180deg,#020617_0%,#0f172a_260px,#0f172a_100%)]",
+        "relative min-h-screen overflow-x-hidden bg-[linear-gradient(180deg,#eef2f6_0%,#f8fafc_260px,#f8fafc_100%)] dark:bg-[linear-gradient(180deg,#020617_0%,#0f172a_260px,#0f172a_100%)]",
         className,
       )}
     >

@@ -28,7 +28,6 @@ import { ThemeSwitch } from "@/components/ThemeSwitch";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { SignOutButton } from "@/components/navigation/SignOutButton";
 import { MobileSearchTrigger, MobileQuickActions } from "@/components/portal/MobileDrawerExtras";
-import { DigitalClock } from "@/components/portal/DigitalClock";
 import { CollapsibleNavSection } from "@/components/navigation/CollapsibleNavSection";
 import { buildIsActive } from "@/lib/navActiveMatcher";
 import { useBrandingRow } from "@/lib/branding/useBranding";
@@ -187,7 +186,7 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
   const logoUrl = branding?.logoUrl || null;
   const companyName = branding?.companyName || config.mobileSubtitle || "Workspace";
   const LogoTile = ({ size }: { size: "sm" | "lg" }) => {
-    const box = size === "sm" ? "w-8 h-8 rounded-lg" : "w-10 h-10 rounded-xl shadow-lg";
+    const box = size === "sm" ? "w-8 h-8 rounded-lg" : "w-9 h-9 rounded-lg shadow-sm";
     const glyph = size === "sm" ? "w-4 h-4" : "w-5 h-5";
     if (logoUrl) {
       return (
@@ -244,12 +243,11 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
           // never bleed outside the sidebar's right edge. Matches the
           // AdminNav fix Bobby flagged on "1 gap" badge overflow.
           // Density per dashboard best practice: ~40px rows (py-2.5), 14px
-          // labels, 20px icons. Active = refined accent gradient (rounded,
-          // soft shadow), not a heavy bar. Specific transition, not `all`.
-          "group flex items-center gap-2.5 rounded-lg border border-transparent transition-colors duration-150 overflow-hidden",
+          // labels, 20px icons. Specific transition, not `all`.
+          "group relative flex items-center gap-2.5 overflow-hidden rounded-lg border border-transparent transition-colors duration-150",
           footer ? "px-3 py-2 text-[13px] font-medium" : "px-3 py-2.5 text-sm font-medium",
           active
-            ? "border-brand-primary/25 bg-brand-primary/10 text-brand-primary shadow-sm"
+            ? "border-slate-300 bg-slate-100 text-slate-950 shadow-sm dark:border-slate-700 dark:bg-slate-800/80 dark:text-white"
             : footer ? "text-slate-600 dark:text-slate-400" : "text-slate-700 dark:text-slate-300",
           !active && config.hoverClasses,
           collapsed ? "justify-center" : "",
@@ -298,6 +296,9 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
             {active && <ChevronRight className="h-4 w-4 flex-shrink-0 text-brand-primary" />}
           </>
         )}
+        {active && !collapsed && (
+          <span className="absolute left-0 top-2 bottom-2 w-0.5 rounded-r-full bg-brand-primary" aria-hidden="true" />
+        )}
       </Link>
     );
   };
@@ -307,9 +308,9 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
     hideSignOut = false,
   }: { mobile?: boolean; hideSignOut?: boolean } = {}) => (
     <ScrollArea
-      className="h-full py-6 px-4"
+      className="h-full px-3 py-4"
     >
-      <div className="space-y-5">
+      <div className="space-y-4">
         {mobile && (
           <div className="space-y-3">
             <MobileSearchTrigger accent={config.searchAccent} hint={config.searchHint} />
@@ -398,16 +399,20 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
                 className="w-[300px] sm:w-[350px] max-w-[85vw] p-0 flex flex-col"
               >
                 <div
-                  className={cn(
-                    "px-6 py-4 border-b bg-gradient-to-r flex-shrink-0",
-                    config.accentGradient,
-                  )}
+                  className="flex-shrink-0 border-b border-slate-200 bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-900"
                   style={{ paddingTop: "max(1rem, env(safe-area-inset-top, 1rem))" }}
                 >
-                  <h2 className="text-xl font-bold text-white">{config.title}</h2>
-                  <p className={cn("text-sm mt-1", config.mobileSubtitleClasses)}>
-                    {config.mobileSubtitle}
-                  </p>
+                  <Link
+                    href={withSlug(config.dashboardHref)}
+                    onClick={() => setOpen(false)}
+                    className="flex min-w-0 items-center gap-3"
+                  >
+                    <LogoTile size="lg" />
+                    <div className="min-w-0">
+                      <h2 className="truncate text-sm font-semibold text-slate-950 dark:text-white">{config.title}</h2>
+                      <p className="truncate text-xs text-slate-600 dark:text-slate-400">{companyName}</p>
+                    </div>
+                  </Link>
                 </div>
                 <div className="flex-1 min-h-0 overflow-hidden">
                   <NavBody mobile hideSignOut />
@@ -428,10 +433,6 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
             </Link>
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            {/* Wave 70.10 - digital clock in the mobile header.
-                Compact variant so it fits next to the bell + theme
-                switch without crowding. */}
-            <DigitalClock variant="mobile" className="hidden xs:inline-flex sm:inline-flex" />
             <NotificationBell />
             <ThemeSwitch />
           </div>
@@ -448,7 +449,7 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
         )}
       >
         <div className="flex flex-col flex-1 min-h-0">
-          <div className="flex flex-col gap-3 px-6 py-4 border-b border-slate-200 dark:border-slate-700">
+          <div className="flex flex-col gap-3 px-4 py-3 border-b border-slate-200 dark:border-slate-700">
             {!isCollapsed ? (
               <>
                 <div className="flex items-center justify-between gap-2">
@@ -464,12 +465,6 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
                     <ThemeSwitch />
                   </div>
                 </div>
-                {/* Wave 70.10 - digital clock under the brand on
-                    the desktop sidebar. Two-line variant: HH:mm
-                    bold on top, day + date underneath. Live-ticking
-                    every second so the operator always sees current
-                    time without checking their phone. */}
-                <DigitalClock variant="sidebar" />
               </>
             ) : (
               <div className="flex flex-col items-center gap-3 w-full">
@@ -486,8 +481,8 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
               ref always resolved to undefined and useNavScrollRestore
               attached to nothing - the desktop menu reset to the top on
               every navigation. */}
-          <ScrollArea ref={desktopScrollRef} className="flex-1 p-4">
-            <div className="space-y-5">
+          <ScrollArea ref={desktopScrollRef} className="flex-1 px-3 py-4">
+            <div className="space-y-4">
               {/* Wave 70.7 - desktop top slot (service mode + live state) */}
               {config.renderTopSlot && !isCollapsed && (
                 <div>{config.renderTopSlot()}</div>

@@ -36,7 +36,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { formatDate } from "@/lib/formatters";
 import { Calendar as CalendarIcon, Layers, MapPin, Plus, ArrowRight, ChefHat } from "lucide-react";
-import { PageWorkbench } from "@/components/portal/ui";
+import { PageWorkbench, PortalHeader, PortalShell } from "@/components/portal/ui";
 
 type BookingPackageStatus = "draft" | "active" | "completed" | "cancelled";
 
@@ -194,101 +194,87 @@ function PackagesPage() {
       <NoIndexMeta />
       <AdminNav />
       <div className="admin-page-shell">
-        <div className="space-y-4 w-full px-4 sm:px-6 pt-20 lg:pt-6 pb-6">
-          <PageWorkbench className="mb-5" />
-          <div className="flex items-start justify-between gap-3 flex-wrap">
-            <div>
-              <h1 className="text-xl sm:text-2xl font-bold text-slate-900 flex items-center gap-2">
-                <Layers className="w-5 h-5 text-slate-500" />
-                Booking packages
-              </h1>
-              {/* PKG-B (packages audit, PKG-1): honest copy. Pre-PKG-B
-                  the subhead claimed the calendar, finance and comms
-                  all consolidated packaged orders. They don't - there
-                  is no package_id wiring outside this page. The new
-                  copy describes what actually works today: group
-                  orders for joint reporting + a single cascade-cancel
-                  action. The calendar / finance / comms consolidation
-                  is on the roadmap and lives behind its own PRs. */}
-              <p className="text-sm text-slate-600 mt-1 max-w-2xl">
-                Group multi-day events into one logical booking. Track
-                every order against the parent record and cancel them
-                in one action when the booking falls through.
-              </p>
-            </div>
-            <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-              <DialogTrigger asChild>
-                <Button>
-                  <Plus className="w-4 h-4 mr-1.5" />
-                  New package
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>New booking package</DialogTitle>
-                  <DialogDescription>
-                    Create the parent record. You can link orders on the
-                    next screen.
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-3">
-                  <div>
-                    <Label htmlFor="pkg-name">Name</Label>
-                    <Input
-                      id="pkg-name"
-                      placeholder="e.g. Smith Wedding"
-                      value={form.name}
-                      onChange={(e) => setForm({ ...form, name: e.target.value })}
-                      autoFocus
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="pkg-venue">Venue (optional)</Label>
-                    <Input
-                      id="pkg-venue"
-                      placeholder="e.g. Boschendal Estate"
-                      value={form.venue_summary}
-                      onChange={(e) => setForm({ ...form, venue_summary: e.target.value })}
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+          <PortalHeader
+            title="Booking packages"
+            icon={Layers}
+            subtitle="Group multi-day events into one logical booking. Track every order against the parent record and cancel them in one action when the booking falls through."
+            actions={
+              <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+                <DialogTrigger asChild>
+                  <Button>
+                    <Plus className="w-4 h-4 mr-1.5" />
+                    New package
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>New booking package</DialogTitle>
+                    <DialogDescription>
+                      Create the parent record. You can link orders on the
+                      next screen.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-3">
                     <div>
-                      <Label htmlFor="pkg-start">Starts</Label>
+                      <Label htmlFor="pkg-name">Name</Label>
                       <Input
-                        id="pkg-start"
-                        type="date"
-                        value={form.starts_at}
-                        onChange={(e) => setForm({ ...form, starts_at: e.target.value })}
+                        id="pkg-name"
+                        placeholder="e.g. Smith Wedding"
+                        value={form.name}
+                        onChange={(e) => setForm({ ...form, name: e.target.value })}
+                        autoFocus
                       />
                     </div>
                     <div>
-                      <Label htmlFor="pkg-end">Ends</Label>
+                      <Label htmlFor="pkg-venue">Venue (optional)</Label>
                       <Input
-                        id="pkg-end"
-                        type="date"
-                        value={form.ends_at}
-                        onChange={(e) => setForm({ ...form, ends_at: e.target.value })}
+                        id="pkg-venue"
+                        placeholder="e.g. Boschendal Estate"
+                        value={form.venue_summary}
+                        onChange={(e) => setForm({ ...form, venue_summary: e.target.value })}
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label htmlFor="pkg-start">Starts</Label>
+                        <Input
+                          id="pkg-start"
+                          type="date"
+                          value={form.starts_at}
+                          onChange={(e) => setForm({ ...form, starts_at: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="pkg-end">Ends</Label>
+                        <Input
+                          id="pkg-end"
+                          type="date"
+                          value={form.ends_at}
+                          onChange={(e) => setForm({ ...form, ends_at: e.target.value })}
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <Label htmlFor="pkg-notes">Internal notes (optional)</Label>
+                      <Textarea
+                        id="pkg-notes"
+                        placeholder="Shared notes that apply to every event in this package."
+                        value={form.notes}
+                        onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                        rows={3}
                       />
                     </div>
                   </div>
-                  <div>
-                    <Label htmlFor="pkg-notes">Internal notes (optional)</Label>
-                    <Textarea
-                      id="pkg-notes"
-                      placeholder="Shared notes that apply to every event in this package."
-                      value={form.notes}
-                      onChange={(e) => setForm({ ...form, notes: e.target.value })}
-                      rows={3}
-                    />
-                  </div>
-                </div>
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => setCreateOpen(false)} disabled={creating}>Cancel</Button>
-                  <Button onClick={submitCreate} disabled={creating}>{creating ? "Creating..." : "Create"}</Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-          </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setCreateOpen(false)} disabled={creating}>Cancel</Button>
+                    <Button onClick={submitCreate} disabled={creating}>{creating ? "Creating..." : "Create"}</Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            }
+          />
+          <PageWorkbench />
 
           <Tabs value={tab} onValueChange={(v) => setTab(v as any)}>
             <TabsList>
@@ -374,7 +360,7 @@ function PackagesPage() {
               ))}
             </div>
           )}
-        </div>
+        </PortalShell>
       </div>
     </>
   );
