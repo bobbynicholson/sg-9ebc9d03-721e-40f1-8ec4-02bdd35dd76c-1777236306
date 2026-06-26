@@ -29,7 +29,9 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
-import { PortalShell, PortalHeader } from "@/components/portal/ui";
+import { PortalShell, PortalHeader,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { Footer } from "@/components/Footer";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -330,7 +332,7 @@ function TaxPurchasesPage() {
       <Head><title>Tax overview - CateringMS</title></Head>
       <AdminNav />
 
-      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+      <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <PortalHeader
             title="Tax overview"
@@ -351,6 +353,7 @@ function TaxPurchasesPage() {
               </>
             }
           />
+          <PageWorkbench />
 
             {/* TAX-B: page-level mismatch + override banner. Promotes
                 the per-slip rose chip to a louder warning so the

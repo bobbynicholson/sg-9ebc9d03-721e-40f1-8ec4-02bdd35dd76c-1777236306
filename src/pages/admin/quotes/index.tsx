@@ -43,7 +43,9 @@ import { Quote } from "@/types";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
-import { PortalShell, PortalHeader } from "@/components/portal/ui";
+import { PortalShell, PortalHeader,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { RowPrimaryAction } from "@/components/admin/RowPrimaryAction";
 import {
   computeFollowupState,
@@ -133,7 +135,7 @@ function orderStatusBadge(status: string | null | undefined): { label: string; c
   }
   // Active production states.
   if (s === "confirmed") return { label: "Booked",    classes: "text-brand-primary border-brand-primary/20 bg-brand-primary/10" };
-  if (s === "preparing") return { label: "In prep",   classes: "text-purple-700 border-purple-200 bg-purple-50" };
+  if (s === "preparing") return { label: "In prep",   classes: "text-slate-700 border-slate-200 bg-slate-50" };
   if (s === "ready")     return { label: "Ready",     classes: "text-blue-700 border-blue-200 bg-blue-50" };
   if (s === "in_transit") return { label: "Driving",  classes: "text-blue-700 border-blue-200 bg-blue-50" };
   if (s === "delivered") return { label: "Delivered", classes: "text-brand-primary border-brand-primary/20 bg-brand-primary/10" };
@@ -1402,7 +1404,7 @@ function AdminQuotesInner() {
       case "draft": return "bg-gray-100 text-gray-700 border-gray-200";
       case "sent": return "bg-blue-100 text-blue-700 border-blue-200";
       case "accepted": return "bg-brand-primary/15 text-brand-primary border-brand-primary/20";
-      case "rejected": return "bg-red-100 text-red-700 border-red-200";
+      case "rejected": return "bg-rose-100 text-rose-700 border-rose-200";
       case "expired": return "bg-amber-100 text-amber-700 border-amber-200";
       default: return "bg-gray-100 text-gray-700";
     }
@@ -1417,7 +1419,7 @@ function AdminQuotesInner() {
 
       <AdminNav />
 
-      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+      <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <PortalHeader
             title="Quotes"
@@ -1496,7 +1498,7 @@ function AdminQuotesInner() {
                   Export CSV
                 </Button>
                 <Link href={withSlug("/admin/quotes/new")}>
-                  <Button size="lg" className="bg-gradient-to-r from-brand-primary to-brand-secondary hover:from-brand-primary/90 hover:to-brand-secondary/90">
+                  <Button size="lg" className="bg-brand-primary hover:bg-brand-primary/90">
                     <Plus className="w-5 h-5 mr-2" />
                     New Quote
                   </Button>
@@ -1653,7 +1655,7 @@ function AdminQuotesInner() {
               Mine only
             </button>
             {savedViews.map((v) => (
-              <span key={v.id} className="inline-flex items-center gap-1 rounded-full border border-purple-200 bg-purple-50 text-purple-700 text-xs">
+              <span key={v.id} className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 text-slate-700 text-xs">
                 <button
                   type="button"
                   onClick={() => applySavedQuoteView(v)}
@@ -1665,7 +1667,7 @@ function AdminQuotesInner() {
                 <button
                   type="button"
                   onClick={() => removeSavedQuoteView(v.id)}
-                  className="pr-1.5 text-purple-500 hover:text-purple-800"
+                  className="pr-1.5 text-slate-500 hover:text-slate-800"
                   title="Remove this view"
                 >
                   ×
@@ -1675,7 +1677,7 @@ function AdminQuotesInner() {
             <button
               type="button"
               onClick={saveCurrentQuoteView}
-              className="inline-flex items-center gap-1 rounded-full border border-dashed border-slate-300 text-slate-500 text-xs px-2.5 py-0.5 hover:border-purple-300 hover:text-purple-700"
+              className="inline-flex items-center gap-1 rounded-full border border-dashed border-slate-300 text-slate-500 text-xs px-2.5 py-0.5 hover:border-slate-300 hover:text-slate-700"
               title="Save the current bucket + search + view as a named view"
             >
               + Save view
@@ -2468,6 +2470,7 @@ function AdminQuotesInner() {
                                 </>
                               )}
                               <DropdownMenuSeparator />
+          <PageWorkbench />
                               <DropdownMenuItem
                                 onClick={() => setDeleteTarget(quote)}
                                 className="text-rose-600 focus:text-rose-700 focus:bg-rose-50"

@@ -86,7 +86,7 @@ export function SlimInternalFooter({
   // underneath stays legible.
   return (
     <footer
-      className="fixed bottom-0 left-0 right-0 lg:left-64 xl:left-72 z-30 border-t border-slate-200 dark:border-slate-700 bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm"
+      className="internal-footer-shell fixed bottom-0 left-0 right-0 lg:left-72 xl:left-80 z-30 border-t border-slate-200 dark:border-slate-700 bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm"
       style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
     >
       <div className="px-4 py-2">
@@ -231,7 +231,7 @@ export function Footer() {
               {/* Catering company CTA */}
               <div className="bg-slate-900/50 border border-slate-600 rounded-xl p-6">
                 <div className="flex items-center gap-3 mb-3">
-                  <div className="p-2 rounded-lg bg-purple-900/30 text-purple-300">
+                  <div className="p-2 rounded-lg bg-slate-900/30 text-slate-300">
                     <Building2 className="w-5 h-5" />
                   </div>
                   <h4 className="text-lg font-semibold text-white">Catering business</h4>
@@ -241,7 +241,7 @@ export function Footer() {
                 </p>
                 <div className="flex flex-wrap gap-2">
                   <Link href="/auth/login">
-                    <Button size="sm" className="bg-gradient-to-r from-brand-primary to-brand-secondary text-white hover:opacity-90">
+                    <Button size="sm" className="bg-brand-primary text-white hover:opacity-90">
                       Sign in
                       <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
                     </Button>
@@ -283,7 +283,7 @@ export function Footer() {
                 className="h-12 object-contain mb-4"
               />
             ) : (
-              <h3 className="text-2xl font-bold bg-gradient-to-r from-brand-primary to-brand-secondary bg-clip-text text-transparent mb-4">
+              <h3 className="text-2xl font-bold bg-brand-primary bg-clip-text text-transparent mb-4">
                 {displayName}
               </h3>
             )}

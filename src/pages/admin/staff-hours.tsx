@@ -25,7 +25,9 @@ import { useToast } from "@/hooks/use-toast";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
-import { PortalShell, PortalHeader } from "@/components/portal/ui";
+import { PortalShell, PortalHeader,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import {  UserRole  } from "@/types/app";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
@@ -353,7 +355,7 @@ function StaffHoursPage() {
 
       <AdminNav />
 
-      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+      <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <PortalHeader
             title="Time Clock Log"
@@ -425,6 +427,7 @@ function StaffHoursPage() {
               className="gap-2 self-start sm:self-auto"
             >
               <Download className="w-4 h-4" />
+          <PageWorkbench />
               Export CSV
             </Button>
             </>

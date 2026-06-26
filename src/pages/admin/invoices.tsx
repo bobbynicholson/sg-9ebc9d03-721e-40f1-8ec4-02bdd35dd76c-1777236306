@@ -10,7 +10,9 @@ import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { BulkRemindDialog } from "@/components/admin/financial/BulkRemindDialog";
 import { useRegionFilter } from "@/contexts/RegionFilterContext";
 import { AdminNav } from "@/components/admin/AdminNav";
-import { PortalShell, PortalHeader } from "@/components/portal/ui";
+import { PortalShell, PortalHeader,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { CashflowContextBanner } from "@/components/admin/financial/CashflowContextBanner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -1286,7 +1288,7 @@ function InvoicesPageInner() {
   return (
     <>
     <Head><title>Invoices - CateringMS</title></Head>
-    <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0 print:pl-0 print:bg-white">
+    <div className="admin-page-shell admin-page-shell--print">
       {/* Wave 66 - print stylesheet for paper invoices. SA municipal
           + government clients still ask for posted PDFs; bookkeepers
           want clean A4 output without the admin chrome. Hides the
@@ -1474,19 +1476,20 @@ function InvoicesPageInner() {
             </>
           }
         />
+        <PageWorkbench />
 
         {/* Client filter pill - shows when /admin/invoices was opened
             with ?clientId. Click X to clear back to the unfiltered
             view (also strips the param from the URL). */}
         {clientFilterId && (
           <div className="mb-4 flex items-center gap-2">
-            <Badge className="bg-purple-100 text-purple-800 border border-purple-200 gap-1.5 py-1.5 px-3 text-sm">
+            <Badge className="bg-slate-100 text-slate-800 border border-slate-200 gap-1.5 py-1.5 px-3 text-sm">
               <FileText className="w-3.5 h-3.5" />
               Filtered to {clientFilterName || "selected client"}
               <button
                 type="button"
                 onClick={clearClientFilter}
-                className="ml-1 rounded-full hover:bg-purple-200 p-0.5"
+                className="ml-1 rounded-full hover:bg-slate-200 p-0.5"
                 aria-label="Clear client filter"
                 title="Clear client filter"
               >
@@ -1840,7 +1843,7 @@ function InvoicesPageInner() {
                 this month' and 'unpaid > 30 days' fast. */}
             <div className="mt-3 flex flex-wrap items-center gap-1.5">
               {savedInvoiceViews.map((v) => (
-                <span key={v.id} className="inline-flex items-center gap-1 rounded-full border border-purple-200 bg-purple-50 text-purple-700 text-xs">
+                <span key={v.id} className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 text-slate-700 text-xs">
                   <button
                     type="button"
                     onClick={() => applySavedInvoiceView(v)}
@@ -1852,7 +1855,7 @@ function InvoicesPageInner() {
                   <button
                     type="button"
                     onClick={() => removeSavedInvoiceView(v.id)}
-                    className="pr-1.5 text-purple-500 hover:text-purple-800"
+                    className="pr-1.5 text-slate-500 hover:text-slate-800"
                     title="Remove this view"
                   >
                     ×
@@ -1862,7 +1865,7 @@ function InvoicesPageInner() {
               <button
                 type="button"
                 onClick={saveCurrentInvoiceView}
-                className="inline-flex items-center gap-1 rounded-full border border-dashed border-slate-300 text-slate-500 text-xs px-2.5 py-0.5 hover:border-purple-300 hover:text-purple-700"
+                className="inline-flex items-center gap-1 rounded-full border border-dashed border-slate-300 text-slate-500 text-xs px-2.5 py-0.5 hover:border-slate-300 hover:text-slate-700"
                 title="Save the current search + status as a named view"
               >
                 + Save view

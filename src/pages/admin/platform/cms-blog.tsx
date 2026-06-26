@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { PlatformNav } from "@/components/admin/PlatformNav";
-import { PortalShell, PortalHeader, PortalCard, PortalCardHeader } from "@/components/portal/ui";
+import { PortalShell, PortalHeader, PortalCard, PortalCardHeader,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -205,7 +207,7 @@ export default function CMSBlogPage() {
   }
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+    <div className="admin-page-shell">
       <PlatformNav />
       <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
         <PortalHeader
@@ -213,6 +215,7 @@ export default function CMSBlogPage() {
           subtitle="Create SEO-optimized blog posts at scale with AI"
           icon={Sparkles}
         />
+        <PageWorkbench />
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "create" | "manage")}>
@@ -341,7 +344,7 @@ export default function CMSBlogPage() {
                             type="checkbox"
                             checked={brief.includeFAQ}
                             onChange={(e) => setBrief({ ...brief, includeFAQ: e.target.checked })}
-                            className="w-4 h-4 text-purple-600"
+                            className="w-4 h-4 text-brand-primary"
                           />
                           <span className="text-sm text-slate-700">Include FAQ Section</span>
                         </label>
@@ -351,7 +354,7 @@ export default function CMSBlogPage() {
                             type="checkbox"
                             checked={brief.includeSchema}
                             onChange={(e) => setBrief({ ...brief, includeSchema: e.target.checked })}
-                            className="w-4 h-4 text-purple-600"
+                            className="w-4 h-4 text-brand-primary"
                           />
                           <span className="text-sm text-slate-700">Include Schema Markup</span>
                         </label>
@@ -361,7 +364,7 @@ export default function CMSBlogPage() {
                             type="checkbox"
                             checked={brief.includeInternalLinks}
                             onChange={(e) => setBrief({ ...brief, includeInternalLinks: e.target.checked })}
-                            className="w-4 h-4 text-purple-600"
+                            className="w-4 h-4 text-brand-primary"
                           />
                           <span className="text-sm text-slate-700">Suggest Internal Links</span>
                         </label>
@@ -370,7 +373,7 @@ export default function CMSBlogPage() {
                       <Button
                         onClick={handleGenerateContent}
                         disabled={aiGenerating || !brief.topic || brief.keywords.length === 0}
-                        className="w-full bg-gradient-to-r from-brand-primary to-brand-secondary hover:opacity-90"
+                        className="w-full"
                         size="lg"
                       >
                         {aiGenerating ? (
@@ -439,19 +442,19 @@ export default function CMSBlogPage() {
                     />
                     <div className="space-y-3 text-sm text-slate-600 dark:text-slate-400">
                       <div className="flex items-start gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-purple-600 mt-0.5 flex-shrink-0" />
+                        <CheckCircle2 className="w-4 h-4 text-brand-primary mt-0.5 flex-shrink-0" />
                         <p>Be specific with your topic for better results</p>
                       </div>
                       <div className="flex items-start gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-purple-600 mt-0.5 flex-shrink-0" />
+                        <CheckCircle2 className="w-4 h-4 text-brand-primary mt-0.5 flex-shrink-0" />
                         <p>Use 3-5 relevant keywords</p>
                       </div>
                       <div className="flex items-start gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-purple-600 mt-0.5 flex-shrink-0" />
+                        <CheckCircle2 className="w-4 h-4 text-brand-primary mt-0.5 flex-shrink-0" />
                         <p>Define target audience for better tone</p>
                       </div>
                       <div className="flex items-start gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-purple-600 mt-0.5 flex-shrink-0" />
+                        <CheckCircle2 className="w-4 h-4 text-brand-primary mt-0.5 flex-shrink-0" />
                         <p>Review and edit AI output before publishing</p>
                       </div>
                     </div>
@@ -546,7 +549,7 @@ export default function CMSBlogPage() {
                           {generated.internalLinks.map((link, idx) => (
                             <div key={idx} className="space-y-1">
                               <p className="text-sm font-semibold text-slate-900">
-                                {link.text} → <code className="text-xs text-purple-600">{link.url}</code>
+                                {link.text} → <code className="text-xs text-brand-primary">{link.url}</code>
                               </p>
                               <p className="text-xs text-slate-600 italic">Context: {link.context}</p>
                             </div>
@@ -563,7 +566,7 @@ export default function CMSBlogPage() {
                       <Button
                         onClick={handlePublish}
                         disabled={saving}
-                        className="bg-gradient-to-r from-brand-primary to-brand-secondary hover:opacity-90"
+                        className=""
                       >
                         {saving ? (
                           <>
@@ -606,7 +609,7 @@ export default function CMSBlogPage() {
               <div>
                 {loadingPosts ? (
                   <div className="flex items-center justify-center py-12">
-                    <Loader2 className="w-6 h-6 animate-spin text-purple-600" />
+                    <Loader2 className="w-6 h-6 animate-spin text-brand-primary" />
                   </div>
                 ) : posts.length === 0 ? (
                   <div className="text-center py-12 text-slate-500">
@@ -630,7 +633,7 @@ export default function CMSBlogPage() {
                             View
                           </Button>
                           <Button variant="outline" size="sm">
-                            <Trash2 className="w-4 h-4 text-red-600" />
+                            <Trash2 className="w-4 h-4 text-rose-600" />
                           </Button>
                         </div>
                       </div>

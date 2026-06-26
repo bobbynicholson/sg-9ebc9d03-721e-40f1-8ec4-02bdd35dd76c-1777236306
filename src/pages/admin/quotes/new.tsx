@@ -115,6 +115,7 @@ import { propagateQuoteEditToOrder } from "@/services/quote/propagateQuoteEdit";
 import { QuoteSendDialog } from "@/components/billing/QuoteSendDialog";
 import { toLocalISO } from "@/lib/localDate";
 import { EntityNotesThread } from "@/components/admin/EntityNotesThread";
+import { PageWorkbench } from "@/components/portal/ui";
 
 // ── Types ─────────────────────────────────────────────────────────────
 
@@ -2049,8 +2050,9 @@ function NewQuotePage() {
 
       <AdminNav />
 
-      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
+      <div className="admin-page-shell">
         <div className="px-4 pt-32 pb-8 lg:pt-24 max-w-full">
+          <PageWorkbench className="mb-5" />
           {/* Pinned action bar (Raj, 2026-06-25): the live quote total +
               Save buttons stay in view as the operator scrolls a long
               quote. MUST be `fixed` not `sticky` - the page wrapper's
@@ -2098,7 +2100,7 @@ function NewQuotePage() {
                     size="sm"
                     onClick={() => handleSend()}
                     disabled={sending || saving || computed.total <= 0 || !email || !!setupTimeError}
-                    className="bg-gradient-to-r from-brand-primary to-brand-secondary"
+                    className="bg-brand-primary"
                   >
                     {sending ? <Loader2 className="w-4 h-4 sm:mr-2 animate-spin" /> : <Send className="w-4 h-4 sm:mr-2" />}
                     <span className="hidden sm:inline">{isConvertedQuote ? "Save & Notify" : "Save & Send"}</span>
@@ -2241,7 +2243,7 @@ function NewQuotePage() {
                     <Button
                       onClick={() => handleSend()}
                       disabled={sending || saving || computed.total <= 0 || !email || !!setupTimeError}
-                      className="bg-gradient-to-r from-brand-primary to-brand-secondary"
+                      className="bg-brand-primary"
                     >
                       {sending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
                       Save &amp; Notify
@@ -2269,7 +2271,7 @@ function NewQuotePage() {
                     <Button
                       onClick={() => handleSend()}
                       disabled={sending || saving || computed.total <= 0 || !email || !!setupTimeError}
-                      className="bg-gradient-to-r from-brand-primary to-brand-secondary"
+                      className="bg-brand-primary"
                     >
                       {sending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
                       Save &amp; Send
@@ -2605,7 +2607,7 @@ function NewQuotePage() {
                   {clientSnapshot && clientSnapshot.recent_quotes.length > 0 && (
                     <div className="rounded-lg bg-slate-50 border border-slate-200 p-3">
                       <p className="text-xs font-semibold text-slate-700 mb-2 flex items-center gap-1.5">
-                        <Wand2 className="w-3.5 h-3.5 text-purple-600" />
+                        <Wand2 className="w-3.5 h-3.5 text-slate-600" />
                         Use a previous quote as the starting point
                       </p>
                       <div className="flex flex-wrap gap-2">

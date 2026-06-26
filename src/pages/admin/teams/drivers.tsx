@@ -58,6 +58,7 @@ import {
   Receipt, Map as MapIcon, Car, AlertTriangle, Banknote, CalendarDays,
   CheckCircle2, ArrowRight, Flame, Wrench, Snowflake,
 } from "lucide-react";
+import { PageWorkbench } from "@/components/portal/ui";
 
 function startOfWeek(): Date {
   const d = new Date();
@@ -371,7 +372,7 @@ function DriversTeamPage() {
   const tiles = [
     { href: "/admin/driver-management", icon: Users, label: "Driver management", sub: "Roster, availability, ratings", bg: "from-sky-50 to-blue-50", iconColor: "text-sky-600" },
     { href: "/admin/driver-settlement", icon: Receipt, label: "Settlement", sub: "Pay out shifts and tips", bg: "from-brand-primary/10 to-brand-secondary/10", iconColor: "text-brand-primary" },
-    { href: "/admin/route-planning", icon: MapIcon, label: "Route planning", sub: "Daily delivery sequencing", bg: "from-indigo-50 to-violet-50", iconColor: "text-indigo-600" },
+    { href: "/admin/route-planning", icon: MapIcon, label: "Route planning", sub: "Daily delivery sequencing", bg: "from-blue-50 to-slate-50", iconColor: "text-blue-600" },
     { href: "/admin/vehicles", icon: Car, label: "Vehicles", sub: "Fleet, services, fuel", bg: "from-slate-100 to-slate-50", iconColor: "text-slate-600" },
   ];
 
@@ -384,14 +385,15 @@ function DriversTeamPage() {
       <Head><title>Drivers team - CateringMS</title></Head>
       <AdminNav />
 
-      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
+      <div className="admin-page-shell">
         <div className="px-3 sm:px-4 md:px-6 pt-20 lg:pt-6 pb-6 max-w-full">
+          <PageWorkbench className="mb-5" />
 
           <Link href={withSlug("/admin/teams")} className="inline-flex items-center gap-1.5 text-sm text-slate-600 hover:text-slate-900 mb-3">
             <ArrowLeft className="w-4 h-4" /> All teams
           </Link>
 
-          <div className="relative h-[200px] rounded-xl overflow-hidden mb-6 bg-gradient-to-br from-sky-500 via-blue-500 to-indigo-600">
+          <div className="relative h-[200px] rounded-xl overflow-hidden mb-6 bg-gradient-to-br from-sky-500 via-blue-500 to-blue-600">
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/30 to-transparent" />
             <div className="relative h-full flex items-end p-5 sm:p-6">
               <div className="flex items-center gap-3">
@@ -460,7 +462,7 @@ function DriversTeamPage() {
             )}
             {canSeeFinance && stats.settlementOwed > 0 && (
               <Link href={withSlug("/admin/driver-settlement")}>
-                <Badge variant="outline" className="px-3 py-1.5 text-sm border-violet-300 text-violet-700 bg-violet-50 tabular-nums cursor-pointer hover:bg-violet-100">
+                <Badge variant="outline" className="px-3 py-1.5 text-sm border-slate-300 text-slate-700 bg-slate-50 tabular-nums cursor-pointer hover:bg-slate-100">
                   <Receipt className="w-3 h-3 mr-1" />
                   {tenantCurrency.format(stats.settlementOwed)} settlement owed
                 </Badge>
@@ -559,10 +561,10 @@ function DriversTeamPage() {
 
             {/* Tomorrow's load. */}
             <Link href={withSlug(`/admin/calendar?date=${toLocalISO(new Date(Date.now() + 24 * 3600 * 1000))}`)}>
-              <Card className={`border-0 shadow-md hover:shadow-lg transition-shadow bg-gradient-to-br ${stats.tomorrowJobs > 0 ? "from-indigo-50 to-violet-50" : "from-slate-50 to-slate-100"}`}>
+              <Card className={`border-0 shadow-md hover:shadow-lg transition-shadow bg-gradient-to-br ${stats.tomorrowJobs > 0 ? "from-blue-50 to-slate-50" : "from-slate-50 to-slate-100"}`}>
                 <CardContent className="p-5">
                   <div className="flex items-start gap-3">
-                    <CalendarDays className={`w-6 h-6 ${stats.tomorrowJobs > 0 ? "text-indigo-700" : "text-slate-400"} flex-shrink-0`} />
+                    <CalendarDays className={`w-6 h-6 ${stats.tomorrowJobs > 0 ? "text-blue-700" : "text-slate-400"} flex-shrink-0`} />
                     <div className="min-w-0">
                       <p className="font-semibold text-slate-900">
                         {stats.tomorrowJobs === 0
@@ -614,7 +616,7 @@ function DriversTeamPage() {
 
             {/* Recent issues. */}
             <Link href={withSlug("/admin/order-assignments?filter=issues")}>
-              <Card className={`border-0 shadow-md hover:shadow-lg transition-shadow ${stats.issuesThisWeek > 0 ? "bg-gradient-to-br from-rose-50 to-pink-50" : "bg-gradient-to-br from-slate-50 to-slate-100"}`}>
+              <Card className={`border-0 shadow-md hover:shadow-lg transition-shadow ${stats.issuesThisWeek > 0 ? "bg-gradient-to-br from-rose-50 to-rose-50" : "bg-gradient-to-br from-slate-50 to-slate-100"}`}>
                 <CardContent className="p-5">
                   <div className="flex items-start gap-3">
                     <AlertTriangle className={`w-6 h-6 ${stats.issuesThisWeek > 0 ? "text-rose-600" : "text-slate-400"} flex-shrink-0`} />

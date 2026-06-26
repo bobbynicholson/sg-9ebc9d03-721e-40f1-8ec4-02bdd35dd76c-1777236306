@@ -31,7 +31,9 @@ import { useEffect, useMemo, useState } from "react";
 import Head from "next/head";
 import Link from "next/link";
 import { AdminNav } from "@/components/admin/AdminNav";
-import { PortalShell, PortalHeader } from "@/components/portal/ui";
+import { PortalShell, PortalHeader,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -543,7 +545,7 @@ function OfferingPage() {
       <Head><title>Offering - CateringMS</title></Head>
       <AdminNav />
 
-      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+      <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
 
           <PortalHeader
@@ -579,6 +581,7 @@ function OfferingPage() {
             </>
             }
           />
+          <PageWorkbench />
 
           {/* OFR-B: inline error banner. Pre-OFR-B a network failure
               left the page showing zeros silently; now the operator
@@ -873,11 +876,11 @@ function OfferingPage() {
                 logistics. Surfacing them here lets the operator chase
                 clients for missing info before the day-of-prep panic. */}
             <Card className="border-0 shadow-lg overflow-hidden">
-              <CardHeader className="bg-gradient-to-r from-violet-50 to-purple-50 border-b">
+              <CardHeader className="bg-gradient-to-r from-slate-50 to-slate-50 border-b">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-violet-500/10 flex items-center justify-center">
-                      <Boxes className="w-5 h-5 text-violet-700" />
+                    <div className="w-10 h-10 rounded-lg bg-slate-500/10 flex items-center justify-center">
+                      <Boxes className="w-5 h-5 bg-slate-500/10" />
                     </div>
                     <div>
                       <CardTitle className="text-lg sm:text-xl">Packages</CardTitle>
@@ -905,7 +908,7 @@ function OfferingPage() {
                   <>
                     <Link href={withSlug("/admin/packages")} className="block group">
                       <div className="flex items-baseline gap-3 mb-3">
-                        <span className="text-4xl font-bold text-slate-900 group-hover:text-violet-700 transition-colors">
+                        <span className="text-4xl font-bold text-slate-900 group-hover:text-slate-700 transition-colors">
                           {loading ? "-" : packagesTile.total}
                         </span>
                         <span className="text-sm text-slate-600">active package{packagesTile.total === 1 ? "" : "s"}</span>
@@ -993,7 +996,7 @@ function OfferingPage() {
             <Card className="border-0 shadow-lg mb-6">
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-violet-600" />
+                  <Sparkles className="w-4 h-4 text-slate-600" />
                   Often ordered together ({period}d)
                 </CardTitle>
                 <p className="text-xs text-slate-600 mt-0.5">
@@ -1008,7 +1011,7 @@ function OfferingPage() {
                       className="rounded-lg border border-slate-200 bg-slate-50/40 p-3"
                     >
                       <div className="flex items-center gap-1.5 mb-2">
-                        <Sparkles className="w-3 h-3 text-violet-600" />
+                        <Sparkles className="w-3 h-3 text-slate-600" />
                         <span className="text-[10px] uppercase tracking-wide font-semibold text-slate-500">
                           Co-ordered {p.count}x
                         </span>

@@ -3,7 +3,9 @@ import Head from "next/head";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PlatformNav } from "@/components/admin/PlatformNav";
-import { PortalShell, PortalHeader, PortalCard, StatTile } from "@/components/portal/ui";
+import { PortalShell, PortalHeader, PortalCard, StatTile,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
@@ -230,7 +232,7 @@ const auditCards: SprintCard[] = [
     estimate: "1-2 days",
     risk: "Medium",
     icon: ShieldAlert,
-    accent: "from-rose-500 to-red-500",
+    accent: "from-rose-500 to-rose-500",
     items: [
       { title: "Remove ?dev=true URL backdoor", detail: "Resolved. AuthContext.tsx gates the dev shortcut on process.env.NODE_ENV !== \"production\" before checking hostname or query string. Production builds never honour ?dev=true.", status: "shipped", ref: "src/contexts/AuthContext.tsx:74" },
       { title: "Lock down /api/admin/create-user", detail: "Resolved. Handler enforces CALLER_ROLES_ALLOWED (super_admin / company_admin / admin / owner) by looking up the caller's profile.active_role on the authenticated session. Role + company_id from the request body are ignored unless the caller is authorised.", status: "shipped", ref: "src/pages/api/admin/create-user.ts:79" },
@@ -249,7 +251,7 @@ const auditCards: SprintCard[] = [
     estimate: "Mostly shipped. SMTP wiring still pending per tenant.",
     risk: "High",
     icon: ShieldAlert,
-    accent: "from-rose-500 to-pink-500",
+    accent: "from-rose-500 to-rose-500",
     defaultOpen: true,
     items: [
       // Shipped: data isolation
@@ -396,7 +398,7 @@ const integrationCards: SprintCard[] = [
     estimate: "4-6 hours",
     risk: "High",
     icon: Banknote,
-    accent: "from-rose-500 to-red-500",
+    accent: "from-rose-500 to-rose-500",
     items: [
       { title: "Sign up at payfast.co.za, get merchant ID + key + passphrase", status: "todo" },
       { title: "Set env vars: PAYFAST_MERCHANT_ID, PAYFAST_MERCHANT_KEY, PAYFAST_PASSPHRASE", status: "todo" },
@@ -417,7 +419,7 @@ const integrationCards: SprintCard[] = [
     estimate: "3-4 hours",
     risk: "High",
     icon: Mail,
-    accent: "from-rose-500 to-red-500",
+    accent: "from-rose-500 to-rose-500",
     items: [
       { title: "Sign up at resend.com, get API key", status: "todo" },
       { title: "Set env var: RESEND_API_KEY", status: "todo" },
@@ -606,7 +608,7 @@ const launchCards: SprintCard[] = [
     estimate: "24 hours",
     risk: "High",
     icon: ShieldAlert,
-    accent: "from-rose-500 to-red-500",
+    accent: "from-rose-500 to-rose-500",
     items: [
       { title: "RLS policies cover all tables (after Phase 2B)", status: "blocked" },
       { title: "No SQL injection vulnerabilities", status: "todo" },
@@ -781,7 +783,7 @@ const ukExpansionCards: SprintCard[] = [
     estimate: "2-3 weeks",
     risk: "Medium",
     icon: Flag,
-    accent: "from-blue-500 to-red-500",
+    accent: "from-blue-500 to-rose-500",
     items: [
       { title: "Natasha's Law PPDS label generator (the lead-magnet)", detail: "Recipe ->PDF/Zebra label with full ingredient list + 14 allergens emphasised, batch-print per production run. Replaces a £200/month bolt-on (Erudus / Nutritics). Could be the single biggest UK launch hook.", status: "todo" },
       { title: "FSA Food Hygiene Rating widget", detail: "Nightly pull from ratings.food.gov.uk, embed on tenant site + quote PDF, alert on rating change. Wales mandates display by law; Scotland uses FHIS variant.", status: "todo" },
@@ -800,7 +802,7 @@ const usExpansionCards: SprintCard[] = [
     estimate: "3-4 weeks",
     risk: "High",
     icon: Flag,
-    accent: "from-blue-600 to-red-600",
+    accent: "from-blue-600 to-rose-600",
     items: [
       { title: "ezCater + Relish marketplace connector (P0, without this, invisible to US corporate)", detail: "Bidirectional menu / inventory / order sync via ezCater partner API + Relish for recurring corporate. Even mid-market caterers like The Halal Guys route through ezCater.", status: "todo" },
       { title: "Slack / Teams / Google Workspace bots + SAML SSO", detail: "Slack slash commands, Teams app, Okta / Rippling / Entra SAML. Forkable wins enterprise on this exact feature set.", status: "todo" },
@@ -840,7 +842,7 @@ const productNotesCards: SprintCard[] = [
     estimate: "3-4 weeks",
     risk: "Medium",
     icon: Sparkles,
-    accent: "from-violet-500 to-purple-600",
+    accent: "from-sky-500 to-blue-600",
     defaultOpen: true,
     items: [
       { title: "CSV / vCard bulk customer import with AI field mapping", detail: "Upload a spreadsheet with any column headers, AI maps them to the correct profile fields. Preview + confirm step with manual override. Covers the most common blocker: 'I already have 200 customers in Excel'.", status: "todo" },
@@ -1075,7 +1077,7 @@ const tooltipAuditCards: SprintCard[] = [
     estimate: "3-4 days",
     risk: "High",
     icon: AlertTriangle,
-    accent: "from-rose-500 to-red-600",
+    accent: "from-rose-500 to-rose-600",
     defaultOpen: true,
     items: [
       { title: "Multi-tenancy data leak on /admin/driver-management", detail: "userManagementService.getAllUsers() called without company_id meant a company admin saw drivers from every tenant on the platform. P0. Fix shipped 28 Apr 2026 in commit 596ef67, now scoped to user.company_id with early return when unauthenticated.", status: "shipped", ref: "src/pages/admin/driver-management.tsx:63-83" },
@@ -1151,7 +1153,7 @@ const journeyAuditCards: SprintCard[] = [
     estimate: "3-4 weeks",
     risk: "High",
     icon: AlertTriangle,
-    accent: "from-rose-600 to-red-700",
+    accent: "from-rose-600 to-rose-700",
     defaultOpen: true,
     items: [
       // Sales funnel
@@ -1453,7 +1455,7 @@ const embedFormsCards: SprintCard[] = [
     estimate: "2-3 weeks",
     risk: "Low",
     icon: Sparkles,
-    accent: "from-violet-500 to-purple-600",
+    accent: "from-sky-500 to-blue-600",
     items: [
       { title: "A/B test framework for templates", detail: "Let a tenant publish two versions of the same form to different marketing pages, then surface conversion-rate comparison after N submissions. Builds on the existing analytics endpoint.", status: "todo" },
       { title: "Webhook on submission for Zapier / Make / n8n", detail: "Some tenants want the lead to also flow into their existing CRM / spreadsheet / Slack channel. Add a per-form webhook URL on embed_form_configs and POST the submission payload there. Reuse the existing /api/integrations/* bearer-key pattern.", status: "todo" },
@@ -1679,7 +1681,7 @@ function AdminRunningTodoPage() {
         <title>Running todo - CateringMS</title>
       </Head>
       <NoIndexMeta />
-      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+      <div className="admin-page-shell">
         <PlatformNav />
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <PortalHeader
@@ -1687,6 +1689,7 @@ function AdminRunningTodoPage() {
             subtitle="Single source of truth, everything built, everything outstanding. Combines the original 8-week launch roadmap with findings from the 215-IQ multi-specialist audit."
             icon={ListChecks}
           />
+          <PageWorkbench />
 
           <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-6">
             <StatTile label="Total items" value={stats.total} />
@@ -1708,7 +1711,7 @@ function AdminRunningTodoPage() {
           <PortalCard className="mb-6">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-sm">
               <div className="flex items-start gap-3">
-                <FileText className="h-5 w-5 text-purple-600 flex-shrink-0 mt-0.5" />
+                <FileText className="h-5 w-5 text-slate-600 flex-shrink-0 mt-0.5" />
                 <div>
                   <span className="font-semibold text-slate-900 dark:text-white">Audit fixes: {auditStats.shipped}/{auditStats.total} shipped ({auditPct}%).</span>{" "}
                   <span className="text-slate-700 dark:text-slate-300">Phase 1 done, demo-safe. Phase 2A-F executes post-meeting in order of minimum-blast-radius.</span>

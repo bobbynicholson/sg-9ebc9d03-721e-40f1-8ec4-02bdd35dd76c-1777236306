@@ -57,6 +57,7 @@ import {
   Loader2, ArrowRight, MapPin, TrendingUp, Calendar, Clock,
   MessageCircle, FileText, Banknote,
 } from "lucide-react";
+import { PageWorkbench } from "@/components/portal/ui";
 
 interface TeamRow {
   key: "kitchen" | "drivers" | "shopping" | "cleaning" | "sales" | "outsource";
@@ -690,8 +691,8 @@ function TeamsIndexPage() {
           key: "cleaning",
           name: "Cleaning",
           icon: Sparkles,
-          iconColor: "text-purple-600",
-          bg: "from-purple-50 to-fuchsia-50",
+          iconColor: "text-slate-600",
+          bg: "text-slate-600 to-rose-50",
           href: "/admin/teams/cleaning",
           headCount: staffByRole["cleaning_staff"] || 0,
           // null - same honesty as shopping.
@@ -719,8 +720,8 @@ function TeamsIndexPage() {
           key: "sales" as TeamRow["key"],
           name: "Sales",
           icon: Users,
-          iconColor: "text-indigo-600",
-          bg: "from-indigo-50 to-violet-50",
+          iconColor: "text-blue-600",
+          bg: "from-blue-50 to-slate-50",
           href: "/admin/leads",
           headCount: staffByRole["sales_admin"] || 0,
           hoursThisWeek: null,
@@ -820,8 +821,9 @@ function TeamsIndexPage() {
       <Head><title>Teams - CateringMS</title></Head>
       <AdminNav />
 
-      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
+      <div className="admin-page-shell">
         <div className="px-3 sm:px-4 md:px-6 pt-20 lg:pt-6 pb-6 max-w-full">
+          <PageWorkbench className="mb-5" />
 
           <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex items-center gap-3 min-w-0">
@@ -934,7 +936,7 @@ function TeamsIndexPage() {
                                 Surfaces the queue of unreviewed event
                                 handovers so the manager doesn't miss them. */}
                             {r.handoverPending > 0 && (
-                              <Badge variant="outline" className="text-[10px] uppercase tracking-wide border-violet-300 text-violet-700 bg-violet-50">
+                              <Badge variant="outline" className="text-[10px] uppercase tracking-wide border-slate-300 text-slate-700 bg-slate-50">
                                 <FileText className="w-2.5 h-2.5 mr-1" />
                                 {r.handoverPending} handover{r.handoverPending === 1 ? "" : "s"}
                               </Badge>
@@ -1045,8 +1047,8 @@ function TeamsIndexPage() {
                 <Card className="border-0 shadow-md hover:shadow-lg transition-shadow">
                   <CardContent className="p-4 sm:p-5">
                     <div className="flex items-center gap-4 flex-wrap sm:flex-nowrap">
-                      <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl bg-gradient-to-br from-purple-50 to-fuchsia-50 flex items-center justify-center flex-shrink-0">
-                        <ShoppingBag className="w-6 h-6 text-purple-600" />
+                      <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl bg-gradient-to-br from-slate-50 to-rose-50 flex items-center justify-center flex-shrink-0">
+                        <ShoppingBag className="w-6 h-6 from-slate-50" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">

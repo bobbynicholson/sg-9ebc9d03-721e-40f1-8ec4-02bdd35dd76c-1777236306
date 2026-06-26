@@ -26,7 +26,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
-import { PortalShell, PortalHeader } from "@/components/portal/ui";
+import { PortalShell, PortalHeader,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import {  UserRole  } from "@/types/app";
@@ -593,7 +595,7 @@ function WhiteLabelPage() {
 
       <AdminNav />
 
-      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+      <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <Link href={withSlug("/admin/settings")}>
             <Button variant="ghost" className="mb-4">
@@ -633,6 +635,7 @@ function WhiteLabelPage() {
               </div>
             }
           />
+          <PageWorkbench />
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="space-y-6">
@@ -983,7 +986,7 @@ function WhiteLabelPage() {
                 <Button
                   onClick={handleSave}
                   disabled={saving || loading || !companyId}
-                  className="flex-1 bg-gradient-to-r from-brand-primary to-brand-secondary text-white hover:opacity-90"
+                  className="flex-1 bg-brand-primary text-white hover:opacity-90"
                   title="Save the current branding values"
                 >
                   <Save className="w-4 h-4 mr-2" />

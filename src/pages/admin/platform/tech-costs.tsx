@@ -33,7 +33,9 @@ import Head from "next/head";
 import Link from "next/link";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
-import { PortalShell, PortalHeader, PortalCard, StatTile } from "@/components/portal/ui";
+import { PortalShell, PortalHeader, PortalCard, StatTile,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -490,7 +492,7 @@ function TechCostsDashboard() {
       <NoIndexMeta />
       <Head><title>Tech-stack costs - CateringMS</title></Head>
 
-      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+      <div className="admin-page-shell">
         <PlatformNav />
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
 
@@ -512,6 +514,7 @@ function TechCostsDashboard() {
               </Link>
             }
           />
+          <PageWorkbench />
 
           {/* Headline numbers */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
@@ -730,7 +733,7 @@ function TechCostsDashboard() {
                             <p className="text-sm font-semibold text-slate-900">{cat.category}</p>
                             <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden mt-1.5">
                               <div
-                                className="h-full bg-gradient-to-r from-brand-primary to-brand-secondary"
+                                className="h-full bg-brand-primary"
                                 style={{ width: `${pct.toFixed(1)}%` }}
                               />
                             </div>

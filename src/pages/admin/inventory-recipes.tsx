@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import { AdminNav } from "@/components/admin/AdminNav";
-import { PortalShell, PortalHeader } from "@/components/portal/ui";
+import { PortalShell, PortalHeader,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -31,13 +33,14 @@ export default function InventoryRecipes() {
   return (
     <>
       <AdminNav />
-      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+      <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <PortalHeader
             title="Recipes"
             icon={ChefHat}
             subtitle="Menu items linked to the ingredients they use. When an event books, the kitchen knows what to pull and inventory deducts automatically. No more guessing what to thaw."
           />
+          <PageWorkbench />
 
         {/* Info Alert */}
         <Card className="mb-6 border-blue-200 bg-blue-50">
@@ -129,7 +132,7 @@ export default function InventoryRecipes() {
                   <div className="flex items-start justify-between">
                     <div>
                       <CardTitle className="flex items-center gap-2">
-                        <ChefHat className="h-5 w-5 text-purple-600" />
+                        <ChefHat className="h-5 w-5 text-slate-600" />
                         {recipe.menu_item_name}
                       </CardTitle>
                       <CardDescription>
@@ -163,7 +166,7 @@ export default function InventoryRecipes() {
                             </div>
                           </div>
                           <div className="text-right">
-                            <div className="text-lg font-bold text-purple-600">
+                            <div className="text-lg font-bold text-slate-600">
                               {totalNeeded}
                             </div>
                             <div className="text-xs text-slate-500">

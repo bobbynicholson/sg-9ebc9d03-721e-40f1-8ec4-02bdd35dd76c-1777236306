@@ -1,7 +1,9 @@
 import { useState, useEffect, useMemo } from "react";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import { PlatformNav } from "@/components/admin/PlatformNav";
-import { PortalShell, PortalHeader, PortalCard, PortalCardHeader } from "@/components/portal/ui";
+import { PortalShell, PortalHeader, PortalCard, PortalCardHeader, StatTile,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -39,15 +41,31 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/ui/empty-state";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { UserPlus, Trash2, Building2, Loader2, Search, Send, Copy, MailWarning } from "lucide-react";
+import {
+  AlertCircle,
+  Building2,
+  CheckCircle2,
+  Copy,
+  Loader2,
+  MailQuestion,
+  MailWarning,
+  Search,
+  Send,
+  ShieldCheck,
+  Trash2,
+  UserPlus,
+  Users,
+} from "lucide-react";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { useSortable, type ColumnDef } from "@/lib/useSortable";
 import { SortHeader } from "@/components/ui/sort-header";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
+import { cn } from "@/lib/utils";
 
 type User = {
   id: string;
@@ -65,11 +83,35 @@ type User = {
   invite_status?: "active" | "pending";
 };
 
+const ROLE_LABELS: Record<string, string> = {
+  super_admin: "Platform admin",
+  company_admin: "Company admin",
+  admin: "Admin",
+  owner: "Owner",
+  kitchen: "Kitchen",
+  kitchen_staff: "Kitchen",
+  driver: "Driver",
+  shopping_staff: "Shopping",
+  cleaning_staff: "Cleaning",
+  sales_admin: "Sales admin",
+  region_admin: "Region admin",
+  client: "Client",
+};
+
+const getInviteStatus = (user: User) =>
+  user.invite_status || (user.email_verified ? "active" : "pending");
+
+const getRoleLabel = (role: string) =>
+  ROLE_LABELS[role] || role.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
+
 export default function UserManagementPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [companies, setCompanies] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "pending">("all");
+  const [roleFilter, setRoleFilter] = useState("all");
+  const [companyFilter, setCompanyFilter] = useState("all");
   const [addUserOpen, setAddUserOpen] = useState(false);
   const [deleteUserId, setDeleteUserId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
@@ -85,7 +127,7 @@ export default function UserManagementPage() {
     setAddUserOpen(open);
     if (!open) {
       setCreateResult(null);
-      setNewUser({ email: "", full_name: "", password: "", role: "client", company_id: "" });
+      setNewUser({ email: "", full_name: "", role: "client", company_id: "" });
     }
   };
 
@@ -108,7 +150,6 @@ export default function UserManagementPage() {
   const [newUser, setNewUser] = useState({
     email: "",
     full_name: "",
-    password: "",
     role: "client",
     company_id: "",
   });
@@ -311,47 +352,111 @@ export default function UserManagementPage() {
     { limit: 0 },
   );
 
+  const roleOptions = useMemo(
+    () =>
+      Array.from(new Set(users.map((account) => account.role).filter(Boolean))).sort((a, b) =>
+        getRoleLabel(a).localeCompare(getRoleLabel(b)),
+      ),
+    [users],
+  );
+
+  const companyOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    users.forEach((account) => {
+      if (account.company_id && account.company_name) map.set(account.company_id, account.company_name);
+    });
+    companies.forEach((company) => {
+      if (company.id && company.company_name) map.set(company.id, company.company_name);
+    });
+    return Array.from(map, ([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
+  }, [companies, users]);
+
+  const summary = useMemo(() => {
+    const active = users.filter((account) => getInviteStatus(account) === "active").length;
+    const pending = users.length - active;
+    return {
+      total: users.length,
+      active,
+      pending,
+      platformAdmins: users.filter((account) => account.role === "super_admin").length,
+      tenantLinked: users.filter((account) => account.company_id).length,
+      clients: users.filter((account) => account.role === "client").length,
+    };
+  }, [users]);
+
+  const visibleUsers = useMemo(
+    () =>
+      fuzzyUsers.filter((account) => {
+        const status = getInviteStatus(account as User);
+        if (statusFilter !== "all" && status !== statusFilter) return false;
+        if (roleFilter !== "all" && account.role !== roleFilter) return false;
+        if (companyFilter !== "all" && (account.company_id || "unassigned") !== companyFilter) return false;
+        return true;
+      }),
+    [companyFilter, fuzzyUsers, roleFilter, statusFilter],
+  );
+
   // Layered column sort, click any header to flip the order.
   const userSortColumns: ColumnDef<any>[] = useMemo(() => [
     { key: "user",    accessor: (u) => u.full_name || u.email,                  type: "string" },
-    { key: "role",    accessor: (u) => u.role,                                  type: "string" },
+    { key: "role",    accessor: (u) => getRoleLabel(u.role),                    type: "string" },
     { key: "company", accessor: (u) => u.company_name || "",                    type: "string" },
-    { key: "status",  accessor: (u) => u.invite_status || (u.email_verified ? "active" : "pending"), type: "string" },
+    { key: "status",  accessor: (u) => getInviteStatus(u as User),              type: "string" },
     { key: "created", accessor: (u) => u.created_at,                            type: "date"   },
   ], []);
-  const sortedUsers = useSortable<any>(fuzzyUsers, userSortColumns, { defaultKey: "created", defaultDir: "desc" });
+  const sortedUsers = useSortable<any>(visibleUsers, userSortColumns, { defaultKey: "created", defaultDir: "desc" });
   const filteredUsers = sortedUsers.rows;
+  const hasActiveFilters =
+    !!searchTerm.trim() || statusFilter !== "all" || roleFilter !== "all" || companyFilter !== "all";
+  const deleteTarget = users.find((account) => account.id === deleteUserId);
 
   const getRoleBadge = (role: string) => {
-    const roleConfig: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
-      super_admin: { label: "Platform Admin", variant: "destructive" },
-      company_admin: { label: "Company Admin", variant: "default" },
-      admin: { label: "Admin", variant: "default" },
-      owner: { label: "Owner", variant: "secondary" },
-      kitchen: { label: "Kitchen", variant: "outline" },
-      driver: { label: "Driver", variant: "outline" },
-      client: { label: "Client", variant: "outline" },
-    };
+    return (
+      <Badge
+        variant="outline"
+        className={cn(
+          "border-slate-200 bg-slate-50 text-slate-700",
+          role === "super_admin" && "border-rose-200 bg-rose-50 text-rose-700",
+          role === "company_admin" && "border-amber-200 bg-amber-50 text-amber-800",
+          role === "client" && "border-emerald-200 bg-emerald-50 text-emerald-700",
+        )}
+      >
+        {getRoleLabel(role)}
+      </Badge>
+    );
+  };
 
-    const config = roleConfig[role] || { label: role, variant: "outline" };
-    return <Badge variant={config.variant}>{config.label}</Badge>;
+  const getStatusBadge = (account: User) => {
+    const active = getInviteStatus(account) === "active";
+    return (
+      <Badge
+        variant="outline"
+        className={cn(
+          "gap-1 border-amber-200 bg-amber-50 text-amber-800",
+          active && "border-emerald-200 bg-emerald-50 text-emerald-700",
+        )}
+      >
+        {active ? <CheckCircle2 className="h-3 w-3" /> : <MailQuestion className="h-3 w-3" />}
+        {active ? "Active" : "Invite pending"}
+      </Badge>
+    );
   };
 
   return (
     <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN]}>
-      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+      <div className="admin-page-shell">
         <PlatformNav />
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
         <PortalHeader
-          title="User Management"
-          subtitle="Manage system users and permissions"
-          icon={UserPlus}
+          title="User management"
+          subtitle="Platform-wide account directory with tenant ownership, invite state, and safe account actions."
+          icon={Users}
           actions={
           <Dialog open={addUserOpen} onOpenChange={closeAddUserDialog}>
             <DialogTrigger asChild>
-              <Button className="bg-brand-primary hover:opacity-90">
+              <Button className="bg-slate-950 text-white hover:bg-slate-800">
                 <UserPlus className="w-4 h-4 mr-2" />
-                Add User
+                Add user
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[500px]">
@@ -391,7 +496,7 @@ export default function UserManagementPage() {
                     </div>
                     {!createResult.emailed && (
                       <p className="text-xs text-slate-500">
-                        Set up an email sender under <strong>Email settings</strong> (Admin → Settings → Email) so future invites send automatically.
+                        Set up an email sender under <strong>Email settings</strong> so future invites send automatically.
                       </p>
                     )}
                     <div className="flex justify-between gap-2 pt-2">
@@ -407,14 +512,14 @@ export default function UserManagementPage() {
               ) : (
               <>
               <DialogHeader>
-                <DialogTitle>Create New User</DialogTitle>
+                <DialogTitle>Create user</DialogTitle>
                 <DialogDescription>
-                  Add a new user. They'll get an email invite to set their own password and sign in. You can resend the invite later from the user list if they're still pending.
+                  Create the account, assign its first role, and show the temporary sign-in details once.
                 </DialogDescription>
               </DialogHeader>
               <form onSubmit={handleCreateUser} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email Address</Label>
+                  <Label htmlFor="email">Email address</Label>
                   <Input
                     id="email"
                     type="email"
@@ -424,23 +529,12 @@ export default function UserManagementPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="full_name">Full Name</Label>
+                  <Label htmlFor="full_name">Full name</Label>
                   <Input
                     id="full_name"
                     value={newUser.full_name}
                     onChange={(e) => setNewUser({ ...newUser, full_name: e.target.value })}
                     required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="password">Password</Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    value={newUser.password}
-                    onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
-                    required
-                    minLength={6}
                   />
                 </div>
                 <div className="space-y-2">
@@ -450,8 +544,8 @@ export default function UserManagementPage() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="super_admin">Platform Admin</SelectItem>
-                      <SelectItem value="company_admin">Company Admin</SelectItem>
+                      <SelectItem value="super_admin">Platform admin</SelectItem>
+                      <SelectItem value="company_admin">Company admin</SelectItem>
                       <SelectItem value="admin">Admin</SelectItem>
                       <SelectItem value="owner">Owner</SelectItem>
                       <SelectItem value="kitchen">Kitchen</SelectItem>
@@ -477,18 +571,21 @@ export default function UserManagementPage() {
                     </Select>
                   </div>
                 )}
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs leading-5 text-slate-600">
+                  A unique temporary password is generated by the server and shown after save for direct handover.
+                </div>
                 <div className="flex justify-end gap-2 pt-4">
                   <Button type="button" variant="outline" onClick={() => closeAddUserDialog(false)}>
                     Cancel
                   </Button>
-                  <Button type="submit" disabled={creating}>
+                  <Button type="submit" disabled={creating} className="bg-slate-950 text-white hover:bg-slate-800">
                     {creating ? (
                       <>
                         <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                         Creating...
                       </>
                     ) : (
-                      "Create User"
+                      "Create user"
                     )}
                   </Button>
                 </div>
@@ -499,30 +596,88 @@ export default function UserManagementPage() {
           </Dialog>
           }
         />
+        <PageWorkbench />
+
+        <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
+          <StatTile label="Accounts" value={summary.total} hint="All platform-visible profiles" icon={Users} />
+          <StatTile label="Active" value={summary.active} hint="Signed in at least once" icon={CheckCircle2} />
+          <StatTile label="Invite pending" value={summary.pending} hint="Created but not accepted" icon={MailQuestion} />
+          <StatTile label="Tenant-linked" value={summary.tenantLinked} hint="Assigned to a company" icon={Building2} />
+          <StatTile label="Platform admins" value={summary.platformAdmins} hint="Global admin access" icon={ShieldCheck} />
+        </div>
 
         <PortalCard>
           <PortalCardHeader
             title={
               <span className="flex items-center gap-2">
-                All Users ({filteredUsers.length})
+                Account directory ({filteredUsers.length})
                 <InfoTooltip content="Every user account across every tenant on the platform, with the company they belong to.\n\nStatus reflects invite acceptance: Active means the user has signed in (accepted their invite / set their password); Pending means they were invited but haven't signed in yet. Use Resend invite to send a pending staff member a fresh set-password link." />
               </span>
             }
             action={
-              <div className="relative w-64">
-                <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
-                <Input
-                  placeholder="Search users..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                disabled={!hasActiveFilters}
+                onClick={() => {
+                  setSearchTerm("");
+                  setStatusFilter("all");
+                  setRoleFilter("all");
+                  setCompanyFilter("all");
+                }}
+              >
+                Clear filters
+              </Button>
             }
           />
+          <div className="mb-4 grid grid-cols-1 gap-3 lg:grid-cols-[minmax(220px,1.4fr)_repeat(3,minmax(160px,1fr))]">
+            <div className="relative">
+              <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
+              <Input
+                placeholder="Search name, email, company, or role"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as typeof statusFilter)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All statuses</SelectItem>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="pending">Invite pending</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={roleFilter} onValueChange={setRoleFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="Role" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All roles</SelectItem>
+                {roleOptions.map((role) => (
+                  <SelectItem key={role} value={role}>{getRoleLabel(role)}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={companyFilter} onValueChange={setCompanyFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="Company" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All companies</SelectItem>
+                <SelectItem value="unassigned">No company</SelectItem>
+                {companyOptions.map((company) => (
+                  <SelectItem key={company.id} value={company.id}>{company.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
             {loading ? (
               <div className="flex items-center justify-center py-12">
-                <Loader2 className="w-8 h-8 animate-spin text-purple-600" />
+                <Loader2 className="w-8 h-8 animate-spin text-slate-500" />
               </div>
             ) : (
               <Table>
@@ -566,17 +721,7 @@ export default function UserManagementPage() {
                           <span className="text-sm text-slate-400">-</span>
                         )}
                       </TableCell>
-                      <TableCell>
-                        {(user.invite_status || (user.email_verified ? "active" : "pending")) === "active" ? (
-                          <Badge variant="outline" className="bg-brand-primary/10 text-brand-primary border-brand-primary/20">
-                            Active
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">
-                            Invited · Pending
-                          </Badge>
-                        )}
-                      </TableCell>
+                      <TableCell>{getStatusBadge(user as User)}</TableCell>
                       <TableCell>
                         <span className="text-sm text-slate-500">
                           {new Date(user.created_at).toLocaleDateString()}
@@ -588,14 +733,14 @@ export default function UserManagementPage() {
                               sign in via magic-link, not a set-password
                               invite). Hidden once the user is active so the
                               option isn't shown again and again. */}
-                          {(user.invite_status || (user.email_verified ? "active" : "pending")) !== "active" &&
+                          {getInviteStatus(user as User) !== "active" &&
                             user.role !== "client" && (
                               <Button
-                                variant="ghost"
+                                variant="outline"
                                 size="sm"
                                 disabled={resendingId === user.id}
                                 onClick={() => handleResendInvite(user.id)}
-                                className="text-brand-primary hover:bg-brand-primary/10 gap-1.5"
+                                className="gap-1.5 border-amber-200 text-amber-800 hover:bg-amber-50"
                               >
                                 {resendingId === user.id ? (
                                   <Loader2 className="w-4 h-4 animate-spin" />
@@ -609,7 +754,7 @@ export default function UserManagementPage() {
                             variant="ghost"
                             size="sm"
                             onClick={() => setDeleteUserId(user.id)}
-                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                            className="text-rose-600 hover:text-rose-700 hover:bg-rose-50"
                           >
                             <Trash2 className="w-4 h-4" />
                           </Button>
@@ -619,8 +764,31 @@ export default function UserManagementPage() {
                   ))}
                   {filteredUsers.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center py-12 text-slate-500">
-                        No users found
+                      <TableCell colSpan={6}>
+                        <EmptyState
+                          inCard
+                          icon={hasActiveFilters ? Search : Users}
+                          title={hasActiveFilters ? "No accounts match these filters" : "No users yet"}
+                          description={
+                            hasActiveFilters
+                              ? "Clear the filters or search by another name, email, company, or role."
+                              : "Create the first platform or tenant account to start managing access."
+                          }
+                          cta={
+                            hasActiveFilters
+                              ? {
+                                  label: "Clear filters",
+                                  variant: "outline",
+                                  onClick: () => {
+                                    setSearchTerm("");
+                                    setStatusFilter("all");
+                                    setRoleFilter("all");
+                                    setCompanyFilter("all");
+                                  },
+                                }
+                              : { label: "Add user", onClick: () => setAddUserOpen(true) }
+                          }
+                        />
                       </TableCell>
                     </TableRow>
                   )}
@@ -632,15 +800,18 @@ export default function UserManagementPage() {
         <AlertDialog open={!!deleteUserId} onOpenChange={() => setDeleteUserId(null)}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Delete User</AlertDialogTitle>
+              <AlertDialogTitle className="flex items-center gap-2">
+                <AlertCircle className="h-5 w-5 text-rose-600" />
+                Delete user?
+              </AlertDialogTitle>
               <AlertDialogDescription>
-                Are you sure you want to delete this user? This action cannot be undone and will permanently remove the user and all associated data.
+                {deleteTarget?.full_name || deleteTarget?.email || "This user"} will be permanently removed. This action cannot be undone.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={handleDeleteUser} className="bg-red-600 hover:bg-red-700">
-                Delete User
+              <AlertDialogAction onClick={handleDeleteUser} className="bg-rose-600 hover:bg-rose-700">
+                Delete user
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

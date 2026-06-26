@@ -1,7 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect, useMemo } from "react";
 import { AdminNav } from "@/components/admin/AdminNav";
-import { PortalShell, PortalHeader } from "@/components/portal/ui";
+import { PortalShell, PortalHeader,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LayoutDashboard, TrendingUp, Users, Banknote, Package, Clock, AlertCircle, CheckCircle, Loader2, Calendar, ShoppingCart, FileText } from "lucide-react";
 import Head from "next/head";
@@ -565,7 +567,7 @@ function AdminDashboardPage() {
       <Head><title>Admin dashboard - CateringMS</title></Head>
       <AdminNav />
 
-      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+      <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
 
           {/* Header + date range, date controls every metric below */}
@@ -600,6 +602,7 @@ function AdminDashboardPage() {
               </>
             }
           />
+          <PageWorkbench />
 
           {/* Operator safety net: if no email provider is wired up,
               every send silently fails. Show the banner directly under
@@ -726,7 +729,7 @@ function AdminDashboardPage() {
               hint="Currently in progress"
               tooltip={"Orders the kitchen and drivers are working on right now. Anything confirmed, in prep, ready, or out for delivery in this period."}
               icon={ShoppingCart}
-              iconColor="text-purple-600"
+              iconColor="text-slate-600"
               badge={{ text: "In progress", tone: "purple" }}
               loading={loading}
               href={withSlug("/admin/orders")}
@@ -819,7 +822,7 @@ function AdminDashboardPage() {
               hint="Today or later, not cancelled"
               tooltip={"Events in this period that are dated today or later and have not yet been completed or cancelled. What the team is heading into next.\n\nDifferent from Active Orders: Upcoming includes pending orders; Active counts only confirmed/preparing/ready/in_transit."}
               icon={Calendar}
-              iconColor="text-indigo-600"
+              iconColor="text-blue-600"
               loading={loading}
               href={withSlug("/admin/calendar")}
             />
@@ -1105,7 +1108,7 @@ function AdminDashboardPage() {
                        which is the catalogue). */}
                   {stats.shortfallItems > 0 && (
                     <PriorityRow
-                      icon={AlertCircle} accent="border-red-500" iconColor="text-red-600"
+                      icon={AlertCircle} accent="border-rose-500" iconColor="text-rose-600"
                       title={`${stats.shortfallItems} Stock Shortfall${stats.shortfallItems !== 1 ? "s" : ""}`}
                       sub="Confirmed orders in the next 7 days need more than you have on hand"
                       cta={{ href: withSlug("/admin/shopping"), label: "Shop now", variant: "default" }}
@@ -1194,7 +1197,7 @@ function AdminDashboardPage() {
                   <div className="relative flex-shrink-0">
                     <ShoppingCart className="w-5 h-5 sm:w-6 sm:h-6 text-amber-600" />
                     {stats.lowStockItems > 0 && (
-                      <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-red-500 rounded-full text-[9px] text-white flex items-center justify-center font-bold leading-none">
+                      <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-rose-500 rounded-full text-[9px] text-white flex items-center justify-center font-bold leading-none">
                         {stats.lowStockItems > 9 ? "9+" : stats.lowStockItems}
                       </span>
                     )}
@@ -1237,7 +1240,7 @@ function AdminDashboardPage() {
                   <div className="relative flex-shrink-0">
                     <Package className="w-5 h-5 sm:w-6 sm:h-6 text-brand-primary" />
                     {stats.lowStockItems > 0 && (
-                      <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-red-500 rounded-full text-[9px] text-white flex items-center justify-center font-bold leading-none">
+                      <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-rose-500 rounded-full text-[9px] text-white flex items-center justify-center font-bold leading-none">
                         {stats.lowStockItems > 9 ? "9+" : stats.lowStockItems}
                       </span>
                     )}
@@ -1274,7 +1277,7 @@ function PriorityRow({
   icon: Icon, accent, iconColor, title, sub, cta,
 }: any) {
   return (
-    <div className={`flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3 sm:p-4 bg-white rounded-lg border-l-4 ${accent}`}>
+    <div className={`flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-lg border bg-white p-3 shadow-sm sm:p-4 ${accent}`}>
       <div className="flex items-center gap-2 sm:gap-3">
         <Icon className={`w-4 h-4 sm:w-5 sm:h-5 ${iconColor} flex-shrink-0`} />
         <div>

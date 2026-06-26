@@ -22,7 +22,9 @@ import { Input } from "@/components/ui/input";
 import { Star, AlertTriangle, RefreshCw, MessageSquareText, Search, CheckCircle2, ExternalLink, Loader2 } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
-import { PortalShell, PortalHeader } from "@/components/portal/ui";
+import { PortalShell, PortalHeader,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRegionFilter } from "@/contexts/RegionFilterContext";
 import { useToast } from "@/hooks/use-toast";
@@ -196,7 +198,7 @@ export default function AdminReviewsPage() {
       <Head><title>Reviews - CateringMS</title></Head>
       <NoIndexMeta />
       <AdminNav />
-      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+      <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <PortalHeader
             title="Reviews"
@@ -215,6 +217,7 @@ export default function AdminReviewsPage() {
             </>
             }
           />
+          <PageWorkbench />
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-6">
             <Card><CardContent className="p-4">

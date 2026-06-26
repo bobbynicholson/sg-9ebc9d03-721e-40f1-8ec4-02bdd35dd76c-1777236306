@@ -47,6 +47,7 @@ import { supplierService, type SupplierWithStats } from "@/services/supplierServ
 import { useTenantHref } from "@/lib/tenantUrl";
 import { supabase } from "@/integrations/supabase/client";
 import { captureException } from "@/lib/observability";
+import { PageWorkbench } from "@/components/portal/ui";
 
 const fmtR = (v: number | null | undefined) =>
   v == null ? "-" : `R ${Number(v).toLocaleString("en-ZA", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
@@ -233,8 +234,9 @@ function SuppliersList() {
       <Head><title>Suppliers - CateringMS</title></Head>
       <AdminNav />
 
-      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
+      <div className="admin-page-shell">
         <div className="px-3 sm:px-4 md:px-6 pt-20 lg:pt-6 pb-6 max-w-full">
+          <PageWorkbench className="mb-5" />
 
           <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex items-center gap-3 min-w-0">
@@ -260,7 +262,7 @@ function SuppliersList() {
               </Button>
               <Button
                 onClick={() => setAdding(true)}
-                className="bg-gradient-to-r from-brand-primary to-brand-secondary text-white"
+                className="bg-brand-primary text-white"
               >
                 <Plus className="w-4 h-4 mr-1.5" /> Add supplier
               </Button>
@@ -930,7 +932,7 @@ function SupplierFormDialog({
 
         <DialogFooter>
           <Button variant="ghost" onClick={onClose} disabled={saving}>Cancel</Button>
-          <Button onClick={save} disabled={saving} className="bg-gradient-to-r from-brand-primary to-brand-secondary text-white">
+          <Button onClick={save} disabled={saving} className="bg-brand-primary text-white">
             {saving ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : null}
             {editing ? "Save changes" : "Add supplier"}
           </Button>
@@ -1293,7 +1295,7 @@ A1 Chicken,,orders@a1chicken.co.za,0215551236,,,COD on delivery,Meat;Fresh`;
           <Button
             onClick={runImport}
             disabled={rows.length === 0 || busy}
-            className="bg-gradient-to-r from-brand-primary to-brand-secondary text-white"
+            className="bg-brand-primary text-white"
           >
             {busy ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Upload className="w-4 h-4 mr-1.5" />}
             Import {rows.filter((r) => !r._error).length}

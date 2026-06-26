@@ -32,6 +32,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { ChatBot } from "@/components/ChatBot";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
+import { PageWorkbench } from "@/components/portal/ui";
 
 interface ImportJobRow {
   id: string;
@@ -52,7 +53,7 @@ interface ImportJobRow {
 const STATUS_META: Record<string, { label: string; tone: string }> = {
   uploaded:   { label: "Awaiting AI mapping", tone: "bg-amber-100 text-amber-700 border-amber-200" },
   mapped:     { label: "Mapped",              tone: "bg-blue-100 text-blue-700 border-blue-200" },
-  previewed:  { label: "Preview ready",       tone: "bg-purple-100 text-purple-700 border-purple-200" },
+  previewed:  { label: "Preview ready",       tone: "bg-slate-100 text-slate-700 border-slate-200" },
   committing: { label: "Committing...",       tone: "bg-blue-100 text-blue-700 border-blue-200" },
   completed:  { label: "Completed",           tone: "bg-brand-primary/15 text-brand-primary border-brand-primary/20" },
   failed:     { label: "Failed",              tone: "bg-rose-100 text-rose-700 border-rose-200" },
@@ -206,8 +207,9 @@ function ImportsHistoryPage() {
 
       <AdminNav />
 
-      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
+      <div className="admin-page-shell">
         <div className="px-4 sm:px-6 pt-20 lg:pt-8 pb-12 max-w-full">
+          <PageWorkbench className="mb-5" />
 
           {/* Header */}
           <div className="mb-6 flex items-center justify-between flex-wrap gap-3">
@@ -226,7 +228,7 @@ function ImportsHistoryPage() {
               </div>
             </div>
             <Link href={`${slugPrefix}/admin/onboarding/import`}>
-              <Button className="bg-gradient-to-r from-brand-primary to-brand-secondary">
+              <Button className="bg-brand-primary">
                 <Upload className="w-4 h-4 mr-1.5" /> New import
               </Button>
             </Link>
@@ -293,10 +295,10 @@ function ImportsHistoryPage() {
             </Link>
             <Link
               href={`${slugPrefix}/admin/onboarding/import`}
-              className="group rounded-xl border border-purple-200 bg-gradient-to-br from-purple-50 to-white p-4 hover:shadow-md transition-shadow flex flex-col"
+              className="group rounded-xl border border-slate-200 bg-gradient-to-br from-slate-50 to-white p-4 hover:shadow-md transition-shadow flex flex-col"
             >
               <div className="flex items-center gap-2 mb-2">
-                <span className="w-8 h-8 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center flex-shrink-0">
+                <span className="w-8 h-8 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center flex-shrink-0">
                   <Wand2 className="w-4 h-4" />
                 </span>
                 <span className="font-semibold text-slate-900 flex items-center gap-1.5">
@@ -304,11 +306,11 @@ function ImportsHistoryPage() {
                   <InfoTooltip content={"For richer files. Drop a spreadsheet of clients, leads, orders, quotes, invoices or payments even if the column headings are weird. We map the columns to our schema, you preview every row, then commit when it looks right.\n\nSix templates available on the next screen, or download the combined onboarding workbook with all six tabs in one .xlsx. Supports up to 5,000 rows per upload."} />
                 </span>
               </div>
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-purple-800 mb-1">Use when</p>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-800 mb-1">Use when</p>
               <p className="text-xs text-slate-700 mb-2">
                 You've got a richer file or want to use our templates. Mixed columns, weird headers, or a workbook with multiple tabs (clients, leads, orders, quotes, invoices, payments). We map the columns and you preview every row.
               </p>
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-purple-800 mb-1">You get</p>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-800 mb-1">You get</p>
               <p className="text-xs text-slate-600">
                 Full history linked together. Past orders attached to clients, payments against invoices, the lot. Six templates downloadable on the next screen.
               </p>
@@ -354,7 +356,7 @@ function ImportsHistoryPage() {
                   </p>
                 </div>
                 <Link href={`${slugPrefix}/admin/onboarding/import`}>
-                  <Button className="bg-gradient-to-r from-brand-primary to-brand-secondary">
+                  <Button className="bg-brand-primary">
                     <Upload className="w-4 h-4 mr-1.5" /> Run your first import
                   </Button>
                 </Link>

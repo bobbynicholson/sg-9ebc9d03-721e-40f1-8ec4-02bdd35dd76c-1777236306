@@ -11,7 +11,9 @@
  */
 import { useEffect, useMemo, useState } from "react";
 import Head from "next/head";
-import { PortalShell, PortalHeader, PortalCard } from "@/components/portal/ui";
+import { PortalShell, PortalHeader, PortalCard,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -129,7 +131,7 @@ function TaxRulesAdmin() {
       <NoIndexMeta />
       <Head><title>SA tax rules - CateringMS</title></Head>
 
-      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+      <div className="admin-page-shell">
         <PlatformNav />
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
 
@@ -140,12 +142,12 @@ function TaxRulesAdmin() {
             actions={
               <Button
                 onClick={() => setAdding(true)}
-                className="bg-gradient-to-r from-brand-primary to-brand-secondary text-white"
               >
                 <Plus className="w-4 h-4 mr-1.5" /> Add rule
               </Button>
             }
           />
+          <PageWorkbench />
 
           {/* Filters */}
           <PortalCard className="mb-4">
@@ -560,7 +562,7 @@ function RuleFormDialog({
 
         <DialogFooter>
           <Button variant="ghost" onClick={onClose} disabled={saving}>Cancel</Button>
-          <Button onClick={save} disabled={saving} className="bg-gradient-to-r from-brand-primary to-brand-secondary text-white">
+          <Button onClick={save} disabled={saving}>
             {saving ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Save className="w-4 h-4 mr-1.5" />}
             {editing ? "Save changes" : "Add rule"}
           </Button>

@@ -15,7 +15,9 @@ import Head from "next/head";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { PlatformNav } from "@/components/admin/PlatformNav";
-import { PortalShell, PortalHeader, PortalCard, PortalCardHeader, StatTile } from "@/components/portal/ui";
+import { PortalShell, PortalHeader, PortalCard, PortalCardHeader, StatTile,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useSortable, type ColumnDef } from "@/lib/useSortable";
@@ -102,7 +104,7 @@ function PlatformFinancialDashboard() {
         <title>Platform financial dashboard - CateringMS</title>
         <meta name="robots" content="noindex, nofollow" />
       </Head>
-      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+      <div className="admin-page-shell">
         <PlatformNav />
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <PortalHeader
@@ -116,6 +118,7 @@ function PlatformFinancialDashboard() {
               </Button>
             }
           />
+          <PageWorkbench />
 
           {/* Stat tiles */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">

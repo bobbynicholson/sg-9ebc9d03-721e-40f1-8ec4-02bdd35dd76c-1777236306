@@ -3,7 +3,9 @@ import { useRouter } from "next/router";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import { useAuth } from "@/contexts/AuthContext";
 import { PlatformNav } from "@/components/admin/PlatformNav";
-import { PortalShell, PortalHeader, PortalCard, PortalCardHeader, StatTile } from "@/components/portal/ui";
+import { PortalShell, PortalHeader, PortalCard, PortalCardHeader, StatTile,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -413,11 +415,11 @@ export default function CompanyDatabasePage() {
 
   if (profile?.active_role !== "super_admin") {
     return (
-      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+      <div className="admin-page-shell">
         <PlatformNav />
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <PortalCard className="p-12 text-center">
-            <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+            <AlertCircle className="w-12 h-12 text-rose-500 mx-auto mb-4" />
             <h2 className="text-2xl font-bold mb-2 text-slate-900 dark:text-white">Access Denied</h2>
             <p className="text-slate-600 dark:text-slate-400">
               You need super admin permissions to access this page.
@@ -429,7 +431,7 @@ export default function CompanyDatabasePage() {
   }
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+    <div className="admin-page-shell">
       <PlatformNav />
 
       <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
@@ -454,6 +456,7 @@ export default function CompanyDatabasePage() {
             />
           }
         />
+        <PageWorkbench />
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
@@ -477,7 +480,7 @@ export default function CompanyDatabasePage() {
           />
           <StatTile
             label="Total Users"
-            value={<span className="text-purple-600 dark:text-purple-500">{companies.reduce((sum, c) => sum + (c.total_users || 0), 0)}</span>}
+            value={<span className="text-slate-700 dark:text-slate-300">{companies.reduce((sum, c) => sum + (c.total_users || 0), 0)}</span>}
             hint="Across every tenant"
             icon={Users}
           />
@@ -651,7 +654,7 @@ export default function CompanyDatabasePage() {
                                 handleDeleteCompany(company.id, company.company_name)
                               }
                             >
-                              <Trash2 className="w-4 h-4 text-red-500" />
+                              <Trash2 className="w-4 h-4 text-rose-500" />
                             </Button>
                           </div>
                         </TableCell>

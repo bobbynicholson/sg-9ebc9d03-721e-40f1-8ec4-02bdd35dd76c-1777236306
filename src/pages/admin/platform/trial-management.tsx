@@ -10,7 +10,9 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { CheckCircle, CalendarPlus, Clock, RefreshCw, Crown, Calendar } from "lucide-react";
 import { PlatformNav } from "@/components/admin/PlatformNav";
-import { PortalShell, PortalHeader, PortalCard, PortalCardHeader, StatTile } from "@/components/portal/ui";
+import { PortalShell, PortalHeader, PortalCard, PortalCardHeader, StatTile,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { toast } from "@/hooks/use-toast";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 
@@ -268,7 +270,7 @@ export default function TrialManagementPage() {
       "7_days": { label: "7 Days", color: "bg-blue-500" },
       "3_days": { label: "3 Days", color: "bg-yellow-500" },
       "1_day": { label: "1 Day", color: "bg-orange-500" },
-      "expired": { label: "Expired", color: "bg-red-500" }
+      "expired": { label: "Expired", color: "bg-rose-500" }
     };
 
     const config = typeMap[type] || { label: type, color: "bg-gray-500" };
@@ -276,7 +278,7 @@ export default function TrialManagementPage() {
   };
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+    <div className="admin-page-shell">
       <PlatformNav />
       <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
         <PortalHeader
@@ -296,6 +298,7 @@ export default function TrialManagementPage() {
             </>
           }
         />
+        <PageWorkbench />
 
         {loading ? (
           <PortalCard className="flex items-center justify-center py-16">
@@ -325,12 +328,12 @@ export default function TrialManagementPage() {
               />
               <StatTile
                 label="Within 1 day"
-                value={<span className="text-red-600 dark:text-red-500">{stats.expiringIn1Day}</span>}
+                value={<span className="text-rose-600 dark:text-rose-500">{stats.expiringIn1Day}</span>}
                 hint="Final reminder"
               />
               <StatTile
                 label="Expired"
-                value={<span className="text-red-700 dark:text-red-400">{stats.expired}</span>}
+                value={<span className="text-rose-700 dark:text-rose-400">{stats.expired}</span>}
                 hint="Convert or cancel"
               />
             </div>

@@ -26,7 +26,9 @@ import Link from "next/link";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
-import { PortalShell, PortalHeader } from "@/components/portal/ui";
+import { PortalShell, PortalHeader,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { AddressAutocomplete } from "@/components/admin/AddressAutocomplete";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { COUNTRIES, getCountry, type CountryCode } from "@/lib/regionGeography";
@@ -694,7 +696,7 @@ function RegionsPage() {
       </Head>
       <AdminNav />
 
-      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+      <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
 
           <PortalHeader
@@ -790,7 +792,7 @@ function RegionsPage() {
                   "Add Branch" affordance for REGION_ADMIN since they
                   can only edit branches they already manage. */}
               {canCreateBranch && (
-                <Button onClick={openCreateDialog} className="bg-gradient-to-r from-brand-primary to-brand-secondary hover:opacity-90 gap-2">
+                <Button onClick={openCreateDialog} className="bg-brand-primary hover:opacity-90 gap-2">
                   <Plus className="w-4 h-4" />
                   Add Branch
                 </Button>
@@ -798,6 +800,7 @@ function RegionsPage() {
             </>
             }
           />
+          <PageWorkbench />
 
           {/* REG-D (regions follow-ups): unlinked-staff banner. Pre-
               REG-D the page never surfaced HOW MANY staff weren't
@@ -828,7 +831,7 @@ function RegionsPage() {
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
             <StatTile label="Active branches" value={stats.active} accent="text-brand-primary" tooltip={"Branches that are currently switched on and accepting work."} />
-            <StatTile label="Open quotes" value={stats.openQuotes} accent="text-purple-600" tooltip={"Quotes in draft or sent state across every branch."} />
+            <StatTile label="Open quotes" value={stats.openQuotes} accent="text-slate-600" tooltip={"Quotes in draft or sent state across every branch."} />
             {/* REG-B (regions audit, REG-3): label clarification. The
                 pre-REG-B labels said "MTD orders / MTD revenue", which
                 operators read as "booked this month". The underlying
@@ -847,7 +850,7 @@ function RegionsPage() {
           </div>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
             <StatTile label="Total regions" value={stats.total} tooltip={"How many regions you have set up for your business."} />
-            <StatTile label="Countries" value={stats.countries} accent="text-purple-600" tooltip={"How many different countries you operate in across your regions."} />
+            <StatTile label="Countries" value={stats.countries} accent="text-slate-600" tooltip={"How many different countries you operate in across your regions."} />
             <StatTile label="Linked staff" value={stats.totalStaff} accent="text-blue-600" tooltip={"Total staff members linked to any region."} />
           </div>
 
@@ -906,7 +909,7 @@ function RegionsPage() {
                         </Button>
                         {canDeleteBranch(region) && (
                           <Button variant="ghost" size="sm" onClick={() => handleDelete(region)} title="Delete branch">
-                            <Trash2 className="w-4 h-4 text-red-600" />
+                            <Trash2 className="w-4 h-4 text-rose-600" />
                           </Button>
                         )}
                       </div>
@@ -930,7 +933,7 @@ function RegionsPage() {
                       <button
                         type="button"
                         onClick={() => setAssignStaffRegion(region)}
-                        className="text-left rounded-md transition hover:ring-2 hover:ring-purple-200 focus:outline-none focus:ring-2 focus:ring-purple-300"
+                        className="text-left rounded-md transition hover:ring-2 hover:ring-slate-200 focus:outline-none focus:ring-2 focus:ring-slate-300"
                       >
                         <MiniStat icon={Users} label="Staff" value={region.staff_count || 0} tooltip={"Staff members linked to this branch. Click to assign."} />
                       </button>
@@ -1069,7 +1072,7 @@ function RegionsPage() {
                               <Badge
                                 key={c.label}
                                 variant="outline"
-                                className="bg-purple-50 border-purple-200 text-purple-800 text-xs"
+                                className="bg-slate-50 border-slate-200 text-slate-800 text-xs"
                               >
                                 <span className="font-normal mr-1">{c.label}:</span>
                                 <span className="font-semibold tabular-nums">{c.value}</span>
@@ -1086,7 +1089,7 @@ function RegionsPage() {
           )}
 
           <div className="mt-12 text-sm">
-            <Link href={withSlug("/admin/dashboard")} className="text-purple-600 hover:underline inline-flex items-center gap-1">
+            <Link href={withSlug("/admin/dashboard")} className="text-slate-600 hover:underline inline-flex items-center gap-1">
               <ArrowLeft className="w-4 h-4" /> Back to dashboard
             </Link>
           </div>
@@ -1405,7 +1408,7 @@ function RegionsPage() {
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setCreateOpen(false)} disabled={submitting}>Cancel</Button>
-            <Button onClick={handleSave} disabled={submitting} className="bg-gradient-to-r from-brand-primary to-brand-secondary hover:opacity-90 gap-2">
+            <Button onClick={handleSave} disabled={submitting} className="bg-brand-primary hover:opacity-90 gap-2">
               {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
               {editing ? "Save changes" : "Create branch"}
             </Button>
@@ -1525,7 +1528,7 @@ function AssignStaffDialog({
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Users className="w-5 h-5 text-purple-600" />
+            <Users className="w-5 h-5 text-slate-600" />
             Assign staff to {region.name}
           </DialogTitle>
           <DialogDescription>
@@ -1554,7 +1557,7 @@ function AssignStaffDialog({
             const cur = currentRegionFor(s);
             const isHere = cur === region.id;
             return (
-              <div key={s.id} className={`flex items-center gap-3 px-3 py-2 border-b border-slate-100 last:border-0 ${isHere ? "bg-purple-50/40" : ""}`}>
+              <div key={s.id} className={`flex items-center gap-3 px-3 py-2 border-b border-slate-100 last:border-0 ${isHere ? "bg-slate-50/40" : ""}`}>
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium text-slate-900 truncate">{s.full_name || s.email}</p>
                   <p className="text-[11px] text-slate-500">

@@ -21,7 +21,9 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toLocalISO } from "@/lib/localDate";
 import { AdminNav } from "@/components/admin/AdminNav";
-import { PortalShell, PortalHeader } from "@/components/portal/ui";
+import { PortalShell, PortalHeader,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -86,7 +88,7 @@ const entityHref = (entityType: string, entityId: string | null): string | null 
 // Tone the row border by action class so eyes parse the stream
 // without reading every word.
 const toneFor = (action: string): string => {
-  if (action.includes("fail") || action.includes("error")) return "border-l-red-500 bg-red-50/40";
+  if (action.includes("fail") || action.includes("error")) return "border-l-red-500 bg-rose-50/40";
   if (action.includes("refund") || action.includes("cancel")) return "border-l-amber-500 bg-amber-50/40";
   if (action.includes("delete") || action.includes("removed")) return "border-l-rose-400 bg-rose-50/40";
   return "border-l-slate-300 bg-white";
@@ -333,7 +335,7 @@ function CompanyAuditLogsViewer() {
       <Head><title>Audit logs - CateringMS</title></Head>
       <NoIndexMeta />
       <AdminNav />
-      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+      <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <PortalHeader
             title="Audit logs"
@@ -357,6 +359,7 @@ function CompanyAuditLogsViewer() {
             </>
             }
           />
+          <PageWorkbench />
           <div className="space-y-6">
             {oldestEntryAt && (() => {
               const days = Math.max(
@@ -454,8 +457,8 @@ function CompanyAuditLogsViewer() {
                     }}
                     className={`inline-flex items-center rounded-full text-xs px-2.5 py-0.5 border transition ${
                       actionFilter === "pii_access"
-                        ? "border-violet-700 bg-violet-900 text-white"
-                        : "border-violet-200 bg-violet-50 text-violet-700 hover:border-violet-400 hover:text-violet-900"
+                        ? "border-slate-700 bg-slate-900 text-white"
+                        : "border-slate-200 bg-slate-50 text-slate-700 hover:border-slate-400 hover:text-slate-900"
                     }`}
                     title="Filter to PII access events - who viewed contact details, financial info, etc. Required for POPIA Subject Access Requests."
                   >
@@ -493,7 +496,7 @@ function CompanyAuditLogsViewer() {
                     ops slices that recur. */}
                 <div className="mt-3 flex flex-wrap items-center gap-1.5">
                   {savedAuditViews.map((v) => (
-                    <span key={v.id} className="inline-flex items-center gap-1 rounded-full border border-purple-200 bg-purple-50 text-purple-700 text-xs">
+                    <span key={v.id} className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 text-slate-700 text-xs">
                       <button
                         type="button"
                         onClick={() => applySavedAuditView(v)}
@@ -505,7 +508,7 @@ function CompanyAuditLogsViewer() {
                       <button
                         type="button"
                         onClick={() => removeSavedAuditView(v.id)}
-                        className="pr-1.5 text-purple-500 hover:text-purple-800"
+                        className="pr-1.5 text-slate-500 hover:text-slate-800"
                         title="Remove this view"
                       >
                         ×
@@ -515,7 +518,7 @@ function CompanyAuditLogsViewer() {
                   <button
                     type="button"
                     onClick={saveCurrentAuditView}
-                    className="inline-flex items-center gap-1 rounded-full border border-dashed border-slate-300 text-slate-500 text-xs px-2.5 py-0.5 hover:border-purple-300 hover:text-purple-700"
+                    className="inline-flex items-center gap-1 rounded-full border border-dashed border-slate-300 text-slate-500 text-xs px-2.5 py-0.5 hover:border-slate-300 hover:text-slate-700"
                     title="Save the current filter combination as a named view"
                   >
                     + Save view

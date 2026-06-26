@@ -21,7 +21,9 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { AdminNav } from "@/components/admin/AdminNav";
-import { PortalShell, PortalHeader } from "@/components/portal/ui";
+import { PortalShell, PortalHeader,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -560,7 +562,7 @@ function VehiclesPage() {
       <Head><title>Vehicles - CateringMS</title></Head>
       <AdminNav />
 
-      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+      <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
 
           <PortalHeader
@@ -597,6 +599,7 @@ function VehiclesPage() {
             </>
             }
           />
+          <PageWorkbench />
 
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
             <Card className="border-0 shadow-sm">
@@ -608,13 +611,13 @@ function VehiclesPage() {
                 <p className="text-3xl font-bold text-slate-900">{stats.total}</p>
               </CardContent>
             </Card>
-            <Card className="border-0 shadow-sm bg-gradient-to-br from-indigo-50 to-indigo-100">
+            <Card className="border-0 shadow-sm bg-gradient-to-br from-blue-50 to-blue-100">
               <CardContent className="pt-5 pb-4">
-                <p className="text-xs uppercase tracking-wide text-indigo-700 font-semibold mb-1 flex items-center gap-1.5">
+                <p className="text-xs uppercase tracking-wide text-blue-700 font-semibold mb-1 flex items-center gap-1.5">
                   <Building2 className="w-3 h-3" />
                   Company
                 </p>
-                <p className="text-3xl font-bold text-indigo-900">{stats.company}</p>
+                <p className="text-3xl font-bold text-blue-900">{stats.company}</p>
               </CardContent>
             </Card>
             <Card className="border-0 shadow-sm bg-gradient-to-br from-amber-50 to-amber-100">
@@ -660,7 +663,7 @@ function VehiclesPage() {
               <AlertTriangle className="w-4 h-4 text-amber-700" />
               <span className="text-xs font-medium text-amber-900">Vehicle maintenance:</span>
               {serviceRollup.overdue > 0 && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-red-100 border border-red-300 text-red-800 text-xs px-2 py-0.5">
+                <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 border border-rose-300 text-rose-800 text-xs px-2 py-0.5">
                   <span className="font-semibold">{serviceRollup.overdue}</span> overdue
                 </span>
               )}
@@ -685,7 +688,7 @@ function VehiclesPage() {
                 onClick={() => setTab(t.id)}
                 className={`px-4 py-1.5 rounded-md ${
                   tab === t.id
-                    ? "bg-indigo-100 text-indigo-700 font-medium"
+                    ? "bg-blue-100 text-blue-700 font-medium"
                     : "text-slate-600 hover:bg-slate-50"
                 }`}
               >
@@ -713,7 +716,7 @@ function VehiclesPage() {
                 placeholder="Search by plate, nickname, make or model (press /)"
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                className="w-full pl-9 pr-9 py-2 text-sm border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full pl-9 pr-9 py-2 text-sm border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
               {/* Phase 25 #8: clear-search affordance. */}
               {search && (
@@ -742,7 +745,7 @@ function VehiclesPage() {
                   onClick={() => setFilter(p.id)}
                   className={`px-3 py-1.5 rounded-md ${
                     filter === p.id
-                      ? "bg-indigo-100 text-indigo-700 font-medium"
+                      ? "bg-blue-100 text-blue-700 font-medium"
                       : "text-slate-600 hover:bg-slate-50"
                   }`}
                 >
@@ -756,7 +759,7 @@ function VehiclesPage() {
           <div className="rounded-lg border border-slate-200 bg-white shadow-sm overflow-hidden">
             {loading ? (
               <div className="text-center py-12">
-                <div className="animate-spin w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full mx-auto mb-3" />
+                <div className="animate-spin w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full mx-auto mb-3" />
                 <p className="text-sm text-slate-500">Loading...</p>
               </div>
             ) : filtered.length === 0 ? (
@@ -803,7 +806,7 @@ function VehiclesPage() {
                               {v.driver_owner_id ? driverNameById[v.driver_owner_id] || "Driver-owned" : "Driver-owned"}
                             </Badge>
                           ) : (
-                            <Badge className="bg-indigo-100 text-indigo-800 border-0 text-[10px] gap-1">
+                            <Badge className="bg-blue-100 text-blue-800 border-0 text-[10px] gap-1">
                               <Building2 className="w-3 h-3" />
                               Company
                             </Badge>
@@ -842,7 +845,7 @@ function VehiclesPage() {
                       <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => openEdit(v)} title="Edit">
                         <Edit className="w-4 h-4" />
                       </Button>
-                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50" onClick={() => setDeleteTarget(v)} title="Delete">
+                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-rose-500 hover:text-rose-700 hover:bg-rose-50" onClick={() => setDeleteTarget(v)} title="Delete">
                         <Trash2 className="w-4 h-4" />
                       </Button>
                     </div>
@@ -915,8 +918,8 @@ function VehiclesPage() {
                     onClick={() => setForm({ ...form, owner_kind: "company", driver_owner_id: "" })}
                     className={`px-3 py-2 rounded-md border text-sm flex items-center gap-2 ${
                       form.owner_kind === "company"
-                        ? "bg-indigo-600 text-white border-indigo-600"
-                        : "bg-white text-slate-700 border-slate-200 hover:border-indigo-300"
+                        ? "bg-blue-600 text-white border-blue-600"
+                        : "bg-white text-slate-700 border-slate-200 hover:border-blue-300"
                     }`}
                   >
                     <Building2 className="w-4 h-4" /> Company-owned
@@ -1109,7 +1112,7 @@ function VehiclesPage() {
             )}
 
             {error && (
-              <div className="flex items-start gap-2 text-sm text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-2">
+              <div className="flex items-start gap-2 text-sm text-rose-700 bg-rose-50 border border-rose-200 rounded-md px-3 py-2">
                 <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
                 <span>{error}</span>
               </div>
@@ -1262,7 +1265,7 @@ function VehiclesPage() {
       <Dialog open={!!deleteTarget} onOpenChange={open => !open && setDeleteTarget(null)}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-red-700">Remove {deleteTarget?.plate}?</DialogTitle>
+            <DialogTitle className="text-rose-700">Remove {deleteTarget?.plate}?</DialogTitle>
           </DialogHeader>
           <div className="text-sm text-slate-700 space-y-2">
             <p>
@@ -1342,7 +1345,7 @@ function UtilisationView({
               onClick={() => onDaysChange(n)}
               className={`px-3 py-1.5 rounded-md ${
                 days === n
-                  ? "bg-indigo-100 text-indigo-700 font-medium"
+                  ? "bg-blue-100 text-blue-700 font-medium"
                   : "text-slate-600 hover:bg-slate-50"
               }`}
             >
@@ -1362,7 +1365,7 @@ function UtilisationView({
       <div className="rounded-lg border border-slate-200 bg-white shadow-sm overflow-hidden">
         {loading ? (
           <div className="text-center py-12">
-            <div className="animate-spin w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full mx-auto mb-3" />
+            <div className="animate-spin w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full mx-auto mb-3" />
             <p className="text-sm text-slate-500">Crunching bookings...</p>
           </div>
         ) : rows.length === 0 ? (
@@ -1413,7 +1416,7 @@ function UtilisationView({
                       <div className="inline-flex items-center gap-2">
                         <span>{share.toFixed(0)}%</span>
                         <div className="w-16 h-1.5 rounded-full bg-slate-100 overflow-hidden">
-                          <div className="h-full bg-indigo-500" style={{ width: `${Math.min(100, share)}%` }} />
+                          <div className="h-full bg-blue-500" style={{ width: `${Math.min(100, share)}%` }} />
                         </div>
                       </div>
                     </td>

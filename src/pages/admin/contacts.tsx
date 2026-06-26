@@ -42,7 +42,9 @@ import { ImportRecordsModal } from "@/components/admin/ImportRecordsModal";
 import { Checkbox } from "@/components/ui/checkbox";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
-import { PortalShell, PortalHeader } from "@/components/portal/ui";
+import { PortalShell, PortalHeader,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { TopClientsWidget } from "@/components/admin/TopClientsWidget";
 import { WidgetErrorBoundary } from "@/components/dashboard/WidgetErrorBoundary";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
@@ -126,19 +128,19 @@ interface Contact {
 const STATUS_META: Record<ClientStatus, {
   label: string; tone: string; icon: typeof Flame;
 }> = {
-  hot_lead:  { label: "Hot lead",     tone: "bg-red-100 text-red-700 border-red-200",         icon: Flame },
+  hot_lead:  { label: "Hot lead",     tone: "bg-rose-100 text-rose-700 border-rose-200",         icon: Flame },
   quoted:    { label: "Quoted",       tone: "bg-orange-100 text-orange-700 border-orange-200", icon: Mail },
   won:       { label: "Won",          tone: "bg-brand-primary/15 text-brand-primary border-brand-primary/20", icon: CheckCircle2 },
   active:    { label: "Active",       tone: "bg-brand-primary/15 text-brand-primary border-brand-primary/20",   icon: Sparkles },
   returning: { label: "Returning",    tone: "bg-blue-100 text-blue-700 border-blue-200",       icon: RefreshCw },
-  vip:       { label: "VIP",          tone: "bg-purple-100 text-purple-700 border-purple-200", icon: Crown },
+  vip:       { label: "VIP",          tone: "bg-slate-100 text-slate-700 border-slate-200", icon: Crown },
   quiet:     { label: "Quiet",        tone: "bg-amber-100 text-amber-700 border-amber-200",   icon: Clock },
   cold:      { label: "Cold",         tone: "bg-slate-100 text-slate-600 border-slate-200",   icon: Snowflake },
   lost:      { label: "Lost",         tone: "bg-rose-100 text-rose-700 border-rose-200",      icon: AlertTriangle },
   // Wave 70.72: imported. Bulk-CSV contacts that have never
   // interacted - distinct from "cold" (used to be active, now
   // quiet). Violet so it doesn't look like an action state.
-  imported:  { label: "Imported",     tone: "bg-violet-100 text-violet-700 border-violet-200", icon: Mail },
+  imported:  { label: "Imported",     tone: "bg-slate-100 text-slate-700 border-slate-200", icon: Mail },
 };
 
 // Every status in STATUS_META gets a pill so the segment counts add up to the
@@ -1095,7 +1097,7 @@ function ClientsCRM() {
       <Head><title>Contacts - CateringMS</title></Head>
       <AdminNav />
 
-      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+      <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
 
           <PortalHeader
@@ -1113,6 +1115,7 @@ function ClientsCRM() {
                   onChange={(e) => setSearch(e.target.value)}
                   className="pl-9 pr-9 w-64 sm:w-80"
                 />
+          <PageWorkbench />
                 {/* Phase 24 #9: clear-search affordance, matching
                     /admin/orders + /admin/quotes. */}
                 {search && (
@@ -1219,7 +1222,7 @@ function ClientsCRM() {
               </Button>
               <Button
                 onClick={() => { setEditing(null); setFormOpen(true); }}
-                className="gap-1.5 bg-gradient-to-r from-brand-primary to-brand-secondary text-white hover:opacity-90"
+                className="gap-1.5 bg-brand-primary text-white hover:opacity-90"
               >
                 <Plus className="w-4 h-4" /> Add contact
               </Button>
@@ -1278,7 +1281,7 @@ function ClientsCRM() {
               with one click. */}
           <div className="mb-3 flex flex-wrap items-center gap-1.5">
             {savedContactViews.map((v) => (
-              <span key={v.id} className="inline-flex items-center gap-1 rounded-full border border-purple-200 bg-purple-50 text-purple-700 text-xs">
+              <span key={v.id} className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 text-slate-700 text-xs">
                 <button
                   type="button"
                   onClick={() => applySavedContactView(v)}
@@ -1290,7 +1293,7 @@ function ClientsCRM() {
                 <button
                   type="button"
                   onClick={() => removeSavedContactView(v.id)}
-                  className="pr-1.5 text-purple-500 hover:text-purple-800"
+                  className="pr-1.5 text-slate-500 hover:text-slate-800"
                   title="Remove this view"
                 >
                   ×
@@ -1300,7 +1303,7 @@ function ClientsCRM() {
             <button
               type="button"
               onClick={saveCurrentContactView}
-              className="inline-flex items-center gap-1 rounded-full border border-dashed border-slate-300 text-slate-500 text-xs px-2.5 py-0.5 hover:border-purple-300 hover:text-purple-700"
+              className="inline-flex items-center gap-1 rounded-full border border-dashed border-slate-300 text-slate-500 text-xs px-2.5 py-0.5 hover:border-slate-300 hover:text-slate-700"
               title="Save the current status + tag + search as a named view"
             >
               + Save view
@@ -1330,8 +1333,8 @@ function ClientsCRM() {
                     })}
                     className={`text-[11px] px-2 py-0.5 rounded-full border transition ${
                       active
-                        ? "bg-purple-600 text-white border-purple-700"
-                        : "bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100"
+                        ? "bg-slate-600 text-white border-slate-700"
+                        : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
                     }`}
                   >
                     {t}
@@ -1362,7 +1365,7 @@ function ClientsCRM() {
                   onClick={() => setFilter(f.id)}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all border ${
                     active
-                      ? meta ? `${meta.tone} border-current` : "bg-purple-600 text-white border-purple-700"
+                      ? meta ? `${meta.tone} border-current` : "bg-slate-600 text-white border-slate-700"
                       : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
                   }`}
                 >
@@ -1377,7 +1380,7 @@ function ClientsCRM() {
           </div>
 
           {/* Email cap notice, ties to pricing tier */}
-          <Card className="border-0 shadow mb-6 bg-gradient-to-r from-blue-50 to-indigo-50">
+          <Card className="border-0 shadow mb-6 bg-gradient-to-r from-blue-50 to-blue-50">
             <CardContent className="py-3 px-4 flex items-start gap-3">
               <Inbox className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
               <div className="text-sm">
@@ -1586,7 +1589,7 @@ function ClientsCRM() {
                                   {c.source === "client" && c.clientType && (
                                     <span className={`text-[10px] uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded border ${
                                       c.clientType === "company"
-                                        ? "bg-indigo-50 text-indigo-700 border-indigo-200"
+                                        ? "bg-blue-50 text-blue-700 border-blue-200"
                                         : "bg-slate-50 text-slate-600 border-slate-200"
                                     }`}>
                                       {c.clientType === "company" ? "Company" : "Individual"}
@@ -1618,7 +1621,7 @@ function ClientsCRM() {
                                     </a>
                                   ) : null}
                                   {(c.historicalTotalEvents != null || c.historicalLifetimeSpend != null) && (
-                                    <span className="flex items-center gap-1 text-violet-700" title="Imported event history">
+                                    <span className="flex items-center gap-1 text-slate-700" title="Imported event history">
                                       📅
                                       {c.historicalTotalEvents != null ? `${c.historicalTotalEvents} past events` : "Past history"}
                                       {c.historicalLifetimeSpend != null ? ` · R${Math.round(c.historicalLifetimeSpend).toLocaleString("en-ZA")} LTV` : ""}
@@ -1641,7 +1644,7 @@ function ClientsCRM() {
                                     {c.tags.map((t) => (
                                       <span
                                         key={t}
-                                        className="text-[10px] px-1.5 py-0.5 rounded bg-purple-50 text-purple-700 border border-purple-200"
+                                        className="text-[10px] px-1.5 py-0.5 rounded bg-slate-50 text-slate-700 border border-slate-200"
                                       >
                                         {t}
                                       </span>
@@ -1658,7 +1661,7 @@ function ClientsCRM() {
                             </td>
                             <td className="py-3 px-2">
                               <div className={`text-xs font-medium ${
-                                c.suggestion.tone === "urgent" ? "text-red-600" :
+                                c.suggestion.tone === "urgent" ? "text-rose-600" :
                                 c.suggestion.tone === "warm"   ? "text-amber-600" : "text-slate-600"
                               }`}>
                                 {c.suggestion.label}
@@ -1673,7 +1676,7 @@ function ClientsCRM() {
                                   10 prior weddings. */}
                               {c.orderCount + (c.historicalTotalEvents ?? 0)}
                               {c.historicalTotalEvents ? (
-                                <span className="text-[10px] text-violet-600 ml-1" title={`${c.historicalTotalEvents} imported`}>
+                                <span className="text-[10px] text-slate-600 ml-1" title={`${c.historicalTotalEvents} imported`}>
                                   +{c.historicalTotalEvents}
                                 </span>
                               ) : null}
@@ -1692,7 +1695,7 @@ function ClientsCRM() {
                                   <span title={hasHistoric ? `In-system ${fmtMoney.format(c.totalSpent)} + imported ${fmtMoney.format(c.historicalLifetimeSpend!)}` : undefined}>
                                     {fmtMoney.format(combined)}
                                     {hasHistoric && (
-                                      <span className="text-[10px] text-violet-600 ml-1">incl. history</span>
+                                      <span className="text-[10px] text-slate-600 ml-1">incl. history</span>
                                     )}
                                   </span>
                                 );
@@ -2554,7 +2557,7 @@ function ClientFormDialog({
           )}
           <div className="flex gap-2 sm:ml-auto">
             <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={saving}>Cancel</Button>
-            <Button onClick={handleSave} disabled={saving} className="bg-gradient-to-r from-brand-primary to-brand-secondary text-white hover:opacity-90">
+            <Button onClick={handleSave} disabled={saving} className="bg-brand-primary text-white hover:opacity-90">
               {saving ? "Saving..." : editing?.clientId ? "Save changes" : promoting ? "Save as client" : "Add client"}
             </Button>
           </div>

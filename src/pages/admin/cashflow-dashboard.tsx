@@ -36,7 +36,9 @@ import * as currencyUtils from "@/lib/currencyUtils";
 import type { Order } from "@/types";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
-import { PortalShell, PortalHeader } from "@/components/portal/ui";
+import { PortalShell, PortalHeader,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { CashflowForecastCard } from "@/components/admin/financial/CashflowForecastCard";
@@ -394,7 +396,7 @@ function CashflowDashboardInner() {
     return (
       <>
         <AdminNav />
-        <div className="flex items-center justify-center min-h-screen lg:pl-72 xl:pl-80 pt-20 lg:pt-0">
+        <div className="admin-page-shell admin-page-shell--center">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-primary/80 mx-auto mb-4" />
             <p>Loading cashflow data...</p>
@@ -412,7 +414,7 @@ function CashflowDashboardInner() {
         <Head><title>Cashflow dashboard - CateringMS</title></Head>
         <NoIndexMeta />
         <AdminNav />
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-4 md:p-8 lg:pl-72 xl:pl-80 pt-20 lg:pt-8">
+        <div className="admin-page-shell">
           <div className="max-w-md mx-auto mt-12 rounded-lg border border-rose-200 bg-white p-6 shadow-sm">
             <h2 className="text-lg font-bold text-rose-900 mb-2">Couldn't load cashflow</h2>
             <p className="text-sm text-slate-600 mb-4">{loadError}</p>
@@ -433,7 +435,7 @@ function CashflowDashboardInner() {
       <NoIndexMeta />
 
       <AdminNav />
-      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+      <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <PortalHeader
             title="Cashflow Dashboard"
@@ -454,6 +456,7 @@ function CashflowDashboardInner() {
             </>
             }
           />
+          <PageWorkbench />
 
           {/* Admin follow-up (admin.md): zero-data empty state.
               Replace the chart + KPI tiles with a "no activity yet"
@@ -521,7 +524,7 @@ function CashflowDashboardInner() {
                   {alerts.map((a, i) => (
                     <li key={i} className="text-sm text-slate-700">
                       <span className={`inline-block w-2 h-2 rounded-full mr-2 ${
-                        a.severity === "high" ? "bg-red-500"
+                        a.severity === "high" ? "bg-rose-500"
                         : a.severity === "medium" ? "bg-amber-500"
                         : "bg-blue-500"
                       }`} />
@@ -556,7 +559,7 @@ function CashflowDashboardInner() {
                     Net cash flow (30d)
                     <InfoTooltip content={"Matches the projected balance trend in the chart above."} />
                   </span>
-                  <span className={`font-bold text-lg ${net30 >= 0 ? "text-brand-primary" : "text-red-600"}`}>
+                  <span className={`font-bold text-lg ${net30 >= 0 ? "text-brand-primary" : "text-rose-600"}`}>
                     {fmt(net30, currency)}
                   </span>
                 </div>
@@ -633,7 +636,7 @@ function CashflowDashboardInner() {
 
 function Row({ label, value, tone }: { label: string; value: string; tone: "positive" | "negative" | "neutral" }) {
   const color = tone === "positive" ? "text-brand-primary"
-    : tone === "negative" ? "text-red-700"
+    : tone === "negative" ? "text-rose-700"
     : "text-slate-900";
   return (
     <div className="flex justify-between items-center">

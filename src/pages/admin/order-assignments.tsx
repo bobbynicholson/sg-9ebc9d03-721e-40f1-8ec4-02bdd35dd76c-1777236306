@@ -4,7 +4,9 @@ import { useRouter } from "next/router";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { AdminNav } from "@/components/admin/AdminNav";
-import { PortalShell, PortalHeader } from "@/components/portal/ui";
+import { PortalShell, PortalHeader,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -742,7 +744,7 @@ function DispatchQueuePage() {
       <Head><title>Dispatch queue - CateringMS</title></Head>
       <AdminNav />
 
-      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+      <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
 
           <PortalHeader
@@ -863,6 +865,7 @@ function DispatchQueuePage() {
             </>
             }
           />
+          <PageWorkbench />
 
           {/* KPIs */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
@@ -870,17 +873,17 @@ function DispatchQueuePage() {
               type="button"
               onClick={() => setStatusFilter("at_risk")}
               className={`text-left rounded-lg border bg-white p-4 shadow-sm hover:shadow transition-all ${
-                (kpis?.unassignedAtRisk ?? 0) > 0 ? "ring-2 ring-red-200 border-red-300" : "border-slate-200"
-              } ${statusFilter === "at_risk" ? "ring-2 ring-red-300" : ""}`}
+                (kpis?.unassignedAtRisk ?? 0) > 0 ? "ring-2 ring-rose-200 border-rose-300" : "border-slate-200"
+              } ${statusFilter === "at_risk" ? "ring-2 ring-rose-200" : ""}`}
             >
               <div className="flex items-center justify-between mb-2">
                 <p className="text-xs font-medium text-slate-500 uppercase tracking-wide flex items-center gap-1.5">
                   At risk (SLA)
                   <InfoTooltip content={"Unassigned orders whose event is within the SLA window. The number that should be zero by end of day."} />
                 </p>
-                <AlertTriangle className={`w-4 h-4 ${(kpis?.unassignedAtRisk ?? 0) > 0 ? "text-red-500" : "text-slate-300"}`} />
+                <AlertTriangle className={`w-4 h-4 ${(kpis?.unassignedAtRisk ?? 0) > 0 ? "text-rose-500" : "text-slate-300"}`} />
               </div>
-              <p className={`text-2xl font-semibold ${(kpis?.unassignedAtRisk ?? 0) > 0 ? "text-red-700" : "text-slate-900"}`}>
+              <p className={`text-2xl font-semibold ${(kpis?.unassignedAtRisk ?? 0) > 0 ? "text-rose-700" : "text-slate-900"}`}>
                 {kpis?.unassignedAtRisk ?? "-"}
               </p>
               <p className="text-xs text-slate-500 mt-1">
@@ -1100,7 +1103,7 @@ function DispatchQueuePage() {
                   : new Date(`${order.event_date}T12:00`);
                 const minsToEvent = (eventDt.getTime() - Date.now()) / 60_000;
                 const countdownTone =
-                  isAtRisk        ? "text-red-700 font-semibold" :
+                  isAtRisk        ? "text-rose-700 font-semibold" :
                   minsToEvent < 1440 ? "text-amber-700 font-semibold" :
                                        "text-slate-700";
 
@@ -1125,7 +1128,7 @@ function DispatchQueuePage() {
                       aria-controls={`dispatch-row-${order.id}-detail`}
                       className={`hidden md:grid grid-cols-[28px_28px_minmax(0,2fr)_140px_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_120px] gap-3 px-4 py-3 items-center transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-1 ${
                         selected.has(order.id) ? "bg-orange-50 hover:bg-orange-100" :
-                        isAtRisk ? "hover:bg-red-50/40" :
+                        isAtRisk ? "hover:bg-rose-50/40" :
                         "hover:bg-slate-50"
                       }`}
                       onClick={() => toggleRow(order.id)}
@@ -1207,7 +1210,7 @@ function DispatchQueuePage() {
                             </Badge>
                           </div>
                         ) : isAtRisk ? (
-                          <Badge className="text-[10px] font-semibold bg-red-100 text-red-800 border-0">
+                          <Badge className="text-[10px] font-semibold bg-rose-100 text-rose-800 border-0">
                             <AlertTriangle className="w-3 h-3 mr-0.5" />
                             URGENT
                           </Badge>
@@ -1232,7 +1235,7 @@ function DispatchQueuePage() {
                             onClick={() => setVehicleTarget(order)}
                             className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-medium transition-colors ${
                               order.assigned_vehicle_id
-                                ? "bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100"
+                                ? "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100"
                                 : "bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100 italic"
                             }`}
                             title="Pick or override the vehicle on this order"
@@ -1283,7 +1286,7 @@ function DispatchQueuePage() {
                                 Reassign with suggestions
                               </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => setVehicleTarget(order)}>
-                                <TruckIcon className="w-4 h-4 mr-2 text-indigo-600" />
+                                <TruckIcon className="w-4 h-4 mr-2 text-blue-600" />
                                 Pick vehicle / add second
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
@@ -1291,7 +1294,7 @@ function DispatchQueuePage() {
                                 onClick={() => handleUnassign(order)}
                                 disabled={unassignBusy === order.id}
                               >
-                                <X className="w-4 h-4 mr-2 text-red-600" />
+                                <X className="w-4 h-4 mr-2 text-rose-600" />
                                 {unassignBusy === order.id ? "Unassigning..." : "Unassign"}
                               </DropdownMenuItem>
                             </DropdownMenuContent>
@@ -1318,7 +1321,7 @@ function DispatchQueuePage() {
                     <div
                       className={`md:hidden p-3 cursor-pointer ${
                         selected.has(order.id) ? "bg-orange-50" :
-                        isAtRisk ? "bg-red-50/40" :
+                        isAtRisk ? "bg-rose-50/40" :
                         "hover:bg-slate-50"
                       }`}
                       onClick={() => toggleRow(order.id)}
@@ -1364,7 +1367,7 @@ function DispatchQueuePage() {
                           </div>
                         </div>
                         {isAtRisk && (
-                          <Badge className="text-[10px] font-semibold bg-red-100 text-red-800 border-0 shrink-0">
+                          <Badge className="text-[10px] font-semibold bg-rose-100 text-rose-800 border-0 shrink-0">
                             URGENT
                           </Badge>
                         )}
@@ -1611,7 +1614,7 @@ function DispatchQueuePage() {
                       idx === 0 && !blocked
                         ? "border-brand-primary bg-brand-primary/10 hover:bg-brand-primary/15 ring-2 ring-brand-primary/20"
                         : blocked
-                          ? "border-red-200 bg-red-50/40 hover:bg-red-50"
+                          ? "border-rose-200 bg-rose-50/40 hover:bg-rose-50"
                           : "border-slate-200 bg-white hover:bg-slate-50"
                     }`}
                   >
@@ -1635,17 +1638,17 @@ function DispatchQueuePage() {
                         </p>
                         <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                           {!s.capacity.ok && (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-100 text-red-700 font-medium">
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 font-medium">
                               {s.capacity.reason}
                             </span>
                           )}
                           {!s.vehicle.ok && (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-100 text-red-700 font-medium">
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 font-medium">
                               {s.vehicle.reason}
                             </span>
                           )}
                           {!s.feasibility.ok && (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-100 text-red-700 font-medium">
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 font-medium">
                               {s.feasibility.reason}
                             </span>
                           )}

@@ -6,7 +6,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { toLocalISO } from "@/lib/localDate";
 import { AdminNav } from "@/components/admin/AdminNav";
-import { PortalShell, PortalHeader } from "@/components/portal/ui";
+import { PortalShell, PortalHeader,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -407,7 +409,7 @@ export default function InventoryTracking() {
   };
 
   const getStockStatus = (item: InventoryItem) => {
-    if (item.current_stock === 0) return { label: "Out of Stock", color: "bg-red-500", icon: XCircle };
+    if (item.current_stock === 0) return { label: "Out of Stock", color: "bg-rose-500", icon: XCircle };
     if (item.current_stock <= item.minimum_stock) return { label: "Low Stock", color: "bg-orange-500", icon: AlertTriangle };
     if (item.current_stock >= item.maximum_stock) return { label: "Overstocked", color: "bg-blue-500", icon: TrendingUp };
     return { label: "In Stock", color: "bg-brand-primary", icon: CheckCircle };
@@ -446,11 +448,11 @@ export default function InventoryTracking() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 lg:pl-72 xl:pl-80 pt-20 lg:pt-0">
+      <div className="admin-page-shell">
         <AdminNav />
         <div className="flex items-center justify-center h-[calc(100vh-4rem)]">
           <div className="text-center">
-            <Package className="h-12 w-12 animate-spin mx-auto mb-4 text-purple-600" />
+            <Package className="h-12 w-12 animate-spin mx-auto mb-4 text-slate-600" />
             <p className="text-slate-600">Loading inventory...</p>
           </div>
         </div>
@@ -461,7 +463,7 @@ export default function InventoryTracking() {
   return (
     <>
       <AdminNav />
-      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+      <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <PortalHeader
             title="Inventory tracking"
@@ -543,6 +545,7 @@ export default function InventoryTracking() {
             </>
             }
           />
+          <PageWorkbench />
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
@@ -567,7 +570,7 @@ export default function InventoryTracking() {
               <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-1.5">Out of Stock <InfoTooltip content={"Items with zero stock on the shelf."} /></CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-red-600">{outOfStockCount}</div>
+              <div className="text-3xl font-bold text-rose-600">{outOfStockCount}</div>
             </CardContent>
           </Card>
           <Card>
@@ -764,7 +767,7 @@ export default function InventoryTracking() {
                     <div key={movement.id} className="flex items-center justify-between p-3 border rounded-lg">
                       <div className="flex items-center gap-3">
                         <div className={`p-2 rounded-full ${
-                          isAdd ? 'bg-brand-primary/15 text-brand-primary' : 'bg-red-100 text-red-700'
+                          isAdd ? 'bg-brand-primary/15 text-brand-primary' : 'bg-rose-100 text-rose-700'
                         }`}>
                           {isAdd ? (
                             <TrendingUp className="h-4 w-4" />

@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -28,7 +28,9 @@ import { useRouter } from "next/router";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AdminNav } from "@/components/admin/AdminNav";
-import { PortalShell, PortalHeader } from "@/components/portal/ui";
+import { PortalShell, PortalHeader,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { RemoveOrderDialog } from "@/components/admin/orders/RemoveOrderDialog";
 import { PauseOrderDialog } from "@/components/admin/orders/PauseOrderDialog";
 import { AmendmentReviewDrawer, CancellationReviewDrawer } from "@/components/admin/orders/AmendmentReviewDrawer";
@@ -212,7 +214,7 @@ function OrderProcessDashboard() {
   // so a deep-link like /admin/orders?dateFilter=custom&from=2026-
   // 04-01&to=2026-04-30 opens with that exact filter set. Makes
   // filtered views shareable via Slack / email and respects router-
-  // driven navigation (e.g. dashboard 'this week' → orders).
+  // driven navigation (e.g. dashboard 'this week' ? orders).
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
@@ -1475,7 +1477,7 @@ function OrderProcessDashboard() {
         </div>
       )}
 
-      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+      <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <div className="space-y-6">
             <PortalHeader
@@ -1629,7 +1631,7 @@ function OrderProcessDashboard() {
                 <Link href={withSlug("/admin/quotes/new")}>
                   <Button
                     size="sm"
-                    className="h-9 gap-2 bg-gradient-to-r from-brand-primary to-brand-secondary hover:opacity-90 shadow-md hover:shadow-lg active:scale-[0.98] transition-all"
+                    className="h-9 gap-2 bg-brand-primary hover:opacity-90 shadow-md hover:shadow-lg active:scale-[0.98] transition-all"
                   >
                     <FileText className="w-4 h-4" />
                     New Quote
@@ -1638,6 +1640,7 @@ function OrderProcessDashboard() {
               </>
               }
             />
+            <PageWorkbench />
 
             <OrderKpiPills stats={stats} />
 
@@ -1673,13 +1676,13 @@ function OrderProcessDashboard() {
                 view (also strips the param from the URL). */}
             {clientFilterId && (
               <div className="mb-4 flex items-center gap-2">
-                <Badge className="bg-purple-100 text-purple-800 border border-purple-200 gap-1.5 py-1.5 px-3 text-sm">
+                <Badge className="bg-slate-100 text-slate-800 border border-slate-200 gap-1.5 py-1.5 px-3 text-sm">
                   <Users className="w-3.5 h-3.5" />
                   Filtered to {clientFilterName || "selected client"}
                   <button
                     type="button"
                     onClick={clearClientFilter}
-                    className="ml-1 rounded-full hover:bg-purple-200 p-0.5"
+                    className="ml-1 rounded-full hover:bg-slate-200 p-0.5"
                     aria-label="Clear client filter"
                     title="Clear client filter"
                   >

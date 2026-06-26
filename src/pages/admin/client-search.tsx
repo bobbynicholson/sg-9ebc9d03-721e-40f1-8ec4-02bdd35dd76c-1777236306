@@ -10,7 +10,9 @@ import { Badge } from "@/components/ui/badge";
 import { Search, Users, FileText, Receipt, Eye, Mail, Phone, MapPin, Building, ArrowLeft, X } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
-import { PortalShell, PortalHeader } from "@/components/portal/ui";
+import { PortalShell, PortalHeader,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute"; // Assumed import for ProtectedRoute
@@ -170,7 +172,7 @@ function ClientSearchPage() {
       
       <AdminNav />
       
-      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+      <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <PortalHeader
             title="Client Search"
@@ -187,6 +189,7 @@ function ClientSearchPage() {
             </>
             }
           />
+          <PageWorkbench />
 
           {/* Header */}
           <div className="mb-8">
@@ -207,7 +210,7 @@ function ClientSearchPage() {
                   <select
                     value={selectedRegion}
                     onChange={(e) => setSelectedRegion(e.target.value)}
-                    className="border border-slate-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    className="border border-slate-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-500"
                   >
                     <option value="all">All Regions</option>
                     {getUniqueRegions().map((region) => (
@@ -234,7 +237,7 @@ function ClientSearchPage() {
                   Showing {filteredClients.length} of {clients.length} clients
                 </span>
                 {searchTerm && (
-                  <span className="text-purple-600 font-medium">
+                  <span className="text-slate-600 font-medium">
                     Search results for "{searchTerm}"
                   </span>
                 )}
@@ -245,7 +248,7 @@ function ClientSearchPage() {
           {/* Results */}
           {loading ? (
             <div className="text-center py-12">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto"></div>
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-slate-600 mx-auto"></div>
               <p className="text-slate-600 mt-4">Loading clients...</p>
             </div>
           ) : filteredClients.length === 0 ? (
@@ -270,7 +273,7 @@ function ClientSearchPage() {
                     <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                       {/* Client Info */}
                       <div className="flex items-start gap-4 flex-1 min-w-0">
-                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center text-white font-bold text-lg flex-shrink-0">
+                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-slate-400 to-rose-400 flex items-center justify-center text-white font-bold text-lg flex-shrink-0">
                           {client.full_name?.[0]?.toUpperCase() || "?"}
                         </div>
                         <div className="flex-1 min-w-0">
@@ -279,7 +282,7 @@ function ClientSearchPage() {
                               {client.full_name || "Unnamed Client"}
                             </h3>
                             {client.role && (
-                              <Badge className="bg-purple-100 text-purple-700 border-purple-200">
+                              <Badge className="bg-slate-100 text-slate-700 border-slate-200">
                                 {client.role}
                               </Badge>
                             )}
@@ -327,7 +330,7 @@ function ClientSearchPage() {
                           size="sm"
                           variant="outline"
                           onClick={() => handleViewProfile(client.id)}
-                          className="hover:bg-purple-50 hover:border-purple-300"
+                          className="hover:bg-slate-50 hover:border-slate-300"
                         >
                           <Eye className="w-4 h-4 mr-2" />
                           View

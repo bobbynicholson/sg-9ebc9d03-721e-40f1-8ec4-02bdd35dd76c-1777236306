@@ -38,7 +38,9 @@ import { captureException } from "@/lib/observability";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
-import { PortalShell, PortalHeader } from "@/components/portal/ui";
+import { PortalShell, PortalHeader,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { useAuth } from "@/contexts/AuthContext";
 import { UserRole } from "@/types/app";
@@ -355,7 +357,7 @@ function IntegrationsPage() {
       <Head><title>Integrations - CateringMS</title></Head>
       <AdminNav />
 
-      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+      <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
 
           <PortalHeader
@@ -370,6 +372,7 @@ function IntegrationsPage() {
               </Link>
             }
           />
+          <PageWorkbench />
 
           {/* Quickstart */}
           <Card className="border-0 shadow-lg mb-6 bg-gradient-to-r from-brand-primary/10 to-brand-secondary/10">
@@ -593,7 +596,7 @@ function IntegrationsPage() {
                               <>
                                 {new Date(s.last_fired_at).toLocaleString("en-ZA", { day: "numeric", month: "short", hour: "numeric", minute: "numeric" })}
                                 {s.last_status && <span className="ml-1 text-brand-primary">[{s.last_status}]</span>}
-                                {s.failure_count > 0 && <span className="ml-1 text-red-600">{s.failure_count} fails</span>}
+                                {s.failure_count > 0 && <span className="ml-1 text-rose-600">{s.failure_count} fails</span>}
                               </>
                             ) : "Never"}
                           </td>
@@ -606,7 +609,7 @@ function IntegrationsPage() {
                               <Button size="sm" variant="ghost" onClick={() => toggleSub(s.id, !s.is_active)}>
                                 {s.is_active ? "Pause" : "Resume"}
                               </Button>
-                              <Button size="sm" variant="ghost" onClick={() => deleteSub(s.id)} className="text-red-600">
+                              <Button size="sm" variant="ghost" onClick={() => deleteSub(s.id)} className="text-rose-600">
                                 <Trash2 className="w-3.5 h-3.5" />
                               </Button>
                             </div>
@@ -719,7 +722,7 @@ function IntegrationsPage() {
                           </td>
                           <td className="py-3 text-right">
                             {k.is_active ? (
-                              <Button size="sm" variant="ghost" onClick={() => revokeKey(k.id)} className="text-red-600 gap-1">
+                              <Button size="sm" variant="ghost" onClick={() => revokeKey(k.id)} className="text-rose-600 gap-1">
                                 <AlertTriangle className="w-3.5 h-3.5" /> Revoke
                               </Button>
                             ) : (
@@ -739,7 +742,7 @@ function IntegrationsPage() {
           <Card className="border-0 shadow-lg">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-purple-600" />
+                <Sparkles className="w-5 h-5 text-slate-600" />
                 Catering Zap recipes
               </CardTitle>
               <CardDescription>
@@ -754,8 +757,8 @@ function IntegrationsPage() {
                   today, just with a one-step Zap detour. Spelling it
                   out here saves a debug round when a recipe doesn't
                   fire the way the title implies. */}
-              <div className="mb-4 rounded-lg border border-purple-200 bg-purple-50/60 px-3 py-2 text-xs text-purple-900 flex items-start gap-2">
-                <AlertTriangle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 text-purple-700" />
+              <div className="mb-4 rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2 text-xs text-slate-900 flex items-start gap-2">
+                <AlertTriangle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 border-slate-200" />
                 <p>
                   <strong>How the triggers map.</strong> The events we fire today are
                   <code className="mx-1 bg-white px-1 rounded">lead.created</code>,

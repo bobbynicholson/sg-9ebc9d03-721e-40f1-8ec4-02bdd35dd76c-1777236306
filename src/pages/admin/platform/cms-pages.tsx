@@ -22,11 +22,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { PortalShell, PortalHeader, PortalCard, PortalCardHeader } from "@/components/portal/ui";
+import { PortalShell, PortalHeader, PortalCard, PortalCardHeader, StatTile,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { Switch } from "@/components/ui/switch";
 import {
   Pencil, Trash2, Plus, ArrowLeft, Save, X, AlertTriangle, Sparkles,
-  Loader2, Eye, FileText, Wand2, Globe, ImageIcon, Upload,
+  Loader2, Eye, FileText, Wand2, Globe, ImageIcon, Upload, CheckCircle2, FileWarning, Image,
 } from "lucide-react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
@@ -35,6 +37,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
+import { EmptyState } from "@/components/ui/empty-state";
 
 interface DraftRequest {
   topic: string;
@@ -269,6 +272,16 @@ function CMSPageManagement() {
 
   const editing = editingPage || isCreating;
 
+  const pageSummary = useMemo(() => {
+    const published = pages.filter((page) => page.is_published).length;
+    return {
+      total: pages.length,
+      published,
+      drafts: pages.length - published,
+      withHeaderImage: pages.filter((page) => !!page.header_image_url).length,
+    };
+  }, [pages]);
+
   // Lightweight markdown preview - handles ##, **, line breaks.
   const previewHtml = useMemo(() => {
     const md = formData.content || "";
@@ -295,18 +308,18 @@ function CMSPageManagement() {
     <>
       <Head>
         <meta name="robots" content="noindex, nofollow" />
-        <title>{editing ? (editingPage ? "Edit page" : "New page") : "Page Management"} - CateringMS</title>
+        <title>{editing ? (editingPage ? "Edit page" : "New page") : "Marketing pages"} - CateringMS</title>
       </Head>
 
-      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+      <div className="admin-page-shell">
         <PlatformNav />
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           {/* Always-visible scope banner */}
-          <Alert className="mb-5 border-purple-200 bg-purple-50">
-            <AlertTriangle className="h-4 w-4 text-purple-600" />
-            <AlertDescription className="text-purple-800">
+          <Alert className="mb-5 border-amber-200 bg-amber-50">
+            <AlertTriangle className="h-4 w-4 text-amber-700" />
+            <AlertDescription className="text-amber-900">
               <strong>cateringms.com marketing site.</strong> What you publish here appears on the public website at{" "}
-              <code className="text-xs bg-purple-100 px-1.5 py-0.5 rounded">cateringms.com/page/&lt;slug&gt;</code>.
+              <code className="text-xs bg-amber-100 px-1.5 py-0.5 rounded">cateringms.com/page/&lt;slug&gt;</code>.
               It does NOT show up in any individual catering company's portal.
             </AlertDescription>
           </Alert>
@@ -331,21 +344,22 @@ function CMSPageManagement() {
                     <Button variant="ghost" size="sm" onClick={handleCancel}>
                       <X className="mr-1.5 h-4 w-4" /> Cancel
                     </Button>
-                    <Button size="sm" onClick={handleSave} className="bg-gradient-to-r from-brand-primary to-brand-secondary">
+                    <Button size="sm" onClick={handleSave} className="bg-slate-950 text-white hover:bg-slate-800">
                       <Save className="mr-1.5 h-4 w-4" /> Save page
                     </Button>
                   </>
                 }
               />
+              <PageWorkbench />
 
               {/* AI assist panel (collapsible) */}
               {aiOpen && (
-                <PortalCard className="border-purple-200 bg-gradient-to-br from-purple-50 to-pink-50 mb-5">
+                <PortalCard className="mb-5 border-amber-200 bg-amber-50/70">
                   <PortalCardHeader
                     title={
                       <span className="flex items-center gap-2 text-base">
-                        <Sparkles className="w-4 h-4 text-purple-600" />
-                        AI Draft Assistant
+                        <Sparkles className="w-4 h-4 text-amber-700" />
+                        Draft assistant
                       </span>
                     }
                   />
@@ -409,7 +423,7 @@ function CMSPageManagement() {
                       <Button
                         onClick={runAiDraft}
                         disabled={aiBusy || !draftReq.topic.trim()}
-                        className="bg-gradient-to-r from-brand-primary to-brand-secondary"
+                        className="bg-slate-950 text-white hover:bg-slate-800"
                       >
                         {aiBusy ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Sparkles className="w-4 h-4 mr-1.5" />}
                         {aiBusy ? "Drafting..." : "Generate draft"}
@@ -683,27 +697,36 @@ function CMSPageManagement() {
                         Platform dashboard
                       </Button>
                     </Link>
-                    <Button onClick={startNew} className="bg-gradient-to-r from-brand-primary to-brand-secondary">
+                    <Button onClick={startNew} className="bg-slate-950 text-white hover:bg-slate-800">
                       <Plus className="mr-1.5 h-4 w-4" />
                       New page
                     </Button>
                   </>
                 }
               />
+              <PageWorkbench />
+
+              <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                <StatTile label="Pages" value={pageSummary.total} hint="All public CMS records" icon={FileText} />
+                <StatTile label="Published" value={pageSummary.published} hint="Visible on cateringms.com" icon={CheckCircle2} />
+                <StatTile label="Drafts" value={pageSummary.drafts} hint="Saved but hidden" icon={FileWarning} />
+                <StatTile label="With header image" value={pageSummary.withHeaderImage} hint="Ready for rich previews" icon={Image} />
+              </div>
 
               {loading ? (
-                <PortalCard className="py-12 text-center text-slate-500 dark:text-slate-400">Loading...</PortalCard>
+                <PortalCard className="py-12 text-center text-slate-500 dark:text-slate-400">
+                  <Loader2 className="mx-auto mb-3 h-6 w-6 animate-spin" />
+                  Loading pages...
+                </PortalCard>
               ) : pages.length === 0 ? (
-                <PortalCard className="border-2 border-dashed py-12 text-center space-y-3">
-                  <FileText className="w-14 h-14 mx-auto text-slate-300" />
-                  <div>
-                    <h3 className="text-lg font-semibold text-slate-900 dark:text-white">No pages yet</h3>
-                    <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">Use the AI Draft Assistant to write your first one.</p>
-                  </div>
-                  <Button onClick={startNew} className="bg-gradient-to-r from-brand-primary to-brand-secondary">
-                    <Plus className="mr-1.5 h-4 w-4" />
-                    Create first page
-                  </Button>
+                <PortalCard>
+                  <EmptyState
+                    inCard
+                    icon={FileText}
+                    title="No marketing pages yet"
+                    description="Create the first public page, then add title, slug, SEO copy, and a header image before publishing."
+                    cta={{ label: "Create first page", onClick: startNew }}
+                  />
                 </PortalCard>
               ) : (
                 <div className="space-y-3">

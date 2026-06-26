@@ -30,7 +30,9 @@ import { subscriptionService } from "@/services/subscriptionService";
 import type { Database } from "@/integrations/supabase/types";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
-import { PortalShell, PortalHeader } from "@/components/portal/ui";
+import { PortalShell, PortalHeader,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import {  UserRole  } from "@/types/app";
@@ -230,7 +232,7 @@ function SubscriptionPage() {
       case "active": return "bg-brand-primary";
       case "trial": return "bg-blue-500";
       case "past_due": return "bg-yellow-500";
-      case "cancelled": return "bg-red-500";
+      case "cancelled": return "bg-rose-500";
       case "expired": return "bg-gray-500";
       default: return "bg-gray-500";
     }
@@ -246,7 +248,7 @@ function SubscriptionPage() {
       <div className="flex items-center justify-center min-h-screen">
         <NoIndexMeta />
         <div className="text-center">
-          <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4 text-purple-600" />
+          <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4 text-slate-600" />
           <p className="text-slate-600">Loading subscription details...</p>
         </div>
       </div>
@@ -268,7 +270,7 @@ function SubscriptionPage() {
           <title>Subscription - CateringMS</title>
         </Head>
         <AdminNav />
-        <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <div className="admin-page-shell">
           <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
 
             <PortalHeader
@@ -280,6 +282,7 @@ function SubscriptionPage() {
                   : "Pick a plan to keep using CateringMS once your trial ends."
               }
             />
+            <PageWorkbench />
 
             <Card className="border-0 shadow-sm">
               <CardHeader>
@@ -318,7 +321,7 @@ function SubscriptionPage() {
 
       <AdminNav />
 
-      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+      <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
 
           <PortalHeader
@@ -326,11 +329,12 @@ function SubscriptionPage() {
             icon={CreditCard}
             subtitle="Manage your plan, billing history and account."
           />
+          <PageWorkbench />
 
           {pendingDeletion && (
-            <Alert className="mb-6 border-red-200 bg-red-50">
-              <AlertTriangle className="h-5 w-5 text-red-600" />
-              <AlertDescription className="text-red-900">
+            <Alert className="mb-6 border-rose-200 bg-rose-50">
+              <AlertTriangle className="h-5 w-5 border-rose-200" />
+              <AlertDescription className="border-rose-200">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="font-semibold mb-1">Account Deletion Scheduled</p>
@@ -489,11 +493,11 @@ function SubscriptionPage() {
                   {billingHistory.map((record) => (
                     <div key={record.id} className="flex items-center justify-between p-4 border rounded-lg">
                       <div className="flex items-center gap-4">
-                        <div className={`p-2 rounded-full ${record.status === "succeeded" ? "bg-brand-primary/15" : "bg-red-100"}`}>
+                        <div className={`p-2 rounded-full ${record.status === "succeeded" ? "bg-brand-primary/15" : "bg-rose-100"}`}>
                           {record.status === "succeeded" ? (
                             <CheckCircle2 className="h-5 w-5 text-brand-primary" />
                           ) : (
-                            <XCircle className="h-5 w-5 text-red-600" />
+                            <XCircle className="h-5 w-5 text-rose-600" />
                           )}
                         </div>
                         <div>
@@ -516,13 +520,13 @@ function SubscriptionPage() {
             </CardContent>
           </Card>
 
-          <Card className="border-red-200">
+          <Card className="border-rose-200">
             <CardHeader>
-              <CardTitle className="text-red-900">Danger Zone</CardTitle>
+              <CardTitle className="text-rose-900">Danger Zone</CardTitle>
               <CardDescription>Irreversible actions for your subscription and account</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center justify-between p-4 border border-red-200 rounded-lg bg-red-50">
+              <div className="flex items-center justify-between p-4 border border-rose-200 rounded-lg bg-rose-50">
                 <div>
                   <p className="font-medium text-slate-900">Cancel Subscription</p>
                   <p className="text-sm text-slate-600">Stop your subscription and lose access to features</p>
@@ -593,7 +597,7 @@ function SubscriptionPage() {
                 </Dialog>
               </div>
 
-              <div className="flex items-center justify-between p-4 border border-red-300 rounded-lg bg-red-100">
+              <div className="flex items-center justify-between p-4 border border-rose-300 rounded-lg bg-rose-100">
                 <div>
                   <p className="font-medium text-slate-900">Delete Account</p>
                   <p className="text-sm text-slate-600">Permanently delete your account and all data (30-day grace period)</p>
@@ -613,9 +617,9 @@ function SubscriptionPage() {
                       </DialogDescription>
                     </DialogHeader>
                     
-                    <Alert className="border-red-200 bg-red-50">
-                      <AlertTriangle className="h-5 w-5 text-red-600" />
-                      <AlertDescription className="text-red-900">
+                    <Alert className="border-rose-200 bg-rose-50">
+                      <AlertTriangle className="h-5 w-5 border-rose-200" />
+                      <AlertDescription className="border-rose-200">
                         <p className="font-semibold mb-1">Warning</p>
                         <p className="text-sm">All your data including clients, orders, inventory, and settings will be permanently deleted.</p>
                       </AlertDescription>

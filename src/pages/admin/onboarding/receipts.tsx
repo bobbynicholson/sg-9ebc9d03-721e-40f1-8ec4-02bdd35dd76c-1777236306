@@ -28,6 +28,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { ChatBot } from "@/components/ChatBot";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { ReceiptScanner } from "@/components/shopping/ReceiptScanner";
+import { PageWorkbench } from "@/components/portal/ui";
 
 const MAX_FILES = 20;
 
@@ -57,8 +58,9 @@ function ReceiptsImportPage() {
       </Head>
       <AdminNav />
 
-      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
+      <div className="admin-page-shell">
         <div className="px-4 sm:px-6 pt-20 lg:pt-8 pb-12 max-w-full">
+          <PageWorkbench className="mb-5" />
 
           {/* Header */}
           <div className="mb-4">

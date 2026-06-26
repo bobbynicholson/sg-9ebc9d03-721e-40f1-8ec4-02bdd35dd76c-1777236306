@@ -17,7 +17,9 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Truck, UserPlus, Mail, Phone, Search, MoreVertical, Activity, Clock, Settings, MapPin, Calendar, Snowflake, Flame, Users, User, Building2, Download, X, RefreshCw, Copy, MailWarning } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { AdminNav } from "@/components/admin/AdminNav";
-import { PortalShell, PortalHeader } from "@/components/portal/ui";
+import { PortalShell, PortalHeader,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { LogDriverShiftModal } from "@/components/admin/LogDriverShiftModal";
 import { DriverLeaderboard } from "@/components/admin/DriverLeaderboard";
 import { Footer } from "@/components/Footer";
@@ -745,7 +747,7 @@ function DriverManagementPage() {
       <NoIndexMeta />
       <AdminNav />
 
-      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+      <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <PortalHeader
             title="Drivers"
@@ -827,7 +829,7 @@ function DriverManagementPage() {
                 }}
               >
                 <DialogTrigger asChild>
-                  <Button className="bg-gradient-to-r from-brand-primary to-brand-secondary hover:opacity-90">
+                  <Button className="bg-brand-primary hover:opacity-90">
                     <UserPlus className="w-4 h-4 mr-2" />
                     Add New Driver
                   </Button>
@@ -838,7 +840,7 @@ function DriverManagementPage() {
                       {createResult ? (
                         <><MailWarning className="w-5 h-5 text-amber-500" /> Share these sign-in details</>
                       ) : (
-                        <><UserPlus className="w-5 h-5 text-indigo-600" /> Add New Driver</>
+                        <><UserPlus className="w-5 h-5 text-blue-600" /> Add New Driver</>
                       )}
                     </DialogTitle>
                     <p className="text-sm text-slate-500 mt-1">
@@ -893,7 +895,7 @@ function DriverManagementPage() {
                     <Card className="border-slate-200 shadow-none">
                       <CardContent className="py-4 px-4 space-y-3">
                         <Label className="text-xs font-semibold text-slate-700 uppercase tracking-wide flex items-center gap-1.5">
-                          <UserPlus className="w-3.5 h-3.5 text-indigo-600" />
+                          <UserPlus className="w-3.5 h-3.5 text-blue-600" />
                           Driver basics
                         </Label>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1079,7 +1081,7 @@ function DriverManagementPage() {
                           />
                           <div className="flex-1">
                             <p className="text-sm font-semibold text-slate-900 flex items-center gap-1.5">
-                              <Truck className="w-4 h-4 text-indigo-600" />
+                              <Truck className="w-4 h-4 text-blue-600" />
                               This driver has a vehicle
                             </p>
                             <p className="text-[11px] text-slate-500 mt-0.5">
@@ -1108,8 +1110,8 @@ function DriverManagementPage() {
                                 onClick={() => setNewDriver({ ...newDriver, vehicle_mode: "existing_company" })}
                                 className={`px-3 py-2 rounded-md border text-sm flex items-center gap-2 ${
                                   newDriver.vehicle_mode === "existing_company"
-                                    ? "bg-indigo-600 text-white border-indigo-600"
-                                    : "bg-white text-slate-700 border-slate-200 hover:border-indigo-300"
+                                    ? "bg-blue-600 text-white border-blue-600"
+                                    : "bg-white text-slate-700 border-slate-200 hover:border-blue-300"
                                 }`}
                               >
                                 <Building2 className="w-4 h-4" /> Use a company vehicle
@@ -1252,7 +1254,7 @@ function DriverManagementPage() {
 
                     <Button
                       type="submit"
-                      className="w-full bg-gradient-to-r from-brand-primary to-brand-secondary hover:opacity-90"
+                      className="w-full bg-brand-primary hover:opacity-90"
                       disabled={addDriverLoading}
                     >
                       {addDriverLoading ? "Adding driver..." : "Add driver"}
@@ -1341,6 +1343,7 @@ function DriverManagementPage() {
           defaults={companyPayDefaults}
           onSaved={(next) => setCompanyPayDefaults(next)}
         />
+          <PageWorkbench />
 
         {/* Search + sort */}
         <div className="mb-6 flex flex-col sm:flex-row gap-2 sm:items-center">
@@ -1460,7 +1463,7 @@ function DriverManagementPage() {
                                     || driver.distance_rate_per_km != null
                                     || driver.base_callout_fee != null;
                                   return hasAny ? (
-                                    <Badge className="bg-purple-50 text-purple-700 border border-purple-200 text-[10px]">
+                                    <Badge className="bg-slate-50 text-slate-700 border border-slate-200 text-[10px]">
                                       Custom rates
                                     </Badge>
                                   ) : (
@@ -1533,7 +1536,7 @@ function DriverManagementPage() {
                           {/* Live signals + 30-day rollup */}
                           <div className="hidden sm:flex items-center gap-4 text-xs shrink-0">
                             <div className="text-center">
-                              <p className={`text-lg font-bold tabular-nums ${capacityFull ? "text-red-700" : "text-slate-900"}`}>
+                              <p className={`text-lg font-bold tabular-nums ${capacityFull ? "text-rose-700" : "text-slate-900"}`}>
                                 {currentLoad}{maxJobs != null && <span className="text-sm text-slate-400">/{maxJobs}</span>}
                               </p>
                               <p className="text-[10px] uppercase tracking-wide text-slate-500">jobs today</p>
@@ -1548,7 +1551,7 @@ function DriverManagementPage() {
                                       perf.onTimeRate == null ? "text-slate-400" :
                                       perf.onTimeRate >= 0.95 ? "text-brand-primary" :
                                       perf.onTimeRate >= 0.85 ? "text-amber-700" :
-                                                                "text-red-700"
+                                                                "text-rose-700"
                                     }`}>
                                       {perf.onTimeRate == null ? "-" : `${Math.round(perf.onTimeRate * 100)}%`}
                                     </p>
@@ -1646,7 +1649,7 @@ function DriverManagementPage() {
                                     e.preventDefault();
                                     setTimeout(() => setRemoveTarget(driver), 0);
                                   }}
-                                  className="text-red-700 focus:text-red-700 focus:bg-red-50"
+                                  className="text-rose-700 focus:text-rose-700 focus:bg-rose-50"
                                 >
                                   Remove driver
                                 </DropdownMenuItem>
@@ -1669,7 +1672,7 @@ function DriverManagementPage() {
             no tenant branding). Self-signup isn't a route - drivers
             are added by an admin and sign in with the credentials they
             receive by email. */}
-        <Card className="border-0 shadow-lg mt-6 bg-gradient-to-br from-blue-50 to-indigo-50">
+        <Card className="border-0 shadow-lg mt-6 bg-gradient-to-br from-blue-50 to-blue-50">
           <CardHeader>
             <CardTitle className="text-blue-900">Driver Portal Access</CardTitle>
           </CardHeader>
@@ -1885,7 +1888,7 @@ function DriverManagementPage() {
             <AlertDialogAction
               onClick={(e) => { e.preventDefault(); handleRemoveDriver(); }}
               disabled={removeSaving}
-              className="bg-red-600 hover:bg-red-700"
+              className="bg-rose-600 hover:bg-rose-700"
             >
               {removeSaving ? "Removing..." : "Remove driver"}
             </AlertDialogAction>

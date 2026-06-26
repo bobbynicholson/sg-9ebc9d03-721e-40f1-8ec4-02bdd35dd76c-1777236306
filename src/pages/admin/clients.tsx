@@ -14,6 +14,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/router";
 import Head from "next/head";
 import { Loader2 } from "lucide-react";
+import { PageWorkbench } from "@/components/portal/ui";
 
 export default function ClientsRedirect() {
   const router = useRouter();
@@ -30,10 +31,13 @@ export default function ClientsRedirect() {
   return (
     <>
       <Head><title>Redirecting to Contacts...</title></Head>
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <div className="text-center">
-          <Loader2 className="w-6 h-6 animate-spin mx-auto text-slate-400" />
-          <p className="text-sm text-slate-600 mt-2">Redirecting to Contacts...</p>
+      <div className="admin-page-shell admin-page-shell--no-sidebar admin-page-shell--center p-4">
+        <div className="w-full max-w-xl">
+          <PageWorkbench />
+          <div className="rounded-2xl border border-slate-300/80 bg-white/90 p-8 text-center shadow-sm dark:border-slate-800 dark:bg-slate-900/90">
+            <Loader2 className="mx-auto h-6 w-6 animate-spin text-brand-primary" />
+            <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">Redirecting to Contacts...</p>
+          </div>
         </div>
       </div>
     </>

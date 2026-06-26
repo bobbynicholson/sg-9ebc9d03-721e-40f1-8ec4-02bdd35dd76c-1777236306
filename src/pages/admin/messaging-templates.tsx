@@ -13,6 +13,7 @@ import Head from "next/head";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
+import { PageWorkbench } from "@/components/portal/ui";
 
 function MessagingTemplatesRedirect() {
   const router = useRouter();
@@ -32,8 +33,13 @@ function MessagingTemplatesRedirect() {
   }, [router]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center text-sm text-slate-500">
-      Redirecting...
+    <div className="admin-page-shell admin-page-shell--no-sidebar admin-page-shell--center p-4">
+      <div className="w-full max-w-xl">
+        <PageWorkbench />
+        <div className="rounded-2xl border border-slate-300/80 bg-white/90 p-8 text-center text-sm text-slate-600 shadow-sm dark:border-slate-800 dark:bg-slate-900/90 dark:text-slate-400">
+          Redirecting...
+        </div>
+      </div>
     </div>
   );
 }

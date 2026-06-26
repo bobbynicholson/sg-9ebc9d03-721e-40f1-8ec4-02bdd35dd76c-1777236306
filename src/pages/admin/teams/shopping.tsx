@@ -30,6 +30,7 @@ import {
   ShoppingBag, ArrowLeft, Users, ClipboardList, Loader2, AlertTriangle,
   Receipt, Truck, Banknote, TrendingDown,
 } from "lucide-react";
+import { PageWorkbench } from "@/components/portal/ui";
 
 interface ShoppingStats {
   active: number;
@@ -159,8 +160,8 @@ function ShoppingTeamPage() {
       icon: Users,
       label: "Shopping staff",
       sub: "Roster and rates",
-      bg: "from-violet-50 to-purple-50",
-      iconColor: "text-violet-600",
+      bg: "from-slate-50 to-slate-50",
+      iconColor: "from-slate-50",
     },
   ];
 
@@ -170,8 +171,9 @@ function ShoppingTeamPage() {
       <Head><title>Shopping team - CateringMS</title></Head>
       <AdminNav />
 
-      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
+      <div className="admin-page-shell">
         <div className="px-3 sm:px-4 md:px-6 pt-20 lg:pt-6 pb-6 max-w-full">
+          <PageWorkbench className="mb-5" />
 
           <Link href={withSlug("/admin/teams")} className="inline-flex items-center gap-1.5 text-sm text-slate-600 hover:text-slate-900 mb-3">
             <ArrowLeft className="w-4 h-4" /> All teams

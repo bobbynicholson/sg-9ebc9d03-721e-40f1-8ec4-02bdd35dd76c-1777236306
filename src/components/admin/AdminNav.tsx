@@ -173,7 +173,7 @@ export function AdminNav(_: AdminNavProps = {}) {
           title: "Dashboard",
           href: "/admin/dashboard",
           icon: LayoutDashboard,
-          description: "Live metrics + alerts",
+          description: "Daily overview",
           liveDescription: () => {
             const bits: string[] = [];
             if (liveCounts.eventsToday > 0) bits.push(`${liveCounts.eventsToday} event${liveCounts.eventsToday === 1 ? "" : "s"}`);
@@ -185,7 +185,7 @@ export function AdminNav(_: AdminNavProps = {}) {
           title: "Dispatch",
           href: "/admin/order-assignments",
           icon: ClipboardList,
-          description: "Assign drivers",
+          description: "Driver assignments",
           badge: () => liveCounts.dispatchGaps > 0
             ? { text: `${liveCounts.dispatchGaps} gap${liveCounts.dispatchGaps === 1 ? "" : "s"}`, tone: "critical" as const, pulse: portalMode.mode === "ops" }
             : null,
@@ -194,7 +194,7 @@ export function AdminNav(_: AdminNavProps = {}) {
           title: "Live operations",
           href: "/admin/tracking",
           icon: MapPin,
-          description: "Today's jobs in flight",
+          description: "Track active jobs",
           badge: () => liveCounts.inTransitNow > 0
             ? { text: `${liveCounts.inTransitNow} driving`, tone: "default" as const, pulse: true }
             : null,
@@ -209,15 +209,15 @@ export function AdminNav(_: AdminNavProps = {}) {
     },
     {
       id: "pipeline",
-      title: "Pipeline",
+      title: "Sales",
       defaultOpen: true,
       items: [
-        { title: "Contacts",      href: "/admin/contacts",      icon: MessageSquare,    description: "CRM inbox - next-action sorted" },
+        { title: "Contacts",      href: "/admin/contacts",      icon: MessageSquare,    description: "Inbox and follow-ups" },
         {
           title: "Leads",
           href: "/admin/leads",
           icon: UserPlus,
-          description: "Active enquiry pipeline",
+          description: "New enquiries",
           badge: () => liveCounts.newLeadsToday > 0
             ? { text: `${liveCounts.newLeadsToday} today`, tone: "info" as const }
             : null,
@@ -226,22 +226,22 @@ export function AdminNav(_: AdminNavProps = {}) {
           title: "Quotes",
           href: "/admin/quotes",
           icon: FileSpreadsheet,
-          description: "Create and manage quotes",
+          description: "Build and send quotes",
           badge: () => liveCounts.quotesOverdue > 0
             ? { text: `${liveCounts.quotesOverdue} overdue`, tone: "warning" as const }
             : null,
         },
-        { title: "Orders",        href: "/admin/orders",        icon: Package,          description: "All orders" },
+        { title: "Orders",        href: "/admin/orders",        icon: Package,          description: "Booked events" },
         {
           title: "Invoices",
           href: "/admin/invoices",
           icon: Receipt,
-          description: "Issued + payment status",
+          description: "Payments and status",
           badge: () => liveCounts.unpaidValue > 0
             ? { text: "overdue", tone: "critical" as const }
             : null,
         },
-        { title: "Packages",      href: "/admin/packages",      icon: Layers,           description: "Multi-day event groupings" },
+        { title: "Packages",      href: "/admin/packages",      icon: Layers,           description: "Grouped events" },
         { title: "Client search", href: "/admin/client-search", icon: Search,           description: "Find any client" },
         { title: "Reviews",       href: "/admin/reviews",       icon: Star,             description: "Client ratings + comments" },
       ],
@@ -251,26 +251,26 @@ export function AdminNav(_: AdminNavProps = {}) {
       title: "Operations",
       defaultOpen: false,
       items: [
-        { title: "Plan routes",     href: "/admin/route-planning",  icon: Route,         description: "Auto-assign + optimise tomorrow" },
-        { title: "Vehicles",        href: "/admin/vehicles",        icon: Truck,         description: "Fleet roster + cold-chain" },
+        { title: "Routes",          href: "/admin/route-planning",  icon: Route,         description: "Plan tomorrow" },
+        { title: "Vehicles",        href: "/admin/vehicles",        icon: Truck,         description: "Fleet and cold chain" },
         { title: "Regions",         href: "/admin/regions",         icon: Map,           description: "Manage service regions" },
-        { title: "Public holidays", href: "/admin/public-holidays", icon: CalendarHeart, description: "SA gazetted dates - drives 2x BCEA rate" },
+        { title: "Public holidays", href: "/admin/public-holidays", icon: CalendarHeart, description: "BCEA rate dates" },
       ],
     },
     // MONEY - finance nucleus, gated to finance-bearing roles.
     ...(profile && canAccessFinance(profile.role as UserRole) ? [{
       id: "money",
-      title: "Money",
+      title: "Finance",
       defaultOpen: false,
       items: [
-        { title: "Financial dashboard", href: "/admin/financial-dashboard", icon: Banknote, description: "Revenue + profitability snapshot" },
-        { title: "Cashflow dashboard",  href: "/admin/cashflow-dashboard",  icon: TrendingUp, description: "30-day forecast, payables and fixed costs" },
-        { title: "Outstanding balances", href: "/admin/outstanding-balances", icon: Wallet, description: "Clients who still owe a balance (deposit paid, balance due)" },
-        { title: "Payables",        href: "/admin/payables",      icon: FileText,   description: "Supplier invoices owed - feeds cashflow forecast" },
-        { title: "Fixed costs",     href: "/admin/fixed-costs",   icon: Wallet,     description: "Recurring rent, software, vehicles - feeds cashflow forecast" },
+        { title: "Finance overview", href: "/admin/financial-dashboard", icon: Banknote, description: "Revenue and margin" },
+        { title: "Cashflow",         href: "/admin/cashflow-dashboard",  icon: TrendingUp, description: "30-day forecast" },
+        { title: "Balances",         href: "/admin/outstanding-balances", icon: Wallet, description: "Client money due" },
+        { title: "Payables",         href: "/admin/payables",      icon: FileText,   description: "Supplier invoices" },
+        { title: "Fixed costs",      href: "/admin/fixed-costs",   icon: Wallet,     description: "Recurring costs" },
         { title: "Refunds",         href: "/admin/refunds",       icon: CreditCard, description: "Cancellation refunds" },
-        { title: "Tax & purchases", href: "/admin/tax-purchases", icon: FileText,   description: "VAT exposure + deductible export" },
-        { title: "Money & email health", href: "/admin/money-health", icon: Activity, description: "Reconcile order/invoice/payment drift + email queue status" },
+        { title: "Tax & purchases", href: "/admin/tax-purchases", icon: FileText,   description: "VAT and deductions" },
+        { title: "Health checks",    href: "/admin/money-health", icon: Activity, description: "Money and email drift" },
       ],
     } as PortalSidebarSection] : []),
     {
@@ -278,35 +278,35 @@ export function AdminNav(_: AdminNavProps = {}) {
       title: "Catalogue",
       defaultOpen: false,
       items: [
-        { title: "Offering hub",        href: "/admin/offering",            icon: Sparkles,    description: "Menu + Equipment health" },
-        { title: "Menu",                href: "/admin/menu",                icon: BookOpen,    description: "Build items + recipes" },
-        { title: "Stock overview",      href: "/admin/stock",               icon: BarChart3,   description: "Pressure feed: low + commitments + hire-in" },
-        { title: "Inventory",           href: "/admin/inventory",           icon: Package,     description: "Pantry + chiller outlook" },
-        { title: "Equipment",           href: "/admin/equipment",           icon: Layers,      description: "Catalog, availability, shortages, hire-in" },
-        { title: "Equipment damages",   href: "/admin/equipment-damages",   icon: AlertTriangle, description: "Broken/lost gear by event + client, with cost to bill" },
+        { title: "Offering",            href: "/admin/offering",            icon: Sparkles,    description: "Menu and equipment hub" },
+        { title: "Menu",                href: "/admin/menu",                icon: BookOpen,    description: "Items and recipes" },
+        { title: "Stock",               href: "/admin/stock",               icon: BarChart3,   description: "Low and committed stock" },
+        { title: "Inventory",           href: "/admin/inventory",           icon: Package,     description: "Pantry and chiller" },
+        { title: "Equipment",           href: "/admin/equipment",           icon: Layers,      description: "Availability and hire-in" },
+        { title: "Equipment damages",   href: "/admin/equipment-damages",   icon: AlertTriangle, description: "Broken or lost gear" },
         { title: "Suppliers",           href: "/admin/suppliers",           icon: Building2,   description: "Contacts, products, spend" },
-        { title: "Outsource providers", href: "/admin/outsource-providers", icon: HardHat,     description: "Per-event chefs, florists, photographers" },
-        { title: "Shopping",            href: "/admin/shopping",            icon: ShoppingBag, description: "Procurement: buy now, plan, slips" },
+        { title: "Outsource",           href: "/admin/outsource-providers", icon: HardHat,     description: "External event help" },
+        { title: "Shopping",            href: "/admin/shopping",            icon: ShoppingBag, description: "Buy lists and slips" },
       ],
     },
     {
       id: "people",
-      title: "People",
+      title: "Team",
       defaultOpen: false,
       items: [
-        { title: "Teams hub",     href: "/admin/teams",          icon: Briefcase, description: "Monday glance across every team" },
-        { title: "Full team",     href: "/admin/users",          icon: Users,     description: "Everyone with a login" },
-        { title: "Kitchen team",  href: "/admin/teams/kitchen",  icon: ChefHat,   description: "Kitchen staff + duties" },
-        { title: "Drivers team",  href: "/admin/teams/drivers",  icon: Truck,     description: "Driver roster + routes" },
-        { title: "Cleaning team", href: "/admin/teams/cleaning", icon: Sparkles,  description: "Cleaning roster + workflows" },
-        { title: "HR solutions",  href: "/admin/hr-solutions",   icon: Briefcase, description: "Compliance, contracts, HR" },
-        { title: "Onboarding",    href: "/admin/onboarding",     icon: Wand2,     description: "Bring clients + orders + slips on board" },
+        { title: "Teams hub",     href: "/admin/teams",          icon: Briefcase, description: "All teams at a glance" },
+        { title: "Users & roles",  href: "/admin/users",          icon: Users,     description: "Access and permissions" },
+        { title: "Kitchen",       href: "/admin/teams/kitchen",  icon: ChefHat,   description: "Prep staff and duties" },
+        { title: "Drivers",       href: "/admin/teams/drivers",  icon: Truck,     description: "Roster and routes" },
+        { title: "Cleaning",      href: "/admin/teams/cleaning", icon: Sparkles,  description: "Roster and workflows" },
+        { title: "HR",            href: "/admin/hr-solutions",   icon: Briefcase, description: "Contracts and compliance" },
+        { title: "Onboarding",    href: "/admin/onboarding",     icon: Wand2,     description: "Import clients and orders" },
         // Payroll cluster - same finance gate as Money.
         ...(profile && canAccessFinance(profile.role as UserRole) ? [
-          { title: "Wages dashboard",   href: "/admin/wages",             icon: Wallet,     description: "Payroll - hours x rates with overtime split" },
-          { title: "Staff & rates",     href: "/admin/staff",             icon: Users,      description: "Payroll - pay rates per staff member" },
-          { title: "Staff hours",       href: "/admin/staff-hours",       icon: Clock,      description: "Payroll - track staff working hours" },
-          { title: "Driver settlement", href: "/admin/driver-settlement", icon: Banknote, description: "Payroll - hourly + distance + callout" },
+          { title: "Wages",            href: "/admin/wages",             icon: Wallet,     description: "Hours, rates, overtime" },
+          { title: "Staff rates",      href: "/admin/staff",             icon: Users,      description: "Pay rates" },
+          { title: "Staff hours",      href: "/admin/staff-hours",       icon: Clock,      description: "Time worked" },
+          { title: "Driver settlement", href: "/admin/driver-settlement", icon: Banknote, description: "Distance and callouts" },
         ] : []),
       ],
     },
@@ -320,25 +320,25 @@ export function AdminNav(_: AdminNavProps = {}) {
       title: "Settings",
       defaultOpen: false,
       items: [
-        { title: "Company profile",       href: "/admin/company-profile",       icon: Building2,     description: "Address, branding, lat/lng for routing" },
-        { title: "Branding",              href: "/admin/white-label",           icon: Palette,       description: "Logo, colours, white-label" },
-        { title: "Kitchen rules",         href: "/admin/kitchen-settings",      icon: CookingPot,    description: "Prep timing, BCEA thresholds, dietary alerts" },
-        { title: "Email",                 href: "/admin/email-settings",        icon: Mail,          description: "SMTP, Gmail, Outlook, Mailchimp" },
-        { title: "Integrations",          href: "/admin/integrations",          icon: Zap,           description: "Zapier, webhooks, 5,000+ apps" },
-        { title: "Lead capture forms",    href: "/admin/integrations/embed",    icon: Code2,         description: "Public embeddable forms" },
-        { title: "Messages & templates",  href: "/admin/email-templates",       icon: MessageSquare, description: "Edit every email + WhatsApp message, see what's been sent, manage automation" },
-        { title: "Notifications",         href: "/admin/notification-settings", icon: Bell,          description: "Channel routing + opt-ins" },
+        { title: "Company",               href: "/admin/company-profile",       icon: Building2,     description: "Address and routing" },
+        { title: "Branding",              href: "/admin/white-label",           icon: Palette,       description: "Logo, colours, fonts" },
+        { title: "Kitchen",               href: "/admin/kitchen-settings",      icon: CookingPot,    description: "Prep and dietary rules" },
+        { title: "Email",                 href: "/admin/email-settings",        icon: Mail,          description: "SMTP and providers" },
+        { title: "Integrations",          href: "/admin/integrations",          icon: Zap,           description: "Apps and webhooks" },
+        { title: "Lead forms",            href: "/admin/integrations/embed",    icon: Code2,         description: "Public forms" },
+        { title: "Messages",              href: "/admin/email-templates",       icon: MessageSquare, description: "Email and WhatsApp templates" },
+        { title: "Notifications",         href: "/admin/notification-settings", icon: Bell,          description: "Routing and opt-ins" },
         { title: "Audit log",             href: "/admin/audit-logs",            icon: Shield,        description: "Compliance trail - who did what" },
         ...([UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN].includes(profile.role as UserRole)
           ? [{ title: "Smoke test", href: "/admin/smoke-test", icon: FlaskConical, description: "Run end-to-end regression" }]
           : []),
-        { title: "System",                href: "/admin/settings",              icon: Settings,      description: "General configuration" },
+        { title: "System",                href: "/admin/settings",              icon: Settings,      description: "General settings" },
       ],
     } as PortalSidebarSection] : []),
     // PLATFORM - super_admin only. /admin/platform/* are global prefixes.
     ...(profile && profile.role === "super_admin" ? [{
       id: "platform",
-      title: "Platform Admin",
+      title: "Platform",
       defaultOpen: false,
       items: [
         { title: "Platform Dashboard",      href: "/admin/platform/dashboard",              icon: LayoutDashboard, description: "Platform overview" },

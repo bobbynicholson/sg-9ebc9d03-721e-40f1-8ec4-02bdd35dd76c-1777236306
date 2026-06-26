@@ -45,6 +45,7 @@ import { onboardingProgressService } from "@/services/onboardingProgressService"
 import { ImportRecordsModal } from "@/components/admin/ImportRecordsModal";
 import { ResendDomainCard } from "@/components/admin/ResendDomainCard";
 import { captureException } from "@/lib/observability";
+import { PageWorkbench } from "@/components/portal/ui";
 
 interface CompanyForm {
   // Basics
@@ -316,7 +317,7 @@ function OnboardingWizard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80 flex items-center justify-center">
+      <div className="admin-page-shell admin-page-shell--center">
         <AdminNav />
         <Loader2 className="w-8 h-8 animate-spin text-slate-400" />
       </div>
@@ -329,8 +330,9 @@ function OnboardingWizard() {
       <Head><title>Set up your business - CateringMS</title></Head>
       <AdminNav />
 
-      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
+      <div className="admin-page-shell">
         <div className="px-4 sm:px-6 pt-20 lg:pt-8 pb-12 max-w-full">
+          <PageWorkbench className="mb-5" />
           {/* Progress strip across the top - step pills + filled bar.
               On phones the labels collapse to icons only so the row
               doesn't crush. */}
@@ -348,7 +350,7 @@ function OnboardingWizard() {
             </div>
             <div className="h-2 rounded-full bg-slate-200 overflow-hidden">
               <div
-                className="h-full bg-gradient-to-r from-brand-primary to-brand-secondary transition-all"
+                className="h-full bg-brand-primary transition-all"
                 style={{ width: `${progressPct}%` }}
               />
             </div>
@@ -1022,10 +1024,10 @@ function EmailStep({
           <button
             type="button"
             onClick={() => setMode("domain")}
-            className="text-left p-5 rounded-xl border-2 border-purple-200 bg-purple-50/30 hover:border-purple-400 hover:shadow-md transition-all"
+            className="text-left p-5 rounded-xl border-2 border-slate-200 bg-slate-50/30 hover:border-slate-400 hover:shadow-md transition-all"
           >
             <div className="flex items-center gap-2 mb-2">
-              <ShieldCheck className="w-5 h-5 text-purple-600" />
+              <ShieldCheck className="w-5 h-5 text-slate-600" />
               <p className="font-semibold text-slate-900">Use my own domain</p>
               <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-brand-primary/15 text-brand-primary">
                 Recommended
@@ -1034,7 +1036,7 @@ function EmailStep({
             <p className="text-xs text-slate-700 leading-relaxed">
               Your clients see emails from <code>you@yourdomain.com</code>. Takes 5 minutes to set up. We give you 3 DNS records to add at your domain host (cPanel / konsoleH / Vercel Domains / wherever) and verify automatically once they're live.
             </p>
-            <p className="mt-3 text-xs font-semibold text-purple-700 inline-flex items-center gap-1">
+            <p className="mt-3 text-xs font-semibold text-slate-700 inline-flex items-center gap-1">
               Set up my domain <ArrowRight className="w-3 h-3" />
             </p>
           </button>
@@ -1060,14 +1062,14 @@ function EmailStep({
 
       {mode === "domain" && (
         <div className="space-y-3">
-          <div className="rounded-md border border-purple-200 bg-purple-50/40 p-3">
+          <div className="rounded-md border border-slate-200 bg-slate-50/40 p-3">
             <p className="text-xs text-slate-700">
               Enter your sending domain below. We'll create the entry in Resend and show you the DNS records to add at your domain host. Verification usually completes within an hour of the records going live.
             </p>
           </div>
           <ResendDomainCard companyId={companyId} compact />
           <div className="text-xs text-slate-500">
-            Or, <button type="button" onClick={() => setMode("shared")} className="underline hover:text-purple-600">use the shared CateringMS sender</button> while DNS propagates.
+            Or, <button type="button" onClick={() => setMode("shared")} className="underline hover:text-slate-600">use the shared CateringMS sender</button> while DNS propagates.
           </div>
         </div>
       )}
@@ -1081,7 +1083,7 @@ function EmailStep({
             </p>
           </div>
           <div className="text-xs text-slate-500">
-            Or, <button type="button" onClick={() => setMode("domain")} className="underline hover:text-purple-600">verify your own domain instead</button>. 5 minutes, much more branded.
+            Or, <button type="button" onClick={() => setMode("domain")} className="underline hover:text-slate-600">verify your own domain instead</button>. 5 minutes, much more branded.
           </div>
           <Button onClick={useSharedSender} disabled={pickingShared} className="w-full sm:w-auto bg-brand-primary hover:opacity-90">
             {pickingShared ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}

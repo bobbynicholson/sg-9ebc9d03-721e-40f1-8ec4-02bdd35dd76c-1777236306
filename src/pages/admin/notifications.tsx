@@ -3,7 +3,9 @@ import { UserRole } from "@/types/app";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import { AdminNav } from "@/components/admin/AdminNav";
-import { PortalShell, PortalHeader } from "@/components/portal/ui";
+import { PortalShell, PortalHeader,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { toLocalISO } from "@/lib/localDate";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -139,7 +141,7 @@ function NotificationsPage() {
   const getPriorityIcon = (priority: string | null) => {
     switch (priority) {
       case "urgent":
-        return <AlertCircle className="h-5 w-5 text-red-500" />;
+        return <AlertCircle className="h-5 w-5 text-rose-500" />;
       case "high":
         return <AlertTriangle className="h-5 w-5 text-orange-500" />;
       case "medium":
@@ -152,7 +154,7 @@ function NotificationsPage() {
   const getPriorityColor = (priority: string | null) => {
     switch (priority) {
       case "urgent":
-        return "bg-red-50 border-red-200 hover:border-red-300";
+        return "bg-rose-50 border-rose-200 hover:border-rose-300";
       case "high":
         return "bg-orange-50 border-orange-200 hover:border-orange-300";
       case "medium":
@@ -216,7 +218,7 @@ function NotificationsPage() {
   return (
     <>
       <AdminNav />
-      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+      <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
 
           <PortalHeader
@@ -231,6 +233,7 @@ function NotificationsPage() {
               ) : undefined
             }
           />
+          <PageWorkbench />
 
         {/* Header */}
         <div className="mb-6 sm:mb-8">
@@ -410,7 +413,7 @@ function NotificationsPage() {
                                   <Button
                                     variant="ghost"
                                     size="icon"
-                                    className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                    className="h-8 w-8 text-rose-600 hover:text-rose-700 hover:bg-rose-50"
                                     onClick={() => handleDelete(notification.id)}
                                   >
                                     <X className="h-4 w-4" />

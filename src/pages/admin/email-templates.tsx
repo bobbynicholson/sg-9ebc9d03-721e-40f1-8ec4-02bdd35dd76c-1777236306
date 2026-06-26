@@ -22,7 +22,9 @@ import Head from "next/head";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Mail } from "lucide-react";
 import { AdminNav } from "@/components/admin/AdminNav";
-import { PortalShell, PortalHeader } from "@/components/portal/ui";
+import { PortalShell, PortalHeader,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { TemplatesPanel } from "@/components/admin/lifecycle-emails/TemplatesPanel";
@@ -74,13 +76,14 @@ function LifecycleEmailsPage() {
 
       <AdminNav />
 
-      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+      <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <PortalHeader
             title="Lifecycle Emails"
             icon={Mail}
             subtitle="Templates, sent log, and automation. All your post-sale email touchpoints in one place."
           />
+          <PageWorkbench />
 
           <Tabs value={tab} onValueChange={handleTabChange} className="w-full">
             <TabsList className="grid grid-cols-2 md:grid-cols-4 w-full md:w-auto h-auto">

@@ -11,7 +11,9 @@
 import Head from "next/head";
 import { Settings } from "lucide-react";
 import { DynamicNav } from "@/components/DynamicNav";
-import { PortalShell, PortalHeader } from "@/components/portal/ui";
+import { PortalShell, PortalHeader,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
@@ -28,7 +30,7 @@ function KitchenSettingsAdminPage() {
       <Head><title>Kitchen rules - CateringMS</title></Head>
       <DynamicNav userRole={userRole} />
 
-      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+      <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
 
           <PortalHeader
@@ -36,6 +38,7 @@ function KitchenSettingsAdminPage() {
             icon={Settings}
             subtitle="Per-tenant policy: prep timing, BCEA shift thresholds, dietary alerts."
           />
+          <PageWorkbench />
 
           <KitchenRulesPanel
             contextNote="These rules also surface as the 'Kitchen rules' tab inside the Kitchen team landing page (/admin/teams/kitchen) - either entry point edits the same companies.kitchen_settings JSON."

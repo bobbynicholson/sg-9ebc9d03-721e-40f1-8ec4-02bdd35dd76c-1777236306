@@ -21,7 +21,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AdminNav } from "@/components/admin/AdminNav";
-import { PortalShell, PortalHeader } from "@/components/portal/ui";
+import { PortalShell, PortalHeader,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { useAuth } from "@/contexts/AuthContext";
@@ -206,7 +208,7 @@ function DriverScheduleGrid() {
       <Head><title>Driver schedule - CateringMS</title></Head>
       <NoIndexMeta />
       <AdminNav />
-      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+      <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <PortalHeader
             title="Driver schedule"
@@ -293,6 +295,7 @@ function DriverScheduleGrid() {
             </>
             }
           />
+          <PageWorkbench />
 
             <Card>
               <CardHeader className="pb-3">
@@ -397,7 +400,7 @@ function DriverScheduleGrid() {
                                               title="Click to edit or delete this shift"
                                               className={`rounded-md border px-2 py-1.5 text-left cursor-pointer hover:shadow-sm hover:brightness-105 transition-all focus:outline-none focus:ring-2 focus:ring-blue-400 ${
                                                 isMissed
-                                                  ? "border-red-200 bg-red-50"
+                                                  ? "border-rose-200 bg-rose-50"
                                                   : hasActual
                                                     ? "border-brand-primary/20 bg-brand-primary/10"
                                                     : "border-brand-primary/20 bg-brand-primary/10"
@@ -405,7 +408,7 @@ function DriverScheduleGrid() {
                                             >
                                               <div className="flex items-center justify-between gap-1">
                                                 <span className={`text-xs font-semibold tabular-nums ${
-                                                  isMissed ? "text-red-900" :
+                                                  isMissed ? "text-rose-900" :
                                                   hasActual ? "text-brand-primary" :
                                                               "text-brand-primary"
                                                 }`}>
@@ -424,7 +427,7 @@ function DriverScheduleGrid() {
                                                   Actual {aHours.toFixed(1)}h
                                                 </div>
                                               ) : isMissed ? (
-                                                <div className="text-[10px] text-red-700 font-medium mt-0.5 inline-flex items-center gap-0.5">
+                                                <div className="text-[10px] text-rose-700 font-medium mt-0.5 inline-flex items-center gap-0.5">
                                                   <AlertTriangle className="w-2.5 h-2.5" /> Missed
                                                 </div>
                                               ) : (

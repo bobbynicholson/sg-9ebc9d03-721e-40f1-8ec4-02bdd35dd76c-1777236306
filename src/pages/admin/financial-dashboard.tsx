@@ -25,7 +25,9 @@ import Link from "next/link";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { GetServerSideProps } from "next";
 import { AdminNav } from "@/components/admin/AdminNav";
-import { PortalShell, PortalHeader } from "@/components/portal/ui";
+import { PortalShell, PortalHeader,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { useCompanyKitchens } from "@/hooks/useCompanyKitchens";
 import { Building2 } from "lucide-react";
@@ -564,7 +566,7 @@ function FinancialDashboardInner() {
         <Head><title>Financial dashboard - CateringMS</title></Head>
         <NoIndexMeta />
         <AdminNav />
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-4 md:p-8 lg:pl-72 xl:pl-80 pt-20 lg:pt-8">
+        <div className="admin-page-shell">
           <div className="max-w-md mx-auto mt-12 rounded-lg border border-rose-200 bg-white p-6 shadow-sm">
             <h2 className="text-lg font-bold text-rose-900 mb-2">Couldn't load financial data</h2>
             <p className="text-sm text-slate-600 mb-4">{loadError}</p>
@@ -600,7 +602,7 @@ function FinancialDashboardInner() {
         <Head><title>Financial dashboard - CateringMS</title></Head>
         <NoIndexMeta />
         <AdminNav />
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-4 md:p-8 lg:pl-72 xl:pl-80 pt-20 lg:pt-8">
+        <div className="admin-page-shell">
           <div className="max-w-2xl mx-auto mt-12 rounded-lg border border-brand-primary/20 bg-white p-8 shadow-sm text-center">
             <Banknote className="w-12 h-12 text-brand-primary mx-auto mb-3" />
             <h1 className="text-2xl font-bold text-slate-900 mb-2">Financial Dashboard</h1>
@@ -632,7 +634,7 @@ function FinancialDashboardInner() {
       <NoIndexMeta />
 
       <AdminNav />
-      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+      <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <CashflowContextBanner message="Margin, health score and per-order analysis. Use the cashflow forecast for the forward 30-day view." />
           {/* Header with Health Score */}
@@ -729,7 +731,7 @@ function FinancialDashboardInner() {
                 <Card className={`border-2 ${
                   (metrics?.healthScore || 0) >= 70 ? "border-brand-primary bg-brand-primary/10" :
                   (metrics?.healthScore || 0) >= 55 ? "border-yellow-500 bg-yellow-50" :
-                  "border-red-500 bg-red-50"
+                  "border-rose-500 bg-rose-50"
                 }`}>
                   <CardContent className="p-4 text-center">
                     <div className="flex items-center gap-2 justify-center mb-1">
@@ -751,6 +753,7 @@ function FinancialDashboardInner() {
                 </div>
               }
             />
+            <PageWorkbench />
 
             {/* TIGHTEN I.29: the inline zero-data card moved into a
                 dedicated early-return at the top of the component.
@@ -760,7 +763,7 @@ function FinancialDashboardInner() {
 
             {/* Celebration Message */}
             {showCelebration && (
-              <div className="bg-gradient-to-r from-brand-primary to-brand-secondary text-white p-4 rounded-lg mb-4 animate-pulse">
+              <div className="bg-brand-primary text-white p-4 rounded-lg mb-4 animate-pulse">
                 <div className="flex items-center gap-3">
                   <Trophy className="w-8 h-8" />
                   <div>
@@ -776,14 +779,14 @@ function FinancialDashboardInner() {
               <div className="space-y-2 mb-6">
                 {alerts.map((alert, index) => (
                   <Card key={index} className={`border-l-4 ${
-                    alert.severity === "high" ? "border-l-red-500 bg-red-50" :
+                    alert.severity === "high" ? "border-l-red-500 bg-rose-50" :
                     alert.severity === "medium" ? "border-l-yellow-500 bg-yellow-50" :
                     "border-l-blue-500 bg-blue-50"
                   }`}>
                     <CardContent className="p-4">
                       <div className="flex items-start gap-3">
                         <AlertTriangle className={`w-5 h-5 mt-0.5 ${
-                          alert.severity === "high" ? "text-red-600" :
+                          alert.severity === "high" ? "text-rose-600" :
                           alert.severity === "medium" ? "text-yellow-600" :
                           "text-blue-600"
                         }`} />
@@ -884,7 +887,7 @@ function FinancialDashboardInner() {
                   const noActivity = position.noActivity;
                   return (
                     <>
-                      <div className={`text-2xl font-bold ${net < 0 ? "text-red-700" : "text-slate-900"}`}>
+                      <div className={`text-2xl font-bold ${net < 0 ? "text-rose-700" : "text-slate-900"}`}>
                         {formatCurrency(net)}
                       </div>
                       <div className="mt-2 space-y-0.5 text-xs">
@@ -894,19 +897,19 @@ function FinancialDashboardInner() {
                         </div>
                         <div className="flex justify-between text-slate-600">
                           <span>Wages owed</span>
-                          <span className="tabular-nums text-red-700">-{formatCurrency(wages)}</span>
+                          <span className="tabular-nums text-rose-700">-{formatCurrency(wages)}</span>
                         </div>
                         <div className="flex justify-between text-slate-600">
                           <span>Fixed costs (30d)</span>
-                          <span className="tabular-nums text-red-700">-{formatCurrency(fixed)}</span>
+                          <span className="tabular-nums text-rose-700">-{formatCurrency(fixed)}</span>
                         </div>
                         <div className="flex justify-between text-slate-600">
                           <span>Payables (30d)</span>
-                          <span className="tabular-nums text-red-700">-{formatCurrency(payables)}</span>
+                          <span className="tabular-nums text-rose-700">-{formatCurrency(payables)}</span>
                         </div>
                         <div className="flex justify-between text-slate-600">
                           <span>Inventory (90d COGS)</span>
-                          <span className="tabular-nums text-red-700">-{formatCurrency(inventory)}</span>
+                          <span className="tabular-nums text-rose-700">-{formatCurrency(inventory)}</span>
                         </div>
                       </div>
                       <div className="flex items-center gap-1 mt-2">
@@ -921,8 +924,8 @@ function FinancialDashboardInner() {
                           <span className="text-sm text-slate-500">Break-even</span>
                         ) : (
                           <>
-                            <ArrowDownRight className="w-4 h-4 text-red-600" />
-                            <span className="text-sm text-red-600">Needs attention</span>
+                            <ArrowDownRight className="w-4 h-4 text-rose-600" />
+                            <span className="text-sm text-rose-600">Needs attention</span>
                           </>
                         )}
                       </div>
@@ -985,7 +988,7 @@ function FinancialDashboardInner() {
                     Profit Margin
                     <InfoTooltip content={"(Revenue - menu COGS) / revenue, on PAID delivered orders in the last 90 days.\n\nCOGS sourced from order_items.unit_cost - the per-unit cost snapshot from menu_items.cost_per_unit at quote-accept (PR-B). Orders whose line items have no unit_cost snapshot are excluded from both numerator and denominator (legacy data pre-snapshot); the count is surfaced below the tile so the limitation is visible.\n\nPayroll + supplier invoices + fixed costs are NOT folded in - the figure here is a top-line gross margin, not net. See /admin/financial-dashboard cashflow forecast for the net picture."} />
                   </CardTitle>
-                  <TrendingUp className={`w-5 h-5 ${metrics?.profitMargin != null ? "text-purple-600" : "text-slate-400"}`} />
+                  <TrendingUp className={`w-5 h-5 ${metrics?.profitMargin != null ? "text-slate-600" : "text-slate-400"}`} />
                 </div>
               </CardHeader>
               <CardContent>
@@ -1072,7 +1075,7 @@ function FinancialDashboardInner() {
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-slate-600 flex items-center gap-1">Staff Payments Owed <InfoTooltip content={"Wages already logged for staff that you have not paid out yet."} /></span>
-                      <span className="font-semibold text-red-600">
+                      <span className="font-semibold text-rose-600">
                         {formatCurrency(metrics?.staffPaymentsOwed || 0)}
                       </span>
                     </div>
@@ -1082,13 +1085,13 @@ function FinancialDashboardInner() {
                         balance trend instead of contradicting it. */}
                     <div className="flex justify-between items-center">
                       <span className="text-slate-600 flex items-center gap-1">Fixed Costs (next 30d) <InfoTooltip content={"Recurring rent / software / vehicle costs falling due in the next 30 days. Pulled from the Fixed Costs page. Subtracted from Net Cash Flow."} /></span>
-                      <span className="font-semibold text-red-600">
+                      <span className="font-semibold text-rose-600">
                         {formatCurrency(metrics?.fixedCostsNext30 || 0)}
                       </span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-slate-600 flex items-center gap-1">Supplier Payables (next 30d) <InfoTooltip content={"Unpaid supplier invoices with a due date in the next 30 days. Pulled from the Payables page. Subtracted from Net Cash Flow."} /></span>
-                      <span className="font-semibold text-red-600">
+                      <span className="font-semibold text-rose-600">
                         {formatCurrency(metrics?.supplierPayablesNext30 || 0)}
                       </span>
                     </div>
@@ -1121,7 +1124,7 @@ function FinancialDashboardInner() {
                       return (
                         <div className="border-t pt-4 flex justify-between items-center">
                           <span className="font-semibold flex items-center gap-1">Net Cash Flow (30d) <InfoTooltip content={"Cash received less wages owed, fixed costs, supplier payables due in the next 30 days, and 90-day inventory cost.\n\nSame number as the Current Cash Flow tile above and the Cashflow Dashboard summary."} /></span>
-                          <span className={`font-bold text-lg ${net > 0 ? "text-brand-primary" : "text-red-600"}`}>
+                          <span className={`font-bold text-lg ${net > 0 ? "text-brand-primary" : "text-rose-600"}`}>
                             {formatCurrency(net)}
                           </span>
                         </div>
@@ -1194,7 +1197,7 @@ function FinancialDashboardInner() {
                       </div>
                       <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
                         <div 
-                          className="h-full bg-gradient-to-r from-blue-500 to-purple-500"
+                          className="h-full bg-gradient-to-r from-blue-500 to-slate-500"
                           style={{ width: "100%" }}
                         />
                       </div>
@@ -1209,7 +1212,7 @@ function FinancialDashboardInner() {
                       </div>
                       <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
                         <div 
-                          className="h-full bg-gradient-to-r from-brand-primary to-brand-secondary"
+                          className="h-full bg-brand-primary"
                           style={{ 
                             width: `${Math.min(100, ((metrics?.projectedRevenue90Days || 0) / ((metrics?.projectedRevenue30Days || 1) * 3)) * 100)}%` 
                           }}

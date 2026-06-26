@@ -3,7 +3,9 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/router";
 import Head from "next/head";
 import { PlatformNav } from "@/components/admin/PlatformNav";
-import { PortalShell, PortalHeader, PortalCard, PortalCardHeader, StatTile } from "@/components/portal/ui";
+import { PortalShell, PortalHeader, PortalCard, PortalCardHeader, StatTile,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -132,7 +134,7 @@ function PlatformDashboard() {
   // Show loading only if we don't have a user yet
   if (!user || loading) {
     return (
-      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+      <div className="admin-page-shell">
         <PlatformNav />
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <PortalCard className="flex items-center justify-center py-16">
@@ -149,7 +151,7 @@ function PlatformDashboard() {
   // 🔧 DEV MODE UI
   if (isDevMode) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+      <div className="min-h-screen bg-slate-50">
         <Head>
           <title>Platform dashboard (dev mode) - CateringMS</title>
           <meta name="robots" content="noindex, nofollow" />
@@ -158,7 +160,7 @@ function PlatformDashboard() {
         <div className="p-6 max-w-full">
           <div className="flex items-center justify-between mb-8">
             <div>
-              <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-yellow-600 to-orange-600 bg-clip-text text-transparent">
+              <h1 className="text-3xl md:text-4xl font-bold text-slate-950">
                 🔧 DEV MODE - Super Admin Dashboard
               </h1>
               <p className="text-slate-600">Full platform access - All companies & settings</p>
@@ -176,7 +178,7 @@ function PlatformDashboard() {
           </div>
 
           {/* DEV MODE Quick Access Card */}
-          <Card className="mb-8 border-2 border-yellow-500 bg-gradient-to-r from-yellow-50 to-orange-50">
+          <Card className="mb-8 border-amber-200 bg-amber-50">
             <CardContent className="p-6">
               <div className="flex items-center gap-4 mb-4">
                 <div className="w-16 h-16 rounded-full bg-yellow-500 flex items-center justify-center">
@@ -190,10 +192,10 @@ function PlatformDashboard() {
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <Button
                   variant="outline"
-                  className="h-auto p-4 flex flex-col items-start gap-2 hover:border-purple-500 hover:bg-purple-50"
+                  className="h-auto p-4 flex flex-col items-start gap-2 hover:border-slate-400 hover:bg-slate-50"
                   onClick={() => router.push("/admin/platform/company-database")}
                 >
-                  <Users className="w-6 h-6 text-purple-600" />
+                  <Users className="w-6 h-6 text-slate-700" />
                   <div className="text-left">
                     <div className="font-semibold">Companies</div>
                     <div className="text-xs text-slate-500">View all companies</div>
@@ -295,7 +297,7 @@ function PlatformDashboard() {
   }
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+    <div className="admin-page-shell">
       <Head>
         <title>Platform dashboard - CateringMS</title>
         <meta name="robots" content="noindex, nofollow" />
@@ -336,6 +338,7 @@ function PlatformDashboard() {
             </>
           }
         />
+        <PageWorkbench />
 
         {/* Platform Health: compact horizontal strip */}
         <PortalCard className="mb-6 sm:mb-8 flex flex-wrap items-center gap-x-6 gap-y-3 p-4">
@@ -352,7 +355,7 @@ function PlatformDashboard() {
               <span><span className="font-semibold text-slate-900 dark:text-white">{metrics?.activeCompanies ?? metrics?.activeSubscriptions ?? 0}</span> active companies</span>
               <span><span className="font-semibold text-slate-900 dark:text-white">1.2s</span> avg response</span>
               <span><span className="font-semibold text-slate-900 dark:text-white">3</span> open tickets</span>
-              <span><span className="font-semibold text-red-600">0</span> failed payments</span>
+              <span><span className="font-semibold text-rose-600">0</span> failed payments</span>
               <span>99.9% uptime</span>
             </div>
         </PortalCard>
@@ -509,9 +512,9 @@ function PlatformDashboard() {
                       </Badge>
                     </div>
 
-                    <div className="flex items-center justify-between p-4 bg-red-50 rounded-lg border border-red-200">
+                    <div className="flex items-center justify-between p-4 bg-rose-50 rounded-lg border border-rose-200">
                       <div className="flex items-center gap-3">
-                        <div className="h-12 w-12 rounded-full bg-red-500 flex items-center justify-center">
+                        <div className="h-12 w-12 rounded-full bg-rose-500 flex items-center justify-center">
                           <TrendingDown className="h-6 w-6 text-white" />
                         </div>
                         <div>
@@ -521,7 +524,7 @@ function PlatformDashboard() {
                           </p>
                         </div>
                       </div>
-                      <Badge className="bg-red-500">
+                      <Badge className="bg-rose-500">
                         {analyticsService.formatPercentage(
                           metrics?.totalCustomers > 0
                             ? (metrics.cancelledSubscriptions / metrics.totalCustomers) * 100
@@ -555,7 +558,7 @@ function PlatformDashboard() {
                         className="flex items-center justify-between p-4 border rounded-lg hover:bg-slate-50 transition-colors"
                       >
                         <div className="flex items-center gap-4">
-                          <div className="flex items-center justify-center h-10 w-10 rounded-full bg-purple-100 text-purple-600 font-bold">
+                          <div className="flex items-center justify-center h-10 w-10 rounded-full bg-slate-100 text-slate-700 font-bold">
                             #{index + 1}
                           </div>
                           <div>
@@ -604,7 +607,7 @@ function PlatformDashboard() {
                         </div>
                         <div className="w-full bg-slate-200 rounded-full h-2">
                           <div
-                            className="bg-purple-600 h-2 rounded-full transition-all"
+                            className="bg-brand-primary h-2 rounded-full transition-all"
                             style={{ width: `${plan.percentage}%` }}
                           />
                         </div>
@@ -636,7 +639,7 @@ function PlatformDashboard() {
                         className="flex items-center justify-between p-4 border rounded-lg"
                       >
                         <div className="flex items-center gap-3">
-                          <MapPin className="h-5 w-5 text-purple-600" />
+                          <MapPin className="h-5 w-5 text-slate-600" />
                           <div>
                             <p className="font-medium text-slate-900">{location.country}</p>
                             <p className="text-sm text-slate-600">{location.region}</p>

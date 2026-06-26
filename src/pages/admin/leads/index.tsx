@@ -46,6 +46,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { staffOrderHref } from "@/lib/orderUrls";
+import { PageWorkbench } from "@/components/portal/ui";
 
 // Per-lead provenance summary - which quotes/orders/clients have
 // been spawned from this lead. Surfaced on the row so the catering
@@ -99,7 +100,7 @@ function orderStatusBadge(status: string | null | undefined): { label: string; c
     return { label: "Cancelled", classes: "text-rose-700 border-rose-200 bg-rose-50" };
   }
   if (s === "confirmed") return { label: "Booked",    classes: "text-brand-primary border-brand-primary/20 bg-brand-primary/10" };
-  if (s === "preparing") return { label: "In prep",   classes: "text-purple-700 border-purple-200 bg-purple-50" };
+  if (s === "preparing") return { label: "In prep",   classes: "text-slate-700 border-slate-200 bg-slate-50" };
   if (s === "ready")     return { label: "Ready",     classes: "text-blue-700 border-blue-200 bg-blue-50" };
   if (s === "in_transit") return { label: "Driving",  classes: "text-blue-700 border-blue-200 bg-blue-50" };
   if (s === "delivered") return { label: "Delivered", classes: "text-brand-primary border-brand-primary/20 bg-brand-primary/10" };
@@ -1021,7 +1022,7 @@ function AdminLeadsInner() {
     const colors = {
       new: "bg-blue-100 text-blue-800",
       contacted: "bg-yellow-100 text-yellow-800",
-      qualified: "bg-purple-100 text-purple-800",
+      qualified: "bg-slate-100 text-slate-800",
       converted: "bg-brand-primary/15 text-brand-primary",
       lost: "bg-slate-100 text-slate-800"
     };
@@ -1037,8 +1038,9 @@ function AdminLeadsInner() {
 
       <AdminNav />
 
-      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
+      <div className="admin-page-shell">
         <div className="px-4 py-6 md:py-8 lg:py-12 max-w-full">
+          <PageWorkbench className="mb-5" />
           <div className="flex items-center justify-between mb-8">
             <div className="flex items-center gap-3">
               <div className="w-11 h-11 rounded-xl bg-brand-primary/10 flex items-center justify-center flex-shrink-0">
@@ -1215,12 +1217,12 @@ function AdminLeadsInner() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-slate-600 flex items-center gap-1.5">Qualified <InfoTooltip content={"Real opportunities that have been worked but not yet quoted."} /></p>
-                    <p className="text-2xl font-bold text-purple-600">
+                    <p className="text-2xl font-bold text-slate-600">
                       {statusCounts.qualified}
                     </p>
                   </div>
-                  <div className="w-12 h-12 rounded-lg bg-purple-100 flex items-center justify-center">
-                    <Banknote className="w-6 h-6 text-purple-600" />
+                  <div className="w-12 h-12 rounded-lg bg-slate-100 flex items-center justify-center">
+                    <Banknote className="w-6 h-6 bg-slate-100" />
                   </div>
                 </div>
               </CardContent>
@@ -1289,7 +1291,7 @@ function AdminLeadsInner() {
                   const base = "px-3 py-1.5 rounded-full text-sm font-medium border transition-colors";
                   const cls = active
                     ? chip.tone === "primary"
-                      ? "bg-indigo-600 text-white border-indigo-600 shadow-sm"
+                      ? "bg-blue-600 text-white border-blue-600 shadow-sm"
                       : chip.tone === "muted"
                         ? "bg-slate-700 text-white border-slate-700"
                         : "bg-blue-600 text-white border-blue-600"
@@ -1476,7 +1478,7 @@ function AdminLeadsInner() {
                                 ? "hover:bg-brand-primary/15"
                                 : meta?.label === "Pending"   ? "hover:bg-amber-100"
                                 : meta?.label === "Cancelled" ? "hover:bg-rose-100"
-                                : meta?.label === "In prep"   ? "hover:bg-purple-100"
+                                : meta?.label === "In prep"   ? "hover:bg-slate-100"
                                 : meta?.label === "Ready" || meta?.label === "Driving" ? "hover:bg-blue-100"
                                 : "hover:bg-slate-100";
                               return (
@@ -1491,7 +1493,7 @@ function AdminLeadsInner() {
                               );
                             })()}
                             {links.clientId && (
-                              <span className="inline-flex items-center gap-1 text-[11px] font-medium text-purple-700 bg-purple-50 border border-purple-200 rounded px-1.5 py-0.5">
+                              <span className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-700 bg-slate-50 border border-slate-200 rounded px-1.5 py-0.5">
                                 <UserCheck className="w-3 h-3" />
                                 client
                               </span>
@@ -1817,7 +1819,7 @@ function AdminLeadsInner() {
                                 Rebooked from past order
                                 <Link
                                   href={withSlug(staffOrderHref(lead.source_order_id, "admin"))}
-                                  className="ml-1.5 text-purple-600 hover:underline font-medium"
+                                  className="ml-1.5 text-slate-600 hover:underline font-medium"
                                 >
                                   view original
                                 </Link>

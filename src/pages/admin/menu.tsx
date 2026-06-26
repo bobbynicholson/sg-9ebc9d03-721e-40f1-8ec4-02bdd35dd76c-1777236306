@@ -30,7 +30,9 @@ import {
 import { captureException } from "@/lib/observability";
 import { supabase } from "@/integrations/supabase/client";
 import { AdminNav } from "@/components/admin/AdminNav";
-import { PortalShell, PortalHeader } from "@/components/portal/ui";
+import { PortalShell, PortalHeader,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { AllergenReviewBadge } from "@/components/admin/AllergenReviewBadge";
 import { MenuTopSellersWidget } from "@/components/admin/MenuTopSellersWidget";
 import { WidgetErrorBoundary } from "@/components/dashboard/WidgetErrorBoundary";
@@ -1067,7 +1069,7 @@ function MenuPage() {
       <Head><title>Menu - CateringMS</title></Head>
       <NoIndexMeta />
       <AdminNav />
-      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+      <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
 
           <PortalHeader
@@ -1156,12 +1158,13 @@ function MenuPage() {
               >
                 <Download className="w-4 h-4 mr-2" />Export CSV
               </Button>
-              <Button onClick={openAdd} className="bg-gradient-to-r from-brand-primary to-brand-secondary hover:opacity-90">
+              <Button onClick={openAdd} className="bg-brand-primary hover:opacity-90">
                 <Plus className="w-4 h-4 mr-2" />Add menu item
               </Button>
             </>
             }
           />
+          <PageWorkbench />
 
           {/* Stat strip - MNU-B widened to 6 tiles. */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-5">
@@ -1206,7 +1209,7 @@ function MenuPage() {
                 </p>
                 <p className={`text-2xl font-bold tabular-nums ${
                   stats.medianMarginPct == null ? "text-slate-400" :
-                  stats.medianMarginPct < 30 ? "text-red-700" :
+                  stats.medianMarginPct < 30 ? "text-rose-700" :
                   stats.medianMarginPct < 50 ? "text-amber-700" :
                                                "text-brand-primary"
                 }`}>
@@ -1566,7 +1569,7 @@ function MenuPage() {
                                   const cost = it.cost.cost_per_serving;
                                   const margin = price - cost;
                                   const pct = (margin / price) * 100;
-                                  const tone = pct < 30 ? "text-red-700" : pct < 50 ? "text-amber-700" : "text-brand-primary";
+                                  const tone = pct < 30 ? "text-rose-700" : pct < 50 ? "text-amber-700" : "text-brand-primary";
                                   return (
                                     <div className={`text-[10px] tabular-nums font-medium ${tone}`}>
                                       {margin >= 0 ? "+" : ""}R {margin.toFixed(2)} ({pct.toFixed(0)}%)
@@ -1599,7 +1602,7 @@ function MenuPage() {
                                     <ArchiveRestore className="w-3 h-3 mr-1" />Restore
                                   </Button>
                                 ) : (
-                                  <Button variant="outline" size="sm" onClick={() => setArchiveTarget(it)} className="text-red-700 border-red-200 hover:bg-red-50">
+                                  <Button variant="outline" size="sm" onClick={() => setArchiveTarget(it)} className="text-rose-700 border-rose-200 hover:bg-rose-50">
                                     <Archive className="w-3 h-3 mr-1" />Archive
                                   </Button>
                                 )}
@@ -1723,7 +1726,7 @@ function MenuPage() {
                       const margin = ((price - cost) / price) * 100;
                       const tone = margin >= 60 ? "text-brand-primary"
                         : margin >= 30 ? "text-amber-700"
-                        : "text-red-700";
+                        : "text-rose-700";
                       return (
                         <p className={`text-[11px] ${tone}`}>
                           Margin {margin.toFixed(1)}% (R{(price - cost).toFixed(2)} per unit)
@@ -1854,7 +1857,7 @@ function MenuPage() {
                         onClick={() => setItemDraft({ ...itemDraft, allergen_codes: toggleArrayValue(itemDraft.allergen_codes, a) })}
                         className={`text-[11px] px-2 py-1 rounded-full border transition-colors ${
                           on
-                            ? "bg-red-100 text-red-700 border-red-300"
+                            ? "bg-rose-100 text-rose-700 border-rose-300"
                             : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
                         }`}
                       >{a.replace(/_/g, " ")}</button>
@@ -2180,7 +2183,7 @@ function MenuPage() {
                     const margin = price > 0 ? price - liveCost.cost_per_serving : null;
                     const pct = price > 0 ? (margin! / price) * 100 : null;
                     const tone = pct == null ? "text-slate-700"
-                      : pct < 30 ? "text-red-700"
+                      : pct < 30 ? "text-rose-700"
                       : pct < 50 ? "text-amber-700"
                       : "text-brand-primary";
                     return (
@@ -2279,7 +2282,7 @@ function MenuPage() {
                               variant="ghost"
                               size="sm"
                               onClick={() => removeIngredient(ing._key)}
-                              className="text-red-600 hover:bg-red-50"
+                              className="text-rose-600 hover:bg-rose-50"
                               aria-label="Remove ingredient"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
@@ -2428,7 +2431,7 @@ function MenuPage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleArchive} className="bg-red-600 hover:bg-red-700">Archive</AlertDialogAction>
+            <AlertDialogAction onClick={handleArchive} className="bg-rose-600 hover:bg-rose-700">Archive</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -2446,7 +2449,7 @@ function MenuPage() {
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setBulkDialog(null)} disabled={bulkBusy}>Cancel</Button>
-            <Button onClick={runBulkArchive} disabled={bulkBusy} className="bg-red-600 hover:bg-red-700">
+            <Button onClick={runBulkArchive} disabled={bulkBusy} className="bg-rose-600 hover:bg-rose-700">
               {bulkBusy ? <Loader2 className="w-4 h-4 animate-spin mr-1.5" /> : <Archive className="w-4 h-4 mr-1.5" />}
               Archive {selectedIds.size}
             </Button>

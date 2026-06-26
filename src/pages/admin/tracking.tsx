@@ -15,7 +15,9 @@ import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { staffOrderHref } from "@/lib/orderUrls";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { AdminNav } from "@/components/admin/AdminNav";
-import { PortalShell, PortalHeader } from "@/components/portal/ui";
+import { PortalShell, PortalHeader,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { useAuth } from "@/contexts/AuthContext";
 import { useOrderRefreshSignal } from "@/hooks/useOrderRefreshSignal";
@@ -521,10 +523,10 @@ function AdminTrackingInner() {
     const colors: Record<string, string> = {
       confirmed: "bg-blue-100 text-blue-800",
       preparing: "bg-yellow-100 text-yellow-800",
-      ready: "bg-purple-100 text-purple-800",
+      ready: "bg-slate-100 text-slate-800",
       in_transit: "bg-orange-100 text-orange-800",
       delivered: "bg-brand-primary/15 text-brand-primary",
-      cancelled: "bg-red-100 text-red-800",
+      cancelled: "bg-rose-100 text-rose-800",
     };
     return colors[status] || "bg-gray-100 text-gray-800";
   };
@@ -559,24 +561,25 @@ function AdminTrackingInner() {
 
       <AdminNav />
 
-      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 pb-20 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+      <div className="admin-page-shell admin-page-shell--deep-footer">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <PortalHeader
             title="Live operations"
             icon={Navigation}
             subtitle="Today's deliveries in flight. Live driver pins on the map, prep status per order, and at-risk flags surfaced first so you can intervene before the client phones."
           />
+          <PageWorkbench />
 
           {/* Stats Cards */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-            <Card className={stats.atRisk > 0 ? "border-red-300 bg-red-50/40" : ""}>
+            <Card className={stats.atRisk > 0 ? "border-rose-300 bg-rose-50/40" : ""}>
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-slate-600 flex items-center gap-1">At risk <InfoTooltip content={"Orders where the driver's predicted arrival is later than required (event time minus arrival buffer). Needs attention now."} /></p>
-                    <p className={`text-2xl font-bold ${stats.atRisk > 0 ? "text-red-700" : "text-slate-400"}`}>{stats.atRisk}</p>
+                    <p className={`text-2xl font-bold ${stats.atRisk > 0 ? "text-rose-700" : "text-slate-400"}`}>{stats.atRisk}</p>
                   </div>
-                  <AlertCircle className={`w-7 h-7 ${stats.atRisk > 0 ? "text-red-600" : "text-slate-300"}`} />
+                  <AlertCircle className={`w-7 h-7 ${stats.atRisk > 0 ? "text-rose-600" : "text-slate-300"}`} />
                 </div>
               </CardContent>
             </Card>
@@ -610,9 +613,9 @@ function AdminTrackingInner() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-slate-600 flex items-center gap-1">Ready <InfoTooltip content={"Prepped, packed, waiting for a driver to collect."} /></p>
-                    <p className="text-2xl font-bold text-purple-600">{stats.ready}</p>
+                    <p className="text-2xl font-bold text-slate-600">{stats.ready}</p>
                   </div>
-                  <TrendingUp className="w-7 h-7 text-purple-600" />
+                  <TrendingUp className="w-7 h-7 text-slate-600" />
                 </div>
               </CardContent>
             </Card>
@@ -816,8 +819,8 @@ function AdminTrackingInner() {
                             const arrived = order.delivery_status === "arrived";
                             const borderTone =
                               arrived          ? "border-l-brand-primary bg-brand-primary/10 hover:bg-brand-primary/10" :
-                              riskTier === "critical" ? "border-l-red-600 bg-red-50/40 hover:bg-red-50" :
-                              riskTier === "high"     ? "border-l-red-500 bg-red-50/40 hover:bg-red-50" :
+                              riskTier === "critical" ? "border-l-red-600 bg-rose-50/40 hover:bg-rose-50" :
+                              riskTier === "high"     ? "border-l-red-500 bg-rose-50/40 hover:bg-rose-50" :
                               riskTier === "watch"    ? "border-l-amber-500 hover:bg-amber-50/40" :
                                                         "border-l-transparent border border-slate-200 hover:bg-slate-50";
                             return (
@@ -836,7 +839,7 @@ function AdminTrackingInner() {
                                       )}
                                       {!arrived && (riskTier === "critical" || riskTier === "high") && (
                                         <Badge className={`border-0 text-[9px] font-bold tracking-wide ${
-                                          riskTier === "critical" ? "bg-red-200 text-red-900" : "bg-red-100 text-red-800"
+                                          riskTier === "critical" ? "bg-rose-200 text-rose-900" : "bg-rose-100 text-rose-800"
                                         }`}>
                                           {riskTier === "critical" ? "CRITICAL" : "AT RISK"}
                                         </Badge>
@@ -868,7 +871,7 @@ function AdminTrackingInner() {
                                     )}
                                     {margin != null && (
                                       <span className={`tabular-nums font-medium ${
-                                        margin < 0  ? "text-red-700"   :
+                                        margin < 0  ? "text-rose-700"   :
                                         margin < 30 ? "text-amber-700" :
                                                       "text-brand-primary"
                                       }`}>

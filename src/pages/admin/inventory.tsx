@@ -6,7 +6,9 @@ import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import { useSortable, type ColumnDef } from "@/lib/useSortable";
 import { SortHeader } from "@/components/ui/sort-header";
 import { AdminNav } from "@/components/admin/AdminNav";
-import { PortalShell, PortalHeader } from "@/components/portal/ui";
+import { PortalShell, PortalHeader,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -933,7 +935,7 @@ function AdminInventory() {
       <Head><title>Inventory - CateringMS</title></Head>
       <AdminNav />
 
-      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+      <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
 
           <PortalHeader
@@ -982,7 +984,7 @@ function AdminInventory() {
                     onClick={() => { setWriteOffPreSelectedId(null); setWriteOffOpen(true); }}
                     className="gap-2 cursor-pointer"
                   >
-                    <Trash2 className="w-4 h-4 text-red-600" />
+                    <Trash2 className="w-4 h-4 text-rose-600" />
                     <div className="flex-1">
                       <p className="text-sm font-medium">Write off</p>
                       <p className="text-xs text-slate-500">Spoilage, breakage, expiry</p>
@@ -1009,6 +1011,7 @@ function AdminInventory() {
             </>
             }
           />
+          <PageWorkbench />
 
           {/* Recent receipts that fed inventory - collapsible audit
               trail tying stock movements back to the slip they came from. */}
@@ -1020,7 +1023,7 @@ function AdminInventory() {
               type="button"
               onClick={() => setActiveTab("below_reorder")}
               className={`text-left rounded-lg border bg-white p-4 shadow-sm hover:shadow transition-all ${
-                activeTab === "below_reorder" ? "ring-2 ring-red-200 border-red-300" : "border-slate-200"
+                activeTab === "below_reorder" ? "ring-2 ring-rose-200 border-rose-300" : "border-slate-200"
               }`}
             >
               <div className="flex items-center justify-between mb-2">
@@ -1028,7 +1031,7 @@ function AdminInventory() {
                   Below reorder
                   <InfoTooltip content="Items at or below their reorder point, including items completely out. Order these next." />
                 </p>
-                <AlertTriangle className="w-4 h-4 text-red-500" />
+                <AlertTriangle className="w-4 h-4 text-rose-500" />
               </div>
               <p className="text-2xl font-semibold text-slate-900">{belowReorderCount}</p>
               {/* INV-B: honest split. Pre-INV-B the sub-line read
@@ -1222,7 +1225,7 @@ function AdminInventory() {
                       <button
                         type="button"
                         onClick={(e) => { e.stopPropagation(); removeView(v.id); }}
-                        className="p-1.5 mr-1 text-slate-400 hover:text-red-600"
+                        className="p-1.5 mr-1 text-slate-400 hover:text-rose-600"
                         title="Delete view"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -1268,8 +1271,8 @@ function AdminInventory() {
                 onClick={() => setActiveTab("below_reorder")}
                 className={`px-3 py-1 text-xs font-medium rounded-full border transition-colors ${
                   activeTab === "below_reorder"
-                    ? "bg-red-600 text-white border-red-600"
-                    : "bg-white text-red-700 border-red-200 hover:bg-red-50"
+                    ? "bg-rose-600 text-white border-rose-600"
+                    : "bg-white text-rose-700 border-rose-200 hover:bg-rose-50"
                 }`}
               >
                 Below reorder ({belowReorderItems.length})
@@ -1369,7 +1372,7 @@ function AdminInventory() {
                 const fillPct = Math.min(100, Math.max(0, (item.quantity / par) * 100));
                 const reorderTickPct = par > 0 ? Math.min(100, Math.max(0, (item.minStock / par) * 100)) : 0;
                 const barColour =
-                  isOut ? "bg-red-500" :
+                  isOut ? "bg-rose-500" :
                   isLow ? "bg-amber-500" :
                   fillPct >= 75 ? "bg-brand-primary" :
                   "bg-blue-500";
@@ -1417,7 +1420,7 @@ function AdminInventory() {
                         </Badge>
                       </div>
                       <div className="text-right tabular-nums">
-                        <p className={`text-sm font-semibold ${isOut ? "text-red-600" : isLow ? "text-amber-700" : "text-slate-900"}`}>
+                        <p className={`text-sm font-semibold ${isOut ? "text-rose-600" : isLow ? "text-amber-700" : "text-slate-900"}`}>
                           {item.quantity}
                         </p>
                         <p className="text-xs text-slate-500">{item.unit}</p>
@@ -1476,7 +1479,7 @@ function AdminInventory() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="h-8 w-8 p-0 text-slate-500 hover:text-red-700 hover:bg-red-50"
+                          className="h-8 w-8 p-0 text-slate-500 hover:text-rose-700 hover:bg-rose-50"
                           title="Delete"
                           onClick={() => openDelete(item)}
                         >
@@ -1499,7 +1502,7 @@ function AdminInventory() {
                             </Badge>
                           </div>
                           <p className="text-xs text-slate-500">
-                            <span className={isOut ? "text-red-600 font-semibold" : isLow ? "text-amber-700 font-semibold" : "text-slate-900 font-semibold"}>
+                            <span className={isOut ? "text-rose-600 font-semibold" : isLow ? "text-amber-700 font-semibold" : "text-slate-900 font-semibold"}>
                               {item.quantity} {item.unit}
                             </span>
                             <span className="text-slate-400"> · reorder {item.minStock}</span>
@@ -1572,7 +1575,7 @@ function AdminInventory() {
                                         : null;
                                       const expiryTone =
                                         daysToExpiry == null ? "text-slate-400" :
-                                        daysToExpiry < 0     ? "text-red-700 font-semibold" :
+                                        daysToExpiry < 0     ? "text-rose-700 font-semibold" :
                                         daysToExpiry <= 7    ? "text-amber-700 font-semibold" :
                                         daysToExpiry <= 30   ? "text-amber-600" :
                                                                "text-brand-primary";
@@ -1640,7 +1643,7 @@ function AdminInventory() {
                                   const change = first > 0 ? ((last - first) / first) * 100 : 0;
                                   const changeTone =
                                     Math.abs(change) < 1 ? "text-slate-500" :
-                                    change > 0 ? "text-red-600" : "text-brand-primary";
+                                    change > 0 ? "text-rose-600" : "text-brand-primary";
                                   const trendStroke = change > 0 ? "#dc2626" : change < 0 ? "#059669" : "#64748b";
                                   return (
                                     <div>
@@ -1693,7 +1696,7 @@ function AdminInventory() {
                                           )}
                                         </div>
                                         <div className="text-right whitespace-nowrap">
-                                          <span className={`tabular-nums font-medium ${qty > 0 ? "text-brand-primary" : "text-red-700"}`}>
+                                          <span className={`tabular-nums font-medium ${qty > 0 ? "text-brand-primary" : "text-rose-700"}`}>
                                             {sign}{qty} {item.unit}
                                           </span>
                                           <span className="text-slate-400 ml-2">{relativeTime(m.created_at)}</span>
@@ -1845,7 +1848,7 @@ function AdminInventory() {
                   />
                   {moveQty !== "" && !isNaN(Number(moveQty)) && Number(moveQty) > 0 && (
                     <p className="text-xs text-slate-600 mt-1.5">
-                      New total: <span className={`font-semibold ${computedNewTotal < 0 ? "text-red-600" : "text-slate-900"}`}>
+                      New total: <span className={`font-semibold ${computedNewTotal < 0 ? "text-rose-600" : "text-slate-900"}`}>
                         {computedNewTotal} {moveTarget.unit}
                       </span>
                     </p>
@@ -1864,7 +1867,7 @@ function AdminInventory() {
                 />
               </div>
 
-              {moveError && <p className="text-sm text-red-600">{moveError}</p>}
+              {moveError && <p className="text-sm text-rose-600">{moveError}</p>}
             </div>
           )}
           <DialogFooter>
@@ -1882,7 +1885,7 @@ function AdminInventory() {
       <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle className="text-red-700">Delete item</DialogTitle>
+            <DialogTitle className="text-rose-700">Delete item</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-slate-700">
             Delete <span className="font-semibold">{deleteTarget?.name}</span>?
@@ -1990,7 +1993,7 @@ function AdminInventory() {
       <Dialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle className="text-red-700">Delete {selected.size} items?</DialogTitle>
+            <DialogTitle className="text-rose-700">Delete {selected.size} items?</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-slate-700">
             Stock history is kept for each. The items disappear from lists. There is no bulk undo.
@@ -2219,7 +2222,7 @@ function ItemForm({
                 })}
                 className={`text-[11px] px-2 py-1 rounded-full border transition-colors ${
                   on
-                    ? "bg-red-100 text-red-700 border-red-300"
+                    ? "bg-rose-100 text-rose-700 border-rose-300"
                     : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
                 }`}
               >{a.replace(/_/g, " ")}</button>
@@ -2228,7 +2231,7 @@ function ItemForm({
         </div>
       </div>
       <BranchScopePicker form={form} setForm={setForm} />
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-rose-600">{error}</p>}
     </div>
   );
 }
@@ -2336,12 +2339,12 @@ function AtRiskTable({ rows }: { rows: any[] }) {
         <tbody>
           {sorted.rows.map((r: any) => {
             const tone =
-              r.status === "shortfall" ? "bg-red-50 text-red-800 border-red-200" :
+              r.status === "shortfall" ? "bg-rose-50 text-rose-800 border-rose-200" :
               r.status === "below_minimum" ? "bg-amber-50 text-amber-800 border-amber-200" :
               "bg-yellow-50 text-yellow-800 border-yellow-200";
             const projected = Number(r.projected_stock_after_7_days);
             const projectedTone = projected < 0
-              ? "text-red-600 font-medium"
+              ? "text-rose-600 font-medium"
               : projected < Number(r.minimum_stock)
                 ? "text-amber-600 font-medium"
                 : "text-slate-900";

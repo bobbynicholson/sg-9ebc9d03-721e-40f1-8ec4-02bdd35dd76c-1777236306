@@ -26,6 +26,7 @@ import { useToast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/formatters";
 import { onOrderUpdated } from "@/lib/events/orderEvents";
 import { Calendar as CalendarIcon, MapPin, ArrowLeft, Layers, Plus, X, Trash2, AlertTriangle, Edit3, Save, Link as LinkIcon } from "lucide-react";
+import { PageWorkbench } from "@/components/portal/ui";
 
 type BookingPackageStatus = "draft" | "active" | "completed" | "cancelled";
 
@@ -287,8 +288,9 @@ function PackageDetailPage() {
       <Head><title>{pkg?.name || "Package"} - CateringMS</title></Head>
       <NoIndexMeta />
       <AdminNav />
-      <div className="min-h-screen bg-slate-50 lg:pl-72 xl:pl-80">
+      <div className="admin-page-shell">
         <div className="space-y-4 w-full px-4 sm:px-6 pt-20 lg:pt-6 pb-6">
+          <PageWorkbench className="mb-5" />
           <Link href={tenantHref("/admin/packages")} className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-slate-900">
             <ArrowLeft className="w-3.5 h-3.5" />
             All packages

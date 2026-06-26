@@ -62,6 +62,7 @@ import {
   Settings as SettingsIcon, ChevronDown, ChevronUp,
 } from "lucide-react";
 import { KitchenRulesPanel } from "@/components/admin/KitchenRulesPanel";
+import { PageWorkbench } from "@/components/portal/ui";
 
 function startOfWeek(): Date {
   const d = new Date();
@@ -447,7 +448,7 @@ function KitchenTeamPage() {
     // Phase 3 admin sweep note: /admin/kitchen-duty-tracking redirects
     // to the kitchen portal; /admin/kitchen-schedule is the live admin
     // view with late/missed badges, so we route there directly.
-    { href: "/admin/kitchen-schedule", icon: ClipboardList, label: "Schedule + clock-ins", sub: "Weekly roster, late/missed badges", bg: "from-rose-50 to-pink-50", iconColor: "text-rose-600" },
+    { href: "/admin/kitchen-schedule", icon: ClipboardList, label: "Schedule + clock-ins", sub: "Weekly roster, late/missed badges", bg: "from-rose-50 to-rose-50", iconColor: "text-rose-600" },
     { href: "/admin/inventory-recipes", icon: BookOpen, label: "Recipes & inventory", sub: "Link recipes to stock", bg: "from-brand-primary/10 to-brand-secondary/10", iconColor: "text-brand-primary" },
   ];
 
@@ -460,8 +461,9 @@ function KitchenTeamPage() {
       <Head><title>Kitchen team - CateringMS</title></Head>
       <DynamicNav userRole={(userRole || UserRole.ADMIN).toString()} />
 
-      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
+      <div className="admin-page-shell">
         <div className="px-3 sm:px-4 md:px-6 pt-20 lg:pt-6 pb-6 max-w-full">
+          <PageWorkbench className="mb-5" />
 
           {/* KIT-B (task #211, 2026-05-25): top toolbar - All teams
               back link + Print prep schedule + Send prep list to
@@ -564,7 +566,7 @@ function KitchenTeamPage() {
                 means gear didn't move stations. */}
             {stats.handoversWaiting > 0 && (
               <Link href={withSlug("/admin/equipment?tab=handovers")}>
-                <Badge variant="outline" className="px-3 py-1.5 text-sm border-violet-300 text-violet-700 bg-violet-50 cursor-pointer hover:bg-violet-100">
+                <Badge variant="outline" className="px-3 py-1.5 text-sm border-slate-300 text-slate-700 bg-slate-50 cursor-pointer hover:bg-slate-100">
                   <FileText className="w-3 h-3 mr-1" />
                   {stats.handoversWaiting} handover{stats.handoversWaiting === 1 ? "" : "s"} awaiting receive
                 </Badge>
@@ -666,7 +668,7 @@ function KitchenTeamPage() {
             {/* Tomorrow's prep load. Helps the manager call extra
                 staff in before the day arrives. */}
             <Link href={withSlug(`/admin/calendar?date=${toLocalISO(new Date(Date.now() + 24 * 3600 * 1000))}`)}>
-              <Card className={`border-0 shadow-md hover:shadow-lg transition-shadow bg-gradient-to-br ${stats.tomorrowEvents > 0 ? "from-blue-50 to-indigo-50" : "from-slate-50 to-slate-100"}`}>
+              <Card className={`border-0 shadow-md hover:shadow-lg transition-shadow bg-gradient-to-br ${stats.tomorrowEvents > 0 ? "from-blue-50 to-blue-50" : "from-slate-50 to-slate-100"}`}>
                 <CardContent className="p-5">
                   <div className="flex items-start gap-3">
                     <CalendarDays className={`w-6 h-6 ${stats.tomorrowEvents > 0 ? "text-blue-700" : "text-slate-400"} flex-shrink-0`} />
@@ -691,7 +693,7 @@ function KitchenTeamPage() {
                 team's primary signal too - we surface the same number
                 so the kitchen manager isn't blindsided. */}
             <Link href={withSlug("/admin/equipment?tab=shortages")}>
-              <Card className={`border-0 shadow-md hover:shadow-lg transition-shadow ${stats.issuesThisWeek > 0 ? "bg-gradient-to-br from-rose-50 to-pink-50" : "bg-gradient-to-br from-slate-50 to-slate-100"}`}>
+              <Card className={`border-0 shadow-md hover:shadow-lg transition-shadow ${stats.issuesThisWeek > 0 ? "bg-gradient-to-br from-rose-50 to-rose-50" : "bg-gradient-to-br from-slate-50 to-slate-100"}`}>
                 <CardContent className="p-5">
                   <div className="flex items-start gap-3">
                     <Wrench className={`w-6 h-6 ${stats.issuesThisWeek > 0 ? "text-rose-600" : "text-slate-400"} flex-shrink-0`} />

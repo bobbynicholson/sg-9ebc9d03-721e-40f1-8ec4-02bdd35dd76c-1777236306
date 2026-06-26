@@ -31,6 +31,7 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useTenantHref } from "@/lib/tenantUrl";
+import { PageWorkbench } from "@/components/portal/ui";
 
 // Zod schema. Field-level rules:
 //   - name + email always required
@@ -233,8 +234,9 @@ export default function NewLead() {
 
       <AdminNav />
 
-      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
+      <div className="admin-page-shell">
         <div className="px-4 py-8 max-w-full">
+          <PageWorkbench className="mb-5" />
           <div className="mb-8">
             <Link href={withSlug("/admin/leads")}>
               <Button variant="ghost" className="mb-4">

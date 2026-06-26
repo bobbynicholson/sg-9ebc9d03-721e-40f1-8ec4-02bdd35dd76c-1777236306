@@ -8,7 +8,9 @@
  */
 import { useState, useEffect, useMemo, useRef } from "react";
 import { AdminNav } from "@/components/admin/AdminNav";
-import { PortalShell, PortalHeader } from "@/components/portal/ui";
+import { PortalShell, PortalHeader,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -47,9 +49,9 @@ export default function ProtectedCalendarPage() {
 const STATUS_TONES: Record<string, string> = {
   pending:    "bg-amber-100 text-amber-800 border-amber-200",
   confirmed:  "bg-blue-100 text-blue-800 border-blue-200",
-  preparing:  "bg-purple-100 text-purple-800 border-purple-200",
+  preparing:  "bg-slate-100 text-slate-800 border-slate-200",
   ready:      "bg-brand-primary/15 text-brand-primary border-brand-primary/20",
-  in_transit: "bg-indigo-100 text-indigo-800 border-indigo-200",
+  in_transit: "bg-blue-100 text-blue-800 border-blue-200",
   delivered:  "bg-brand-primary/15 text-brand-primary border-brand-primary/20",
   completed:  "bg-slate-100 text-slate-800 border-slate-200",
   cancelled:  "bg-rose-100 text-rose-700 border-rose-200",
@@ -785,7 +787,7 @@ function AdminCalendar() {
       <Head><title>Event calendar - CateringMS</title></Head>
       <AdminNav />
 
-      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+      <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
 
           <PortalHeader
@@ -1000,13 +1002,14 @@ function AdminCalendar() {
                   own "New Order" CTA in the header and shows the
                   operator the surrounding bookings for context. */}
               <Link href={withSlug("/admin/orders")}>
-                <Button className="bg-gradient-to-r from-brand-primary to-brand-secondary hover:opacity-90 gap-2">
+                <Button className="bg-brand-primary hover:opacity-90 gap-2">
                   <Plus className="w-4 h-4" /> New Event
                 </Button>
               </Link>
             </>
             }
           />
+          <PageWorkbench />
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2">
@@ -1077,7 +1080,7 @@ function AdminCalendar() {
                             key={d.iso}
                             className={cn(
                               "rounded-lg border p-3",
-                              isToday ? "border-purple-400 bg-purple-50/60" :
+                              isToday ? "border-slate-400 bg-slate-50/60" :
                               hasConflict ? "border-rose-300 bg-rose-50/30" :
                               d.events.length > 0 ? "border-blue-200 bg-white" :
                               "border-amber-200 bg-amber-50/30",
@@ -1091,7 +1094,7 @@ function AdminCalendar() {
                               <div className="flex items-center justify-between mb-2">
                                 <span className={cn(
                                   "text-sm font-semibold",
-                                  isToday ? "text-purple-900" : "text-slate-900",
+                                  isToday ? "text-slate-900" : "text-slate-900",
                                 )}>
                                   {d.label}{isToday ? " · Today" : ""}
                                 </span>
@@ -1159,8 +1162,8 @@ function AdminCalendar() {
                         blue:   "bg-blue-100 text-blue-800 border-blue-300",
                         amber:  "bg-amber-100 text-amber-800 border-amber-300",
                         orange: "bg-orange-100 text-orange-800 border-orange-300",
-                        indigo: "bg-indigo-100 text-indigo-800 border-indigo-300",
-                        purple: "bg-purple-100 text-purple-800 border-purple-300",
+                        indigo: "bg-blue-100 text-blue-800 border-blue-300",
+                        purple: "bg-slate-100 text-slate-800 border-slate-300",
                         cyan:   "bg-brand-primary/15 text-brand-primary border-brand-primary/30",
                         rose:   "bg-rose-100 text-rose-800 border-rose-300",
                       };
@@ -1237,8 +1240,8 @@ function AdminCalendar() {
                           className={cn(
                             "relative min-h-[88px] p-2 rounded-lg border-2 text-left transition-all",
                             "hover:shadow-md hover:scale-[1.02] focus:outline-none",
-                            isToday  && "ring-2 ring-purple-500 ring-offset-1",
-                            cellState === "selected"          && "bg-purple-50 border-purple-500",
+                            isToday  && "ring-2 ring-slate-500 ring-offset-1",
+                            cellState === "selected"          && "bg-slate-50 border-slate-500",
                             cellState === "capacity"          && "bg-rose-50 border-rose-300",
                             cellState === "paused"            && "bg-blue-50/40 border-blue-300 border-dashed",
                             cellState === "booked_with_quotes"&& "bg-blue-50/60 border-amber-300",
@@ -1254,14 +1257,14 @@ function AdminCalendar() {
                           <div className="flex items-center justify-between">
                             <span className={cn(
                               "text-sm font-semibold tabular-nums",
-                              isToday ? "text-purple-700" : "text-slate-900",
+                              isToday ? "text-slate-700" : "text-slate-900",
                             )}>
                               {day}
                             </span>
                             {isToday && (
                               <span className="relative flex h-2 w-2" aria-hidden>
-                                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-purple-400 opacity-75" />
-                                <span className="relative inline-flex rounded-full h-2 w-2 bg-purple-500" />
+                                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-slate-400 opacity-75" />
+                                <span className="relative inline-flex rounded-full h-2 w-2 bg-slate-400" />
                               </span>
                             )}
                           </div>
@@ -1300,13 +1303,13 @@ function AdminCalendar() {
                                   className={cn(
                                     "text-[10px] leading-tight rounded px-1.5 py-0.5 truncate border",
                                     tone,
-                                    isMultiDay && "ring-1 ring-indigo-200/60",
+                                    isMultiDay && "ring-1 ring-blue-200/60",
                                   )}
                                   title={`${e.client_name || "Event"} - ${e.event_time || ""}${dayLabel}`}
                                 >
                                   <span className="font-semibold">{e.event_time?.slice(0,5) || ""}</span>{" "}
                                   {e.client_name || "Event"}
-                                  {dayLabel && <span className="text-indigo-700">{dayLabel}</span>}
+                                  {dayLabel && <span className="text-blue-700">{dayLabel}</span>}
                                 </div>
                               );
                             })}
@@ -1362,12 +1365,12 @@ function AdminCalendar() {
                                 </span>,
                               );
                               if (layers.drivers && d > 0) chips.push(
-                                <span key="d" className="inline-flex items-center gap-0.5 text-[9px] text-indigo-700 bg-indigo-50 border border-indigo-100 rounded px-1 py-px" title={`${d} driver shift${d === 1 ? "" : "s"} rostered`}>
+                                <span key="d" className="inline-flex items-center gap-0.5 text-[9px] text-blue-700 bg-blue-50 border border-blue-100 rounded px-1 py-px" title={`${d} driver shift${d === 1 ? "" : "s"} rostered`}>
                                   <Truck className="w-2.5 h-2.5" />{d}
                                 </span>,
                               );
                               if (layers.equipment && eq > 0) chips.push(
-                                <span key="e" className="inline-flex items-center gap-0.5 text-[9px] text-purple-700 bg-purple-50 border border-purple-100 rounded px-1 py-px" title={`${eq} equipment booking${eq === 1 ? "" : "s"} active`}>
+                                <span key="e" className="inline-flex items-center gap-0.5 text-[9px] text-slate-700 bg-slate-50 border border-slate-100 rounded px-1 py-px" title={`${eq} equipment booking${eq === 1 ? "" : "s"} active`}>
                                   <Package className="w-2.5 h-2.5" />{eq}
                                 </span>,
                               );
@@ -1422,7 +1425,7 @@ function AdminCalendar() {
               <Card className="border-0 shadow-lg">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <Clock className="w-5 h-5 text-purple-600" />
+                    <Clock className="w-5 h-5 text-slate-600" />
                     Next 5 events
                     <InfoTooltip content={"The next five upcoming events on your books, sorted by date so the soonest sits at the top."} />
                   </CardTitle>
@@ -1438,11 +1441,11 @@ function AdminCalendar() {
                           href={withSlug(staffOrderHref(e.id, "admin"))}
                           className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50"
                         >
-                          <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-100 to-pink-100 flex flex-col items-center justify-center flex-shrink-0">
-                            <span className="text-[10px] font-bold text-purple-700 leading-none">
+                          <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-slate-100 to-rose-100 flex flex-col items-center justify-center flex-shrink-0">
+                            <span className="text-[10px] font-bold from-slate-100 leading-none">
                               {new Date(e.event_date).toLocaleDateString("en-ZA", { month: "short" }).toUpperCase()}
                             </span>
-                            <span className="text-sm font-bold text-purple-700 leading-none">
+                            <span className="text-sm font-bold text-slate-700 leading-none">
                               {new Date(e.event_date).getDate()}
                             </span>
                           </div>
@@ -1596,7 +1599,7 @@ function AdminCalendar() {
                 </CardContent>
               </Card>
 
-              <Card className="border-0 shadow-lg bg-gradient-to-br from-blue-50 to-indigo-50">
+              <Card className="border-0 shadow-lg bg-gradient-to-br from-blue-50 to-blue-50">
                 <CardContent className="pt-6 space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-slate-600 flex items-center gap-1.5">Total events <InfoTooltip content={"Every confirmed-and-onwards event in the loaded ±6-month window. Cancelled, pending and draft orders are excluded - they live on /admin/orders, not the calendar."} /></span>
@@ -1628,7 +1631,7 @@ function AdminCalendar() {
             <>
               <SheetHeader>
                 <SheetTitle className="flex items-center gap-2">
-                  <CalendarIcon className="w-5 h-5 text-purple-600" />
+                  <CalendarIcon className="w-5 h-5 text-slate-600" />
                   {selectedDate.toLocaleDateString("en-ZA", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
                 </SheetTitle>
                 <SheetDescription>
@@ -1787,7 +1790,7 @@ function AdminCalendar() {
 
                 {dayEvents.length === 0 && dayQuotes.length === 0 ? (
                   <Link href={withSlug("/admin/order-assignments")} className="block">
-                    <Card className="border-2 border-dashed border-slate-200 hover:border-purple-300 transition-colors">
+                    <Card className="border-2 border-dashed border-slate-200 hover:border-slate-300 transition-colors">
                       <CardContent className="py-8 text-center">
                         <Plus className="w-8 h-8 mx-auto text-slate-400 mb-2" />
                         <p className="text-sm font-semibold text-slate-700">Book an event</p>
@@ -1863,7 +1866,7 @@ function AdminCalendar() {
                                 onMouseDown={(ev) => ev.stopPropagation()}
                               >
                                 <ClientLinkButton orderId={e.id} companyId={(e as any).company_id} compact />
-                                <span className="text-xs text-purple-600 font-medium flex items-center gap-1">
+                                <span className="text-xs text-slate-600 font-medium flex items-center gap-1">
                                   Open <ArrowRight className="w-3 h-3" />
                                 </span>
                               </div>

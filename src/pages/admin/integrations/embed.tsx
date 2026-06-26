@@ -57,6 +57,7 @@ import { SnippetDialog } from "@/components/admin/embed/SnippetDialog";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { captureException } from "@/lib/observability";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
+import { PageWorkbench } from "@/components/portal/ui";
 
 interface EmbedFormRow {
   id: string;
@@ -226,8 +227,9 @@ export default function AdminEmbedFormsPage() {
       <Head><title>Lead capture forms - CateringMS</title></Head>
       <AdminNav />
 
-      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
+      <div className="admin-page-shell">
         <div className="px-4 py-6 md:py-8 lg:py-12 max-w-full">
+          <PageWorkbench className="mb-5" />
 
           {/* Header */}
           <div className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -247,7 +249,7 @@ export default function AdminEmbedFormsPage() {
             {!isEmpty && (
               <Button
                 onClick={() => setGalleryOpen(true)}
-                className="gap-2 bg-gradient-to-r from-brand-primary to-brand-secondary hover:from-indigo-600 hover:to-purple-600"
+                className="gap-2 bg-brand-primary hover:bg-brand-primary/90"
               >
                 <Plus className="w-4 h-4" />
                 New form
@@ -263,7 +265,7 @@ export default function AdminEmbedFormsPage() {
                 value={numberFmt.format(kpis.total_forms)}
                 tooltip="Number of embeddable form variants you've created. Includes paused forms."
                 icon={LayoutTemplate}
-                iconColor="text-indigo-600"
+                iconColor="text-blue-600"
                 loading={loading}
               />
               <MetricCard
@@ -290,7 +292,7 @@ export default function AdminEmbedFormsPage() {
                 hint="Submissions / views"
                 tooltip="Total submissions divided by total views, expressed as a percentage. Healthy embedded forms sit between 5% and 20%."
                 icon={TrendingUp}
-                iconColor="text-purple-600"
+                iconColor="text-slate-600"
                 loading={loading}
               />
             </div>
@@ -327,7 +329,7 @@ export default function AdminEmbedFormsPage() {
                 <Button
                   size="lg"
                   onClick={() => setGalleryOpen(true)}
-                  className="gap-2 bg-gradient-to-r from-brand-primary to-brand-secondary hover:from-indigo-600 hover:to-purple-600"
+                  className="gap-2 bg-brand-primary hover:bg-brand-primary/90"
                 >
                   <LayoutTemplate className="w-5 h-5" />
                   Browse templates
@@ -523,7 +525,7 @@ function FormCard({
                   {form.is_active ? <><Pause className="w-4 h-4" /> Pause</> : <><Play className="w-4 h-4" /> Resume</>}
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => onDelete(form)} className="gap-2 cursor-pointer text-red-600">
+                <DropdownMenuItem onClick={() => onDelete(form)} className="gap-2 cursor-pointer text-rose-600">
                   <Trash2 className="w-4 h-4" /> Delete
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -557,7 +559,7 @@ function FormCard({
                 <Pencil className="w-3.5 h-3.5" /> Edit
               </Link>
             </Button>
-            <Button onClick={onGetSnippet} size="sm" className="gap-2 bg-gradient-to-r from-brand-primary to-brand-secondary hover:from-indigo-600 hover:to-purple-600">
+            <Button onClick={onGetSnippet} size="sm" className="gap-2 bg-brand-primary hover:bg-brand-primary/90">
               <ExternalLink className="w-3.5 h-3.5" /> Snippet
             </Button>
           </div>

@@ -43,7 +43,9 @@ import { ReconcileSlipDrawer } from "@/components/shopping/ReconcileSlipDrawer";
 import { ReceiptsTab } from "@/components/shopping/ReceiptsTab";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
-import { PortalShell, PortalHeader } from "@/components/portal/ui";
+import { PortalShell, PortalHeader,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { useAuth } from "@/contexts/AuthContext";
 import { useOrderRefreshSignal } from "@/hooks/useOrderRefreshSignal";
@@ -143,7 +145,7 @@ interface SupplierHistory {
 // tenant's currency symbol.
 
 const STATUS_META: Record<string, { label: string; tone: string; rank: number }> = {
-  shortfall:     { label: "Shortfall",     tone: "bg-red-100 text-red-700 border-red-200",       rank: 0 },
+  shortfall:     { label: "Shortfall",     tone: "bg-rose-100 text-rose-700 border-rose-200",       rank: 0 },
   below_minimum: { label: "Below par",     tone: "bg-amber-100 text-amber-800 border-amber-200", rank: 1 },
   low:           { label: "Low",           tone: "bg-yellow-100 text-yellow-800 border-yellow-200", rank: 2 },
   ok:            { label: "OK",            tone: "bg-brand-primary/15 text-brand-primary border-brand-primary/20", rank: 3 },
@@ -1131,7 +1133,7 @@ function SmartShoppingPage() {
       <Head><title>Shopping - CateringMS</title></Head>
       <AdminNav />
 
-      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+      <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
 
           <PortalHeader
@@ -1249,7 +1251,7 @@ function SmartShoppingPage() {
             <SummaryTile
               label="Shortfalls"
               value={enriched.filter((r) => r.status === "shortfall").length}
-              accent="text-red-600"
+              accent="text-rose-600"
               icon={AlertTriangle}
               hint="Below 7-day demand"
               tooltip={"Items where you don't have enough stock to cover the next 7 days of confirmed orders."}
@@ -1360,7 +1362,7 @@ function SmartShoppingPage() {
               <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 max-w-3xl mb-4">
                 <TabsTrigger value="buy_now" className="gap-1.5">
                   <Flame className="w-3.5 h-3.5" /> Buy now
-                  {buyNow.length > 0 && <Badge className="ml-1 bg-red-100 text-red-700 text-[10px]">{buyNow.length}</Badge>}
+                  {buyNow.length > 0 && <Badge className="ml-1 bg-rose-100 text-rose-700 text-[10px]">{buyNow.length}</Badge>}
                 </TabsTrigger>
                 <TabsTrigger value="plan" className="gap-1.5">
                   <Calendar className="w-3.5 h-3.5" /> Plan ahead
@@ -1747,7 +1749,7 @@ function SmartShoppingPage() {
                                     <p className="text-xs text-slate-500">
                                       {g.items.length} item{g.items.length === 1 ? "" : "s"} to order
                                       {g.totalShortfallCount > 0 && (
-                                        <span className="ml-2 text-red-600 font-medium">
+                                        <span className="ml-2 text-rose-600 font-medium">
                                           - {g.totalShortfallCount} shortfall{g.totalShortfallCount === 1 ? "" : "s"}
                                         </span>
                                       )}
@@ -1894,6 +1896,7 @@ function SmartShoppingPage() {
                   accountant-facing overview. */}
               <TabsContent value="receipts">
                 <ReceiptsTab companyId={companyId || ""} userId={user?.id || ""} />
+          <PageWorkbench />
               </TabsContent>
             </Tabs>
           )}

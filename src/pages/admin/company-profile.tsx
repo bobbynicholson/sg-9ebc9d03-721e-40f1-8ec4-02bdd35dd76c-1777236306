@@ -25,7 +25,9 @@ import { Label } from "@/components/ui/label";
 import { Building2, MapPin, Mail, Phone, Globe, Image as ImageIcon, Palette, Save, Loader2, ShieldCheck, ExternalLink, ArrowRight, Landmark, Hash, Calendar, AlertTriangle, CheckCircle2, Clock } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
-import { PortalShell, PortalHeader } from "@/components/portal/ui";
+import { PortalShell, PortalHeader,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { useAuth } from "@/contexts/AuthContext";
 import { UserRole } from "@/types/app";
@@ -334,7 +336,7 @@ function CompanyProfilePage() {
         <NoIndexMeta />
         <Head><title>Company profile - CateringMS</title></Head>
         <AdminNav />
-        <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0 flex items-center justify-center">
+        <div className="admin-page-shell admin-page-shell--center">
           <Loader2 className="w-8 h-8 animate-spin text-slate-400" />
         </div>
       </>
@@ -347,7 +349,7 @@ function CompanyProfilePage() {
       <Head><title>Company profile - CateringMS</title></Head>
       <AdminNav />
 
-      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+      <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
 
           <PortalHeader
@@ -376,6 +378,7 @@ function CompanyProfilePage() {
             </>
             }
           />
+          <PageWorkbench />
 
           {/* CP-B: setup completeness banner. Each row links to the
               anchor of the section that owns the field; clicking
@@ -438,7 +441,7 @@ function CompanyProfilePage() {
           <Card id="section-identity" className="border-0 shadow-lg mb-6 scroll-mt-20">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Building2 className="w-5 h-5 text-purple-600" />
+                <Building2 className="w-5 h-5 text-slate-600" />
                 Identity
                 <InfoTooltip content={"The name, phone, email, website, and registration details that show up everywhere clients and your team see your brand."} />
               </CardTitle>
@@ -910,7 +913,7 @@ function CompanyProfilePage() {
                   href={`https://www.google.com/maps?q=${row.headquarters_lat},${row.headquarters_lng}`}
                   target="_blank"
                   rel="noopener"
-                  className="inline-flex items-center gap-1 text-xs text-purple-600 hover:underline"
+                  className="inline-flex items-center gap-1 text-xs text-slate-600 hover:underline"
                 >
                   Verify on Google Maps <ExternalLink className="w-3 h-3" />
                 </a>
@@ -943,7 +946,7 @@ function CompanyProfilePage() {
           <Card id="section-brand" className="border-0 shadow-lg mb-6 scroll-mt-20">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Palette className="w-5 h-5 text-pink-600" />
+                <Palette className="w-5 h-5 text-rose-600" />
                 Brand colours + logo
               </CardTitle>
               <CardDescription>
@@ -1181,7 +1184,7 @@ function DocumentNumberingCard({ companyId }: { companyId: string }) {
     <Card className="border-0 shadow-lg mb-6">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Hash className="w-5 h-5 text-indigo-600" />
+          <Hash className="w-5 h-5 text-blue-600" />
           Document numbering
           <InfoTooltip content={"Per-tenant counters for the invoice, quote, and order numbers your clients see.\n\nMigrating from another tool? Set the starting number to whatever comes next in the old sequence and the platform will pick up from there.\n\nValidation blocks regressing past numbers you've already issued, so you can't accidentally re-use a live invoice number."} />
         </CardTitle>
@@ -1309,12 +1312,12 @@ function DocumentNumberingCard({ companyId }: { companyId: string }) {
                       </Field>
                     </div>
 
-                    <div className="rounded-md border border-indigo-100 bg-indigo-50 p-3">
-                      <p className="text-xs font-semibold text-indigo-900 mb-1">Live preview</p>
-                      <div className="flex flex-wrap gap-2 text-xs font-mono text-indigo-900">
-                        <span className="px-2 py-1 bg-white rounded border border-indigo-200">{previewNumber(row, 0)}</span>
-                        <span className="px-2 py-1 bg-white rounded border border-indigo-200">{previewNumber(row, 1)}</span>
-                        <span className="px-2 py-1 bg-white rounded border border-indigo-200">{previewNumber(row, 2)}</span>
+                    <div className="rounded-md border border-blue-100 bg-blue-50 p-3">
+                      <p className="text-xs font-semibold text-blue-900 mb-1">Live preview</p>
+                      <div className="flex flex-wrap gap-2 text-xs font-mono text-blue-900">
+                        <span className="px-2 py-1 bg-white rounded border border-blue-200">{previewNumber(row, 0)}</span>
+                        <span className="px-2 py-1 bg-white rounded border border-blue-200">{previewNumber(row, 1)}</span>
+                        <span className="px-2 py-1 bg-white rounded border border-blue-200">{previewNumber(row, 2)}</span>
                       </div>
                     </div>
 

@@ -47,7 +47,9 @@ import {
   type EquipmentReservationRow,
 } from "@/services/equipmentAvailabilityService";
 import { AdminNav } from "@/components/admin/AdminNav";
-import { PortalShell, PortalHeader } from "@/components/portal/ui";
+import { PortalShell, PortalHeader,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { useAuth } from "@/contexts/AuthContext";
@@ -189,13 +191,14 @@ function EquipmentPage() {
 
       <AdminNav />
 
-      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+      <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <PortalHeader
             title="Equipment"
             subtitle="Catering equipment catalogue. Availability per date, current bookings, shortages, and hire-in cover when you're running short for an event."
             icon={Package}
           />
+          <PageWorkbench />
 
           <Tabs value={tab} onValueChange={handleTabChange} className="w-full">
             <TabsList className="grid grid-cols-2 md:grid-cols-5 w-full md:w-auto h-auto">
@@ -641,7 +644,7 @@ function CatalogTab({ companyId }: { companyId: string | null }) {
               is_available: true,
             })
           }
-          className="bg-gradient-to-r from-brand-primary to-brand-secondary text-white"
+          className="bg-brand-primary text-white"
         >
           <Plus className="w-4 h-4 mr-2" />
           Add equipment
@@ -695,7 +698,7 @@ function CatalogTab({ companyId }: { companyId: string | null }) {
           <AlertTriangle className="w-4 h-4 text-amber-700" />
           <span className="text-xs font-medium text-amber-900">Maintenance:</span>
           {overdueServiceCount > 0 && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-red-100 border border-red-300 text-red-800 text-xs px-2 py-0.5">
+            <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 border border-rose-300 text-rose-800 text-xs px-2 py-0.5">
               <span className="font-semibold">{overdueServiceCount}</span> overdue
             </span>
           )}
@@ -839,7 +842,7 @@ function CatalogTab({ companyId }: { companyId: string | null }) {
                             {isOverdue && (
                               <Badge
                                 variant="outline"
-                                className="text-[10px] bg-red-50 text-red-700 border-red-300"
+                                className="text-[10px] bg-rose-50 text-rose-700 border-rose-300"
                                 title={`Service was due ${new Date(r.next_service_due as string).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}`}
                               >
                                 Service overdue

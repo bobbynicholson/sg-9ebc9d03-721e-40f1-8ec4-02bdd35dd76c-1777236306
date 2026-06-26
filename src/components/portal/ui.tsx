@@ -1,18 +1,20 @@
 import * as React from "react";
-import { ArrowUpRight, ArrowDownRight } from "lucide-react";
+import { ArrowUpRight, ArrowDownRight, Route } from "lucide-react";
+import { useRouter } from "next/router";
 import { cn } from "@/lib/utils";
 
-// Soft, layered card shadow - a tight contact shadow plus a wide, faint
-// ambient one. Reads as quiet depth, not a hard drop shadow.
+// Desk-panel shadow: a tighter operational surface than the earlier
+// floaty card treatment. It separates dense tools without making every
+// page feel like a stack of marketing cards.
 const SOFT_SHADOW =
-  "shadow-[0_1px_2px_rgba(15,23,42,0.04),0_10px_30px_-16px_rgba(15,23,42,0.12)]";
+  "shadow-[0_1px_1px_rgba(15,23,42,0.04),0_14px_28px_-24px_rgba(15,23,42,0.35)]";
 
 /**
  * Shared container primitives for the staff portals. One definition so every
  * page's shell, header, cards and stat tiles are identical - consistent AND
  * a touch more refined (rounded-2xl, hairline borders, soft shadow, generous
- * padding, neutral icon tile with an amber glyph). Product-register restraint:
- * amber is the accent, slate is the neutral, dark-mode aware throughout.
+ * padding, brand-driven icon tile and route strip). Product-register restraint:
+ * tenant branding is the accent, slate is the neutral, dark-mode aware throughout.
  */
 
 /** Page wrapper: neutral ground + responsive container. */
@@ -32,10 +34,23 @@ export function PortalShell({
   width?: "default" | "narrow";
 }) {
   return (
-    <div className={cn("min-h-screen bg-slate-50 dark:bg-slate-950", className)}>
+    <div
+      className={cn(
+        "relative min-h-screen overflow-hidden bg-[linear-gradient(180deg,#eef2f6_0%,#f8fafc_260px,#f8fafc_100%)] dark:bg-[linear-gradient(180deg,#020617_0%,#0f172a_260px,#0f172a_100%)]",
+        className,
+      )}
+    >
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 top-0 h-px bg-slate-950/10 dark:bg-white/10"
+      />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 top-0 h-56 bg-[linear-gradient(90deg,rgb(var(--brand-primary-rgb)/0.10),rgb(var(--brand-secondary-rgb)/0.08),rgb(var(--brand-accent-rgb)/0.10))] dark:opacity-35"
+      />
       <div
         className={cn(
-          "w-full px-4 py-6 sm:px-6 sm:py-8",
+          "relative z-0 w-full px-4 py-5 sm:px-6 sm:py-7 lg:px-8",
           width === "narrow" ? "mx-auto max-w-3xl" : "max-w-none",
         )}
       >
@@ -60,19 +75,24 @@ export function PortalHeader({
   className?: string;
 }) {
   return (
-    <header className={cn("mb-6 flex flex-wrap items-start justify-between gap-4", className)}>
-      <div className="flex min-w-0 items-start gap-3">
+    <header
+      className={cn(
+        "mb-5 flex flex-wrap items-end justify-between gap-4 border-b border-slate-300/70 pb-4 dark:border-slate-800",
+        className,
+      )}
+    >
+      <div className="flex min-w-0 items-start gap-3.5">
         {Icon && (
-          <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-portal-accent dark:border-slate-700 dark:bg-slate-900 dark:text-portal-accent">
+          <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-300 bg-white text-brand-primary shadow-sm dark:border-slate-700 dark:bg-slate-900">
             <Icon className="h-5 w-5" aria-hidden="true" />
           </span>
         )}
         <div className="min-w-0">
-          <h1 className="font-brand-display text-balance text-2xl font-semibold leading-tight tracking-tight text-slate-950 dark:text-white">
+          <h1 className="font-brand-display text-balance text-[1.55rem] font-semibold leading-tight tracking-normal text-slate-950 dark:text-white">
             {title}
           </h1>
           {subtitle && (
-            <p className="mt-1 max-w-3xl text-pretty text-sm leading-6 text-slate-600 dark:text-slate-400">
+            <p className="mt-1.5 max-w-4xl text-pretty text-sm leading-6 text-slate-600 dark:text-slate-400">
               {subtitle}
             </p>
           )}
@@ -80,6 +100,80 @@ export function PortalHeader({
       </div>
       {actions && <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">{actions}</div>}
     </header>
+  );
+}
+
+function humanizeSegment(segment: string) {
+  if (!segment || segment.startsWith("[") || segment === "index") return "";
+  return segment
+    .replace(/\?.*$/, "")
+    .replace(/-/g, " ")
+    .replace(/\b\w/g, (m) => m.toUpperCase());
+}
+
+function routeSurface(pathname: string) {
+  if (pathname.includes("/admin/platform")) {
+    return { scope: "Platform", area: "Internal" };
+  }
+  if (pathname.includes("/client-portal") || pathname.startsWith("/client/") || pathname.startsWith("/c/")) {
+    return { scope: "Client", area: "Private" };
+  }
+  if (pathname.includes("/team-portal/kitchen")) {
+    return { scope: "Kitchen", area: "Team" };
+  }
+  if (pathname.includes("/team-portal/driver")) {
+    return { scope: "Driver", area: "Field" };
+  }
+  if (pathname.includes("/team-portal/shopping")) {
+    return { scope: "Shopping", area: "Procurement" };
+  }
+  if (pathname.includes("/team-portal/cleaning")) {
+    return { scope: "Cleaning", area: "Close-out" };
+  }
+  if (pathname.includes("/admin")) {
+    return { scope: "Admin", area: "Tenant" };
+  }
+  if (pathname.includes("/order/")) {
+    return { scope: "Order", area: "Shared" };
+  }
+  return { scope: "Workspace", area: "Page" };
+}
+
+/** Page-level workbench strip mounted by route files below PortalHeader. */
+export function PageWorkbench({
+  className,
+}: {
+  className?: string;
+}) {
+  const router = useRouter();
+  const pathname = router.pathname || "";
+  const surface = routeSurface(pathname);
+  const segments = pathname.split("/").filter(Boolean);
+  const page = humanizeSegment(segments[segments.length - 1] || "dashboard") || "Dashboard";
+  const parent = humanizeSegment(segments[segments.length - 2] || "");
+
+  return (
+    <nav
+      aria-label="Page context"
+      className={cn(
+        "-mt-2 mb-5 flex flex-col gap-2 border-b border-slate-200/80 pb-3 text-xs text-slate-500 dark:border-slate-800 dark:text-slate-400 sm:flex-row sm:items-center sm:justify-between",
+        className,
+      )}
+    >
+      <div className="flex min-w-0 items-center gap-2">
+        <Route className="h-3.5 w-3.5 shrink-0 text-brand-primary" aria-hidden="true" />
+        <div className="flex min-w-0 flex-wrap items-center gap-1.5 font-semibold text-slate-700 dark:text-slate-300">
+          <span className="truncate">{surface.scope}</span>
+          {parent && <span className="text-slate-400">/</span>}
+          {parent && <span className="truncate">{parent}</span>}
+          <span className="text-slate-400">/</span>
+          <span className="truncate text-slate-950 dark:text-white">{page}</span>
+        </div>
+      </div>
+      <span className="truncate font-medium text-slate-500 dark:text-slate-400">
+        {surface.area} - {pathname.replace(/\[(.*?)\]/g, ":$1")}
+      </span>
+    </nav>
   );
 }
 
@@ -99,10 +193,10 @@ export function PortalCard({
   return (
     <div
       className={cn(
-        "rounded-2xl border border-slate-200/80 bg-white/95 dark:border-slate-800 dark:bg-slate-900",
+        "rounded-lg border border-slate-300/80 bg-white dark:border-slate-800 dark:bg-slate-900/95",
         SOFT_SHADOW,
         interactive &&
-          "cursor-pointer transition-[box-shadow,border-color,transform] duration-200 ease-standard hover:-translate-y-px hover:border-slate-300 hover:shadow-[0_2px_4px_rgba(15,23,42,0.05),0_16px_40px_-18px_rgba(15,23,42,0.22)] dark:hover:border-slate-700",
+          "cursor-pointer transition-[box-shadow,border-color,transform] duration-200 ease-standard hover:-translate-y-px hover:border-slate-400 hover:shadow-[0_1px_2px_rgba(15,23,42,0.06),0_18px_36px_-26px_rgba(15,23,42,0.45)] dark:hover:border-slate-700",
         padded && "p-4 sm:p-5",
         className,
       )}
@@ -124,8 +218,13 @@ export function PortalCardHeader({
   className?: string;
 }) {
   return (
-    <div className={cn("mb-3 flex items-center justify-between gap-3", className)}>
-      <h2 className="text-sm font-semibold leading-5 text-slate-950 dark:text-white">{title}</h2>
+    <div
+      className={cn(
+        "mb-4 flex items-center justify-between gap-3 border-b border-slate-200 pb-3 dark:border-slate-800",
+        className,
+      )}
+    >
+      <h2 className="text-sm font-semibold leading-5 tracking-normal text-slate-950 dark:text-white">{title}</h2>
       {action}
     </div>
   );
@@ -152,21 +251,21 @@ export function StatTile({
   return (
     <div
       className={cn(
-        "rounded-2xl border border-slate-200/80 bg-white/95 p-4 dark:border-slate-800 dark:bg-slate-900",
+        "rounded-lg border border-slate-300/80 bg-white p-4 dark:border-slate-800 dark:bg-slate-900/95",
         SOFT_SHADOW,
         className,
       )}
     >
       <div className="flex items-center justify-between gap-2">
-        <p className="text-xs font-medium leading-4 text-slate-600 dark:text-slate-400">{label}</p>
+        <p className="text-xs font-semibold leading-4 text-slate-600 dark:text-slate-400">{label}</p>
         {Icon && (
-          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-50 text-slate-400 dark:bg-slate-800 dark:text-slate-500">
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-brand-primary/20 bg-brand-primary/10 text-brand-primary dark:border-brand-primary/30 dark:bg-brand-primary/10 dark:text-brand-primary">
             <Icon className="h-4 w-4" />
           </span>
         )}
       </div>
-      <div className="mt-1.5 flex items-end justify-between gap-2">
-        <p className="text-2xl font-semibold leading-none tracking-tight tabular-nums text-slate-950 dark:text-white sm:text-[1.75rem]">
+      <div className="mt-3 flex items-end justify-between gap-2">
+        <p className="text-2xl font-semibold leading-none tracking-normal tabular-nums text-slate-950 dark:text-white sm:text-[1.75rem]">
           {value}
         </p>
         {trend && (
@@ -177,7 +276,7 @@ export function StatTile({
                 ? "bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300"
                 : dir === "flat"
                   ? "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"
-                  : "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300",
+                  : "bg-brand-primary/10 text-brand-primary dark:bg-brand-primary/10 dark:text-brand-primary",
             )}
           >
             {dir === "up" && <ArrowUpRight className="h-3 w-3" />}

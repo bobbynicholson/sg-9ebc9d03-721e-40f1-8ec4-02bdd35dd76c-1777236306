@@ -185,6 +185,7 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
   // Falls back to the gradient + BrandIcon for non-white-label tenants.
   const branding = useBrandingRow();
   const logoUrl = branding?.logoUrl || null;
+  const companyName = branding?.companyName || config.mobileSubtitle || "Workspace";
   const LogoTile = ({ size }: { size: "sm" | "lg" }) => {
     const box = size === "sm" ? "w-8 h-8 rounded-lg" : "w-10 h-10 rounded-xl shadow-lg";
     const glyph = size === "sm" ? "w-4 h-4" : "w-5 h-5";
@@ -245,12 +246,12 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
           // Density per dashboard best practice: ~40px rows (py-2.5), 14px
           // labels, 20px icons. Active = refined accent gradient (rounded,
           // soft shadow), not a heavy bar. Specific transition, not `all`.
-          "group flex items-center gap-2.5 rounded-lg transition-colors duration-150 overflow-hidden",
+          "group flex items-center gap-2.5 rounded-lg border border-transparent transition-colors duration-150 overflow-hidden",
           footer ? "px-3 py-2 text-[13px] font-medium" : "px-3 py-2.5 text-sm font-medium",
-          config.hoverClasses,
           active
-            ? `bg-gradient-to-r ${config.accentGradient} text-white ${config.activeHoverClasses} shadow-sm`
+            ? "border-brand-primary/25 bg-brand-primary/10 text-brand-primary shadow-sm"
             : footer ? "text-slate-600 dark:text-slate-400" : "text-slate-700 dark:text-slate-300",
+          !active && config.hoverClasses,
           collapsed ? "justify-center" : "",
         )}
         title={collapsed ? item.title : ""}
@@ -260,7 +261,7 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
             className={cn(
               footer ? "h-4 w-4" : "h-5 w-5",
               active
-                ? "text-white"
+                ? "text-brand-primary"
                 : "text-slate-500 dark:text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-200",
             )}
           />
@@ -294,7 +295,7 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
                 {badge.text}
               </span>
             )}
-            {active && <ChevronRight className="h-4 w-4 flex-shrink-0" />}
+            {active && <ChevronRight className="h-4 w-4 flex-shrink-0 text-brand-primary" />}
           </>
         )}
       </Link>
@@ -455,7 +456,7 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
                     <LogoTile size="lg" />
                     <div className="min-w-0">
                       <h1 className="font-bold text-slate-900 dark:text-white truncate">{config.title}</h1>
-                      <p className="text-xs text-slate-600 dark:text-slate-400 truncate">CateringMS</p>
+                      <p className="text-xs text-slate-600 dark:text-slate-400 truncate">{companyName}</p>
                     </div>
                   </Link>
                   <div className="flex items-center gap-2 shrink-0">

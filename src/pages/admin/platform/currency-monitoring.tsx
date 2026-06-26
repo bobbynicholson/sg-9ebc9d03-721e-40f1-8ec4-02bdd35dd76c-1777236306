@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
 import Head from "next/head";
 import { PlatformNav } from "@/components/admin/PlatformNav";
-import { PortalShell, PortalHeader, PortalCard, PortalCardHeader, StatTile } from "@/components/portal/ui";
+import { PortalShell, PortalHeader, PortalCard, PortalCardHeader, StatTile,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -145,7 +147,7 @@ function PlatformCurrencyMonitoringPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+      <div className="admin-page-shell">
         <PlatformNav />
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <PortalCard className="flex items-center justify-center py-16">
@@ -160,7 +162,7 @@ function PlatformCurrencyMonitoringPage() {
   }
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+    <div className="admin-page-shell">
       <PlatformNav />
       <Head>
         <title>Currency monitoring - CateringMS</title>
@@ -183,6 +185,7 @@ function PlatformCurrencyMonitoringPage() {
             </Button>
           }
         />
+        <PageWorkbench />
 
         <div className="space-y-6">
         {refreshError && (
@@ -220,7 +223,7 @@ function PlatformCurrencyMonitoringPage() {
           <StatTile
             label="90-Day Change"
             value={
-              <span className={fluctuation.percentage >= 0 ? "text-red-600 dark:text-red-500" : "text-brand-primary dark:text-brand-primary"}>
+              <span className={fluctuation.percentage >= 0 ? "text-rose-600 dark:text-rose-500" : "text-brand-primary dark:text-brand-primary"}>
                 {fluctuation.percentage >= 0 ? "+" : ""}{fluctuation.percentage.toFixed(2)}%
               </span>
             }

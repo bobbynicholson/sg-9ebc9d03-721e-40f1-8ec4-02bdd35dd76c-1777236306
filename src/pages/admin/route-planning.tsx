@@ -6,7 +6,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { AdminNav } from "@/components/admin/AdminNav";
-import { PortalShell, PortalHeader } from "@/components/portal/ui";
+import { PortalShell, PortalHeader,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { toLocalISO } from "@/lib/localDate";
@@ -372,7 +374,7 @@ function RoutePlanningInner() {
 
       <AdminNav />
 
-      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-blue-50 py-8 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+      <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           {/* Page Header */}
           <PortalHeader
@@ -443,6 +445,7 @@ function RoutePlanningInner() {
             </>
             }
           />
+          <PageWorkbench />
 
           {/* Stats Overview */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
@@ -656,7 +659,7 @@ function RoutePlanningInner() {
                           <div
                             key={order.id}
                             className={`p-3 border-l-4 rounded-md text-sm ${
-                              atRisk             ? "border-l-red-500 bg-red-50/40" :
+                              atRisk             ? "border-l-red-500 bg-rose-50/40" :
                               minsToEvent && minsToEvent < 1440 ? "border-l-amber-500" :
                                                                    "border-l-transparent border border-slate-200"
                             }`}
@@ -666,12 +669,12 @@ function RoutePlanningInner() {
                                 <div className="flex items-center gap-1.5">
                                   <p className="font-medium text-slate-900 truncate">{order.client_name}</p>
                                   {atRisk && (
-                                    <Badge className="bg-red-100 text-red-800 border-0 text-[9px] font-bold tracking-wide">URGENT</Badge>
+                                    <Badge className="bg-rose-100 text-rose-800 border-0 text-[9px] font-bold tracking-wide">URGENT</Badge>
                                   )}
                                 </div>
                                 <p className="text-xs text-slate-500 truncate">{order.venue_address}</p>
                                 <p className={`text-xs mt-1 tabular-nums ${
-                                  atRisk             ? "text-red-700 font-semibold" :
+                                  atRisk             ? "text-rose-700 font-semibold" :
                                   minsToEvent && minsToEvent < 1440 ? "text-amber-700 font-medium" :
                                                                        "text-slate-500"
                                 }`}>
@@ -751,7 +754,7 @@ function RoutePlanningInner() {
                                 </div>
                               </div>
                               {route.infeasible_count != null && route.infeasible_count > 0 ? (
-                                <Badge className="bg-red-100 text-red-800 flex-shrink-0 gap-1">
+                                <Badge className="bg-rose-100 text-rose-800 flex-shrink-0 gap-1">
                                   <AlertCircle className="w-3 h-3" />
                                   {route.infeasible_count} late
                                 </Badge>
@@ -842,13 +845,13 @@ function RoutePlanningInner() {
                   </CardHeader>
                   <CardContent>
                     {selectedRoute.infeasible_count != null && selectedRoute.infeasible_count > 0 && (
-                      <div className="mb-4 p-3 rounded-md border border-red-200 bg-red-50 flex items-start gap-2">
-                        <AlertCircle className="w-4 h-4 text-red-600 mt-0.5 shrink-0" />
+                      <div className="mb-4 p-3 rounded-md border border-rose-200 bg-rose-50 flex items-start gap-2">
+                        <AlertCircle className="w-4 h-4 border-rose-200 mt-0.5 shrink-0" />
                         <div className="text-sm">
-                          <p className="font-semibold text-red-800">
+                          <p className="font-semibold text-rose-800">
                             {selectedRoute.infeasible_count} of {selectedRoute.stops.length} stop{selectedRoute.stops.length === 1 ? "" : "s"} will breach the time window
                           </p>
-                          <p className="text-xs text-red-700 mt-0.5">
+                          <p className="text-xs text-rose-700 mt-0.5">
                             Predicted arrival is later than the delivery deadline. Reassign or split the route.
                           </p>
                         </div>
@@ -860,12 +863,12 @@ function RoutePlanningInner() {
                         <div
                           key={stop.id}
                           className={`flex items-start gap-4 pb-4 border-b last:border-0 ${
-                            stop.time_window_breach ? "bg-red-50/40 -mx-2 px-2 rounded" : ""
+                            stop.time_window_breach ? "bg-rose-50/40 -mx-2 px-2 rounded" : ""
                           }`}
                         >
                           <div className="flex-shrink-0">
                             <div className={`w-8 h-8 rounded-full text-white flex items-center justify-center font-semibold text-sm ${
-                              stop.time_window_breach ? "bg-red-600" : "bg-blue-600"
+                              stop.time_window_breach ? "bg-rose-600" : "bg-blue-600"
                             }`}>
                               {index + 1}
                             </div>
@@ -875,13 +878,13 @@ function RoutePlanningInner() {
                               <h4 className="font-semibold text-slate-900 truncate">{stop.client_name}</h4>
                               <div className="flex items-center gap-1.5 flex-wrap">
                                 {stop.time_window_breach && (
-                                  <Badge className="bg-red-100 text-red-800 border-0 text-[10px] gap-1">
+                                  <Badge className="bg-rose-100 text-rose-800 border-0 text-[10px] gap-1">
                                     <AlertCircle className="w-3 h-3" />
                                     Will be late
                                   </Badge>
                                 )}
                                 <Badge className={
-                                  stop.priority === 1 ? "bg-red-100 text-red-800" :
+                                  stop.priority === 1 ? "bg-rose-100 text-rose-800" :
                                   stop.priority === 3 ? "bg-gray-100 text-gray-800" :
                                   "bg-yellow-100 text-yellow-800"
                                 }>
@@ -897,7 +900,7 @@ function RoutePlanningInner() {
                               </span>
                               {stop.predicted_arrival_at && (
                                 <span className={`flex items-center gap-1 tabular-nums ${
-                                  stop.time_window_breach ? "text-red-700 font-medium" : "text-brand-primary"
+                                  stop.time_window_breach ? "text-rose-700 font-medium" : "text-brand-primary"
                                 }`}>
                                   <Clock className="w-3 h-3" />
                                   ETA {new Date(stop.predicted_arrival_at).toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" })}

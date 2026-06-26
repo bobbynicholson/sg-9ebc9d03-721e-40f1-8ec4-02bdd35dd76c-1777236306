@@ -14,7 +14,9 @@
 import { useEffect, useState } from "react";
 import Head from "next/head";
 import { PlatformNav } from "@/components/admin/PlatformNav";
-import { PortalShell, PortalHeader, PortalCard, PortalCardHeader } from "@/components/portal/ui";
+import { PortalShell, PortalHeader, PortalCard, PortalCardHeader,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -130,7 +132,7 @@ export default function PlatformSettingsPage() {
   const unknownRows = rows.filter((r) => !knownKeySet.has(r.key));
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+    <div className="admin-page-shell">
       <PlatformNav />
       <NoIndexMeta />
       <Head>
@@ -143,6 +145,7 @@ export default function PlatformSettingsPage() {
           subtitle="Tunables for the SaaS itself. Changes apply immediately to every tenant."
           icon={Settings}
         />
+        <PageWorkbench />
 
         {error && (
           <Alert className="mb-6 border-rose-200 bg-rose-50">

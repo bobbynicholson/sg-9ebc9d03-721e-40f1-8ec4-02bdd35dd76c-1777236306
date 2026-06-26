@@ -30,6 +30,7 @@ import {
   Upload, ArrowLeft, FileSpreadsheet, ClipboardPaste, CheckCircle2,
   AlertTriangle, Trash2, Loader2, Users,
 } from "lucide-react";
+import { PageWorkbench } from "@/components/portal/ui";
 
 type RawRow = { name?: string; surname?: string; email?: string; phone?: string; notes?: string };
 
@@ -293,8 +294,9 @@ function ClientImportPage() {
 
       <AdminNav />
 
-      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
+      <div className="admin-page-shell">
         <div className="px-4 sm:px-6 pt-20 lg:pt-8 pb-12 max-w-full">
+          <PageWorkbench className="mb-5" />
           <Link
             href={withSlug("/admin/onboarding/imports")}
             className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-900 mb-3"
@@ -398,7 +400,7 @@ function ClientImportPage() {
                     <Button
                       onClick={submit}
                       disabled={submitting || counts.ok === 0}
-                      className="bg-gradient-to-r from-brand-primary to-brand-secondary hover:opacity-90"
+                      className="bg-brand-primary hover:opacity-90"
                     >
                       {submitting
                         ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Importing...</>

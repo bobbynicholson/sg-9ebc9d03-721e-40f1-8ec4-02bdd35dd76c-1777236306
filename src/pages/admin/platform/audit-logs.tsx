@@ -18,7 +18,9 @@ import { useRouter } from "next/router";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { PlatformNav } from "@/components/admin/PlatformNav";
-import { PortalShell, PortalHeader, PortalCard, PortalCardHeader } from "@/components/portal/ui";
+import { PortalShell, PortalHeader, PortalCard, PortalCardHeader,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -100,7 +102,7 @@ const entityHref = (entityType: string, entityId: string | null): string | null 
 // expensive failure modes; default tone is neutral.
 const toneFor = (action: string): string => {
   if (action.includes("fail") || action.includes("error") || action.includes("crashed")) {
-    return "border-l-red-500 bg-red-50/40";
+    return "border-l-rose-500 bg-rose-50/40";
   }
   if (action.includes("refund") || action.includes("cancel")) {
     return "border-l-amber-500 bg-amber-50/40";
@@ -280,7 +282,7 @@ function AuditLogsViewer() {
       </Head>
       <NoIndexMeta />
 
-      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+      <div className="admin-page-shell">
         <PlatformNav />
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <PortalHeader
@@ -294,6 +296,7 @@ function AuditLogsViewer() {
               </Button>
             }
           />
+          <PageWorkbench />
 
           <PortalCard className="mb-5">
             <PortalCardHeader title="Filters" />

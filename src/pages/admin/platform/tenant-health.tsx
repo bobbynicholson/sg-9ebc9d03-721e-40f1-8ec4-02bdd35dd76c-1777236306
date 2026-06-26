@@ -18,7 +18,9 @@ import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { PlatformNav } from "@/components/admin/PlatformNav";
-import { PortalShell, PortalHeader, PortalCard, PortalCardHeader, StatTile } from "@/components/portal/ui";
+import { PortalShell, PortalHeader, PortalCard, PortalCardHeader, StatTile,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { Badge } from "@/components/ui/badge";
 import {
   Activity,
@@ -239,7 +241,7 @@ function TenantHealthDashboard() {
         <title>Tenant health - CateringMS</title>
       </Head>
       <NoIndexMeta />
-      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+      <div className="admin-page-shell">
         <PlatformNav />
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <PortalHeader
@@ -247,6 +249,7 @@ function TenantHealthDashboard() {
             subtitle="Spot tenants that need a nudge before they churn quietly."
             icon={Activity}
           />
+          <PageWorkbench />
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
             <StatTile

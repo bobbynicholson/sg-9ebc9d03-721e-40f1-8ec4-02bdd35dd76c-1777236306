@@ -32,7 +32,9 @@ import Head from "next/head";
 import { useRouter } from "next/router";
 import { PlatformNav } from "@/components/admin/PlatformNav";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
-import { PortalShell, PortalHeader, PortalCard } from "@/components/portal/ui";
+import { PortalShell, PortalHeader, PortalCard,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -70,7 +72,7 @@ export default function PlatformMessagingTemplatesPage() {
   }, [authLoading, profile, router]);
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+    <div className="admin-page-shell">
       <PlatformNav />
       <NoIndexMeta />
       <Head>
@@ -83,6 +85,7 @@ export default function PlatformMessagingTemplatesPage() {
           subtitle="Wording for emails CateringMS sends to tenants (subscription receipts, trial reminders, owner welcome). Edits apply to every tenant immediately."
           icon={Crown}
         />
+        <PageWorkbench />
 
         <PlatformTemplatesPanel />
       </PortalShell>
@@ -142,19 +145,19 @@ function PlatformTemplatesPanel() {
 
   return (
     <>
-      <PortalCard className="mb-4 bg-purple-50 dark:bg-purple-950/30" padded={false}>
+      <PortalCard className="mb-4 bg-slate-50 dark:bg-slate-900/50" padded={false}>
         <div className="py-3 px-4 flex items-start gap-3">
-          <ShieldCheck className="w-4 h-4 text-purple-700 mt-0.5 shrink-0" />
-          <div className="text-xs text-purple-950 leading-relaxed flex-1">
-            <p className="font-semibold text-purple-900 mb-0.5">Global defaults &middot; affects every tenant</p>
+          <ShieldCheck className="w-4 h-4 text-slate-700 mt-0.5 shrink-0" />
+          <div className="text-xs text-slate-700 leading-relaxed flex-1">
+            <p className="font-semibold text-slate-900 mb-0.5">Global defaults &middot; affects every tenant</p>
             <p>
               These are emails the platform sends to tenants on subscription events. Saving here writes a row at <code>email_templates.company_id IS NULL</code> - every tenant that hasn't customised the matching key sees the new wording. Reset to revert to the inline default in the registry.
             </p>
           </div>
           <div className="text-right shrink-0">
-            <p className="text-[10px] uppercase tracking-wide text-purple-700 font-semibold">Customised</p>
-            <p className="text-xl font-bold text-purple-800 tabular-nums">
-              {customisedCount}<span className="text-xs text-purple-500 font-normal"> / {rows.length}</span>
+            <p className="text-[10px] uppercase tracking-wide text-slate-600 font-semibold">Customised</p>
+            <p className="text-xl font-bold text-slate-900 tabular-nums">
+              {customisedCount}<span className="text-xs text-slate-500 font-normal"> / {rows.length}</span>
             </p>
           </div>
         </div>
@@ -195,7 +198,7 @@ function PlatformTemplatesPanel() {
           {grouped.map(([group, items]) => (
             <div key={group}>
               <div className="flex items-center gap-2 mb-2 px-1">
-                <Mail className="w-4 h-4 text-purple-600" />
+                <Mail className="w-4 h-4 text-slate-600" />
                 <p className="text-xs font-bold uppercase tracking-wide text-slate-700">
                   {group}
                 </p>
@@ -208,7 +211,7 @@ function PlatformTemplatesPanel() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className="text-sm font-semibold text-slate-900">{row.label}</p>
-                          <Badge className="bg-purple-100 text-purple-800 border-0 text-[10px] gap-1">
+                          <Badge className="bg-slate-100 text-slate-700 border-0 text-[10px] gap-1">
                             <Zap className="w-3 h-3" /> Automatic
                           </Badge>
                           {row.isCustomised ? (
@@ -229,7 +232,7 @@ function PlatformTemplatesPanel() {
                         </div>
                         <p className="text-xs text-slate-500 mt-0.5">{row.description}</p>
                         {row.trigger && (
-                          <p className="text-[11px] mt-1 inline-flex items-center gap-1 text-purple-700">
+                          <p className="text-[11px] mt-1 inline-flex items-center gap-1 text-slate-600">
                             <Zap className="w-3 h-3 shrink-0" />
                             <span className="truncate" title={row.trigger}>{row.trigger}</span>
                           </p>
@@ -385,9 +388,9 @@ function EditorDrawer({
     <>
       <SheetHeader>
         <SheetTitle className="flex items-center gap-2">
-          <Mail className="w-5 h-5 text-purple-600" />
+          <Mail className="w-5 h-5 text-slate-600" />
           {template.label}
-          <Badge className="bg-purple-100 text-purple-800 border-0 text-[10px] gap-1 ml-1">
+          <Badge className="bg-amber-100 text-amber-800 border-0 text-[10px] gap-1 ml-1">
             <Crown className="w-3 h-3" /> Platform
           </Badge>
         </SheetTitle>
@@ -400,10 +403,10 @@ function EditorDrawer({
       </SheetHeader>
 
       <div className="space-y-4 mt-4">
-        <Card className="border-purple-200 bg-purple-50 shadow-none">
+        <Card className="border-slate-200 bg-slate-50 shadow-none">
           <CardContent className="py-3 px-4 flex items-start gap-3">
-            <Zap className="w-4 h-4 text-purple-700 mt-0.5 shrink-0" />
-            <div className="text-[11px] text-purple-900 leading-relaxed">
+            <Zap className="w-4 h-4 text-slate-700 mt-0.5 shrink-0" />
+            <div className="text-[11px] text-slate-700 leading-relaxed">
               <p className="font-semibold mb-0.5">{template.trigger || "Fires automatically when the platform event occurs."}</p>
               <p>
                 Saving writes the global default. Every tenant that hasn't customised this key sees your wording immediately on the next platform send.
@@ -424,7 +427,7 @@ function EditorDrawer({
                   type="button"
                   onClick={() => insertVar(v.name)}
                   title={`${v.description} - example: ${v.example}`}
-                  className="text-[11px] font-mono bg-slate-100 hover:bg-purple-100 hover:text-purple-800 px-2 py-1 rounded border border-slate-200 transition-colors"
+                  className="text-[11px] font-mono bg-slate-100 hover:bg-slate-200 hover:text-slate-900 px-2 py-1 rounded border border-slate-200 transition-colors"
                 >
                   {`{{${v.name}}}`}
                 </button>
@@ -456,9 +459,9 @@ function EditorDrawer({
           />
         </div>
 
-        <Card className="border-purple-200 bg-purple-50/40 shadow-none">
+        <Card className="border-slate-200 bg-slate-50 shadow-none">
           <CardContent className="py-3 px-4 space-y-2">
-            <p className="text-[11px] uppercase tracking-wide text-purple-700 font-semibold">
+            <p className="text-[11px] uppercase tracking-wide text-slate-600 font-semibold">
               Preview (sample data)
             </p>
             {isEmail && (

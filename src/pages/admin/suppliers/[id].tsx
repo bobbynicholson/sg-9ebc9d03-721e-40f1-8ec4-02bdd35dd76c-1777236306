@@ -40,6 +40,7 @@ import {
   supplierService, type Supplier, type SupplierProduct,
   type SupplierPurchaseSummary, type SupplierReceiptRow,
 } from "@/services/supplierService";
+import { PageWorkbench } from "@/components/portal/ui";
 
 const fmtR = (v: number | null | undefined) =>
   v == null ? "-" : `R ${Number(v).toLocaleString("en-ZA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -135,8 +136,9 @@ function SupplierDetail() {
       <Head><title>{supplier?.supplier_name || "Supplier"} - CateringMS</title></Head>
       <AdminNav />
 
-      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
+      <div className="admin-page-shell">
         <div className="px-3 sm:px-4 md:px-6 pt-20 lg:pt-6 pb-6 max-w-full">
+          <PageWorkbench className="mb-5" />
 
           <Link
             href={withSlug("/admin/suppliers")}
@@ -201,7 +203,7 @@ function SupplierDetail() {
                     <Button
                       onClick={() => setComposeOpen(true)}
                       disabled={!supplier.email}
-                      className="bg-gradient-to-r from-brand-primary to-brand-secondary text-white"
+                      className="bg-brand-primary text-white"
                     >
                       <Send className="w-4 h-4 mr-1.5" /> Compose email
                     </Button>
@@ -361,7 +363,7 @@ function SupplierDetail() {
               <Card className="border-0 shadow-sm mb-5">
                 <CardHeader className="pb-2 flex flex-row items-center justify-between">
                   <CardTitle className="text-base flex items-center gap-2">
-                    <Package className="w-4 h-4 text-purple-600" />
+                    <Package className="w-4 h-4 text-slate-600" />
                     Products supplied
                     <Badge variant="outline" className="text-[10px] bg-slate-50">{products.length}</Badge>
                   </CardTitle>
@@ -609,7 +611,7 @@ function ComposeSupplierEmail({
             <Button
               disabled={!supplier.email}
               onClick={() => window.open(composeEmail.gmailUrl(payload), "_blank", "noopener")}
-              className="gap-2 bg-gradient-to-r from-brand-primary to-brand-secondary text-white"
+              className="gap-2 bg-brand-primary text-white"
             >
               <ExternalLink className="w-4 h-4" /> Open in Gmail
             </Button>
@@ -779,7 +781,7 @@ function LinkProductDialog({
 
         <DialogFooter>
           <Button variant="ghost" onClick={onClose} disabled={saving}>Cancel</Button>
-          <Button onClick={save} disabled={saving || !picked} className="bg-gradient-to-r from-brand-primary to-brand-secondary text-white">
+          <Button onClick={save} disabled={saving || !picked} className="bg-brand-primary text-white">
             {saving ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Plus className="w-4 h-4 mr-1.5" />}
             Link product
           </Button>

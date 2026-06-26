@@ -29,7 +29,9 @@ import { Label } from "@/components/ui/label";
 import { Mail, Shield, Server, CheckCircle2, AlertTriangle, Send, Loader2, ExternalLink, Inbox, BarChart3, Sparkles, Globe, ShieldCheck } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
-import { PortalShell, PortalHeader } from "@/components/portal/ui";
+import { PortalShell, PortalHeader,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { useAuth } from "@/contexts/AuthContext";
 import { UserRole } from "@/types/app";
@@ -476,7 +478,7 @@ function EmailSettingsPage() {
       <Head><title>Email settings - CateringMS</title></Head>
       <AdminNav />
 
-      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+      <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
 
           <PortalHeader
@@ -489,9 +491,10 @@ function EmailSettingsPage() {
             icon={Mail}
             subtitle="You're already set up to send. Verify your own domain below for full branding, or just edit your sender name and address."
           />
+          <PageWorkbench />
 
           {/* Daily quota tile */}
-          <Card className="border-0 shadow-lg mb-6 bg-gradient-to-r from-blue-50 to-indigo-50">
+          <Card className="border-0 shadow-lg mb-6 bg-gradient-to-r from-blue-50 to-blue-50">
             <CardContent className="py-4">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
@@ -506,13 +509,13 @@ function EmailSettingsPage() {
               <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
                 <div
                   className={`h-full transition-all ${
-                    capPct > 90 ? "bg-red-500" : capPct > 70 ? "bg-amber-500" : "bg-brand-primary"
+                    capPct > 90 ? "bg-rose-500" : capPct > 70 ? "bg-amber-500" : "bg-brand-primary"
                   }`}
                   style={{ width: `${capPct}%` }}
                 />
               </div>
               <p className="text-xs text-slate-500 mt-2">
-                Your <Badge variant="outline" className="capitalize">{subscriptionPlan}</Badge> plan caps daily personal sends at <strong>{tierCap}</strong>. Tier rules in <Link href="/pricing" className="text-purple-600">Pricing</Link>.
+                Your <Badge variant="outline" className="capitalize">{subscriptionPlan}</Badge> plan caps daily personal sends at <strong>{tierCap}</strong>. Tier rules in <Link href="/pricing" className="text-slate-600">Pricing</Link>.
               </p>
 
               {/* ES-B (task #221, 2026-05-25): 7-day send sparkline.
@@ -598,12 +601,12 @@ function EmailSettingsPage() {
           </Card>
 
           {/* Resend domain verification - optional upgrade path */}
-          <Card className="border-0 shadow-lg mb-6 bg-gradient-to-br from-white to-purple-50/40">
+          <Card className="border-0 shadow-lg mb-6 bg-gradient-to-br from-white to-slate-50/40">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <ShieldCheck className="w-5 h-5 text-purple-600" />
+                <ShieldCheck className="w-5 h-5 text-slate-600" />
                 Use your own sending domain
-                <span className="ml-1 text-[10px] px-2 py-0.5 rounded-full font-semibold bg-purple-100 text-purple-700">Optional upgrade</span>
+                <span className="ml-1 text-[10px] px-2 py-0.5 rounded-full font-semibold bg-slate-100 text-slate-700">Optional upgrade</span>
               </CardTitle>
               <CardDescription>
                 Skip this if you're happy with the default sender above. Verify your domain once and every quote, invoice and confirmation goes out as <code>you@yourdomain.com</code> with proper SPF + DKIM. Takes about 5 minutes of DNS work at your domain host.
@@ -646,7 +649,7 @@ function EmailSettingsPage() {
           <Card className="border-0 shadow-lg mb-6">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Mail className="w-5 h-5 text-purple-600" />
+                <Mail className="w-5 h-5 text-slate-600" />
                 Sender identity
               </CardTitle>
               <CardDescription>
@@ -746,7 +749,7 @@ function EmailSettingsPage() {
           <details className="mb-6 rounded-lg border-0 shadow-lg bg-white overflow-hidden">
             <summary className="cursor-pointer px-6 py-4 select-none flex items-center justify-between gap-3">
               <span className="flex items-center gap-2 font-semibold text-slate-900">
-                <Server className="w-5 h-5 text-purple-600" />
+                <Server className="w-5 h-5 text-slate-600" />
                 Switch to a different provider
               </span>
               <span className="text-xs text-slate-500">
@@ -913,7 +916,7 @@ function EmailSettingsPage() {
           <Card className="border-0 shadow-lg mb-6">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Send className="w-5 h-5 text-purple-600" />
+                <Send className="w-5 h-5 text-slate-600" />
                 When to email clients automatically
                 <InfoTooltip content={"Toggle which client emails fire automatically. Each one includes the client's secure order link. Repeat clients can also get a 'View all my events' link.\n\nWhile direct-send is being wired up, drafts queue here, you can copy and send any draft from your own inbox in the meantime."} />
               </CardTitle>
@@ -1009,7 +1012,7 @@ function EmailSettingsPage() {
                 <Input id="mc_aud" value={mailchimpAudienceId} onChange={(e) => setMailchimpAudienceId(e.target.value)} placeholder="abcd1234" />
               </div>
               <div className="flex items-center justify-between pt-2">
-                <Link href="https://us1.admin.mailchimp.com/account/api/" target="_blank" rel="noopener" className="text-xs text-purple-600 hover:underline flex items-center gap-1">
+                <Link href="https://us1.admin.mailchimp.com/account/api/" target="_blank" rel="noopener" className="text-xs text-slate-600 hover:underline flex items-center gap-1">
                   Get your API key from Mailchimp <ExternalLink className="w-3 h-3" />
                 </Link>
                 <Button variant="outline" onClick={saveMailchimp} className="gap-2">
@@ -1050,7 +1053,7 @@ function ToggleRow({
           onChange={(e) => onChange(e.target.checked)}
           className="sr-only peer"
         />
-        <span className="w-10 h-6 bg-slate-200 rounded-full peer peer-checked:bg-purple-600 transition-colors" />
+        <span className="w-10 h-6 bg-slate-200 rounded-full peer peer-checked:checked:bg-slate-600 transition-colors" />
         <span className="absolute left-0.5 top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform peer-checked:translate-x-4" />
       </span>
     </label>
@@ -1100,16 +1103,16 @@ function ProviderOption({
       onClick={onClick}
       className={`relative text-left rounded-xl border-2 p-4 transition-all flex flex-col gap-3 ${
         active
-          ? "border-purple-500 bg-purple-50 shadow-md"
+          ? "border-slate-500 bg-slate-50 shadow-md"
           : "border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm"
       }`}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
-          <span className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${active ? "bg-purple-100" : "bg-slate-100"}`}>
-            <Icon className={`w-5 h-5 ${active ? "text-purple-600" : "text-slate-600"}`} />
+          <span className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${active ? "bg-slate-100" : "bg-slate-100"}`}>
+            <Icon className={`w-5 h-5 ${active ? "bg-slate-100" : "text-slate-600"}`} />
           </span>
-          <p className={`font-semibold text-sm truncate ${active ? "text-purple-900" : "text-slate-900"}`}>{title}</p>
+          <p className={`font-semibold text-sm truncate ${active ? "text-slate-900" : "text-slate-900"}`}>{title}</p>
         </div>
         <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold whitespace-nowrap ${statusColour}`}>
           {status.label}
@@ -1128,7 +1131,7 @@ function ProviderOption({
       </dl>
       {active && (
         <div className="absolute top-2 right-2 sm:hidden">
-          <CheckCircle2 className="w-4 h-4 text-purple-600" />
+          <CheckCircle2 className="w-4 h-4 text-slate-600" />
         </div>
       )}
     </button>

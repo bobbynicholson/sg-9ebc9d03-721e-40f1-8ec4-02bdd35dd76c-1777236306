@@ -46,6 +46,7 @@ import {
   COMMON_ROLES,
   RATE_TYPE_OPTIONS,
 } from "@/services/outsourceProviderService";
+import { PageWorkbench } from "@/components/portal/ui";
 
 interface AssignmentRow {
   id: string;
@@ -210,12 +211,13 @@ function ProviderDetail() {
       <NoIndexMeta />
       <Head><title>{provider?.provider_name || "Provider"} - CateringMS</title></Head>
       <AdminNav />
-      <div className="min-h-screen bg-slate-50 lg:pl-72 xl:pl-80">
+      <div className="admin-page-shell">
         {/* Wave 70.6 - mobile pass. pt-20 clears the mobile
             AdminNav top bar (lg: nav is the left sidebar so pt-6 is
             enough). Full width so it matches every other portal page
             and leaves no empty side rail on big screens. */}
         <div className="pt-20 lg:pt-6 px-3 sm:px-4 pb-8 w-full">
+          <PageWorkbench className="mb-5" />
           <Link
             href={withSlug("/admin/outsource-providers")}
             className="inline-flex items-center gap-1 text-sm text-slate-600 hover:text-slate-900 mb-4"

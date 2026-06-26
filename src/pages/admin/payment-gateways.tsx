@@ -41,7 +41,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { CreditCard, Check, AlertCircle, Settings, Trash2, Power, Activity, Loader2 } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
-import { PortalShell, PortalHeader } from "@/components/portal/ui";
+import { PortalShell, PortalHeader,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import {
   paymentGatewayService,
@@ -286,7 +288,7 @@ function PaymentGatewaysPage() {
       </Head>
 
       <AdminNav />
-      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+      <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <PortalHeader
             title={
@@ -298,18 +300,19 @@ function PaymentGatewaysPage() {
             icon={CreditCard}
             subtitle="Online card and EFT processing. Connect a South African gateway like PayFast or Yoco so clients can pay quotes and invoices through the public link instead of manual EFT."
           />
+          <PageWorkbench />
 
           <div className="space-y-6">
           {/* Super_admin tenant picker. Tenant admins never see this;
               their company comes from profile.company_id. */}
           {isSuperAdmin && (
-            <Card className="border-purple-200 bg-purple-50">
+            <Card className="border-slate-200 bg-slate-50">
               <CardContent className="pt-4 pb-4 flex flex-col sm:flex-row sm:items-center gap-3">
                 <div className="flex-1">
-                  <Label className="text-sm font-semibold text-purple-900">
+                  <Label className="text-sm font-semibold text-slate-900">
                     Managing gateways for
                   </Label>
-                  <p className="text-xs text-purple-700 mt-0.5">
+                  <p className="text-xs text-slate-700 mt-0.5">
                     You're signed in as super_admin. Pick the catering company whose payment gateways you want to configure.
                   </p>
                 </div>

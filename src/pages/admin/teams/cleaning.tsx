@@ -57,6 +57,7 @@ import {
   AlertTriangle, Wrench, Banknote, Flame, Droplets,
   CheckCircle2, ArrowRight, Package, CalendarDays,
 } from "lucide-react";
+import { PageWorkbench } from "@/components/portal/ui";
 
 function startOfWeek(): Date {
   const d = new Date();
@@ -401,8 +402,8 @@ function CleaningTeamPage() {
   }, [companyId, regionFilterId, refreshTick]);
 
   const tiles = [
-    { href: "/admin/staff?department=cleaning", icon: Users, label: "Cleaning staff", sub: "Roster and availability", bg: "from-purple-50 to-fuchsia-50", iconColor: "text-purple-600" },
-    { href: "/admin/cleaning-schedule", icon: ClipboardList, label: "Cleaning schedule", sub: "Jobs, machines and handovers", bg: "from-rose-50 to-pink-50", iconColor: "text-rose-600" },
+    { href: "/admin/staff?department=cleaning", icon: Users, label: "Cleaning staff", sub: "Roster and availability", bg: "from-slate-50 to-rose-50", iconColor: "text-slate-600" },
+    { href: "/admin/cleaning-schedule", icon: ClipboardList, label: "Cleaning schedule", sub: "Jobs, machines and handovers", bg: "from-rose-50 from-slate-50", iconColor: "text-rose-600" },
     { href: "/team-portal/cleaning/damage", icon: AlertTriangle, label: "Damages ledger", sub: "Per-event report and history", bg: "from-amber-50 to-orange-50", iconColor: "text-amber-600" },
     { href: "/team-portal/cleaning/supplies", icon: Wrench, label: "Supplies", sub: "Detergent, gloves, cloths", bg: "from-brand-primary/10 to-brand-secondary/10", iconColor: "text-brand-primary" },
   ];
@@ -418,8 +419,9 @@ function CleaningTeamPage() {
       <Head><title>Cleaning team - CateringMS</title></Head>
       <DynamicNav userRole={(userRole || UserRole.ADMIN).toString()} />
 
-      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
+      <div className="admin-page-shell">
         <div className="px-3 sm:px-4 md:px-6 pt-20 lg:pt-6 pb-6 max-w-full">
+          <PageWorkbench className="mb-5" />
 
           <Link
             href={withSlug(userRole === UserRole.CLEANING_MANAGER ? "/team-portal/cleaning/dashboard" : "/admin/teams")}
@@ -550,7 +552,7 @@ function CleaningTeamPage() {
                 <CardContent className="p-5">
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
-                      <CheckCircle2 className="w-5 h-5 text-purple-600" />
+                      <CheckCircle2 className="w-5 h-5 text-slate-600" />
                       <p className="font-semibold text-slate-900">Today's handovers</p>
                     </div>
                     <ArrowRight className="w-4 h-4 text-slate-400" />
@@ -631,11 +633,11 @@ function CleaningTeamPage() {
 
             {/* Tomorrow's load. */}
             <Link href={withSlug(`/admin/calendar?date=${toLocalISO(new Date(Date.now() + 24 * 3600 * 1000))}`)}>
-              <Card className={`border-0 shadow-md hover:shadow-lg transition-shadow bg-gradient-to-br ${stats.tomorrowHandovers > 0 ? "from-purple-50 to-fuchsia-50" : "from-slate-50 to-slate-100"}`}>
+              <Card className={`border-0 shadow-md hover:shadow-lg transition-shadow bg-gradient-to-br ${stats.tomorrowHandovers > 0 ? "from-slate-50 to-rose-50" : "from-slate-50 to-slate-100"}`}>
                 <CardContent className="p-5">
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
-                      <CalendarDays className="w-5 h-5 text-fuchsia-600" />
+                      <CalendarDays className="w-5 h-5 text-rose-600" />
                       <p className="font-semibold text-slate-900">Tomorrow's load</p>
                     </div>
                     <ArrowRight className="w-4 h-4 text-slate-400" />

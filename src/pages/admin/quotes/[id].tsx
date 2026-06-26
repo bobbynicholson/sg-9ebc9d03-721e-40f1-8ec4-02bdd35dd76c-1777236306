@@ -51,13 +51,14 @@ import {
 import { describeQuoteEditImpact } from "@/services/quote/propagateQuoteEdit";
 import { breakdownFromLineSum } from "@/lib/vatMath";
 import { usePricingMode } from "@/hooks/usePricingMode";
+import { PageWorkbench } from "@/components/portal/ui";
 
 const STATUS_COLOURS: Record<string, string> = {
   draft: "bg-slate-100 text-slate-700",
   sent: "bg-blue-100 text-blue-700",
-  viewed: "bg-indigo-100 text-indigo-700",
+  viewed: "bg-blue-100 text-blue-700",
   accepted: "bg-brand-primary/15 text-brand-primary",
-  rejected: "bg-red-100 text-red-700",
+  rejected: "bg-rose-100 text-rose-700",
   expired: "bg-amber-100 text-amber-700",
   pending: "bg-amber-100 text-amber-700",
   revised: "bg-orange-100 text-orange-700",
@@ -605,9 +606,10 @@ function AdminQuoteDetailInner() {
           /admin/* page uses, plus the pt-20/lg:pt-6 mobile spacing
           for the floating nav button. */}
       <AdminNav />
-      <div className="min-h-screen bg-slate-50 lg:pl-72 xl:pl-80">
+      <div className="admin-page-shell">
 
         <div className="max-w-full px-4 pt-20 lg:pt-6 pb-12">
+          <PageWorkbench className="mb-5" />
           <div className="mb-6">
             <Link href={withSlug("/admin/quotes")}>
               <Button variant="ghost" size="sm">
@@ -1020,7 +1022,7 @@ function AdminQuoteDetailInner() {
                       )}
                     </Button>
                     <Button
-                      className="flex-1 min-w-[180px] bg-gradient-to-r from-brand-primary to-brand-secondary"
+                      className="flex-1 min-w-[180px] bg-brand-primary"
                       onClick={handleSend}
                       disabled={sending || saving}
                     >
@@ -1039,7 +1041,7 @@ function AdminQuoteDetailInner() {
                   </>
                 ) : quote.status === "accepted" && !(quote as any).converted_to_order_id ? (
                   <Button
-                    className="flex-1 min-w-[180px] bg-gradient-to-r from-brand-primary to-brand-secondary"
+                    className="flex-1 min-w-[180px] bg-brand-primary"
                     onClick={handleConvertToOrder}
                     disabled={converting}
                   >
@@ -1109,7 +1111,7 @@ function AdminQuoteDetailInner() {
                         size="sm"
                         onClick={handleSend}
                         disabled={sending || saving}
-                        className="bg-gradient-to-r from-brand-primary to-brand-secondary hover:opacity-90 gap-1.5"
+                        className="bg-brand-primary hover:opacity-90 gap-1.5"
                       >
                         <Send className="w-4 h-4" />
                         {(quote as any).sent_at ? "Re-send by email" : "Send by email"}

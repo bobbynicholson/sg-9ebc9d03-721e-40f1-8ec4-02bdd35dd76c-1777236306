@@ -36,6 +36,7 @@ import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCompanyKitchens } from "@/hooks/useCompanyKitchens";
 import { Building2 } from "lucide-react";
+import { PageWorkbench } from "@/components/portal/ui";
 
 type Step = "upload" | "mapping" | "preview" | "commit" | "done";
 
@@ -399,8 +400,9 @@ function ImportPage() {
       </Head>
       <AdminNav />
 
-      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
+      <div className="admin-page-shell">
         <div className="px-4 sm:px-6 pt-20 lg:pt-8 pb-12 max-w-full">
+          <PageWorkbench className="mb-5" />
 
           {/* Header */}
           <div className="mb-6 flex items-center gap-3">
@@ -435,7 +437,7 @@ function ImportPage() {
                   <div
                     className={`px-3 py-1.5 rounded-full border flex items-center gap-1.5 ${
                       active
-                        ? "bg-purple-100 text-purple-700 border-purple-200 font-semibold"
+                        ? "bg-slate-100 text-slate-700 border-slate-200 font-semibold"
                         : done
                           ? "bg-brand-primary/10 text-brand-primary border-brand-primary/20"
                           : "bg-white text-slate-500 border-slate-200"
@@ -455,7 +457,7 @@ function ImportPage() {
             <Card className="border-0 shadow-lg">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Upload className="w-5 h-5 text-purple-600" />
+                  <Upload className="w-5 h-5 text-slate-600" />
                   Upload your spreadsheet
                   <InfoTooltip content={"Drop a CSV or XLSX with the data you want to bring across.\n\nIdeal shape: two sheets named 'clients' and 'orders'. We accept any column headings; we map them in the next step.\n\nIf it's just a contact list, the simpler 'Easy client list' tool may be a faster fit."} />
                 </CardTitle>
@@ -512,7 +514,7 @@ function ImportPage() {
             <Card className="border-0 shadow-lg">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Sparkles className="w-5 h-5 text-purple-600" />
+                  <Sparkles className="w-5 h-5 text-slate-600" />
                   Confirm the column mapping
                 </CardTitle>
                 <CardDescription>
@@ -580,7 +582,7 @@ function ImportPage() {
                   );
                 })}
                 <div className="flex items-center gap-2 pt-2">
-                  <Button onClick={runPreview} disabled={busy || !editedMapping} className="bg-gradient-to-r from-brand-primary to-brand-secondary">
+                  <Button onClick={runPreview} disabled={busy || !editedMapping} className="bg-brand-primary">
                     {busy ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Eye className="w-4 h-4 mr-2" />}
                     Build preview
                   </Button>
@@ -597,7 +599,7 @@ function ImportPage() {
             <Card className="border-0 shadow-lg">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Eye className="w-5 h-5 text-purple-600" />
+                  <Eye className="w-5 h-5 text-slate-600" />
                   Preview before commit
                 </CardTitle>
                 <CardDescription>
@@ -769,7 +771,7 @@ function ImportPage() {
                               onClick={() => setRowFilter(k)}
                               className={`px-2.5 py-1 rounded-md ${
                                 rowFilter === k
-                                  ? "bg-purple-100 text-purple-700 font-medium"
+                                  ? "bg-slate-100 text-slate-700 font-medium"
                                   : "text-slate-600 hover:bg-slate-50"
                               }`}
                             >
@@ -867,7 +869,7 @@ function ImportPage() {
                                         </div>
                                       )}
                                       {aiRepairNote && (
-                                        <div className="mt-1 inline-flex items-center gap-1 text-[10px] text-purple-700 bg-purple-50 border border-purple-200 rounded px-1.5 py-0.5">
+                                        <div className="mt-1 inline-flex items-center gap-1 text-[10px] text-slate-700 bg-slate-50 border border-slate-200 rounded px-1.5 py-0.5">
                                           <Bot className="w-3 h-3" />
                                           AI: {aiRepairNote.slice(0, 90)}{aiRepairNote.length > 90 ? "..." : ""}
                                         </div>
@@ -945,7 +947,7 @@ function ImportPage() {
                       )}
 
                       <div className="flex items-center gap-2 pt-2">
-                        <Button onClick={runCommit} disabled={busy} className="bg-gradient-to-r from-brand-primary to-brand-secondary">
+                        <Button onClick={runCommit} disabled={busy} className="bg-brand-primary">
                           {busy ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <CheckCircle2 className="w-4 h-4 mr-2" />}
                           Commit import
                         </Button>

@@ -3,7 +3,9 @@ import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/router";
 import { PlatformNav } from "@/components/admin/PlatformNav";
-import { PortalShell, PortalHeader, PortalCard, PortalCardHeader, StatTile } from "@/components/portal/ui";
+import { PortalShell, PortalHeader, PortalCard, PortalCardHeader, StatTile,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import Head from "next/head";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -275,7 +277,7 @@ function PlatformSubscriptionManagement() {
       active: { label: "Active", className: "bg-brand-primary" },
       trial: { label: "Trial", className: "bg-blue-500" },
       past_due: { label: "Past Due", className: "bg-yellow-500" },
-      cancelled: { label: "Cancelled", className: "bg-red-500" },
+      cancelled: { label: "Cancelled", className: "bg-rose-500" },
       expired: { label: "Expired", className: "bg-gray-500" }
     };
 
@@ -309,7 +311,7 @@ function PlatformSubscriptionManagement() {
   }
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+    <div className="admin-page-shell">
       <PlatformNav />
       <Head>
         <title>Subscription management - CateringMS</title>
@@ -333,17 +335,18 @@ function PlatformSubscriptionManagement() {
             </Button>
           }
         />
+        <PageWorkbench />
 
         {error && (
-          <Alert className="mb-6 border-red-200 bg-red-50">
-            <AlertTriangle className="h-4 w-4 text-red-600" />
-            <AlertDescription className="text-red-800">
+          <Alert className="mb-6 border-rose-200 bg-rose-50">
+            <AlertTriangle className="h-4 w-4 text-rose-600" />
+            <AlertDescription className="text-rose-800">
               <strong>Error loading subscriptions:</strong> {error}
               <Button 
                 variant="link" 
                 size="sm" 
                 onClick={handleRefresh}
-                className="ml-2 text-red-700 underline"
+                className="ml-2 text-rose-700 underline"
               >
                 Try again
               </Button>
@@ -392,7 +395,7 @@ function PlatformSubscriptionManagement() {
                 <InfoTooltip content="Recurring monthly revenue from every active subscription added together.\n\nPlan rates are still based on a fixed price list (Starter ZAR 499, Growth ZAR 1499, Scale ZAR 3999, Enterprise ZAR 9999) until proper billing is wired up." />
               </span>
             }
-            value={<span className="text-purple-600 dark:text-purple-500">{formatCurrency(stats.totalMRR)}</span>}
+            value={<span className="text-brand-primary dark:text-brand-primary">{formatCurrency(stats.totalMRR)}</span>}
             hint="Recurring revenue"
             icon={DollarSign}
           />
@@ -522,7 +525,7 @@ function PlatformSubscriptionManagement() {
                                 variant="outline"
                                 size="sm"
                                 onClick={() => handleCancel(sub.company_id)}
-                                className="text-red-600 hover:text-red-700"
+                                className="text-rose-600 hover:text-rose-700"
                                 title="Cancel subscription"
                               >
                                 <Ban className="h-3.5 w-3.5 mr-1" />
@@ -578,11 +581,11 @@ function PlatformSubscriptionManagement() {
               )}
           </PortalCard>
 
-          <PortalCard className="border-red-200 bg-red-50 dark:border-red-900/40 dark:bg-red-950/20">
+          <PortalCard className="border-rose-200 bg-rose-50 dark:border-rose-900/40 dark:bg-rose-950/20">
             <PortalCardHeader
               title={
                 <span className="flex items-center gap-2">
-                  <Ban className="h-5 w-5 text-red-600" />
+                  <Ban className="h-5 w-5 text-rose-600" />
                   Cancelled ({stats.cancelled})
                   <InfoTooltip content="Companies that have ended their subscription, with the most recent cancellations first.\n\nA good list to mine for win-back outreach." />
                 </span>

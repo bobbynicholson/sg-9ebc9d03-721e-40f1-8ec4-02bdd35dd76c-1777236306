@@ -31,7 +31,9 @@ import {
 import { Calendar as CalendarIcon, Plus, Trash2, Loader2, Globe, Building2, Download, RefreshCw } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
-import { PortalShell, PortalHeader } from "@/components/portal/ui";
+import { PortalShell, PortalHeader,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { useAuth } from "@/contexts/AuthContext";
@@ -111,7 +113,7 @@ function PublicHolidaysAdmin() {
       <Head><title>Public holidays - CateringMS</title></Head>
       <AdminNav />
 
-      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+      <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
 
           <PortalHeader
@@ -170,12 +172,13 @@ function PublicHolidaysAdmin() {
               >
                 <Download className="w-4 h-4 mr-1.5" /> Export CSV
               </Button>
-              <Button onClick={() => setAdding(true)} className="bg-gradient-to-r from-brand-primary to-brand-secondary text-white hover:opacity-90">
+              <Button onClick={() => setAdding(true)} className="bg-brand-primary text-white hover:opacity-90">
                 <Plus className="w-4 h-4 mr-1.5" /> Add company holiday
               </Button>
             </>
             }
           />
+          <PageWorkbench />
 
           <Card className="border-0 shadow-sm mb-4">
             <CardContent className="py-3 flex flex-wrap items-center gap-2">
@@ -427,7 +430,7 @@ function AddHolidayDialog({
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={onClose} disabled={saving}>Cancel</Button>
-          <Button onClick={save} disabled={saving} className="bg-gradient-to-r from-brand-primary to-brand-secondary text-white hover:opacity-90">
+          <Button onClick={save} disabled={saving} className="bg-brand-primary text-white hover:opacity-90">
             {saving ? "Saving..." : "Add holiday"}
           </Button>
         </DialogFooter>

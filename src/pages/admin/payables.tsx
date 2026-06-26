@@ -30,7 +30,9 @@ import { Plus, CheckCircle2, AlertTriangle, Trash2, Upload, Wallet } from "lucid
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AdminNav } from "@/components/admin/AdminNav";
-import { PortalShell, PortalHeader } from "@/components/portal/ui";
+import { PortalShell, PortalHeader,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { CashflowContextBanner } from "@/components/admin/financial/CashflowContextBanner";
 import { useAuth } from "@/contexts/AuthContext";
 import { UserRole } from "@/types/app";
@@ -346,7 +348,7 @@ function PayablesPage() {
       </Head>
       <NoIndexMeta />
       <AdminNav />
-      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+      <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <PortalHeader
             title="Payables"
@@ -373,6 +375,7 @@ function PayablesPage() {
               </>
             }
           />
+          <PageWorkbench />
           <CashflowContextBanner message="Payables here feed the 30-day forecast outflow. Add a missing one to sharpen the projection." />
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">

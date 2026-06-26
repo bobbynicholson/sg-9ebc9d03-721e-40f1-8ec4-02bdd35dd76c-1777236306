@@ -29,7 +29,9 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { AdminNav } from "@/components/admin/AdminNav";
-import { PortalShell, PortalHeader } from "@/components/portal/ui";
+import { PortalShell, PortalHeader,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
@@ -544,7 +546,7 @@ function KitchenStaffPage() {
       <Head><title>Staff & rates - CateringMS</title></Head>
       <NoIndexMeta />
       <AdminNav />
-      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+      <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
 
           {/* STA-B: hero rebranded "Staff & rates" - the page
@@ -631,13 +633,14 @@ function KitchenStaffPage() {
                 <Download className="w-4 h-4 mr-2" />
                 Export CSV
               </Button>
-              <Button onClick={openAdd} className="bg-gradient-to-r from-brand-primary to-brand-secondary hover:opacity-90">
+              <Button onClick={openAdd} className="bg-brand-primary hover:opacity-90">
                 <UserPlus className="w-4 h-4 mr-2" />
                 Add staff
               </Button>
             </>
             }
           />
+          <PageWorkbench />
 
           {/* STA-B: missing-rate banner. Pre-STA-B this was an amber
               tile that looked like every other stat; operators
@@ -858,7 +861,7 @@ function KitchenStaffPage() {
                               <Badge variant="outline" className="text-[10px] bg-brand-primary/10 text-brand-primary border-brand-primary/20">Monthly</Badge>
                             )}
                             {payType === "shift" && (
-                              <Badge variant="outline" className="text-[10px] bg-purple-50 text-purple-700 border-purple-200">Per shift</Badge>
+                              <Badge variant="outline" className="text-[10px] bg-slate-50 text-slate-700 border-slate-200">Per shift</Badge>
                             )}
                             {/* STA-B: department badges so the All
                                 view tells the operator which team
@@ -1090,7 +1093,7 @@ function KitchenStaffPage() {
                               <ArchiveRestore className="w-3 h-3 mr-1" />Restore
                             </Button>
                           ) : (
-                            <Button variant="outline" size="sm" onClick={() => setArchiveTarget(s)} className="text-red-700 border-red-200 hover:bg-red-50">
+                            <Button variant="outline" size="sm" onClick={() => setArchiveTarget(s)} className="text-rose-700 border-rose-200 hover:bg-rose-50">
                               <Archive className="w-3 h-3 mr-1" />Archive
                             </Button>
                           )}
@@ -1509,7 +1512,7 @@ function KitchenStaffPage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleArchive} className="bg-red-600 hover:bg-red-700">Archive</AlertDialogAction>
+            <AlertDialogAction onClick={handleArchive} className="bg-rose-600 hover:bg-rose-700">Archive</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

@@ -18,7 +18,9 @@ import { useEffect, useMemo, useState } from "react";
 import Head from "next/head";
 import Link from "next/link";
 import { AdminNav } from "@/components/admin/AdminNav";
-import { PortalShell, PortalHeader } from "@/components/portal/ui";
+import { PortalShell, PortalHeader,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { toLocalISO } from "@/lib/localDate";
 import { Button } from "@/components/ui/button";
@@ -223,7 +225,7 @@ export default function RecurringInvoicesPage() {
       <NoIndexMeta />
       <Head><title>Recurring invoices - CateringMS</title></Head>
       <AdminNav />
-      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+      <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <Link href="/admin/invoices" className="inline-flex items-center gap-1 text-sm text-slate-600 hover:text-slate-900 mb-4">
             <ArrowLeft className="w-4 h-4" /> Back to invoices
@@ -245,6 +247,7 @@ export default function RecurringInvoicesPage() {
             </>
             }
           />
+          <PageWorkbench />
 
           <Card>
             <CardHeader>

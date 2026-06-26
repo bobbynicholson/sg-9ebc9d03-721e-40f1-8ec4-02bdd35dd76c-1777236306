@@ -44,7 +44,9 @@ import { Plus, Trash2, Repeat, Pencil, AlertCircle, ChevronDown, ChevronRight, T
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AdminNav } from "@/components/admin/AdminNav";
-import { PortalShell, PortalHeader } from "@/components/portal/ui";
+import { PortalShell, PortalHeader,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { CashflowContextBanner } from "@/components/admin/financial/CashflowContextBanner";
 import { useAuth } from "@/contexts/AuthContext";
 import { UserRole } from "@/types/app";
@@ -514,7 +516,7 @@ function FixedCostsPage() {
       </Head>
       <NoIndexMeta />
       <AdminNav />
-      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+      <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <PortalHeader
             title="Fixed costs"
@@ -542,6 +544,7 @@ function FixedCostsPage() {
             </>
             }
           />
+          <PageWorkbench />
           <CashflowContextBanner message="Each fixed cost expands into 30-day occurrences on the forecast. Edit one here to see the chart redraw." />
 
           {/* FXC-A: three summary tiles. Active + Monthly were the
@@ -855,7 +858,7 @@ function FixedCostsPage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmDelete} className="bg-red-600 hover:bg-red-700">
+            <AlertDialogAction onClick={handleConfirmDelete} className="bg-rose-600 hover:bg-rose-700">
               Remove
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -1020,7 +1023,7 @@ function CostRow({ row, currency, fmt, isLargest, onEdit, onToggle, onDelete }: 
             <Badge variant="secondary" className="bg-slate-100 text-slate-600">paused</Badge>
           )}
           {isLargest && row.active && (
-            <Badge variant="outline" className="text-[10px] border-purple-300 text-purple-700 bg-purple-50">
+            <Badge variant="outline" className="text-[10px] border-slate-300 text-slate-700 bg-slate-50">
               Largest line
             </Badge>
           )}

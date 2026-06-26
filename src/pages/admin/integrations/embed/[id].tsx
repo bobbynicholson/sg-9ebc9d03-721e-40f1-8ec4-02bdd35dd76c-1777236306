@@ -53,6 +53,7 @@ import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { getSetupChecklist, summariseReadiness, type SetupCheck, TEMPLATE_INTENT } from "@/lib/embed/setupChecks";
 import { CheckCircle2, AlertTriangle, Info } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { PageWorkbench } from "@/components/portal/ui";
 
 const FIELD_TYPES: { value: EmbedFieldType; label: string }[] = [
   { value: "text",       label: "Text" },
@@ -320,7 +321,7 @@ export default function EmbedFormCustomiser() {
       <>
         <NoIndexMeta />
         <AdminNav />
-        <div className="min-h-screen lg:pl-72 xl:pl-80 flex items-center justify-center">
+        <div className="admin-page-shell admin-page-shell--center">
           <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
         </div>
       </>
@@ -333,8 +334,9 @@ export default function EmbedFormCustomiser() {
       <Head><title>{form.name} - Lead Capture Forms</title></Head>
       <AdminNav />
 
-      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
+      <div className="admin-page-shell">
         <div className="px-4 py-6 md:py-8 max-w-full">
+          <PageWorkbench className="mb-5" />
 
           {/* Top bar */}
           <div className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
@@ -383,7 +385,7 @@ export default function EmbedFormCustomiser() {
               <Button
                 onClick={() => saveForm(form)}
                 disabled={saving || !dirty}
-                className="gap-2 bg-gradient-to-r from-brand-primary to-brand-secondary hover:from-indigo-600 hover:to-purple-600"
+                className="gap-2 bg-brand-primary hover:bg-brand-primary/90"
               >
                 {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                 Save
@@ -533,7 +535,7 @@ export default function EmbedFormCustomiser() {
                 <CardContent className="p-3">
                   <div className="flex items-center justify-between mb-2 px-1">
                     <h3 className="font-bold text-slate-900 flex items-center gap-2">
-                      <Eye className="w-4 h-4 text-indigo-600" /> Live preview
+                      <Eye className="w-4 h-4 text-blue-600" /> Live preview
                     </h3>
                     {previewSrc && (
                       <Button asChild size="sm" variant="ghost" className="gap-1.5 h-8 text-xs">
@@ -751,7 +753,7 @@ export default function EmbedFormCustomiser() {
                             onChange={(e) => setPricingTiers(prev => prev.map((t, idx) => idx === i ? { ...t, currency: e.target.value.toUpperCase() } : t))}
                             className="h-7 text-xs w-20"
                           />
-                          <Button size="sm" variant="ghost" onClick={() => setPricingTiers(prev => prev.filter((_, idx) => idx !== i))} className="h-7 text-red-600 hover:text-red-700">
+                          <Button size="sm" variant="ghost" onClick={() => setPricingTiers(prev => prev.filter((_, idx) => idx !== i))} className="h-7 text-rose-600 hover:text-rose-700">
                             <Trash2 className="w-3.5 h-3.5" />
                           </Button>
                         </div>
@@ -899,7 +901,7 @@ function FieldEditor({
           <button
             type="button"
             onClick={() => setShowAdvanced((s) => !s)}
-            className="text-[11px] text-indigo-600 hover:text-indigo-700"
+            className="text-[11px] text-blue-600 hover:text-blue-700"
           >
             {showAdvanced ? "Hide advanced" : "Show advanced"}
           </button>
@@ -979,7 +981,7 @@ function FieldEditor({
             </div>
           )}
         </div>
-        <Button size="icon" variant="ghost" onClick={onRemove} className="h-6 w-6 text-red-500 hover:text-red-600">
+        <Button size="icon" variant="ghost" onClick={onRemove} className="h-6 w-6 text-rose-500 hover:text-rose-600">
           <Trash2 className="w-3.5 h-3.5" />
         </Button>
       </div>

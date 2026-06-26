@@ -26,7 +26,9 @@ import { useToast } from "@/hooks/use-toast";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
-import { PortalShell, PortalHeader } from "@/components/portal/ui";
+import { PortalShell, PortalHeader,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import Head from "next/head";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { useForm, Controller } from "react-hook-form";
@@ -235,13 +237,14 @@ export default function NotificationSettings() {
 
       <AdminNav />
 
-      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+      <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <PortalHeader
             title="Notification settings"
             icon={Bell}
             subtitle="Per-user channels and triggers. Decide which events ping you by email, in-app banner, WhatsApp, or push. Owners get everything by default. Tune the noise from here."
           />
+          <PageWorkbench />
 
           {loading ? (
             <Card className="border-0 shadow-lg">
@@ -273,7 +276,7 @@ export default function NotificationSettings() {
             <Card className="border-0 shadow-lg">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Bell className="w-5 h-5 text-purple-600" />
+                  <Bell className="w-5 h-5 text-slate-600" />
                   Push Notifications
                   <InfoTooltip content={"In-app push alerts for urgent issues, new orders, staff updates and stock changes.\n\nSaved to your account."} />
                 </CardTitle>
@@ -302,7 +305,7 @@ export default function NotificationSettings() {
             </Card>
 
             {/* Save Button */}
-            <Card className="border-0 shadow-lg bg-gradient-to-r from-blue-50 to-purple-50">
+            <Card className="border-0 shadow-lg bg-gradient-to-r from-blue-50 to-slate-50">
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">

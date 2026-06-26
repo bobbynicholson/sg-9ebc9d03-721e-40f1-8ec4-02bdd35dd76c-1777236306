@@ -27,7 +27,9 @@ import {
 } from "recharts";
 import { Banknote, Calendar as CalendarIcon, Download, Loader2, Users, ChefHat, Truck, ShoppingBag, Sparkles, TrendingUp, AlertTriangle, Building2, Trophy, Clock as ClockIcon, ArrowUp, ArrowDown, Wallet } from "lucide-react";
 import { AdminNav } from "@/components/admin/AdminNav";
-import { PortalShell, PortalHeader } from "@/components/portal/ui";
+import { PortalShell, PortalHeader,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
@@ -755,7 +757,7 @@ function WageDashboardPage() {
       <Head><title>Wages - CateringMS</title></Head>
       <AdminNav />
 
-      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+      <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
 
           <PortalHeader
@@ -797,6 +799,7 @@ function WageDashboardPage() {
             </>
             }
           />
+          <PageWorkbench />
 
           {/* Department tabs */}
           <Tabs value={department} onValueChange={(v) => setDepartment(v as DepartmentKey)} className="mb-4">

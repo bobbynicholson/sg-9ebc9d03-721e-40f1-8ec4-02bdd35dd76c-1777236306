@@ -44,6 +44,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { staffOrderHref } from "@/lib/orderUrls";
 import { KitchenPrepTasksCard } from "@/components/kitchen/KitchenPrepTasksCard";
+import { PageWorkbench } from "@/components/portal/ui";
 
 interface OrderRow {
   id: string;
@@ -424,14 +425,14 @@ function KitchenTicketPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center text-slate-500">
+      <div className="admin-page-shell admin-page-shell--no-sidebar admin-page-shell--center text-slate-500">
         <Loader2 className="w-5 h-5 animate-spin mr-2" /> Preparing ticket...
       </div>
     );
   }
   if (!order) {
     return (
-      <div className="min-h-screen flex items-center justify-center text-slate-500 text-sm">
+      <div className="admin-page-shell admin-page-shell--no-sidebar admin-page-shell--center text-sm text-slate-500">
         Order not found.
       </div>
     );
@@ -446,7 +447,7 @@ function KitchenTicketPage() {
           body { background: white !important; }
         }
       `}</style>
-      <div className="min-h-screen bg-slate-50 print:bg-white">
+      <div className="admin-page-shell admin-page-shell--no-sidebar admin-page-shell--document admin-page-shell--print">
         <div className="no-print bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between sticky top-0 z-10">
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="sm" onClick={() => router.back()}>
@@ -465,6 +466,9 @@ function KitchenTicketPage() {
           <Button onClick={() => window.print()} size="sm">
             <Printer className="w-4 h-4 mr-2" /> Print
           </Button>
+        </div>
+        <div className="no-print mx-auto max-w-3xl px-6 pt-6">
+          <PageWorkbench />
         </div>
         <div className="max-w-3xl mx-auto px-6 py-8 print:px-4 print:py-0">
           <div className="bg-white border border-slate-300 rounded-lg p-6 print:border-0 print:rounded-none print:p-0 space-y-4">

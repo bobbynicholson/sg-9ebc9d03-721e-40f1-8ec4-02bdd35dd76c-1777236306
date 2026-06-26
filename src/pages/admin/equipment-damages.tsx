@@ -12,7 +12,9 @@ import { UserRole } from "@/types/app";
 import Head from "next/head";
 import { AlertTriangle } from "lucide-react";
 import { AdminNav } from "@/components/admin/AdminNav";
-import { PortalShell, PortalHeader } from "@/components/portal/ui";
+import { PortalShell, PortalHeader,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { ChatBot } from "@/components/ChatBot";
@@ -35,13 +37,14 @@ function EquipmentDamagesPage() {
 
       <AdminNav />
 
-      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+      <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <PortalHeader
             title="Equipment damages"
             subtitle="Broken, lost and damaged gear by event - with the client and cost on each line, so you can chase a replacement or bill the responsible party."
             icon={AlertTriangle}
           />
+          <PageWorkbench />
           <DamageAnalytics />
         </PortalShell>
 

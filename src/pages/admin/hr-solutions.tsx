@@ -46,7 +46,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AdminNav } from "@/components/admin/AdminNav";
-import { PortalShell, PortalHeader } from "@/components/portal/ui";
+import { PortalShell, PortalHeader,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { useAuth } from "@/contexts/AuthContext";
@@ -383,7 +385,7 @@ function AdminHRSolutions() {
 
       <AdminNav />
 
-      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+      <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
 
           <PortalHeader
@@ -391,6 +393,7 @@ function AdminHRSolutions() {
             icon={Users}
             subtitle="Hours, wages, accounts and invites at a glance. Drill into a card for the full surface."
           />
+          <PageWorkbench />
 
           {/* HRS-B: top chip row. Same shape as the team landings. */}
           <div className="flex flex-wrap gap-2 mb-6">
@@ -444,7 +447,7 @@ function AdminHRSolutions() {
             <Card className="border-0 shadow-md bg-white">
               <CardContent className="p-5">
                 <div className="flex items-center gap-2 mb-3">
-                  <Users className="w-5 h-5 text-indigo-600" />
+                  <Users className="w-5 h-5 text-blue-600" />
                   <p className="font-semibold text-slate-900">Staff by department</p>
                 </div>
                 <ul className="text-sm space-y-1.5">
@@ -457,7 +460,7 @@ function AdminHRSolutions() {
                   </li>
                   <li className="flex items-center justify-between">
                     <Link href={withSlug("/admin/teams/cleaning")} className="flex items-center gap-1.5 hover:underline">
-                      <Sparkles className="w-3.5 h-3.5 text-purple-600" />
+                      <Sparkles className="w-3.5 h-3.5 text-slate-600" />
                       <span>Cleaning</span>
                     </Link>
                     <span className="tabular-nums text-slate-700">{stats.byDept.cleaning}</span>

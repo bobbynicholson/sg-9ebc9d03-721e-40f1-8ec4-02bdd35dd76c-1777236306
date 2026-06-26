@@ -23,6 +23,7 @@ import { UserRole } from "@/types/app";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toLocalISO } from "@/lib/localDate";
+import { PageWorkbench } from "@/components/portal/ui";
 
 interface OrderRow {
   id: string;
@@ -109,7 +110,7 @@ function DeliverySheet() {
           body { background: white !important; }
         }
       `}</style>
-      <div className="min-h-screen bg-slate-50 print:bg-white">
+      <div className="admin-page-shell admin-page-shell--no-sidebar admin-page-shell--document admin-page-shell--print">
         <div className="no-print bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between sticky top-0 z-10">
           <Button variant="ghost" size="sm" onClick={() => router.back()}>
             <ArrowLeft className="w-4 h-4 mr-2" /> Back
@@ -125,6 +126,9 @@ function DeliverySheet() {
               <Printer className="w-4 h-4 mr-2" /> Print
             </Button>
           </div>
+        </div>
+        <div className="no-print mx-auto max-w-3xl px-6 pt-6">
+          <PageWorkbench />
         </div>
         <div className="max-w-3xl mx-auto px-6 py-8 print:px-4 print:py-0">
           <div className="bg-white border border-slate-300 rounded-lg p-6 print:border-0 print:rounded-none print:p-0">

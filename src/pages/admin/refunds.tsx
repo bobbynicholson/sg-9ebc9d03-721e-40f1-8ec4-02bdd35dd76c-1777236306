@@ -36,7 +36,9 @@ import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AdminNav } from "@/components/admin/AdminNav";
-import { PortalShell, PortalHeader } from "@/components/portal/ui";
+import { PortalShell, PortalHeader,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { UserRole } from "@/types/app";
 import {
   Receipt, CheckCircle2, Clock, RefreshCw, XCircle, Zap, Download,
@@ -695,7 +697,7 @@ function RefundsPage() {
             {isRefund && (
               <Badge
                 variant="outline"
-                className={`text-xs ${parentIsPayFast ? "border-indigo-300 text-indigo-800 bg-indigo-50" : "border-slate-300 text-slate-700 bg-slate-50"}`}
+                className={`text-xs ${parentIsPayFast ? "border-blue-300 text-blue-800 bg-blue-50" : "border-slate-300 text-slate-700 bg-slate-50"}`}
               >
                 {parentIsPayFast ? <Zap className="w-3 h-3 mr-1" /> : null}
                 Paid by {methodLabel(r.parent_gateway, r.parent_method)}
@@ -728,7 +730,7 @@ function RefundsPage() {
               </Badge>
             )}
             {isProcessing && (
-              <Badge variant="outline" className="text-[10px] border-indigo-300 text-indigo-800 bg-indigo-50">
+              <Badge variant="outline" className="text-[10px] border-blue-300 text-blue-800 bg-blue-50">
                 PayFast retry in flight
               </Badge>
             )}
@@ -794,7 +796,7 @@ function RefundsPage() {
           <Button
             size="sm"
             variant="outline"
-            className="border-indigo-300 text-indigo-800 hover:bg-indigo-50"
+            className="border-blue-300 text-blue-800 hover:bg-blue-50"
             onClick={() => retryAuto(r)}
             disabled={busy === r.id}
           >
@@ -846,7 +848,7 @@ function RefundsPage() {
         <NoIndexMeta />
       </Head>
       <AdminNav />
-      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+      <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <PortalHeader
             title="Refunds & Credits"
@@ -917,6 +919,7 @@ function RefundsPage() {
               </>
             }
           />
+          <PageWorkbench />
 
           <div className="space-y-6">
           {/* REF-A intel: orphan cancelled-orders banner. Pre-REF-A
@@ -1001,7 +1004,7 @@ function RefundsPage() {
               quotes / invoices / contacts. */}
           <div className="flex flex-wrap items-center gap-1.5">
             {savedRefundViews.map((v) => (
-              <span key={v.id} className="inline-flex items-center gap-1 rounded-full border border-purple-200 bg-purple-50 text-purple-700 text-xs">
+              <span key={v.id} className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 text-slate-700 text-xs">
                 <button
                   type="button"
                   onClick={() => applySavedRefundView(v)}
@@ -1013,7 +1016,7 @@ function RefundsPage() {
                 <button
                   type="button"
                   onClick={() => removeSavedRefundView(v.id)}
-                  className="pr-1.5 text-purple-500 hover:text-purple-800"
+                  className="pr-1.5 text-slate-500 hover:text-slate-800"
                   title="Remove this view"
                 >
                   ×
@@ -1023,7 +1026,7 @@ function RefundsPage() {
             <button
               type="button"
               onClick={saveCurrentRefundView}
-              className="inline-flex items-center gap-1 rounded-full border border-dashed border-slate-300 text-slate-500 text-xs px-2.5 py-0.5 hover:border-purple-300 hover:text-purple-700"
+              className="inline-flex items-center gap-1 rounded-full border border-dashed border-slate-300 text-slate-500 text-xs px-2.5 py-0.5 hover:border-slate-300 hover:text-slate-700"
               title="Save the current filter as a named view"
             >
               + Save view

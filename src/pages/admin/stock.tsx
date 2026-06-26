@@ -34,7 +34,9 @@ import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { AdminNav } from "@/components/admin/AdminNav";
-import { PortalShell, PortalHeader } from "@/components/portal/ui";
+import { PortalShell, PortalHeader,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { toLocalISO } from "@/lib/localDate";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -129,13 +131,13 @@ type EquipWindow = 7 | 14 | 30;
 type FilterChip = "all" | "ingredient" | "equipment" | "hire-in";
 
 const severityClasses: Record<string, string> = {
-  red:   "border-red-300 bg-red-50",
+  red:   "border-rose-300 bg-rose-50",
   amber: "border-amber-300 bg-amber-50",
   blue:  "border-sky-300 bg-sky-50",
 };
 
 const severityIcon: Record<string, string> = {
-  red:   "text-red-600",
+  red:   "text-rose-600",
   amber: "text-amber-600",
   blue:  "text-sky-600",
 };
@@ -844,7 +846,7 @@ function StockPage() {
       <Head><title>Stock - CateringMS</title></Head>
       <AdminNav />
 
-      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+      <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
 
           <PortalHeader
@@ -885,6 +887,7 @@ function StockPage() {
             </>
             }
           />
+          <PageWorkbench />
 
           {/* STK-B: aging hire-in escalation banner. Loud when one or
               more suppliers owe orders that are >7 days overdue. */}
@@ -911,7 +914,7 @@ function StockPage() {
             <Card className="border-0 shadow-lg">
               <CardHeader className="pb-2">
                 <CardTitle className="flex items-center gap-2 text-base">
-                  <Package className="w-4 h-4 text-red-600" />
+                  <Package className="w-4 h-4 text-rose-600" />
                   Low stock
                 </CardTitle>
               </CardHeader>
@@ -934,7 +937,7 @@ function StockPage() {
                           <span className="truncate text-slate-700">{i.item_name}</span>
                           <Badge
                             variant="secondary"
-                            className={`ml-2 flex-shrink-0 ${isCrit ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"}`}
+                            className={`ml-2 flex-shrink-0 ${isCrit ? "bg-rose-100 text-rose-700" : "bg-amber-100 text-amber-700"}`}
                             title={`On hand: ${cur} - Minimum: ${min}`}
                           >
                             {cur}/{min}
@@ -1057,10 +1060,10 @@ function StockPage() {
 
           {/* STK-B: stockout risk forecast (next 7 days). */}
           {stockouts.length > 0 && (
-            <Card className="border-0 shadow-lg mb-6 border-l-4 border-l-red-500 bg-red-50/40">
+            <Card className="border-0 shadow-lg mb-6 border-l-4 border-l-red-500 bg-rose-50/40">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-                  <ZapOff className="w-4 h-4 sm:w-5 sm:h-5 text-red-600" />
+                  <ZapOff className="w-4 h-4 sm:w-5 sm:h-5 text-rose-600" />
                   Stockout risk - next 7 days
                 </CardTitle>
                 <p className="text-xs text-slate-600 mt-1">

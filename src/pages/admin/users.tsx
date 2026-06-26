@@ -702,7 +702,7 @@ function AdminUsersPage() {
         
         <AdminNav />
         
-        <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
+        <div className="admin-page-shell">
           <div className="px-4 py-8">
             <div className="flex items-center justify-center h-64">
               <div className="text-center">
@@ -727,7 +727,7 @@ function AdminUsersPage() {
         
         <AdminNav />
         
-        <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
+        <div className="admin-page-shell">
           <div className="px-4 py-8">
             <Card className="border-2 border-rose-200 bg-rose-50">
               <CardContent className="pt-12 pb-12 text-center">
@@ -757,7 +757,7 @@ function AdminUsersPage() {
       
       <AdminNav />
       
-      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+      <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <Link href={withSlug("/admin/dashboard")}>
             <Button variant="ghost" className="mb-4" size="sm">

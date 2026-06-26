@@ -36,6 +36,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { formatDate } from "@/lib/formatters";
 import { Calendar as CalendarIcon, Layers, MapPin, Plus, ArrowRight, ChefHat } from "lucide-react";
+import { PageWorkbench } from "@/components/portal/ui";
 
 type BookingPackageStatus = "draft" | "active" | "completed" | "cancelled";
 
@@ -192,8 +193,9 @@ function PackagesPage() {
       <Head><title>Booking packages - CateringMS</title></Head>
       <NoIndexMeta />
       <AdminNav />
-      <div className="min-h-screen bg-slate-50 lg:pl-72 xl:pl-80">
+      <div className="admin-page-shell">
         <div className="space-y-4 w-full px-4 sm:px-6 pt-20 lg:pt-6 pb-6">
+          <PageWorkbench className="mb-5" />
           <div className="flex items-start justify-between gap-3 flex-wrap">
             <div>
               <h1 className="text-xl sm:text-2xl font-bold text-slate-900 flex items-center gap-2">
