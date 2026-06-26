@@ -15,7 +15,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { AlertTriangle, Plus, Loader2, Search, Check, FileWarning, Package, Calendar as CalendarIcon, User, Image as ImageIcon } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { CleaningNav } from "@/components/navigation/CleaningNav";
-import { PortalShell, PortalHeader, PortalCard, StatTile } from "@/components/portal/ui";
+import { PortalShell, PortalHeader, PortalCard, StatTile,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -242,6 +244,7 @@ export default function CleaningDamagePage() {
               </Button>
             }
           />
+          <PageWorkbench />
 
           <div className="grid grid-cols-3 gap-3 sm:gap-4 mb-6">
             <StatTile label="Open reports" value={stats.open} hint="Still need fixing" />

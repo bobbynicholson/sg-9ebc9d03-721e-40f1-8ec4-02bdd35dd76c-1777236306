@@ -19,7 +19,9 @@ import { CleaningNav } from "@/components/navigation/CleaningNav";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { PortalShell, PortalHeader, PortalCard, StatTile } from "@/components/portal/ui";
+import { PortalShell, PortalHeader, PortalCard, StatTile,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { useTenantHref } from "@/lib/tenantUrl";
 
 interface Equipment {
@@ -175,6 +177,7 @@ export default function CleaningEquipmentPage() {
             subtitle="Verify gear returned from a function, then log missing or damaged items for admin invoice review"
             icon={ShieldCheck}
           />
+          <PageWorkbench />
 
           <div className="grid grid-cols-3 gap-3 sm:gap-4 mb-6">
             <StatTile

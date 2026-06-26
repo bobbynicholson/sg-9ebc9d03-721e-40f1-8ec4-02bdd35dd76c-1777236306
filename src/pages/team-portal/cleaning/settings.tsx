@@ -8,7 +8,9 @@ import { Settings as SettingsIcon, Save, Loader2, Camera, AlertTriangle, ListChe
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { CleaningNav } from "@/components/navigation/CleaningNav";
-import { PortalShell, PortalHeader, PortalCard } from "@/components/portal/ui";
+import { PortalShell, PortalHeader, PortalCard,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 
@@ -97,6 +99,7 @@ export default function CleaningSettingsPage() {
               </div>
             }
           />
+          <PageWorkbench />
 
           <div className="space-y-4">
             <PortalCard>

@@ -5,7 +5,9 @@ import { Badge } from "@/components/ui/badge";
 import { Bell, Check, AlertCircle, AlertTriangle, Info, CheckCircle2, Archive } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { CleaningNav } from "@/components/navigation/CleaningNav";
-import { PortalShell, PortalHeader, PortalCard } from "@/components/portal/ui";
+import { PortalShell, PortalHeader, PortalCard,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -178,6 +180,7 @@ export default function CleaningNotificationsPage() {
               </div>
             }
           />
+          <PageWorkbench />
 
           <div className="flex gap-2 mb-4">
             <Button variant={tab === "all" ? "default" : "outline"} size="sm" onClick={() => setTab("all")} className={tab === "all" ? "bg-brand-primary hover:bg-brand-primary/90" : ""}>All</Button>

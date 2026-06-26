@@ -9,7 +9,9 @@ import {
 import { ClipboardCheck, Loader2, Check, Play, Clock, MapPin } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { CleaningNav } from "@/components/navigation/CleaningNav";
-import { PortalShell, PortalHeader, PortalCard, StatTile } from "@/components/portal/ui";
+import { PortalShell, PortalHeader, PortalCard, StatTile,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -145,6 +147,7 @@ export default function CleaningTasksPage() {
             }
             icon={ClipboardCheck}
           />
+          <PageWorkbench />
 
           <div className="grid grid-cols-3 gap-3 sm:gap-4 mb-6">
             <StatTile label="Open tasks" value={stats.total} hint="Not finished yet in this view" />

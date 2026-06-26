@@ -6,7 +6,9 @@ import { Input } from "@/components/ui/input";
 import { Search, ChevronDown, ChevronRight as ChevronRightIcon, Clock, ShieldCheck } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { CleaningNav } from "@/components/navigation/CleaningNav";
-import { PortalShell, PortalHeader, PortalCard } from "@/components/portal/ui";
+import { PortalShell, PortalHeader, PortalCard,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -154,6 +156,7 @@ export default function CleaningWorkflowsPage() {
             subtitle="Step-by-step SOPs per equipment category, food-safety compliant"
             icon={ShieldCheck}
           />
+          <PageWorkbench />
 
           <PortalCard className="mb-6">
             <div className="relative">

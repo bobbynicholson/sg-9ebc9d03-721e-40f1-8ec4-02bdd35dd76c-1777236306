@@ -11,7 +11,9 @@ import {
 import { Wrench, Search, AlertTriangle, Loader2, Minus } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { CleaningNav } from "@/components/navigation/CleaningNav";
-import { PortalShell, PortalHeader, PortalCard, StatTile } from "@/components/portal/ui";
+import { PortalShell, PortalHeader, PortalCard, StatTile,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { inventoryService, type Inventory } from "@/services/inventoryService";
@@ -145,6 +147,7 @@ export default function CleaningSuppliesPage() {
             subtitle="Detergents, cloths, gloves, low-stock items feed straight to the shopping team"
             icon={Wrench}
           />
+          <PageWorkbench />
 
           <div className="grid grid-cols-3 gap-3 sm:gap-4 mb-6">
             <StatTile label="Total supplies" value={stats.total} hint="On file" />

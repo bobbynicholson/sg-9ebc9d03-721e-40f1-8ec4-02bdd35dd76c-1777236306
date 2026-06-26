@@ -23,7 +23,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ArrowLeft, CheckCircle2, Package, Loader2, AlertTriangle, ExternalLink } from "lucide-react";
 import { BookingHeader } from "@/components/booking/BookingHeader";
 import { CleaningNav } from "@/components/navigation/CleaningNav";
-import { PortalShell } from "@/components/portal/ui";
+import { PageWorkbench, PortalShell } from "@/components/portal/ui";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { Footer } from "@/components/Footer";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
@@ -234,6 +234,7 @@ function HandoverDetailInner() {
 
       <main className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+          <PageWorkbench className="mb-5" />
           <Link
             href={withSlug("/team-portal/cleaning/dashboard")}
             className="inline-flex items-center gap-1 text-sm text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200 mb-4"
@@ -353,7 +354,7 @@ function HandoverDetailInner() {
                                   {statusMeta.label}
                                 </Badge>
                                 {damageByEq[j.equipment_id] && (
-                                  <Badge variant="outline" className="text-[10px] bg-red-50 text-red-700 border-red-200 gap-1">
+                                  <Badge variant="outline" className="text-[10px] bg-rose-50 text-rose-700 border-rose-200 gap-1">
                                     <AlertTriangle className="w-2.5 h-2.5" />
                                     {damageByEq[j.equipment_id].qty} flagged ({damageByEq[j.equipment_id].types.join("/")})
                                   </Badge>

@@ -12,7 +12,9 @@ import { captureException } from "@/lib/observability";
 import { useToast } from "@/hooks/use-toast";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
-import { PortalShell, PortalHeader, PortalCard, PortalCardHeader, StatTile } from "@/components/portal/ui";
+import { PortalShell, PortalHeader, PortalCard, PortalCardHeader, StatTile,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { CleaningDutyWidget } from "@/components/cleaning/CleaningDutyWidget";
 import { CleaningJobsQueue } from "@/components/cleaning/CleaningJobsQueue";
 import { CleaningEventBoard } from "@/components/cleaning/CleaningEventBoard";
@@ -318,6 +320,7 @@ function CleaningDashboardInner() {
               </Button>
             }
           />
+          <PageWorkbench />
 
           {/* Wave 39: live duty + clock-in surface. Component existed
               but was imported and never rendered. Wave 39 also fixed

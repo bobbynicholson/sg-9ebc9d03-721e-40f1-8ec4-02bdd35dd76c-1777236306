@@ -14,7 +14,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Calendar, Plus, Loader2, Clock } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { CleaningNav } from "@/components/navigation/CleaningNav";
-import { PortalShell, PortalHeader, PortalCard } from "@/components/portal/ui";
+import { PortalShell, PortalHeader, PortalCard,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -154,6 +156,7 @@ export default function CleaningSchedulesPage() {
               </Button>
             }
           />
+          <PageWorkbench />
 
           {loading ? (
             <div className="space-y-4" aria-busy="true" aria-label="Loading schedules">
