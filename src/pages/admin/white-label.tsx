@@ -932,9 +932,9 @@ function WhiteLabelPage() {
                       <Button
                         type="button"
                         onClick={handleSave}
-                        disabled={saving || loading || !isDirty}
+                        disabled={saving || loading || !companyId}
                         className="shrink-0 bg-brand-primary text-white hover:bg-brand-primary/90"
-                        title={isDirty ? "Save your branding changes" : "Nothing to save yet"}
+                        title="Save the current branding values"
                       >
                         <Save className="w-4 h-4 mr-2" />
                         {saving ? "Saving..." : "Save colour changes"}
@@ -947,12 +947,12 @@ function WhiteLabelPage() {
               <div className="flex gap-3">
                 <Button
                   onClick={handleSave}
-                  disabled={saving || loading || !isDirty}
+                  disabled={saving || loading || !companyId}
                   className="flex-1 bg-gradient-to-r from-brand-primary to-brand-secondary text-white hover:opacity-90"
-                  title={isDirty ? "Save your branding changes" : "Nothing to save yet"}
+                  title="Save the current branding values"
                 >
                   <Save className="w-4 h-4 mr-2" />
-                  {saving ? "Saving..." : isDirty ? "Save Branding" : "Branding up to date"}
+                  {saving ? "Saving..." : "Save Branding"}
                 </Button>
                 <Button
                   onClick={handleReset}
