@@ -59,6 +59,7 @@ import {
   CheckCircle2, ArrowRight, Package, CalendarDays,
 } from "lucide-react";
 import { PageWorkbench, PortalHeader, PortalShell } from "@/components/portal/ui";
+import { damageReporterName, type DamageReporterProfile } from "@/lib/damageReporter";
 
 function startOfWeek(): Date {
   const d = new Date();
@@ -93,6 +94,7 @@ interface CleaningStats {
   damagesThisWeek: number;
   damagesCostZar: number;
   topDamageTypes: Array<{ category: string; count: number }>;
+  recentDamageReports: Array<{ id: string; type: string; reporter: string; item: string | null }>;
   // CLN-A: supplies below par / out-of-stock.
   suppliesBelowPar: number;
   suppliesOutOfStock: number;
@@ -109,6 +111,7 @@ const initialStats: CleaningStats = {
   jobsQueued: 0, jobsInProgress: 0, jobsComplete: 0, jobsOverdue: 0,
   tomorrowHandovers: 0, tomorrowEvents: 0,
   damagesThisWeek: 0, damagesCostZar: 0, topDamageTypes: [],
+  recentDamageReports: [],
   suppliesBelowPar: 0, suppliesOutOfStock: 0,
   machinesActive: 0, machinesTotal: 0,
   topStaffHours: [],
@@ -250,8 +253,8 @@ function CleaningTeamPage() {
         // Damages this week + R cost. repair_cost is finance-gated
         // at render, but we still pull it so finance roles see the
         // total without a second round trip.
-        const damagesQ = supabase.from("equipment_damages")
-          .select("id, damage_type, repair_cost")
+        const damagesQ = (supabase as any).from("equipment_damages")
+          .select("id, damage_type, repair_cost, created_at, reported_by, responsible_name, equipment:equipment_id(name)")
           .eq("company_id", companyId)
           .gte("created_at", weekAgoISO);
 
@@ -345,7 +348,15 @@ function CleaningTeamPage() {
         }
 
         // Damages rollup: count + sum(repair_cost) + top 3 types.
-        const damageRows = (damagesRes.data || []) as Array<{ damage_type: string | null; repair_cost: number | null }>;
+        const damageRows = (damagesRes.data || []) as Array<{
+          id: string;
+          damage_type: string | null;
+          repair_cost: number | null;
+          created_at: string | null;
+          reported_by: string | null;
+          responsible_name: string | null;
+          equipment?: { name: string | null } | null;
+        }>;
         let damagesCostZar = 0;
         const typeCounts = new Map<string, number>();
         for (const d of damageRows) {
@@ -357,6 +368,32 @@ function CleaningTeamPage() {
           .sort((a, b) => b[1] - a[1])
           .slice(0, 3)
           .map(([category, count]) => ({ category, count }));
+        const damageReporterIds = Array.from(new Set(
+          damageRows.map((d) => d.reported_by).filter((id): id is string => Boolean(id)),
+        ));
+        let damageReportersById = new Map<string, DamageReporterProfile>();
+        if (damageReporterIds.length > 0) {
+          const { data: reporterRows } = await supabase
+            .from("profiles")
+            .select("id, full_name, email, role, active_role")
+            .in("id", damageReporterIds);
+          damageReportersById = new Map(
+            ((reporterRows || []) as Array<DamageReporterProfile & { id: string }>).map((p) => [p.id, p]),
+          );
+        }
+        const recentDamageReports = [...damageRows]
+          .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())
+          .slice(0, 3)
+          .map((d) => ({
+            id: d.id,
+            type: d.damage_type || "damage",
+            reporter: damageReporterName({
+              reported_by: d.reported_by,
+              responsible_name: d.responsible_name,
+              reporter: d.reported_by ? damageReportersById.get(d.reported_by) || null : null,
+            }),
+            item: d.equipment?.name || null,
+          }));
 
         // Supplies rollup.
         let suppliesBelowPar = 0, suppliesOutOfStock = 0;
@@ -385,6 +422,7 @@ function CleaningTeamPage() {
             damagesThisWeek: damageRows.length,
             damagesCostZar,
             topDamageTypes,
+            recentDamageReports,
             suppliesBelowPar,
             suppliesOutOfStock,
             machinesActive,
@@ -668,6 +706,15 @@ function CleaningTeamPage() {
                     <p className="text-xs text-slate-600 truncate">
                       Top: {stats.topDamageTypes.map((c) => `${c.category} (${c.count})`).join(", ")}
                     </p>
+                  )}
+                  {stats.recentDamageReports.length > 0 && (
+                    <div className="mt-2 space-y-1">
+                      {stats.recentDamageReports.map((d) => (
+                        <p key={d.id} className="text-xs text-slate-600 truncate">
+                          {d.item ? `${d.item}: ` : ""}{d.type} by {d.reporter}
+                        </p>
+                      ))}
+                    </div>
                   )}
                   {stats.suppliesBelowPar > 0 && (
                     <p className="text-xs text-slate-600 mt-1">

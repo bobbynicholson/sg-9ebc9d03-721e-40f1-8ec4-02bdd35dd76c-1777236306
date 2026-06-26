@@ -25,6 +25,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { equipmentTrackingService, type DamageType, type HandoverStage } from "@/services/equipmentTrackingService";
 import { emitEquipmentDamaged } from "@/lib/events/equipmentEvents";
+import { reporterNameFromUser } from "@/lib/damageReporter";
 
 interface EquipmentOption {
   id: string;
@@ -234,7 +235,7 @@ export function DamageFlagForm({ onFlagged }: Props) {
         damageStage: "return" as HandoverStage,
         unitCost,
         responsibleUserId: user?.id,
-        responsibleName: user?.email || "Cleaning Team",
+        responsibleName: reporterNameFromUser(user),
         description: reason.trim(),
         photoUrl: resolvedPhotoUrl,
       });

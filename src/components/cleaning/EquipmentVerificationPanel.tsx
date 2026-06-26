@@ -18,6 +18,7 @@ import { equipmentTrackingService } from "@/services/equipmentTrackingService";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
+import { reporterNameFromUser } from "@/lib/damageReporter";
 
 interface VerificationItem {
   handoverId: string;
@@ -127,7 +128,7 @@ export function EquipmentVerificationPanel() {
     try {
       await equipmentTrackingService.confirmHandoverReceipt({
         handoverId: handover.id,
-        receivedByName: user?.email || "Cleaning Team",
+        receivedByName: reporterNameFromUser(user),
         quantityReceived,
         discrepancyReason: hasDiscrepancy ? notes : undefined,
       });
@@ -153,6 +154,8 @@ export function EquipmentVerificationPanel() {
             damageType: "lost",
             damageStage: "return",
             unitCost: handover.equipment?.replacement_cost || 0,
+            responsibleUserId: user?.id,
+            responsibleName: reporterNameFromUser(user),
             description: notes,
           });
         }

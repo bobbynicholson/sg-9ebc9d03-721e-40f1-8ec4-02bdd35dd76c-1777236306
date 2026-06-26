@@ -138,47 +138,80 @@ export const equipmentTrackingService = {
    * Report damaged or lost equipment
    */
   async reportDamage(params: {
-    orderId: string;
+    orderId?: string;
+    companyId?: string;
     equipmentId: string;
     handoverId?: string;
     quantityDamaged: number;
     damageType: DamageType;
-    damageStage: HandoverStage;
+    damageStage?: HandoverStage;
+    stage?: HandoverStage | string;
     unitCost: number;
     responsibleUserId?: string;
+    reportedBy?: string;
     responsibleName?: string;
     description?: string;
     notes?: string;
     photoUrl?: string;
   }): Promise<EquipmentDamage> {
-    const totalCost = params.quantityDamaged * params.unitCost;
+    const quantityDamaged = Math.max(1, Number(params.quantityDamaged || 1));
+    const unitCost = Number(params.unitCost || 0);
+    const totalCost = quantityDamaged * unitCost;
+    const reporterUserId = params.responsibleUserId ?? params.reportedBy ?? null;
+    const damageStage = (params.damageStage ?? params.stage ?? "return") as HandoverStage;
 
     // Resolve company_id (and order context) up front so the damage row
     // is tenant-stamped on insert. RLS policies key on company_id, and
     // a NULL company_id would orphan the row from the analytics that
     // scope by tenant. Ops audit 2026-06-15.
-    const { data: order, error: orderErr } = await supabase
-      .from("orders")
-      .select("user_id, company_id, order_number, client_name")
-      .eq("id", params.orderId)
-      .single();
+    const { data: order, error: orderErr } = params.orderId
+      ? await supabase
+        .from("orders")
+        .select("user_id, company_id, order_number, client_name")
+        .eq("id", params.orderId)
+        .single()
+      : { data: null, error: null } as any;
     if (orderErr) console.error("[equipmentTrackingService/reportDamage] orders lookup failed:", orderErr);
+
+    const { data: equipment, error: equipmentErr } = await (supabase as any)
+      .from("equipment")
+      .select("name, category, quantity, available_quantity, company_id")
+      .eq("id", params.equipmentId)
+      .single();
+    if (equipmentErr) console.error("[equipmentTrackingService/reportDamage] equipment lookup failed:", equipmentErr);
+
+    const companyId = order?.company_id ?? params.companyId ?? (equipment as any)?.company_id ?? null;
+    if (!companyId) {
+      throw new Error("Cannot report equipment damage without company context.");
+    }
+
+    let resolvedReporterName = params.responsibleName?.trim() || "";
+    if (!resolvedReporterName && reporterUserId) {
+      const { data: reporterProfile, error: reporterErr } = await supabase
+        .from("profiles")
+        .select("full_name, email")
+        .eq("id", reporterUserId)
+        .maybeSingle();
+      if (reporterErr) console.warn("[equipmentTrackingService/reportDamage] reporter lookup failed:", reporterErr);
+      resolvedReporterName = ((reporterProfile as any)?.full_name || (reporterProfile as any)?.email || "").trim();
+    }
 
     const { data, error } = await supabase
       .from("equipment_damages")
       .insert({
-        company_id: order?.company_id ?? null,
-        order_id: params.orderId,
+        company_id: companyId,
+        order_id: params.orderId ?? null,
         equipment_id: params.equipmentId,
         handover_id: params.handoverId,
-        reported_by: params.responsibleUserId ?? null,
-        quantity_damaged: params.quantityDamaged,
+        reported_by: reporterUserId,
+        quantity_damaged: quantityDamaged,
         damage_type: params.damageType,
-        damage_stage: params.damageStage,
-        unit_cost: params.unitCost,
+        damage_stage: damageStage,
+        unit_cost: unitCost,
         total_cost: totalCost,
-        responsible_user_id: params.responsibleUserId,
-        responsible_name: params.responsibleName,
+        repair_cost: totalCost,
+        responsible_user_id: reporterUserId,
+        responsible_name: resolvedReporterName || null,
         description: params.description,
         notes: params.notes,
         photo_url: params.photoUrl,
@@ -191,14 +224,7 @@ export const equipmentTrackingService = {
       throw error;
     }
 
-    const { data: equipment, error: equipmentErr } = await supabase
-      .from("equipment")
-      .select("name, category, quantity, available_quantity")
-      .eq("id", params.equipmentId)
-      .single();
-    if (equipmentErr) console.error("[equipmentTrackingService/reportDamage] equipment lookup failed:", equipmentErr);
-
-    const equipmentName = equipment?.name || "Unknown Equipment";
+    const equipmentName = (equipment as any)?.name || "Unknown Equipment";
 
     // Pull the damaged units OUT OF CIRCULATION but do NOT change the owned
     // total. The owner still owns the gear until they formally write it off
@@ -212,7 +238,7 @@ export const equipmentTrackingService = {
     try {
       const owned = Number((equipment as any)?.quantity || 0);
       const avail = Number((equipment as any)?.available_quantity || 0);
-      const dmg = Math.max(0, Number(params.quantityDamaged || 0));
+      const dmg = Math.max(0, Number(quantityDamaged || 0));
       if (dmg > 0) {
         const newAvail = Math.max(0, Math.min(owned, avail - dmg));
         const { error: invErr } = await supabase
@@ -227,7 +253,9 @@ export const equipmentTrackingService = {
       console.warn("[equipmentTrackingService/reportDamage] availability deduction threw (non-blocking):", invE);
     }
 
-    if (order) {
+    if (companyId) {
+      const orderLabel = order?.order_number ? `Order: ${order.order_number}` : "No linked order";
+      const reporterLabel = resolvedReporterName ? ` Reported by ${resolvedReporterName}.` : "";
       // 1. In-portal notification. Audit (May 2026): old code wrote
       // recipient_id = order.user_id (the CLIENT). Damage alerts
       // belong to the catering company's admin / dispatch team.
@@ -235,10 +263,10 @@ export const equipmentTrackingService = {
       // Admin / dispatch get the cost-focused alert with the deep-link to
       // the shortages tab where they action repair vs replace.
       await notificationService.broadcastNotification({
-        companyId: order.company_id,
+        companyId,
         type: "equipment_damage",
         title: "🔧 Equipment Damage Reported",
-        message: `${params.quantityDamaged}x ${equipmentName} reported ${params.damageType} at ${params.damageStage} stage - removed from inventory. Order: ${order.order_number}. Cost: R${totalCost.toFixed(2)}`,
+        message: `${quantityDamaged}x ${equipmentName} reported ${params.damageType} at ${damageStage} stage - removed from inventory. ${orderLabel}. Cost: R${totalCost.toFixed(2)}.${reporterLabel}`,
         targetRoles: [
           UserRole.SUPER_ADMIN,
           UserRole.COMPANY_ADMIN,
@@ -257,10 +285,10 @@ export const equipmentTrackingService = {
       // cost figure), best-effort + dedup so a re-flag doesn't spam the floor.
       try {
         await notificationService.broadcastNotification({
-          companyId: order.company_id,
+          companyId,
           type: "equipment_damage_kitchen_alert",
           title: "Equipment damaged during service",
-          message: `${params.quantityDamaged}x ${equipmentName} marked ${params.damageType} on order ${order.order_number} and pulled from stock. Check availability for upcoming events.`,
+          message: `${quantityDamaged}x ${equipmentName} marked ${params.damageType} and pulled from stock. ${orderLabel}.${reporterLabel} Check availability for upcoming events.`,
           targetRoles: ["kitchen_manager" as any, "kitchen_staff" as any],
           priority: "normal",
           link: `/team-portal/kitchen/today`,
@@ -270,10 +298,10 @@ export const equipmentTrackingService = {
           dedupWindowMinutes: 60,
         } as any);
         await notificationService.broadcastNotification({
-          companyId: order.company_id,
+          companyId,
           type: "equipment_damage_cleaning_alert",
           title: "Equipment short - item damaged",
-          message: `${params.quantityDamaged}x ${equipmentName} marked ${params.damageType} on order ${order.order_number} and pulled from stock.`,
+          message: `${quantityDamaged}x ${equipmentName} marked ${params.damageType} and pulled from stock. ${orderLabel}.${reporterLabel}`,
           targetRoles: ["cleaning_manager" as any, "cleaning_staff" as any],
           priority: "normal",
           link: `/team-portal/cleaning/dashboard`,
@@ -293,7 +321,7 @@ export const equipmentTrackingService = {
         const { data: adminProfile, error: adminProfileErr } = await supabase
           .from("profiles")
           .select("email, full_name, phone, phone_number")
-          .eq("company_id", order.company_id)
+          .eq("company_id", companyId)
           // Wave 64.5 - "owner" isn't a valid user_role enum value;
           // pre-Wave-64.5 PostgREST threw on the .in() and the
           // damage/cleaning notification silently picked no admin.
@@ -305,13 +333,13 @@ export const equipmentTrackingService = {
         const { data: companyRow, error: companyRowErr } = await supabase
           .from("companies")
           .select("company_name, slug")
-          .eq("id", order.company_id)
+          .eq("id", companyId)
           .maybeSingle();
         if (companyRowErr) console.error("[equipmentTrackingService/reportDamage] companies lookup failed:", companyRowErr);
         const companyName = (companyRow as any)?.company_name || "CateringMS";
         const companySlug = (companyRow as any)?.slug ? `/${(companyRow as any).slug}` : "";
 
-        if (adminProfile?.email) {
+        if (order && adminProfile?.email) {
           const subject = `🔧 Equipment Damage Alert - Order ${order.order_number}`;
           const body = `Dear ${adminProfile.full_name || "Admin"},
 
@@ -356,7 +384,7 @@ ${companyName}`;
 
         // WhatsApp ping to the same admin (when configured).
         const adminPhone = adminProfile?.phone || adminProfile?.phone_number;
-        if (adminPhone) {
+        if (order && adminPhone) {
           try {
             await whatsappIntegrationService.sendWhatsAppMessage({
               to: adminPhone,

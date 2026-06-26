@@ -23,6 +23,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { notificationService } from "@/services/notificationService";
 import { formatDistanceToNow } from "date-fns";
+import { damageReporterName, damageReporterRole, reporterNameFromUser, type DamageReporterProfile } from "@/lib/damageReporter";
 
 interface Damage {
   id: string;
@@ -44,6 +45,8 @@ interface Damage {
   quantity_damaged: number | null;
   photo_url: string | null;
   responsible_name: string | null;
+  damage_stage: string | null;
+  reporter?: DamageReporterProfile | null;
   // Event + client context (joined) so a damage reads as a billable line:
   // "broken bowl on ORD-003849, Smith Wedding, client Jane - charge R10".
   order: {
@@ -106,7 +109,26 @@ export default function CleaningDamagePage() {
       if (tab === "resolved") q = q.eq("resolved", true);
       const { data, error } = await q.returns<Damage[]>();
       if (error) throw error;
-      setItems(data || []);
+      const damageRows = data || [];
+      const reporterIds = Array.from(new Set(
+        damageRows.map((d) => d.reported_by).filter((id): id is string => Boolean(id)),
+      ));
+      let reportersById = new Map<string, DamageReporterProfile>();
+      if (reporterIds.length > 0) {
+        const { data: reporterRows, error: reporterError } = await supabase
+          .from("profiles")
+          .select("id, full_name, email, role, active_role")
+          .in("id", reporterIds);
+        if (!reporterError) {
+          reportersById = new Map(
+            ((reporterRows || []) as Array<DamageReporterProfile & { id: string }>).map((p) => [p.id, p]),
+          );
+        }
+      }
+      setItems(damageRows.map((d) => ({
+        ...d,
+        reporter: d.reported_by ? reportersById.get(d.reported_by) || null : null,
+      })));
 
       const { data: eqs } = await supabase
         .from("equipment")
@@ -128,6 +150,9 @@ export default function CleaningDamagePage() {
     [
       { key: "notes" as any, weight: 2 },
       { key: "damage_type" as any, weight: 2 },
+      { key: ((d: Damage) => damageReporterName(d)) as any, weight: 2, label: "reporter" },
+      { key: ((d: Damage) => d.order?.order_number || "") as any, weight: 2, label: "order" },
+      { key: ((d: Damage) => d.order?.client_name || "") as any, weight: 1, label: "client" },
     ],
     { limit: 0 },
   );
@@ -168,6 +193,8 @@ export default function CleaningDamagePage() {
           notes: notes.trim(),
           repair_cost: repairCost ? Number(repairCost) : null,
           reported_by: user.id,
+          responsible_name: reporterNameFromUser(user),
+          damage_stage: "cleaning",
           resolved: false,
         }] as never)
         .select("id")
@@ -291,6 +318,8 @@ export default function CleaningDamagePage() {
                   const eq = d.equipment_id
                     ? equipment.find((e) => e.id === d.equipment_id)
                     : null;
+                  const reporterName = damageReporterName(d);
+                  const reporterRole = damageReporterRole(d);
                   return (
                   <li key={d.id} className="p-4 flex items-start gap-3">
                     <AlertTriangle className={`h-5 w-5 mt-0.5 flex-shrink-0 ${d.resolved ? "text-brand-primary dark:text-brand-primary" : "text-amber-500 dark:text-amber-400"}`} />
@@ -313,6 +342,11 @@ export default function CleaningDamagePage() {
                         {d.created_at && (
                           <span className="text-[11px] text-slate-500 dark:text-slate-400">{formatDistanceToNow(new Date(d.created_at), { addSuffix: true })}</span>
                         )}
+                        {d.damage_stage && (
+                          <Badge variant="outline" className="bg-slate-50 text-slate-600 border-slate-200 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-700 text-xs capitalize">
+                            {d.damage_stage.replace(/_/g, " ")}
+                          </Badge>
+                        )}
                       </div>
                       {/* Event + client context so this reads as a billable line:
                           which event it happened on + who to charge. */}
@@ -334,9 +368,9 @@ export default function CleaningDamagePage() {
                       )}
                       {damageDescription(d) && <p className="text-sm text-slate-700 dark:text-slate-300">{damageDescription(d)}</p>}
                       <div className="flex flex-wrap items-center gap-3 mt-1">
-                        {d.responsible_name && (
-                          <span className="text-[11px] text-slate-500 dark:text-slate-400">Reported by {d.responsible_name}</span>
-                        )}
+                        <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                          Reported by {reporterName}{reporterRole ? ` (${reporterRole})` : ""}
+                        </span>
                         {d.photo_url && (
                           <a href={d.photo_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[11px] text-brand-primary hover:underline">
                             <ImageIcon className="w-3 h-3" /> View photo

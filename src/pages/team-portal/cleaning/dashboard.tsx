@@ -31,6 +31,7 @@ import { ChatBot } from "@/components/ChatBot";
 import { UserRole } from "@/types/app";
 import { supabase } from "@/integrations/supabase/client";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { reporterNameFromUser } from "@/lib/damageReporter";
 
 type EquipmentStatus = "available" | "in_use" | "cleaning" | "damaged";
 
@@ -110,10 +111,14 @@ function CleaningDashboardInner() {
         await (equipmentTrackingService as any).reportDamage({
           companyId: user.company_id,
           equipmentId: inspectItem.id,
-          reportedBy: user.id,
-          stage: "cleaning_inspection",
-          severity: "moderate",
+          quantityDamaged: 1,
+          damageType: "damaged",
+          damageStage: "cleaning",
+          unitCost: 0,
+          responsibleUserId: user.id,
+          responsibleName: reporterNameFromUser(user),
           notes: inspectNotes || "Damage spotted during cleaning inspection",
+          description: inspectNotes || "Damage spotted during cleaning inspection",
         });
         await supabase
           .from("equipment")

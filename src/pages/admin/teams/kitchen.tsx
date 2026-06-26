@@ -63,6 +63,7 @@ import {
 } from "lucide-react";
 import { KitchenRulesPanel } from "@/components/admin/KitchenRulesPanel";
 import { PageWorkbench, PortalHeader, PortalShell } from "@/components/portal/ui";
+import { damageReporterName, type DamageReporterProfile } from "@/lib/damageReporter";
 
 function startOfWeek(): Date {
   const d = new Date();
@@ -93,6 +94,7 @@ interface KitchenStats {
   tomorrowPrepMin: number;
   // KIT-A: recent issues - equipment_damages count in last 7d.
   issuesThisWeek: number;
+  recentDamageReports: Array<{ id: string; type: string; reporter: string; item: string | null }>;
   // KIT-A: stock at risk - perishable items at or below minimum
   // OR with a batch expiring in the next 3 days.
   stockAtRisk: number;
@@ -137,6 +139,7 @@ function KitchenTeamPage() {
     burnTodayZar: 0,
     tomorrowEvents: 0, tomorrowPrepMin: 0,
     issuesThisWeek: 0,
+    recentDamageReports: [],
     stockAtRisk: 0,
     handoversWaiting: 0,
     topStaffHours: [],
@@ -272,8 +275,8 @@ function KitchenTeamPage() {
         }
 
         // Issues this week - equipment_damages logged in the last 7d.
-        let damagesQ = supabase.from("equipment_damages")
-          .select("id", { count: "exact", head: true })
+        let damagesQ = (supabase as any).from("equipment_damages")
+          .select("id, damage_type, created_at, reported_by, responsible_name, equipment:equipment_id(name)")
           .eq("company_id", companyId)
           .gte("created_at", weekAgoISO);
         if (regionFilterId) {
@@ -401,6 +404,41 @@ function KitchenTeamPage() {
         const prepTomorrowMin = ((prepTomorrowRes.data || []) as Array<{ duration_min: number | null }>)
           .reduce((sum, r) => sum + Number(r.duration_min || 0), 0);
 
+        const damageRows = (damagesRes.data || []) as Array<{
+          id: string;
+          damage_type: string | null;
+          created_at: string | null;
+          reported_by: string | null;
+          responsible_name: string | null;
+          equipment?: { name: string | null } | null;
+        }>;
+        const damageReporterIds = Array.from(new Set(
+          damageRows.map((d) => d.reported_by).filter((id): id is string => Boolean(id)),
+        ));
+        let damageReportersById = new Map<string, DamageReporterProfile>();
+        if (damageReporterIds.length > 0) {
+          const { data: reporterRows } = await supabase
+            .from("profiles")
+            .select("id, full_name, email, role, active_role")
+            .in("id", damageReporterIds);
+          damageReportersById = new Map(
+            ((reporterRows || []) as Array<DamageReporterProfile & { id: string }>).map((p) => [p.id, p]),
+          );
+        }
+        const recentDamageReports = [...damageRows]
+          .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())
+          .slice(0, 3)
+          .map((d) => ({
+            id: d.id,
+            type: d.damage_type || "damage",
+            reporter: damageReporterName({
+              reported_by: d.reported_by,
+              responsible_name: d.responsible_name,
+              reporter: d.reported_by ? damageReportersById.get(d.reported_by) || null : null,
+            }),
+            item: d.equipment?.name || null,
+          }));
+
         // Stock at risk - union of low-stock perishables + expiring batches.
         const lowStockIds = new Set<string>();
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -426,7 +464,8 @@ function KitchenTeamPage() {
             burnTodayZar: burnToday,
             tomorrowEvents: tomorrowJobsRes.count ?? 0,
             tomorrowPrepMin: prepTomorrowMin,
-            issuesThisWeek: damagesRes.count ?? 0,
+            issuesThisWeek: damageRows.length,
+            recentDamageReports,
             stockAtRisk: lowStockIds.size,
             handoversWaiting: handoverWaitingRes.count ?? 0,
             topStaffHours,
@@ -694,6 +733,15 @@ function KitchenTeamPage() {
                           ? "Nothing logged in the last 7 days."
                           : "Damages logged in the last 7 days. Tap to review."}
                       </p>
+                      {stats.recentDamageReports.length > 0 && (
+                        <div className="mt-2 space-y-1">
+                          {stats.recentDamageReports.map((d) => (
+                            <p key={d.id} className="text-xs text-slate-600 truncate">
+                              {d.item ? `${d.item}: ` : ""}{d.type} by {d.reporter}
+                            </p>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </CardContent>
