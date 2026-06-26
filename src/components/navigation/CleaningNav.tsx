@@ -7,7 +7,7 @@
  *
  *   LIVE NOW   - Today, Returns, Washing, Task board (4 items, always open)
  *   INVENTORY  - Equipment, Supplies, Workflows     (3 items, closed by default)
- *   REPORTS    - Damages, Schedules                 (2 items, closed by default)
+ *   REPORTS    - Damages, Recurring plan            (2 items, closed by default)
  *   FOOTER     - Notifications, Settings            (footer treatment)
  *
  * The new live layer surfaces above the sections:
@@ -89,7 +89,7 @@ export function CleaningNav(_: CleaningNavProps = {}) {
   const config: PortalSidebarConfig = {
     role: "cleaning",
     title: "Cleaning Portal",
-    mobileSubtitle: "Returns, washes, damages",
+    mobileSubtitle: "Returns, washing, stock",
     brandIcon: SprayCan,
     // Tenant brand palette via brand-* CSS vars. See portalPalette.ts.
     ...BRAND_PORTAL_PALETTE,
@@ -196,7 +196,7 @@ export function CleaningNav(_: CleaningNavProps = {}) {
               ? { text: `${counts.openDamages} open`, tone: "warning" }
               : null,
           },
-          { title: "Schedules", href: "/team-portal/cleaning/schedules", icon: CalendarClock, description: "Recurring cleaning plan" },
+          { title: "Recurring plan", href: "/team-portal/cleaning/schedules", icon: CalendarClock, description: "Daily, weekly, monthly areas" },
         ],
       },
       ...(isCleaningManager ? [{
@@ -205,7 +205,7 @@ export function CleaningNav(_: CleaningNavProps = {}) {
         defaultOpen: true,
         items: [
           { title: "Team overview", href: "/admin/teams/cleaning", icon: Users, description: "Roster, live handovers, staffing" },
-          { title: "Schedule", href: "/admin/cleaning-schedule", icon: CalendarClock, description: "Plan shifts + duties" },
+          { title: "Shift roster", href: "/admin/cleaning-schedule", icon: CalendarClock, description: "Plan staff shifts + duties" },
         ],
       }] : []),
       {

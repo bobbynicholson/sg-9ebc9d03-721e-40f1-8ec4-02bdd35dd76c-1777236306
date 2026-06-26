@@ -403,8 +403,8 @@ function CleaningTeamPage() {
   }, [companyId, regionFilterId, refreshTick]);
 
   const tiles = [
-    { href: "/admin/staff?department=cleaning", icon: Users, label: "Cleaning staff", sub: "Roster and availability", bg: "from-slate-50 to-rose-50", iconColor: "text-slate-600" },
-    { href: "/admin/cleaning-schedule", icon: ClipboardList, label: "Cleaning schedule", sub: "Jobs, machines and handovers", bg: "from-rose-50 from-slate-50", iconColor: "text-rose-600" },
+    { href: "/admin/staff?department=cleaning", icon: Users, label: "Staff directory", sub: "People, rates and availability", bg: "from-slate-50 to-rose-50", iconColor: "text-slate-600" },
+    { href: "/admin/cleaning-schedule", icon: ClipboardList, label: "Shift roster", sub: "Staff shifts, duties and handovers", bg: "from-rose-50 from-slate-50", iconColor: "text-rose-600" },
     { href: "/team-portal/cleaning/damage", icon: AlertTriangle, label: "Damages ledger", sub: "Per-event report and history", bg: "from-amber-50 to-orange-50", iconColor: "text-amber-600" },
     { href: "/team-portal/cleaning/supplies", icon: Wrench, label: "Supplies", sub: "Detergent, gloves, cloths", bg: "from-brand-primary/10 to-brand-secondary/10", iconColor: "text-brand-primary" },
   ];
@@ -417,13 +417,13 @@ function CleaningTeamPage() {
   return (
     <>
       <NoIndexMeta />
-      <Head><title>Cleaning team - CateringMS</title></Head>
+      <Head><title>Cleaning team overview - CateringMS</title></Head>
       <DynamicNav userRole={(userRole || UserRole.ADMIN).toString()} />
 
       <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <PortalHeader
-            title="Cleaning"
+            title="Cleaning team overview"
             icon={Sparkles}
             subtitle="Wash-up, kit return and venue strike."
             actions={

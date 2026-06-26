@@ -45,7 +45,7 @@ export default function CleaningSuppliesPage() {
     if (!user?.company_id) return;
     setLoading(true);
     try {
-      const all = await inventoryService.getInventory(user.company_id);
+      const all = await inventoryService.getInventoryPublic(user.company_id);
       const cleaning = (all || []).filter((i) => {
         const cat = (i.category ?? "").toLowerCase();
         const name = (i.item_name ?? "").toLowerCase();
@@ -106,6 +106,7 @@ export default function CleaningSuppliesPage() {
       await inventoryService.adjustStock(
         usingItem.id, newStock, user.id,
         usedNotes || `Cleaning used ${qty} ${usingItem.unit_of_measure}`,
+        "usage",
       );
       toast({ title: "Logged", description: `${usingItem.item_name}: -${qty} ${usingItem.unit_of_measure}` });
       closeUse();

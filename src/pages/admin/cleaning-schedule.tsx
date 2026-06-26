@@ -216,16 +216,16 @@ function CleaningScheduleGrid() {
 
   return (
     <>
-      <Head><title>Cleaning schedule - CateringMS</title></Head>
+      <Head><title>Cleaning shift roster - CateringMS</title></Head>
       <NoIndexMeta />
       <DynamicNav userRole={userRole} />
       <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
 
           <PortalHeader
-            title="Cleaning schedule"
+            title="Cleaning shift roster"
             icon={Sparkles}
-            subtitle="Cleaning-only roster for planned shifts, duty coverage, and handover workload."
+            subtitle="Manager view for staff shifts, duty coverage, and handover workload."
             actions={
             <>
                 <Button variant="outline" size="sm" onClick={() => setWeekStart(addDays(weekStart, -7))}>
