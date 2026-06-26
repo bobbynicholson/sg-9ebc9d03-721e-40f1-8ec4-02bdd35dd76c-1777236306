@@ -46,7 +46,7 @@ export function PortalShell({
       />
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 top-0 h-48 bg-[linear-gradient(90deg,rgb(var(--brand-primary-rgb)/0.035),rgb(var(--brand-secondary-rgb)/0.025),rgb(var(--brand-accent-rgb)/0.035))] dark:opacity-20"
+        className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-[linear-gradient(90deg,rgb(var(--brand-primary-rgb)/0.012),rgb(var(--brand-secondary-rgb)/0.008),rgb(var(--brand-accent-rgb)/0.012))] dark:opacity-10"
       />
       <div
         className={cn(
@@ -83,7 +83,7 @@ export function PortalHeader({
     >
       <div className="flex min-w-0 items-start gap-3.5">
         {Icon && (
-          <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-300 bg-white text-brand-primary shadow-sm dark:border-slate-700 dark:bg-slate-900">
+          <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-600 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
             <Icon className="h-5 w-5" aria-hidden="true" />
           </span>
         )}
@@ -177,7 +177,7 @@ export function PageWorkbench({
       )}
     >
       <div className="flex min-w-0 items-center gap-2">
-        <Route className="h-3.5 w-3.5 shrink-0 text-brand-primary" aria-hidden="true" />
+        <Route className="h-3.5 w-3.5 shrink-0 text-slate-400 dark:text-slate-500" aria-hidden="true" />
         <div className="flex min-w-0 flex-wrap items-center gap-1.5 font-semibold text-slate-700 dark:text-slate-300">
           <span className="truncate">{surface.scope}</span>
           {parent && <span className="text-slate-400">/</span>}
@@ -196,11 +196,11 @@ export function PageWorkbench({
 type PortalOverviewTone = "brand" | "neutral" | "success" | "warning" | "danger";
 
 const OVERVIEW_TONES: Record<PortalOverviewTone, string> = {
-  brand: "border-brand-primary/25 bg-brand-primary/5 text-brand-primary dark:border-brand-primary/30 dark:bg-brand-primary/10 dark:text-brand-primary",
-  neutral: "border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300",
-  success: "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300",
-  warning: "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-300",
-  danger: "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-300",
+  brand: "border-slate-300 bg-slate-50 text-slate-800 border-l-brand-primary dark:border-slate-700 dark:bg-slate-800/70 dark:text-slate-200 dark:border-l-brand-primary",
+  neutral: "border-slate-300 bg-slate-50 text-slate-700 border-l-slate-300 dark:border-slate-700 dark:bg-slate-800/70 dark:text-slate-300 dark:border-l-slate-600",
+  success: "border-slate-300 bg-slate-50 text-slate-800 border-l-slate-300 dark:border-slate-700 dark:bg-slate-800/70 dark:text-slate-200 dark:border-l-slate-600",
+  warning: "border-slate-300 bg-slate-50 text-slate-800 border-l-amber-400/70 dark:border-slate-700 dark:bg-slate-800/70 dark:text-slate-200 dark:border-l-amber-500/70",
+  danger: "border-slate-300 bg-slate-50 text-slate-800 border-l-rose-400/70 dark:border-slate-700 dark:bg-slate-800/70 dark:text-slate-200 dark:border-l-rose-500/70",
 };
 
 export interface PortalOverviewItem {
@@ -238,7 +238,7 @@ export function PortalOverview({
       <div className="grid gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:items-start">
         <div className="min-w-0">
           {eyebrow && (
-            <p className="text-xs font-semibold uppercase tracking-normal text-brand-primary">
+            <p className="text-xs font-semibold uppercase tracking-normal text-slate-500 dark:text-slate-400">
               {eyebrow}
             </p>
           )}
@@ -266,7 +266,7 @@ export function PortalOverview({
                 <div
                   key={index}
                   className={cn(
-                    "min-w-0 rounded-lg border px-3 py-3",
+                    "min-w-0 rounded-lg border border-l-2 px-3 py-3",
                     OVERVIEW_TONES[tone],
                   )}
                 >
