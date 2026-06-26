@@ -23,6 +23,7 @@
 import type { NextRequest, NextResponse } from "next/server";
 
 export interface CachedProfilePayload {
+  v?: number;
   uid: string;
   role: string | null;
   roles?: string[];
@@ -36,6 +37,7 @@ export interface CachedProfilePayload {
 }
 
 const COOKIE_NAME = "cms.mw.profile";
+const CACHE_VERSION = 2;
 const TTL_SECONDS = 300; // 5 minutes
 
 const enc = new TextEncoder();
@@ -107,6 +109,7 @@ export async function readCachedProfile(
   }
 
   if (payload.uid !== userId) return null;
+  if (payload.v !== CACHE_VERSION) return null;
   const nowSec = Math.floor(Date.now() / 1000);
   if (!payload.exp || payload.exp < nowSec) return null;
 
@@ -121,7 +124,7 @@ export async function writeCachedProfile(
   if (!secret) return;
 
   const exp = Math.floor(Date.now() / 1000) + TTL_SECONDS;
-  const full: CachedProfilePayload = { ...payload, exp };
+  const full: CachedProfilePayload = { ...payload, v: CACHE_VERSION, exp };
   const body = b64url(enc.encode(JSON.stringify(full)));
   const sig = await sign(body, secret);
   const value = `${body}.${sig}`;

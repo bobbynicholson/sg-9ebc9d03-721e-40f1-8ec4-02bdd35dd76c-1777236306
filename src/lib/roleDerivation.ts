@@ -53,21 +53,21 @@ export function deriveUserRoles(args: {
   departments?: RoleDepartmentInput[] | null;
 }): { roles: UserRole[]; activeRole: UserRole } {
   const profileRole = normalizeRoleValue(args.profileRole);
+  const activeCandidate = normalizeRoleValue(args.activeRole, profileRole);
   const departments = [...(args.departments || [])].sort((a, b) => Number(!!b.is_primary) - Number(!!a.is_primary));
   const departmentRoles = departments
-    .map((department) => normalizeRoleValue(department.department, profileRole))
+    .map((department) => normalizeRoleValue(department.department, activeCandidate || profileRole))
     .filter((role): role is UserRole => !!role);
 
   const baseRoles = uniqueRoles([profileRole, ...departmentRoles]);
-  const activeCandidate = normalizeRoleValue(args.activeRole, profileRole);
   const roles = baseRoles.length > 0
-    ? uniqueRoles([...baseRoles, baseRoles.includes(activeCandidate as UserRole) ? activeCandidate : null])
+    ? uniqueRoles([...baseRoles, activeCandidate])
     : uniqueRoles([activeCandidate]);
 
   return {
     roles: roles.length > 0 ? roles : [UserRole.CLIENT],
     activeRole:
-      activeCandidate && roles.includes(activeCandidate)
+      activeCandidate
         ? activeCandidate
         : departmentRoles[0] || profileRole || roles[0] || UserRole.CLIENT,
   };
