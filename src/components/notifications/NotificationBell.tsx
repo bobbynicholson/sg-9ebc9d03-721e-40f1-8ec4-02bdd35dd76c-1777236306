@@ -234,6 +234,8 @@ export function NotificationBell() {
       router.push(withSlug("/admin/notifications"));
     } else if (role === "driver") {
       router.push(withSlug("/team-portal/driver/notifications"));
+    } else if (role === "waiter") {
+      router.push(withSlug("/team-portal/waiter/notifications"));
     } else if (role === "kitchen_staff") {
       router.push(withSlug("/team-portal/kitchen/notifications"));
     } else if (role === "shopping_staff") {

@@ -17,6 +17,7 @@ const PORTALS = [
   { name: "Admin", route: "/admin/dashboard", icon: LayoutDashboard, color: "text-brand-primary" },
   { name: "Client", route: "/client-portal/dashboard", icon: Users, color: "text-brand-primary" },
   { name: "Driver", route: "/team-portal/driver/dashboard", icon: Truck, color: "text-brand-primary" },
+  { name: "Waiter", route: "/team-portal/waiter/dashboard", icon: Sparkles, color: "text-brand-primary" },
   { name: "Kitchen", route: "/team-portal/kitchen/today", icon: ChefHat, color: "text-brand-primary" },
   { name: "Shopping", route: "/team-portal/shopping/dashboard", icon: ShoppingCart, color: "text-brand-primary" },
   { name: "Cleaning", route: "/team-portal/cleaning/dashboard", icon: Sparkles, color: "text-brand-primary" },

@@ -46,7 +46,7 @@ function mapRoleToDatabase(role: string): string {
 
 // Roles that are scoped to one or more branches. region_id +
 // regions_covered are only meaningful for these.
-const REGION_SCOPED_ROLES = new Set(["region_admin", "kitchen", "kitchen_manager", "kitchen_staff", "driver", "shopping", "shopping_staff", "cleaning", "cleaning_manager", "cleaning_staff"]);
+const REGION_SCOPED_ROLES = new Set(["region_admin", "kitchen", "kitchen_manager", "kitchen_staff", "driver", "waiter", "shopping", "shopping_staff", "cleaning", "cleaning_manager", "cleaning_staff"]);
 
 // Map a profiles.role (enum, *_staff form) to the user_departments
 // .department value. NOTE the inversion vs profiles.role: the
@@ -63,7 +63,7 @@ const ROLE_TO_DEPARTMENT: Record<string, string> = {
   cleaning_staff: "cleaning",
   shopping_staff: "buyer",
   driver: "driver",
-  waiter: "driver",
+  waiter: "waiter",
   client: "client",
   admin: "admin",
   company_admin: "admin",

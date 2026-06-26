@@ -2,8 +2,8 @@
 /**
  * WTR-A: Waiter / on-site server service panel.
  *
- * Renders on /team-portal/driver/dashboard when the user has the
- * `waiter` role (alongside any driver widgets). Shows the user's
+ * Renders on /team-portal/waiter/dashboard, and also inside the
+ * driver dashboard for users who hold both roles. Shows the user's
  * assigned events for today + a 4-phase service tracker per event:
  *
  *   setup_started -> guests_arrived -> service_started -> service_ended
@@ -35,8 +35,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { captureException } from "@/lib/observability";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { toLocalISO } from "@/lib/localDate";
+import { staffOrderHref } from "@/lib/orderUrls";
 
-const ROUTE = "/team-portal/driver/dashboard";
+const ROUTE = "/team-portal/waiter/dashboard";
 
 type Phase =
   | "arrived_at"
@@ -88,42 +89,66 @@ export function WaiterServicePanel() {
     if (!user?.company_id || !user?.id) return;
     setLoading(true);
     try {
-      // WTR-A: pull orders assigned to me as a waiter. The driver
-      // dashboard already pulls orders by assigned_driver_id; we
-      // pull by assigned_waiter_id (column added in a follow-up
-      // migration). For the scaffold, fall back to orders where I
-      // am the assigned_driver since the same person often does
-      // both - the page is role-aware, not strict.
       const today = toLocalISO(new Date());
       const horizon = new Date();
       horizon.setDate(horizon.getDate() + 2);
       const horizonIso = toLocalISO(horizon);
-      const { data, error } = await (supabase as any)
+      const { data: attRows, error: attErr } = await (supabase as any)
+        .from("event_attendance")
+        .select("id, order_id, arrived_at, setup_started_at, guests_arrived_at, service_started_at, service_ended_at, event_complete_at, equipment_returned_at, notes")
+        .eq("company_id", user.company_id)
+        .eq("waiter_id", user.id);
+      if (attErr) throw attErr;
+
+      const attendanceByOrder: Record<string, Attendance> = {};
+      const attendanceOrderIds = new Set<string>();
+      (attRows || []).forEach((a: any) => {
+        attendanceByOrder[a.order_id] = a as Attendance;
+        attendanceOrderIds.add(a.order_id);
+      });
+
+      const orderMap = new Map<string, AssignedOrder>();
+      if (attendanceOrderIds.size > 0) {
+        const { data: assignedOrders, error: assignedErr } = await (supabase as any)
+          .from("orders")
+          .select("id, order_number, event_name, event_date, event_time, venue_name, venue_address, guest_count, client_name, status")
+          .eq("company_id", user.company_id)
+          .in("id", Array.from(attendanceOrderIds))
+          .gte("event_date", today)
+          .lte("event_date", horizonIso)
+          .in("status", ["confirmed", "preparing", "ready", "in_transit", "delivered", "completed"])
+          .order("event_date", { ascending: true });
+        if (assignedErr) throw assignedErr;
+        (assignedOrders || []).forEach((order: any) => orderMap.set(order.id, order as AssignedOrder));
+      }
+
+      // Compatibility: older waiter jobs were implied by a driver
+      // assignment plus requires_waiter before event_attendance became
+      // the canonical assignment table.
+      const { data: legacyDriverServiceOrders } = await (supabase as any)
         .from("orders")
         .select("id, order_number, event_name, event_date, event_time, venue_name, venue_address, guest_count, client_name, status")
         .eq("company_id", user.company_id)
         .eq("assigned_driver_id", user.id)
         .gte("event_date", today)
         .lte("event_date", horizonIso)
-        .in("status", ["confirmed", "preparing", "ready", "in_transit", "delivered"])
+        .or("requires_waiter.eq.true,waiter_service_required.eq.true")
+        .in("status", ["confirmed", "preparing", "ready", "in_transit", "delivered", "completed"])
         .order("event_date", { ascending: true });
-      if (error) throw error;
-      setOrders((data || []) as AssignedOrder[]);
+      (legacyDriverServiceOrders || []).forEach((order: any) => {
+        if (!orderMap.has(order.id)) orderMap.set(order.id, order as AssignedOrder);
+      });
 
-      const ids = (data || []).map((o: any) => o.id);
-      if (ids.length > 0) {
-        const { data: attRows } = await (supabase as any)
-          .from("event_attendance")
-          .select("id, order_id, arrived_at, setup_started_at, guests_arrived_at, service_started_at, service_ended_at, event_complete_at, equipment_returned_at, notes")
-          .eq("company_id", user.company_id)
-          .eq("waiter_id", user.id)
-          .in("order_id", ids);
-        const map: Record<string, Attendance> = {};
-        (attRows || []).forEach((a: any) => { map[a.order_id] = a; });
-        setAttendance(map);
-      } else {
-        setAttendance({});
+      const nextOrders = Array.from(orderMap.values()).sort((a, b) =>
+        `${a.event_date} ${a.event_time || ""}`.localeCompare(`${b.event_date} ${b.event_time || ""}`),
+      );
+      const visibleIds = new Set(nextOrders.map((o) => o.id));
+      const visibleAttendance: Record<string, Attendance> = {};
+      for (const [orderId, row] of Object.entries(attendanceByOrder)) {
+        if (visibleIds.has(orderId)) visibleAttendance[orderId] = row;
       }
+      setOrders(nextOrders);
+      setAttendance(visibleAttendance);
     } catch (e: any) {
       captureException(e, { tags: { route: ROUTE, step: "loadWaiterAssignments", companyId: user.company_id } });
     } finally {
@@ -265,7 +290,7 @@ export function WaiterServicePanel() {
                         expanded - venue contact, allergens,
                         dietary, briefing live there. */}
                     <Link
-                      href={withSlug(`/order/${o.id}?role=waiter`)}
+                      href={withSlug(staffOrderHref(o.id, "waiter"))}
                       className="text-sm font-semibold text-slate-900 truncate hover:text-amber-700 hover:underline inline-flex items-center gap-1"
                     >
                       {o.event_name || o.client_name || "Event"}

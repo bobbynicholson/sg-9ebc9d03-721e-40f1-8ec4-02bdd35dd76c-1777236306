@@ -358,6 +358,7 @@ export function CommandPalette() {
 
     // ---- Team portals ----
     { id: "team-driver", label: "Driver Dashboard", icon: Truck, href: "/team-portal/driver/dashboard", group: "Team portals", roles: ["driver","admin","company_admin","owner","super_admin"] },
+    { id: "team-waiter", label: "Waiter Dashboard", icon: Sparkles, href: "/team-portal/waiter/dashboard", group: "Team portals", roles: ["waiter","admin","company_admin","owner","super_admin"] },
     { id: "team-kitchen", label: "Kitchen Today", icon: ChefHat, href: "/team-portal/kitchen/today", group: "Team portals", roles: ["kitchen_staff","admin","company_admin","owner","super_admin"] },
     { id: "team-shopping", label: "Shopping Dashboard", icon: ShoppingCart, href: "/team-portal/shopping/dashboard", group: "Team portals", roles: ["shopping_staff","admin","company_admin","owner","super_admin"] },
     { id: "team-cleaning", label: "Cleaning Dashboard", icon: Sparkles, href: "/team-portal/cleaning/dashboard", group: "Team portals", roles: ["cleaning_staff","admin","company_admin","owner","super_admin"] },

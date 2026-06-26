@@ -63,6 +63,8 @@ export function StaffViewSwitcher({ companySlug }: ViewSwitcherProps) {
     
     if (path.includes("/team-portal/driver")) {
       setCurrentView("driver");
+    } else if (path.includes("/team-portal/waiter")) {
+      setCurrentView("waiter");
     } else if (path.includes("/team-portal/kitchen")) {
       setCurrentView("kitchen");
     } else if (path.includes("/team-portal/shopping")) {
@@ -80,6 +82,7 @@ export function StaffViewSwitcher({ companySlug }: ViewSwitcherProps) {
     setLoading(true);
     const routes: Record<string, string> = {
       driver: withTeamSlug("/team-portal/driver/dashboard"),
+      waiter: withTeamSlug("/team-portal/waiter/dashboard"),
       kitchen: withTeamSlug("/team-portal/kitchen/today"),
       shopping: withTeamSlug("/team-portal/shopping/dashboard"),
       cleaning: withTeamSlug("/team-portal/cleaning/dashboard"),
@@ -93,6 +96,7 @@ export function StaffViewSwitcher({ companySlug }: ViewSwitcherProps) {
     setLoading(true);
     const roleRoutes: Record<string, string> = {
       driver: withTeamSlug("/team-portal/driver/dashboard"),
+      waiter: withTeamSlug("/team-portal/waiter/dashboard"),
       kitchen_manager: withTeamSlug("/team-portal/kitchen/today"),
       kitchen_staff: withTeamSlug("/team-portal/kitchen/today"),
       shopping_staff: withTeamSlug("/team-portal/shopping/dashboard"),
@@ -114,6 +118,7 @@ export function StaffViewSwitcher({ companySlug }: ViewSwitcherProps) {
     const labels: Record<string, string> = {
       admin: "Admin View",
       driver: "Driver Dashboard",
+      waiter: "Waiter Dashboard",
       kitchen: "Kitchen Today",
       shopping: "Shopping Dashboard",
       cleaning: "Cleaning Dashboard",
@@ -124,6 +129,7 @@ export function StaffViewSwitcher({ companySlug }: ViewSwitcherProps) {
   // Group staff by role
   const staffByRole = {
     driver: staffMembers.filter(s => s.active_role === "driver"),
+    waiter: staffMembers.filter(s => s.active_role === "waiter"),
     kitchen_staff: staffMembers.filter(s => s.active_role === "kitchen_staff" || s.active_role === "kitchen_manager"),
     shopping_staff: staffMembers.filter(s => s.active_role === "shopping_staff"),
     cleaning_staff: staffMembers.filter(s => s.active_role === "cleaning_staff" || s.active_role === "cleaning_manager"),
@@ -199,6 +205,18 @@ export function StaffViewSwitcher({ companySlug }: ViewSwitcherProps) {
               </Badge>
             )}
           </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => switchToDepartmentView("waiter")}>
+            <Sparkles className="mr-2 h-4 w-4" />
+            <span>Waiter Portal</span>
+            {currentView === "waiter" && (
+              <Badge className="ml-auto bg-slate-900 text-white text-xs dark:bg-white dark:text-slate-950">Current</Badge>
+            )}
+            {currentView !== "waiter" && staffByRole.waiter.length > 0 && (
+              <Badge variant="secondary" className="ml-auto text-xs">
+                {staffByRole.waiter.length}
+              </Badge>
+            )}
+          </DropdownMenuItem>
           <DropdownMenuItem onClick={() => switchToDepartmentView("kitchen")}>
             <ChefHat className="mr-2 h-4 w-4" />
             <span>Kitchen Portal</span>
@@ -253,6 +271,25 @@ export function StaffViewSwitcher({ companySlug }: ViewSwitcherProps) {
                     Drivers
                   </div>
                   {staffByRole.driver.map((staff) => (
+                    <DropdownMenuItem
+                      key={staff.id}
+                      onClick={() => switchToStaffView(staff)}
+                      className="pl-8"
+                    >
+                      <User className="mr-2 h-3 w-3" />
+                      <span className="text-sm">{staff.full_name}</span>
+                    </DropdownMenuItem>
+                  ))}
+                </>
+              )}
+
+              {/* Waiters */}
+              {staffByRole.waiter.length > 0 && (
+                <>
+                  <div className="px-2 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300 mt-2">
+                    Waiters
+                  </div>
+                  {staffByRole.waiter.map((staff) => (
                     <DropdownMenuItem
                       key={staff.id}
                       onClick={() => switchToStaffView(staff)}

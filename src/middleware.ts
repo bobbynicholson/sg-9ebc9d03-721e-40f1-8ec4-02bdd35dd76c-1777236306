@@ -55,6 +55,7 @@ const ROUTE_GUARDS: Record<string, string[]> = {
   "/team-portal/kitchen": [...ADMIN_PORTAL_ROLES, "kitchen_manager", "kitchen_staff"],
   "/team-portal/shopping": [...ADMIN_PORTAL_ROLES, "shopping_staff"],
   "/team-portal/driver": [...ADMIN_PORTAL_ROLES, "driver"],
+  "/team-portal/waiter": [...ADMIN_PORTAL_ROLES, "waiter"],
   // CLN2-C follow-up (2026-05-19): admit kitchen_staff to
   // /team-portal/cleaning. PR #115 (KIT2-A) put a "Cleaning schedule"
   // CTA in the kitchen dashboard header per Bobby's "kitchen sees
@@ -65,8 +66,8 @@ const ROUTE_GUARDS: Record<string, string[]> = {
   // (clock-in button, damage report) stay gated per-component, so a
   // kitchen lead reading this page can still only read - not write.
   "/team-portal/cleaning": [...ADMIN_PORTAL_ROLES, "cleaning_manager", "cleaning_staff", "kitchen_manager", "kitchen_staff"],
-  "/team-portal/general": [...ADMIN_PORTAL_ROLES, "kitchen_manager", "kitchen_staff", "shopping_staff", "driver", "cleaning_manager", "cleaning_staff"],
-  "/team-portal": [...ADMIN_PORTAL_ROLES, "kitchen_manager", "kitchen_staff", "shopping_staff", "driver", "cleaning_manager", "cleaning_staff"],
+  "/team-portal/general": [...ADMIN_PORTAL_ROLES, "kitchen_manager", "kitchen_staff", "shopping_staff", "driver", "waiter", "cleaning_manager", "cleaning_staff"],
+  "/team-portal": [...ADMIN_PORTAL_ROLES, "kitchen_manager", "kitchen_staff", "shopping_staff", "driver", "waiter", "cleaning_manager", "cleaning_staff"],
   "/client-portal": [...ADMIN_PORTAL_ROLES, "client"],
   "/client": [...ADMIN_PORTAL_ROLES, "client"],
   "/subscription": ADMIN_PORTAL_ROLES,

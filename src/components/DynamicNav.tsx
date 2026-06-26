@@ -1,6 +1,7 @@
 import { AdminNav } from "@/components/admin/AdminNav";
 import { ClientNav } from "@/components/navigation/ClientNav";
 import { DriverNav } from "@/components/navigation/DriverNav";
+import { WaiterNav } from "@/components/navigation/WaiterNav";
 import { KitchenNav } from "@/components/navigation/KitchenNav";
 import { ShoppingNav } from "@/components/navigation/ShoppingNav";
 import { CleaningNav } from "@/components/navigation/CleaningNav";
@@ -16,6 +17,7 @@ export function DynamicNav({ userRole }: { userRole: string }) {
     sales_admin: AdminNav,
     client: ClientNav,
     driver: DriverNav,
+    waiter: WaiterNav,
     kitchen_manager: KitchenNav,
     kitchen_staff: KitchenNav,
     shopping_staff: ShoppingNav,

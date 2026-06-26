@@ -26,6 +26,7 @@ import { resolveEmailTemplate } from "@/services/email/templateResolver";
 import { emailService } from "@/services/emailService";
 import { withApiLogging } from "@/lib/withApiLogging";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
+import { textMentionsWaiterService } from "@/lib/waiterRequest";
 
 
 /**
@@ -156,6 +157,11 @@ const ORDER_COLUMN_FIELDS = new Set([
   "venue_address",
 ]);
 const QUOTE_ONLY_FIELDS = new Set(["menu_items", "equipment_items"]);
+const WAITER_SERVICE_FIELD = "waiter_service";
+
+function friendlyAppliedKey(key: string): string {
+  return key === WAITER_SERVICE_FIELD ? "waiter service" : key.replace(/_/g, " ");
+}
 
 async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
@@ -185,7 +191,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
     const { data: request, error: requestErr } = await ssr
       .from("order_amendment_requests")
-      .select("id, order_id, company_id, proposed_changes, status, requested_by_user_id")
+      .select("id, order_id, company_id, proposed_changes, client_notes, status, requested_by_user_id")
       .eq("id", request_id)
       .maybeSingle();
     if (requestErr) {
@@ -303,6 +309,10 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         if (k in proposed && ALLOWED_FIELDS.has(k)) toApply[k] = proposed[k];
       }
     }
+    const waiterServiceRequested = textMentionsWaiterService((request as any).client_notes, proposed);
+    if (waiterServiceRequested) {
+      toApply[WAITER_SERVICE_FIELD] = true;
+    }
     if (Object.keys(toApply).length === 0) {
       return res.status(400).json({ error: "No amendable keys to apply" });
     }
@@ -311,7 +321,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     // columns come from orders; menu_items/equipment_items live on the quote.
     const { data: orderBefore, error: orderBeforeErr } = await ssr
       .from("orders")
-      .select([...Array.from(ORDER_COLUMN_FIELDS), "quote_id"].join(", "))
+      .select([...Array.from(ORDER_COLUMN_FIELDS), "quote_id", "requires_waiter", "waiter_service_required"].join(", "))
       .eq("id", (request as any).order_id)
       .maybeSingle();
     if (orderBeforeErr) {
@@ -339,7 +349,12 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
     const snapshot: Record<string, any> = {};
     for (const k of Object.keys(toApply)) {
-      if (QUOTE_ONLY_FIELDS.has(k)) {
+      if (k === WAITER_SERVICE_FIELD) {
+        snapshot[k] = {
+          requires_waiter: (orderBefore as any)?.requires_waiter ?? null,
+          waiter_service_required: (orderBefore as any)?.waiter_service_required ?? null,
+        };
+      } else if (QUOTE_ONLY_FIELDS.has(k)) {
         snapshot[k] = (quoteSpec as any)[k] ?? null;
       } else {
         snapshot[k] = orderBefore ? (orderBefore as any)[k] : null;
@@ -352,6 +367,10 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     const orderUpdate: Record<string, any> = { updated_at: nowIso };
     for (const k of Object.keys(toApply)) {
       if (ORDER_COLUMN_FIELDS.has(k)) orderUpdate[k] = (toApply as any)[k];
+    }
+    if (toApply[WAITER_SERVICE_FIELD]) {
+      orderUpdate.requires_waiter = true;
+      orderUpdate.waiter_service_required = true;
     }
     if (Object.keys(orderUpdate).length > 1) {
       const { error: updateErr } = await ssr
@@ -720,7 +739,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       if (recipientId) {
         const partial = action === "approve_partial";
         const appliedList = Object.keys(toApply)
-          .map((k) => k.replace(/_/g, " "))
+          .map(friendlyAppliedKey)
           .join(", ");
         const { notificationService } = await import("@/services/notificationService");
         // Wave 24: dedup so a double-click on Approve doesn't double-
@@ -759,7 +778,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         .maybeSingle();
       const orderLabel = (ordRow as any)?.order_number || String((request as any).order_id).slice(0, 8);
       const appliedHuman = Object.keys(toApply)
-        .map((k) => k.replace(/_/g, " "))
+        .map(friendlyAppliedKey)
         .join(", ") || "details";
       const { notificationService } = await import("@/services/notificationService");
       await notificationService.broadcastNotification({
@@ -767,7 +786,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         type: "amendment_approved",
         title: "Order amended - re-check your tasks",
         message: `Order ${orderLabel} was amended (${appliedHuman}). Prep, shopping quantities, delivery and equipment for it may have changed - please re-check your assigned work.`,
-        targetRoles: ["kitchen_staff", "shopping_staff", "driver", "cleaning_staff", "company_admin", "admin", "owner", "super_admin"] as any,
+        targetRoles: ["kitchen_staff", "shopping_staff", "driver", "waiter", "cleaning_staff", "company_admin", "admin", "owner", "super_admin"] as any,
         priority: "high",
         link: `/admin/orders?orderId=${(request as any).order_id}`,
         relatedEntityType: "order",
@@ -815,7 +834,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     // edit the wording in /admin/email-templates.
     {
       const appliedHuman = Object.keys(toApply)
-        .map((k) => k.replace(/_/g, " "))
+        .map(friendlyAppliedKey)
         .join(", ") || "the requested change";
       await sendAmendmentEmail({
         templateType: "order_changed",

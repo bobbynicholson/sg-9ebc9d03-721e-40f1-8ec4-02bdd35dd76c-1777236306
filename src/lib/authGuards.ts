@@ -140,11 +140,11 @@ export const ROLE_ROUTES: Record<UserRole, string[]> = {
     "/team-portal/general/*",
     "/order/*",
   ],
-  // WTR-A: waiter role mounts on the same driver-portal URL so a
-  // user with both roles has one place to work. Routing-wise this
-  // is identical to DRIVER; the page itself fans out widgets by
-  // role via canAccessWaiterWidgets / canAccessDriverWidgets.
+  // Waiter has a dedicated service portal. The legacy driver route
+  // remains allowed because combined driver/waiter users still see
+  // service widgets there.
   [UserRole.WAITER]: [
+    "/team-portal/waiter/*",
     "/team-portal/driver/*",
     "/team-portal/general/*",
     "/order/*",
@@ -270,9 +270,7 @@ export const ROLE_LANDING_PAGES: Record<UserRole, (companySlug?: string) => stri
   [UserRole.KITCHEN_STAFF]: (slug) => slug ? `/${slug}/team-portal/kitchen/today` : "/team-portal/kitchen/today",
   [UserRole.SHOPPING_STAFF]: (slug) => slug ? `/${slug}/team-portal/shopping/dashboard` : "/team-portal/shopping/dashboard",
   [UserRole.DRIVER]: (slug) => slug ? `/${slug}/team-portal/driver/dashboard` : "/team-portal/driver/dashboard",
-  // WTR-A: waiter lands on the same dashboard as driver - the page
-  // fans out widgets based on the user's role.
-  [UserRole.WAITER]: (slug) => slug ? `/${slug}/team-portal/driver/dashboard` : "/team-portal/driver/dashboard",
+  [UserRole.WAITER]: (slug) => slug ? `/${slug}/team-portal/waiter/dashboard` : "/team-portal/waiter/dashboard",
   [UserRole.CLEANING_MANAGER]: (slug) => slug ? `/${slug}/team-portal/cleaning/dashboard` : "/team-portal/cleaning/dashboard",
   [UserRole.CLEANING_STAFF]: (slug) => slug ? `/${slug}/team-portal/cleaning/dashboard` : "/team-portal/cleaning/dashboard",
   [UserRole.CLIENT]: (slug) => slug ? `/${slug}/client-portal/dashboard` : "/client-portal/dashboard",
@@ -294,8 +292,7 @@ export const ROLE_LANDING_PAGES_BY_STRING: Record<string, (slug?: string) => str
   shopping_staff: (slug) => slug ? `/${slug}/team-portal/shopping/dashboard` : "/team-portal/shopping/dashboard",
   shopping: (slug) => slug ? `/${slug}/team-portal/shopping/dashboard` : "/team-portal/shopping/dashboard",
   driver: (slug) => slug ? `/${slug}/team-portal/driver/dashboard` : "/team-portal/driver/dashboard",
-  // WTR-A: waiter alias in the string-keyed map for DB role strings.
-  waiter: (slug) => slug ? `/${slug}/team-portal/driver/dashboard` : "/team-portal/driver/dashboard",
+  waiter: (slug) => slug ? `/${slug}/team-portal/waiter/dashboard` : "/team-portal/waiter/dashboard",
   cleaning_manager: (slug) => slug ? `/${slug}/team-portal/cleaning/dashboard` : "/team-portal/cleaning/dashboard",
   cleaning_staff: (slug) => slug ? `/${slug}/team-portal/cleaning/dashboard` : "/team-portal/cleaning/dashboard",
   cleaning: (slug) => slug ? `/${slug}/team-portal/cleaning/dashboard` : "/team-portal/cleaning/dashboard",

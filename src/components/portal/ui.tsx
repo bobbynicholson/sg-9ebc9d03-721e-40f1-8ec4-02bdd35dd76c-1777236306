@@ -136,6 +136,9 @@ function routeSurface(pathname: string) {
   if (pathname.includes("/team-portal/driver")) {
     return { scope: "Driver", area: "Field" };
   }
+  if (pathname.includes("/team-portal/waiter")) {
+    return { scope: "Service", area: "Team" };
+  }
   if (pathname.includes("/team-portal/shopping")) {
     return { scope: "Shopping", area: "Procurement" };
   }

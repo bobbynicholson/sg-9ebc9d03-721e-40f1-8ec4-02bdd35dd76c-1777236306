@@ -452,7 +452,7 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
   // history) which carry staff actions and internal noise. Those staff
   // sections already hide their action buttons for non-matching roles,
   // but a client shouldn't see the sections at all.
-  const isClient = primary === "client" || role === UserRole.CLIENT;
+  const isClient = mode === "client" || role === UserRole.CLIENT;
 
   const load = useCallback(async () => {
     if (!orderId) return;
@@ -818,6 +818,7 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
             <WaiterSection
               orderId={order.id}
               companyId={order.company_id}
+              serviceRequired={!!(order.requires_waiter || order.waiter_service_required)}
               forceOpen={forceAll}
               defaultOpen={primary === "waiter"}
               highlight={primary === "waiter"}
