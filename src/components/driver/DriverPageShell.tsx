@@ -17,7 +17,7 @@ import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import Head from "next/head";
 import { LucideIcon } from "lucide-react";
-import { PortalHeader } from "@/components/portal/ui";
+import { PageWorkbench, PortalHeader } from "@/components/portal/ui";
 
 type ShellWidth = "narrow" | "wide" | "full";
 
@@ -41,6 +41,8 @@ interface DriverPageShellProps {
   width?: ShellWidth;
   /** Optional content on the top-right of the header (action button). */
   headerAction?: ReactNode;
+  /** Optional first-screen summary band. */
+  overview?: ReactNode;
   /** Page body. */
   children: ReactNode;
   /** Hide the standard footer when the page mounts its own (chat dock etc). */
@@ -60,6 +62,7 @@ export function DriverPageShell({
   icon: Icon,
   width = "wide",
   headerAction,
+  overview,
   children,
   hideFooter = false,
 }: DriverPageShellProps) {
@@ -86,6 +89,8 @@ export function DriverPageShell({
             icon={Icon}
             actions={headerAction}
           />
+          <PageWorkbench />
+          {overview}
 
           {children}
 

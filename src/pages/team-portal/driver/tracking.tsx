@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { PortalCard } from "@/components/portal/ui";
+import { PortalCard, PortalOverview } from "@/components/portal/ui";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -256,6 +256,43 @@ function DriverTrackingInner() {
       icon={Navigation}
       width="full"
       hideFooter
+      overview={
+        <PortalOverview
+          eyebrow="Delivery brief"
+          title={
+            loading
+              ? "Loading the active delivery"
+              : delivery
+                ? `${delivery.orderNumber} - ${delivery.eventName || delivery.clientName}`
+                : "No active delivery right now"
+          }
+          description={
+            delivery
+              ? "Everything needed for this run is grouped here: kitchen collect time, venue details, manifest, client contact, and arrival actions."
+              : "When dispatch assigns a delivery, the collect time, food, equipment, venue, and status buttons appear on this page."
+          }
+          items={[
+            { label: "Collect", value: delivery?.pickupTime ? fmtClockTime(delivery.pickupTime) : "TBD", helper: "Kitchen pickup", icon: ChefHat, tone: delivery?.pickupTime ? "brand" : "warning" },
+            { label: "Event", value: delivery?.eventTime ? fmtClockTime(delivery.eventTime) : "TBD", helper: delivery?.eventDate ? fmtEventDate(delivery.eventDate) : "No date loaded", icon: Calendar, tone: "neutral" },
+            { label: "Load", value: delivery ? `${delivery.menuItems.length + delivery.equipment.length}` : "0", helper: "Food + equipment lines", icon: Package, tone: delivery ? "neutral" : "warning" },
+            { label: "Client", value: delivery?.clientPhone ? "Callable" : "No phone", helper: delivery?.clientName || "Waiting for assignment", icon: Phone, tone: delivery?.clientPhone ? "success" : "neutral" },
+          ]}
+          actions={
+            delivery ? (
+              <>
+                <Button asChild size="sm" variant="outline">
+                  <Link href={withSlug(staffOrderHref(delivery.orderId, "driver"))}>Open full brief</Link>
+                </Button>
+                {delivery.clientPhone && (
+                  <Button asChild size="sm" className="bg-brand-primary text-white hover:opacity-90">
+                    <a href={`tel:${String(delivery.clientPhone).replace(/[^+\d]/g, "")}`}>Call client</a>
+                  </Button>
+                )}
+              </>
+            ) : null
+          }
+        />
+      }
     >
           {loading ? (
             <div className="space-y-6" aria-busy="true" aria-label="Loading your active delivery">

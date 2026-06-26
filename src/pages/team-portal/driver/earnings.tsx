@@ -22,7 +22,9 @@ import { Label } from "@/components/ui/label";
 import {
   Clock, TrendingUp, Wallet, Truck, Loader2, Route, MapPin, ExternalLink,
 } from "lucide-react";
-import { PortalShell, PortalHeader, PortalCard, PortalCardHeader, StatTile } from "@/components/portal/ui";
+import { PortalShell, PortalHeader, PortalCard, PortalCardHeader, PortalOverview, StatTile,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { staffOrderHref } from "@/lib/orderUrls";
 import { DriverNav } from "@/components/navigation/DriverNav";
@@ -151,6 +153,27 @@ export default function DriverEarningsPage() {
             title="My earnings"
             subtitle="Hours, distance and callout pay for the period below."
             icon={Wallet}
+          />
+          <PageWorkbench />
+
+          <PortalOverview
+            eyebrow="Pay summary"
+            title={loading ? "Calculating driver pay" : stats ? "Pay is split into hours, distance, and callouts" : "No earnings data for this period"}
+            description={`Current period: ${from} to ${to}. The breakdown uses the same driver pay service as admin settlement, so this page and the back office agree.`}
+            items={[
+              { label: "Total", value: stats ? formatR(stats.grandTotal) : "-", helper: "Selected period", icon: TrendingUp, tone: stats && stats.grandTotal > 0 ? "brand" : "neutral" },
+              { label: "Hours", value: stats ? `${stats.hoursTotal.toFixed(1)}h` : "-", helper: stats ? `${stats.shiftCount} shifts` : "No shifts loaded", icon: Clock, tone: "neutral" },
+              { label: "Distance", value: stats ? `${stats.distanceKm.toFixed(1)} km` : "-", helper: "Round-trip km", icon: Route, tone: "neutral" },
+              { label: "Deliveries", value: stats ? stats.deliveryCount : "-", helper: "Callout count", icon: Truck, tone: "neutral" },
+            ]}
+            actions={
+              <Link
+                href={withSlug("/team-portal/driver/deliveries")}
+                className="inline-flex min-h-9 items-center rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+              >
+                Review deliveries
+              </Link>
+            }
           />
 
           {/* Period picker */}

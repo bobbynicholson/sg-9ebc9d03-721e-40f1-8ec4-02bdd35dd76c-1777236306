@@ -23,7 +23,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { FileText, ExternalLink, Calendar, Clock, X } from "lucide-react";
 import { ClientNav } from "@/components/navigation/ClientNav";
-import { PortalShell, PortalHeader, PortalCard } from "@/components/portal/ui";
+import { PortalShell, PortalHeader, PortalCard, PortalOverview,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { RequestEditsDialog } from "@/components/client-portal/RequestEditsDialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -191,6 +193,19 @@ export default function ClientQuotesPage() {
             title="Your quotes"
             subtitle={`Every quote ${companyName} has sent through. Tap one to open the full quote, accept it, or request changes.`}
             icon={FileText}
+          />
+          <PageWorkbench />
+
+          <PortalOverview
+            eyebrow="Quotes"
+            title={grouped.pending.length > 0 ? "You have quotes waiting for a response" : "Quote history is organised by decision state"}
+            description="Open a quote to review the public quote page, accept it, request edits, or decline. Accepted quotes move toward bookings and invoices."
+            items={[
+              { label: "Waiting", value: grouped.pending.length, helper: "Needs your response", icon: Clock, tone: grouped.pending.length > 0 ? "warning" : "success" },
+              { label: "Accepted", value: grouped.accepted.length, helper: "Signed off", icon: FileText, tone: "success" },
+              { label: "History", value: grouped.historical.length, helper: "Expired, declined, revised", icon: X, tone: "neutral" },
+              { label: "Total", value: quotes.length, helper: "All quotes", icon: Calendar, tone: quotes.length > 0 ? "brand" : "neutral" },
+            ]}
           />
 
           {loading ? (

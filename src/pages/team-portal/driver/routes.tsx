@@ -28,7 +28,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { DriverPageShell } from "@/components/driver/DriverPageShell";
-import { PortalCard, PortalCardHeader, StatTile } from "@/components/portal/ui";
+import { PortalCard, PortalCardHeader, PortalOverview, StatTile } from "@/components/portal/ui";
 import { useAuth } from "@/contexts/AuthContext";
 import { ChatBot } from "@/components/ChatBot";
 import { routeOptimizationService, OptimizedRoute } from "@/services/routeOptimizationService";
@@ -351,6 +351,19 @@ export default function DriverRoutes() {
         icon={RouteIcon}
         width="full"
         hideFooter
+        overview={
+          <PortalOverview
+            eyebrow="Route control"
+            title="No route is assigned yet"
+            description="When dispatch assigns or optimises a route, this page becomes the driver's route board with the current stop, map, stop list, and trip clock."
+            items={[
+              { label: "Stops", value: 0, helper: "Assigned today", icon: RouteIcon, tone: "neutral" },
+              { label: "Trip clock", value: "Off", helper: "Starts with shift", icon: Clock, tone: "neutral" },
+              { label: "Map", value: "Waiting", helper: "Needs route", icon: Map, tone: "neutral" },
+              { label: "Action", value: "Contact dispatch", helper: "No stops loaded", icon: AlertCircle, tone: "warning" },
+            ]}
+          />
+        }
       >
         <PortalCard padded={false}>
           <div className="py-16 px-6 text-center">
@@ -462,6 +475,24 @@ export default function DriverRoutes() {
       width="full"
       headerAction={tripControls}
       hideFooter
+      overview={
+        <PortalOverview
+          eyebrow="Route control"
+          title={tripCompleted ? "Route completed" : tripStarted ? "Work the current stop" : "Start your shift, then start each delivery"}
+          description="The route page is for sequence, map, trip clock, and stop-level actions. Use Start delivery on each stop only when you are leaving for that client."
+          items={[
+            { label: "Stops done", value: `${completedStops}/${route.stops.length}`, helper: `${Math.round((completedStops / route.stops.length) * 100)}% complete`, icon: CheckCircle, tone: completedStops === route.stops.length ? "success" : "brand" },
+            { label: "Current stop", value: currentStop ? currentStop.client_name : "None", helper: currentStop?.pickup_time ? `Collect ${currentStop.pickup_time.slice(0, 5)}` : "Pickup time not set", icon: Navigation, tone: "brand" },
+            { label: "Distance", value: `${route.total_distance.toFixed(1)} km`, helper: `${route.total_duration} min estimated`, icon: RouteIcon, tone: "neutral" },
+            { label: "Potential", value: tenantCurrency.format(estimatedEarnings, 0), helper: "Callout + distance", icon: Banknote, tone: "neutral" },
+          ]}
+          actions={
+            <Button asChild size="sm" variant="outline">
+              <Link href={withSlug("/team-portal/driver/tracking")}>Open current delivery</Link>
+            </Button>
+          }
+        />
+      }
     >
           <div className="mb-6 lg:mb-8">
             {/* Progress Banner */}

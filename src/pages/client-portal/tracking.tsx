@@ -11,7 +11,9 @@ import { ChatBot } from "@/components/ChatBot";
 import { formatLocalTime } from "@/lib/localFormat";
 import dynamic from "next/dynamic";
 import { ClientNav } from "@/components/navigation/ClientNav";
-import { PortalShell, PortalHeader, PortalCard } from "@/components/portal/ui";
+import { PortalShell, PortalHeader, PortalCard, PortalOverview,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { BookingHeader } from "@/components/booking/BookingHeader";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenantHref } from "@/lib/tenantUrl";
@@ -391,6 +393,18 @@ export default function ClientTracking() {
               subtitle="Watch your driver as they roll out."
               icon={MapPin}
             />
+            <PageWorkbench />
+            <PortalOverview
+              eyebrow="Live tracking"
+              title="Checking for active driver trips"
+              description="Tracking appears only while a delivery or equipment collection is actively on the road."
+              items={[
+                { label: "Trips", value: "-", helper: "Loading", icon: Navigation, tone: "neutral" },
+                { label: "Driver pin", value: "-", helper: "Loading GPS", icon: MapPin, tone: "neutral" },
+                { label: "ETA", value: "-", helper: "Calculating", icon: Clock, tone: "neutral" },
+                { label: "Refresh", value: "30s", helper: "Auto polling", icon: RefreshCw, tone: "neutral" },
+              ]}
+            />
             {/* Skeleton matches the loaded shape (booking strip + map +
                 sidebar list) so the layout doesn't jump on arrival. */}
             <div className="space-y-6" aria-busy="true" aria-label="Loading your deliveries">
@@ -427,6 +441,18 @@ export default function ClientTracking() {
               subtitle="Watch your driver as they roll out."
               icon={MapPin}
             />
+            <PageWorkbench />
+            <PortalOverview
+              eyebrow="Live tracking"
+              title="Tracking could not load"
+              description="The map and driver state could not be refreshed. Use Try again below, or open Bookings for the full order status."
+              items={[
+                { label: "Trips", value: 0, helper: "Not loaded", icon: Navigation, tone: "danger" },
+                { label: "Driver pin", value: "Offline", helper: "No GPS loaded", icon: MapPin, tone: "danger" },
+                { label: "ETA", value: "Unknown", helper: "Retry needed", icon: Clock, tone: "warning" },
+                { label: "Fallback", value: "Bookings", helper: "Full order status", icon: Package, tone: "neutral" },
+              ]}
+            />
             <PortalCard className="border-rose-200 dark:border-rose-900/60">
               <div className="py-10 text-center">
                 <RefreshCw className="w-12 h-12 text-rose-400 dark:text-rose-500 mx-auto mb-3" />
@@ -460,6 +486,18 @@ export default function ClientTracking() {
               title="Live tracking"
               subtitle="Track deliveries and equipment collections while a driver is on the road."
               icon={MapPin}
+            />
+            <PageWorkbench />
+            <PortalOverview
+              eyebrow="Live tracking"
+              title={requestedOrderMissing ? "That booking is not live right now" : "No driver is on the road right now"}
+              description="Tracking is intentionally live-only. Upcoming, completed, cancelled, or not-yet-dispatched bookings stay under Bookings."
+              items={[
+                { label: "Live trips", value: 0, helper: "No active driver", icon: Navigation, tone: "success" },
+                { label: "Requested", value: requestedOrderMissing ? "Not live" : "None", helper: "Order filter", icon: Package, tone: requestedOrderMissing ? "warning" : "neutral" },
+                { label: "Driver pin", value: "Hidden", helper: "No active GPS", icon: MapPin, tone: "neutral" },
+                { label: "Next step", value: "Bookings", helper: "Open full status", icon: Clock, tone: "brand" },
+              ]}
             />
             <PortalCard padded={false}>
               <div className="py-16 px-6 text-center">
@@ -515,6 +553,26 @@ export default function ClientTracking() {
                 <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? "animate-spin" : ""}`} />
                 Refresh
               </Button>
+            }
+          />
+          <PageWorkbench />
+
+          <PortalOverview
+            eyebrow="Live tracking"
+            title={selectedOrder ? `${selectedOrder.event_name || selectedOrder.order_number || "Live trip"} is active` : "Live tracking is active"}
+            description="Use this page only while a driver is moving. For upcoming and completed bookings, open Bookings for the full status and documents."
+            items={[
+              { label: "Live trips", value: orders.length, helper: "Driver on road", icon: Navigation, tone: "brand" },
+              { label: "Selected", value: selectedOrder?.collecting ? "Collection" : selectedOrder?.status || "-", helper: selectedOrder?.venue_address || "No order selected", icon: Package, tone: "neutral" },
+              { label: "Driver pin", value: driverLocation ? "Live" : "Waiting", helper: driverLocation ? "GPS received" : "Driver GPS not received", icon: MapPin, tone: driverLocation ? "success" : "warning" },
+              { label: "ETA", value: selectedOrder ? calculateETA(selectedOrder) : "-", helper: "Auto refreshed", icon: Clock, tone: "neutral" },
+            ]}
+            actions={
+              selectedOrder ? (
+                <Button asChild size="sm" variant="outline">
+                  <Link href={withSlug(`/client-portal/my-orders?orderId=${selectedOrder.id}`)}>Open booking</Link>
+                </Button>
+              ) : null
             }
           />
 

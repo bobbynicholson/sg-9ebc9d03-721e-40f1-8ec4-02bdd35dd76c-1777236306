@@ -9,7 +9,9 @@ import { DriverNav } from "@/components/navigation/DriverNav";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { Footer } from "@/components/Footer";
-import { PortalShell, PortalHeader, PortalCard } from "@/components/portal/ui";
+import { PortalShell, PortalHeader, PortalCard, PortalOverview,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toLocalISO } from "@/lib/localDate";
@@ -96,6 +98,35 @@ export default function DriverSchedulePage() {
             }
             subtitle="Upcoming jobs assigned to you"
             icon={Calendar}
+          />
+          <PageWorkbench />
+
+          <PortalOverview
+            eyebrow="Schedule"
+            title={loading ? "Loading upcoming driver work" : orders.length > 0 ? "Upcoming jobs are grouped by when you need to act" : "No upcoming jobs assigned"}
+            description="This page is a read-only schedule view. Use it to check dates, collect times, venues, guests, maps, and the full driver brief before the day."
+            items={[
+              { label: "Upcoming", value: orders.length, helper: "Assigned active jobs", icon: Calendar, tone: orders.length > 0 ? "brand" : "neutral" },
+              { label: "Today", value: grouped.find((g) => g.name === "Today")?.items.length || 0, helper: "Needs attention now", icon: Clock, tone: grouped.some((g) => g.name === "Today") ? "warning" : "success" },
+              { label: "Tomorrow", value: grouped.find((g) => g.name === "Tomorrow")?.items.length || 0, helper: "Next-day work", icon: Navigation, tone: "neutral" },
+              { label: "Buckets", value: grouped.length, helper: "Date groups shown", icon: Users, tone: "neutral" },
+            ]}
+            actions={
+              <>
+                <Link
+                  href={withSlug("/team-portal/driver/calendar")}
+                  className="inline-flex min-h-9 items-center rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+                >
+                  Month calendar
+                </Link>
+                <Link
+                  href={withSlug("/team-portal/driver/routes")}
+                  className="inline-flex min-h-9 items-center rounded-md bg-brand-primary px-3 text-sm font-semibold text-white hover:opacity-90"
+                >
+                  Route board
+                </Link>
+              </>
+            }
           />
 
           {loading ? (

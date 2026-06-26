@@ -30,11 +30,13 @@ import { useRouter } from "next/router";
 import Head from "next/head";
 import {
   Calendar, Clock, MapPin, Users, ChefHat, Truck, CheckCircle2,
-  Sparkles, ArrowRight, Receipt, Phone, MessageSquare,
+  Sparkles, ArrowRight, Receipt, Phone, MessageSquare, FileText,
   PartyPopper, RotateCcw, Star,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { PortalShell, PortalHeader, PortalCard } from "@/components/portal/ui";
+import { PortalShell, PortalHeader, PortalCard, PortalOverview,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
@@ -996,6 +998,8 @@ function ClientPortalDashboardInner() {
         .slice(0, 8),
     [orders],
   );
+  const pendingQuotes = quotes.filter((q) => q.status === "sent");
+  const activeOrders = orders.filter((o) => !["cancelled", "completed", "delivered"].includes(o.status));
 
   // ── Render ──────────────────────────────────────────────────────────
 
@@ -1056,6 +1060,7 @@ function ClientPortalDashboardInner() {
               </>
             }
           />
+          <PageWorkbench />
 
           {/*
             When the tenant has a logo, render it as a small element in
@@ -1069,6 +1074,44 @@ function ClientPortalDashboardInner() {
               <span className="text-xs font-medium text-slate-500 dark:text-slate-400">{companyName}</span>
             </div>
           )}
+
+          <PortalOverview
+            eyebrow="Client overview"
+            title={headline ? `Next up: ${headline.event_name || "your booking"}` : "Your quotes, bookings, invoices, and tracking in one place"}
+            description={headline ? smartStatusCopy(headline).sub : `When ${companyName} confirms a booking, the date, live tracking, invoice, messages, and rebook actions stay together here.`}
+            items={[
+              { label: "Active bookings", value: activeOrders.length, helper: headline ? new Date(headline.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short" }) : "None live", icon: Calendar, tone: activeOrders.length > 0 ? "brand" : "neutral" },
+              { label: "Quotes to answer", value: pendingQuotes.length, helper: pendingQuotes.length > 0 ? "Needs your response" : "Nothing waiting", icon: FileText, tone: pendingQuotes.length > 0 ? "warning" : "success" },
+              { label: "Outstanding", value: fmtMoney.format(outstanding.total), helper: outstanding.invoiceCount > 0 ? `${outstanding.invoiceCount} invoice${outstanding.invoiceCount === 1 ? "" : "s"}` : "Paid up", icon: Receipt, tone: outstanding.overdueCount > 0 ? "danger" : outstanding.total > 0 ? "warning" : "success" },
+              { label: "Past events", value: pastOrders.length, helper: "Available to rebook or rate", icon: Star, tone: "neutral" },
+            ]}
+            actions={
+              <>
+                <Link
+                  href={withSlug("/client-portal/my-orders")}
+                  className="inline-flex min-h-9 items-center rounded-md bg-brand-primary px-3 text-sm font-semibold text-white hover:opacity-90"
+                >
+                  View bookings
+                </Link>
+                {pendingQuotes.length > 0 && (
+                  <Link
+                    href={withSlug("/client-portal/quotes")}
+                    className="inline-flex min-h-9 items-center rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+                  >
+                    Review quotes
+                  </Link>
+                )}
+                {outstanding.total > 0 && (
+                  <Link
+                    href={withSlug("/client-portal/billing")}
+                    className="inline-flex min-h-9 items-center rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+                  >
+                    Pay invoices
+                  </Link>
+                )}
+              </>
+            }
+          />
 
           <div className="space-y-6">
 

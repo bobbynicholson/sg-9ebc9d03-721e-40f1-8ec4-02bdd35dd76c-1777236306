@@ -11,7 +11,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { FileText, Download, Clock, CheckCircle, AlertCircle, Search, Filter, CreditCard, Receipt, Calendar, ArrowUpDown, Wallet } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { ClientNav } from "@/components/navigation/ClientNav";
-import { PortalShell, PortalHeader, PortalCard, PortalCardHeader, StatTile } from "@/components/portal/ui";
+import { PortalShell, PortalHeader, PortalCard, PortalCardHeader, PortalOverview, StatTile,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenantClientIds } from "@/hooks/useTenantClientIds";
@@ -416,6 +418,7 @@ export default function ClientBillingPage() {
             subtitle="Pay balances, check due dates, open invoice details, and download receipts for completed payments."
             icon={Receipt}
           />
+          <PageWorkbench />
 
           {/* Tenant identity strip --
               SARS rule: VAT-registered businesses must show their VAT
@@ -438,6 +441,18 @@ export default function ClientBillingPage() {
               </div>
             </PortalCard>
           )}
+
+          <PortalOverview
+            eyebrow="Billing"
+            title={totalOutstanding > 0 ? "There is a balance to settle" : "Invoices and receipts are in one place"}
+            description="Open an invoice for the full breakdown, pay any pending balance, or download receipts once a payment has completed."
+            items={[
+              { label: "Invoices", value: invoices.length, helper: `${filteredInvoices.length} after filters`, icon: Receipt, tone: invoices.length > 0 ? "brand" : "neutral" },
+              { label: "Outstanding", value: `${currencySymbolFor((company as any)?.currency || "ZAR")}${totalOutstanding.toLocaleString()}`, helper: "Pending + overdue", icon: Wallet, tone: overdueCount > 0 ? "danger" : totalOutstanding > 0 ? "warning" : "success" },
+              { label: "Paid", value: `${currencySymbolFor((company as any)?.currency || "ZAR")}${totalPaid.toLocaleString()}`, helper: "Completed invoices", icon: CheckCircle, tone: "success" },
+              { label: "Overdue", value: overdueCount, helper: "Needs attention", icon: AlertCircle, tone: overdueCount > 0 ? "danger" : "success" },
+            ]}
+          />
 
           {loading ? (
             // Skeleton over the page shape: a stat-tile row + a few

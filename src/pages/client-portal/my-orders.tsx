@@ -13,7 +13,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { ClientNav } from "@/components/navigation/ClientNav";
-import { PortalShell, PortalHeader, PortalCard, PortalCardHeader } from "@/components/portal/ui";
+import { PortalShell, PortalHeader, PortalCard, PortalCardHeader, PortalOverview,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { computeOrderTimeline, toClientTimeline } from "@/services/order/orderTimeline";
 import { TimelineTrack } from "@/components/admin/orders/TimelineTrack";
 // Wave 28.4: same wizard the magic-link surfaces use. Auth client
@@ -241,6 +243,9 @@ export default function MyOrders() {
     if (filter === "completed") return isDone;
     return true;
   });
+  const activeCount = orders.filter((o) => !["completed", "delivered", "cancelled"].includes(o.status)).length;
+  const completedCount = orders.filter((o) => ["completed", "delivered"].includes(o.status)).length;
+  const totalBookedValue = orders.reduce((sum, order) => sum + Number(order.total_amount || 0), 0);
 
   const getStatusColor = (status: string) => {
     const colors = {
@@ -269,6 +274,35 @@ export default function MyOrders() {
             title="Your bookings"
             subtitle="Every confirmed booking, active or completed. Open one to track delivery, request a change, view the invoice, or rebook."
             icon={Package}
+          />
+          <PageWorkbench />
+
+          <PortalOverview
+            eyebrow="Bookings"
+            title={orders.length > 0 ? "Every booking is grouped here with the next action on each row" : "No bookings linked to this portal yet"}
+            description="Use Bookings for the full history: live tracking when a driver is moving, change requests before the event, invoices, cancellation/postpone requests, and rebooking completed events."
+            items={[
+              { label: "Total", value: orders.length, helper: "All bookings", icon: Package, tone: orders.length > 0 ? "brand" : "neutral" },
+              { label: "Active", value: activeCount, helper: "Still in progress", icon: Truck, tone: activeCount > 0 ? "warning" : "success" },
+              { label: "Completed", value: completedCount, helper: "Delivered or closed", icon: Users, tone: "success" },
+              { label: "Value", value: `R${totalBookedValue.toLocaleString()}`, helper: "Across loaded orders", icon: Banknote, tone: "neutral" },
+            ]}
+            actions={
+              <>
+                <Link
+                  href={clientPortalHref("/client-portal/tracking")}
+                  className="inline-flex min-h-9 items-center rounded-md bg-brand-primary px-3 text-sm font-semibold text-white hover:opacity-90"
+                >
+                  Live tracking
+                </Link>
+                <Link
+                  href={clientPortalHref("/client-portal/billing")}
+                  className="inline-flex min-h-9 items-center rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+                >
+                  Billing
+                </Link>
+              </>
+            }
           />
 
           {/* Filter chips - amber active-chip pattern (shopping dashboard).

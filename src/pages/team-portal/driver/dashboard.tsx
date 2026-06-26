@@ -10,6 +10,7 @@ import {
   TrendingUp,
   Banknote,
   Bell,
+  CalendarDays,
   Camera,
   X,
   Printer,
@@ -38,7 +39,7 @@ import { NoIndexMeta } from "@/components/NoIndexMeta";
 import Head from "next/head";
 import { useAuth } from "@/contexts/AuthContext";
 import { useOrderRefreshSignal } from "@/hooks/useOrderRefreshSignal";
-import { PortalShell, PortalCard, PortalCardHeader, StatTile } from "@/components/portal/ui";
+import { PageWorkbench, PortalOverview, PortalShell, PortalCard, PortalCardHeader, StatTile } from "@/components/portal/ui";
 import { ChatBot } from "@/components/ChatBot";
 import Link from "next/link";
 import { useTenantHref } from "@/lib/tenantUrl";
@@ -578,6 +579,7 @@ function DriverDashboardInner() {
           rides on the shared neutral ground + container. */}
       <div id="today" className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+          <PageWorkbench className="mb-5" />
           {/* Header */}
           <div className="mb-4 sm:mb-6 md:mb-8">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 mb-4 sm:mb-6">
@@ -635,6 +637,34 @@ function DriverDashboardInner() {
                 </Button>
               </div>
             </div>
+
+            <PortalOverview
+              eyebrow="Driver workspace"
+              title={
+                loading
+                  ? "Loading your work for today"
+                  : jobs.length > 0
+                    ? "Start with your next pickup, then work the route"
+                    : "No assigned deliveries in your work window"
+              }
+              description="This page is the driver's first stop: clock in, see the next pickup, open the route board, claim open jobs, and check GPS sharing before leaving the kitchen."
+              items={[
+                { label: "Assigned", value: jobs.length, helper: "Active work window", icon: Truck, tone: jobs.length > 0 ? "brand" : "neutral" },
+                { label: "Today", value: todaysJobs.length, helper: "Scheduled for today", icon: CalendarDays, tone: "neutral" },
+                { label: "Left to do", value: Math.max(todaysJobs.length - completedToday, 0), helper: `${completedToday} completed`, icon: Clock, tone: todaysJobs.length - completedToday > 0 ? "warning" : "success" },
+                { label: "Alerts", value: unreadCount, helper: unreadCount > 0 ? "Needs a look" : "All clear", icon: Bell, tone: unreadCount > 0 ? "danger" : "success" },
+              ]}
+              actions={
+                <>
+                  <Button asChild size="sm" className="bg-brand-primary text-white hover:opacity-90">
+                    <Link href={withSlug("/team-portal/driver/routes")}>Open route board</Link>
+                  </Button>
+                  <Button asChild size="sm" variant="outline">
+                    <Link href={withSlug("/team-portal/driver/deliveries")}>All deliveries</Link>
+                  </Button>
+                </>
+              }
+            />
 
             {/* DRV-F (driver deep audit, DRV-38): "Next pickup at HH:MM
                 @ {venue}" as the largest glanceable element. Most-asked

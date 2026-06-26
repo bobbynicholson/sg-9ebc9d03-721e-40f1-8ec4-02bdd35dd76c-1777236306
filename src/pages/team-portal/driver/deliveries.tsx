@@ -14,7 +14,9 @@ import { useTenantHref } from "@/lib/tenantUrl";
 import { staffOrderHref } from "@/lib/orderUrls";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { Footer } from "@/components/Footer";
-import { PortalShell, PortalHeader, PortalCard, PortalCardHeader, StatTile } from "@/components/portal/ui";
+import { PortalShell, PortalHeader, PortalCard, PortalCardHeader, PortalOverview, StatTile,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
@@ -82,6 +84,7 @@ const statusBadge = (status: string) => {
 
 export default function DriverDeliveriesPage() {
   const { user } = useAuth();
+  const { withSlug } = useTenantHref();
   const [orders, setOrders] = useState<DriverOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -150,6 +153,35 @@ export default function DriverDeliveriesPage() {
             title="My deliveries"
             subtitle="Every order assigned to you, past and upcoming"
             icon={Truck}
+          />
+          <PageWorkbench />
+
+          <PortalOverview
+            eyebrow="Delivery history"
+            title={loading ? "Loading your assigned deliveries" : stats.upcoming > 0 ? "Upcoming work sits above completed history" : "All assigned deliveries are in one place"}
+            description="Use this page for assigned orders across time. Search by client or venue, open the driver brief, and use the active rows to complete handover stages."
+            items={[
+              { label: "All deliveries", value: stats.total, helper: "Past and upcoming", icon: Truck, tone: stats.total > 0 ? "brand" : "neutral" },
+              { label: "Upcoming", value: stats.upcoming, helper: "Still to do", icon: Clock, tone: stats.upcoming > 0 ? "warning" : "success" },
+              { label: "Completed", value: stats.completed, helper: "Finished runs", icon: CheckCircle2, tone: "success" },
+              { label: "Guests", value: stats.totalGuests, helper: "Across deliveries", icon: Package, tone: "neutral" },
+            ]}
+            actions={
+              <>
+                <Link
+                  href={withSlug("/team-portal/driver/schedule")}
+                  className="inline-flex min-h-9 items-center rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+                >
+                  Schedule
+                </Link>
+                <Link
+                  href={withSlug("/team-portal/driver/tracking")}
+                  className="inline-flex min-h-9 items-center rounded-md bg-brand-primary px-3 text-sm font-semibold text-white hover:opacity-90"
+                >
+                  Current delivery
+                </Link>
+              </>
+            }
           />
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8">

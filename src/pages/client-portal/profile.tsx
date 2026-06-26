@@ -36,7 +36,9 @@ import {
 } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { ClientNav } from "@/components/navigation/ClientNav";
-import { PortalShell, PortalHeader, PortalCard } from "@/components/portal/ui";
+import { PortalShell, PortalHeader, PortalCard, PortalOverview,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -348,6 +350,19 @@ export default function ClientProfilePage() {
             title="Your profile"
             subtitle="Update how the catering team gets in touch with you. Email is locked to the address you signed in with."
             icon={UserIcon}
+          />
+          <PageWorkbench />
+
+          <PortalOverview
+            eyebrow="Profile"
+            title="Keep contact details usable for event-day updates"
+            description={`These details tell ${companyName} how to reach you for quotes, delivery ETAs, WhatsApp updates, and client records.`}
+            items={[
+              { label: "Name", value: form.full_name ? "Set" : "Missing", helper: form.full_name || "Add your full name", icon: UserIcon, tone: form.full_name ? "success" : "warning" },
+              { label: "Mobile", value: form.mobile_number ? "Set" : "Missing", helper: mobileLooksValid ? "WhatsApp-ready" : "Check format", icon: Smartphone, tone: form.mobile_number && mobileLooksValid ? "success" : "warning" },
+              { label: "WhatsApp", value: form.whatsapp_opt_in ? "On" : "Off", helper: form.mobile_number ? "Operational updates" : "Needs mobile", icon: MessageCircle, tone: form.whatsapp_opt_in ? "success" : "neutral" },
+              { label: "Client record", value: tenantClientId ? "Linked" : "Not linked", helper: form.client_name || companyName, icon: Building2, tone: tenantClientId ? "brand" : "warning" },
+            ]}
           />
 
           {loading ? (

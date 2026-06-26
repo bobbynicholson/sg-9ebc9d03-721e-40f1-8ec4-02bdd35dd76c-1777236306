@@ -20,10 +20,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { PortalCard, PortalCardHeader } from "@/components/portal/ui";
+import { PortalCard, PortalCardHeader, PortalOverview } from "@/components/portal/ui";
 import {
   Calendar as CalendarIcon, ChevronLeft, ChevronRight, MapPin, Clock,
-  Users, Loader2, Hand, ExternalLink,
+  Users, Loader2, Hand, ExternalLink, Truck,
 } from "lucide-react";
 import { DriverPageShell } from "@/components/driver/DriverPageShell";
 import { useAuth } from "@/contexts/AuthContext";
@@ -229,6 +229,19 @@ export default function DriverCalendarPage() {
       subheading="Slate dots = jobs already yours. Brand dots = jobs in your company waiting to be claimed."
       icon={CalendarIcon}
       width="wide"
+      overview={
+        <PortalOverview
+          eyebrow="Calendar"
+          title="Scan your month, then claim open work"
+          description="Each day shows your assigned jobs and tenant jobs still open to drivers. Select a day to see addresses, collect times, and claim actions."
+          items={[
+            { label: "Month", value: cursor.toLocaleDateString("en-ZA", { month: "short", year: "numeric" }), helper: "Visible grid", icon: CalendarIcon, tone: "brand" },
+            { label: "Your jobs", value: orders.filter((o) => o.is_mine).length, helper: "In this window", icon: Truck, tone: "neutral" },
+            { label: "Open jobs", value: orders.filter((o) => !o.is_mine).length, helper: "Available to claim", icon: Hand, tone: orders.some((o) => !o.is_mine) ? "warning" : "success" },
+            { label: "Selected day", value: selectedDay ? selectedOrders.length : "-", helper: selectedDay ? fromIso(selectedDay).toLocaleDateString("en-ZA", { day: "numeric", month: "short" }) : "Pick a day", icon: Clock, tone: "neutral" },
+          ]}
+        />
+      }
     >
           {/* Month nav */}
           <PortalCard className="mb-4">

@@ -13,7 +13,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Head from "next/head";
 import { useRouter } from "next/router";
-import { PortalCard } from "@/components/portal/ui";
+import { PortalCard, PortalOverview } from "@/components/portal/ui";
 import { Button } from "@/components/ui/button";
 import { Bell, CheckCircle2, AlertCircle, Trash2, Loader2, ExternalLink, Archive } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
@@ -195,6 +195,19 @@ export default function DriverNotificationsPage() {
       icon={Bell}
       width="full"
       headerAction={headerActions}
+      overview={
+        <PortalOverview
+          eyebrow="Inbox"
+          title={unreadCount > 0 ? "Handle unread dispatch updates first" : "No unread driver alerts"}
+          description="This inbox is for dispatch changes, route updates, and customer-related alerts. Stale rows can be cleared so new day-of work stays visible."
+          items={[
+            { label: "Unread", value: unreadCount, helper: "Needs attention", icon: Bell, tone: unreadCount > 0 ? "danger" : "success" },
+            { label: "Visible", value: visible.length, helper: tab === "unread" ? "Unread tab" : "All notifications", icon: ExternalLink, tone: "neutral" },
+            { label: "Stale", value: staleCount, helper: `Older than ${STALE_NOTIFICATION_DAYS} days`, icon: Archive, tone: staleCount > 0 ? "warning" : "success" },
+            { label: "Filter", value: tab === "unread" ? "Unread" : "All", helper: "Current view", icon: CheckCircle2, tone: "neutral" },
+          ]}
+        />
+      }
     >
       <div className="space-y-4">
           <div className="flex w-full gap-1 overflow-x-auto mb-4">

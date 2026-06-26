@@ -23,7 +23,9 @@ import {
 import { formatDistanceToNow } from "date-fns";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { ClientNav } from "@/components/navigation/ClientNav";
-import { PortalShell, PortalHeader, PortalCard } from "@/components/portal/ui";
+import { PortalShell, PortalHeader, PortalCard, PortalOverview,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { useAuth } from "@/contexts/AuthContext";
 import { notificationService, Notification } from "@/services/notificationService";
 import { useToast } from "@/hooks/use-toast";
@@ -181,6 +183,19 @@ export default function ClientNotificationsPage() {
                 </Button>
               ) : null
             }
+          />
+          <PageWorkbench />
+
+          <PortalOverview
+            eyebrow="Inbox"
+            title={unreadCount > 0 ? "You have updates to read" : "No unread client updates"}
+            description="Notifications collect quote updates, payment confirmations, delivery alerts, and messages from the catering team."
+            items={[
+              { label: "Unread", value: unreadCount, helper: "Needs attention", icon: Bell, tone: unreadCount > 0 ? "warning" : "success" },
+              { label: "Visible", value: visible.length, helper: tab === "unread" ? "Unread tab" : "All notifications", icon: CheckCircle2, tone: "neutral" },
+              { label: "Filter", value: tab === "unread" ? "Unread" : "All", helper: "Current view", icon: AlertCircle, tone: "neutral" },
+              { label: "Clean up", value: "Delete", helper: "Row-level action", icon: Trash2, tone: "neutral" },
+            ]}
           />
 
           <div className="space-y-4">
