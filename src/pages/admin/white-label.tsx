@@ -148,13 +148,15 @@ function WhiteLabelPage() {
   const resolvedSlug = useResolvedTenantSlug();
   const authCompanyId: string | undefined =
     company?.id || profile?.company_id || user?.company_id || user?.user_metadata?.company_id;
+  const authCompanySlug: string | undefined =
+    company?.slug || user?.company_slug || user?.user_metadata?.company_slug;
   const { toast } = useToast();
 
   const [branding, setBranding] = useState<BrandingRow | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [slugCompanyId, setSlugCompanyId] = useState<string | undefined>(undefined);
-  const companyId: string | undefined = authCompanyId || slugCompanyId;
+  const companyId: string | undefined = resolvedSlug ? slugCompanyId : authCompanyId;
 
   const [organizationName, setOrganizationName] = useState("");
   const [primaryColor, setPrimaryColor] = useState(DEFAULT_PALETTE.primary);
@@ -210,13 +212,13 @@ function WhiteLabelPage() {
   useEffect(() => {
     let cancelled = false;
 
-    if (authCompanyId) {
+    if (!resolvedSlug) {
       setSlugCompanyId(undefined);
       return;
     }
 
-    if (!resolvedSlug) {
-      setSlugCompanyId(undefined);
+    if (authCompanyId && authCompanySlug === resolvedSlug) {
+      setSlugCompanyId(authCompanyId);
       return;
     }
 
@@ -234,7 +236,7 @@ function WhiteLabelPage() {
     return () => {
       cancelled = true;
     };
-  }, [authCompanyId, resolvedSlug]);
+  }, [authCompanyId, authCompanySlug, resolvedSlug]);
 
   // Load tenant row directly from companies. Single canonical source of
   // truth - no parallel context state.
