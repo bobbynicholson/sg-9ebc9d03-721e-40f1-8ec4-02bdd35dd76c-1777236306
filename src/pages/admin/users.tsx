@@ -857,48 +857,60 @@ function AdminUsersPage() {
           />
           <PageWorkbench />
 
-          <div className="space-y-5">
-            <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-              <div className="grid gap-5 xl:grid-cols-[minmax(0,0.7fr)_minmax(0,1.3fr)]">
-                <div>
-                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                    {[
-                      { label: "Staff", value: users.length, tone: "text-slate-900" },
-                      { label: "Active", value: activeUserCount, tone: "text-brand-primary" },
-                      { label: "Inactive", value: inactiveUserCount, tone: "text-slate-700" },
-                      { label: "Pending", value: pendingInviteCount, tone: "text-amber-700" },
-                    ].map((item) => (
-                      <div key={item.label} className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
-                        <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">{item.label}</p>
-                        <p className={`mt-1 text-2xl font-semibold ${item.tone}`}>{item.value}</p>
-                      </div>
-                    ))}
+          <div className="grid gap-5 xl:grid-cols-[320px_minmax(0,1fr)]">
+            <aside className="space-y-4 xl:sticky xl:top-6 xl:self-start">
+              <section className="rounded-2xl bg-slate-950 p-4 text-white shadow-[0_1px_2px_rgba(15,23,42,0.08),0_18px_42px_-28px_rgba(15,23,42,0.7)]">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold">Access control</p>
+                    <p className="mt-1 text-xs leading-5 text-slate-300">
+                      Staff logins only. Client portal users stay with Contacts.
+                    </p>
                   </div>
-                  <p className="mt-3 text-xs text-slate-500">
-                    Client portal accounts stay with Contacts; this page controls staff and admin access.
-                  </p>
+                  <span className="rounded-full border border-white/15 bg-white/10 px-2 py-1 text-[11px] font-medium text-white">
+                    Live roster
+                  </span>
                 </div>
+                <div className="mt-4 grid grid-cols-2 gap-2">
+                  {[
+                    { label: "Staff", value: users.length },
+                    { label: "Active", value: activeUserCount },
+                    { label: "Inactive", value: inactiveUserCount },
+                    { label: "Pending", value: pendingInviteCount },
+                  ].map((item) => (
+                    <div key={item.label} className="rounded-xl border border-white/10 bg-white/[0.06] p-3">
+                      <p className="text-[11px] font-medium text-slate-300">{item.label}</p>
+                      <p className="mt-1 text-2xl font-semibold tabular-nums text-white">{item.value}</p>
+                    </div>
+                  ))}
+                </div>
+              </section>
 
-                <div className="space-y-3">
+              <section className="rounded-2xl border border-slate-300/80 bg-white p-4 shadow-[0_1px_1px_rgba(15,23,42,0.04),0_14px_28px_-24px_rgba(15,23,42,0.35)]">
+                <div className="mb-3 flex items-center justify-between gap-2">
+                  <h2 className="text-sm font-semibold text-slate-950">Role map</h2>
+                  <span className="text-xs text-slate-500">Counts from visible tenant</span>
+                </div>
+                <div className="space-y-4">
                   {ROLE_GROUPS.map((group) => {
                     const rolesInGroup = roleConfig.filter((role) => role.group === group.key);
                     if (rolesInGroup.length === 0) return null;
                     return (
-                      <div key={group.key}>
-                        <div className="mb-1.5 flex items-center justify-between gap-2">
-                          <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500">{group.label}</h2>
-                          <span className="text-[11px] text-slate-400">{group.hint}</span>
+                      <div key={group.key} className="space-y-1.5">
+                        <div className="flex items-center justify-between gap-2 border-b border-slate-200 pb-1.5">
+                          <p className="text-xs font-semibold text-slate-700">{group.label}</p>
+                          <p className="max-w-[150px] truncate text-[11px] text-slate-500">{group.hint}</p>
                         </div>
-                        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                        <div className="space-y-1">
                           {rolesInGroup.map((role) => {
                             const count = roleCount(role.value);
                             return (
-                              <div key={role.value} className="flex min-h-[52px] items-center justify-between rounded-md border border-slate-200 px-3 py-2">
-                                <div className="flex min-w-0 items-center gap-2">
+                              <div key={role.value} className="flex min-h-9 items-center justify-between gap-3 rounded-lg px-2 py-1.5 hover:bg-slate-50">
+                                <span className="flex min-w-0 items-center gap-2">
                                   <role.icon className="h-4 w-4 shrink-0 text-slate-500" />
-                                  <span className="truncate text-sm font-medium text-slate-800">{role.label}</span>
-                                </div>
-                                <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700">
+                                  <span className="truncate text-sm text-slate-800">{role.label}</span>
+                                </span>
+                                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold tabular-nums text-slate-700">
                                   {count}
                                 </span>
                               </div>
@@ -909,150 +921,146 @@ function AdminUsersPage() {
                     );
                   })}
                 </div>
-              </div>
-            </section>
-
-            {(invitationsLoading || invitations.length > 0) && (
-              <section>
-                <div className="mb-2 flex items-center justify-between gap-3">
-                  <div>
-                    <h2 className="text-sm font-semibold text-slate-900">Pending invitations</h2>
-                    <p className="text-xs text-slate-500">{pendingInviteCount} waiting to accept</p>
-                  </div>
-                  <Button variant="outline" size="sm" onClick={loadInvitations} disabled={invitationsLoading}>
-                    <RefreshCw className={`mr-2 h-4 w-4 ${invitationsLoading ? "animate-spin" : ""}`} />
-                    Refresh
-                  </Button>
-                </div>
-                <PendingInvitationsList
-                  invitations={invitations}
-                  loading={invitationsLoading}
-                  onCancel={handleCancelInvitation}
-                />
               </section>
-            )}
+            </aside>
 
-            <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                <div>
-                  <h2 className="text-base font-semibold text-slate-900">Team members</h2>
-                  <p className="text-xs text-slate-500">{visibleUserLabel}</p>
-                </div>
-                <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] lg:w-[560px]">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                    <Input
-                      ref={searchRef}
-                      type="text"
-                      placeholder="Search by name, email, or role"
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-9 pr-9 text-sm"
-                    />
-                    {searchTerm && (
-                      <button
-                        type="button"
-                        onClick={() => setSearchTerm("")}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
-                        title="Clear search"
-                        aria-label="Clear search"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
-                    )}
+            <main className="space-y-4">
+              <section className="rounded-2xl border border-slate-300/80 bg-white shadow-[0_1px_1px_rgba(15,23,42,0.04),0_14px_28px_-24px_rgba(15,23,42,0.35)]">
+                <div className="flex flex-col gap-3 border-b border-slate-200 p-4 lg:flex-row lg:items-center lg:justify-between">
+                  <div>
+                    <h2 className="text-base font-semibold text-slate-950">Team members</h2>
+                    <p className="text-xs text-slate-500">{visibleUserLabel}</p>
                   </div>
-                  <SortMenu
-                    activeKey={userSort.sortKey}
-                    activeDir={userSort.sortDir}
-                    onPick={userSort.setSort}
-                    options={[
-                      { key: "name",    dir: "asc",  label: "Name (A to Z)" },
-                      { key: "name",    dir: "desc", label: "Name (Z to A)" },
-                      { key: "role",    dir: "asc",  label: "Role (A to Z)" },
-                      { key: "email",   dir: "asc",  label: "Email (A to Z)" },
-                      { key: "created", dir: "desc", label: "Newest first" },
-                      { key: "created", dir: "asc",  label: "Oldest first" },
-                    ]}
-                  />
+                  <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] lg:w-[560px]">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                      <Input
+                        ref={searchRef}
+                        type="text"
+                        placeholder="Search name, email, or role"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="h-10 pl-9 pr-9 text-sm"
+                      />
+                      {searchTerm && (
+                        <button
+                          type="button"
+                          onClick={() => setSearchTerm("")}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
+                          title="Clear search"
+                          aria-label="Clear search"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
+                    <SortMenu
+                      activeKey={userSort.sortKey}
+                      activeDir={userSort.sortDir}
+                      onPick={userSort.setSort}
+                      options={[
+                        { key: "name",    dir: "asc",  label: "Name (A to Z)" },
+                        { key: "name",    dir: "desc", label: "Name (Z to A)" },
+                        { key: "role",    dir: "asc",  label: "Role (A to Z)" },
+                        { key: "email",   dir: "asc",  label: "Email (A to Z)" },
+                        { key: "created", dir: "desc", label: "Newest first" },
+                        { key: "created", dir: "asc",  label: "Oldest first" },
+                      ]}
+                    />
+                  </div>
                 </div>
-              </div>
-            </section>
 
-            {filteredUsers.length === 0 ? (
-            <Card className="border-0 shadow-md">
-              <CardContent className="pt-12 pb-12 text-center">
-                <Users className="w-16 h-16 text-slate-400 mx-auto mb-4" />
-                <p className="text-xl font-semibold text-slate-900 mb-2">No users found</p>
-                <p className="text-slate-600">
-                  {searchTerm ? "Try a different search term" : "No users in the system yet"}
-                </p>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="space-y-4">
-              {filteredUsers.map((targetUser) => (
-                <Card key={targetUser.id} className="border-0 shadow-md hover:shadow-lg transition-shadow">
-                  <CardContent className="p-4 md:p-6">
-                    <div className="flex flex-col gap-4">
-                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex flex-wrap items-center gap-2 mb-2">
-                            <h3 className="text-lg md:text-xl font-semibold text-slate-900 truncate">
-                              {targetUser.full_name || "Unnamed User"}
-                            </h3>
-                            <Badge className={targetUser.is_active ? "bg-brand-primary/15 text-brand-primary border-brand-primary/20 text-xs" : "bg-slate-100 text-slate-700 border-slate-200 text-xs"}>
-                              {targetUser.is_active ? "Active" : "Inactive"}
-                            </Badge>
-                            {/* USR2-A: activity chip mirrors the
-                                /[slug]/admin/users surface. Tones:
-                                emerald = within 7d, amber = 8-30d,
-                                rose = 30d+, slate = never logged in. */}
-                            {(() => {
-                              const a = loginActivityBucket(targetUser.last_sign_in_at);
-                              return (
-                                <span
-                                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[11px] font-medium ${a.tone}`}
-                                  title={
-                                    targetUser.last_sign_in_at
-                                      ? `Last sign-in: ${new Date(targetUser.last_sign_in_at).toLocaleString("en-ZA")}`
-                                      : "No login recorded yet - this account has never signed in"
-                                  }
-                                >
-                                  {a.label}
-                                </span>
-                              );
-                            })()}
-                          </div>
-                          
-                          <div className="space-y-1 mb-3 text-xs md:text-sm text-slate-600">
-                            {/* Phase 21 #10: click-to-copy email +
-                                phone on the team list. Owners and
-                                ops leads paste these into welcome
-                                emails, ID + payroll forms and
-                                handover docs. */}
-                            <p className="truncate">
-                              Email:{" "}
-                              {targetUser.email ? (
-                                <button
-                                  type="button"
-                                  onClick={async () => {
-                                    try {
-                                      await navigator.clipboard.writeText(String(targetUser.email || ""));
-                                      toast({ title: "Email copied", description: targetUser.email });
-                                    } catch {
-                                      toast({ title: "Copy failed", description: "Browser blocked clipboard access.", variant: "destructive" });
-                                    }
-                                  }}
-                                  className="text-slate-700 hover:underline"
-                                  title="Copy email"
-                                >
-                                  {targetUser.email}
-                                </button>
-                              ) : "N/A"}
-                            </p>
-                            {targetUser.phone_number && (
-                              <p>
-                                Phone:{" "}
+                {filteredUsers.length === 0 ? (
+                  <div className="p-10 text-center">
+                    <Users className="mx-auto mb-3 h-12 w-12 text-slate-300" />
+                    <p className="text-base font-semibold text-slate-950">No users found</p>
+                    <p className="mt-1 text-sm text-slate-600">
+                      {searchTerm ? "Clear the search or try another role name." : "Add the first staff login from the button above."}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-slate-200">
+                    {filteredUsers.map((targetUser) => {
+                      const roles = userAccessRoles(targetUser);
+                      const primaryRole = roleMetaFor(targetUser.primary_department || targetUser.role);
+                      const PrimaryIcon = primaryRole?.icon || UserCircle;
+                      const activity = loginActivityBucket(targetUser.last_sign_in_at);
+                      return (
+                        <div key={targetUser.id} className="p-4 transition-colors hover:bg-slate-50/70">
+                          <div className="grid gap-4 xl:grid-cols-[minmax(220px,1.15fr)_minmax(220px,1fr)_170px_220px] xl:items-start">
+                            <div className="min-w-0">
+                              <div className="flex min-w-0 items-center gap-3">
+                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-slate-100 text-sm font-semibold text-slate-700">
+                                  {(targetUser.full_name || targetUser.email || "?").slice(0, 2).toUpperCase()}
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="flex min-w-0 flex-wrap items-center gap-2">
+                                    <h3 className="truncate text-sm font-semibold text-slate-950">
+                                      {targetUser.full_name || "Unnamed User"}
+                                    </h3>
+                                    <Badge className={targetUser.is_active ? "border-brand-primary/20 bg-brand-primary/10 text-brand-primary" : "border-slate-200 bg-slate-100 text-slate-700"}>
+                                      {targetUser.is_active ? "Active" : "Inactive"}
+                                    </Badge>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={async () => {
+                                      try {
+                                        await navigator.clipboard.writeText(String(targetUser.email || ""));
+                                        toast({ title: "Email copied", description: targetUser.email || "" });
+                                      } catch {
+                                        toast({ title: "Copy failed", description: "Browser blocked clipboard access.", variant: "destructive" });
+                                      }
+                                    }}
+                                    className="mt-0.5 block max-w-full truncate text-left text-xs text-slate-600 hover:text-slate-950 hover:underline"
+                                    title="Copy email"
+                                  >
+                                    {targetUser.email || "No email"}
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="min-w-0">
+                              <div className="mb-2 flex items-center gap-2 text-xs font-medium text-slate-500">
+                                <PrimaryIcon className="h-3.5 w-3.5" />
+                                <span>Access</span>
+                              </div>
+                              <div className="flex flex-wrap gap-1.5">
+                                {roles.length > 0 ? (
+                                  roles.map((dept) => {
+                                    const config = roleMetaFor(dept);
+                                    const Icon = config?.icon || UserCircle;
+                                    const isPrimary = dept === normalizeRoleValue(targetUser.primary_department);
+                                    return (
+                                      <Badge key={dept} className={`text-xs ${config?.color} ${isPrimary ? "ring-2 ring-offset-1 ring-slate-500" : ""}`}>
+                                        <Icon className="mr-1 h-3 w-3" />
+                                        {config?.label || dept}
+                                      </Badge>
+                                    );
+                                  })
+                                ) : (
+                                  <Badge className="bg-slate-100 text-slate-600">No access assigned</Badge>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="text-xs text-slate-600">
+                              <p className="font-medium text-slate-950">Activity</p>
+                              <span
+                                className={`mt-1 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium ${activity.tone}`}
+                                title={
+                                  targetUser.last_sign_in_at
+                                    ? `Last sign-in: ${new Date(targetUser.last_sign_in_at).toLocaleString("en-ZA")}`
+                                    : "No login recorded yet"
+                                }
+                              >
+                                {activity.label}
+                              </span>
+                              <p className="mt-1">
+                                Joined {formatLocalDate(targetUser.created_at || Date.now())}
+                              </p>
+                              {targetUser.phone_number && (
                                 <button
                                   type="button"
                                   onClick={async () => {
@@ -1063,103 +1071,55 @@ function AdminUsersPage() {
                                       toast({ title: "Copy failed", description: "Browser blocked clipboard access.", variant: "destructive" });
                                     }
                                   }}
-                                  className="text-slate-700 hover:underline"
+                                  className="mt-1 block text-slate-700 hover:text-slate-950 hover:underline"
                                   title="Copy phone number"
                                 >
                                   {targetUser.phone_number}
                                 </button>
-                              </p>
-                            )}
-                            {targetUser.company_name && <p>Company: {targetUser.company_name}</p>}
-                            <p>Joined: {formatLocalDate(targetUser.created_at || Date.now())}</p>
-                            {/* USR2-A: last sign-in line. Mirrored
-                                from auth.users via the
-                                auth_users_last_sign_in_mirror
-                                trigger. Helps admins notice ghost
-                                accounts and inactive staff. */}
-                            <p title={targetUser.last_sign_in_at ? new Date(targetUser.last_sign_in_at).toLocaleString("en-ZA") : "No login recorded yet"}>
-                              Last sign-in:{" "}
-                              {targetUser.last_sign_in_at
-                                ? formatDistanceToNow(new Date(targetUser.last_sign_in_at), { addSuffix: true })
-                                : <span className="italic text-slate-400">never</span>}
-                            </p>
-                          </div>
-
-                          {editingUser !== targetUser.id && (
-                            <div className="flex gap-2 flex-wrap">
-                              {userAccessRoles(targetUser).length > 0 ? (
-                                userAccessRoles(targetUser).map((dept) => {
-                                  const config = roleMetaFor(dept);
-                                  const Icon = config?.icon || UserCircle;
-                                  const isPrimary = dept === normalizeRoleValue(targetUser.primary_department);
-                                  return (
-                                    <Badge key={dept} className={`text-xs ${config?.color} ${isPrimary ? "ring-2 ring-offset-2 ring-slate-500" : ""}`}>
-                                      <Icon className="w-3 h-3 mr-1" />
-                                      {config?.label || dept}
-                                      {isPrimary && " (Primary)"}
-                                    </Badge>
-                                  );
-                                })
-                              ) : (
-                                <Badge className="text-xs bg-slate-100 text-slate-600">
-                                  No departments assigned
-                                </Badge>
                               )}
                             </div>
-                          )}
-                        </div>
 
-                        {editingUser !== targetUser.id && (
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <InfoTooltip
-                              content={"Click to assign or change departments for this user.\n\nYou can pick more than one and mark one as primary."}
-                              side="left"
-                            />
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleEditUser(targetUser.id)}
-                              className="text-sm"
-                            >
-                              <Edit className="w-4 h-4 mr-2" />
-                              Edit Departments
-                            </Button>
-                            {/* USR-C (task #208, 2026-05-24): deactivate
-                                / reactivate. The hero copy used to
-                                promise "revoke access here" - this
-                                ships it. Deactivation needs a confirm
-                                because mis-clicking locks the user
-                                out; reactivation is one click. */}
-                            {targetUser.is_active ? (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setConfirmDeactivate(targetUser)}
-                                disabled={statusBusy === targetUser.id || targetUser.id === user?.id}
-                                title={targetUser.id === user?.id ? "You can't deactivate yourself" : "Stop this user from signing in"}
-                                className="text-sm text-rose-700 border-rose-300 hover:bg-rose-50"
-                              >
-                                <UserX className="w-4 h-4 mr-2" />
-                                Deactivate
-                              </Button>
-                            ) : (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleStatusToggle(targetUser, true)}
-                                disabled={statusBusy === targetUser.id}
-                                className="text-sm text-brand-primary border-brand-primary/30 hover:bg-brand-primary/10"
-                              >
-                                <UserCheck className="w-4 h-4 mr-2" />
-                                {statusBusy === targetUser.id ? "Saving..." : "Reactivate"}
-                              </Button>
+                            {editingUser !== targetUser.id && (
+                              <div className="flex flex-wrap justify-start gap-2 xl:justify-end">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleEditUser(targetUser.id)}
+                                  className="h-9 text-sm"
+                                >
+                                  <Edit className="mr-2 h-4 w-4" />
+                                  Edit access
+                                </Button>
+                                {targetUser.is_active ? (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setConfirmDeactivate(targetUser)}
+                                    disabled={statusBusy === targetUser.id || targetUser.id === user?.id}
+                                    title={targetUser.id === user?.id ? "You can't deactivate yourself" : "Stop this user from signing in"}
+                                    className="h-9 border-rose-300 text-sm text-rose-700 hover:bg-rose-50"
+                                  >
+                                    <UserX className="mr-2 h-4 w-4" />
+                                    Deactivate
+                                  </Button>
+                                ) : (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleStatusToggle(targetUser, true)}
+                                    disabled={statusBusy === targetUser.id}
+                                    className="h-9 border-brand-primary/30 text-sm text-brand-primary hover:bg-brand-primary/10"
+                                  >
+                                    <UserCheck className="mr-2 h-4 w-4" />
+                                    {statusBusy === targetUser.id ? "Saving..." : "Reactivate"}
+                                  </Button>
+                                )}
+                              </div>
                             )}
                           </div>
-                        )}
-                      </div>
 
                       {editingUser === targetUser.id && (
-                        <div className="space-y-4 p-3 md:p-4 bg-slate-50 rounded-lg border-2 border-slate-200">
+                        <div className="mt-4 space-y-4 rounded-xl border border-slate-300 bg-slate-50 p-3 md:p-4">
                           {/* USR-D (task #209, 2026-05-25): grouped
                               picker with per-role descriptions. The
                               old flat 7-checkbox grid gave no hint
@@ -1316,12 +1276,33 @@ function AdminUsersPage() {
                           </div>
                         </div>
                       )}
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </section>
+
+              <section className="rounded-2xl border border-slate-300/80 bg-white shadow-[0_1px_1px_rgba(15,23,42,0.04),0_14px_28px_-24px_rgba(15,23,42,0.35)]">
+                <div className="flex items-center justify-between gap-3 border-b border-slate-200 p-4">
+                  <div>
+                    <h2 className="text-base font-semibold text-slate-950">Pending invitations</h2>
+                    <p className="text-xs text-slate-500">{pendingInviteCount} waiting to accept</p>
+                  </div>
+                  <Button variant="outline" size="sm" onClick={loadInvitations} disabled={invitationsLoading}>
+                    <RefreshCw className={`mr-2 h-4 w-4 ${invitationsLoading ? "animate-spin" : ""}`} />
+                    Refresh
+                  </Button>
+                </div>
+                <div className="p-4">
+                  <PendingInvitationsList
+                    invitations={invitations}
+                    loading={invitationsLoading}
+                    onCancel={handleCancelInvitation}
+                  />
+                </div>
+              </section>
+            </main>
           </div>
         </PortalShell>
       </div>
@@ -1513,49 +1494,46 @@ function PendingInvitationsList({
   }
   if (invitations.length === 0) {
     return (
-      <Card className="border-0 shadow-md">
-        <CardContent className="pt-12 pb-12 text-center">
-          <Mail className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-          <p className="text-base font-semibold text-slate-900 mb-1">No pending invitations</p>
-          <p className="text-sm text-slate-600">Invitations expire after 7 days. Send one from the button up top.</p>
-        </CardContent>
-      </Card>
+      <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-center">
+        <Mail className="mx-auto mb-3 h-10 w-10 text-slate-300" />
+        <p className="text-sm font-semibold text-slate-950">No pending invitations</p>
+        <p className="mt-1 text-sm text-slate-600">New staff you add will appear here until they accept or expire.</p>
+      </div>
     );
   }
   const nowMs = Date.now();
   return (
-    <div className="space-y-3">
+    <div className="divide-y divide-slate-200 rounded-xl border border-slate-200">
       {invitations.map((inv) => {
         const expiresMs = inv.expires_at ? new Date(inv.expires_at).getTime() : null;
         const expired = expiresMs != null && expiresMs < nowMs;
         return (
-          <Card key={inv.id} className="border-0 shadow-md">
-            <CardContent className="p-4 flex items-center gap-3 flex-wrap">
-              <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center flex-shrink-0">
-                <Mail className="w-5 h-5 text-amber-700" />
+          <div key={inv.id} className="flex flex-wrap items-center gap-3 p-3">
+              <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-amber-100">
+                <Mail className="h-4 w-4 text-amber-700" />
               </div>
-              <div className="flex-1 min-w-0">
+              <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <p className="font-semibold text-slate-900 truncate">{inv.full_name || inv.email || "Invitee"}</p>
+                  <p className="truncate text-sm font-semibold text-slate-950">{inv.full_name || inv.email || "Invitee"}</p>
                   {inv.role && (
-                    <Badge variant="outline" className="text-[10px] uppercase tracking-wide">
+                    <Badge variant="outline" className="text-[10px]">
                       {inv.role}
                     </Badge>
                   )}
                   {expired ? (
                     <Badge variant="destructive" className="text-[10px]">
-                      <Clock className="w-2.5 h-2.5 mr-1" /> Expired
+                      <Clock className="mr-1 h-2.5 w-2.5" /> Expired
                     </Badge>
                   ) : (
                     <Badge variant="secondary" className="text-[10px]">Pending</Badge>
                   )}
                 </div>
-                <p className="text-xs text-slate-600 mt-0.5 truncate">{inv.email || "(no email captured)"}</p>
-                <p className="text-[11px] text-slate-500 mt-0.5">
+                <p className="mt-0.5 truncate text-xs text-slate-600">{inv.email || "(no email captured)"}</p>
+                <p className="mt-0.5 text-[11px] text-slate-500">
                   Invited {inv.created_at ? formatLocalDate(inv.created_at) : "-"}
                   {inv.expires_at && (
                     <span className="ml-2">
-                      · Expires {formatLocalDate(inv.expires_at)}
+                      Expires {formatLocalDate(inv.expires_at)}
                     </span>
                   )}
                 </p>
@@ -1564,13 +1542,12 @@ function PendingInvitationsList({
                 variant="outline"
                 size="sm"
                 onClick={() => onCancel(inv.id)}
-                className="text-rose-700 border-rose-300 hover:bg-rose-50 gap-1.5"
+                className="gap-1.5 border-rose-300 text-rose-700 hover:bg-rose-50"
               >
-                <Trash2 className="w-3.5 h-3.5" />
+                <Trash2 className="h-3.5 w-3.5" />
                 Cancel
               </Button>
-            </CardContent>
-          </Card>
+          </div>
         );
       })}
     </div>
