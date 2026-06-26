@@ -16,7 +16,7 @@ import { ClientNav } from "@/components/navigation/ClientNav";
 import { PortalShell, PortalHeader, PortalCard, PortalCardHeader, PortalOverview,
   PageWorkbench,
 } from "@/components/portal/ui";
-import { computeOrderTimeline, toClientTimeline } from "@/services/order/orderTimeline";
+import { computeOrderTimeline } from "@/services/order/orderTimeline";
 import { TimelineTrack } from "@/components/admin/orders/TimelineTrack";
 // Wave 28.4: same wizard the magic-link surfaces use. Auth client
 // portal users get the identical 3-step flow so the catering company
@@ -170,19 +170,12 @@ export default function MyOrders() {
           .eq("company_id", tenantCompanyId);
         const clientIds = ((clientRows as any[]) || []).map((r) => r.id);
 
-        // Wave 26: extended SELECT to include the columns the client
-        // OrderTimeline derives from (deposit_paid, balance_paid,
-        // delivered_at, completed_at, equipment_return_method,
-        // confirmed_at, deposit_amount, balance_amount). Without
-        // these, the per-row compact TimelineTrack would render every
-        // post-confirmation stage as upcoming regardless of actual
-        // payment / delivery state.
+        // Full timeline fields: the row card renders the same
+        // 22-stage TimelineTrack as the order document, so expose the
+        // canonical order column names the timeline derivation reads.
         let ordersQuery = supabase
           .from("orders")
-          // orders has prep_started_at (aliased to kitchen_prep_started_at) but
-          // no shopping_completed_at column - dropped so the whole list query
-          // stops 400ing; shoppingDone simply won't light up in the timeline.
-          .select("id, event_date, event_time, order_number, event_name, venue_name, venue_address, guest_count, status, total_amount, payment_status, confirmed_at, deposit_paid, deposit_paid_at, deposit_amount, balance_paid, balance_paid_at, balance_amount, balance_due_date, delivered_at, completed_at, equipment_return_method, created_at, amount_paid, kitchen_prep_started_at:prep_started_at")
+          .select("id, event_date, event_time, order_number, event_name, venue_name, venue_address, guest_count, status, total_amount, payment_status, confirmed_at, deposit_paid, deposit_paid_at, deposit_amount, balance_paid, balance_paid_at, balance_amount, balance_due_date, prep_started_at, ready_at, picked_up_at, arrived_at_venue_at, pod_captured_at, delivered_at, setup_started_at, service_started_at, departed_venue_at, completed_at, equipment_return_method, created_at, amount_paid")
           .eq("company_id", tenantCompanyId)
           .is("deleted_at", null)
           .order("event_date", { ascending: false });
@@ -376,15 +369,12 @@ export default function MyOrders() {
               ) : (
                 <div className="space-y-4">
                   {filteredOrders.map((order) => {
-                    // Wave 26: client-projected timeline per row.
-                    // Computed from the order columns alone (no
-                    // related-row fetch on this list page) so the
-                    // client sees deposit / delivery / balance state
-                    // at a glance without opening the detail view.
-                    // Cancelled orders skip the timeline - the badge
-                    // already says everything.
+                    // Full 22-stage timeline per row. Keep the same
+                    // pipeline model clients see on the order document;
+                    // admin/source links stay disabled from this client
+                    // surface.
                     const clientTl = order.status !== "cancelled"
-                      ? toClientTimeline(computeOrderTimeline({ order }))
+                      ? computeOrderTimeline({ order })
                       : null;
                     const isTargetOrder = targetOrderId === order.id;
                     return (
@@ -556,15 +546,11 @@ export default function MyOrders() {
                           )}
                         </div>
                       </div>
-                      {/* Wave 26: per-row client timeline - compact
-                          variant so it fits inside the row card
-                          without stealing layout space. Renders the
-                          "Next to do" banner + cluster pills + a
-                          "Show all" chevron. Skipped on cancelled
-                          orders (the badge already says it). */}
+                      {/* Full 22-stage timeline. Skipped on cancelled
+                          orders because the badge already says it. */}
                       {clientTl && (
                         <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800">
-                          <TimelineTrack timeline={clientTl} compact hideOperatorGlossary />
+                          <TimelineTrack timeline={clientTl} hideOperatorGlossary disableSourceLinks />
                         </div>
                       )}
                     </div>

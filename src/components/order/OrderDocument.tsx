@@ -29,8 +29,10 @@ import { Badge } from "@/components/ui/badge";
 import {
   Loader2, Printer, ArrowLeft, RefreshCw,
   FileText, Activity, ChefHat, ShoppingCart, Truck, Sparkles, Droplets, Wallet, History, Star,
-  MessageSquare, Paperclip,
+  MessageSquare, Paperclip, ArrowRight,
 } from "lucide-react";
+import { TimelineTrack } from "@/components/admin/orders/TimelineTrack";
+import { computeOrderTimeline, type OrderTimelineStage } from "@/services/order/orderTimeline";
 import { OrderHeaderSection } from "./sections/OrderHeaderSection";
 import { OrderAlertBanners } from "./OrderAlertBanners";
 import { OrderSuggestedAction } from "./OrderSuggestedAction";
@@ -150,6 +152,272 @@ interface OrderHead {
   secondary_driver_id: string | null;
   secondary_vehicle_id: string | null;
   pickup_time: string | null;
+}
+
+const ACTIVE_ROLE_SECTION: Record<ViewerSection, string> = {
+  kitchen: "section-kitchen",
+  driver: "section-driver",
+  waiter: "section-waiter",
+  shopping: "section-shopping",
+  cleaning: "section-cleaning",
+  admin: "section-admin",
+  client: "section-timeline",
+};
+
+function cleanStatus(status: string | null | undefined): string {
+  return String(status || "unknown").replace(/_/g, " ");
+}
+
+function fmtOrderStamp(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleString("en-ZA", {
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function fmtEventWhen(order: OrderHead): string {
+  const date = new Date(order.event_date).toLocaleDateString("en-ZA", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+  });
+  return order.event_time ? `${date} at ${order.event_time.slice(0, 5)}` : date;
+}
+
+function latestStamp(order: OrderHead): string | null {
+  return [
+    order.completed_at,
+    order.departed_venue_at,
+    order.delivered_at,
+    order.pod_captured_at,
+    order.arrived_at_venue_at,
+    order.picked_up_at,
+    order.ready_at,
+    order.prep_started_at,
+    order.confirmed_at,
+    order.created_at,
+  ].filter((s): s is string => !!s).sort().pop() || null;
+}
+
+function stageSectionId(stage: OrderTimelineStage | null | undefined, isClient: boolean): string {
+  if (!stage || isClient) return "section-timeline";
+  switch (stage.key) {
+    case "pre_event_shopping":
+      return "section-shopping";
+    case "kitchen_prep_in_progress":
+    case "ready_for_dispatch":
+      return "section-kitchen";
+    case "driver_assigned_delivery":
+    case "in_transit":
+    case "delivered":
+    case "departed_venue":
+    case "collection_scheduled":
+    case "collection_done":
+      return "section-driver";
+    case "setup_started":
+    case "service_started":
+    case "service_ended":
+    case "event_complete":
+      return "section-waiter";
+    case "pre_event_cleaning":
+    case "post_event_cleaning":
+      return "section-cleaning";
+    case "deposit_invoice_issued":
+    case "deposit_paid":
+    case "final_invoice_issued":
+    case "final_invoice_sent":
+    case "balance_paid":
+    case "receipt_issued":
+      return "section-admin";
+    case "completed":
+    case "thank_you_sent":
+      return "section-history";
+    default:
+      return "section-header";
+  }
+}
+
+function stageOwner(stage: OrderTimelineStage | null | undefined, isClient: boolean): string {
+  if (!stage) return isClient ? "Catering team" : "Team";
+  if (isClient) {
+    switch (stage.group) {
+      case "dispatch":
+        return "Delivery team";
+      case "on_site":
+        return "Event team";
+      default:
+        return "Catering team";
+    }
+  }
+  switch (stage.key) {
+    case "pre_event_shopping":
+      return "Shopping";
+    case "kitchen_prep_in_progress":
+    case "ready_for_dispatch":
+      return "Kitchen";
+    case "driver_assigned_delivery":
+    case "in_transit":
+    case "delivered":
+    case "departed_venue":
+    case "collection_scheduled":
+    case "collection_done":
+      return "Driver";
+    case "setup_started":
+    case "service_started":
+    case "service_ended":
+    case "event_complete":
+      return "Service";
+    case "pre_event_cleaning":
+    case "post_event_cleaning":
+      return "Cleaning";
+    case "deposit_invoice_issued":
+    case "deposit_paid":
+    case "final_invoice_issued":
+    case "final_invoice_sent":
+    case "balance_paid":
+    case "receipt_issued":
+    case "completed":
+    case "thank_you_sent":
+      return "Admin";
+    default:
+      return "Admin";
+  }
+}
+
+function OrderTrackingOverview({
+  order,
+  primary,
+  isClient,
+  lastLoadedAt,
+  scrollToSection,
+}: {
+  order: OrderHead;
+  primary: ViewerSection;
+  isClient: boolean;
+  lastLoadedAt: Date | null;
+  scrollToSection: (sectionId: string) => void;
+}) {
+  const timeline = useMemo(() => computeOrderTimeline({
+    order,
+    hasOnSiteService: !!(
+      order.requires_waiter ||
+      order.waiter_service_required ||
+      order.setup_started_at ||
+      order.service_started_at ||
+      order.departed_venue_at
+    ),
+  }), [order]);
+  const status = String(order.status || "").toLowerCase();
+  const cancelled = status === "cancelled" || !!order.cancelled_at;
+  const postponed = status === "postponed" || !!order.postponed_at;
+  const applicableStages = timeline.stages.filter((s) => s.status !== "not_applicable" && s.status !== "skipped");
+  const currentTimelineStage = timeline.stages.find((s) => s.status === "current" || s.status === "blocked")
+    || [...applicableStages].reverse().find((s) => s.status === "completed")
+    || applicableStages[0]
+    || null;
+  const currentStageIndex = currentTimelineStage
+    ? timeline.stages.findIndex((s) => s.key === currentTimelineStage.key)
+    : -1;
+  const nextStage = !cancelled && !postponed && currentStageIndex >= 0
+    ? timeline.stages.slice(currentStageIndex + 1).find((s) => s.status === "upcoming")
+    : null;
+  const eventLabel = fmtEventWhen(order);
+  const displayLabel = cancelled
+    ? "Cancelled"
+    : postponed
+      ? "Postponed"
+      : currentTimelineStage?.label || "Order received";
+  const currentSectionId = cancelled || postponed
+    ? "section-timeline"
+    : stageSectionId(currentTimelineStage, isClient);
+  const lastStamp = fmtOrderStamp(
+    (cancelled ? order.cancelled_at : postponed ? order.postponed_at : null)
+      || currentTimelineStage?.completedAt
+      || currentTimelineStage?.startedAt
+      || latestStamp(order),
+  );
+  const ownerLabel = cancelled || postponed ? "Admin" : stageOwner(currentTimelineStage, isClient);
+  const mySectionId = ACTIVE_ROLE_SECTION[primary];
+  const canJumpToMySection = !isClient && mySectionId && mySectionId !== currentSectionId;
+  const statusTone = cancelled
+    ? "border-rose-200 bg-rose-50 text-rose-700"
+    : postponed
+      ? "border-amber-200 bg-amber-50 text-amber-800"
+      : "border-slate-200 bg-slate-100 text-slate-700";
+
+  return (
+    <section className="mb-3 sm:mb-4 rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden print:border-slate-300">
+      <div className="p-4 sm:p-5">
+        <div className="flex items-start justify-between gap-3 flex-wrap">
+          <div className="min-w-0 flex-1">
+            <p className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Order tracking</p>
+            <h1 className="mt-1 text-xl sm:text-2xl font-semibold text-slate-950 leading-tight">
+              {displayLabel}
+            </h1>
+            <p className="mt-1 text-sm text-slate-600">
+              {ownerLabel} owns the current step
+              {lastStamp ? ` - last movement ${lastStamp}` : ""}.
+            </p>
+          </div>
+          <Badge variant="outline" className={`${statusTone} capitalize px-3 py-1 text-xs font-semibold`}>
+            {cleanStatus(order.status)}
+          </Badge>
+        </div>
+
+        <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+            <p className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Next</p>
+            <p className="mt-0.5 text-sm font-medium text-slate-900">
+              {nextStage ? `${nextStage.label} - ${stageOwner(nextStage, isClient)}` : "No open timeline step"}
+            </p>
+          </div>
+          <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+            <p className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Event</p>
+            <p className="mt-0.5 text-sm font-medium text-slate-900">{eventLabel}</p>
+          </div>
+          <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+            <p className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Location</p>
+            <p className="mt-0.5 text-sm font-medium text-slate-900 truncate">
+              {order.venue_name || order.venue_address || "Venue not set"}
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-4 rounded-lg border border-slate-200 bg-white p-3 overflow-hidden">
+          <TimelineTrack
+            timeline={timeline}
+            hideOperatorGlossary={isClient}
+            disableSourceLinks
+          />
+        </div>
+
+        <div className="mt-4 flex items-center justify-between gap-3 flex-wrap print:hidden">
+          <p className="text-xs text-slate-500">
+            {timeline.completedCount}/{timeline.applicableCount} timeline steps complete
+            {lastLoadedAt ? ` - refreshed ${lastLoadedAt.toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" })}` : ""}
+          </p>
+          <div className="flex items-center gap-2 flex-wrap">
+            <Button size="sm" variant="outline" onClick={() => scrollToSection(currentSectionId)} className="h-8 gap-1.5">
+              Open current <ArrowRight className="w-3.5 h-3.5" />
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => scrollToSection("section-timeline")} className="h-8 gap-1.5">
+              Full timeline <Activity className="w-3.5 h-3.5" />
+            </Button>
+            {canJumpToMySection && (
+              <Button size="sm" variant="outline" onClick={() => scrollToSection(mySectionId)} className="h-8 gap-1.5">
+                My section
+              </Button>
+            )}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
 }
 
 export interface OrderDocumentProps {
@@ -444,6 +712,14 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
           </div>
         </nav>
       )}
+
+      <OrderTrackingOverview
+        order={order}
+        primary={primary}
+        isClient={isClient}
+        lastLoadedAt={lastLoadedAt}
+        scrollToSection={scrollToSection}
+      />
 
       {/* ODOC H.4: admin quick-action chip strip. Mirrors what the
           old OrderDetailsModal toolbar carried so the row-click

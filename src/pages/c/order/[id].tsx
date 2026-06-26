@@ -29,7 +29,7 @@ import {
 import Link from "next/link";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { Footer } from "@/components/Footer";
-import { computeOrderTimeline, toClientTimeline } from "@/services/order/orderTimeline";
+import { computeOrderTimeline } from "@/services/order/orderTimeline";
 import { TimelineTrack } from "@/components/admin/orders/TimelineTrack";
 // Wave 28.4: route the magic-link cancel button through the new
 // 3-step Cancellation Companion. The wizard owns the consequence
@@ -386,16 +386,9 @@ export default function ClientOrderPage() {
             </CardContent>
           </Card>
 
-          {/* Status timeline - Wave 26: replaced the legacy 5-step
-              row with the same TimelineTrack the admin sees, projected
-              down to ~9 client-friendly stages via toClientTimeline().
-              The client now sees the full lifecycle the operator
-              tracks (deposit received, preparing, on the way,
-              delivered, equipment collected if applicable, balance
-              received, all wrapped up) instead of just the 5 status
-              dots that didn't tell them whether their deposit had
-              landed or what was happening between confirmed and
-              in-transit. */}
+          {/* Status timeline - the same 22-stage pipeline model used
+              by admin and staff order documents. Public/source links
+              stay disabled on this magic-link surface. */}
           {status !== "cancelled" && (
             <Card className="border-0 shadow-lg">
               <CardHeader className="pb-3">
@@ -419,14 +412,7 @@ export default function ClientOrderPage() {
                     equipmentBookings: (view as any)?.equipment_bookings || [],
                     invoices: invoice ? [invoice] : [],
                   });
-                  const clientTl = toClientTimeline(operatorTl);
-                  // Wave 70.49e - hide the operator glossary in the
-                  // per-stage tooltip ("Completes when / All
-                  // kitchen_prep_tasks marked done / Owner: Head chef"
-                  // etc). That copy is internal operational language;
-                  // clients should never see table names or role
-                  // assignments.
-                  return <TimelineTrack timeline={clientTl} hideOperatorGlossary />;
+                  return <TimelineTrack timeline={operatorTl} hideOperatorGlossary disableSourceLinks />;
                 })()}
               </CardContent>
             </Card>
