@@ -598,6 +598,7 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
     const items: Array<{ id: string; label: string; icon: any; key: ViewerSection | "header" | "timeline" | "admin" | "history" }> = [
       { id: "section-header", label: "Order", icon: FileText, key: "header" },
       { id: "section-timeline", label: "Status", icon: Activity, key: "timeline" },
+      ...(!isClient ? [{ id: "section-history", label: "History", icon: History, key: "history" as const }] : []),
       { id: "section-kitchen", label: "Kitchen", icon: ChefHat, key: "kitchen" },
       { id: "section-shopping", label: "Shopping", icon: ShoppingCart, key: "shopping" },
       { id: "section-driver", label: "Driver", icon: Truck, key: "driver" },
@@ -612,9 +613,8 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
     if (isDelivered) items.push({ id: "section-feedback", label: "Feedback", icon: Star, key: "history" as any });
     if (canSeeFinance) items.push({ id: "section-comms", label: "Comms", icon: MessageSquare, key: "history" as any });
     items.push({ id: "section-attachments", label: "Files", icon: Paperclip, key: "history" as any });
-    items.push({ id: "section-history", label: "History", icon: History, key: "history" });
     return items;
-  }, [canSeeFinance, order]);
+  }, [canSeeFinance, isClient, order]);
 
   if (loading) {
     return (
@@ -781,6 +781,14 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
           forceOpen={forceAll}
           defaultOpen={true /* timeline is universal context */}
         />
+        {!isClient && (
+          <HistorySection
+            orderId={order.id}
+            companyId={order.company_id}
+            forceOpen={forceAll}
+            defaultOpen={true}
+          />
+        )}
         {/* ODOC: Kitchen section is the canonical menu + equipment +
             prep view for every role. Default open across the board
             so the menu isn't hidden behind a tap. Kitchen role still
@@ -869,12 +877,6 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
         {!isClient && (
           <>
             <AttachmentsSection
-              orderId={order.id}
-              companyId={order.company_id}
-              forceOpen={forceAll}
-              defaultOpen={false}
-            />
-            <HistorySection
               orderId={order.id}
               companyId={order.company_id}
               forceOpen={forceAll}

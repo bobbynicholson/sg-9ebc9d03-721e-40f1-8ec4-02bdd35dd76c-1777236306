@@ -74,6 +74,7 @@ interface Props {
 interface Assignment {
   id: string;
   driver_id: string;
+  assignment_type?: string | null;
   status: string | null;
   arrived_at_venue_at: string | null;
   delivered_at: string | null;
@@ -100,6 +101,15 @@ interface VehicleRow {
 interface ProfileRow {
   full_name: string | null;
   phone: string | null;
+}
+
+function pickVisibleAssignment(rows: any): Assignment | null {
+  const list = Array.isArray(rows) ? rows : rows ? [rows] : [];
+  return (
+    (list.find((row: any) => row?.assignment_type === "primary" && row?.driver_id) as Assignment | undefined) ||
+    (list.find((row: any) => row?.driver_id) as Assignment | undefined) ||
+    null
+  );
 }
 
 export function DriverSection({ order, defaultOpen, forceOpen, highlight }: Props) {
@@ -151,12 +161,10 @@ export function DriverSection({ order, defaultOpen, forceOpen, highlight }: Prop
         const tasks: Promise<any>[] = [
           (supabase as any)
             .from("driver_assignments")
-            .select("id, driver_id, status, arrived_at_venue_at, delivered_at, picked_up_at, en_route_at, checklist_crockery_confirmed, checklist_cutlery_confirmed, checklist_food_verified, driver:driver_id(full_name, phone)")
+            .select("id, assignment_type, driver_id, status, arrived_at_venue_at, delivered_at, picked_up_at, en_route_at, checklist_crockery_confirmed, checklist_cutlery_confirmed, checklist_food_verified, driver:driver_id(full_name, phone)")
             .eq("order_id", order.id)
-            .eq("assignment_type", "primary")
             .order("created_at", { ascending: false })
-            .limit(1)
-            .maybeSingle(),
+            .limit(8),
           order.assigned_vehicle_id
             ? (supabase as any)
                 .from("vehicles")
@@ -181,13 +189,14 @@ export function DriverSection({ order, defaultOpen, forceOpen, highlight }: Prop
         ];
         const [aRes, vRes, sdRes, svRes] = await Promise.all(tasks);
         if (cancelled) return;
-        if (aRes?.data) setAssignment(aRes.data as Assignment);
+        const pickedAssignment = pickVisibleAssignment(aRes?.data);
+        if (pickedAssignment) setAssignment(pickedAssignment);
         if (vRes?.data) setVehicle(vRes.data as VehicleRow);
         if (sdRes?.data) setSecondaryDriver(sdRes.data as ProfileRow);
         if (svRes?.data) setSecondaryVehicle(svRes.data as VehicleRow);
 
         // Fallback driver lookup when no assignment row exists yet.
-        if (!aRes?.data && order.assigned_driver_id) {
+        if (!pickedAssignment && order.assigned_driver_id) {
           const { data: pData } = await (supabase as any)
             .from("profiles")
             .select("full_name, phone")
@@ -214,13 +223,12 @@ export function DriverSection({ order, defaultOpen, forceOpen, highlight }: Prop
         async () => {
           const { data } = await (supabase as any)
             .from("driver_assignments")
-            .select("id, driver_id, status, arrived_at_venue_at, delivered_at, picked_up_at, en_route_at, checklist_crockery_confirmed, checklist_cutlery_confirmed, checklist_food_verified, driver:driver_id(full_name, phone)")
+            .select("id, assignment_type, driver_id, status, arrived_at_venue_at, delivered_at, picked_up_at, en_route_at, checklist_crockery_confirmed, checklist_cutlery_confirmed, checklist_food_verified, driver:driver_id(full_name, phone)")
             .eq("order_id", order.id)
-            .eq("assignment_type", "primary")
             .order("created_at", { ascending: false })
-            .limit(1)
-            .maybeSingle();
-          if (data) setAssignment(data as Assignment);
+            .limit(8);
+          const picked = pickVisibleAssignment(data);
+          if (picked) setAssignment(picked);
         },
       )
       .subscribe();
@@ -367,11 +375,11 @@ export function DriverSection({ order, defaultOpen, forceOpen, highlight }: Prop
           {/* Collection time + distance + leave-by header strip */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             {collectionLabel && (
-              <div className="flex items-start gap-2 p-3 rounded-md bg-indigo-50 border border-indigo-200">
-                <Clock className="w-4 h-4 text-indigo-600 flex-shrink-0 mt-0.5" />
+              <div className="flex items-start gap-2 p-3 rounded-md bg-brand-primary/10 border border-brand-primary/20">
+                <Clock className="w-4 h-4 text-brand-primary flex-shrink-0 mt-0.5" />
                 <div className="min-w-0">
-                  <p className="text-[10px] uppercase tracking-wider text-indigo-800 font-semibold">Collection time</p>
-                  <p className="text-sm font-semibold text-indigo-900">{collectionLabel}</p>
+                  <p className="text-[10px] uppercase tracking-wider text-brand-primary font-semibold">Collection time</p>
+                  <p className="text-sm font-semibold text-brand-primary">{collectionLabel}</p>
                 </div>
               </div>
             )}
@@ -414,12 +422,12 @@ export function DriverSection({ order, defaultOpen, forceOpen, highlight }: Prop
 
           {/* Primary driver + vehicle block */}
           {driver ? (
-            <div className="flex items-start gap-2 p-2.5 rounded-md border border-indigo-200 bg-indigo-50/40">
-              <User className="w-4 h-4 text-indigo-700 flex-shrink-0 mt-0.5" />
+            <div className="flex items-start gap-2 p-2.5 rounded-md border border-brand-primary/20 bg-brand-primary/10">
+              <User className="w-4 h-4 text-brand-primary flex-shrink-0 mt-0.5" />
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium text-slate-900">{driver.full_name || "Assigned driver"}</p>
                 {driver.phone && (
-                  <a href={`tel:${driver.phone}`} className="inline-flex items-center gap-1 text-xs text-indigo-700 hover:underline mt-0.5">
+                  <a href={`tel:${driver.phone}`} className="inline-flex items-center gap-1 text-xs text-brand-primary hover:underline mt-0.5">
                     <Phone className="w-3 h-3" />{driver.phone}
                   </a>
                 )}
@@ -440,7 +448,7 @@ export function DriverSection({ order, defaultOpen, forceOpen, highlight }: Prop
               {isAdminViewer && (
                 <Link
                   href={withSlug(`/admin/order-assignments?orderId=${order.id}`)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 flex-shrink-0 whitespace-nowrap"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-brand-primary text-white text-xs font-semibold hover:opacity-90 flex-shrink-0 whitespace-nowrap"
                 >
                   <Truck className="w-3.5 h-3.5" /> Assign driver
                 </Link>
@@ -450,15 +458,15 @@ export function DriverSection({ order, defaultOpen, forceOpen, highlight }: Prop
 
           {/* Secondary driver + vehicle (two-driver jobs) */}
           {(order.requires_two_drivers || secondaryDriver || secondaryVehicle) && (
-            <div className="flex items-start gap-2 p-2.5 rounded-md border border-indigo-200 bg-indigo-50/40">
-              <Users className="w-4 h-4 text-indigo-700 flex-shrink-0 mt-0.5" />
+            <div className="flex items-start gap-2 p-2.5 rounded-md border border-brand-primary/20 bg-brand-primary/10">
+              <Users className="w-4 h-4 text-brand-primary flex-shrink-0 mt-0.5" />
               <div className="min-w-0 flex-1">
-                <p className="text-[10px] uppercase tracking-wider text-indigo-800 font-semibold">Secondary</p>
+                <p className="text-[10px] uppercase tracking-wider text-brand-primary font-semibold">Secondary</p>
                 {secondaryDriver ? (
                   <>
                     <p className="text-sm font-medium text-slate-900">{secondaryDriver.full_name || "Secondary driver"}</p>
                     {secondaryDriver.phone && (
-                      <a href={`tel:${secondaryDriver.phone}`} className="inline-flex items-center gap-1 text-xs text-indigo-700 hover:underline mt-0.5">
+                      <a href={`tel:${secondaryDriver.phone}`} className="inline-flex items-center gap-1 text-xs text-brand-primary hover:underline mt-0.5">
                         <Phone className="w-3 h-3" />{secondaryDriver.phone}
                       </a>
                     )}
@@ -473,7 +481,7 @@ export function DriverSection({ order, defaultOpen, forceOpen, highlight }: Prop
                           disabled={savingSecondary}
                           defaultValue=""
                           onChange={(e) => { if (e.target.value) void assignSecondaryDriver(e.target.value); }}
-                          className="h-8 rounded-md border border-slate-300 bg-white px-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-400 disabled:opacity-60"
+                          className="h-8 rounded-md border border-slate-300 bg-white px-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-primary/40 disabled:opacity-60"
                         >
                           <option value="" disabled>
                             {companyDrivers.length ? "Pick a secondary driver..." : "No other drivers found"}
@@ -484,7 +492,7 @@ export function DriverSection({ order, defaultOpen, forceOpen, highlight }: Prop
                               <option key={d.id} value={d.id}>{d.full_name || "Driver"}</option>
                             ))}
                         </select>
-                        {savingSecondary && <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-600" />}
+                        {savingSecondary && <Loader2 className="w-3.5 h-3.5 animate-spin text-brand-primary" />}
                       </div>
                     )}
                   </>
@@ -514,7 +522,7 @@ export function DriverSection({ order, defaultOpen, forceOpen, highlight }: Prop
                     Venue contact:
                     {order.venue_contact_person && <span className="font-medium ml-1">{order.venue_contact_person}</span>}
                     {order.venue_contact_phone && (
-                      <a href={`tel:${order.venue_contact_phone}`} className="ml-1 text-indigo-700 hover:underline inline-flex items-center gap-1">
+                      <a href={`tel:${order.venue_contact_phone}`} className="ml-1 text-brand-primary hover:underline inline-flex items-center gap-1">
                         <Phone className="w-3 h-3" />{order.venue_contact_phone}
                       </a>
                     )}
@@ -526,7 +534,7 @@ export function DriverSection({ order, defaultOpen, forceOpen, highlight }: Prop
                   href={navUrl}
                   target="_blank"
                   rel="noopener"
-                  className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-indigo-300 text-indigo-800 hover:bg-indigo-50 flex-shrink-0"
+                  className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-brand-primary/30 text-brand-primary hover:bg-brand-primary/10 flex-shrink-0"
                   title="Open in Google Maps"
                 >
                   <Navigation className="w-3 h-3" />
@@ -540,7 +548,7 @@ export function DriverSection({ order, defaultOpen, forceOpen, highlight }: Prop
           {isAssignedDriver && !podCaptured && !delivered && (
             <Link
               href={podDeepLink}
-              className="inline-flex items-center justify-center gap-1.5 w-full sm:w-auto px-4 py-2.5 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold"
+              className="inline-flex items-center justify-center gap-1.5 w-full sm:w-auto px-4 py-2.5 rounded-md bg-brand-primary hover:opacity-90 text-white text-sm font-semibold"
             >
               <Camera className="w-4 h-4" />
               Capture POD on driver dashboard

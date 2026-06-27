@@ -298,15 +298,6 @@ export async function postOrderCreationCascade(
         // order_confirmed row exists for this order in the last 5
         // minutes, skip and let the other path own it.
         receipt.email = { ok: true, skipped: true, reason: "deduped_recent_send" };
-      } else if (!opts.depositSettled && receipt.invoice.ok && receipt.invoice.invoiceId) {
-        // A deposit invoice was just issued and no deposit has been
-        // recorded as paid: the client is about to receive the
-        // deposit-invoice email ("pay this to lock in your date").
-        // Sending "your order is confirmed" in the same breath
-        // contradicts it and reads as two conflicting emails. Skip -
-        // the deposit email carries the next step; payment receipts
-        // confirm from there.
-        receipt.email = { ok: true, skipped: true, reason: "deposit_invoice_pending" };
       } else {
         const { data: companyRow, error: companyRowErr } = await (client as any)
           .from("companies")
@@ -417,6 +408,8 @@ export async function postOrderCreationCascade(
             // up at render time without any tenant action.
             invoice_link: invoiceLink || "",
             invoice_url: invoiceLink || "",
+            payment_link: invoiceLink || "",
+            payment_url: invoiceLink || "",
             // Legacy camelCase keys retained for tenant overrides
             // written against the old bag.
             clientName: (order as any).client_name,
@@ -425,6 +418,7 @@ export async function postOrderCreationCascade(
             totalAmount,
             companyName,
             invoiceLink: invoiceLink || "",
+            paymentLink: invoiceLink || "",
           },
           // Forward the injected client so the gates + audit logging
           // happen under the same auth context as the rest of the

@@ -2,7 +2,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { whatsappIntegrationService } from "./whatsappIntegrationService";
 import { notificationService } from "./notificationService";
-import { AppOrder, Quote } from "@/types/app";
+import { AppOrder, Quote, UserRole } from "@/types/app";
 import { regionService } from "./regionService";
 import { lifecycleService } from "./lifecycleService";
 import { formatQuoteSubject } from "@/lib/email/subjectFormatters";
@@ -237,6 +237,36 @@ export const quoteService = {
     if (error) {
       console.error("Error creating quote:", error);
       throw error;
+    }
+
+    const shouldNotifyTeam =
+      data &&
+      ((data as any).status !== "draft" || !options?.skipClientNotification);
+    if (shouldNotifyTeam) {
+      try {
+        await notificationService.broadcastNotification({
+          companyId: (data as any).company_id || (quote as any).company_id || (quote as any).user_id,
+          type: "quote_created",
+          title: "New quote created",
+          message: `${(data as any).quote_number || "Quote"} for ${(data as any).client_name || "a client"}${(data as any).total_amount || (data as any).total ? ` - ${Number((data as any).total_amount ?? (data as any).total).toFixed(2)}` : ""}.`,
+          priority: "medium",
+          link: `/admin/quotes/${(data as any).id}`,
+          targetRoles: [
+            UserRole.OWNER,
+            UserRole.COMPANY_ADMIN,
+            UserRole.ADMIN,
+            UserRole.SALES_ADMIN,
+            UserRole.REGION_ADMIN,
+          ],
+          regionId: (data as any).region_id ?? null,
+          relatedEntityType: "quote",
+          relatedEntityId: (data as any).id,
+          dedup: true,
+          dedupWindowMinutes: 60,
+        });
+      } catch (notifyErr) {
+        console.warn("[quoteService.createQuote] team notification failed:", notifyErr);
+      }
     }
 
     // Lead status advancement (Audit Theme E). When this quote came

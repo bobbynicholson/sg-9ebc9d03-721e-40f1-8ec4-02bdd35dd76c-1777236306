@@ -4,6 +4,7 @@ import { notificationService } from "./notificationService";
 import { whatsappIntegrationService } from "./whatsappIntegrationService";
 import type { Database } from "@/integrations/supabase/types";
 import { sendEmailViaAPI } from "@/lib/emailClient";
+import { UserRole } from "@/types/app";
 
 type Lead = Database["public"]["Tables"]["leads"]["Row"];
 type LeadInsert = Database["public"]["Tables"]["leads"]["Insert"];
@@ -118,6 +119,27 @@ export const leadService = {
           link: `/admin/leads?leadId=${data.id}`,
           related_entity_type: "lead",
           related_entity_id: data.id,
+        });
+
+        await notificationService.broadcastNotification({
+          companyId: data.company_id,
+          type: "lead_new_team",
+          title: "New lead created",
+          message: `New inquiry from ${lead.client_name || lead.client_email || "a client"}${lead.guest_count ? ` for ${lead.guest_count} guests` : ""}${lead.event_date ? ` on ${new Date(lead.event_date).toLocaleDateString()}` : ""}.`,
+          priority: "urgent",
+          link: `/admin/leads?leadId=${data.id}`,
+          targetRoles: [
+            UserRole.OWNER,
+            UserRole.COMPANY_ADMIN,
+            UserRole.ADMIN,
+            UserRole.SALES_ADMIN,
+            UserRole.REGION_ADMIN,
+          ],
+          regionId: (lead as any).region_id ?? null,
+          relatedEntityType: "lead",
+          relatedEntityId: data.id,
+          dedup: true,
+          dedupWindowMinutes: 60,
         });
 
         // 1b. If the lead is region-scoped and the branch has its own

@@ -145,9 +145,13 @@ const STAFF_VARS: TemplateVariable[] = [
   { name: "staff_name",    description: "Full staff name",                       example: "Jane Doe" },
   { name: "from_name",     description: "Sender's name (the operator)",          example: "Bobby" },
   { name: "company_name",  description: "Your catering company name",            example: "Spit Braai Delivery" },
+  { name: "order_number",  description: "Order reference",                       example: "ORD-003829" },
+  { name: "event_name",    description: "Event description",                     example: "30th birthday braai" },
+  { name: "venue",         description: "Venue / location",                      example: "Sandton" },
   { name: "shift_date",    description: "Shift date",                            example: "5 May 2026" },
   { name: "shift_time",    description: "Shift time",                            example: "10:00 - 18:00" },
   { name: "client_name",   description: "Client they will serve",                example: "Bobby Nicholson" },
+  { name: "order_url",     description: "Direct link to the order brief",         example: "https://cateringms.com/.../order/..." },
 ];
 
 // Vars carried by the order-lifecycle status emails. Keys match
@@ -164,6 +168,9 @@ const ORDER_LIFECYCLE_VARS: TemplateVariable[] = [
   { name: "event_date_phrase", description: "Reads as ' for 5 May 2026' or blank",example: " for 5 May 2026" },
   { name: "venue_phrase",      description: "Reads as ' to Sandton Suburb' or blank", example: " to Sandton Suburb" },
   { name: "eta_sentence",      description: "Driver ETA sentence (auto-built)",   example: "Estimated arrival in about 25 minutes." },
+  { name: "order_url",         description: "Customer tracking / order status link", example: "https://cateringms.com/spit-braai-delivery/c/order/..." },
+  { name: "payment_link",      description: "Payment or invoice link when money is due", example: "https://cateringms.com/pay/i/..." },
+  { name: "invoice_link",      description: "Invoice link alias for tenant templates", example: "https://cateringms.com/pay/i/..." },
 ];
 
 // Lead notifications that get pushed to the operator when a fresh
@@ -457,7 +464,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
       `Hi {{first_name}},\n\n` +
       `Thank you for the opportunity to quote on {{event_name}}. Your quote {{quote_number}} is ready, and the total comes to {{total}} including VAT.\n\n` +
       `You can view the full breakdown and accept your quote here:\n{{quote_url}}\n\n` +
-      `Please have a look when you get a chance and let me know if anything needs changing. I am happy to adjust the menu or talk through the options on a quick call.\n\nKind regards,\n{{from_name}}\n{{tenant_name}}`,
+      `Please have a look when you get a chance and let me know if anything needs changing. I am happy to adjust the menu or talk through the options on a quick call.\n\nKind regards,\n{{from_name}}`,
     variables: QUOTE_VARS,
   },
   {
@@ -472,7 +479,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
       `Hi {{first_name}},\n\n` +
       `Thank you for your patience. I have updated your quote {{quote_number}} for {{event_name}} based on what we last discussed, and the new total comes to {{total}} including VAT.\n\n` +
       `You can view the updated quote here:\n{{quote_url}}\n\n` +
-      `Please take a look when you can and let me know if anything still needs tweaking. Happy to make further changes.\n\nKind regards,\n{{from_name}}\n{{tenant_name}}`,
+      `Please take a look when you can and let me know if anything still needs tweaking. Happy to make further changes.\n\nKind regards,\n{{from_name}}`,
     variables: QUOTE_VARS,
   },
   {
@@ -612,7 +619,8 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     defaultSubject: "{{first_name}}, thanks for the {{event_name}} enquiry - {{tenant_name}}",
     defaultBody:
       `Hi {{first_name}},\n\n` +
-      `Thanks for getting in touch about your {{event_name}} on {{event_date}}. I have everything I need on this side to put a draft quote together for you. Could you confirm guest numbers and venue when you have a sec?\n\n` +
+      `Thanks for getting in touch about your {{event_name}} on {{event_date}}. I have the event details on file and can put a draft quote together from what you've shared.\n\n` +
+      `If guest numbers, venue, or timing changes, just reply with the update and I will adjust the draft before sending it through.\n\n` +
       `Happy to walk through menu options if it would help.\n\nBest,\n{{from_name}}`,
     variables: COMMON_CLIENT_VARS,
   },
@@ -879,6 +887,8 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     defaultBody:
       `Hi {{first_name}},\n\n` +
       `Your order {{order_number}}{{event_date_phrase}} is confirmed. ` +
+      `You can track the booking and payment status here:\n{{order_url}}\n\n` +
+      `Payment link:\n{{payment_link}}\n\n` +
       `We'll be in touch closer to the day with the final headcount and any last tweaks.\n\n` +
       `Thanks for booking with us.`,
     variables: ORDER_LIFECYCLE_VARS,
@@ -1018,6 +1028,25 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
       `If anything has shifted (timing, headcount, venue access), reply now and we'll fold it in.\n\n` +
       `Thanks,\n{{tenant_name}}`,
     variables: EVENT_REMINDER_VARS,
+  },
+  {
+    key: "waiter_assignment_email",
+    channel: "email",
+    category: "staff",
+    group: "Staff operations",
+    label: "Waiter assignment",
+    description: "Direct email to a waiter when an admin assigns them to an event.",
+    defaultSubject: "Service job assigned - {{order_number}}",
+    defaultBody:
+      `Hi {{first_name}},\n\n` +
+      `You have been assigned to service {{event_name}} for {{company_name}}.\n\n` +
+      `Order: {{order_number}}\n` +
+      `Date: {{shift_date}}\n` +
+      `Time: {{shift_time}}\n` +
+      `Venue: {{venue}}\n\n` +
+      `Open the order brief before you go on site: {{order_url}}\n\n` +
+      `Thanks,\n{{company_name}}`,
+    variables: STAFF_VARS,
   },
 
   // --- EMBED LEAD NOTIFICATIONS (operator-facing) ---
@@ -1616,6 +1645,7 @@ const DELIVERY_WIRING: Record<string, { delivery: MessageDelivery; trigger?: str
   // --- AUTOMATED: pre-event cron (ensureScheduledPreEventReminders) ---
   event_one_week_reminder:  { delivery: "automated", trigger: "Cron-scheduled 7 days before the event date." },
   event_day_before_reminder:{ delivery: "automated", trigger: "Cron-scheduled the day before the event." },
+  waiter_assignment_email:  { delivery: "automated", trigger: "Fires when an admin assigns a waiter from the order Service team section.", settingsLink: "/admin/orders" },
 
   // --- AUTOMATED: after-sales nurture (ensureScheduledAfterSales) ---
   "aftersales_after-sales-1": { delivery: "automated", trigger: "Cron-fires 2 months after event completion." },

@@ -55,8 +55,8 @@ import { PageWorkbench } from "@/components/portal/ui";
 
 const STATUS_COLOURS: Record<string, string> = {
   draft: "bg-slate-100 text-slate-700",
-  sent: "bg-blue-100 text-blue-700",
-  viewed: "bg-blue-100 text-blue-700",
+  sent: "bg-brand-primary/10 text-brand-primary",
+  viewed: "bg-brand-primary/10 text-brand-primary",
   accepted: "bg-brand-primary/15 text-brand-primary",
   rejected: "bg-rose-100 text-rose-700",
   expired: "bg-amber-100 text-amber-700",
@@ -764,7 +764,7 @@ function AdminQuoteDetailInner() {
                   </div>
                   {isDraft
                     && changeRequests.some((r) => r.status === "pending") && (
-                    <p className="mt-2 text-xs text-blue-700 flex items-center gap-1.5">
+                    <p className="mt-2 text-xs text-brand-primary flex items-center gap-1.5">
                       Editing in response to client request. See panel
                       <ArrowRight className="w-3.5 h-3.5" />
                     </p>
@@ -1078,7 +1078,7 @@ function AdminQuoteDetailInner() {
                   >
                     <Button
                       variant="outline"
-                      className="w-full border-blue-300 text-blue-700 hover:bg-blue-50"
+                      className="w-full border-brand-primary/30 text-brand-primary hover:bg-brand-primary/10"
                     >
                       <FileText className="w-4 h-4 mr-2" />
                       Revise &amp; resend

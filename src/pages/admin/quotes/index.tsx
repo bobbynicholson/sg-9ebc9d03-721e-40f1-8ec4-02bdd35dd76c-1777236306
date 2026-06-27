@@ -136,8 +136,8 @@ function orderStatusBadge(status: string | null | undefined): { label: string; c
   // Active production states.
   if (s === "confirmed") return { label: "Booked",    classes: "text-brand-primary border-brand-primary/20 bg-brand-primary/10" };
   if (s === "preparing") return { label: "In prep",   classes: "text-slate-700 border-slate-200 bg-slate-50" };
-  if (s === "ready")     return { label: "Ready",     classes: "text-blue-700 border-blue-200 bg-blue-50" };
-  if (s === "in_transit") return { label: "Driving",  classes: "text-blue-700 border-blue-200 bg-blue-50" };
+  if (s === "ready")     return { label: "Ready",     classes: "text-brand-primary border-brand-primary/20 bg-brand-primary/10" };
+  if (s === "in_transit") return { label: "Driving",  classes: "text-brand-primary border-brand-primary/20 bg-brand-primary/10" };
   if (s === "delivered") return { label: "Delivered", classes: "text-brand-primary border-brand-primary/20 bg-brand-primary/10" };
   if (s === "completed" || s === "paid") return { label: "Completed", classes: "text-brand-primary border-brand-primary/20 bg-brand-primary/10" };
   // Unknown - show the raw status capitalised so we never invent a meaning.
@@ -174,7 +174,7 @@ const PIPELINE_COLUMNS: Array<{
   Icon: any;
 }> = [
   { bucket: "action_needed",      title: "Action needed",      tone: "border-rose-300 bg-rose-50",       Icon: Flame },
-  { bucket: "in_play",            title: "In play",            tone: "border-blue-300 bg-blue-50",       Icon: Sparkles },
+  { bucket: "in_play",            title: "In play",            tone: "border-brand-primary/30 bg-brand-primary/10",       Icon: Sparkles },
   { bucket: "stale",              title: "Stale",              tone: "border-amber-300 bg-amber-50",     Icon: Clock },
   { bucket: "won",                title: "Won",                tone: "border-brand-primary/30 bg-brand-primary/10", Icon: Crown },
   // TIGHTEN I.62: distinct bucket so "won then cancelled" isn't
@@ -1402,7 +1402,7 @@ function AdminQuotesInner() {
   const getStatusColor = (status: Quote["status"]) => {
     switch (status) {
       case "draft": return "bg-gray-100 text-gray-700 border-gray-200";
-      case "sent": return "bg-blue-100 text-blue-700 border-blue-200";
+      case "sent": return "bg-brand-primary/10 text-brand-primary border-brand-primary/20";
       case "accepted": return "bg-brand-primary/15 text-brand-primary border-brand-primary/20";
       case "rejected": return "bg-rose-100 text-rose-700 border-rose-200";
       case "expired": return "bg-amber-100 text-amber-700 border-amber-200";
@@ -1590,7 +1590,7 @@ function AdminQuotesInner() {
             {([
               { id: "all",            label: "Open",          icon: Inbox,          tone: "bg-slate-100 text-slate-700 border-slate-200" },
               { id: "action_needed",  label: "Action needed", icon: Flame,          tone: "bg-rose-100 text-rose-700 border-rose-200" },
-              { id: "in_play",        label: "In play",       icon: Sparkles,       tone: "bg-blue-100 text-blue-700 border-blue-200" },
+              { id: "in_play",        label: "In play",       icon: Sparkles,       tone: "bg-brand-primary/10 text-brand-primary border-brand-primary/20" },
               { id: "stale",          label: "Stale",         icon: Clock,          tone: "bg-amber-100 text-amber-700 border-amber-200" },
               { id: "won",                label: "Won",                  icon: Crown,         tone: "bg-brand-primary/15 text-brand-primary border-brand-primary/20" },
               // TIGHTEN I.62: dedicated pill for won-then-cancelled
@@ -1647,8 +1647,8 @@ function AdminQuotesInner() {
               onClick={() => setMyQuotesOnly((v) => !v)}
               className={`inline-flex items-center gap-1 rounded-full text-xs px-2.5 py-0.5 border ${
                 myQuotesOnly
-                  ? "border-blue-500 bg-blue-100 text-blue-800"
-                  : "border-slate-200 bg-white text-slate-600 hover:border-blue-300 hover:text-blue-700"
+                  ? "border-brand-primary bg-brand-primary/10 text-brand-primary"
+                  : "border-slate-200 bg-white text-slate-600 hover:border-brand-primary/30 hover:text-brand-primary"
               }`}
               title="Restrict to quotes I prepared"
             >
@@ -1754,8 +1754,8 @@ function AdminQuotesInner() {
           {/* Quick-mail banner mirrors the Clients CRM pattern: explains why
               the "Compose" buttons open Gmail / Outlook / default mail rather
               than firing through a server. Personal mail, not bulk. */}
-          <div className="mb-4 flex items-start gap-3 rounded-lg border border-blue-100 bg-blue-50 px-4 py-3">
-            <Mail className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+          <div className="mb-4 flex items-start gap-3 rounded-lg border border-brand-primary/20 bg-brand-primary/10 px-4 py-3">
+            <Mail className="w-5 h-5 text-brand-primary flex-shrink-0 mt-0.5" />
             <div className="text-sm">
               <p className="font-medium text-slate-900">Personal follow-ups, not bulk.</p>
               <p className="text-slate-600 mt-0.5">
@@ -1898,7 +1898,7 @@ function AdminQuotesInner() {
                       // the user instantly sees which quote they were
                       // pointed at by the notification.
                       focusedQuoteId === quote.id
-                        ? "ring-4 ring-blue-400 ring-offset-2"
+                        ? "ring-4 ring-brand-primary/40 ring-offset-2"
                         : intel.tone === "urgent"
                           ? "ring-2 ring-rose-300"
                           : intel.isClientRequest
@@ -2052,7 +2052,7 @@ function AdminQuotesInner() {
                               </span>
                             )}
                             {auto.queued > 0 && (
-                              <span className="inline-flex items-center gap-1 text-blue-600">
+                              <span className="inline-flex items-center gap-1 text-brand-primary">
                                 <Mail className="w-3.5 h-3.5" />
                                 {auto.queued} queued
                               </span>

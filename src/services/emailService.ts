@@ -191,6 +191,41 @@ function appendUnsubscribeFooter(
   return `${body}${footer}`;
 }
 
+function dedupeRepeatedSignoffLines(
+  body: string,
+  variables: Record<string, any>,
+): string {
+  if (!body) return body;
+  const knownNames = new Set(
+    [
+      variables.from_name,
+      variables.fromName,
+      variables.tenant_name,
+      variables.tenantName,
+      variables.company_name,
+      variables.companyName,
+    ]
+      .map((v) => String(v || "").trim().toLowerCase())
+      .filter(Boolean),
+  );
+  if (knownNames.size === 0) return body;
+
+  const lines = body.split(/\r?\n/);
+  const out: string[] = [];
+  let previousNamedLine: string | null = null;
+  for (const line of lines) {
+    const normalised = line.trim().toLowerCase();
+    if (normalised && knownNames.has(normalised) && previousNamedLine === normalised) {
+      continue;
+    }
+    out.push(line);
+    if (normalised) {
+      previousNamedLine = knownNames.has(normalised) ? normalised : null;
+    }
+  }
+  return out.join("\n");
+}
+
 export interface EmailSendDetailed {
   success: boolean;
   error?: string;
@@ -675,6 +710,7 @@ export const emailService = {
 
     const finalSubject = this.replaceVariables(payload.subject, normVars);
     finalBody = this.replaceVariables(finalBody, normVars);
+    finalBody = dedupeRepeatedSignoffLines(finalBody, normVars);
 
     // TIGHTEN I.124 (2026-06-03): auto-wrap plain or fragment HTML
     // bodies in a branded email shell. Reads company logo + brand
@@ -698,12 +734,12 @@ export const emailService = {
           cta: (() => {
             // Templates use snake_case ({{quote_url}}), the dialog
             // posts variables in camelCase (quoteUrl). Accept both.
-            const v: any = payload.variables || {};
+            const v: any = normVars || payload.variables || {};
             const quoteUrl = v.quote_url || v.quoteUrl;
             const orderUrl = v.order_url || v.orderUrl;
-            const invoiceLink = v.invoice_link || v.invoiceLink || v.invoiceUrl;
+            const invoiceLink = v.payment_link || v.paymentLink || v.payment_url || v.invoice_link || v.invoiceLink || v.invoiceUrl;
             if (quoteUrl)   return { label: "View quote", url: String(quoteUrl) };
-            if (orderUrl)   return { label: "View your order", url: String(orderUrl) };
+            if (orderUrl)   return { label: invoiceLink ? "View order & payment" : "View your order", url: String(orderUrl) };
             if (invoiceLink) return { label: "View invoice", url: String(invoiceLink) };
             return undefined;
           })(),

@@ -24,7 +24,7 @@ import { Label } from "@/components/ui/label";
 import {
   Calendar, Clock, MapPin, Users, Truck, CheckCircle2, AlertTriangle,
   Mail, Phone, Globe, Loader2, ShieldCheck, Sparkles, ChefHat, Receipt,
-  Radar, ArrowRight, Send,
+  Radar, ArrowRight, Send, Package,
 } from "lucide-react";
 import Link from "next/link";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
@@ -66,9 +66,9 @@ type OrderView = {
 const STATUS_TONES: Record<string, string> = {
   pending:    "bg-amber-100 text-amber-800 border-amber-200",
   confirmed:  "bg-blue-100 text-blue-800 border-blue-200",
-  preparing:  "bg-purple-100 text-purple-800 border-purple-200",
+  preparing:  "bg-slate-100 text-slate-800 border-slate-200",
   ready:      "bg-brand-primary/15 text-brand-primary border-brand-primary/20",
-  in_transit: "bg-indigo-100 text-indigo-800 border-indigo-200",
+  in_transit: "bg-blue-100 text-blue-800 border-blue-200",
   delivered:  "bg-brand-primary/15 text-brand-primary border-brand-primary/20",
   completed:  "bg-slate-100 text-slate-800 border-slate-200",
   cancelled:  "bg-rose-100 text-rose-700 border-rose-200",
@@ -261,6 +261,16 @@ export default function ClientOrderPage() {
   const fmtMoney = new Intl.NumberFormat("en-ZA", {
     style: "currency", currency: order.currency || "ZAR", maximumFractionDigits: 0,
   });
+  const equipmentBookings = (Array.isArray((view as any)?.equipment_bookings) ? (view as any).equipment_bookings : [])
+    .map((b: any) => ({
+      ...b,
+      name: String(b?.name || "").trim(),
+      quantity: Number(b?.quantity || 0),
+      unit_price: Number(b?.unit_price || 0),
+      line_total: Number(b?.line_total || 0),
+      returned_quantity: Number(b?.returned_quantity || 0),
+    }))
+    .filter((b: any) => b.name || b.quantity > 0 || b.equipment_id);
 
   return (
     <>
@@ -540,6 +550,50 @@ export default function ClientOrderPage() {
               </Card>
             );
           })()}
+
+          {equipmentBookings.length > 0 && (
+            <Card className="border-0 shadow-lg">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Package className="w-4 h-4" style={{ color: primary }} />
+                  Equipment on this order
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="divide-y divide-slate-100">
+                  {equipmentBookings.map((it: any, i: number) => {
+                    const lineTotal = it.line_total || (it.quantity * it.unit_price);
+                    return (
+                      <div key={it.id || i} className="flex items-center justify-between gap-3 px-6 py-3 text-sm">
+                        <div className="min-w-0">
+                          <p className="font-medium text-slate-900">{it.name || "Equipment"}</p>
+                          <div className="mt-1 flex flex-wrap gap-1.5 text-[11px]">
+                            {it.is_hire_in && (
+                              <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-amber-800">Hire-in</span>
+                            )}
+                            {it.status && (
+                              <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-slate-600 capitalize">
+                                {String(it.status).replace(/_/g, " ")}
+                              </span>
+                            )}
+                            {it.returned_quantity > 0 && (
+                              <span className="rounded-full border border-brand-primary/20 bg-brand-primary/10 px-2 py-0.5 text-brand-primary">
+                                {it.returned_quantity} returned
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="text-right tabular-nums flex-shrink-0">
+                          <p className="text-slate-700">{it.quantity || 1} x {fmtMoney.format(it.unit_price || 0)}</p>
+                          {lineTotal > 0 && <p className="text-xs text-slate-500">{fmtMoney.format(lineTotal)}</p>}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Payment summary */}
           {(order.deposit_amount || order.balance_amount || settledPayments.length > 0) && (

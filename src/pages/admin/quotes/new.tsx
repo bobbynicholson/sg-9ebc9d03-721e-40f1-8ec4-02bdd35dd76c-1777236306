@@ -238,6 +238,58 @@ const futureISO = (days: number) => {
   return toLocalISO(d);
 };
 
+function quoteContentSignatureFromPayload(payload: any): string {
+  const asArray = (v: any) => (Array.isArray(v) ? v : []);
+  const money = (v: any) => Math.round(safeNum(v) * 100) / 100;
+  const text = (v: any) => String(v ?? "").trim();
+  return JSON.stringify({
+    quote_name: text(payload.quote_name),
+    event_date: text(payload.event_date).slice(0, 10),
+    event_time: text(payload.event_time).slice(0, 5),
+    setup_time: text(payload.setup_time).slice(0, 5),
+    guest_count: safeNum(payload.guest_count),
+    venue_address: text(payload.venue_address),
+    menu_items: asArray(payload.menu_items)
+      .filter((m: any) => text(m.item_name ?? m.name))
+      .map((m: any) => ({
+        menu_item_id: m.menu_item_id ?? null,
+        name: text(m.item_name ?? m.name),
+        description: text(m.description),
+        category: m.category ?? null,
+        pricing_mode: m.pricing_mode ?? m.pricingMode ?? null,
+        quantity: safeNum(m.quantity),
+        unit_price: money(m.unit_price ?? m.unitPrice ?? m.pricePerPerson),
+        discount_pct: money(m.discount_pct ?? m.discountPct),
+        line_total: money(m.line_total),
+      })),
+    equipment_items: asArray(payload.equipment_items)
+      .filter((e: any) => text(e.name))
+      .map((e: any) => ({
+        equipment_id: e.equipment_id ?? null,
+        name: text(e.name),
+        category: e.category ?? null,
+        quantity: safeNum(e.quantity),
+        unit_price: money(e.unit_price ?? e.unitPrice ?? e.rentalPrice),
+        from_stock_qty: safeNum(e.from_stock_qty),
+        from_hire_qty: safeNum(e.from_hire_qty),
+        hire_in_cost_per_unit: money(e.hire_in_cost_per_unit),
+      })),
+    delivery_distance_km: money(payload.delivery_distance_km),
+    delivery_rate_per_km: money(payload.delivery_rate_per_km),
+    delivery_fee: money(payload.delivery_fee),
+    collection_distance_km: money(payload.collection_distance_km),
+    collection_rate_per_km: money(payload.collection_rate_per_km),
+    collection_fee: money(payload.collection_fee),
+    collection_next_day: payload.collection_next_day === true,
+    subtotal: money(payload.subtotal),
+    discount_amount: money(payload.discount_amount),
+    tax_amount: money(payload.tax_amount ?? payload.tax),
+    deposit_percentage: money(payload.deposit_percentage),
+    total_amount: money(payload.total_amount ?? payload.total),
+    valid_until: text(payload.valid_until).slice(0, 10),
+  });
+}
+
 // Quote-number generator: QT-YYYYMMDD-XXXXXX (six hex chars). The
 // existing data uses sequential 001/002/003; we don't have a counter
 // available client-side, so the random suffix keeps uniqueness without
@@ -425,6 +477,7 @@ function NewQuotePage() {
   // /q/[token] view reads the persisted columns; until the operator
   // hits Save, the public view shows stale numbers.
   const [persistedTotalAtLoad, setPersistedTotalAtLoad] = useState<number | null>(null);
+  const [contentSignatureAtLoad, setContentSignatureAtLoad] = useState<string | null>(null);
   // Wave 14 audit: track whether we arrived via "Revise & resend" so
   // the banner copy and the save side-effects know to reset the
   // public lifecycle (clear accepted_at / viewed_at, auto-address
@@ -713,6 +766,7 @@ function NewQuotePage() {
             ? data.total_amount
             : 0,
       );
+      setContentSignatureAtLoad(quoteContentSignatureFromPayload(data));
 
       // 2) Overlay the client's requested changes (same tick, so these win).
       if (cr) {
@@ -1401,8 +1455,13 @@ function NewQuotePage() {
     validUntil, internalNotes,
   ]);
 
+  const quoteContentHasChanged = useCallback(() => {
+    if (!contentSignatureAtLoad) return true;
+    return quoteContentSignatureFromPayload(buildPayload()) !== contentSignatureAtLoad;
+  }, [buildPayload, contentSignatureAtLoad]);
+
   // First save = INSERT, all subsequent = UPDATE.
-  const persistQuote = useCallback(async (override: { status?: string; sent_at?: string; __skipSentEmail?: boolean } = {}): Promise<string | null> => {
+  const persistQuote = useCallback(async (override: { status?: string; sent_at?: string; __skipSentEmail?: boolean; __contentChanged?: boolean } = {}): Promise<string | null> => {
     if (!companyId || !user?.id) return null;
     if (!clientName) return null;          // never save an empty husk
     // Time sanity gate: never persist a quote whose setup / delivery
@@ -1578,7 +1637,7 @@ function NewQuotePage() {
         if (isConvertedQuote && prevStatus) {
           payload.status = prevStatus;
           (dbOverride as any).status = prevStatus;
-        } else if (override.status === "sent") {
+        } else if (override.status === "sent" && override.__contentChanged !== false) {
           // Pre-acceptance revise-and-resend: reset the public view.
           payload.accepted_at = null;
           payload.viewed_at = null;
@@ -1904,12 +1963,14 @@ function NewQuotePage() {
     }
     setSending(true);
     try {
+      const contentChangedForSend = quoteContentHasChanged();
       // Persist the latest edits but DON'T auto-fire the email -
       // the preview dialog will fire it when the operator confirms.
       const id = await persistQuote({
         status: "sent",
         sent_at: new Date().toISOString(),
         __skipSentEmail: true,
+        __contentChanged: contentChangedForSend,
       });
       if (id) {
         // Open the preview-and-edit dialog with the current quote
@@ -1957,6 +2018,7 @@ function NewQuotePage() {
           // non-draft status means this quote was already sent before ->
           // use the "Revised quote" template, not "Quote just sent".
           already_sent: !!status && status !== "draft",
+          content_changed: contentChangedForSend,
         });
       }
     } finally {
@@ -2148,7 +2210,7 @@ function NewQuotePage() {
                     <span className="font-mono text-slate-700">{quoteNumber}</span>
                   )}
                   {status !== "draft" && (
-                    <Badge className="bg-blue-100 text-blue-700 border-blue-200">{status}</Badge>
+                    <Badge className="bg-brand-primary/10 text-brand-primary border-brand-primary/20">{status}</Badge>
                   )}
                   {savedAt && (
                     <span className="inline-flex items-center gap-1 text-brand-primary text-xs">
@@ -2178,7 +2240,7 @@ function NewQuotePage() {
                   </div>
                 )}
                 {isRevisingNonDraft && (
-                  <div className="mt-2 p-2.5 rounded-md border border-blue-200 bg-blue-50 text-xs text-blue-900 max-w-xl">
+                  <div className="mt-2 p-2.5 rounded-md border border-brand-primary/20 bg-brand-primary/10 text-xs text-brand-primary max-w-xl">
                     {isConvertedQuote ? (
                       <>
                         <strong className="font-semibold">Editing the booking behind {linkedOrderNumber ? `order ${linkedOrderNumber}` : "the linked order"}.</strong>{" "}
@@ -2386,8 +2448,8 @@ function NewQuotePage() {
                       override flag stops auto-recalc from clobbering
                       a manual fee until they pick a fresh address. */}
                   {(venueLat || deliveryDistance > 0) && (
-                    <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 space-y-2">
-                      <div className="flex items-center justify-between text-xs text-blue-900 gap-2">
+                    <div className="rounded-lg border border-brand-primary/20 bg-brand-primary/10 p-3 space-y-2">
+                      <div className="flex items-center justify-between text-xs text-brand-primary gap-2">
                         <span className="font-semibold flex-shrink-0">Delivery distance + fee</span>
                         {selectedKitchen && kitchens.length === 1 && (
                           // Prefer the full address over the kitchen's
@@ -2395,7 +2457,7 @@ function NewQuotePage() {
                           // vague when the operator wants to see the
                           // actual departure point. Falls back to name
                           // only if address isn't set.
-                          <span className="text-blue-700/80 text-right">
+                          <span className="text-brand-primary/80 text-right">
                             From {selectedKitchen.address || selectedKitchen.name}
                           </span>
                         )}
@@ -2406,11 +2468,11 @@ function NewQuotePage() {
                           above instead. */}
                       {kitchens.length > 1 && selectedKitchen && (
                         <div>
-                          <Label className="text-[11px] text-blue-900">From kitchen / branch</Label>
+                          <Label className="text-[11px] text-brand-primary">From kitchen / branch</Label>
                           <select
                             value={selectedKitchen.id}
                             onChange={(e) => { kitchenManualRef.current = true; setKitchenId(e.target.value); }}
-                            className="w-full h-9 px-2 rounded-md border border-blue-200 bg-white text-sm"
+                            className="w-full h-9 px-2 rounded-md border border-brand-primary/20 bg-white text-sm"
                           >
                             {kitchens.map((k) => (
                               <option key={k.id} value={k.id}>
@@ -2418,7 +2480,7 @@ function NewQuotePage() {
                               </option>
                             ))}
                           </select>
-                          <p className="text-[11px] text-blue-700/80 mt-1">
+                          <p className="text-[11px] text-brand-primary/80 mt-1">
                             Picking a different kitchen recalculates distance + fee.
                           </p>
                           {capacitySuggestion?.meaningful
@@ -2456,7 +2518,7 @@ function NewQuotePage() {
                       )}
                       <div className="grid grid-cols-3 gap-2">
                         <div>
-                          <Label className="text-[11px] text-blue-900">Distance (km)</Label>
+                          <Label className="text-[11px] text-brand-primary">Distance (km)</Label>
                           <Input
                             type="number"
                             min={0}
@@ -2470,7 +2532,7 @@ function NewQuotePage() {
                           />
                         </div>
                         <div>
-                          <Label className="text-[11px] text-blue-900">R per km</Label>
+                          <Label className="text-[11px] text-brand-primary">R per km</Label>
                           <Input
                             type="number"
                             min={0}
@@ -2484,7 +2546,7 @@ function NewQuotePage() {
                           />
                         </div>
                         <div>
-                          <Label className="text-[11px] text-blue-900 flex items-center gap-1">
+                          <Label className="text-[11px] text-brand-primary flex items-center gap-1">
                             Fee (R)
                             {deliveryFeeOverridden && (
                               <span className="text-[10px] text-rose-700 font-normal">(flat fee)</span>
@@ -2503,7 +2565,7 @@ function NewQuotePage() {
                           />
                         </div>
                       </div>
-                      <p className="text-[11px] text-blue-700/80">
+                      <p className="text-[11px] text-brand-primary/80">
                         {deliveryFeeOverridden
                           ? `Flat fee active. Fee = R${deliveryFee.toFixed(2)}. Clear the box and re-enter distance to switch back to auto.`
                           : deliveryDistance > 0
@@ -2518,18 +2580,18 @@ function NewQuotePage() {
                       drop-back) or the client collects from the kitchen.
                       Same distance × 2 × per-km auto-calc; adds to total. */}
                   {(venueLat || deliveryDistance > 0 || collectionDistance > 0) && (
-                    <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 space-y-2">
-                      <div className="flex items-center justify-between text-xs text-blue-900 gap-2">
+                    <div className="rounded-lg border border-brand-primary/20 bg-brand-primary/10 p-3 space-y-2">
+                      <div className="flex items-center justify-between text-xs text-brand-primary gap-2">
                         <span className="font-semibold flex-shrink-0">Collection Fees</span>
                         {selectedKitchen && kitchens.length === 1 && (
-                          <span className="text-blue-700/80 text-right">
+                          <span className="text-brand-primary/80 text-right">
                             From {selectedKitchen.address || selectedKitchen.name}
                           </span>
                         )}
                       </div>
                       <div className="grid grid-cols-3 gap-2">
                         <div>
-                          <Label className="text-[11px] text-blue-900">Distance (km)</Label>
+                          <Label className="text-[11px] text-brand-primary">Distance (km)</Label>
                           <Input
                             type="number"
                             min={0}
@@ -2543,7 +2605,7 @@ function NewQuotePage() {
                           />
                         </div>
                         <div>
-                          <Label className="text-[11px] text-blue-900">R per km</Label>
+                          <Label className="text-[11px] text-brand-primary">R per km</Label>
                           <Input
                             type="number"
                             min={0}
@@ -2557,7 +2619,7 @@ function NewQuotePage() {
                           />
                         </div>
                         <div>
-                          <Label className="text-[11px] text-blue-900 flex items-center gap-1">
+                          <Label className="text-[11px] text-brand-primary flex items-center gap-1">
                             Fee (R)
                             {collectionFeeOverridden && (
                               <span className="text-[10px] text-rose-700 font-normal">(flat fee)</span>
@@ -2576,7 +2638,7 @@ function NewQuotePage() {
                           />
                         </div>
                       </div>
-                      <p className="text-[11px] text-blue-700/80">
+                      <p className="text-[11px] text-brand-primary/80">
                         {collectionFeeOverridden
                           ? `Flat fee active. Fee = R${collectionFee.toFixed(2)}. Clear the box and re-enter distance to switch back to auto.`
                           : collectionDistance > 0
@@ -2593,9 +2655,9 @@ function NewQuotePage() {
                           onChange={(e) => setCollectionNextDay(e.target.checked)}
                           className="mt-0.5"
                         />
-                        <span className="text-xs text-blue-900">
+                        <span className="text-xs text-brand-primary">
                           Collect equipment the <strong>next day</strong>
-                          <span className="block text-[11px] text-blue-700/80">
+                          <span className="block text-[11px] text-brand-primary/80">
                             Books the collection trip for the morning after the event (09:00), not the same night.
                           </span>
                         </span>
@@ -2862,8 +2924,8 @@ function NewQuotePage() {
                               placeholder="Search your catalog, chafing dish, table, chair..."
                             />
                             {e.equipment_id && (
-                              <div className="mt-1 text-[11px] text-blue-600 flex items-center gap-1">
-                                <span className="inline-block w-1.5 h-1.5 rounded-full bg-blue-500" />
+                              <div className="mt-1 text-[11px] text-brand-primary flex items-center gap-1">
+                                <span className="inline-block w-1.5 h-1.5 rounded-full bg-brand-primary" />
                                 Linked to your catalog.
                               </div>
                             )}

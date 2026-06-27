@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, MapPin, Save } from "lucide-react";
+import { ArrowLeft, CalendarCheck, Loader2, MapPin, Save } from "lucide-react";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
@@ -32,6 +32,10 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { PageWorkbench } from "@/components/portal/ui";
+import { supabase } from "@/integrations/supabase/client";
+import { toLocalISO } from "@/lib/localDate";
+
+const todayISO = () => toLocalISO(new Date());
 
 // Zod schema. Field-level rules:
 //   - name + email always required
@@ -50,7 +54,13 @@ const schema = z
       .email("Use a valid email address (name@example.com)"),
     phone: z.string().trim().optional().default(""),
     eventType: z.string().trim().optional().default(""),
-    eventDate: z.string().optional().default(""),
+    eventDate: z
+      .string()
+      .optional()
+      .default("")
+      .refine((v) => !v || v >= todayISO(), {
+        message: "Pick today or a future event date",
+      }),
     eventTime: z.string().optional().default(""),
     guestCount: z
       .string()
@@ -129,6 +139,47 @@ export default function NewLead() {
   });
 
   const eventDate = watch("eventDate");
+  const [dateLoad, setDateLoad] = useState<{ checking: boolean; orders: number; quotes: number } | null>(null);
+
+  useEffect(() => {
+    if (!user?.company_id || !eventDate) {
+      setDateLoad(null);
+      return;
+    }
+    let cancelled = false;
+    setDateLoad({ checking: true, orders: 0, quotes: 0 });
+    (async () => {
+      try {
+        const [ordersRes, quotesRes] = await Promise.all([
+          supabase
+            .from("orders")
+            .select("id", { count: "exact", head: true })
+            .eq("company_id", user.company_id)
+            .eq("event_date", eventDate)
+            .is("deleted_at", null)
+            .not("status", "in", "(cancelled,rejected)"),
+          supabase
+            .from("quotes")
+            .select("id", { count: "exact", head: true })
+            .eq("company_id", user.company_id)
+            .eq("event_date", eventDate)
+            .is("deleted_at", null)
+            .not("status", "in", "(rejected,expired)"),
+        ]);
+        if (!cancelled) {
+          setDateLoad({
+            checking: false,
+            orders: ordersRes.count || 0,
+            quotes: quotesRes.count || 0,
+          });
+        }
+      } catch (e) {
+        console.warn("[leads/new] date load check failed:", e);
+        if (!cancelled) setDateLoad(null);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [eventDate, user?.company_id]);
 
   // Branch / kitchen scoping. Single-branch tenants get auto-picked
   // and the picker stays hidden; multi-branch tenants must choose
@@ -363,7 +414,34 @@ export default function NewLead() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <Label htmlFor="eventDate">Event date</Label>
-                      <Input id="eventDate" type="date" {...register("eventDate")} />
+                      <Input id="eventDate" type="date" min={todayISO()} {...register("eventDate")} />
+                      {errors.eventDate && (
+                        <p className="text-xs text-rose-600 mt-1">{errors.eventDate.message}</p>
+                      )}
+                      {eventDate && !errors.eventDate && dateLoad && (
+                        <div
+                          className={`mt-2 flex items-start gap-1.5 rounded-md border px-2.5 py-2 text-xs ${
+                            dateLoad.checking
+                              ? "border-slate-200 bg-slate-50 text-slate-600"
+                              : dateLoad.orders + dateLoad.quotes > 0
+                                ? "border-amber-200 bg-amber-50 text-amber-800"
+                                : "border-brand-primary/20 bg-brand-primary/10 text-brand-primary"
+                          }`}
+                        >
+                          {dateLoad.checking ? (
+                            <Loader2 className="mt-0.5 h-3.5 w-3.5 animate-spin flex-shrink-0" />
+                          ) : (
+                            <CalendarCheck className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
+                          )}
+                          <span>
+                            {dateLoad.checking
+                              ? "Checking existing work for this date..."
+                              : dateLoad.orders + dateLoad.quotes > 0
+                                ? `${dateLoad.orders} order${dateLoad.orders === 1 ? "" : "s"} and ${dateLoad.quotes} quote${dateLoad.quotes === 1 ? "" : "s"} already use this date. Check capacity before promising it.`
+                                : "No existing orders or quotes found for this date."}
+                          </span>
+                        </div>
+                      )}
                     </div>
                     <div>
                       <Label htmlFor="eventTime">Start time</Label>
@@ -435,11 +513,11 @@ export default function NewLead() {
                 </section>
 
                 {kitchens.length > 1 && (
-                  <div className="rounded-lg border border-blue-200 bg-blue-50/40 p-4">
-                    <Label className="flex items-center gap-1.5 text-sm font-medium text-blue-900">
+                  <div className="rounded-lg border border-brand-primary/20 bg-brand-primary/10 p-4">
+                    <Label className="flex items-center gap-1.5 text-sm font-medium text-brand-primary">
                       <MapPin className="w-4 h-4" /> Branch / kitchen
                     </Label>
-                    <p className="text-xs text-blue-800/70 mb-2">
+                    <p className="text-xs text-brand-primary/80 mb-2">
                       Quotes, orders and prep that flow from this lead will be scoped to the
                       branch you pick.
                     </p>

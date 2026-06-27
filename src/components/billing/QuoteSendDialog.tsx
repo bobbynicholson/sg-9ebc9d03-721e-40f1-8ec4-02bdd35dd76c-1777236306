@@ -52,6 +52,10 @@ export interface QuoteSendDialogQuote {
    *  REVISED-quote template instead of the new-quote one, even when the
    *  client hasn't accepted yet. */
   already_sent?: boolean;
+  /** False when only customer/contact metadata changed, not the quote
+   *  content that the client is reviewing. Keeps resends out of the
+   *  revised wording when pricing/menu/date stayed the same. */
+  content_changed?: boolean;
 }
 
 export interface QuoteSendDialogProps {
@@ -172,12 +176,13 @@ export function QuoteSendDialog({
     ? new Date(String(quote.event_date)).toLocaleDateString("en-ZA", { day: "numeric", month: "long", year: "numeric" })
     : null;
   const isConverted = !!quote?.is_converted;
+  const quoteContentChanged = quote?.content_changed !== false;
   // "Revised" = already sent before (re-send after edits) OR converted
   // (booking update). Either way it's NOT a fresh first-time quote, so it
   // uses the "Revised quote" template, not "Quote just sent". isConverted
   // alone missed the common case: a sent-but-not-yet-accepted quote being
   // re-sent (Pic 63 - it wrongly used the new-quote wording).
-  const isRevised = isConverted || !!quote?.already_sent;
+  const isRevised = isConverted || (!!quote?.already_sent && quoteContentChanged);
   // The template the dialog would pick on its own...
   const autoTemplateType = isRevised ? "email_quote_revised" : "email_quote_sent";
   // ...and the one actually used: the operator's choice wins, else auto.

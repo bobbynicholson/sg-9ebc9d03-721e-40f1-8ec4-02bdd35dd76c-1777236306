@@ -101,8 +101,8 @@ function orderStatusBadge(status: string | null | undefined): { label: string; c
   }
   if (s === "confirmed") return { label: "Booked",    classes: "text-brand-primary border-brand-primary/20 bg-brand-primary/10" };
   if (s === "preparing") return { label: "In prep",   classes: "text-slate-700 border-slate-200 bg-slate-50" };
-  if (s === "ready")     return { label: "Ready",     classes: "text-blue-700 border-blue-200 bg-blue-50" };
-  if (s === "in_transit") return { label: "Driving",  classes: "text-blue-700 border-blue-200 bg-blue-50" };
+  if (s === "ready")     return { label: "Ready",     classes: "text-brand-primary border-brand-primary/20 bg-brand-primary/10" };
+  if (s === "in_transit") return { label: "Driving",  classes: "text-brand-primary border-brand-primary/20 bg-brand-primary/10" };
   if (s === "delivered") return { label: "Delivered", classes: "text-brand-primary border-brand-primary/20 bg-brand-primary/10" };
   if (s === "completed" || s === "paid") return { label: "Completed", classes: "text-brand-primary border-brand-primary/20 bg-brand-primary/10" };
   return { label: status[0].toUpperCase() + status.slice(1).replace(/_/g, " "), classes: "text-slate-700 border-slate-200 bg-slate-50" };
@@ -1020,7 +1020,7 @@ function AdminLeadsInner() {
 
   const getStatusColor = (status: string) => {
     const colors = {
-      new: "bg-blue-100 text-blue-800",
+      new: "bg-brand-primary/10 text-brand-primary",
       contacted: "bg-yellow-100 text-yellow-800",
       qualified: "bg-slate-100 text-slate-800",
       converted: "bg-brand-primary/15 text-brand-primary",
@@ -1199,12 +1199,12 @@ function AdminLeadsInner() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-slate-600 flex items-center gap-1.5">New <InfoTooltip content={"Fresh leads that have just come in and have not been worked yet. Leads whose only linked order was cancelled are excluded - those land in Lost (archive)."} /></p>
-                    <p className="text-2xl font-bold text-blue-600">
+                    <p className="text-2xl font-bold text-brand-primary">
                       {statusCounts.new}
                     </p>
                   </div>
-                  <div className="w-12 h-12 rounded-lg bg-blue-100 flex items-center justify-center">
-                    <Plus className="w-6 h-6 text-blue-600" />
+                  <div className="w-12 h-12 rounded-lg bg-brand-primary/10 flex items-center justify-center">
+                    <Plus className="w-6 h-6 text-brand-primary" />
                   </div>
                 </div>
               </CardContent>
@@ -1289,10 +1289,10 @@ function AdminLeadsInner() {
                   const base = "px-3 py-1.5 rounded-full text-sm font-medium border transition-colors";
                   const cls = active
                     ? chip.tone === "primary"
-                      ? "bg-blue-600 text-white border-blue-600 shadow-sm"
+                      ? "bg-brand-primary text-white border-brand-primary shadow-sm"
                       : chip.tone === "muted"
                         ? "bg-slate-700 text-white border-slate-700"
-                        : "bg-blue-600 text-white border-blue-600"
+                        : "bg-brand-primary text-white border-brand-primary"
                     : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50";
                   return (
                     <button
@@ -1426,7 +1426,7 @@ function AdminLeadsInner() {
                             {links.quoteCount === 1 && links.latestQuoteId && (
                               <Link
                                 href={withSlug(`/admin/quotes/new?fromQuoteId=${links.latestQuoteId}`)}
-                                className="inline-flex items-center gap-1 text-[11px] font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded px-1.5 py-0.5 hover:bg-blue-100"
+                                className="inline-flex items-center gap-1 text-[11px] font-medium text-brand-primary bg-brand-primary/10 border border-brand-primary/20 rounded px-1.5 py-0.5 hover:bg-brand-primary/15"
                               >
                                 <FileText className="w-3 h-3" />
                                 1 quote
@@ -1437,7 +1437,7 @@ function AdminLeadsInner() {
                                 <DropdownMenuTrigger asChild>
                                   <button
                                     type="button"
-                                    className="inline-flex items-center gap-1 text-[11px] font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded px-1.5 py-0.5 hover:bg-blue-100"
+                                    className="inline-flex items-center gap-1 text-[11px] font-medium text-brand-primary bg-brand-primary/10 border border-brand-primary/20 rounded px-1.5 py-0.5 hover:bg-brand-primary/15"
                                   >
                                     <FileText className="w-3 h-3" />
                                     {links.quoteCount} quotes
@@ -1477,7 +1477,7 @@ function AdminLeadsInner() {
                                 : meta?.label === "Pending"   ? "hover:bg-amber-100"
                                 : meta?.label === "Cancelled" ? "hover:bg-rose-100"
                                 : meta?.label === "In prep"   ? "hover:bg-slate-100"
-                                : meta?.label === "Ready" || meta?.label === "Driving" ? "hover:bg-blue-100"
+                                : meta?.label === "Ready" || meta?.label === "Driving" ? "hover:bg-brand-primary/10"
                                 : "hover:bg-slate-100";
                               return (
                                 <Link
@@ -1616,7 +1616,7 @@ function AdminLeadsInner() {
                                       void flipLeadToQuoted(lead);
                                       router.push(withSlug(`/admin/quotes/new?leadId=${lead.id}`));
                                     }}
-                                    className="gap-1.5 border-blue-300 text-blue-700 hover:bg-blue-50"
+                                    className="gap-1.5 border-brand-primary/30 text-brand-primary hover:bg-brand-primary/10"
                                     title={`Start a fresh quote for ${lead.contact_name || lead.client_name || "this lead"}`}
                                   >
                                     <FileText className="w-3.5 h-3.5" />
@@ -1630,7 +1630,7 @@ function AdminLeadsInner() {
                                     size="sm"
                                     variant="outline"
                                     onClick={() => router.push(withSlug(`/admin/quotes/new?fromQuoteId=${links.latestQuoteId}`))}
-                                    className="gap-1.5 border-blue-300 text-blue-700 hover:bg-blue-50"
+                                    className="gap-1.5 border-brand-primary/30 text-brand-primary hover:bg-brand-primary/10"
                                     title="Open the existing quote in the editable builder for a quick edit"
                                   >
                                     <FileText className="w-3.5 h-3.5" />
@@ -1644,7 +1644,7 @@ function AdminLeadsInner() {
                                     <Button
                                       size="sm"
                                       variant="outline"
-                                      className="gap-1.5 border-blue-300 text-blue-700 hover:bg-blue-50"
+                                      className="gap-1.5 border-brand-primary/30 text-brand-primary hover:bg-brand-primary/10"
                                       title="Pick which of the alternate quotes to edit"
                                     >
                                       <FileText className="w-3.5 h-3.5" />
@@ -1671,7 +1671,7 @@ function AdminLeadsInner() {
                                     ))}
                                     <DropdownMenuItem
                                       onClick={() => router.push(withSlug(`/admin/quotes/new?leadId=${lead.id}`))}
-                                      className="border-t border-slate-200 mt-1 pt-2 text-blue-700 font-medium"
+                                      className="border-t border-slate-200 mt-1 pt-2 text-brand-primary font-medium"
                                     >
                                       <Plus className="w-3.5 h-3.5 mr-1" />
                                       Start a new quote

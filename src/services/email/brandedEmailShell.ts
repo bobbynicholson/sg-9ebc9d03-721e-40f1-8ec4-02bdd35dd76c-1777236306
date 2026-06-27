@@ -232,11 +232,11 @@ export async function renderBrandedEmailHtml(opts: BrandedEmailOptions): Promise
   const ctaHtml = cta
     ? `
       <tr>
-        <td class="cms-px" style="padding:8px 24px 32px 24px;" align="left">
-          <table role="presentation" cellpadding="0" cellspacing="0" border="0" class="cms-cta-table" style="width:auto;">
+        <td class="cms-px" style="padding:8px 24px 32px 24px;" align="center">
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0" class="cms-cta-table" style="width:100%;max-width:320px;margin:0 auto;">
             <tr>
-              <td class="cms-cta-cell" style="border-radius:8px;background:${accent};">
-                <a class="cms-cta" href="${cta.url}" style="display:block;padding:14px 32px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:16px;font-weight:600;color:${ctaTextColor};text-decoration:none;border-radius:8px;line-height:1.2;mso-line-height-rule:exactly;min-height:44px;">
+              <td class="cms-cta-cell" style="border-radius:10px;background:${accent};box-shadow:0 8px 18px rgba(15,23,42,0.14);">
+                <a class="cms-cta" href="${cta.url}" style="display:block;text-align:center;padding:14px 24px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:16px;font-weight:600;color:${ctaTextColor};text-decoration:none;border-radius:10px;line-height:1.2;mso-line-height-rule:exactly;min-height:44px;">
                   ${cta.label}
                 </a>
               </td>
