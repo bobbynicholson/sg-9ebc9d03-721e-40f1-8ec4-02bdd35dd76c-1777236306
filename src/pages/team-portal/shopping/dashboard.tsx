@@ -47,7 +47,9 @@ import { ChatBot } from "@/components/ChatBot";
 import { DynamicNav } from "@/components/DynamicNav";
 import { UserRole } from "@/types/app";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
-import { PortalShell, PortalHeader, PortalCard, PortalCardHeader, StatTile } from "@/components/portal/ui";
+import { PortalShell, PortalHeader, PortalCard, PortalCardHeader, StatTile,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { useActiveShoppingList } from "@/hooks/useActiveShoppingList";
 import { BarcodeScanFab } from "@/components/shopping/BarcodeScanFab";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
@@ -321,6 +323,7 @@ function ShoppingDashboardInner() {
             }
             icon={ShoppingCart}
           />
+          <PageWorkbench />
 
           {/* Loading + empty states */}
           {activeList.loading ? (

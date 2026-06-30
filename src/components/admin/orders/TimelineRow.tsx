@@ -88,7 +88,7 @@ export function TimelineRow({
         isCancelled
           ? "border-t-4 border-t-rose-500 bg-rose-50/40"
           : isBlocked
-            ? "border-l-4 border-l-red-500 bg-red-50/30"
+            ? "border-l-4 border-l-red-500 bg-rose-50/30"
             : ""
       }`}
       onClick={(e) => {

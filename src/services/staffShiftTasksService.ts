@@ -241,9 +241,9 @@ export function taskChipMeta(t: TaskType): {
     case "delivery":
       return { label: "Delivery", shortLabel: "D", chip: "bg-blue-100 text-blue-800 border-blue-300" };
     case "shopping":
-      return { label: "Shopping", shortLabel: "S", chip: "bg-purple-100 text-purple-800 border-purple-300" };
+      return { label: "Shopping", shortLabel: "S", chip: "bg-brand-primary/15 text-brand-primary border-brand-primary/30" };
     case "waitering":
-      return { label: "Waitering", shortLabel: "W", chip: "bg-pink-100 text-pink-800 border-pink-300" };
+      return { label: "Waitering", shortLabel: "W", chip: "bg-amber-100 text-amber-800 border-amber-300" };
     case "setup":
       return { label: "Setup", shortLabel: "Su", chip: "bg-brand-primary/15 text-brand-primary border-brand-primary/30" };
     case "breakdown":

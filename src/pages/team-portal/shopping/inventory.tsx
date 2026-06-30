@@ -30,7 +30,9 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { useToast } from "@/hooks/use-toast";
 import { inventoryService, type Inventory } from "@/services/inventoryService";
-import { PortalShell, PortalHeader, PortalCard, PortalCardHeader, StatTile } from "@/components/portal/ui";
+import { PortalShell, PortalHeader, PortalCard, PortalCardHeader, StatTile,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { useTenantHref } from "@/lib/tenantUrl";
 
 export default function ShoppingInventoryPage() {
@@ -294,6 +296,7 @@ export default function ShoppingInventoryPage() {
               </>
             }
           />
+          <PageWorkbench />
 
           {/* KPI tiles use the shared StatTile: neutral slate values, a
               slate glyph, soft shadow + hairline + rounded-2xl. The

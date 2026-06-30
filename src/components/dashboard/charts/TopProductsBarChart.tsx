@@ -33,7 +33,7 @@ export function TopProductsBarChart({ data, loading }: Props) {
     <Card className="border-0 shadow-sm">
       <CardHeader className="pb-2">
         <CardTitle className="text-sm font-semibold flex items-center gap-2">
-          <Utensils className="w-4 h-4 text-purple-600" />
+          <Utensils className="w-4 h-4 text-slate-600" />
           Top products
           <InfoTooltip
             content={

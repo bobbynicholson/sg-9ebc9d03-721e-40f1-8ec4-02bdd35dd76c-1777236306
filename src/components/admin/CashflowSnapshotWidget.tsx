@@ -170,7 +170,7 @@ export function CashflowSnapshotWidget({ companyId, currency = "ZAR" }: Props) {
   const isTight = forecast >= 0 && forecast < Math.max(costs * 0.15, 10000);
   const tone = isPositive
     ? (isTight ? "text-amber-700" : "text-brand-primary")
-    : "text-red-700";
+    : "text-rose-700";
 
   const updatedAgeHours = cashUpdatedAt
     ? (Date.now() - new Date(cashUpdatedAt).getTime()) / (60 * 60 * 1000)
@@ -246,13 +246,13 @@ export function CashflowSnapshotWidget({ companyId, currency = "ZAR" }: Props) {
               </div>
               <div className="flex justify-between">
                 <span>Out</span>
-                <span className="text-red-700 tabular-nums">-{fmt(costs, currency)}</span>
+                <span className="text-rose-700 tabular-nums">-{fmt(costs, currency)}</span>
               </div>
             </div>
           </div>
           <div className="sm:border-l sm:border-slate-100 sm:pl-4 flex flex-col justify-center">
             {!isPositive ? (
-              <div className="text-xs text-red-700 leading-relaxed">
+              <div className="text-xs text-rose-700 leading-relaxed">
                 <AlertTriangle className="w-4 h-4 inline-block mr-1 mb-0.5" />
                 Forecast is negative. Either chase outstanding invoices or push a payable. Open the full forecast for the day-by-day breakdown.
               </div>

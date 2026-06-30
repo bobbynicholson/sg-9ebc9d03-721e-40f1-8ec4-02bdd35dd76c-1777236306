@@ -59,7 +59,7 @@ const ICON: Record<RecentlyViewedItem["type"], any> = {
 const TONE: Record<RecentlyViewedItem["type"], string> = {
   order:   "bg-blue-50 text-blue-700 border-blue-200",
   quote:   "bg-brand-primary/10 text-brand-primary border-brand-primary/20",
-  contact: "bg-purple-50 text-purple-700 border-purple-200",
+  contact: "bg-slate-50 text-slate-700 border-slate-200",
   invoice: "bg-amber-50 text-amber-700 border-amber-200",
 };
 

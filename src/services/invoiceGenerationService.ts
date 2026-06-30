@@ -797,13 +797,11 @@ export async function ensureInvoiceForOrder(
       }
     }
 
-    // Client-facing comms. Today an invoice row is inserted but the
-    // client only sees it if they proactively open the portal - the
-    // audit flagged this as a silent moment. Push an email + in-app
-    // notification with a deep-link to the billing page. Fire-and-
-    // forget: a bad email config must never undo the invoice.
+    // Client-facing comms. Await this so invoices.sent_at is stamped
+    // before quote acceptance returns; the helper catches its own email
+    // and notification failures so a bad config does not undo the invoice.
     if (created.invoiceId) {
-      void notifyClientOfInvoiceIssued(orderId, companyId, created.invoiceId, built.data, supabase, opts?.origin);
+      await notifyClientOfInvoiceIssued(orderId, companyId, created.invoiceId, built.data, supabase, opts?.origin);
     }
 
     return { success: true, invoiceId: created.invoiceId, alreadyExisted: false };
@@ -936,7 +934,7 @@ async function notifyClientOfInvoiceIssued(
     if (existingErr) {
       console.error("[invoiceGenerationService] notifications fetch failed:", existingErr);
     }
-    if (existing && existing.length > 0) return;
+    const notificationAlreadyCreated = !!(existing && existing.length > 0);
 
     // Pull order + tenant once for the message body.
     const { data: order, error: orderErr2 } = await supabase
@@ -990,7 +988,7 @@ async function notifyClientOfInvoiceIssued(
     // case so we don't insert a row no auth user can read.
     try {
       const clientAuthUid = await resolveClientUserId(supabase, (order as any)?.client_id || null);
-      if (clientAuthUid) {
+      if (clientAuthUid && !notificationAlreadyCreated) {
         // Pass `supabase` (the resolved client - could be browser anon
         // or service-role depending on caller context) so the bell row
         // inserts under the right auth surface. Without this, server-
@@ -1016,8 +1014,17 @@ async function notifyClientOfInvoiceIssued(
     // 2. Email. Mirrors the in-app body so a client who reads either
     // channel gets the same single-line summary + the same deep link.
     try {
+      const { data: invoiceSendRow, error: invoiceSendErr } = await supabase
+        .from("invoices")
+        .select("sent_at")
+        .eq("id", invoiceId)
+        .maybeSingle();
+      if (invoiceSendErr) {
+        console.error("[invoiceGenerationService] invoices sent_at fetch failed:", invoiceSendErr);
+      }
+      const alreadySent = !!(invoiceSendRow as any)?.sent_at;
       const recipient = invoiceData.clientEmail || (order as any)?.client_email || null;
-      if (recipient) {
+      if (recipient && !alreadySent) {
         // Origin priority: explicit caller override (server context can
         // pass req-derived host) -> NEXT_PUBLIC_APP_URL -> NEXT_PUBLIC_SITE_URL
         // -> empty (relative link). Browser callers leave originOverride
@@ -1074,37 +1081,51 @@ async function notifyClientOfInvoiceIssued(
         const isBalance = Number(invoiceData.depositPaid || 0) > 0;
         const templateType = isBalance ? "balance_invoice_issued" : "deposit_invoice_issued";
 
-        const fallbackBody =
-          `Hi {{first_name}},\n\n` +
-          `{{tenant_name}} issued invoice {{invoice_number}} for {{event_name}}. Total: {{amount}}.\n\n` +
-          `Open the invoice: {{invoice_link}}\n\n` +
-          `Thanks,\n{{tenant_name}}`;
+        const fallbackBody = isBalance
+          ? `Hi {{first_name}},\n\n` +
+            `{{tenant_name}} issued the balance invoice {{invoice_number}} for {{event_name}}. Balance due: {{amount}}.\n\n` +
+            `Open the invoice: {{invoice_link}}\n\n` +
+            `Thanks,\n{{tenant_name}}`
+          : `Hi {{first_name}},\n\n` +
+            `Thanks for accepting your {{event_name}} quote - you're booked in.\n\n` +
+            `Your deposit invoice {{invoice_number}} is ready. Deposit due: {{amount}}.\n\n` +
+            `Pay or download it here: {{invoice_link}}\n\n` +
+            `Once the payment clears, your event date is locked in.\n\n` +
+            `Thanks,\n{{tenant_name}}`;
+
+        const emailVariables = {
+          first_name: firstName,
+          client_name: invoiceData.clientName,
+          tenant_name: tenantName,
+          event_name: eventName,
+          invoice_number: invoiceData.invoiceNumber,
+          amount: amountLabel,
+          deposit_amount: isBalance ? "" : amountBare,
+          balance_amount: isBalance ? amountBare : "",
+          invoice_link: payLink,
+          clientName: invoiceData.clientName,
+          companyName: tenantName,
+        };
 
         const resolved = await resolveEmailTemplate({
           companyId,
           templateType,
-          variables: {
-            first_name: firstName,
-            client_name: invoiceData.clientName,
-            tenant_name: tenantName,
-            event_name: eventName,
-            invoice_number: invoiceData.invoiceNumber,
-            amount: amountLabel,
-            deposit_amount: isBalance ? "" : amountBare,
-            balance_amount: isBalance ? amountBare : "",
-            invoice_link: payLink,
-          },
+          variables: emailVariables,
           fallback: {
             subject: `Invoice ${invoiceData.invoiceNumber} ready - ${eventName}`,
             bodyHtml: fallbackBody,
           },
+          client: supabase,
         });
 
-        await emailService.sendEmail({
+        const sent = await emailService.sendEmail({
           companyId,
           to: recipient,
           subject: resolved.subject,
+          template: templateType,
           body: resolved.bodyHtml,
+          variables: emailVariables,
+          orderId,
           ...(attachments.length > 0 ? { attachments } : {}),
           // Forward the injected client so emailService can read
           // email_settings + write email_automation_log under the
@@ -1112,6 +1133,17 @@ async function notifyClientOfInvoiceIssued(
           // anon from browser callers).
           _client: supabase,
         } as any);
+
+        if (sent) {
+          const { error: sentStampErr } = await supabase
+            .from("invoices")
+            .update({ sent_at: new Date().toISOString() })
+            .eq("id", invoiceId)
+            .is("sent_at", null);
+          if (sentStampErr) {
+            console.warn("[notifyClientOfInvoiceIssued] sent_at stamp failed:", sentStampErr);
+          }
+        }
       }
     } catch (e) {
       console.warn("[notifyClientOfInvoiceIssued] email failed:", e);
@@ -1652,13 +1684,27 @@ export async function sendInvoiceEmail(
     }
 
     const firstName = String(invoiceData.clientName || "there").split(" ")[0] || "there";
-    const isBalance = Number(invoiceData.depositPaid || 0) > 0;
+    let liveInvoiceRow: any = null;
+    try {
+      const { data: invRow } = await supabase
+        .from("invoices")
+        .select("public_token, amount_paid, balance_due, total_amount, status")
+        .eq("id", options.invoiceId)
+        .maybeSingle();
+      liveInvoiceRow = invRow || null;
+    } catch (e) {
+      console.warn("[sendInvoiceEmail] live invoice lookup failed:", e);
+    }
+    const liveAmountPaid = Number(liveInvoiceRow?.amount_paid ?? invoiceData.depositPaid ?? 0) || 0;
+    const liveBalanceDue = Number(liveInvoiceRow?.balance_due ?? invoiceData.balanceDue ?? 0) || 0;
+    const liveTotal = Number(liveInvoiceRow?.total_amount ?? invoiceData.total ?? 0) || 0;
+    const isBalance = liveAmountPaid > 0 || String(liveInvoiceRow?.status || "").toLowerCase() === "partially_paid";
     // Mirror the auto-issuance flow's template selection so manual
     // sends and auto sends look identical to the client.
     const templateType = isBalance ? "balance_invoice_issued" : "deposit_invoice_issued";
     // TIGHTEN I.88: tenant-currency amount on the customer-facing
     // invoice email. Was hardcoded "R" prefix.
-    const amountValue = Number(invoiceData.balanceDue || invoiceData.total || 0);
+    const amountValue = isBalance ? (liveBalanceDue || Number(invoiceData.balanceDue || 0)) : (liveBalanceDue || liveTotal || Number(invoiceData.total || 0));
     const { data: companyCurrencyRow } = await supabase
       .from("companies")
       .select("currency")
@@ -1687,12 +1733,7 @@ export async function sendInvoiceEmail(
     // templates; this manual-send path was missing it.
     let invoiceLink = "";
     try {
-      const { data: invRow } = await supabase
-        .from("invoices")
-        .select("public_token")
-        .eq("id", options.invoiceId)
-        .maybeSingle();
-      const tok = (invRow as any)?.public_token;
+      const tok = liveInvoiceRow?.public_token;
       const origin = (process.env.NEXT_PUBLIC_APP_URL || "").replace(/\/$/, "");
       if (tok && origin) invoiceLink = `${origin}/pay/i/${tok}`;
     } catch (e) {

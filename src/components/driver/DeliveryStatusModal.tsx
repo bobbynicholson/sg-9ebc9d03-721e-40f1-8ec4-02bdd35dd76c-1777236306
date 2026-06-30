@@ -196,17 +196,17 @@ export function DeliveryStatusModal({
               <Card 
                 className={`cursor-pointer transition-all ${
                   status === "failed" 
-                    ? "border-red-500 bg-red-50 ring-2 ring-red-200" 
+                    ? "border-rose-500 bg-rose-50 ring-2 ring-rose-200"
                     : "border-slate-200 hover:border-slate-300"
                 }`}
                 onClick={() => setStatus("failed")}
               >
                 <CardContent className="p-4 text-center">
                   <XCircle className={`w-8 h-8 mx-auto mb-2 ${
-                    status === "failed" ? "text-red-600" : "text-slate-400"
+                    status === "failed" ? "text-rose-600" : "text-slate-400"
                   }`} />
                   <p className={`font-semibold ${
-                    status === "failed" ? "text-red-900" : "text-slate-600"
+                    status === "failed" ? "text-rose-900" : "text-slate-600"
                   }`}>
                     Failed
                   </p>
@@ -218,7 +218,7 @@ export function DeliveryStatusModal({
           {/* Failure Reason (only for failed status) */}
           {status === "failed" && (
             <div className="space-y-2">
-              <Label className="text-red-900">Reason for Failure *</Label>
+              <Label className="text-rose-900">Reason for Failure *</Label>
               <Select value={failureReason} onValueChange={setFailureReason}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select a reason" />
@@ -372,7 +372,7 @@ export function DeliveryStatusModal({
               className={`flex-1 ${
                 status === "completed"
                   ? "bg-brand-primary hover:bg-brand-primary/90"
-                  : "bg-red-600 hover:bg-red-700"
+                  : "bg-rose-600 hover:bg-rose-700"
               }`}
             >
               {loading ? "Updating..." : status === "completed" ? "Mark Completed" : "Report Failed"}

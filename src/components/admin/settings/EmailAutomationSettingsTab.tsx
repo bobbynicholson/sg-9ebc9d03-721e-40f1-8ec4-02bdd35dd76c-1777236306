@@ -43,7 +43,7 @@ export function EmailAutomationSettingsTab({ templatesHref }: Props) {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4 px-4 md:px-6">
-        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-4 md:p-6 border border-blue-200">
+        <div className="bg-gradient-to-br from-blue-50 to-blue-50 rounded-lg p-4 md:p-6 border border-blue-200">
           <div className="flex flex-col md:flex-row md:items-start gap-3 md:gap-4">
             <div className="w-12 h-12 rounded-full bg-blue-600 flex items-center justify-center flex-shrink-0">
               <Mail className="w-6 h-6 text-white" />
@@ -63,7 +63,7 @@ export function EmailAutomationSettingsTab({ templatesHref }: Props) {
                   <div className="text-xs text-slate-600">Month Journey</div>
                 </div>
                 <div className="bg-white rounded-lg p-2 md:p-3 text-center">
-                  <div className="text-xl md:text-2xl font-bold text-purple-600">Auto</div>
+                  <div className="text-xl md:text-2xl font-bold text-slate-600">Auto</div>
                   <div className="text-xs text-slate-600">Fully Automated</div>
                 </div>
               </div>

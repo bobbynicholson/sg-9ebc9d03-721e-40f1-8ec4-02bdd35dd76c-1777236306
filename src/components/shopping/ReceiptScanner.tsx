@@ -73,7 +73,7 @@ const RECEIPT_SCANNER_ACCENTS = {
     badge: "bg-brand-primary/15 text-brand-primary border-brand-primary/20 border dark:bg-brand-primary/15 dark:text-brand-primary dark:border-brand-primary/30",
     dropzone: "border-slate-300 dark:border-slate-700 hover:border-brand-primary/70 hover:bg-brand-primary/5 dark:hover:border-brand-primary/60 dark:hover:bg-brand-primary/10",
     focusRing: "focus-visible:ring-brand-primary/60",
-    gradientButton: "bg-gradient-to-r from-brand-primary to-brand-secondary hover:brightness-105 text-white rounded-lg",
+    gradientButton: "bg-brand-primary hover:brightness-105 text-white rounded-lg",
     solidButton: "bg-brand-primary hover:bg-brand-primary/90 text-white rounded-lg",
   },
   accent: {

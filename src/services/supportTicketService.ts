@@ -145,7 +145,7 @@ export const supportTicketService = {
   getPriorityColor(priority: string) {
     switch (priority) {
       case "urgent":
-        return "bg-red-100 text-red-800 border-red-200";
+        return "bg-rose-100 text-rose-800 border-rose-200";
       case "high":
         return "bg-orange-100 text-orange-800 border-orange-200";
       case "medium":

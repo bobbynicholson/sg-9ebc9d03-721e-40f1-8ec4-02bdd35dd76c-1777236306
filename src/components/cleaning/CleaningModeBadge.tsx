@@ -56,7 +56,7 @@ const MODE_META: Record<CleaningPortalMode, {
     shortLabel: "Returns",
     description: "Equipment is coming back. Verify each handover as it lands.",
     icon: PackageOpen,
-    bg: "bg-gradient-to-r from-brand-primary to-brand-secondary border-brand-primary",
+    bg: "bg-brand-primary border-brand-primary",
     text: "text-white",
     pulse: true,
   },

@@ -39,9 +39,9 @@ interface MetricCardProps {
 const BADGE_TONES = {
   green:  "bg-brand-primary/15 text-brand-primary",
   blue:   "bg-blue-100 text-blue-700",
-  purple: "bg-purple-100 text-purple-700",
+  purple: "bg-slate-100 text-slate-700",
   amber:  "bg-amber-100 text-amber-700",
-  red:    "bg-red-100 text-red-700",
+  red:    "bg-rose-100 text-rose-700",
   slate:  "bg-slate-100 text-slate-700",
 };
 

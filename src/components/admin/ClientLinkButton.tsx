@@ -149,7 +149,7 @@ export function ClientLinkButton({ orderId, compact, onGenerated }: Props) {
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <ShieldCheck className="w-5 h-5 text-purple-600" />
+            <ShieldCheck className="w-5 h-5 text-slate-700" />
             Share with the client
           </DialogTitle>
           <DialogDescription>
@@ -219,7 +219,7 @@ export function ClientLinkButton({ orderId, compact, onGenerated }: Props) {
                         Created {new Date(t.created_at).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })} · expires in {days}d
                       </p>
                     </div>
-                    <Button size="sm" variant="ghost" onClick={() => revoke(t.id)} className="text-red-600 gap-1">
+                    <Button size="sm" variant="ghost" onClick={() => revoke(t.id)} className="text-rose-600 gap-1">
                       <Trash2 className="w-3.5 h-3.5" />
                       Revoke
                     </Button>

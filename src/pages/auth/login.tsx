@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Mail, Lock, Loader2, Crown, UserCog, Shield, ChefHat, Truck, ShoppingCart, SprayCan, Users } from "lucide-react";
+import { Mail, Lock, Loader2, Crown, UserCog, Shield, ChefHat, Truck, ShoppingCart, SprayCan, Users, Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
 import { useToast } from "@/hooks/use-toast";
 import { createClient } from "@/lib/supabase/client";
@@ -28,7 +28,7 @@ const DEV_USERS = [
     label: "Company Admin",
     description: "Company Administrator",
     icon: UserCog,
-    gradient: "from-indigo-500 to-purple-500",
+    gradient: "from-blue-500 to-slate-500",
   },
   {
     email: "admin@spitbraaidelivery.co.za",
@@ -36,7 +36,7 @@ const DEV_USERS = [
     label: "Admin",
     description: "Administrator",
     icon: Shield,
-    gradient: "from-purple-500 to-pink-500",
+    gradient: "from-slate-500 to-rose-500",
   },
   {
     email: "kitchen@spitbraaidelivery.co.za",
@@ -44,7 +44,7 @@ const DEV_USERS = [
     label: "Kitchen Staff",
     description: "Kitchen Operations",
     icon: ChefHat,
-    gradient: "from-orange-500 to-red-500",
+    gradient: "from-orange-500 to-rose-500",
   },
   {
     email: "driver@spitbraaidelivery.co.za",
@@ -60,7 +60,7 @@ const DEV_USERS = [
     label: "Shopping Staff",
     description: "Shopping Operations",
     icon: ShoppingCart,
-    gradient: "from-pink-500 to-rose-500",
+    gradient: "from-rose-500 to-rose-500",
   },
   {
     email: "cleaning@spitbraaidelivery.co.za",
@@ -76,7 +76,7 @@ const DEV_USERS = [
     label: "Client",
     description: "Tollie Le Roux, Tollies Marketing",
     icon: Users,
-    gradient: "from-blue-500 to-indigo-500",
+    gradient: "from-blue-500 to-blue-500",
   },
 ];
 
@@ -96,6 +96,7 @@ export default function LoginPage() {
   const { message, redirect } = router.query;
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [devMode, setDevMode] = useState(false);
@@ -161,7 +162,7 @@ export default function LoginPage() {
     setError("");
 
     try {
-      const devPassword = process.env.NEXT_PUBLIC_DEV_USER_PASSWORD || "Test123!";
+      const devPassword = process.env.NEXT_PUBLIC_DEV_USER_PASSWORD || "CateringMS123!";
       const supabase = createClient();
       const { data: { user }, error: signInError } = await supabase.auth.signInWithPassword({
         email: userEmail,
@@ -292,7 +293,7 @@ export default function LoginPage() {
                     🔧 Dev mode active
                   </p>
                   <p className="text-xs text-amber-700 mt-1">
-                    Click a role to sign in instantly. All passwords: Test123!
+                    Click a role to sign in instantly. All passwords: CateringMS123!
                   </p>
                 </div>
 
@@ -409,14 +410,25 @@ export default function LoginPage() {
                     <Lock className="absolute left-3 top-3.5 h-5 w-5 text-slate-400" />
                     <Input
                       id="password"
-                      type="password"
+                      type={showPassword ? "text" : "password"}
                       placeholder="Enter your password"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="pl-10 h-12 text-base"
+                      className="pl-10 pr-12 h-12 text-base"
                       required
                       disabled={loading}
+                      autoComplete="current-password"
                     />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((v) => !v)}
+                      className="absolute right-2 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/40 disabled:pointer-events-none disabled:opacity-50"
+                      aria-label={showPassword ? "Hide password" : "Show password"}
+                      aria-pressed={showPassword}
+                      disabled={loading}
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
                   </div>
                 </div>
 

@@ -124,6 +124,10 @@
       "schedule": "*/15 * * * *"
     },
     {
+      "path": "/api/cron/waiter-service-reminder",
+      "schedule": "*/15 * * * *"
+    },
+    {
       "path": "/api/cron/cleaning-overdue-check",
       "schedule": "0 */6 * * *"
     },

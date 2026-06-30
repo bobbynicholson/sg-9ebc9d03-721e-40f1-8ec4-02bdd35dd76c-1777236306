@@ -226,7 +226,7 @@ async function handler(
               company:company_id (
                 company_name, legal_name, logo_url, email, phone, website,
                 address_line1, address_line2, city,
-                primary_color, vat_registered, vat_number, vat_rate,
+                primary_color, vat_registered, vat_number, vat_rate, pricing_includes_vat,
                 registration_number, tax_number, currency,
                 updated_at
               )
@@ -237,32 +237,9 @@ async function handler(
 
           if (q) {
             const { renderQuotePdf, sanitiseFilename } = await import("@/services/pdf");
+            const { buildQuotePdfDataFromRow } = await import("@/services/pdf/quotePdfData");
             const pdfBuffer = await renderQuotePdf(
-              {
-                quote_number: (q as any).quote_number,
-                quote_name: (q as any).quote_name,
-                client_name: (q as any).client_name,
-                event_date: (q as any).event_date,
-                event_time: (q as any).event_time,
-                setup_time: (q as any).setup_time,
-                guest_count: (q as any).guest_count,
-                venue_address: (q as any).venue_address,
-                menu_items: (q as any).menu_items,
-                equipment_items: (q as any).equipment_items,
-                subtotal: (q as any).subtotal,
-                delivery_fee: (q as any).delivery_fee,
-                delivery_distance_km: (q as any).delivery_distance_km,
-                delivery_rate_per_km: (q as any).delivery_rate_per_km,
-                discount_amount: (q as any).discount_amount,
-                tax_amount: (q as any).tax_amount,
-                total: Number((q as any).total ?? (q as any).total_amount ?? 0),
-                valid_until: (q as any).valid_until,
-                terms_and_conditions: (q as any).terms_and_conditions,
-                notes: (q as any).notes,
-                status: (q as any).status,
-                accepted_at: (q as any).accepted_at,
-                company: (q as any).company || {},
-              },
+              buildQuotePdfDataFromRow(q),
               {
                 cacheKey: {
                   quoteId,
@@ -306,7 +283,7 @@ async function handler(
               company:company_id (
                 company_name, legal_name, logo_url, email, phone, website,
                 address_line1, address_line2, city,
-                primary_color, vat_registered, vat_number, vat_rate,
+                primary_color, vat_registered, vat_number, vat_rate, pricing_includes_vat,
                 registration_number, tax_number, currency,
                 updated_at
               )
@@ -317,32 +294,9 @@ async function handler(
 
           if (q2) {
             const { renderQuotePdf, sanitiseFilename } = await import("@/services/pdf");
+            const { buildQuotePdfDataFromRow } = await import("@/services/pdf/quotePdfData");
             const pdfBuffer2 = await renderQuotePdf(
-              {
-                quote_number: (q2 as any).quote_number,
-                quote_name: (q2 as any).quote_name,
-                client_name: (q2 as any).client_name,
-                event_date: (q2 as any).event_date,
-                event_time: (q2 as any).event_time,
-                setup_time: (q2 as any).setup_time,
-                guest_count: (q2 as any).guest_count,
-                venue_address: (q2 as any).venue_address,
-                menu_items: (q2 as any).menu_items,
-                equipment_items: (q2 as any).equipment_items,
-                subtotal: (q2 as any).subtotal,
-                delivery_fee: (q2 as any).delivery_fee,
-                delivery_distance_km: (q2 as any).delivery_distance_km,
-                delivery_rate_per_km: (q2 as any).delivery_rate_per_km,
-                discount_amount: (q2 as any).discount_amount,
-                tax_amount: (q2 as any).tax_amount,
-                total: Number((q2 as any).total ?? (q2 as any).total_amount ?? 0),
-                valid_until: (q2 as any).valid_until,
-                terms_and_conditions: (q2 as any).terms_and_conditions,
-                notes: (q2 as any).notes,
-                status: (q2 as any).status,
-                accepted_at: (q2 as any).accepted_at,
-                company: (q2 as any).company || {},
-              },
+              buildQuotePdfDataFromRow(q2),
               {
                 cacheKey: {
                   quoteId: quoteId2,

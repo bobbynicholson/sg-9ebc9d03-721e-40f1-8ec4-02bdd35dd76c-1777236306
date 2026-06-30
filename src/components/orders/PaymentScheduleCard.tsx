@@ -112,7 +112,7 @@ export function PaymentScheduleCard({
         {/* Balance Section */}
         <div className={`space-y-3 p-4 rounded-lg border ${
           isBalanceOverdue 
-            ? "bg-red-50 border-red-200" 
+            ? "bg-rose-50 border-rose-200"
             : isBalanceDueSoon 
             ? "bg-orange-50 border-orange-200"
             : "bg-muted/30"
@@ -122,7 +122,7 @@ export function PaymentScheduleCard({
               {schedule.balancePaid ? (
                 <CheckCircle className="h-5 w-5 text-brand-primary" />
               ) : isBalanceOverdue ? (
-                <AlertCircle className="h-5 w-5 text-red-500" />
+                <AlertCircle className="h-5 w-5 text-rose-500" />
               ) : (
                 <Clock className="h-5 w-5 text-blue-500" />
               )}
@@ -161,7 +161,7 @@ export function PaymentScheduleCard({
                     </span>
                   )}
                   {isBalanceOverdue && (
-                    <span className="ml-2 font-semibold text-red-600">
+                    <span className="ml-2 font-semibold text-rose-600">
                       (Overdue by {Math.abs(balanceDaysRemaining)} {Math.abs(balanceDaysRemaining) === 1 ? "day" : "days"})
                     </span>
                   )}

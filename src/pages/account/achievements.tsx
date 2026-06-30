@@ -137,10 +137,10 @@ function AchievementsContent() {
                     <p className="text-4xl font-bold text-slate-900">{totalPoints.toLocaleString()}</p>
                   </CardContent>
                 </Card>
-                <Card className="border-0 shadow-lg bg-gradient-to-br from-purple-50 to-indigo-50">
+                <Card className="border-0 shadow-lg bg-gradient-to-br from-slate-50 to-blue-50">
                   <CardContent className="p-6">
                     <div className="flex items-center gap-3 mb-2">
-                      <Medal className="w-5 h-5 text-purple-600" />
+                      <Medal className="w-5 h-5 text-slate-600" />
                       <p className="text-sm text-slate-600 font-semibold">Achievements</p>
                     </div>
                     <p className="text-4xl font-bold text-slate-900">{achievements.length}</p>
@@ -163,7 +163,7 @@ function AchievementsContent() {
               <Card className="border-0 shadow-lg">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <Sparkles className="w-5 h-5 text-purple-600" />
+                    <Sparkles className="w-5 h-5 text-slate-600" />
                     Badges you've unlocked
                   </CardTitle>
                   <CardDescription>
@@ -276,7 +276,7 @@ function AchievementsContent() {
                                 </Badge>
                               )}
                               {isMe && (
-                                <Badge className="bg-purple-100 text-purple-700 text-[10px]">You</Badge>
+                                <Badge className="bg-slate-100 text-slate-700 text-[10px]">You</Badge>
                               )}
                             </div>
                             <span className="font-mono text-sm">{entry.total_points.toLocaleString()}</span>

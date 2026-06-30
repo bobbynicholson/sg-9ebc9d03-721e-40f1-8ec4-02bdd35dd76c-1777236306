@@ -53,7 +53,7 @@ export function ProductPreview() {
       <div className="overflow-hidden rounded-2xl border border-white/10 bg-white shadow-[0_40px_120px_-30px_rgba(0,0,0,0.7)] ring-1 ring-black/5">
         {/* Window chrome */}
         <div className="flex items-center gap-2 border-b border-stone-200/80 bg-stone-50 px-4 py-3">
-          <span className="h-3 w-3 rounded-full bg-red-400/80" />
+          <span className="h-3 w-3 rounded-full bg-rose-400/80" />
           <span className="h-3 w-3 rounded-full bg-amber-400/80" />
           <span className="h-3 w-3 rounded-full bg-brand-primary/80" />
           <div className="mx-auto flex items-center gap-2 rounded-md bg-white px-3 py-1 text-[11px] text-stone-400 ring-1 ring-stone-200">

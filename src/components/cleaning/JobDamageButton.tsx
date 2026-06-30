@@ -160,7 +160,7 @@ export function JobDamageButton({ equipmentId, equipmentName, orderId, maxQuanti
         size="sm"
         variant="outline"
         onClick={() => setOpen(true)}
-        className="text-xs h-8 gap-1 text-red-700 border-red-200 hover:bg-red-50"
+        className="text-xs h-8 gap-1 text-rose-700 border-rose-200 hover:bg-rose-50"
         title="Flag this item as damaged or lost"
       >
         <AlertTriangle className="w-3.5 h-3.5" />
@@ -170,7 +170,7 @@ export function JobDamageButton({ equipmentId, equipmentName, orderId, maxQuanti
       <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) reset(); }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-red-700">
+            <DialogTitle className="flex items-center gap-2 text-rose-700">
               <AlertTriangle className="w-5 h-5" />
               Flag damaged: {equipmentName}
             </DialogTitle>
@@ -254,7 +254,7 @@ export function JobDamageButton({ equipmentId, equipmentName, orderId, maxQuanti
 
             {unitCost > 0 && (
               <p className="text-xs text-slate-500">
-                Estimated cost impact: <span className="font-semibold text-red-600">R{costImpact.toFixed(2)}</span>
+                Estimated cost impact: <span className="font-semibold text-rose-600">R{costImpact.toFixed(2)}</span>
               </p>
             )}
           </div>
@@ -263,7 +263,7 @@ export function JobDamageButton({ equipmentId, equipmentName, orderId, maxQuanti
             <Button variant="outline" onClick={() => { setOpen(false); reset(); }} disabled={submitting}>
               Cancel
             </Button>
-            <Button onClick={handleSubmit} disabled={!canSubmit} className="bg-red-600 hover:bg-red-700 gap-1.5">
+            <Button onClick={handleSubmit} disabled={!canSubmit} className="bg-rose-600 hover:bg-rose-700 gap-1.5">
               {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <AlertTriangle className="w-4 h-4" />}
               {submitting ? "Flagging..." : "Flag damage"}
             </Button>

@@ -126,7 +126,7 @@ export function EmailDeliverabilityPanel({ companyId }: Props) {
       <Card className="border-0 shadow-lg mb-6">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Activity className="w-5 h-5 text-purple-600" />
+            <Activity className="w-5 h-5 text-slate-700" />
             Deliverability health (30 days)
             <InfoTooltip content="Inbox placement and complaint rates for emails sent through CateringMS. Populated by Resend webhooks - takes a few sends to start showing meaningful data." />
           </CardTitle>
@@ -158,7 +158,7 @@ export function EmailDeliverabilityPanel({ companyId }: Props) {
     <Card className="border-0 shadow-lg mb-6">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Activity className="w-5 h-5 text-purple-600" />
+          <Activity className="w-5 h-5 text-slate-700" />
           Deliverability health (30 days)
           <InfoTooltip content="Inbox placement, bounce rate and spam-complaint rate over the last 30 days. Data comes from Resend's webhooks - one row per provider event." />
         </CardTitle>
@@ -261,7 +261,7 @@ function MetricTile({
 }) {
   const colour =
     level === "bad"
-      ? { bg: "bg-red-50", border: "border-red-200", text: "text-red-900", iconBg: "bg-red-100", iconText: "text-red-600" }
+      ? { bg: "bg-rose-50", border: "border-rose-200", text: "text-rose-900", iconBg: "bg-rose-100", iconText: "text-rose-600" }
       : level === "warn"
       ? { bg: "bg-amber-50", border: "border-amber-200", text: "text-amber-900", iconBg: "bg-amber-100", iconText: "text-amber-600" }
       : { bg: "bg-brand-primary/10", border: "border-brand-primary/20", text: "text-brand-primary", iconBg: "bg-brand-primary/15", iconText: "text-brand-primary" };
@@ -284,14 +284,14 @@ function EventBadge({ type, bounceType }: { type: string; bounceType: string | n
   if (type === "bounced") {
     const isHard = bounceType === "hard";
     return (
-      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${isHard ? "bg-red-100 text-red-800" : "bg-amber-100 text-amber-800"}`}>
+      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${isHard ? "bg-rose-100 text-rose-800" : "bg-amber-100 text-amber-800"}`}>
         {isHard ? "Hard bounce" : "Soft bounce"}
       </span>
     );
   }
   if (type === "complained") {
     return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-red-100 text-red-800">
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-100 text-rose-800">
         Spam complaint
       </span>
     );

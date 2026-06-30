@@ -12,7 +12,9 @@ import Head from "next/head";
 import { useAuth } from "@/contexts/AuthContext";
 import { ChatBot } from "@/components/ChatBot";
 import { DynamicNav } from "@/components/DynamicNav";
-import { PortalShell, PortalHeader } from "@/components/portal/ui";
+import { PortalShell, PortalHeader,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { supabase } from "@/integrations/supabase/client";
 
 interface JobProgress {
@@ -139,6 +141,7 @@ export default function StaffJobProgress() {
             subtitle="Monitor all active jobs and their progress in real-time"
             icon={Package}
           />
+          <PageWorkbench />
 
           <div className="grid gap-6">
             {loading ? (

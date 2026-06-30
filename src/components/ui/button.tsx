@@ -9,20 +9,20 @@ const buttonVariants = cva(
   // every pressable element so the UI feels like it heard the click. Easing is
   // the strong ease-out curve (matches --ease-out); transition lists exact
   // properties (never `all`) and stays snappy at 150ms.
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-[color,background-color,border-color,box-shadow,transform] duration-150 ease-standard active:scale-[0.97] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 disabled:active:scale-100 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-[color,background-color,border-color,box-shadow,transform] duration-150 ease-standard active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/40 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 disabled:active:scale-100 dark:focus-visible:ring-brand-primary/50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
   {
     variants: {
       variant: {
         default:
-          "bg-primary text-primary-foreground shadow hover:bg-primary/90",
+          "bg-brand-primary text-white shadow-sm hover:bg-brand-primary/90 dark:bg-brand-primary dark:text-white dark:hover:bg-brand-primary/90",
         destructive:
-          "bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90",
+          "bg-rose-600 text-white shadow-sm hover:bg-rose-700 dark:bg-rose-500 dark:hover:bg-rose-400",
         outline:
-          "border bg-transparent shadow-xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 border-border dark:hover:bg-input/50",
+          "border border-slate-300 bg-white text-slate-800 shadow-xs hover:border-brand-primary/40 hover:bg-brand-primary/10 hover:text-brand-primary dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:border-brand-primary/40 dark:hover:bg-brand-primary/10 dark:hover:text-brand-primary",
         secondary:
-          "bg-secondary text-secondary-foreground shadow-sm hover:bg-secondary/80",
-        ghost: "hover:bg-accent hover:text-accent-foreground",
-        link: "text-primary underline-offset-4 hover:underline",
+          "bg-slate-100 text-slate-900 shadow-sm hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700",
+        ghost: "text-slate-700 hover:bg-brand-primary/10 hover:text-brand-primary dark:text-slate-300 dark:hover:bg-brand-primary/10 dark:hover:text-brand-primary",
+        link: "text-brand-primary underline-offset-4 hover:underline dark:text-brand-primary",
       },
       size: {
         default: "h-9 px-4 py-2",

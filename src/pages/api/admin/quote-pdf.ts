@@ -104,8 +104,13 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         clearTimeout(t);
         if (resp.ok) {
           const ct = resp.headers.get("content-type") || "image/png";
-          const buf = Buffer.from(await resp.arrayBuffer());
-          logoUrl = `data:${ct};base64,${buf.toString("base64")}`;
+          if (/^image\/(?:png|jpe?g)(?:;|$)/i.test(ct)) {
+            const buf = Buffer.from(await resp.arrayBuffer());
+            logoUrl = `data:${ct};base64,${buf.toString("base64")}`;
+          } else {
+            console.warn("[quote-pdf] unsupported logo type, rendering without logo:", ct);
+            logoUrl = null;
+          }
         } else {
           logoUrl = null;
         }
@@ -119,32 +124,12 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     }
 
     const { renderQuotePdf, sanitiseFilename } = await import("@/services/pdf");
+    const { buildQuotePdfDataFromRow } = await import("@/services/pdf/quotePdfData");
     const pdfBuffer = await renderQuotePdf(
-      {
-        quote_number: q.quote_number,
-        quote_name: q.quote_name,
-        client_name: q.client_name,
-        event_date: q.event_date,
-        event_time: q.event_time,
-        setup_time: q.setup_time,
-        guest_count: q.guest_count,
-        venue_address: q.venue_address,
-        menu_items: q.menu_items,
-        equipment_items: q.equipment_items,
-        subtotal: q.subtotal,
-        delivery_fee: q.delivery_fee,
-        delivery_distance_km: q.delivery_distance_km,
-        delivery_rate_per_km: q.delivery_rate_per_km,
-        discount_amount: q.discount_amount,
-        tax_amount: q.tax_amount,
-        total: Number(q.total ?? q.total_amount ?? 0),
-        valid_until: q.valid_until,
-        terms_and_conditions: q.terms_and_conditions,
-        notes: q.notes,
-        status: q.status,
-        accepted_at: q.accepted_at,
+      buildQuotePdfDataFromRow({
+        ...q,
         company: { ...(q.company || {}), logo_url: logoUrl },
-      },
+      }),
       {
         cacheKey: {
           quoteId,

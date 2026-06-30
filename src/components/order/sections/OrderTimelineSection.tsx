@@ -786,7 +786,7 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen }: Props) {
     if (!reached) return "bg-slate-100 text-slate-400 border-slate-200";
     switch (lane) {
       case "kitchen":  return "bg-rose-500 text-white border-rose-600";
-      case "driver":   return "bg-indigo-500 text-white border-indigo-600";
+      case "driver":   return "bg-blue-500 text-white border-blue-600";
       case "service":  return "bg-amber-500 text-white border-amber-600";
       case "closeout": return "bg-brand-primary text-white border-brand-primary/80";
       default:         return "bg-slate-500 text-white border-slate-600";
@@ -802,19 +802,19 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen }: Props) {
       case "created":       return { role: "System",   tone: "bg-slate-100 text-slate-700 border-slate-200" };
       case "confirmed":     return { role: "Admin",    tone: "bg-slate-100 text-slate-700 border-slate-200" };
       case "shopping":      return { role: "Shopping", tone: "bg-brand-primary/10 text-brand-primary border-brand-primary/20" };
-      case "equipment_ready": return { role: "Admin",  tone: "bg-violet-50 text-violet-800 border-violet-200" };
+      case "equipment_ready": return { role: "Admin",  tone: "bg-slate-50 text-slate-800 border-slate-200" };
       case "prep":          return { role: "Kitchen",  tone: "bg-rose-50 text-rose-800 border-rose-200" };
       case "ready":         return { role: "Kitchen",  tone: "bg-rose-50 text-rose-800 border-rose-200" };
-      case "picked_up":     return { role: "Driver",   tone: "bg-indigo-50 text-indigo-800 border-indigo-200" };
-      case "arrived":       return { role: "Driver",   tone: "bg-indigo-50 text-indigo-800 border-indigo-200" };
-      case "pod":           return { role: "Driver",   tone: "bg-indigo-50 text-indigo-800 border-indigo-200" };
-      case "delivered":     return { role: "Driver",   tone: "bg-indigo-50 text-indigo-800 border-indigo-200" };
+      case "picked_up":     return { role: "Driver",   tone: "bg-blue-50 text-blue-800 border-blue-200" };
+      case "arrived":       return { role: "Driver",   tone: "bg-blue-50 text-blue-800 border-blue-200" };
+      case "pod":           return { role: "Driver",   tone: "bg-blue-50 text-blue-800 border-blue-200" };
+      case "delivered":     return { role: "Driver",   tone: "bg-blue-50 text-blue-800 border-blue-200" };
       case "setup":         return { role: "Waiter",   tone: "bg-amber-50 text-amber-800 border-amber-200" };
       case "service_start": return { role: "Waiter",   tone: "bg-amber-50 text-amber-800 border-amber-200" };
       case "service_end":   return { role: "Waiter",   tone: "bg-amber-50 text-amber-800 border-amber-200" };
       case "event_done":    return { role: "Waiter",   tone: "bg-amber-50 text-amber-800 border-amber-200" };
-      case "departed":      return { role: "Driver",   tone: "bg-indigo-50 text-indigo-800 border-indigo-200" };
-      case "equipment":     return { role: "Driver",   tone: "bg-indigo-50 text-indigo-800 border-indigo-200" };
+      case "departed":      return { role: "Driver",   tone: "bg-blue-50 text-blue-800 border-blue-200" };
+      case "equipment":     return { role: "Driver",   tone: "bg-blue-50 text-blue-800 border-blue-200" };
       case "cleaning":      return { role: "Cleaning", tone: "bg-brand-primary/10 text-brand-primary border-brand-primary/20" };
       case "completed":     return { role: "Admin",    tone: "bg-slate-100 text-slate-700 border-slate-200" };
       default:              return { role: "-",        tone: "bg-slate-50 text-slate-500 border-slate-200" };
@@ -1054,7 +1054,7 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen }: Props) {
         <div className="hidden items-center gap-3 text-[10px] uppercase tracking-wider text-slate-500 pt-2 border-t border-slate-100 flex-wrap">
           <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-slate-500" />Open</span>
           <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-rose-500" />Kitchen</span>
-          <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-indigo-500" />Driver</span>
+          <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-500" />Driver</span>
           <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-500" />Service</span>
           <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-brand-primary" />Closeout</span>
         </div>

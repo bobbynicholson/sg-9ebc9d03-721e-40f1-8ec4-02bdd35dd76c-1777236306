@@ -13,7 +13,9 @@ import { staffOrderHref } from "@/lib/orderUrls";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { ShoppingNav } from "@/components/navigation/ShoppingNav";
-import { PortalShell, PortalHeader, PortalCard, StatTile } from "@/components/portal/ui";
+import { PortalShell, PortalHeader, PortalCard, StatTile,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { useAuth } from "@/contexts/AuthContext";
 import { useOrderRefreshSignal } from "@/hooks/useOrderRefreshSignal";
 import { useToast } from "@/hooks/use-toast";
@@ -320,6 +322,7 @@ export default function ShoppingOrdersPage() {
               </Button>
             }
           />
+          <PageWorkbench />
 
           <div className="grid grid-cols-3 gap-3 sm:gap-4 mb-6">
             <StatTile

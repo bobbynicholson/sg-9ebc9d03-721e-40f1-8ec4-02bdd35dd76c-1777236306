@@ -23,9 +23,9 @@ import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 // equal their enum value).
 function mapRoleToDatabase(role: string): string {
   const roleMap: Record<string, string> = {
-    "kitchen_manager": "kitchen_manager",
+    "kitchen_manager": "kitchen_staff",
     "kitchen_staff": "kitchen_staff",
-    "cleaning_manager": "cleaning_manager",
+    "cleaning_manager": "cleaning_staff",
     "cleaning_staff": "cleaning_staff",
     "shopping_staff": "shopping_staff",
     "super_admin": "super_admin",
@@ -35,11 +35,13 @@ function mapRoleToDatabase(role: string): string {
     "owner": "admin",
     "admin": "admin",
     "driver": "driver",
+    "waiter": "driver",
     "client": "client",
-    // Multi-branch roles map straight through to the user_role enum.
+    // The live profiles.role check is narrower than active_role. Store
+    // admin as the base role and route through active_role below.
     "company_admin": "company_admin",
-    "region_admin": "region_admin",
-    "sales_admin": "sales_admin",
+    "region_admin": "admin",
+    "sales_admin": "admin",
   };
   return roleMap[role] || role;
 }
@@ -250,6 +252,7 @@ async function handler(
     }
 
     const dbRole = mapRoleToDatabase(role);
+    const activeRole = role;
 
     // Pre-check: is there already an auth user with this email? If so, give a
     // clear message instead of the noisy rollback path.
@@ -268,7 +271,7 @@ async function handler(
           await admin.auth.admin.updateUserById(match.id, {
             password,
             email_confirm: true,
-            user_metadata: { full_name, phone, company_id, role: dbRole, active_role: dbRole },
+            user_metadata: { full_name, phone, company_id, role: dbRole, active_role: activeRole },
           });
           const profilePayload: any = {
             id: match.id,
@@ -277,7 +280,7 @@ async function handler(
             phone,
             company_id,
             role: dbRole,
-            active_role: dbRole,
+            active_role: activeRole,
             is_active: true,
           };
           if (role === "driver") {
@@ -301,7 +304,7 @@ async function handler(
             return res.status(500).json({ error: `Could not finish creating user: ${dbErrorMessage(insErr)}` });
           }
           // Seed the primary department so it shows on the Users page.
-          await seedPrimaryDepartment(admin, match.id, dbRole, callerAuth.id);
+          await seedPrimaryDepartment(admin, match.id, activeRole, callerAuth.id);
           // Email the staff member their invite / set-password link.
           const healInvite = await sendStaffInviteEmail(admin, {
             email,
@@ -340,7 +343,7 @@ async function handler(
         phone,
         company_id,
         role: dbRole,
-        active_role: dbRole,
+        active_role: activeRole,
       },
     });
 
@@ -363,7 +366,7 @@ async function handler(
       phone,
       company_id,
       role: dbRole,
-      active_role: dbRole,
+      active_role: activeRole,
       is_active: true,
     };
     if (role === "driver") {
@@ -392,7 +395,7 @@ async function handler(
     }
 
     // Seed the primary department so the Users page shows it right away.
-    await seedPrimaryDepartment(admin, newUserId, dbRole, callerAuth.id);
+    await seedPrimaryDepartment(admin, newUserId, activeRole, callerAuth.id);
 
     // Email the staff member their invite / set-password link so
     // onboarding doesn't depend on the admin manually relaying anything.

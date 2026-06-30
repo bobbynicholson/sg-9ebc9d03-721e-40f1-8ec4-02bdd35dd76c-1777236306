@@ -161,7 +161,7 @@ export function MyShiftTodayCard({
                   </Badge>
                 </div>
                 {isMissed ? (
-                  <div className="text-[11px] text-red-700 font-medium mt-1 inline-flex items-center gap-1">
+                  <div className="text-[11px] text-rose-700 font-medium mt-1 inline-flex items-center gap-1">
                     <AlertTriangle className="w-3 h-3" /> Missed clock-in
                   </div>
                 ) : s.actual_start ? (

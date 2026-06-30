@@ -22,7 +22,9 @@ import { useAuth } from "@/contexts/AuthContext";
 import { ChatBot } from "@/components/ChatBot";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { ReceiptScanner } from "@/components/shopping/ReceiptScanner";
-import { PortalShell, PortalHeader } from "@/components/portal/ui";
+import { PortalShell, PortalHeader,
+  PageWorkbench,
+} from "@/components/portal/ui";
 
 const MAX_FILES = 20;
 
@@ -65,6 +67,7 @@ export default function ShoppingReceipts() {
             }
             subtitle={`Snap up to ${MAX_FILES} supplier slips. The model extracts supplier, date, line items and cost prices.`}
           />
+          <PageWorkbench />
 
           <ReceiptScanner
             historyHref={`${slugPrefix}/team-portal/shopping/invoices`}

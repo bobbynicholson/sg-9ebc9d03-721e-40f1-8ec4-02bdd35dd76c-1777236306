@@ -102,9 +102,9 @@ export function RecentReceiptsPanel({ companyId }: { companyId: string | null | 
           className="w-full flex items-center justify-between text-left"
         >
           <CardTitle className="text-sm flex items-center gap-2">
-            <Receipt className="w-4 h-4 text-purple-600" />
+            <Receipt className="w-4 h-4 text-slate-600" />
             Recent receipts feeding inventory
-            <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200 text-[10px]">
+            <Badge variant="outline" className="bg-slate-50 text-slate-700 border-slate-200 text-[10px]">
               {rows.length}
             </Badge>
           </CardTitle>
@@ -165,7 +165,7 @@ export function RecentReceiptsPanel({ companyId }: { companyId: string | null | 
                     <div className="pt-1.5 border-t border-slate-100">
                       <Link
                         href={withSlug("/admin/shopping?tab=receipts")}
-                        className="text-[11px] text-purple-600 hover:underline inline-flex items-center gap-1"
+                        className="text-[11px] text-slate-600 hover:underline inline-flex items-center gap-1"
                       >
                         Manage slips on Shopping <ExternalLink className="w-3 h-3" />
                       </Link>

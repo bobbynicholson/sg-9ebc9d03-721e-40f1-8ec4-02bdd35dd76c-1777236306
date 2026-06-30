@@ -184,7 +184,7 @@ export function DamageAnalytics() {
   }, [damages]);
 
   const damageTypeColours: Record<DamageType, string> = {
-    broken: "bg-red-500",
+    broken: "bg-rose-500",
     lost: "bg-brand-primary",
     stolen: "bg-brand-primary",
     damaged: "bg-brand-primary",
@@ -320,8 +320,8 @@ export function DamageAnalytics() {
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center gap-4">
-                <div className="p-3 bg-red-100 rounded-lg">
-                  <Banknote className="h-6 w-6 text-red-600" />
+                <div className="p-3 bg-rose-100 rounded-lg">
+                  <Banknote className="h-6 w-6 bg-rose-100" />
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Total Cost</p>
@@ -542,7 +542,7 @@ export function DamageAnalytics() {
                         </span>
                         <div className="flex-1 h-6 bg-muted rounded overflow-hidden">
                           <div
-                            className="h-full bg-red-400"
+                            className="h-full bg-rose-400"
                             style={{ width: `${(cost / max) * 100}%` }}
                           />
                         </div>
@@ -661,7 +661,7 @@ export function DamageAnalytics() {
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="text-2xl font-bold text-red-600">
+                        <p className="text-2xl font-bold text-rose-600">
                           {formatCurrency(damage.total_cost)}
                         </p>
                         <p className="text-xs text-muted-foreground">

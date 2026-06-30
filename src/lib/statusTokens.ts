@@ -5,12 +5,10 @@
  * in the audit) should be migrated to this map.
  *
  * Colour rules:
- * - amber  = pending / awaiting action
- * - blue   = confirmed / scheduled
- * - purple = in progress / preparing
+ * - amber  = pending / awaiting action / preparing
+ * - blue   = confirmed / scheduled / in transit
  * - brand  = ready / done / paid / success
  * - brand  = delivered / completed
- * - indigo = in transit
  * - rose   = cancelled / failed / overdue
  * - slate  = neutral / archived
  */
@@ -34,10 +32,10 @@ export const STATUS_TONES: Record<StatusTone, string> = {
   pending:    "bg-amber-100 text-amber-800 border-amber-200",
   draft:      "bg-amber-100 text-amber-800 border-amber-200",
   confirmed:  "bg-blue-100 text-blue-800 border-blue-200",
-  preparing:  "bg-purple-100 text-purple-800 border-purple-200",
+  preparing:  "bg-amber-100 text-amber-800 border-amber-200",
   ready:      "bg-brand-primary/15 text-brand-primary border-brand-primary/20",
   paid:       "bg-brand-primary/15 text-brand-primary border-brand-primary/20",
-  in_transit: "bg-indigo-100 text-indigo-800 border-indigo-200",
+  in_transit: "bg-blue-100 text-blue-800 border-blue-200",
   delivered:  "bg-brand-primary/15 text-brand-primary border-brand-primary/20",
   completed:  "bg-slate-100 text-slate-800 border-slate-200",
   cancelled:  "bg-rose-100 text-rose-700 border-rose-200",

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
+import Head from "next/head";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -22,6 +23,7 @@ import {
 import { getPlanById, formatCurrency, calculateTrialEndDate } from "@/lib/payfastService";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { useAuth } from "@/contexts/AuthContext";
+import { PageWorkbench, PortalHeader, PortalShell } from "@/components/portal/ui";
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -144,23 +146,30 @@ export default function CheckoutPage() {
   return (
     <>
       <NoIndexMeta />
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50">
-        <div className="px-4 sm:px-6 lg:px-8 py-8 max-w-full">
-          <title>Checkout - CateringMS</title>
-          <Link href="/pricing">
-            <Button variant="ghost" className="mb-4">
+      <Head><title>Checkout - CateringMS</title></Head>
+      <PortalShell>
+        <PortalHeader
+          title="Subscription Checkout"
+          subtitle={`Start the ${plan.name} plan trial for ${company || "your company"}.`}
+          icon={CreditCard}
+          actions={(
+            <Link href="/pricing">
+              <Button variant="outline">
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back to Pricing
             </Button>
-          </Link>
+            </Link>
+          )}
+        />
+        <PageWorkbench />
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className="lg:col-span-2">
               <Card className="border-0 shadow-xl">
                 <CardHeader>
                   <div className="flex items-center gap-2 mb-2">
-                    <Sparkles className="w-5 h-5 text-purple-600" />
-                    <Badge className="bg-gradient-to-r from-purple-500 to-pink-500 text-white border-0">
+                    <Sparkles className="w-5 h-5 text-slate-600" />
+                    <Badge className="bg-gradient-to-r from-slate-500 to-rose-500 text-white border-0">
                       14-Day Free Trial
                     </Badge>
                   </div>
@@ -248,7 +257,7 @@ export default function CheckoutPage() {
                         </p>
                       </div>
                       <div className="flex items-center gap-3">
-                        <Calendar className="w-5 h-5 text-purple-600" />
+                        <Calendar className="w-5 h-5 text-slate-600" />
                         <p className="text-sm text-slate-700">
                           Cancel anytime during your trial, no questions asked
                         </p>
@@ -265,11 +274,11 @@ export default function CheckoutPage() {
                       />
                       <Label htmlFor="terms" className="text-sm text-slate-600 cursor-pointer">
                         I agree to the{" "}
-                        <Link href="/terms" className="text-purple-600 hover:underline">
+                        <Link href="/terms" className="text-slate-600 hover:underline">
                           Terms of Service
                         </Link>{" "}
                         and{" "}
-                        <Link href="/privacy" className="text-purple-600 hover:underline">
+                        <Link href="/privacy" className="text-slate-600 hover:underline">
                           Privacy Policy
                         </Link>
                       </Label>
@@ -285,7 +294,7 @@ export default function CheckoutPage() {
                     <Button
                       type="submit"
                       disabled={isProcessing || !agreeTerms}
-                      className="w-full h-12 text-base font-semibold bg-gradient-to-r from-purple-500 to-pink-500 hover:opacity-90"
+                      className="w-full h-12 text-base font-semibold bg-gradient-to-r from-slate-500 to-rose-500 hover:opacity-90"
                     >
                       {isProcessing ? (
                         "Processing..."
@@ -307,7 +316,7 @@ export default function CheckoutPage() {
 
             <div className="lg:col-span-1">
               <Card className="border-0 shadow-xl sticky top-8">
-                <CardHeader className="bg-gradient-to-br from-purple-50 to-pink-50">
+                <CardHeader className="bg-gradient-to-br from-slate-50 to-rose-50">
                   <CardTitle className="text-xl">Order Summary</CardTitle>
                 </CardHeader>
                 <CardContent className="p-6 space-y-4">
@@ -383,8 +392,7 @@ export default function CheckoutPage() {
               </Card>
             </div>
           </div>
-        </div>
-      </div>
+      </PortalShell>
     </>
   );
 }

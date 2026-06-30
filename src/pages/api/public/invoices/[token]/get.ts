@@ -118,7 +118,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       companies:company_id (
         id, company_name, logo_url, email, phone_number:phone,
         vat_registered, vat_number, vat_rate, deposit_percent,
-        primary_color, secondary_color, accent_color
+        primary_color, secondary_color, accent_color,
+        brand_font_body, brand_font_display
       )
     `)
     .eq("public_token", token)

@@ -243,7 +243,7 @@ export function ConvertLeadDialog({ open, onOpenChange, lead, onConverted }: Pro
         )}
 
         {mode.kind === "error" && (
-          <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+          <div className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">
             {mode.message}
           </div>
         )}

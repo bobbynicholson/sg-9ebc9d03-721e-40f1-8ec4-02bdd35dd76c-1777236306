@@ -160,7 +160,7 @@ export function InventorySettingsTab({ companyId: companyIdProp }: Props = {}) {
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="h-8 w-8 p-0 text-slate-400 hover:text-red-600 hover:bg-red-50"
+                      className="h-8 w-8 p-0 text-slate-400 hover:text-rose-600 hover:bg-rose-50"
                       onClick={() => removeRow(row.id)}
                       title="Remove"
                     >
@@ -214,7 +214,7 @@ export function InventorySettingsTab({ companyId: companyIdProp }: Props = {}) {
         </div>
 
         {error && (
-          <div className="flex items-start gap-2 text-sm text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-2">
+          <div className="flex items-start gap-2 text-sm text-rose-700 bg-rose-50 border border-rose-200 rounded-md px-3 py-2">
             <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
             <span>{error}</span>
           </div>

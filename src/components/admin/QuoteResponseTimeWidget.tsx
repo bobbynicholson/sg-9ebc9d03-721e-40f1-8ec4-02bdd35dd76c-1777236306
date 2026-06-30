@@ -110,7 +110,7 @@ export function QuoteResponseTimeWidget({ companyId }: { companyId: string | nul
   if (!loading && stats.viewSample === 0 && stats.acceptSample === 0) return null;
 
   return (
-    <Card className="mb-6 border-indigo-200 bg-indigo-50/30">
+    <Card className="mb-6 border-blue-200 bg-blue-50/30">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between gap-2">
           <div>
@@ -120,7 +120,7 @@ export function QuoteResponseTimeWidget({ companyId }: { companyId: string | nul
             </CardDescription>
           </div>
           <Link href={withSlug("/admin/quotes")}>
-            <Button variant="ghost" size="sm" className="text-indigo-700">
+            <Button variant="ghost" size="sm" className="text-blue-700">
               All quotes <ArrowRight className="w-3.5 h-3.5 ml-1" />
             </Button>
           </Link>
@@ -131,9 +131,9 @@ export function QuoteResponseTimeWidget({ companyId }: { companyId: string | nul
           <p className="text-xs text-slate-500 py-4">Loading...</p>
         ) : (
           <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-lg border border-indigo-200 bg-white p-3">
+            <div className="rounded-lg border border-blue-200 bg-white p-3">
               <div className="flex items-center gap-2 mb-1">
-                <Eye className="w-4 h-4 text-indigo-600" />
+                <Eye className="w-4 h-4 text-blue-600" />
                 <span className="text-xs text-slate-600 font-medium">Sent → first view</span>
               </div>
               <p className="text-2xl font-bold tabular-nums text-slate-900">

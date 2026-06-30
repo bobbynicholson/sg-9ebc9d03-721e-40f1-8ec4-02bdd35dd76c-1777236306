@@ -37,6 +37,7 @@ import type { GetStaticPaths, GetStaticProps } from "next";
 import { Loader2, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { AuthShell } from "@/components/auth/AuthShell";
 import { supabase } from "@/integrations/supabase/client";
 import {
   getInitialBrandingForSlug,
@@ -68,7 +69,7 @@ export const getStaticProps: GetStaticProps<PageProps> = async (ctx) => {
   };
 };
 
-export default function ClientAuthCallbackPage(_props: PageProps) {
+export default function ClientAuthCallbackPage({ initialBranding }: PageProps) {
   const router = useRouter();
   const { company_slug, next } = router.query;
 
@@ -274,7 +275,14 @@ export default function ClientAuthCallbackPage(_props: PageProps) {
         <title>Signing you in...</title>
         <meta name="robots" content="noindex, nofollow" />
       </Head>
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 px-4">
+      <AuthShell
+        headline="Opening your client portal."
+        subcopy="We are confirming your magic link and loading the right catering workspace."
+        brandName={initialBranding?.companyName || "CateringMS"}
+        brandLogoUrl={initialBranding?.logoUrl || null}
+        accent={initialBranding?.primaryColor || undefined}
+        accentTo={initialBranding?.secondaryColor || undefined}
+      >
         <Card className="w-full max-w-md border-0 shadow-xl">
           <CardContent className="p-10 text-center space-y-4">
             {status === "working" && (
@@ -312,7 +320,7 @@ export default function ClientAuthCallbackPage(_props: PageProps) {
             )}
           </CardContent>
         </Card>
-      </div>
+      </AuthShell>
     </>
   );
 }

@@ -45,14 +45,14 @@ const ROWS: Row[] = [
     title: "Driver Assignment (SMS)",
     description: "SMS to driver when assigned",
     Icon: Truck,
-    iconClass: "text-purple-600",
+    iconClass: "text-slate-600",
   },
   {
     field: "emailComplaint",
     title: "Complaint Submitted",
     description: "Immediate alert for new complaints",
     Icon: Bell,
-    iconClass: "text-red-600",
+    iconClass: "text-rose-600",
   },
   {
     field: "emailDailyReport",

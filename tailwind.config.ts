@@ -75,6 +75,10 @@ const config: Config = {
         "portal-accent":   "rgb(var(--portal-accent-rgb, var(--brand-accent-rgb)) / <alpha-value>)",
       },
       fontFamily: {
+        // Company-admin body font. This makes explicit `font-sans`
+        // utilities follow Settings > Branding instead of bypassing
+        // the global body font variable.
+        sans: ["var(--brand-font-body, var(--font-body))", "ui-sans-serif", "system-ui", "sans-serif"],
         // Marketing typography, self-hosted via next/font in _app.tsx and
         // exposed as CSS vars. Both are opt-in (use `font-display` /
         // `font-body`) so the app/dashboard default font is untouched.

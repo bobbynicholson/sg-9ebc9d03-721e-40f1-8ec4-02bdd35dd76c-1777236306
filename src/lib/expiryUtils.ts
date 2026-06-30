@@ -69,7 +69,7 @@ export function getExpiryStatusConfig(status: "fresh" | "warning" | "critical" |
     case "expired":
       return {
         label: "Expired",
-        color: "bg-red-100 text-red-800 border-red-300",
+        color: "bg-rose-100 text-rose-800 border-rose-300",
         icon: "⛔"
       };
     case "critical":

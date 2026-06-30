@@ -71,7 +71,7 @@ export function AnalyticsBlock({ formId }: Props) {
           <div className="text-[10px] uppercase tracking-wide text-slate-500">Conv rate</div>
         </div>
         <div>
-          <div className={`text-lg font-bold tabular-nums flex items-center justify-center gap-1 ${trendUp ? "text-brand-primary" : "text-red-600"}`}>
+          <div className={`text-lg font-bold tabular-nums flex items-center justify-center gap-1 ${trendUp ? "text-brand-primary" : "text-rose-600"}`}>
             {trendUp ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
             {Math.abs(trendPct)}%
           </div>
@@ -97,7 +97,7 @@ export function AnalyticsBlock({ formId }: Props) {
 
       <Link
         href={`/admin/leads?source=embed&form_id=${formId}`}
-        className="text-xs font-medium text-indigo-600 hover:text-indigo-700 flex items-center gap-1"
+        className="text-xs font-medium text-blue-600 hover:text-blue-700 flex items-center gap-1"
       >
         View all submissions <ExternalLink className="w-3 h-3" />
       </Link>

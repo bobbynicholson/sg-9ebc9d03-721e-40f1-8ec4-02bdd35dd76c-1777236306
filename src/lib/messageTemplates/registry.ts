@@ -1282,8 +1282,9 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     defaultSubject: "Deposit invoice {{invoice_number}} - {{event_name}}",
     defaultBody:
       `Hi {{first_name}},\n\n` +
-      `{{tenant_name}} issued the deposit invoice {{invoice_number}} for {{event_name}}. Deposit due: {{amount}}.\n\n` +
-      `Open the invoice: {{invoice_link}}\n\n` +
+      `Thanks for accepting your {{event_name}} quote - you're booked in.\n\n` +
+      `Your deposit invoice {{invoice_number}} is ready. Deposit due: {{amount}}.\n\n` +
+      `Pay or download it here: {{invoice_link}}\n\n` +
       `Once the payment clears, your event date is locked in.\n\n` +
       `Thanks,\n{{tenant_name}}`,
     variables: [
@@ -1319,6 +1320,32 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
       { name: "amount",         description: "Amount on this invoice",       example: "R 6 500" },
       { name: "balance_amount", description: "Balance amount",               example: "R 6 500" },
       { name: "invoice_link",   description: "Direct link to the invoice",   example: "https://app.example.com/c/invoice/..." },
+    ],
+  },
+  {
+    key: "deposit_payment_received",
+    channel: "email",
+    category: "client",
+    group: "Invoice",
+    label: "Deposit payment received",
+    description: "Receipt sent when the deposit payment lands and the booking becomes secure.",
+    defaultSubject: "Deposit received - {{event_name}} booking secure",
+    defaultBody:
+      `Hi {{first_name}},\n\n` +
+      `We've received your deposit for {{event_name}}. Amount: {{amount_formatted}}. Reference: {{invoice_number}}.\n\n` +
+      `Your booking is secure and your event date is locked in.\n\n` +
+      `Thanks,\n{{tenant_name}}`,
+    variables: [
+      { name: "first_name",       description: "Client's first name",          example: "Bobby" },
+      { name: "client_name",      description: "Full client name",             example: "Bobby Nicholson" },
+      { name: "tenant_name",      description: "Catering brand name",          example: "Spit Braai Delivery" },
+      { name: "company_name",     description: "Catering brand name alias",    example: "Spit Braai Delivery" },
+      { name: "event_name",       description: "Event description",            example: "30th birthday braai" },
+      { name: "invoice_number",   description: "Invoice number",               example: "INV-2026-0421" },
+      { name: "order_number",     description: "Order reference",              example: "ORD-003829" },
+      { name: "amount",           description: "Amount received, numeric",     example: "4 500.00" },
+      { name: "amount_formatted", description: "Amount received, formatted",   example: "R4 500.00" },
+      { name: "invoice_link",     description: "Direct link to the invoice",   example: "https://app.example.com/pay/i/..." },
     ],
   },
   {
@@ -1667,7 +1694,8 @@ const DELIVERY_WIRING: Record<string, { delivery: MessageDelivery; trigger?: str
   // --- AUTOMATED: invoice + payment receipt ---
   deposit_invoice_issued:   { delivery: "automated", trigger: "Fires the moment the deposit invoice is issued.", settingsLink: "/admin/invoices" },
   balance_invoice_issued:   { delivery: "automated", trigger: "Fires the moment the balance invoice is issued.", settingsLink: "/admin/invoices" },
-  balance_payment_received: { delivery: "automated", trigger: "Fires the moment a client payment lands on an invoice (deposit, balance, or full)." },
+  deposit_payment_received: { delivery: "automated", trigger: "Fires the moment a client deposit payment lands and the booking becomes secure.", settingsLink: "/admin/invoices" },
+  balance_payment_received: { delivery: "automated", trigger: "Fires the moment a client balance or full payment lands on an invoice.", settingsLink: "/admin/invoices" },
 
   // --- AUTOMATED: quote acceptance ---
   quote_accepted_client:       { delivery: "automated", trigger: "Auto-reply the client receives the moment they accept a quote on the portal." },

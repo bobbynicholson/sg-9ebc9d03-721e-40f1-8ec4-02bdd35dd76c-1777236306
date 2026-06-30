@@ -63,7 +63,7 @@ const STATUS_TONES: Record<string, string> = {
   confirmed: "bg-blue-100 text-blue-800 border-blue-300",
   preparing: "bg-orange-100 text-orange-800 border-orange-300",
   ready: "bg-amber-100 text-amber-800 border-amber-300",
-  in_transit: "bg-purple-100 text-purple-800 border-purple-300",
+  in_transit: "bg-slate-100 text-slate-800 border-slate-300",
   delivered: "bg-brand-primary/15 text-brand-primary border-brand-primary/30",
   completed: "bg-brand-primary/15 text-brand-primary border-brand-primary/30",
   cancelled: "bg-rose-100 text-rose-700 border-rose-300",
@@ -252,7 +252,7 @@ export function OrderHeaderSection({ order, defaultOpen, forceOpen }: Props) {
           )}
           {pkg?.name && (
             <span
-              className="inline-flex items-center gap-1 text-[11px] bg-purple-50 text-purple-800 border border-purple-200 rounded-full px-2 py-0.5"
+              className="inline-flex items-center gap-1 text-[11px] bg-slate-50 text-slate-800 border border-slate-200 rounded-full px-2 py-0.5"
               title="Source package"
             >
               <PackageIcon className="w-3 h-3" />

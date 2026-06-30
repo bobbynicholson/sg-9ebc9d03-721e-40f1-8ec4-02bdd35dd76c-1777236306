@@ -40,7 +40,7 @@ export function BranchSpiderChart({ data, loading }: Props) {
     <Card className="border-0 shadow-sm">
       <CardHeader className="pb-2">
         <CardTitle className="text-sm font-semibold flex items-center gap-2">
-          <Compass className="w-4 h-4 text-indigo-600" />
+          <Compass className="w-4 h-4 text-blue-600" />
           Branch comparison
           <InfoTooltip
             content={

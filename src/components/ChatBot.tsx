@@ -28,13 +28,13 @@ const ROLE_CONFIGS: Record<string, RoleConfig> = {
     title: "Platform Admin Assistant",
     greeting: "I can help you manage the entire CateringMS platform, monitor all companies, and handle system-wide operations.",
     examples: [],
-    color: "from-purple-600 to-pink-600"
+    color: "from-slate-600 to-rose-600"
   },
   company_admin: {
     title: "Company Admin Assistant",
     greeting: "I can help you manage your catering business, including orders, staff, inventory, and financial operations.",
     examples: [],
-    color: "from-blue-600 to-indigo-600"
+    color: "from-blue-600 to-blue-600"
   },
   admin: {
     title: "Admin Assistant",
@@ -45,7 +45,7 @@ const ROLE_CONFIGS: Record<string, RoleConfig> = {
       "Staff performance this week",
       "Upcoming events summary"
     ],
-    color: "from-violet-600 to-purple-600",
+    color: "from-slate-600 to-slate-600",
     icon: "🎯"
   },
   owner: {
@@ -63,7 +63,7 @@ const ROLE_CONFIGS: Record<string, RoleConfig> = {
       "My earnings this month",
       "Traffic updates for current route"
     ],
-    color: "from-blue-500 to-indigo-500",
+    color: "from-blue-500 to-blue-500",
     icon: "🚚"
   },
   kitchen: {
@@ -75,7 +75,7 @@ const ROLE_CONFIGS: Record<string, RoleConfig> = {
       "Tomorrow's production schedule",
       "Recipe scaling for 200 guests"
     ],
-    color: "from-orange-500 to-red-500",
+    color: "from-orange-500 to-rose-500",
     icon: "👨‍🍳"
   },
   shopping: {
@@ -220,7 +220,7 @@ export function ChatBot({ userRole = "admin", companyId }: ChatBotProps) {
             )}
           >
             <MessageSquare className="w-6 h-6 text-white" />
-            <Badge className="absolute -top-2 -right-2 bg-red-500 text-white border-0 px-2">
+            <Badge className="absolute -top-2 -right-2 bg-rose-500 text-white border-0 px-2">
               <Sparkles className="w-3 h-3" />
             </Badge>
           </Button>

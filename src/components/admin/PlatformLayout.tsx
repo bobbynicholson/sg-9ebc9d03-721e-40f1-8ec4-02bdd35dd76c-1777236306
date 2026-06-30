@@ -12,7 +12,7 @@ interface PlatformLayoutProps {
  */
 export function PlatformLayout({ children }: PlatformLayoutProps) {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
       <PlatformNav />
       <div className="lg:pl-64 xl:pl-72 pt-16 lg:pt-0">{children}</div>
     </div>

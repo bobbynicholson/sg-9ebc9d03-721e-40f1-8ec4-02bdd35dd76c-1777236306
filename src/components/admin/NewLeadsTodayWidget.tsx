@@ -148,7 +148,7 @@ export function NewLeadsTodayWidget({ companyId }: { companyId: string | null })
                           </span>
                         )}
                         {r.event_date && (
-                          <span className="text-violet-700">
+                          <span className="text-slate-700">
                             Event {r.event_date}
                           </span>
                         )}

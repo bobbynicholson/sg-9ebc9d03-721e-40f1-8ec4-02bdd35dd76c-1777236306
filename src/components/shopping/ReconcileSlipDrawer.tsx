@@ -898,7 +898,7 @@ export function ReconcileSlipDrawer({
           <Button
             onClick={handleSave}
             disabled={saving || lines.filter((l) => l.keep).length === 0}
-            className="bg-gradient-to-r from-brand-primary to-brand-secondary text-white hover:brightness-105"
+            className="bg-brand-primary text-white hover:brightness-105"
           >
             {saving ? <><Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> Saving...</> : <><Save className="w-4 h-4 mr-1.5" /> Save & receive</>}
           </Button>

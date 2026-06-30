@@ -245,7 +245,7 @@ export function OrderSuggestedAction({ order }: Props) {
     rose: "border-rose-300 bg-rose-50 text-rose-900",
     amber: "border-amber-300 bg-amber-50 text-amber-900",
     blue: "border-blue-300 bg-blue-50 text-blue-900",
-    indigo: "border-indigo-300 bg-indigo-50 text-indigo-900",
+    indigo: "border-blue-300 bg-blue-50 text-blue-900",
     emerald: "border-brand-primary/30 bg-brand-primary/10 text-brand-primary",
   };
 

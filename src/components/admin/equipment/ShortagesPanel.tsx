@@ -203,7 +203,7 @@ export function ShortagesPanel() {
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case "urgent": return "bg-red-500";
+      case "urgent": return "bg-rose-500";
       case "high":   return "bg-orange-500";
       case "medium": return "bg-yellow-500";
       case "low":    return "bg-blue-500";
@@ -279,9 +279,9 @@ export function ShortagesPanel() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs md:text-sm text-gray-600 mb-1 flex items-center gap-1">Impact <InfoTooltip content={"Total value tied up in shortages that are still pending."} /></p>
-                <p className="text-xl md:text-2xl font-bold text-red-600">{tenantCurrency.format(totalFinancialImpact, 0)}</p>
+                <p className="text-xl md:text-2xl font-bold text-rose-600">{tenantCurrency.format(totalFinancialImpact, 0)}</p>
               </div>
-              <Banknote className="w-8 h-8 md:w-10 md:h-10 text-red-500" />
+              <Banknote className="w-8 h-8 md:w-10 md:h-10 text-rose-500" />
             </div>
           </CardContent>
         </Card>
@@ -385,7 +385,7 @@ export function ShortagesPanel() {
                     <div className="flex items-center gap-2 text-gray-600">
                       <AlertTriangle className="w-3 h-3 flex-shrink-0" />
                       <span className="font-medium">Short:</span>
-                      <span className="text-red-600 font-semibold">
+                      <span className="text-rose-600 font-semibold">
                         {shortage.shortage_quantity}/{shortage.expected_quantity}
                       </span>
                     </div>
@@ -393,10 +393,10 @@ export function ShortagesPanel() {
 
                   {shortage.financial_impact ? (
                     <div className="flex items-center gap-2 text-xs md:text-sm">
-                      <Banknote className="w-3 h-3 text-red-500 flex-shrink-0" />
+                      <Banknote className="w-3 h-3 text-rose-500 flex-shrink-0" />
                       <span className="font-medium text-gray-600">Impact:</span>
                       {/* EQP-C: tenantCurrency for non-ZAR tenants. */}
-                      <span className="text-red-600 font-semibold">{tenantCurrency.format(Number(shortage.financial_impact))}</span>
+                      <span className="text-rose-600 font-semibold">{tenantCurrency.format(Number(shortage.financial_impact))}</span>
                     </div>
                   ) : null}
 
@@ -479,7 +479,7 @@ export function ShortagesPanel() {
                 <div><span className="font-medium">Equipment:</span> {selectedShortage.equipment_name}</div>
                 <div>
                   <span className="font-medium">Shortage:</span>{" "}
-                  <span className="text-red-600 font-semibold">{selectedShortage.shortage_quantity} items</span>
+                  <span className="text-rose-600 font-semibold">{selectedShortage.shortage_quantity} items</span>
                 </div>
               </div>
               <div>

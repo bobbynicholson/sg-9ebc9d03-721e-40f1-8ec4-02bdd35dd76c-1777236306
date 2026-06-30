@@ -255,10 +255,10 @@ export function getUrgencyColorClasses(level: string): {
   switch (level) {
     case "critical":
       return {
-        bg: "bg-red-50",
-        text: "text-red-900",
-        border: "border-red-500",
-        badge: "bg-red-600 text-white",
+        bg: "bg-rose-50",
+        text: "text-rose-900",
+        border: "border-rose-500",
+        badge: "bg-rose-600 text-white",
       };
     case "high":
       return {

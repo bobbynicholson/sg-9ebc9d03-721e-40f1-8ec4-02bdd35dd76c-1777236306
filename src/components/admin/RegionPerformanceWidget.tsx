@@ -144,12 +144,12 @@ export function RegionPerformanceWidget({ companyId }: { companyId: string | nul
   if (!loading && entries.length === 0) return null;
 
   return (
-    <Card className="mb-6 border-purple-200 bg-purple-50/30">
+    <Card className="mb-6 border-slate-200 bg-slate-50/30">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between gap-2">
           <div>
             <CardTitle className="flex items-center gap-2 text-base">
-              <MapPin className="w-4 h-4 text-purple-600" />
+              <MapPin className="w-4 h-4 text-slate-600" />
               Branches, last 30 days
             </CardTitle>
             <CardDescription className="text-xs">
@@ -157,7 +157,7 @@ export function RegionPerformanceWidget({ companyId }: { companyId: string | nul
             </CardDescription>
           </div>
           <Link href={withSlug("/admin/regions")}>
-            <Button variant="ghost" size="sm" className="text-purple-700">
+            <Button variant="ghost" size="sm" className="text-slate-700">
               Manage regions <ArrowRight className="w-3.5 h-3.5 ml-1" />
             </Button>
           </Link>
@@ -179,9 +179,9 @@ export function RegionPerformanceWidget({ companyId }: { companyId: string | nul
                       <span className="ml-2 text-slate-500">{e.count} order{e.count === 1 ? "" : "s"}</span>
                     </span>
                   </div>
-                  <div className="h-1.5 bg-purple-100 rounded overflow-hidden">
+                  <div className="h-1.5 bg-slate-100 rounded overflow-hidden">
                     <div
-                      className={`h-full ${e.id === UNASSIGNED_KEY ? "bg-slate-400" : "bg-purple-500"}`}
+                      className={`h-full ${e.id === UNASSIGNED_KEY ? "bg-slate-400" : "bg-slate-500"}`}
                       style={{ width: `${share}%` }}
                     />
                   </div>

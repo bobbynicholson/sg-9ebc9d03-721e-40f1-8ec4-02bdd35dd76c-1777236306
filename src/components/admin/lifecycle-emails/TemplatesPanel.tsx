@@ -160,13 +160,13 @@ export function TemplatesPanel() {
           asking "wait, does this one actually send by itself?" - now
           they can see at a glance. */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
-        <Card className="border-0 shadow-sm bg-purple-50">
+        <Card className="border-0 shadow-sm bg-slate-50">
           <CardContent className="py-3 px-4 flex items-start gap-3">
-            <div className="w-7 h-7 rounded-lg bg-purple-100 flex items-center justify-center shrink-0">
-              <Zap className="w-4 h-4 text-purple-700" />
+            <div className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center shrink-0">
+              <Zap className="w-4 h-4 bg-slate-100" />
             </div>
-            <div className="text-xs text-purple-950 leading-relaxed">
-              <p className="font-semibold text-purple-900 mb-0.5">
+            <div className="text-xs text-slate-950 leading-relaxed">
+              <p className="font-semibold text-slate-950 mb-0.5">
                 Automatic &middot; {automatedCount} template{automatedCount === 1 ? "" : "s"}
               </p>
               <p>
@@ -328,11 +328,11 @@ export function TemplatesPanel() {
                             {/* Delivery badge - leftmost so it's the
                                 first thing the eye lands on. */}
                             {delivery === "automated" ? (
-                              <Badge className="bg-purple-100 text-purple-800 border-0 text-[10px] gap-1">
+                              <Badge className="bg-slate-100 text-slate-800 border-0 text-[10px] gap-1">
                                 <Zap className="w-3 h-3" /> Automatic
                               </Badge>
                             ) : delivery === "hybrid" ? (
-                              <Badge className="bg-indigo-100 text-indigo-800 border-0 text-[10px] gap-1">
+                              <Badge className="bg-blue-100 text-blue-800 border-0 text-[10px] gap-1">
                                 <Zap className="w-3 h-3" /> Auto + manual
                               </Badge>
                             ) : (
@@ -361,9 +361,9 @@ export function TemplatesPanel() {
                             <p
                               className={`text-[11px] mt-1 inline-flex items-center gap-1 ${
                                 delivery === "automated"
-                                  ? "text-purple-700"
+                                  ? "text-slate-700"
                                   : delivery === "hybrid"
-                                    ? "text-indigo-700"
+                                    ? "text-blue-700"
                                     : "text-amber-800"
                               }`}
                             >
@@ -613,15 +613,15 @@ function EditorDrawer({
           const delivery: MessageDelivery = template.delivery || "manual";
           const isAutomated = delivery === "automated";
           const tone = isAutomated
-            ? "border-purple-200 bg-purple-50"
+            ? "border-slate-200 bg-slate-50"
             : delivery === "hybrid"
-              ? "border-indigo-200 bg-indigo-50"
+              ? "border-blue-200 bg-blue-50"
               : "border-amber-200 bg-amber-50";
           const Icon = isAutomated ? Zap : MousePointerClick;
           const iconColour = isAutomated
-            ? "text-purple-700"
+            ? "text-slate-700"
             : delivery === "hybrid"
-              ? "text-indigo-700"
+              ? "text-blue-700"
               : "text-amber-700";
           const headerLabel = isAutomated
             ? "Automatic - the system fires this for you"

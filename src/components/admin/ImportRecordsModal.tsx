@@ -692,7 +692,7 @@ export function ImportRecordsModal({
                   </div>
                 )}
                 {earlyValidation.fyAnalysis && earlyValidation.fyAnalysis.preFy > 0 && (
-                  <div className="rounded-md border border-violet-200 bg-violet-50 px-3 py-2 text-[11px] text-violet-900 mt-2">
+                  <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] text-slate-900 mt-2">
                     <p className="font-medium mb-1">📅 Backdating</p>
                     <p className="leading-snug">
                       <strong>{earlyValidation.fyAnalysis.preFy.toLocaleString("en-ZA")}</strong> rows

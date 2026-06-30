@@ -70,7 +70,7 @@ export function TemplateGalleryDialog({ open, onOpenChange, embedToken, companyN
       <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-2xl">
-            <Sparkles className="w-6 h-6 text-purple-500" />
+            <Sparkles className="w-6 h-6 text-slate-500" />
             Pick a template
           </DialogTitle>
           <DialogDescription>
@@ -121,7 +121,7 @@ export function TemplateGalleryDialog({ open, onOpenChange, embedToken, companyN
                     <p className="text-xs text-slate-500 mb-2">{meta.description}</p>
                     <p className="text-sm text-slate-600 mb-4 line-clamp-2">{meta.blurb}</p>
                     <Button
-                      className="w-full gap-2 bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600"
+                      className="w-full gap-2 bg-gradient-to-r from-blue-500 to-slate-500 hover:bg-brand-primary/90"
                       disabled={isCreating}
                       onClick={() => handleUseTemplate(meta.id)}
                     >

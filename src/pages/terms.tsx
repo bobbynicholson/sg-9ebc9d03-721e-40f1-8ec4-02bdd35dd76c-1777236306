@@ -77,13 +77,13 @@ export default function TermsPage() {
         />
       </Head>
       
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-violet-50/40">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50/40">
         <Header />
 
         <main className="container mx-auto px-4 py-12 sm:py-16 max-w-3xl">
           <Reveal>
             <div className="mb-10 space-y-3">
-              <Eyebrow icon={FileText} className="w-fit border-violet-200 bg-violet-50 text-violet-700">
+              <Eyebrow icon={FileText} className="w-fit border-slate-200 bg-slate-50 text-slate-700">
                 Terms of service
               </Eyebrow>
               <h1 className="text-4xl sm:text-5xl font-semibold tracking-tight text-slate-900">Terms &amp; Conditions</h1>
@@ -510,9 +510,9 @@ export default function TermsPage() {
               <section>
                 <h2 className="text-2xl font-semibold mb-4">18. Contact Information</h2>
                 <p className="text-slate-700 leading-relaxed mb-3">
-                  If you have any questions about these Terms of Service, please contact us. You can also learn more about our platform on our <Link href="/blog" className="text-violet-600 underline decoration-violet-200 underline-offset-2 transition-colors duration-150 hover:text-violet-700 hover:decoration-violet-400">blog</Link> or explore <Link href="/features" className="text-violet-600 underline decoration-violet-200 underline-offset-2 transition-colors duration-150 hover:text-violet-700 hover:decoration-violet-400">detailed features</Link>:
+                  If you have any questions about these Terms of Service, please contact us. You can also learn more about our platform on our <Link href="/blog" className="text-slate-600 underline decoration-slate-200 underline-offset-2 transition-colors duration-150 hover:text-slate-700 hover:decoration-slate-400">blog</Link> or explore <Link href="/features" className="text-slate-600 underline decoration-slate-200 underline-offset-2 transition-colors duration-150 hover:text-slate-700 hover:decoration-slate-400">detailed features</Link>:
                 </p>
-                <div className={`mt-4 p-4 bg-slate-50 rounded-xl border border-slate-200/70 transition-colors duration-300 ${EASE} hover:border-violet-200`}>
+                <div className={`mt-4 p-4 bg-slate-50 rounded-xl border border-slate-200/70 transition-colors duration-300 ${EASE} hover:border-slate-200`}>
                   <p className="text-slate-700"><strong>Company:</strong> CateringMS (A product of Skylight Digital)</p>
                   <p className="text-slate-700"><strong>Address:</strong> 17 Swalle Street, Golden Acre, South Africa</p>
                   <p className="text-slate-700"><strong>Phone:</strong> 083 652 5755</p>
@@ -524,7 +524,7 @@ export default function TermsPage() {
             <Reveal>
               <section className="mt-8 pt-6 border-t">
                 <p className="text-sm text-slate-600">
-                  By using the Catering Management Platform, you acknowledge that you have read, understood, and agree to be bound by these Terms of Service, including all subscription management, billing, cancellation, and data deletion policies. For additional information, visit our <Link href="/" className="text-violet-600 underline decoration-violet-200 underline-offset-2 transition-colors duration-150 hover:text-violet-700 hover:decoration-violet-400">homepage</Link> or review our <Link href="/privacy" className="text-violet-600 underline decoration-violet-200 underline-offset-2 transition-colors duration-150 hover:text-violet-700 hover:decoration-violet-400">Privacy Policy</Link>.
+                  By using the Catering Management Platform, you acknowledge that you have read, understood, and agree to be bound by these Terms of Service, including all subscription management, billing, cancellation, and data deletion policies. For additional information, visit our <Link href="/" className="text-slate-600 underline decoration-slate-200 underline-offset-2 transition-colors duration-150 hover:text-slate-700 hover:decoration-slate-400">homepage</Link> or review our <Link href="/privacy" className="text-slate-600 underline decoration-slate-200 underline-offset-2 transition-colors duration-150 hover:text-slate-700 hover:decoration-slate-400">Privacy Policy</Link>.
                 </p>
                 <p className="text-sm text-gray-600 mt-4">
                   Last updated: {new Date().toLocaleDateString('en-CA')}

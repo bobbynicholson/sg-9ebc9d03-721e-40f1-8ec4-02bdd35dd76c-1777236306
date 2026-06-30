@@ -59,7 +59,7 @@ export function MobileRouteView({
       case "in_progress":
         return <Circle className="w-5 h-5 text-blue-500 fill-blue-500" />;
       case "failed":
-        return <Circle className="w-5 h-5 text-red-500" />;
+        return <Circle className="w-5 h-5 text-rose-500" />;
       default:
         return <Circle className="w-5 h-5 text-gray-300" />;
     }

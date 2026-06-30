@@ -52,7 +52,9 @@ import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { supabase } from "@/integrations/supabase/client";
 import { useActiveShoppingList } from "@/hooks/useActiveShoppingList";
-import { PortalShell, PortalHeader, PortalCard, PortalCardHeader, StatTile } from "@/components/portal/ui";
+import { PortalShell, PortalHeader, PortalCard, PortalCardHeader, StatTile,
+  PageWorkbench,
+} from "@/components/portal/ui";
 
 interface OutlookRow {
   inventory_item_id: string;
@@ -328,6 +330,7 @@ export default function ShoppingBuyListPage() {
             }
             subtitle="What needs buying right now, ranked by urgency. Tick to add to your list."
           />
+          <PageWorkbench />
 
           {/* Status summary */}
           <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">

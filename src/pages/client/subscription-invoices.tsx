@@ -14,6 +14,7 @@ import { ClientNav } from "@/components/navigation/ClientNav";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import type { Tables } from "@/integrations/supabase/types";
+import { PageWorkbench } from "@/components/portal/ui";
 
 type Subscription = Tables<'subscriptions'>;
 
@@ -117,6 +118,7 @@ function SubscriptionInvoicesPage() {
       <ClientNav />
       <div className="min-h-screen bg-gray-50 lg:pl-72 xl:pl-80">
         <main className="w-full p-4 md:p-8">
+          <PageWorkbench className="mb-5" />
           <h1 className="text-3xl font-bold mb-6 text-gray-800">
             Subscriptions & Invoices
           </h1>
@@ -132,7 +134,7 @@ function SubscriptionInvoicesPage() {
 
             {loading ? (
               <div className="flex items-center justify-center py-12">
-                <Loader2 className="w-8 h-8 animate-spin text-purple-600" />
+                <Loader2 className="w-8 h-8 animate-spin text-slate-600" />
               </div>
             ) : subscriptions.length === 0 ? (
               <Card>
@@ -158,7 +160,7 @@ function SubscriptionInvoicesPage() {
                           </p>
                         </div>
                         <div className="text-right">
-                          <p className="text-2xl font-bold text-purple-600">
+                          <p className="text-2xl font-bold text-slate-600">
                             {formatCurrency(subscription.amount * 1.15, subscription.currency)}
                           </p>
                           <p className="text-xs text-slate-500">Including VAT</p>

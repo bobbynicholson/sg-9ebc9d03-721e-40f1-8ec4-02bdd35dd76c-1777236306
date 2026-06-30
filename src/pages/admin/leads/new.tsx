@@ -157,7 +157,7 @@ export default function NewLead() {
             .eq("company_id", user.company_id)
             .eq("event_date", eventDate)
             .is("deleted_at", null)
-            .not("status", "in", "(cancelled,rejected)"),
+            .not("status", "in", "(cancelled)"),
           supabase
             .from("quotes")
             .select("id", { count: "exact", head: true })

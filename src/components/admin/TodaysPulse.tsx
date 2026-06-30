@@ -134,7 +134,7 @@ export function TodaysPulse({ companyId }: { companyId: string | null }) {
     { label: "Today's events",   value: String(stats.todayEvents),  icon: Calendar, href: "/admin/orders", tone: "bg-blue-50 border-blue-200 text-blue-900" },
     { label: "In transit",        value: String(stats.inTransit),    icon: Truck,    href: "/admin/tracking?status=in_transit&view=list", tone: "bg-brand-primary/10 border-brand-primary/20 text-brand-primary" },
     { label: "Drivers on shift",  value: String(stats.driversOnShift), icon: Users,  href: "/admin/driver-management", tone: "bg-brand-primary/10 border-brand-primary/20 text-brand-primary" },
-    { label: "Kitchen prep",      value: String(stats.kitchenPrep),  icon: ChefHat,  href: "/admin/orders?status=preparing", tone: "bg-purple-50 border-purple-200 text-purple-900" },
+    { label: "Kitchen prep",      value: String(stats.kitchenPrep),  icon: ChefHat,  href: "/admin/orders?status=preparing", tone: "bg-slate-50 border-slate-200 text-slate-900" },
     { label: "Paid today",        value: tenantCurrency.format(stats.paidToday, 0), icon: Banknote, href: "/admin/invoices", tone: "bg-amber-50 border-amber-200 text-amber-900" },
   ];
 

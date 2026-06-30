@@ -504,7 +504,17 @@ export function computeOrderReadiness(
   const orderPaid = orderStatus === "completed"
     ? true
     : (o.payment_status || "").toString().toLowerCase() === "paid";
-  const invoiceSent = orderPaid || (input.invoices || []).some((inv: any) => !!inv?.sent_at);
+  const invoiceRows = input.invoices || [];
+  const invoiceRowSent = invoiceRows.some((inv: any) => {
+    const status = String(inv?.status || "").toLowerCase();
+    return !!inv?.sent_at || ["sent", "partially_paid", "paid", "overdue"].includes(status);
+  });
+  const invoiceEmailSent = emailLog.some((r: any) => {
+    const status = String(r?.status || "").toLowerCase();
+    const template = String(r?.template_type || "").toLowerCase();
+    return ["sent", "delivered"].includes(status) && template.includes("invoice");
+  });
+  const invoiceSent = orderPaid || invoiceRowSent || invoiceEmailSent;
   signals.push({
     key: "invoice_sent",
     severity: "medium",

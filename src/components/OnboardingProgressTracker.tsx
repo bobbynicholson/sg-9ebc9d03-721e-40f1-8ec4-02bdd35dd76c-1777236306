@@ -65,11 +65,11 @@ export function OnboardingProgressTracker() {
   if (loading || dismissed || progress === 100) return null;
 
   return (
-    <Card className="border-2 border-purple-200 bg-gradient-to-br from-purple-50 to-pink-50">
+    <Card className="border-2 border-slate-200 bg-gradient-to-br from-slate-50 to-rose-50">
       <CardHeader className="relative pb-3">
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-2">
-            <div className="p-2 bg-purple-500 rounded-lg">
+            <div className="p-2 bg-slate-500 rounded-lg">
               <Sparkles className="w-5 h-5 text-white" />
             </div>
             <div>
@@ -92,7 +92,7 @@ export function OnboardingProgressTracker() {
         <div className="mt-4 space-y-2">
           <div className="flex items-center justify-between text-sm">
             <span className="font-medium">Setup Progress</span>
-            <Badge variant="secondary" className="bg-purple-100 text-purple-700">
+            <Badge variant="secondary" className="bg-slate-100 text-slate-700">
               {progress}% Complete
             </Badge>
           </div>
@@ -107,7 +107,7 @@ export function OnboardingProgressTracker() {
             className={`flex items-center justify-between p-3 rounded-lg transition-colors ${
               step.completed
                 ? "bg-brand-primary/10 border border-brand-primary/20"
-                : "bg-white border border-slate-200 hover:border-purple-300"
+                : "bg-white border border-slate-200 hover:border-slate-300"
             }`}
           >
             <div className="flex items-center gap-3">
@@ -137,12 +137,12 @@ export function OnboardingProgressTracker() {
         ))}
 
         {progress < 100 && (
-          <div className="pt-3 border-t border-purple-200">
+          <div className="pt-3 border-t border-slate-200">
             <p className="text-xs text-muted-foreground text-center">
               Need help? Contact support at{" "}
               <a
                 href="tel:+27836525755"
-                className="text-purple-600 hover:underline"
+                className="text-slate-600 hover:underline"
               >
                 083 652 5755
               </a>

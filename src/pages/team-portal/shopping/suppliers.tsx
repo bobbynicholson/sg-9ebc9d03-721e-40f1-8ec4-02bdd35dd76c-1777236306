@@ -16,6 +16,7 @@ import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { ShoppingNav } from "@/components/navigation/ShoppingNav";
 import {
   PortalShell, PortalHeader, PortalCard, PortalCardHeader, StatTile,
+  PageWorkbench,
 } from "@/components/portal/ui";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -207,6 +208,7 @@ export default function ShoppingSuppliersPage() {
               </Button>
             }
           />
+          <PageWorkbench />
 
           <div className="grid grid-cols-3 gap-3 sm:gap-4 mb-6">
             <StatTile

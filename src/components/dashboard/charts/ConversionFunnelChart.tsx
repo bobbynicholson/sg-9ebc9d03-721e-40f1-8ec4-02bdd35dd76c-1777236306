@@ -29,8 +29,8 @@ const STAGE_HREF: Record<string, string> = {
 
 const STAGE_TONE: Record<string, string> = {
   leads: "bg-blue-500",
-  quotes_sent: "bg-indigo-500",
-  quotes_viewed: "bg-violet-500",
+  quotes_sent: "bg-blue-500",
+  quotes_viewed: "bg-slate-500",
   quotes_accepted: "bg-brand-primary",
   orders_completed: "bg-brand-primary/90",
 };
@@ -58,7 +58,7 @@ export function ConversionFunnelChart({ data, loading }: Props) {
     <Card className="border-0 shadow-sm">
       <CardHeader className="pb-2">
         <CardTitle className="text-sm font-semibold flex items-center gap-2">
-          <Filter className="w-4 h-4 text-violet-600" />
+          <Filter className="w-4 h-4 text-slate-600" />
           Conversion funnel
           <InfoTooltip
             content={

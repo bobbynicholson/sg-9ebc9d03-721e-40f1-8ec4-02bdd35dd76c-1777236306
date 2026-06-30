@@ -13,16 +13,8 @@ import Head from "next/head";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { CheckCircle2, FileText } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
-
-function hexToRgbTriplet(hex: string | null | undefined): string | null {
-  if (!hex) return null;
-  const m = hex.trim().match(/^#?([0-9a-f]{3}|[0-9a-f]{6})$/i);
-  if (!m) return null;
-  let h = m[1];
-  if (h.length === 3) h = h.split("").map((c) => c + c).join("");
-  return `${parseInt(h.slice(0, 2), 16)} ${parseInt(h.slice(2, 4), 16)} ${parseInt(h.slice(4, 6), 16)}`;
-}
+import { applyBrandingToDOM, loadBrandFonts } from "@/lib/branding/applyBranding";
+import { PublicActionShell } from "@/components/PublicActionShell";
 
 export default function InvoicePaymentSuccessPage() {
   const router = useRouter();
@@ -58,27 +50,26 @@ export default function InvoicePaymentSuccessPage() {
     if (!token) return;
     let cancelled = false;
     (async () => {
-      const { data } = await (supabase as any)
-        .from("invoices")
-        .select(`
-          id,
-          companies!inner ( company_name, primary_color, secondary_color, accent_color )
-        `)
-        .eq("public_token", token)
-        .maybeSingle();
-      if (cancelled || !data?.companies) return;
-      const root = document.documentElement;
-      const apply = (key: string, hex: string | null) => {
-        if (!hex) return;
-        const rgb = hexToRgbTriplet(hex);
-        if (!rgb) return;
-        root.style.setProperty(`--brand-${key}`, hex);
-        root.style.setProperty(`--brand-${key}-rgb`, rgb);
+      const res = await fetch(`/api/public/invoices/${encodeURIComponent(token)}/get`, {
+        method: "GET",
+        cache: "no-store",
+      });
+      const data = await res.json().catch(() => ({}));
+      const company = data?.invoice?.companies;
+      if (cancelled || !company) return;
+      const row = {
+        id: company.id,
+        companyName: company.company_name,
+        logoUrl: company.logo_url,
+        primaryColor: company.primary_color,
+        secondaryColor: company.secondary_color,
+        accentColor: company.accent_color,
+        fontBody: company.brand_font_body ?? null,
+        fontDisplay: company.brand_font_display ?? null,
       };
-      apply("primary",   data.companies.primary_color);
-      apply("secondary", data.companies.secondary_color);
-      apply("accent",    data.companies.accent_color);
-      setCompanyName(data.companies.company_name);
+      applyBrandingToDOM(row);
+      loadBrandFonts(row);
+      setCompanyName(company.company_name);
     })();
     return () => { cancelled = true; };
   }, [token]);
@@ -90,7 +81,7 @@ export default function InvoicePaymentSuccessPage() {
         <meta name="robots" content="noindex, nofollow" />
       </Head>
 
-      <div className="min-h-screen bg-stone-50 flex items-center justify-center p-4">
+      <PublicActionShell className="items-center">
         <Card className="max-w-md w-full border-0 shadow-sm">
           <CardContent className="py-10 px-6 text-center space-y-5">
             <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-brand-primary shadow-lg">
@@ -119,7 +110,7 @@ export default function InvoicePaymentSuccessPage() {
             </div>
           </CardContent>
         </Card>
-      </div>
+      </PublicActionShell>
     </>
   );
 }

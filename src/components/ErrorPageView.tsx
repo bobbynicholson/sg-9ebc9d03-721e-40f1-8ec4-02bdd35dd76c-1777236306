@@ -21,21 +21,21 @@ export function ErrorPageView({
     message ||
     "Our kitchen hit a snag preparing this page. Your data is safe - give it another try, or head back to the dashboard.";
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-gradient-to-b from-slate-50 via-white to-violet-50 p-6 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
-      <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute -top-40 left-1/2 h-96 w-96 -translate-x-1/2 rounded-full bg-violet-200/40 blur-3xl dark:bg-violet-500/10" />
-        <div className="absolute bottom-0 right-1/4 h-72 w-72 rounded-full bg-fuchsia-200/30 blur-3xl dark:bg-fuchsia-500/10" />
-      </div>
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[linear-gradient(180deg,#eef2f6_0%,#f8fafc_260px,#f8fafc_100%)] p-6 dark:bg-[linear-gradient(180deg,#020617_0%,#0f172a_260px,#0f172a_100%)]">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 top-0 h-56 bg-[linear-gradient(90deg,rgb(var(--brand-primary-rgb)/0.10),rgb(var(--brand-secondary-rgb)/0.08),rgb(var(--brand-accent-rgb)/0.10))] dark:opacity-35"
+      />
 
       <div className="relative z-10 w-full max-w-xl text-center">
         <div className="mb-8 flex justify-center">
-          <span className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-600 to-fuchsia-600 text-white shadow-sm">
+          <span className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-primary via-brand-secondary to-brand-accent text-white shadow-sm">
             <ChefHat className="h-10 w-10" strokeWidth={1.75} />
           </span>
         </div>
 
         <h1 className="mb-3 flex items-center justify-center gap-3 text-5xl font-bold leading-none tracking-tight text-slate-900 sm:text-6xl dark:text-white">
-          {statusCode ? statusCode : <AlertTriangle className="h-12 w-12 text-violet-500" strokeWidth={1.75} />}
+          {statusCode ? statusCode : <AlertTriangle className="h-12 w-12 text-slate-500" strokeWidth={1.75} />}
         </h1>
 
         <h2 className="mb-4 text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl dark:text-white">
@@ -51,7 +51,7 @@ export function ErrorPageView({
                 if (typeof window !== "undefined") window.location.reload();
               }}
               size="lg"
-              className="w-full bg-gradient-to-r from-violet-600 to-fuchsia-600 shadow-sm hover:from-violet-700 hover:to-fuchsia-700 sm:w-auto"
+              className="w-full bg-brand-primary text-primary-foreground shadow-sm hover:bg-brand-primary/90 sm:w-auto"
             >
               <RotateCcw className="mr-2 h-5 w-5" />
               Try again

@@ -42,7 +42,7 @@ export function NewVsRepeatDonut({ data, loading }: Props) {
     <Card className="border-0 shadow-sm">
       <CardHeader className="pb-2">
         <CardTitle className="text-sm font-semibold flex items-center gap-2">
-          <Users2 className="w-4 h-4 text-indigo-600" />
+          <Users2 className="w-4 h-4 text-blue-600" />
           New vs repeat revenue
           <InfoTooltip
             content={
@@ -104,12 +104,12 @@ export function NewVsRepeatDonut({ data, loading }: Props) {
                   <div className="text-brand-primary/70">{data.newClients.uniqueClients} client{data.newClients.uniqueClients === 1 ? "" : "s"}, {data.newClients.orderCount} order{data.newClients.orderCount === 1 ? "" : "s"}</div>
                 </div>
               </div>
-              <div className="flex items-start gap-2 p-2 rounded bg-indigo-50 border border-indigo-100">
-                <span className="w-2 h-2 mt-1 rounded-full bg-indigo-500 shrink-0" />
+              <div className="flex items-start gap-2 p-2 rounded bg-blue-50 border border-blue-100">
+                <span className="w-2 h-2 mt-1 rounded-full bg-blue-500 shrink-0" />
                 <div className="min-w-0">
-                  <div className="font-semibold text-indigo-900">Repeat</div>
-                  <div className="text-indigo-800">{fmtR(data.repeatClients.revenue)}</div>
-                  <div className="text-indigo-700/70">{data.repeatClients.uniqueClients} client{data.repeatClients.uniqueClients === 1 ? "" : "s"}, {data.repeatClients.orderCount} order{data.repeatClients.orderCount === 1 ? "" : "s"}</div>
+                  <div className="font-semibold text-blue-900">Repeat</div>
+                  <div className="text-blue-800">{fmtR(data.repeatClients.revenue)}</div>
+                  <div className="text-blue-700/70">{data.repeatClients.uniqueClients} client{data.repeatClients.uniqueClients === 1 ? "" : "s"}, {data.repeatClients.orderCount} order{data.repeatClients.orderCount === 1 ? "" : "s"}</div>
                 </div>
               </div>
             </div>

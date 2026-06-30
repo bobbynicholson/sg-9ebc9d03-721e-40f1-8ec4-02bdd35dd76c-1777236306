@@ -398,7 +398,7 @@ export function KitchenSection({
                             <span className="ml-2 text-[10px] uppercase tracking-wider text-slate-600 bg-slate-100 border border-slate-200 rounded px-1.5 py-0.5">Buy-and-sell</span>
                           )}
                           {mi?.fulfilment_type === "outsourced" && (
-                            <span className="ml-2 text-[10px] uppercase tracking-wider text-purple-700 bg-purple-50 border border-purple-200 rounded px-1.5 py-0.5">Outsourced</span>
+                            <span className="ml-2 text-[10px] uppercase tracking-wider text-slate-700 bg-slate-50 border border-slate-200 rounded px-1.5 py-0.5">Outsourced</span>
                           )}
                         </p>
                         {/* Tag strip - category + dietary + allergens */}

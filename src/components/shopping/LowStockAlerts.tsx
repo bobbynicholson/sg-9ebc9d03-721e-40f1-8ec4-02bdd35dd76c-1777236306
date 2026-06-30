@@ -250,7 +250,7 @@ export function LowStockAlerts() {
               <div
                 key={item.id}
                 className={`p-4 rounded-lg border-2 ${
-                  isOutOfStock ? 'border-red-300 bg-red-50' : 'border-brand-primary/20 bg-brand-primary/5'
+                  isOutOfStock ? 'border-rose-300 bg-rose-50' : 'border-brand-primary/20 bg-brand-primary/5'
                 }`}
               >
                 <div className="flex items-start justify-between mb-2">
@@ -281,7 +281,7 @@ export function LowStockAlerts() {
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-slate-600">Current Stock:</span>
-                    <span className={`font-semibold ${isOutOfStock ? 'text-red-700' : 'text-brand-primary'}`}>
+                    <span className={`font-semibold ${isOutOfStock ? 'text-rose-700' : 'text-brand-primary'}`}>
                       {item.current_stock} {item.unit_of_measure}
                     </span>
                   </div>
@@ -289,7 +289,7 @@ export function LowStockAlerts() {
                   <div className="w-full bg-white rounded-full h-2">
                     <div
                       className={`h-2 rounded-full ${
-                        isOutOfStock ? 'bg-red-500' : 'bg-brand-primary'
+                        isOutOfStock ? 'bg-rose-500' : 'bg-brand-primary'
                       }`}
                       style={{ width: `${Math.max(percentRemaining, 5)}%` }}
                     />

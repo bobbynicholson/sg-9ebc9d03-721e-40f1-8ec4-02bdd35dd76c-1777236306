@@ -251,7 +251,7 @@ function StageDot({
 
   const dotClasses = (() => {
     if (isCurrent) return `${currentSize} bg-orange-500 ring-4 ring-orange-100 shadow-md shadow-orange-200`;
-    if (isBlocked) return `${currentSize} bg-red-500 ring-4 ring-red-100 animate-pulse shadow-md shadow-red-200`;
+    if (isBlocked) return `${currentSize} bg-rose-500 ring-4 ring-rose-100 animate-pulse shadow-md shadow-rose-200`;
     if (isCompleted) return `${baseSize} bg-green-500 shadow-sm`;
     if (isUpcoming) return `${baseSize} bg-slate-300`;
     // not_applicable - render a faint hollow dot (instead of hiding it)
@@ -428,7 +428,7 @@ function StatusBadge({ stage }: { stage: OrderTimelineStage }) {
 function TimelineColourLegend({ compact = false }: { compact?: boolean }) {
   const items = [
     { label: "Done", cls: "bg-green-500", text: "text-green-700" },
-    { label: "Problem", cls: "bg-red-500", text: "text-red-700" },
+    { label: "Problem", cls: "bg-rose-500", text: "text-rose-700" },
     { label: "Needs to be done", cls: "bg-orange-500", text: "text-orange-700" },
     { label: "Not started", cls: "bg-slate-300", text: "text-slate-600" },
   ];
@@ -489,12 +489,12 @@ function ClusterBand({
 
   const headerColor =
     allCompleted ? "text-green-700" :
-    hasBlocked ? "text-red-600" :
+    hasBlocked ? "text-rose-600" :
     hasCurrent ? "text-orange-600" :
     "text-slate-500";
 
   const progressBarColor =
-    hasBlocked ? "bg-red-500" :
+    hasBlocked ? "bg-rose-500" :
     allCompleted ? "bg-green-500" :
     hasCurrent ? "bg-orange-500" :
     "bg-slate-300";
@@ -526,7 +526,7 @@ function ClusterBand({
                 : s.status === "current"
                   ? "bg-gradient-to-r from-orange-400 to-slate-200"
                   : s.status === "blocked"
-                    ? "bg-red-300"
+                    ? "bg-rose-300"
                     : "bg-slate-200";
           return (
             <div key={s.key} className="flex items-center gap-1.5">
@@ -548,7 +548,7 @@ function ClusterBand({
       {/* Inline focus-stage label */}
       {focusStage && (
         <div className={`text-[10px] text-center leading-tight ${
-          hasBlocked ? "text-red-700 font-semibold" :
+          hasBlocked ? "text-rose-700 font-semibold" :
           hasCurrent ? "text-orange-700 font-semibold" :
           "text-slate-500"
         }`}>
@@ -593,7 +593,7 @@ function ClusterPill({
   const hasCurrent = applicable.some((s) => s.status === "current");
 
   const tone = (() => {
-    if (hasBlocked) return "bg-red-100 text-red-700 border-red-300";
+    if (hasBlocked) return "bg-rose-100 text-rose-700 border-rose-300";
     if (hasCurrent) return "bg-orange-100 text-orange-700 border-orange-300";
     if (total > 0 && done === total) return "bg-green-50 text-green-700 border-green-200";
     return "bg-slate-100 text-slate-500 border-slate-200";
@@ -622,7 +622,7 @@ function NowCard({
   if (!stage) return null;
   const tone =
     stage.status === "blocked"
-      ? "border-red-300 bg-red-50 text-red-900"
+      ? "border-rose-300 bg-rose-50 text-rose-900"
       : stage.status === "current"
         ? "border-orange-300 bg-orange-50 text-orange-900"
         : "border-slate-200 bg-slate-50 text-slate-700";
@@ -728,7 +728,7 @@ export function TimelineTrack({
                     <span className={
                       s.status === "completed" ? "text-green-700 line-through opacity-70" :
                       s.status === "current" ? "text-orange-700 font-semibold" :
-                      s.status === "blocked" ? "text-red-700 font-semibold" :
+                      s.status === "blocked" ? "text-rose-700 font-semibold" :
                       s.status === "not_applicable" ? "text-slate-400 italic" :
                       "text-slate-500"
                     }>{s.label}{s.status === "not_applicable" && <span className="ml-1 text-[9px] uppercase tracking-wide text-slate-300">n/a</span>}</span>
@@ -753,7 +753,7 @@ export function TimelineTrack({
         const isBlocked = currentStage.status === "blocked";
         const u = (timeline as any).urgency as string | undefined;
         const tone = isBlocked
-          ? { card: "bg-red-50 border-red-200", dot: "bg-red-500", label: "text-red-700", btn: "bg-red-600 hover:bg-red-700", pulseClass: "animate-pulse" }
+          ? { card: "bg-rose-50 border-rose-200", dot: "bg-rose-500", label: "text-rose-700", btn: "bg-rose-600 hover:bg-rose-700", pulseClass: "animate-pulse" }
           : u === "overdue" || u === "today"
             ? { card: "bg-rose-50 border-rose-300 ring-2 ring-rose-200", dot: "bg-rose-500", label: "text-rose-700", btn: "bg-rose-600 hover:bg-rose-700", pulseClass: "animate-pulse" }
             : u === "tomorrow"
@@ -796,7 +796,7 @@ export function TimelineTrack({
                 )}
               </div>
               {currentStage.blockedReason && (
-                <div className="text-xs text-red-700 font-medium mt-0.5">
+                <div className="text-xs text-rose-700 font-medium mt-0.5">
                   {currentStage.blockedReason}
                 </div>
               )}
@@ -807,7 +807,7 @@ export function TimelineTrack({
                       <div
                         key={i}
                         className={`text-[11px] font-medium inline-flex items-center gap-1 ${
-                          b.severity === "error" ? "text-red-700" : "text-amber-700"
+                          b.severity === "error" ? "text-rose-700" : "text-amber-700"
                         }`}
                       >
                         <span aria-hidden="true">{b.severity === "error" ? "✕" : "⚠"}</span>

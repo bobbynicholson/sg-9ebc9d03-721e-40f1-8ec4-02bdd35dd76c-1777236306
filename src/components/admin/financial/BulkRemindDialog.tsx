@@ -142,7 +142,7 @@ export function BulkRemindDialog({ open, onOpenChange, initialScope = "overdue" 
             onClick={() => setScope("overdue")}
             className={`w-full text-left rounded-md border p-3 transition ${
               scope === "overdue"
-                ? "border-purple-500 bg-purple-50"
+                ? "border-slate-500 bg-slate-50"
                 : "border-slate-200 hover:bg-slate-50"
             }`}
           >
@@ -156,7 +156,7 @@ export function BulkRemindDialog({ open, onOpenChange, initialScope = "overdue" 
             onClick={() => setScope("outstanding")}
             className={`w-full text-left rounded-md border p-3 transition ${
               scope === "outstanding"
-                ? "border-purple-500 bg-purple-50"
+                ? "border-slate-500 bg-slate-50"
                 : "border-slate-200 hover:bg-slate-50"
             }`}
           >

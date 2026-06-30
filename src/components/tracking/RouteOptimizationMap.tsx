@@ -137,7 +137,7 @@ export default function RouteOptimizationMap({ route }: RouteOptimizationMapProp
             <div className="p-2 min-w-[200px]">
               <div className="mb-2">
                 <Badge className={
-                  stop.priority === 1 ? "bg-red-100 text-red-800" :
+                  stop.priority === 1 ? "bg-rose-100 text-rose-800" :
                   stop.priority === 3 ? "bg-gray-100 text-gray-800" :
                   "bg-blue-100 text-blue-800"
                 }>

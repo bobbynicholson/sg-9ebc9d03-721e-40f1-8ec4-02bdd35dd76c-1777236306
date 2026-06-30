@@ -8,7 +8,9 @@ import { Settings as SettingsIcon, Save, Loader2 } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { ShoppingNav } from "@/components/navigation/ShoppingNav";
-import { PortalShell, PortalHeader, PortalCard, PortalCardHeader } from "@/components/portal/ui";
+import { PortalShell, PortalHeader, PortalCard, PortalCardHeader,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 
@@ -101,6 +103,7 @@ export default function ShoppingSettingsPage() {
               </>
             }
           />
+          <PageWorkbench />
 
           <div className="space-y-5">
             {/* Group: Purchase runs */}

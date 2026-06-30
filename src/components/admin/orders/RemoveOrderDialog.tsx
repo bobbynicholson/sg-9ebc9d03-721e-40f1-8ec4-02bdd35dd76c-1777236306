@@ -364,10 +364,10 @@ export function RemoveOrderDialog({
               <button
                 type="button"
                 onClick={() => { setMode("purge"); setStep(2); }}
-                className="w-full text-left rounded-lg border-2 border-slate-200 hover:border-red-400 hover:bg-red-50/40 p-4 transition-all"
+                className="w-full text-left rounded-lg border-2 border-slate-200 hover:border-rose-400 hover:bg-rose-50/40 p-4 transition-all"
               >
                 <div className="flex items-start gap-3">
-                  <Trash2 className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" />
+                  <Trash2 className="w-5 h-5 text-rose-600 mt-0.5 flex-shrink-0" />
                   <div>
                     <p className="font-semibold text-slate-900">Purge order (permanent)</p>
                     <p className="text-xs text-slate-600 mt-0.5">
@@ -567,8 +567,8 @@ export function RemoveOrderDialog({
             <div className="py-8 text-center text-sm text-slate-500">Counting linked records...</div>
           ) : (
             <div className="space-y-4">
-              <div className="rounded-lg border-2 border-red-300 bg-red-50 p-4 text-sm space-y-2">
-                <div className="flex items-start gap-2 text-red-900">
+              <div className="rounded-lg border-2 border-rose-300 bg-rose-50 p-4 text-sm space-y-2">
+                <div className="flex items-start gap-2 border-rose-300">
                   <Trash2 className="w-5 h-5 mt-0.5 flex-shrink-0" />
                   <div>
                     <p className="font-semibold">This permanently deletes the order.</p>
@@ -688,7 +688,7 @@ export function RemoveOrderDialog({
               variant="destructive"
               onClick={handleSubmitPurge}
               disabled={submitting || loading || confirmText.trim() !== (orderNumber || "")}
-              className="bg-red-700 hover:bg-red-800"
+              className="bg-rose-700 hover:bg-rose-800"
             >
               {submitting ? "Deleting..." : "Permanently delete"}
             </Button>

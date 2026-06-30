@@ -84,11 +84,11 @@ export default function USHomePage() {
         />
       </Head>
 
-      <div className="min-h-screen bg-gradient-to-b from-purple-50 via-white to-gray-50">
+      <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-gray-50">
         <Header />
 
         <main>
-          <section className="relative overflow-hidden bg-gradient-to-br from-purple-600 via-purple-700 to-indigo-800 text-white py-20 md:py-32">
+          <section className="relative overflow-hidden bg-gradient-to-br from-slate-600 via-slate-700 to-blue-800 text-white py-20 md:py-32">
             <div className="absolute inset-0 bg-grid-white/10"></div>
             
             <div className="container mx-auto px-4 relative z-10">
@@ -105,7 +105,7 @@ export default function USHomePage() {
                   The Ultimate Catering Management Solution
                 </h1>
                 
-                <p className="text-xl md:text-2xl mb-8 text-purple-100">
+                <p className="text-xl md:text-2xl mb-8 text-slate-100">
                   Transform your US catering business with automated workflows, real-time tracking, and intelligent operations management
                 </p>
 
@@ -119,7 +119,7 @@ export default function USHomePage() {
                 <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
                   <Button 
                     size="lg" 
-                    className="bg-white text-purple-600 hover:bg-gray-100 text-lg px-8 py-6 shadow-2xl hover:shadow-purple-500/50 transition-all"
+                    className="bg-white text-slate-600 hover:bg-gray-100 text-lg px-8 py-6 shadow-2xl hover:shadow-slate-500/50 transition-all"
                     asChild
                   >
                     <Link href="/auth/register">
@@ -140,7 +140,7 @@ export default function USHomePage() {
                   </Button>
                 </div>
 
-                <p className="text-sm text-purple-200">
+                <p className="text-sm text-slate-200">
                   No credit card required • Cancel anytime • Perfect timing for Q1 2026
                 </p>
               </div>
@@ -161,14 +161,14 @@ export default function USHomePage() {
                   },
                   { icon: DollarSign, value: "$32K", label: "Avg Annual Revenue Boost" }
                 ].map((stat, index) => (
-                  <Card key={index} className="text-center border-2 hover:border-purple-600 transition-colors relative overflow-hidden">
+                  <Card key={index} className="text-center border-2 hover:border-slate-600 transition-colors relative overflow-hidden">
                     <CardContent className="pt-6">
                       {stat.badge && (
                         <Badge className="absolute top-2 right-2 bg-brand-primary text-white text-xs animate-pulse">
                           {stat.badge}
                         </Badge>
                       )}
-                      <stat.icon className="w-12 h-12 mx-auto mb-4 text-purple-600" />
+                      <stat.icon className="w-12 h-12 mx-auto mb-4 text-slate-600" />
                       <div className="text-3xl font-bold text-gray-900 mb-2">{stat.value}</div>
                       <div className="text-sm text-gray-600">{stat.label}</div>
                     </CardContent>
@@ -178,7 +178,7 @@ export default function USHomePage() {
             </div>
           </section>
 
-          <section className="py-20 bg-gradient-to-br from-blue-50 to-indigo-50">
+          <section className="py-20 bg-gradient-to-br from-blue-50 to-blue-50">
             <div className="container mx-auto px-4">
               <div className="max-w-4xl mx-auto">
                 <div className="text-center mb-12">
@@ -263,8 +263,8 @@ export default function USHomePage() {
                   <Card key={index} className="hover:shadow-lg transition-shadow">
                     <CardContent className="pt-6">
                       <div className="flex items-start gap-4 mb-4">
-                        <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
-                          <span className="text-red-600 font-bold">✗</span>
+                        <div className="w-8 h-8 rounded-full bg-rose-100 flex items-center justify-center flex-shrink-0">
+                          <span className="bg-rose-100 font-bold">✗</span>
                         </div>
                         <p className="text-gray-700 font-medium">{item.problem}</p>
                       </div>
@@ -279,18 +279,18 @@ export default function USHomePage() {
             </div>
           </section>
 
-          <section className="py-20 bg-purple-600 text-white pb-0">
+          <section className="py-20 bg-slate-600 text-white pb-0">
             <div className="container mx-auto px-4 text-center pb-20">
               <h2 className="text-3xl md:text-4xl font-display font-bold mb-6">
                 Join America's Beta Caterers
               </h2>
-              <p className="text-xl mb-8 max-w-2xl mx-auto text-purple-100">
+              <p className="text-xl mb-8 max-w-2xl mx-auto text-slate-100">
                 Be among the first {cateringCount} US catering businesses to test CateringMS. Lock in founding member rates before our February launch.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <Button 
                   size="lg" 
-                  className="bg-white text-purple-600 hover:bg-gray-100 shadow-2xl"
+                  className="bg-white text-slate-600 hover:bg-gray-100 shadow-2xl"
                   asChild
                 >
                   <Link href="/auth/register">
@@ -322,7 +322,7 @@ export default function USHomePage() {
               animation: "slideUp 0.5s ease-out"
             }}
           >
-            <Card className="border-4 border-purple-500 shadow-2xl bg-gradient-to-br from-purple-600 to-pink-600 text-white overflow-hidden">
+            <Card className="border-4 border-slate-500 shadow-2xl bg-gradient-to-br from-slate-600 to-rose-600 text-white overflow-hidden">
               <CardContent className="pt-6 pb-6 relative">
                 <button
                   onClick={() => setShowPopup(false)}
@@ -331,7 +331,7 @@ export default function USHomePage() {
                   <X className="w-5 h-5" />
                 </button>
 
-                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-yellow-400 via-pink-400 to-purple-400 animate-pulse"></div>
+                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-yellow-400 via-rose-400 to-slate-400 animate-pulse"></div>
 
                 <div className="flex items-start gap-4 mb-4">
                   <div className="p-3 bg-white/20 rounded-full backdrop-blur-sm">
@@ -374,7 +374,7 @@ export default function USHomePage() {
                 </div>
 
                 <Button 
-                  className="w-full bg-white text-purple-600 hover:bg-gray-100 font-bold shadow-lg"
+                  className="w-full bg-white text-slate-600 hover:bg-gray-100 font-bold shadow-lg"
                   asChild
                 >
                   <Link href="/auth/register">

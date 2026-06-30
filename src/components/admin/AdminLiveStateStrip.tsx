@@ -42,7 +42,7 @@ interface Pill {
 }
 
 const TONE_BG: Record<Pill["tone"], string> = {
-  default:  "bg-purple-50 hover:bg-purple-100 border-purple-200 text-purple-900",
+  default:  "bg-slate-100 hover:bg-slate-200 border-slate-300 text-slate-900",
   warning:  "bg-amber-50 hover:bg-amber-100 border-amber-200 text-amber-900",
   critical: "bg-rose-50 hover:bg-rose-100 border-rose-200 text-rose-900",
   info:     "bg-blue-50 hover:bg-blue-100 border-blue-200 text-blue-900",
@@ -50,7 +50,7 @@ const TONE_BG: Record<Pill["tone"], string> = {
 };
 
 const TONE_ICON_BG: Record<Pill["tone"], string> = {
-  default:  "bg-purple-200/70 text-purple-700",
+  default:  "bg-slate-300/70 text-slate-800",
   warning:  "bg-amber-200/70 text-amber-700",
   critical: "bg-rose-200/70 text-rose-700",
   info:     "bg-blue-200/70 text-blue-700",

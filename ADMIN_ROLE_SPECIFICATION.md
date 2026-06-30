@@ -140,12 +140,14 @@ $$ LANGUAGE plpgsql;
 ### Test Users (Spit Braai Delivery)
 | Email | Password | Role | Expected Behavior |
 |-------|----------|------|-------------------|
-| superadmin@cateringms.com | Test123! | super_admin | Platform-wide access |
-| hello@spitbraaidelivery.co.za | Test123! | company_admin | Full company + finance |
-| admin@spitbraaidelivery.co.za | Test123! | admin | Full company - finance |
-| kitchen@test.com | Test123! | kitchen_staff | Kitchen dashboard only |
-| driver@test.com | Test123! | driver | Driver dashboard only |
-| client@test.com | Test123! | client | Client portal only |
+| superadmin@cateringms.com | CateringMS123! | super_admin | Platform-wide access |
+| hello@spitbraaidelivery.co.za | CateringMS123! | company_admin | Full company + finance |
+| admin@spitbraaidelivery.co.za | CateringMS123! | admin | Full company - finance |
+| kitchen@spitbraaidelivery.co.za | CateringMS123! | kitchen_staff | Kitchen dashboard only |
+| driver@spitbraaidelivery.co.za | CateringMS123! | driver | Driver dashboard only |
+| shopping@spitbraaidelivery.co.za | CateringMS123! | shopping_staff | Shopping dashboard only |
+| cleaning@spitbraaidelivery.co.za | CateringMS123! | cleaning_staff | Cleaning dashboard only |
+| client@test.com | CateringMS123! | client | Client portal only |
 
 ### Verification Checklist
 - [ ] Admin can log in and access `/admin/dashboard`

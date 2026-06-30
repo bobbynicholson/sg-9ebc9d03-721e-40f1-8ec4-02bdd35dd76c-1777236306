@@ -20,6 +20,7 @@ import Head from "next/head";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { CheckCircle2, XCircle, Loader2, Calendar, MapPin, Users, Clock, AlertTriangle } from "lucide-react";
+import { PublicActionShell } from "@/components/PublicActionShell";
 
 interface LoadResponse {
   ok: boolean;
@@ -147,8 +148,7 @@ export default function OutsourceAcceptPage() {
   return (
     <>
       <Head><title>Booking request - CateringMS</title></Head>
-      <main className="min-h-screen bg-slate-50 flex items-start justify-center py-8 px-4">
-        <div className="w-full max-w-md">
+      <PublicActionShell>
           <div className="bg-white border border-slate-200 rounded-lg shadow-sm">
             {/* Header band */}
             <div className="px-5 py-4 border-b border-slate-200">
@@ -344,8 +344,7 @@ export default function OutsourceAcceptPage() {
               <span>Magic-link request. No account needed. Powered by CateringMS.</span>
             </div>
           </div>
-        </div>
-      </main>
+      </PublicActionShell>
     </>
   );
 }

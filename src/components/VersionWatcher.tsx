@@ -127,7 +127,7 @@ export function VersionWatcher() {
   return (
     <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[200] max-w-md w-[calc(100%-2rem)] sm:w-auto">
       <div className="bg-slate-900 text-white rounded-xl shadow-2xl border border-slate-700 px-4 py-3 flex items-center gap-3 animate-in slide-in-from-bottom-2">
-        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center flex-shrink-0">
+        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-slate-500 to-rose-500 flex items-center justify-center flex-shrink-0">
           <Sparkles className="w-4 h-4 text-white" />
         </div>
         <div className="flex-1 min-w-0">

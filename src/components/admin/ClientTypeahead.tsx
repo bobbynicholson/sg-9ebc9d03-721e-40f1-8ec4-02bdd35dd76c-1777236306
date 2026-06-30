@@ -36,7 +36,7 @@ export interface ClientTypeaheadProps {
 const SOURCE_TONE: Record<string, string> = {
   client: "bg-brand-primary/15 text-brand-primary border-brand-primary/20",
   lead: "bg-blue-100 text-blue-700 border-blue-200",
-  quote: "bg-purple-100 text-purple-700 border-purple-200",
+  quote: "bg-slate-100 text-slate-700 border-slate-200",
   order: "bg-amber-100 text-amber-700 border-amber-200",
 };
 

@@ -5,6 +5,8 @@ import { getServiceSupabase } from "@/lib/supabase/service";
 import { withApiLogging } from "@/lib/withApiLogging";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { textMentionsWaiterService, waiterRequestSummary } from "@/lib/waiterRequest";
+import { staffOrderAbsoluteUrl } from "@/lib/orderUrls";
+import { emailService } from "@/services/emailService";
 import { UserRole } from "@/types/app";
 
 const ADMIN_ASSIGN_ROLES = new Set([
@@ -39,6 +41,78 @@ function hasServiceStamp(row: any): boolean {
   );
 }
 
+function firstName(name: string | null | undefined, email: string | null | undefined): string {
+  const source = (name || email || "there").trim();
+  return source.split(/\s+/)[0] || source;
+}
+
+function formatEventDate(value: string | null | undefined): string {
+  if (!value) return "Date TBC";
+  const parsed = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return parsed.toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" });
+}
+
+function formatEventTime(value: string | null | undefined): string {
+  if (!value) return "Time TBC";
+  return String(value).slice(0, 5);
+}
+
+async function sendWaiterAssignmentEmail(admin: any, order: any, waiter: any) {
+  if (!waiter?.email) return;
+
+  const { data: company } = await admin
+    .from("companies")
+    .select("company_name, slug")
+    .eq("id", order.company_id)
+    .maybeSingle();
+
+  const companyName = (company as any)?.company_name || "Your catering company";
+  const orderNumber = order.order_number || String(order.id).slice(0, 8);
+  const eventName = order.event_name || "your assigned event";
+  const venue = order.venue_name || order.venue_address || "Venue TBC";
+  const variables = {
+    first_name: firstName(waiter.full_name, waiter.email),
+    staff_name: waiter.full_name || waiter.email,
+    company_name: companyName,
+    order_number: orderNumber,
+    event_name: eventName,
+    venue,
+    shift_date: formatEventDate(order.event_date),
+    shift_time: formatEventTime(order.event_time),
+    order_url: staffOrderAbsoluteUrl({
+      orderId: order.id,
+      role: "waiter",
+      slug: (company as any)?.slug || null,
+    }),
+  };
+
+  const result = await emailService.sendEmailDetailed({
+    companyId: order.company_id,
+    to: waiter.email,
+    subject: "Service job assigned - {{order_number}}",
+    template: "waiter_assignment_email",
+    body:
+      "Hi {{first_name}},\n\n" +
+      "You have been assigned to service {{event_name}} for {{company_name}}.\n\n" +
+      "Order: {{order_number}}\n" +
+      "Date: {{shift_date}}\n" +
+      "Time: {{shift_time}}\n" +
+      "Venue: {{venue}}\n\n" +
+      "Open the order brief before you go on site: {{order_url}}\n\n" +
+      "Thanks,\n{{company_name}}",
+    variables,
+    orderId: order.id,
+    allowPlatformFallback: true,
+    skipUnsubscribeFooter: true,
+    _client: admin,
+  } as any);
+
+  if (!result.success) {
+    console.warn("[orders/waiters] waiter assignment email failed:", result.error || result.error_code);
+  }
+}
+
 async function resolveCaller(req: NextApiRequest, res: NextApiResponse) {
   const ssr = createPagesServerClient({ req, res });
   const { data: { user } } = await ssr.auth.getUser();
@@ -64,7 +138,7 @@ async function resolveCaller(req: NextApiRequest, res: NextApiResponse) {
 async function loadOrderForCaller(admin: any, orderId: string, callerProfile: any, callerRole: string) {
   const { data: order, error } = await admin
     .from("orders")
-    .select("id, company_id, order_number, event_name, event_date, event_time, requires_waiter, waiter_service_required, deleted_at")
+    .select("id, company_id, order_number, event_name, event_date, event_time, venue_name, venue_address, requires_waiter, waiter_service_required, deleted_at")
     .eq("id", orderId)
     .maybeSingle();
   if (error) throw error;
@@ -228,6 +302,12 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         }, admin);
       } catch (notifyErr) {
         console.warn("[orders/waiters] waiter notification failed:", notifyErr);
+      }
+
+      try {
+        await sendWaiterAssignmentEmail(admin, order, waiter);
+      } catch (emailErr) {
+        console.warn("[orders/waiters] waiter assignment email crashed:", emailErr);
       }
 
       try {

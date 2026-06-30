@@ -18,6 +18,8 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { Reveal, Stagger, StaggerItem } from "@/components/motion/Reveal";
 import { EASE, cardBase, btnPress } from "@/components/motion/marketing";
+import { LandingFooter } from "@/components/landing/LandingFooter";
+import { LandingHeader } from "@/components/landing/LandingHeader";
 
 interface DemoPortal {
   id: string;
@@ -165,32 +167,7 @@ export default function DemoPage() {
 
   return (
     <div className="font-body min-h-screen bg-stone-50 text-stone-900">
-      {/* Header */}
-      <header className="sticky top-0 z-40 border-b border-stone-200 bg-stone-50">
-        <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between">
-            <Link href="/" className="flex items-center gap-2">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-600 shadow-sm">
-                <span className="font-display text-xl font-semibold text-white">C</span>
-              </div>
-              <span className="font-display text-xl font-semibold tracking-tight text-stone-900">CateringMS</span>
-            </Link>
-            <div className="flex items-center gap-2 sm:gap-4">
-              <Link href="/features">
-                <Button variant="ghost" size="sm">Features</Button>
-              </Link>
-              <Link href="/pricing">
-                <Button variant="ghost" size="sm">Pricing</Button>
-              </Link>
-              <Link href="/company-signup">
-                <Button className={`rounded-full bg-amber-600 font-semibold text-white shadow-lg shadow-amber-700/20 hover:bg-amber-700 hover:shadow-xl hover:shadow-amber-700/30 ${btnPress}`}>
-                  Start Free Trial
-                </Button>
-              </Link>
-            </div>
-          </div>
-        </div>
-      </header>
+      <LandingHeader />
 
       {/* ===================== HERO ===================== */}
       <section className="border-b border-stone-200 bg-white">
@@ -341,6 +318,7 @@ export default function DemoPage() {
           </div>
         </Reveal>
       </section>
+      <LandingFooter />
     </div>
   );
 }

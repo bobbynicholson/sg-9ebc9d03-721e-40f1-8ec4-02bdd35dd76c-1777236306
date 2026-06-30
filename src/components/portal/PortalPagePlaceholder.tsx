@@ -2,7 +2,7 @@ import { ReactNode } from "react";
 import Head from "next/head";
 import { CheckCircle2 } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
-import { PortalCard, PortalHeader, PortalShell } from "@/components/portal/ui";
+import { PageWorkbench, PortalCard, PortalHeader, PortalShell } from "@/components/portal/ui";
 
 interface PortalPagePlaceholderProps {
   /** Sidebar nav component for this portal (KitchenNav, ShoppingNav, etc) */
@@ -15,7 +15,7 @@ interface PortalPagePlaceholderProps {
   heading: string;
   /** Subheading describing the feature */
   subheading: string;
-  /** Tailwind gradient class for the icon block, e.g. "from-orange-500 to-red-500" */
+  /** Tailwind gradient class for the icon block, e.g. "from-orange-500 to-rose-500" */
   accent: string;
   /** Bullet list of what's coming for this feature */
   capabilities: string[];
@@ -56,6 +56,7 @@ export function PortalPagePlaceholder({
               </span>
             }
           />
+          <PageWorkbench />
 
           {children}
 

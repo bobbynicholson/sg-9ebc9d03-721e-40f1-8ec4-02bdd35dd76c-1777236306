@@ -231,7 +231,7 @@ export function ReassignDriverDialog({
                     idx === 0 && !blocked
                       ? "border-brand-primary bg-brand-primary/10 hover:bg-brand-primary/15 ring-2 ring-brand-primary/20"
                       : blocked
-                        ? "border-red-200 bg-red-50/40 hover:bg-red-50"
+                        ? "border-rose-200 bg-rose-50/40 hover:bg-rose-50"
                         : "border-slate-200 bg-white hover:bg-slate-50"
                   }`}
                 >
@@ -250,17 +250,17 @@ export function ReassignDriverDialog({
                       </p>
                       <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
                         {!s.capacity.ok && (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-100 text-red-700 font-medium">
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 font-medium">
                             {s.capacity.reason}
                           </span>
                         )}
                         {!s.vehicle.ok && (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-100 text-red-700 font-medium">
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 font-medium">
                             {s.vehicle.reason}
                           </span>
                         )}
                         {!s.feasibility.ok && (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-100 text-red-700 font-medium">
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 font-medium">
                             {s.feasibility.reason}
                           </span>
                         )}
@@ -294,7 +294,7 @@ export function ReassignDriverDialog({
               variant="ghost"
               onClick={handleUnassign}
               disabled={saving}
-              className="text-red-700 hover:text-red-800 hover:bg-red-50 mr-auto"
+              className="text-rose-700 hover:text-rose-800 hover:bg-rose-50 mr-auto"
             >
               <X className="w-4 h-4 mr-1.5" />
               Unassign driver

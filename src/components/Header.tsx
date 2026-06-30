@@ -113,7 +113,7 @@ export function Header() {
       <nav className="mx-auto flex max-w-7xl items-center justify-between p-4 lg:px-8">
         <div className="flex lg:flex-1">
           <Link href="/" className="-m-1.5 p-1.5">
-            <span className="text-2xl font-bold bg-gradient-to-r from-brand-primary to-brand-secondary bg-clip-text text-transparent">
+            <span className="text-2xl font-bold bg-brand-primary bg-clip-text text-transparent">
               CateringMS
             </span>
           </Link>
@@ -152,7 +152,7 @@ export function Header() {
           {user ? (
             <>
               <Link href={dashboardPath}>
-                <Button className="bg-gradient-to-r from-brand-primary to-brand-secondary text-white hover:opacity-90">
+                <Button className="bg-brand-primary text-white hover:opacity-90">
                   Dashboard →
                 </Button>
               </Link>
@@ -172,7 +172,7 @@ export function Header() {
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer text-red-600">
+                  <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer text-rose-600">
                     <LogOut className="mr-2 h-4 w-4" />
                     Sign Out
                   </DropdownMenuItem>
@@ -185,7 +185,7 @@ export function Header() {
                 <Button variant="ghost">Sign In</Button>
               </Link>
               <Link href="/company-signup">
-                <Button className="bg-gradient-to-r from-brand-primary to-brand-secondary text-white hover:opacity-90">
+                <Button className="bg-brand-primary text-white hover:opacity-90">
                   Get Started
                 </Button>
               </Link>
@@ -202,7 +202,7 @@ export function Header() {
             {user ? (
               <Link
                 href={dashboardPath}
-                className="flex items-center justify-between rounded-xl bg-gradient-to-r from-brand-primary to-brand-secondary px-4 py-3.5 text-base font-semibold text-white shadow-md"
+                className="flex items-center justify-between rounded-xl bg-brand-primary px-4 py-3.5 text-base font-semibold text-white shadow-md"
               >
                 <span>Open my dashboard</span>
                 <ChevronDown className="h-4 w-4 -rotate-90" />
@@ -277,7 +277,7 @@ export function Header() {
                 </Link>
                 <button
                   onClick={handleSignOut}
-                  className="flex items-center gap-2 w-full text-left rounded-lg px-3 py-2 text-sm font-semibold text-red-600 hover:bg-red-50"
+                  className="flex items-center gap-2 w-full text-left rounded-lg px-3 py-2 text-sm font-semibold text-rose-600 hover:bg-rose-50"
                 >
                   <LogOut className="h-4 w-4" /> Sign out
                 </button>
@@ -306,7 +306,7 @@ function QuickTile({
 }) {
   const inner = (
     <span className="flex flex-col items-center gap-1 rounded-xl border border-slate-200 dark:border-slate-700 px-2 py-2.5 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800">
-      <Icon className="h-4 w-4 text-purple-600 dark:text-purple-300" />
+      <Icon className="h-4 w-4 text-slate-600 dark:text-slate-300" />
       {label}
     </span>
   );
@@ -339,7 +339,7 @@ function MegaMenu({
       <HoverCardTrigger asChild>
         <Link
           href={rootHref}
-          className="inline-flex items-center gap-1 px-3 py-2 rounded-md text-sm font-semibold text-slate-900 hover:text-purple-600 hover:bg-slate-50 dark:text-slate-100 dark:hover:text-purple-400 dark:hover:bg-slate-800 transition-colors"
+          className="inline-flex items-center gap-1 px-3 py-2 rounded-md text-sm font-semibold text-slate-900 hover:text-slate-600 hover:bg-slate-50 dark:text-slate-100 dark:hover:text-slate-400 dark:hover:bg-slate-800 transition-colors"
         >
           {label}
           <ChevronDown className="h-3.5 w-3.5 opacity-60" />
@@ -352,9 +352,9 @@ function MegaMenu({
       >
         <Link
           href={rootHref}
-          className="block mb-2 px-3 py-2 rounded-md bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 hover:from-purple-100 hover:to-pink-100"
+          className="block mb-2 px-3 py-2 rounded-md bg-gradient-to-r from-slate-50 to-rose-50 dark:from-slate-900/20 dark:to-rose-900/20 hover:from-slate-100 hover:to-rose-100"
         >
-          <div className="text-sm font-semibold text-purple-700 dark:text-purple-300">
+          <div className="text-sm font-semibold text-slate-700 dark:text-slate-300">
             {label} overview
           </div>
           <div className="text-xs text-slate-600 dark:text-slate-400">
@@ -366,8 +366,8 @@ function MegaMenu({
             const Icon = item.icon;
             const inner = (
               <span className="flex items-start gap-3 p-2 rounded-md hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
-                <span className="w-9 h-9 rounded-md bg-gradient-to-br from-purple-100 to-pink-100 dark:from-purple-900/30 dark:to-pink-900/30 flex items-center justify-center flex-shrink-0">
-                  <Icon className="w-4 h-4 text-purple-600 dark:text-purple-300" />
+                <span className="w-9 h-9 rounded-md bg-gradient-to-br from-slate-100 to-rose-100 dark:from-slate-900/30 dark:to-rose-900/30 flex items-center justify-center flex-shrink-0">
+                  <Icon className="w-4 h-4 from-slate-100 dark:to-rose-100" />
                 </span>
                 <span className="min-w-0">
                   <span className="block text-sm font-semibold text-slate-900 dark:text-slate-100">
@@ -433,7 +433,7 @@ function MobileMenuSection({
             const Icon = item.icon;
             const inner = (
               <span className="flex items-center gap-2 px-3 py-2 rounded-md text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800">
-                <Icon className="w-4 h-4 text-purple-600 dark:text-purple-300 flex-shrink-0" />
+                <Icon className="w-4 h-4 text-slate-600 dark:text-slate-300 flex-shrink-0" />
                 <span className="truncate">{item.name}</span>
               </span>
             );

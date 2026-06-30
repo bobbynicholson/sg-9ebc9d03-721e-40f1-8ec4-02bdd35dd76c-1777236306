@@ -182,7 +182,7 @@ export function DriverGPSTracker({
       case "collected":
         return "bg-blue-100 text-blue-700 border-blue-200";
       case "in_transit":
-        return "bg-purple-100 text-purple-700 border-purple-200";
+        return "bg-slate-100 text-slate-700 border-slate-200";
       case "arrived":
         return "bg-orange-100 text-orange-700 border-orange-200";
       case "delivered":
@@ -211,7 +211,7 @@ export function DriverGPSTracker({
         {!isTracking ? (
           <Button 
             onClick={handleStartTracking}
-            className="w-full bg-gradient-to-r from-brand-primary to-brand-secondary hover:from-brand-primary/90 hover:to-brand-secondary/90"
+            className="w-full bg-brand-primary hover:bg-brand-primary/90"
           >
             <Navigation className="w-4 h-4 mr-2" />
             Start GPS Tracking
@@ -272,7 +272,7 @@ export function DriverGPSTracker({
               {deliveryStatus === "collected" && (
                 <Button 
                   onClick={() => updateStatus("in_transit")}
-                  className="col-span-2 bg-purple-600 hover:bg-purple-700"
+                  className="col-span-2 bg-slate-600 hover:bg-slate-700"
                 >
                   <Navigation className="w-4 h-4 mr-2" />
                   En Route

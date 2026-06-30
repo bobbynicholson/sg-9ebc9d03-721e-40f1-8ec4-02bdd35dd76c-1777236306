@@ -21,6 +21,10 @@ export interface InvoiceSendDialogInvoice {
   id: string;
   invoice_number?: string;
   invoice_data?: any;
+  amount_paid?: number | null;
+  balance_due?: number | null;
+  total_amount?: number | null;
+  status?: string | null;
 }
 
 export interface InvoiceSendDialogProps {
@@ -47,12 +51,15 @@ export function InvoiceSendDialog({
   const recipientEmail = invoiceData.clientEmail || "";
   const clientName = invoiceData.clientName || "there";
   const firstName = String(clientName).split(" ")[0] || "there";
-  const isBalance = Number(invoiceData.depositPaid || 0) > 0;
+  const liveAmountPaid = Number(invoice?.amount_paid ?? invoiceData.depositPaid ?? 0) || 0;
+  const liveBalanceDue = Number(invoice?.balance_due ?? invoiceData.balanceDue ?? invoiceData.total ?? 0) || 0;
+  const liveTotal = Number(invoice?.total_amount ?? invoiceData.total ?? liveBalanceDue) || 0;
+  const isBalance = liveAmountPaid > 0 || String(invoice?.status || "").toLowerCase() === "partially_paid";
   const templateType = isBalance ? "balance_invoice_issued" : "deposit_invoice_issued";
   // Don't fall back to the order number for {{event_name}} - "deposit
   // invoice for ORD-003841" reads broken. Use a generic phrase.
   const eventLabel = invoiceData.eventName || "your event";
-  const totalAmount = Number(invoiceData.balanceDue || invoiceData.total || 0);
+  const totalAmount = isBalance ? liveBalanceDue : (liveBalanceDue || liveTotal);
   // Wave 66 - multi-currency parameterisation. Pre-Wave-66 the
   // amount label was hardcoded `R${totalAmount}` so any tenant in
   // the UK (£) / US ($) / Botswana (P) saw an "R" prefix in their
@@ -64,6 +71,12 @@ export function InvoiceSendDialog({
   // Bare numeric legacy form for tenant overrides that still hardcode
   // their own currency prefix. Global defaults use {{amount}}.
   const amountBare = totalAmount.toLocaleString("en-ZA", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const effectiveInvoiceData = {
+    ...invoiceData,
+    depositPaid: liveAmountPaid,
+    balanceDue: liveBalanceDue,
+    total: liveTotal,
+  };
 
   // The deposit/balance templates carry {{invoice_link}}. Resolve the
   // invoice's public_token and build the no-login /pay/i/{token} link
@@ -161,7 +174,7 @@ export function InvoiceSendDialog({
       attachmentFilename={invoiceNumber ? `Invoice-${invoiceNumber}.pdf` : "Invoice.pdf"}
       sendLabel="Send invoice"
       onSend={async (payload) => {
-        const result = await sendInvoiceEmail(invoiceData, payload.to, {
+        const result = await sendInvoiceEmail(effectiveInvoiceData, payload.to, {
           invoiceId: invoice.id,
           companyId,
           subject: payload.subject,

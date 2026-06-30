@@ -22,11 +22,11 @@ interface Props {
 const colourFor = (ratio: number): string => {
   if (isNaN(ratio)) return "bg-slate-50";
   if (ratio === 0) return "bg-slate-100";
-  if (ratio < 0.1) return "bg-indigo-100";
-  if (ratio < 0.25) return "bg-indigo-200";
-  if (ratio < 0.5) return "bg-indigo-300";
-  if (ratio < 0.75) return "bg-indigo-500";
-  return "bg-indigo-700";
+  if (ratio < 0.1) return "bg-blue-100";
+  if (ratio < 0.25) return "bg-blue-200";
+  if (ratio < 0.5) return "bg-blue-300";
+  if (ratio < 0.75) return "bg-blue-500";
+  return "bg-blue-700";
 };
 
 const textColourFor = (ratio: number): string => {
@@ -47,7 +47,7 @@ export function RetentionCohortGrid({ data, loading }: Props) {
     <Card className="border-0 shadow-sm">
       <CardHeader className="pb-2">
         <CardTitle className="text-sm font-semibold flex items-center gap-2">
-          <Repeat className="w-4 h-4 text-indigo-600" />
+          <Repeat className="w-4 h-4 text-blue-600" />
           Client retention cohort
           <InfoTooltip
             content={
@@ -118,9 +118,9 @@ export function RetentionCohortGrid({ data, loading }: Props) {
             <div className="mt-3 flex items-center justify-end text-[10px] text-slate-500 gap-1">
               <span>0%</span>
               <span className="w-3 h-3 rounded-sm bg-slate-100" />
-              <span className="w-3 h-3 rounded-sm bg-indigo-200" />
-              <span className="w-3 h-3 rounded-sm bg-indigo-500" />
-              <span className="w-3 h-3 rounded-sm bg-indigo-700" />
+              <span className="w-3 h-3 rounded-sm bg-blue-200" />
+              <span className="w-3 h-3 rounded-sm bg-blue-500" />
+              <span className="w-3 h-3 rounded-sm bg-blue-700" />
               <span>100%</span>
             </div>
           </div>

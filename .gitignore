@@ -52,3 +52,6 @@ taste-skill/
 
 # Playwright visual-check output
 screenshots/
+
+# Local browser profiles for manual multi-account testing
+.browser-profiles/

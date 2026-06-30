@@ -169,7 +169,7 @@ export function CycleCountDialog({ open, onOpenChange, companyId, performedBy, i
                 {shortCount > 0 && (
                   <>
                     <span className="text-slate-400">·</span>
-                    <span className="flex items-center gap-1 text-red-700">
+                    <span className="flex items-center gap-1 text-rose-700">
                       <ArrowDown className="w-3.5 h-3.5" />
                       {shortCount} short
                     </span>
@@ -212,7 +212,7 @@ export function CycleCountDialog({ open, onOpenChange, companyId, performedBy, i
                     const varTone =
                       variance == null ? "text-slate-300" :
                       variance === 0    ? "text-brand-primary" :
-                      variance < 0      ? "text-red-700"     :
+                      variance < 0      ? "text-rose-700"     :
                                           "text-blue-700";
                     return (
                       <tr key={item.id} className="border-t border-slate-100 hover:bg-slate-50">
@@ -254,7 +254,7 @@ export function CycleCountDialog({ open, onOpenChange, companyId, performedBy, i
             </div>
 
             {error && (
-              <div className="flex items-start gap-2 text-sm text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-2">
+              <div className="flex items-start gap-2 text-sm text-rose-700 bg-rose-50 border border-rose-200 rounded-md px-3 py-2">
                 <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
                 <span>{error}</span>
               </div>
@@ -267,9 +267,9 @@ export function CycleCountDialog({ open, onOpenChange, companyId, performedBy, i
                 <p className="text-xs uppercase tracking-wide text-brand-primary font-semibold">Match</p>
                 <p className="text-2xl font-bold text-brand-primary">{matchCount}</p>
               </div>
-              <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2">
-                <p className="text-xs uppercase tracking-wide text-red-700 font-semibold">Short</p>
-                <p className="text-2xl font-bold text-red-900">{shortCount}</p>
+              <div className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2">
+                <p className="text-xs uppercase tracking-wide border-rose-200 font-semibold">Short</p>
+                <p className="text-2xl font-bold border-rose-200">{shortCount}</p>
               </div>
               <div className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2">
                 <p className="text-xs uppercase tracking-wide text-blue-700 font-semibold">Over</p>
@@ -299,7 +299,7 @@ export function CycleCountDialog({ open, onOpenChange, companyId, performedBy, i
                       </td>
                       <td className={`py-2 px-3 text-right tabular-nums font-semibold ${
                         variance === 0 ? "text-brand-primary" :
-                        variance < 0 ? "text-red-700" : "text-blue-700"
+                        variance < 0 ? "text-rose-700" : "text-blue-700"
                       }`}>
                         {variance > 0 ? `+${variance}` : variance}
                         {variance !== 0 && (
@@ -315,7 +315,7 @@ export function CycleCountDialog({ open, onOpenChange, companyId, performedBy, i
             </div>
 
             {error && (
-              <div className="flex items-start gap-2 text-sm text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-2">
+              <div className="flex items-start gap-2 text-sm text-rose-700 bg-rose-50 border border-rose-200 rounded-md px-3 py-2">
                 <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
                 <span>{error}</span>
               </div>

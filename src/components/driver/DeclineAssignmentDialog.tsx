@@ -110,7 +110,7 @@ export function DeclineAssignmentDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-red-700">
+          <DialogTitle className="flex items-center gap-2 text-rose-700">
             <X className="w-5 h-5" />
             Decline assignment{clientName ? ` · ${clientName}` : ""}
           </DialogTitle>
@@ -126,7 +126,7 @@ export function DeclineAssignmentDialog({
                 key={r.key}
                 className={`flex items-start gap-3 px-3 py-2 rounded-md border cursor-pointer transition-colors ${
                   reasonKey === r.key
-                    ? "border-red-500 bg-red-50"
+                    ? "border-rose-500 bg-rose-50"
                     : "border-slate-200 hover:border-slate-300 hover:bg-slate-50"
                 }`}
               >
@@ -136,7 +136,7 @@ export function DeclineAssignmentDialog({
                   value={r.key}
                   checked={reasonKey === r.key}
                   onChange={() => setReasonKey(r.key)}
-                  className="mt-0.5 accent-red-600"
+                  className="mt-0.5 accent-rose-600"
                 />
                 <div className="flex-1">
                   <p className="text-sm font-medium text-slate-900">{r.key}</p>
@@ -158,7 +158,7 @@ export function DeclineAssignmentDialog({
           </div>
 
           {error && (
-            <div className="flex items-start gap-2 text-sm text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-2">
+            <div className="flex items-start gap-2 text-sm text-rose-700 bg-rose-50 border border-rose-200 rounded-md px-3 py-2">
               <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
               <span>{error}</span>
             </div>

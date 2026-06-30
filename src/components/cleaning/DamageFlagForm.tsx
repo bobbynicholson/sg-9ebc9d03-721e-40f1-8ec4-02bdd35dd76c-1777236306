@@ -276,7 +276,7 @@ export function DamageFlagForm({ onFlagged }: Props) {
   return (
     <Card>
       <CardContent className="pt-6 space-y-4">
-        <div className="flex items-center gap-2 text-red-700">
+        <div className="flex items-center gap-2 text-rose-700">
           <AlertTriangle className="h-5 w-5" />
           <h3 className="font-semibold">Flag broken or lost equipment</h3>
         </div>
@@ -433,7 +433,7 @@ export function DamageFlagForm({ onFlagged }: Props) {
         <div className="flex items-center justify-between border-t pt-4">
           <div>
             <p className="text-xs text-muted-foreground">Estimated cost impact</p>
-            <p className="text-2xl font-bold text-red-600">
+            <p className="text-2xl font-bold text-rose-600">
               R{costImpact.toFixed(2)}
             </p>
             {unitCost === 0 && equipmentId ? (
@@ -445,7 +445,7 @@ export function DamageFlagForm({ onFlagged }: Props) {
           <Button
             onClick={handleSubmit}
             disabled={!canSubmit}
-            className="min-h-[44px] bg-red-600 hover:bg-red-700"
+            className="min-h-[44px] bg-rose-600 hover:bg-rose-700"
           >
             {submitting ? (
               <>

@@ -86,6 +86,8 @@ export interface PublicQuoteView {
     primary_color: string | null;
     secondary_color: string | null;
     accent_color: string | null;
+    brand_font_body?: string | null;
+    brand_font_display?: string | null;
     /** Phase 5 #10: ISO 4217 code. Drives the currency symbol +
      *  formatting on the public quote view. NULL falls back to ZAR. */
     currency: string | null;

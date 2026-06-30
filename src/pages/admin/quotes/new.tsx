@@ -1478,13 +1478,10 @@ function NewQuotePage() {
     setSaving(true);
     try {
       const payload = buildPayload();
-      // TIGHTEN I.66 followup: strip __skipSentEmail out of the override
-      // before Object.assign. It's a control flag for this function,
-      // not a column on the quotes table; if it bleeds through, the
-      // supabase update errors with "Could not find the '__skipSentEmail'
-      // column". Bobby hit this on the first Save & Send after the
-      // dialog landed.
-      const { __skipSentEmail, ...dbOverride } = override;
+      // Strip function-only control flags before Object.assign. They
+      // are not columns on quotes, so leaking one into the payload makes
+      // Supabase reject Save & Send with a schema-cache column error.
+      const { __skipSentEmail, __contentChanged, ...dbOverride } = override;
       Object.assign(payload, dbOverride);
       // quotes.region_id is NOT NULL since migration 20260521110000.
       // When the operator didn't pick a region-backed kitchen
@@ -1967,8 +1964,6 @@ function NewQuotePage() {
       // Persist the latest edits but DON'T auto-fire the email -
       // the preview dialog will fire it when the operator confirms.
       const id = await persistQuote({
-        status: "sent",
-        sent_at: new Date().toISOString(),
         __skipSentEmail: true,
         __contentChanged: contentChangedForSend,
       });

@@ -99,7 +99,7 @@ export function InvoiceDetailModal({ invoice, open, onClose }: InvoiceDetailModa
 
         <div className="space-y-6">
           {/* Invoice Header */}
-          <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg">
+          <div className="p-4 bg-gradient-to-r from-blue-50 to-blue-50 rounded-lg">
             <div className="flex items-start justify-between">
               <div>
                 <h3 className="text-2xl font-bold text-slate-900">{invoice.invoice_number}</h3>
@@ -209,7 +209,7 @@ export function InvoiceDetailModal({ invoice, open, onClose }: InvoiceDetailModa
                     invoice.status === "paid"
                       ? "bg-brand-primary/15 text-brand-primary"
                       : invoice.status === "overdue"
-                      ? "bg-red-100 text-red-800"
+                      ? "bg-rose-100 text-rose-800"
                       : "bg-yellow-100 text-yellow-800"
                   }`}
                 >

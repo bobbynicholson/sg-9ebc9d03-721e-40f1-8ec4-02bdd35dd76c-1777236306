@@ -186,7 +186,7 @@ export function SnippetDialog({ open, onOpenChange, form, embedToken, companyNam
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-xl">
-              <Code2 className="w-5 h-5 text-indigo-600" />
+              <Code2 className="w-5 h-5 text-blue-600" />
               Embed snippet for {form.name}
             </DialogTitle>
             <DialogDescription>
@@ -204,7 +204,7 @@ export function SnippetDialog({ open, onOpenChange, form, embedToken, companyNam
               </CardContent>
             </Card>
             <div className="flex flex-wrap gap-2">
-              <Button onClick={copy} className="gap-2 bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600">
+              <Button onClick={copy} className="gap-2 bg-gradient-to-r from-blue-500 to-slate-500 hover:bg-brand-primary/90">
                 <Copy className="w-4 h-4" /> {copied ? "Copied!" : "Copy snippet"}
               </Button>
               <Button variant="outline" asChild className="gap-2">

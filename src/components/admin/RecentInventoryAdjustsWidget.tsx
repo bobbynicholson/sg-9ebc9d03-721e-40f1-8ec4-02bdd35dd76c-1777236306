@@ -87,12 +87,12 @@ export function RecentInventoryAdjustsWidget({ companyId }: { companyId: string 
   if (!loading && rows.length === 0) return null;
 
   return (
-    <Card className="mb-6 border-purple-200 bg-purple-50/30">
+    <Card className="mb-6 border-slate-200 bg-slate-50/30">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between gap-2">
           <div>
             <CardTitle className="flex items-center gap-2 text-base">
-              <Package className="w-4 h-4 text-purple-600" />
+              <Package className="w-4 h-4 text-slate-600" />
               Recent stock movements
             </CardTitle>
             <CardDescription className="text-xs">
@@ -100,7 +100,7 @@ export function RecentInventoryAdjustsWidget({ companyId }: { companyId: string 
             </CardDescription>
           </div>
           <Link href={withSlug("/team-portal/shopping/inventory")}>
-            <Button variant="ghost" size="sm" className="text-purple-700">
+            <Button variant="ghost" size="sm" className="text-slate-700">
               Inventory <ArrowRight className="w-3.5 h-3.5 ml-1" />
             </Button>
           </Link>
@@ -110,7 +110,7 @@ export function RecentInventoryAdjustsWidget({ companyId }: { companyId: string 
         {loading ? (
           <p className="text-xs text-slate-500 py-4">Loading...</p>
         ) : (
-          <ul className="divide-y divide-purple-100">
+          <ul className="divide-y divide-slate-100">
             {rows.map((r) => {
               const qty = Number(r.quantity || 0);
               const positive = qty >= 0;
@@ -127,7 +127,7 @@ export function RecentInventoryAdjustsWidget({ companyId }: { companyId: string 
                 <li key={r.id}>
                   <Link
                     href={href}
-                    className="py-2 flex items-center gap-3 hover:bg-purple-50/60 rounded transition"
+                    className="py-2 flex items-center gap-3 hover:bg-slate-50/60 rounded transition"
                   >
                     <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 ${tone}`}>
                       <Icon className="w-3.5 h-3.5" />

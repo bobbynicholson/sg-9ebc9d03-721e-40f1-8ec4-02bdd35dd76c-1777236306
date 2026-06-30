@@ -5,6 +5,7 @@ import { BarChart3, Crown, Shield, Database, Settings, Building2, CreditCard, Cl
 import { useRouter } from "next/router";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEffect, useState } from "react";
+import { PageWorkbench, PortalHeader, PortalShell } from "@/components/portal/ui";
 
 interface Portal {
   id: string;
@@ -29,7 +30,7 @@ const PORTALS: Portal[] = [
       "User management",
       "System health"
     ],
-    color: "text-purple-600"
+    color: "text-slate-600"
   },
   {
     id: "company-database",
@@ -113,7 +114,7 @@ const PORTALS: Portal[] = [
       "Publish schedule",
       "SEO optimization"
     ],
-    color: "text-pink-600"
+    color: "text-rose-600"
   },
   {
     id: "cms-pages",
@@ -127,7 +128,7 @@ const PORTALS: Portal[] = [
       "Custom pages",
       "Navigation"
     ],
-    color: "text-indigo-600"
+    color: "text-blue-600"
   },
 ];
 
@@ -160,51 +161,47 @@ function SuperAdminDashboard() {
 
   if (loading || !isAuthorized) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
+      <PortalShell width="narrow">
+        <PortalHeader
+          title="Verifying Access"
+          subtitle="Checking super admin credentials before opening platform controls."
+          icon={Shield}
+        />
+        <PageWorkbench />
         <Card className="w-full max-w-md">
           <CardContent className="p-12 text-center">
-            <Shield className="w-16 h-16 mx-auto mb-4 text-blue-600 animate-pulse" />
+            <Shield className="w-16 h-16 mx-auto mb-4 text-brand-primary animate-pulse" />
             <h2 className="text-2xl font-bold text-slate-900 mb-2">Verifying Access...</h2>
             <p className="text-slate-600">Checking super admin credentials</p>
           </CardContent>
         </Card>
-      </div>
+      </PortalShell>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-blue-50">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-purple-900 to-blue-900 text-white border-b shadow-xl">
-        <div className="w-full px-6 py-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center shadow-lg">
-                <Crown className="w-8 h-8 text-white" />
-              </div>
-              <div>
-                <h1 className="text-3xl font-bold">Super Admin Dashboard</h1>
-                <p className="text-purple-200 text-sm mt-1">Complete system access - All portals available</p>
-              </div>
-            </div>
-            <Badge className="bg-amber-500 text-white border-amber-400 px-4 py-2 text-sm font-semibold shadow-lg">
-              <Crown className="w-4 h-4 mr-2" />
-              SUPER ADMIN
-            </Badge>
-          </div>
-        </div>
-      </div>
-
-      {/* Main Content */}
-      <div className="w-full px-6 py-12">
+    <PortalShell>
+      <PortalHeader
+        title="Super Admin Dashboard"
+        subtitle="Complete system access across platform, tenants, billing, content and internal operations."
+        icon={Crown}
+        actions={(
+          <Badge className="border-brand-primary/30 bg-brand-primary/10 px-4 py-2 text-sm font-semibold text-brand-primary shadow-sm">
+            <Crown className="w-4 h-4 mr-2" />
+            SUPER ADMIN
+          </Badge>
+        )}
+      />
+      <PageWorkbench />
+      <div className="w-full py-6">
         {/* Platform Overview */}
-        <Card className="mb-8 border-0 shadow-2xl bg-gradient-to-r from-purple-600 via-blue-600 to-indigo-600 text-white">
+        <Card className="mb-8 border-0 bg-gradient-to-r from-brand-primary via-brand-secondary to-brand-accent text-white shadow-2xl">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-white text-2xl">
               <BarChart3 className="w-7 h-7" />
               Platform Overview
             </CardTitle>
-            <CardDescription className="text-purple-100 text-base">
+            <CardDescription className="text-slate-100 text-base">
               Complete catering management ecosystem - 6 interconnected portals
             </CardDescription>
           </CardHeader>
@@ -212,19 +209,19 @@ function SuperAdminDashboard() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
               <div className="text-center bg-white/20 backdrop-blur-sm rounded-xl p-6 border border-white/30">
                 <div className="text-5xl font-bold">68</div>
-                <div className="text-sm text-purple-100 mt-2 font-medium">Total Pages</div>
+                <div className="text-sm text-slate-100 mt-2 font-medium">Total Pages</div>
               </div>
               <div className="text-center bg-white/20 backdrop-blur-sm rounded-xl p-6 border border-white/30">
                 <div className="text-5xl font-bold">35+</div>
-                <div className="text-sm text-purple-100 mt-2 font-medium">Backend Services</div>
+                <div className="text-sm text-slate-100 mt-2 font-medium">Backend Services</div>
               </div>
               <div className="text-center bg-white/20 backdrop-blur-sm rounded-xl p-6 border border-white/30">
                 <div className="text-5xl font-bold">150+</div>
-                <div className="text-sm text-purple-100 mt-2 font-medium">UI Components</div>
+                <div className="text-sm text-slate-100 mt-2 font-medium">UI Components</div>
               </div>
               <div className="text-center bg-white/20 backdrop-blur-sm rounded-xl p-6 border border-white/30">
                 <div className="text-5xl font-bold">34</div>
-                <div className="text-sm text-purple-100 mt-2 font-medium">Database Tables</div>
+                <div className="text-sm text-slate-100 mt-2 font-medium">Database Tables</div>
               </div>
             </div>
           </CardContent>
@@ -244,10 +241,10 @@ function SuperAdminDashboard() {
                   key={portal.id}
                   variant="outline"
                   onClick={() => router.push(portal.route)}
-                  className="h-auto p-6 flex flex-col items-start gap-4 hover:border-purple-500 hover:shadow-lg transition-all group"
+                  className="h-auto p-6 flex flex-col items-start gap-4 hover:border-slate-500 hover:shadow-lg transition-all group"
                 >
-                  <div className={`w-16 h-16 rounded-xl bg-${portal.color}-100 flex items-center justify-center mb-3 shadow-md`}>
-                    <Icon className={`w-8 h-8 text-${portal.color}-600`} />
+                  <div className="w-16 h-16 rounded-xl bg-brand-primary/10 flex items-center justify-center mb-3 shadow-md">
+                    <Icon className="w-8 h-8 text-brand-primary" />
                   </div>
                   <CardTitle className="text-xl">{portal.name}</CardTitle>
                   <CardDescription className="text-sm">{portal.description}</CardDescription>
@@ -318,7 +315,7 @@ function SuperAdminDashboard() {
           </Card>
         </div>
       </div>
-    </div>
+    </PortalShell>
   );
 }
 

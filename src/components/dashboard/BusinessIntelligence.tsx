@@ -335,7 +335,7 @@ export function BusinessIntelligence({ companyId, dateRange }: Props) {
           aria-expanded={!collapsed}
           aria-controls="bi-section-content"
         >
-          <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center shadow">
+          <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-slate-500 flex items-center justify-center shadow">
             <BarChart3 className="w-4 h-4 text-white" />
           </span>
           <span>

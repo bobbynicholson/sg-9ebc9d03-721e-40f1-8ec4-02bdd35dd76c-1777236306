@@ -232,7 +232,7 @@ export function CancellationPolicyTab({ companyId: companyIdProp }: Props = {}) 
       <Card className="border-0 shadow-lg">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Calendar className="w-5 h-5 text-indigo-600" />
+            <Calendar className="w-5 h-5 text-blue-600" />
             Postponement rules
             <InfoTooltip content={"Postponement is often a softer landing than cancellation. These rules say how much notice the client needs to give to postpone, and how long they have to set the new date before the deposit is forfeit."} />
           </CardTitle>

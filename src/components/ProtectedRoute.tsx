@@ -138,16 +138,16 @@ export function ProtectedRoute({
     };
 
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-red-50 to-orange-50 p-4">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-rose-50 to-orange-50 p-4">
         <Card className="w-full max-w-2xl border-0 shadow-xl">
           <CardContent className="p-8 lg:p-12 text-center">
-            <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-red-100 flex items-center justify-center">
-              <ShieldAlert className="w-10 h-10 text-red-600" />
+            <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-rose-100 flex items-center justify-center">
+              <ShieldAlert className="w-10 h-10 bg-rose-100" />
             </div>
             <h2 className="text-3xl font-bold text-slate-900 mb-4">Access Denied</h2>
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+            <div className="bg-rose-50 border border-rose-200 rounded-lg p-4 mb-6">
               <div className="flex items-start gap-3">
-                <AlertCircle className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" />
+                <AlertCircle className="w-5 h-5 text-rose-600 mt-0.5 flex-shrink-0" />
                 <p className="text-left text-slate-700">
                   {getUnauthorizedMessage(user.role, router.pathname)}
                 </p>

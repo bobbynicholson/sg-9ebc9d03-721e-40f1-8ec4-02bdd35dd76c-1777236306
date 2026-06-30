@@ -228,7 +228,7 @@ function FilterChip({
   tone: "primary" | "rose" | "slate" | "amber" | "blue";
 }) {
   const activeClasses: Record<string, string> = {
-    primary: "bg-indigo-600 text-white border-indigo-600",
+    primary: "bg-blue-600 text-white border-blue-600",
     rose:    "bg-rose-600 text-white border-rose-600",
     slate:   "bg-slate-700 text-white border-slate-700",
     amber:   "bg-amber-500 text-white border-amber-500",

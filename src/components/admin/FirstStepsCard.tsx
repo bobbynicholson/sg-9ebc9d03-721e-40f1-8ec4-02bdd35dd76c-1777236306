@@ -87,23 +87,23 @@ export function FirstStepsCard({ companyId, slug }: Props) {
             <Link
               key={step.id}
               href={step.href}
-              className="flex items-center gap-3 p-3 bg-white rounded-lg border border-slate-200 hover:border-purple-300 hover:shadow-sm transition-all group"
+              className="flex items-center gap-3 p-3 bg-white rounded-lg border border-slate-200 hover:border-slate-300 hover:shadow-sm transition-all group"
             >
-              <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0 text-sm font-bold text-purple-700">
+              <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0 text-sm font-bold text-slate-700">
                 {i + 1}
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-slate-900 truncate">{step.label}</p>
                 <p className="text-xs text-slate-500 truncate">{step.description}</p>
               </div>
-              <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-purple-600 flex-shrink-0" />
+              <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-slate-600 flex-shrink-0" />
             </Link>
           ))}
         </div>
         <div className="flex items-center justify-between mt-3">
           <Link
             href={`${tenantPath}/admin/onboarding`}
-            className="text-xs text-purple-700 hover:text-purple-900 underline"
+            className="text-xs text-slate-700 hover:text-slate-900 underline"
           >
             See full checklist
           </Link>

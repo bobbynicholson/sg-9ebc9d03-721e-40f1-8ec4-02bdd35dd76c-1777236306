@@ -1,0 +1,1431 @@
+{
+  "runId": "ORDER-E2E-20260629222421",
+  "runTag": "E2E_RUN:ORDER-E2E-20260629222421",
+  "startedAt": "2026-06-29T22:24:21.699Z",
+  "baseUrl": "http://localhost:3000",
+  "companyId": "0e139a19-6526-4e1f-9bf7-87d6adbee5f8",
+  "totals": {
+    "scenarios": 15,
+    "passed": 12,
+    "failed": 3,
+    "notes": 11
+  },
+  "fixtures": {
+    "company": "Spit Braai Delivery",
+    "region": "Cape Town",
+    "staff": {
+      "owner": "hello@spitbraaidelivery.co.za",
+      "admin": "admin@spitbraaidelivery.co.za",
+      "driver": "driver@spitbraaidelivery.co.za",
+      "kitchen": "kitchen@spitbraaidelivery.co.za",
+      "cleaning": "cleaning@spitbraaidelivery.co.za",
+      "shopping": "shopping@spitbraaidelivery.co.za"
+    },
+    "vehicle": "SS Rogers"
+  },
+  "scenarios": [
+    {
+      "key": "standard_quote_accept",
+      "name": "Standard happy path via public quote accept",
+      "status": "passed",
+      "orderId": "c7c88b4f-1f0b-4d44-be1b-5c4810089cf4",
+      "orderNumber": "ORD-003854",
+      "invoiceId": "873d53df-53aa-4069-9dde-cbc418074db9",
+      "invoiceNumber": "INV-005561",
+      "checks": [
+        {
+          "ok": true,
+          "message": "order belongs to tenant"
+        },
+        {
+          "ok": true,
+          "message": "order is tagged to this run"
+        },
+        {
+          "ok": true,
+          "message": "order has a positive total"
+        },
+        {
+          "ok": true,
+          "message": "invoice has sent_at stamped"
+        },
+        {
+          "ok": true,
+          "message": "invoice has public token"
+        },
+        {
+          "ok": true,
+          "message": "order has line items"
+        },
+        {
+          "ok": true,
+          "message": "payments ledger has entries"
+        },
+        {
+          "ok": true,
+          "message": "in-app notifications exist"
+        },
+        {
+          "ok": true,
+          "message": "email automation log rows exist"
+        },
+        {
+          "ok": true,
+          "message": "order lifecycle reaches completed"
+        },
+        {
+          "ok": true,
+          "message": "order payment status is paid"
+        },
+        {
+          "ok": true,
+          "message": "invoice balance is settled"
+        },
+        {
+          "ok": true,
+          "message": "invoice status is paid or partial-aware"
+        },
+        {
+          "ok": true,
+          "message": "kitchen prep tasks exist"
+        },
+        {
+          "ok": true,
+          "message": "kitchen prep tasks are done"
+        },
+        {
+          "ok": true,
+          "message": "equipment bookings exist"
+        },
+        {
+          "ok": true,
+          "message": "cleaning handover exists"
+        },
+        {
+          "ok": true,
+          "message": "driver assignments exist"
+        },
+        {
+          "ok": true,
+          "message": "driver assignment reached terminal state"
+        },
+        {
+          "ok": true,
+          "message": "public invoice API returns invoice payload"
+        },
+        {
+          "ok": true,
+          "message": "completed payments cover invoice total"
+        },
+        {
+          "ok": true,
+          "message": "order balance mirrors invoice balance"
+        }
+      ],
+      "notes": [
+        "Cleaning jobs are verified through handovers/bookings; legacy cleaning_jobs rows are not always linked by order_id."
+      ],
+      "counts": {
+        "orderItems": 3,
+        "payments": 2,
+        "kitchenPrep": 5,
+        "driverAssignments": 1,
+        "equipmentBookings": 2,
+        "cleaningJobs": 2,
+        "cleaningHandovers": 1,
+        "notifications": 8,
+        "emailLogs": 4
+      },
+      "durationMs": 40175,
+      "clientId": "9affefcb-392e-448b-8272-77b61808189b",
+      "acceptedViaApi": true
+    },
+    {
+      "key": "food_only",
+      "name": "Food only, no equipment",
+      "status": "passed",
+      "orderId": "c64241e1-a222-432c-b168-e4f642519683",
+      "orderNumber": "E2E-ORD-RE2E20260629222421-02",
+      "invoiceId": "4ce85d61-7db4-4e77-b482-411b4579d52e",
+      "invoiceNumber": "E2E-INV-RE2E20260629222421-02",
+      "checks": [
+        {
+          "ok": true,
+          "message": "order belongs to tenant"
+        },
+        {
+          "ok": true,
+          "message": "order is tagged to this run"
+        },
+        {
+          "ok": true,
+          "message": "order has a positive total"
+        },
+        {
+          "ok": true,
+          "message": "invoice has sent_at stamped"
+        },
+        {
+          "ok": true,
+          "message": "invoice has public token"
+        },
+        {
+          "ok": true,
+          "message": "order has line items"
+        },
+        {
+          "ok": true,
+          "message": "payments ledger has entries"
+        },
+        {
+          "ok": true,
+          "message": "in-app notifications exist"
+        },
+        {
+          "ok": true,
+          "message": "email automation log rows exist"
+        },
+        {
+          "ok": true,
+          "message": "order lifecycle reaches completed"
+        },
+        {
+          "ok": true,
+          "message": "order payment status is paid"
+        },
+        {
+          "ok": true,
+          "message": "invoice balance is settled"
+        },
+        {
+          "ok": true,
+          "message": "invoice status is paid or partial-aware"
+        },
+        {
+          "ok": true,
+          "message": "kitchen prep tasks exist"
+        },
+        {
+          "ok": true,
+          "message": "kitchen prep tasks are done"
+        },
+        {
+          "ok": true,
+          "message": "no equipment bookings for equipment-free scenario"
+        },
+        {
+          "ok": true,
+          "message": "driver assignments exist"
+        },
+        {
+          "ok": true,
+          "message": "driver assignment reached terminal state"
+        },
+        {
+          "ok": true,
+          "message": "public invoice API returns invoice payload"
+        },
+        {
+          "ok": true,
+          "message": "completed payments cover invoice total"
+        },
+        {
+          "ok": true,
+          "message": "order balance mirrors invoice balance"
+        }
+      ],
+      "notes": [],
+      "counts": {
+        "orderItems": 3,
+        "payments": 2,
+        "kitchenPrep": 3,
+        "driverAssignments": 1,
+        "equipmentBookings": 0,
+        "cleaningJobs": 0,
+        "cleaningHandovers": 0,
+        "notifications": 5,
+        "emailLogs": 3
+      },
+      "durationMs": 15284,
+      "clientId": "a8695f96-f387-458a-9a1f-736d4e0c3a80",
+      "acceptedViaApi": false
+    },
+    {
+      "key": "hire_in_equipment",
+      "name": "Hire-in equipment",
+      "status": "passed",
+      "orderId": "5c0b8e1a-dd00-4062-9838-88cb8303f44a",
+      "orderNumber": "E2E-ORD-RE2E20260629222421-03",
+      "invoiceId": "5df4fc81-054c-4006-a90f-cd0717beee15",
+      "invoiceNumber": "E2E-INV-RE2E20260629222421-03",
+      "checks": [
+        {
+          "ok": true,
+          "message": "order belongs to tenant"
+        },
+        {
+          "ok": true,
+          "message": "order is tagged to this run"
+        },
+        {
+          "ok": true,
+          "message": "order has a positive total"
+        },
+        {
+          "ok": true,
+          "message": "invoice has sent_at stamped"
+        },
+        {
+          "ok": true,
+          "message": "invoice has public token"
+        },
+        {
+          "ok": true,
+          "message": "order has line items"
+        },
+        {
+          "ok": true,
+          "message": "payments ledger has entries"
+        },
+        {
+          "ok": true,
+          "message": "in-app notifications exist"
+        },
+        {
+          "ok": true,
+          "message": "email automation log rows exist"
+        },
+        {
+          "ok": true,
+          "message": "order lifecycle reaches completed"
+        },
+        {
+          "ok": true,
+          "message": "order payment status is paid"
+        },
+        {
+          "ok": true,
+          "message": "invoice balance is settled"
+        },
+        {
+          "ok": true,
+          "message": "invoice status is paid or partial-aware"
+        },
+        {
+          "ok": true,
+          "message": "kitchen prep tasks exist"
+        },
+        {
+          "ok": true,
+          "message": "kitchen prep tasks are done"
+        },
+        {
+          "ok": true,
+          "message": "equipment bookings exist"
+        },
+        {
+          "ok": true,
+          "message": "cleaning handover exists"
+        },
+        {
+          "ok": true,
+          "message": "driver assignments exist"
+        },
+        {
+          "ok": true,
+          "message": "driver assignment reached terminal state"
+        },
+        {
+          "ok": true,
+          "message": "public invoice API returns invoice payload"
+        },
+        {
+          "ok": true,
+          "message": "completed payments cover invoice total"
+        },
+        {
+          "ok": true,
+          "message": "order balance mirrors invoice balance"
+        }
+      ],
+      "notes": [
+        "Cleaning jobs are verified through handovers/bookings; legacy cleaning_jobs rows are not always linked by order_id."
+      ],
+      "counts": {
+        "orderItems": 3,
+        "payments": 2,
+        "kitchenPrep": 3,
+        "driverAssignments": 1,
+        "equipmentBookings": 3,
+        "cleaningJobs": 3,
+        "cleaningHandovers": 1,
+        "notifications": 5,
+        "emailLogs": 3
+      },
+      "durationMs": 16228,
+      "clientId": "3da8fcc2-e49c-42bf-879d-3e0523e43606",
+      "acceptedViaApi": false
+    },
+    {
+      "key": "waiter_only",
+      "name": "Waiter-only service",
+      "status": "passed",
+      "orderId": "282e90a1-c58e-4fea-902a-6a224794b144",
+      "orderNumber": "E2E-ORD-RE2E20260629222421-04",
+      "invoiceId": "8c0eeefb-5d6b-41e5-ad17-58b6e2b7588b",
+      "invoiceNumber": "E2E-INV-RE2E20260629222421-04",
+      "checks": [
+        {
+          "ok": true,
+          "message": "order belongs to tenant"
+        },
+        {
+          "ok": true,
+          "message": "order is tagged to this run"
+        },
+        {
+          "ok": true,
+          "message": "order has a positive total"
+        },
+        {
+          "ok": true,
+          "message": "invoice has sent_at stamped"
+        },
+        {
+          "ok": true,
+          "message": "invoice has public token"
+        },
+        {
+          "ok": true,
+          "message": "order has line items"
+        },
+        {
+          "ok": true,
+          "message": "payments ledger has entries"
+        },
+        {
+          "ok": true,
+          "message": "in-app notifications exist"
+        },
+        {
+          "ok": true,
+          "message": "email automation log rows exist"
+        },
+        {
+          "ok": true,
+          "message": "order lifecycle reaches completed"
+        },
+        {
+          "ok": true,
+          "message": "order payment status is paid"
+        },
+        {
+          "ok": true,
+          "message": "invoice balance is settled"
+        },
+        {
+          "ok": true,
+          "message": "invoice status is paid or partial-aware"
+        },
+        {
+          "ok": true,
+          "message": "waiter-only scenario has no kitchen prep tasks"
+        },
+        {
+          "ok": true,
+          "message": "no equipment bookings for equipment-free scenario"
+        },
+        {
+          "ok": true,
+          "message": "public invoice API returns invoice payload"
+        },
+        {
+          "ok": true,
+          "message": "completed payments cover invoice total"
+        },
+        {
+          "ok": true,
+          "message": "order balance mirrors invoice balance"
+        }
+      ],
+      "notes": [],
+      "counts": {
+        "orderItems": 1,
+        "payments": 1,
+        "kitchenPrep": 0,
+        "driverAssignments": 0,
+        "equipmentBookings": 0,
+        "cleaningJobs": 0,
+        "cleaningHandovers": 0,
+        "notifications": 2,
+        "emailLogs": 2
+      },
+      "durationMs": 10675,
+      "clientId": "88cd6815-60ca-4084-93d6-e52f661c7d4c",
+      "acceptedViaApi": false
+    },
+    {
+      "key": "multi_stop_same_day",
+      "name": "Multi-stop same day",
+      "status": "failed",
+      "checks": [],
+      "notes": [],
+      "error": "driver assignment insert failed: new row for relation \"driver_assignments\" violates check constraint \"driver_assignments_assignment_type_check\"",
+      "durationMs": 6425
+    },
+    {
+      "key": "staged_payment_plan",
+      "name": "Staged payment plan",
+      "status": "passed",
+      "orderId": "8466fe15-88aa-4592-a99e-781c709c39e3",
+      "orderNumber": "E2E-ORD-RE2E20260629222421-06",
+      "invoiceId": "508b362e-1c1a-45d1-9c26-82fb0c10ba9b",
+      "invoiceNumber": "E2E-INV-RE2E20260629222421-06",
+      "checks": [
+        {
+          "ok": true,
+          "message": "order belongs to tenant"
+        },
+        {
+          "ok": true,
+          "message": "order is tagged to this run"
+        },
+        {
+          "ok": true,
+          "message": "order has a positive total"
+        },
+        {
+          "ok": true,
+          "message": "invoice has sent_at stamped"
+        },
+        {
+          "ok": true,
+          "message": "invoice has public token"
+        },
+        {
+          "ok": true,
+          "message": "order has line items"
+        },
+        {
+          "ok": true,
+          "message": "payments ledger has entries"
+        },
+        {
+          "ok": true,
+          "message": "in-app notifications exist"
+        },
+        {
+          "ok": true,
+          "message": "email automation log rows exist"
+        },
+        {
+          "ok": true,
+          "message": "order lifecycle reaches completed"
+        },
+        {
+          "ok": true,
+          "message": "order payment status is paid"
+        },
+        {
+          "ok": true,
+          "message": "invoice balance is settled"
+        },
+        {
+          "ok": true,
+          "message": "invoice status is paid or partial-aware"
+        },
+        {
+          "ok": true,
+          "message": "kitchen prep tasks exist"
+        },
+        {
+          "ok": true,
+          "message": "kitchen prep tasks are done"
+        },
+        {
+          "ok": true,
+          "message": "equipment bookings exist"
+        },
+        {
+          "ok": true,
+          "message": "cleaning handover exists"
+        },
+        {
+          "ok": true,
+          "message": "driver assignments exist"
+        },
+        {
+          "ok": true,
+          "message": "driver assignment reached terminal state"
+        },
+        {
+          "ok": true,
+          "message": "public invoice API returns invoice payload"
+        },
+        {
+          "ok": true,
+          "message": "completed payments cover invoice total"
+        },
+        {
+          "ok": true,
+          "message": "order balance mirrors invoice balance"
+        }
+      ],
+      "notes": [
+        "Cleaning jobs are verified through handovers/bookings; legacy cleaning_jobs rows are not always linked by order_id."
+      ],
+      "counts": {
+        "orderItems": 3,
+        "payments": 3,
+        "kitchenPrep": 3,
+        "driverAssignments": 1,
+        "equipmentBookings": 2,
+        "cleaningJobs": 2,
+        "cleaningHandovers": 1,
+        "notifications": 6,
+        "emailLogs": 4
+      },
+      "durationMs": 17269,
+      "clientId": "81f50941-c7e8-4b10-be66-9bcfdeb3159c",
+      "acceptedViaApi": false
+    },
+    {
+      "key": "yoco_gateway",
+      "name": "Yoco gateway simulation",
+      "status": "passed",
+      "orderId": "1372b347-5268-4da3-b0da-61c973f51f5c",
+      "orderNumber": "E2E-ORD-RE2E20260629222421-07",
+      "invoiceId": "78c02fb4-2b99-446b-ba48-cfbdda87edac",
+      "invoiceNumber": "E2E-INV-RE2E20260629222421-07",
+      "checks": [
+        {
+          "ok": true,
+          "message": "order belongs to tenant"
+        },
+        {
+          "ok": true,
+          "message": "order is tagged to this run"
+        },
+        {
+          "ok": true,
+          "message": "order has a positive total"
+        },
+        {
+          "ok": true,
+          "message": "invoice has sent_at stamped"
+        },
+        {
+          "ok": true,
+          "message": "invoice has public token"
+        },
+        {
+          "ok": true,
+          "message": "order has line items"
+        },
+        {
+          "ok": true,
+          "message": "payments ledger has entries"
+        },
+        {
+          "ok": true,
+          "message": "in-app notifications exist"
+        },
+        {
+          "ok": true,
+          "message": "email automation log rows exist"
+        },
+        {
+          "ok": true,
+          "message": "order lifecycle reaches completed"
+        },
+        {
+          "ok": true,
+          "message": "order payment status is paid"
+        },
+        {
+          "ok": true,
+          "message": "invoice balance is settled"
+        },
+        {
+          "ok": true,
+          "message": "invoice status is paid or partial-aware"
+        },
+        {
+          "ok": true,
+          "message": "kitchen prep tasks exist"
+        },
+        {
+          "ok": true,
+          "message": "kitchen prep tasks are done"
+        },
+        {
+          "ok": true,
+          "message": "equipment bookings exist"
+        },
+        {
+          "ok": true,
+          "message": "cleaning handover exists"
+        },
+        {
+          "ok": true,
+          "message": "driver assignments exist"
+        },
+        {
+          "ok": true,
+          "message": "driver assignment reached terminal state"
+        },
+        {
+          "ok": true,
+          "message": "public invoice API returns invoice payload"
+        },
+        {
+          "ok": true,
+          "message": "completed payments cover invoice total"
+        },
+        {
+          "ok": true,
+          "message": "order balance mirrors invoice balance"
+        }
+      ],
+      "notes": [
+        "Cleaning jobs are verified through handovers/bookings; legacy cleaning_jobs rows are not always linked by order_id.",
+        "No active Yoco gateway row was required; payments are recorded with gateway_provider=yoco."
+      ],
+      "counts": {
+        "orderItems": 3,
+        "payments": 2,
+        "kitchenPrep": 3,
+        "driverAssignments": 1,
+        "equipmentBookings": 2,
+        "cleaningJobs": 2,
+        "cleaningHandovers": 1,
+        "notifications": 5,
+        "emailLogs": 3
+      },
+      "durationMs": 15915,
+      "clientId": "7fc596d7-3d9c-4085-af71-ecb79905cdba",
+      "acceptedViaApi": false
+    },
+    {
+      "key": "stripe_manual_eft",
+      "name": "Stripe deposit plus manual EFT balance",
+      "status": "passed",
+      "orderId": "88eef727-a2e9-4660-a66a-e4cfcfa2cc8d",
+      "orderNumber": "E2E-ORD-RE2E20260629222421-08",
+      "invoiceId": "f77db3ce-26e6-460c-9736-89b036a92745",
+      "invoiceNumber": "E2E-INV-RE2E20260629222421-08",
+      "checks": [
+        {
+          "ok": true,
+          "message": "order belongs to tenant"
+        },
+        {
+          "ok": true,
+          "message": "order is tagged to this run"
+        },
+        {
+          "ok": true,
+          "message": "order has a positive total"
+        },
+        {
+          "ok": true,
+          "message": "invoice has sent_at stamped"
+        },
+        {
+          "ok": true,
+          "message": "invoice has public token"
+        },
+        {
+          "ok": true,
+          "message": "order has line items"
+        },
+        {
+          "ok": true,
+          "message": "payments ledger has entries"
+        },
+        {
+          "ok": true,
+          "message": "in-app notifications exist"
+        },
+        {
+          "ok": true,
+          "message": "email automation log rows exist"
+        },
+        {
+          "ok": true,
+          "message": "order lifecycle reaches completed"
+        },
+        {
+          "ok": true,
+          "message": "order payment status is paid"
+        },
+        {
+          "ok": true,
+          "message": "invoice balance is settled"
+        },
+        {
+          "ok": true,
+          "message": "invoice status is paid or partial-aware"
+        },
+        {
+          "ok": true,
+          "message": "kitchen prep tasks exist"
+        },
+        {
+          "ok": true,
+          "message": "kitchen prep tasks are done"
+        },
+        {
+          "ok": true,
+          "message": "equipment bookings exist"
+        },
+        {
+          "ok": true,
+          "message": "cleaning handover exists"
+        },
+        {
+          "ok": true,
+          "message": "driver assignments exist"
+        },
+        {
+          "ok": true,
+          "message": "driver assignment reached terminal state"
+        },
+        {
+          "ok": true,
+          "message": "public invoice API returns invoice payload"
+        },
+        {
+          "ok": true,
+          "message": "completed payments cover invoice total"
+        },
+        {
+          "ok": true,
+          "message": "order balance mirrors invoice balance"
+        }
+      ],
+      "notes": [
+        "Cleaning jobs are verified through handovers/bookings; legacy cleaning_jobs rows are not always linked by order_id.",
+        "No active Stripe gateway row was required; payments are recorded with gateway_provider=stripe/manual."
+      ],
+      "counts": {
+        "orderItems": 3,
+        "payments": 2,
+        "kitchenPrep": 3,
+        "driverAssignments": 1,
+        "equipmentBookings": 2,
+        "cleaningJobs": 2,
+        "cleaningHandovers": 1,
+        "notifications": 5,
+        "emailLogs": 3
+      },
+      "durationMs": 15401,
+      "clientId": "450f1ac8-4569-43b7-9bd0-b649bf04553d",
+      "acceptedViaApi": false
+    },
+    {
+      "key": "rush_under_12h",
+      "name": "Rush under 12h",
+      "status": "passed",
+      "orderId": "e677c6a0-1220-461b-af63-55a0f031ac0c",
+      "orderNumber": "E2E-ORD-RE2E20260629222421-09",
+      "invoiceId": "460cbe69-3bb7-4318-9063-673f9d30699f",
+      "invoiceNumber": "E2E-INV-RE2E20260629222421-09",
+      "checks": [
+        {
+          "ok": true,
+          "message": "order belongs to tenant"
+        },
+        {
+          "ok": true,
+          "message": "order is tagged to this run"
+        },
+        {
+          "ok": true,
+          "message": "order has a positive total"
+        },
+        {
+          "ok": true,
+          "message": "invoice has sent_at stamped"
+        },
+        {
+          "ok": true,
+          "message": "invoice has public token"
+        },
+        {
+          "ok": true,
+          "message": "order has line items"
+        },
+        {
+          "ok": true,
+          "message": "payments ledger has entries"
+        },
+        {
+          "ok": true,
+          "message": "in-app notifications exist"
+        },
+        {
+          "ok": true,
+          "message": "email automation log rows exist"
+        },
+        {
+          "ok": true,
+          "message": "order lifecycle reaches completed"
+        },
+        {
+          "ok": true,
+          "message": "order payment status is paid"
+        },
+        {
+          "ok": true,
+          "message": "invoice balance is settled"
+        },
+        {
+          "ok": true,
+          "message": "invoice status is paid or partial-aware"
+        },
+        {
+          "ok": true,
+          "message": "kitchen prep tasks exist"
+        },
+        {
+          "ok": true,
+          "message": "kitchen prep tasks are done"
+        },
+        {
+          "ok": true,
+          "message": "equipment bookings exist"
+        },
+        {
+          "ok": true,
+          "message": "cleaning handover exists"
+        },
+        {
+          "ok": true,
+          "message": "driver assignments exist"
+        },
+        {
+          "ok": true,
+          "message": "driver assignment reached terminal state"
+        },
+        {
+          "ok": true,
+          "message": "public invoice API returns invoice payload"
+        },
+        {
+          "ok": true,
+          "message": "completed payments cover invoice total"
+        },
+        {
+          "ok": true,
+          "message": "order balance mirrors invoice balance"
+        }
+      ],
+      "notes": [
+        "Cleaning jobs are verified through handovers/bookings; legacy cleaning_jobs rows are not always linked by order_id."
+      ],
+      "counts": {
+        "orderItems": 3,
+        "payments": 1,
+        "kitchenPrep": 3,
+        "driverAssignments": 1,
+        "equipmentBookings": 2,
+        "cleaningJobs": 2,
+        "cleaningHandovers": 1,
+        "notifications": 4,
+        "emailLogs": 2
+      },
+      "durationMs": 14231,
+      "clientId": "d5889fae-0acc-47d5-ad42-5268903de515",
+      "acceptedViaApi": false
+    },
+    {
+      "key": "cancelled_refunded",
+      "name": "Cancelled and refunded",
+      "status": "passed",
+      "orderId": "37f70e1c-c4ea-43e1-87bd-c35c105b57ae",
+      "orderNumber": "E2E-ORD-RE2E20260629222421-10",
+      "invoiceId": "3ad82cbb-7470-4255-8fb2-4cdfc5454f99",
+      "invoiceNumber": "E2E-INV-RE2E20260629222421-10",
+      "checks": [
+        {
+          "ok": true,
+          "message": "order belongs to tenant"
+        },
+        {
+          "ok": true,
+          "message": "order is tagged to this run"
+        },
+        {
+          "ok": true,
+          "message": "order has a positive total"
+        },
+        {
+          "ok": true,
+          "message": "invoice has sent_at stamped"
+        },
+        {
+          "ok": true,
+          "message": "invoice has public token"
+        },
+        {
+          "ok": true,
+          "message": "order has line items"
+        },
+        {
+          "ok": true,
+          "message": "payments ledger has entries"
+        },
+        {
+          "ok": true,
+          "message": "in-app notifications exist"
+        },
+        {
+          "ok": true,
+          "message": "email automation log rows exist"
+        },
+        {
+          "ok": true,
+          "message": "cancel/refund scenario ends cancelled"
+        },
+        {
+          "ok": true,
+          "message": "cancel/refund scenario marks payment refunded"
+        },
+        {
+          "ok": true,
+          "message": "refund ledger row exists"
+        },
+        {
+          "ok": true,
+          "message": "kitchen prep tasks exist"
+        },
+        {
+          "ok": true,
+          "message": "kitchen prep tasks are done"
+        },
+        {
+          "ok": true,
+          "message": "equipment bookings exist"
+        },
+        {
+          "ok": true,
+          "message": "cleaning handover exists"
+        },
+        {
+          "ok": true,
+          "message": "driver assignments exist"
+        },
+        {
+          "ok": true,
+          "message": "driver assignment reached terminal state"
+        },
+        {
+          "ok": true,
+          "message": "public invoice API returns invoice payload"
+        }
+      ],
+      "notes": [],
+      "counts": {
+        "orderItems": 2,
+        "payments": 2,
+        "kitchenPrep": 2,
+        "driverAssignments": 1,
+        "equipmentBookings": 2,
+        "cleaningJobs": 0,
+        "cleaningHandovers": 1,
+        "notifications": 5,
+        "emailLogs": 4
+      },
+      "durationMs": 12693,
+      "clientId": "0728ba31-1a73-4af2-9a7d-0b12c81a7084",
+      "acceptedViaApi": false
+    },
+    {
+      "key": "amended_guest_change",
+      "name": "Amended guest count carries to per-person lines",
+      "status": "passed",
+      "orderId": "23f0a1aa-624c-4a05-9882-70ffdfe9dae8",
+      "orderNumber": "E2E-ORD-RE2E20260629222421-11",
+      "invoiceId": "15b2dc3b-1b88-4a53-8293-4ffc86b7d896",
+      "invoiceNumber": "E2E-INV-RE2E20260629222421-11",
+      "checks": [
+        {
+          "ok": true,
+          "message": "order belongs to tenant"
+        },
+        {
+          "ok": true,
+          "message": "order is tagged to this run"
+        },
+        {
+          "ok": true,
+          "message": "order has a positive total"
+        },
+        {
+          "ok": true,
+          "message": "invoice has sent_at stamped"
+        },
+        {
+          "ok": true,
+          "message": "invoice has public token"
+        },
+        {
+          "ok": true,
+          "message": "order has line items"
+        },
+        {
+          "ok": true,
+          "message": "payments ledger has entries"
+        },
+        {
+          "ok": true,
+          "message": "in-app notifications exist"
+        },
+        {
+          "ok": true,
+          "message": "email automation log rows exist"
+        },
+        {
+          "ok": true,
+          "message": "order lifecycle reaches completed"
+        },
+        {
+          "ok": true,
+          "message": "order payment status is paid"
+        },
+        {
+          "ok": true,
+          "message": "invoice balance is settled"
+        },
+        {
+          "ok": true,
+          "message": "invoice status is paid or partial-aware"
+        },
+        {
+          "ok": true,
+          "message": "amended guest count saved on order"
+        },
+        {
+          "ok": true,
+          "message": "per-person line quantities match amended guest count"
+        },
+        {
+          "ok": true,
+          "message": "kitchen prep tasks exist"
+        },
+        {
+          "ok": true,
+          "message": "kitchen prep tasks are done"
+        },
+        {
+          "ok": true,
+          "message": "equipment bookings exist"
+        },
+        {
+          "ok": true,
+          "message": "cleaning handover exists"
+        },
+        {
+          "ok": true,
+          "message": "driver assignments exist"
+        },
+        {
+          "ok": true,
+          "message": "driver assignment reached terminal state"
+        },
+        {
+          "ok": true,
+          "message": "public invoice API returns invoice payload"
+        },
+        {
+          "ok": true,
+          "message": "completed payments cover invoice total"
+        },
+        {
+          "ok": true,
+          "message": "order balance mirrors invoice balance"
+        }
+      ],
+      "notes": [
+        "Cleaning jobs are verified through handovers/bookings; legacy cleaning_jobs rows are not always linked by order_id."
+      ],
+      "counts": {
+        "orderItems": 3,
+        "payments": 2,
+        "kitchenPrep": 3,
+        "driverAssignments": 1,
+        "equipmentBookings": 2,
+        "cleaningJobs": 2,
+        "cleaningHandovers": 1,
+        "notifications": 6,
+        "emailLogs": 4
+      },
+      "durationMs": 19929,
+      "clientId": "ca47b459-8e34-44da-a9ca-bee33f8c6559",
+      "acceptedViaApi": false
+    },
+    {
+      "key": "partial_then_overpay",
+      "name": "Partial payment then overpay",
+      "status": "passed",
+      "orderId": "6603ae03-7d59-4052-9808-79c18996da96",
+      "orderNumber": "E2E-ORD-RE2E20260629222421-12",
+      "invoiceId": "95973db8-d105-45db-be7b-b69feba5f7a9",
+      "invoiceNumber": "E2E-INV-RE2E20260629222421-12",
+      "checks": [
+        {
+          "ok": true,
+          "message": "order belongs to tenant"
+        },
+        {
+          "ok": true,
+          "message": "order is tagged to this run"
+        },
+        {
+          "ok": true,
+          "message": "order has a positive total"
+        },
+        {
+          "ok": true,
+          "message": "invoice has sent_at stamped"
+        },
+        {
+          "ok": true,
+          "message": "invoice has public token"
+        },
+        {
+          "ok": true,
+          "message": "order has line items"
+        },
+        {
+          "ok": true,
+          "message": "payments ledger has entries"
+        },
+        {
+          "ok": true,
+          "message": "in-app notifications exist"
+        },
+        {
+          "ok": true,
+          "message": "email automation log rows exist"
+        },
+        {
+          "ok": true,
+          "message": "order lifecycle reaches completed"
+        },
+        {
+          "ok": true,
+          "message": "order payment status is paid"
+        },
+        {
+          "ok": true,
+          "message": "invoice balance is settled"
+        },
+        {
+          "ok": true,
+          "message": "invoice status is paid or partial-aware"
+        },
+        {
+          "ok": true,
+          "message": "overpay is recorded above invoice total"
+        },
+        {
+          "ok": true,
+          "message": "overpay keeps balance clamped to zero"
+        },
+        {
+          "ok": true,
+          "message": "kitchen prep tasks exist"
+        },
+        {
+          "ok": true,
+          "message": "kitchen prep tasks are done"
+        },
+        {
+          "ok": true,
+          "message": "equipment bookings exist"
+        },
+        {
+          "ok": true,
+          "message": "cleaning handover exists"
+        },
+        {
+          "ok": true,
+          "message": "driver assignments exist"
+        },
+        {
+          "ok": true,
+          "message": "driver assignment reached terminal state"
+        },
+        {
+          "ok": true,
+          "message": "public invoice API returns invoice payload"
+        },
+        {
+          "ok": true,
+          "message": "completed payments cover invoice total"
+        },
+        {
+          "ok": true,
+          "message": "order balance mirrors invoice balance"
+        }
+      ],
+      "notes": [
+        "Cleaning jobs are verified through handovers/bookings; legacy cleaning_jobs rows are not always linked by order_id."
+      ],
+      "counts": {
+        "orderItems": 2,
+        "payments": 2,
+        "kitchenPrep": 2,
+        "driverAssignments": 1,
+        "equipmentBookings": 2,
+        "cleaningJobs": 2,
+        "cleaningHandovers": 1,
+        "notifications": 5,
+        "emailLogs": 3
+      },
+      "durationMs": 14954,
+      "clientId": "a9756ce1-300b-4355-8c89-24e12b4eff8b",
+      "acceptedViaApi": false
+    },
+    {
+      "key": "outsourced_delivery",
+      "name": "Outsourced delivery",
+      "status": "failed",
+      "checks": [],
+      "notes": [],
+      "error": "driver assignment insert failed: new row for relation \"driver_assignments\" violates check constraint \"driver_assignments_assignment_type_check\"",
+      "durationMs": 4954
+    },
+    {
+      "key": "large_multi_day",
+      "name": "Large multi-day event",
+      "status": "failed",
+      "checks": [],
+      "notes": [],
+      "error": "driver assignment insert failed: new row for relation \"driver_assignments\" violates check constraint \"driver_assignments_assignment_type_check\"",
+      "durationMs": 7587
+    },
+    {
+      "key": "white_label_repeat_client",
+      "name": "White-label repeat client",
+      "status": "passed",
+      "orderId": "6988a73c-b463-4347-85ab-14fd48ca5faf",
+      "orderNumber": "E2E-ORD-RE2E20260629222421-15",
+      "invoiceId": "52582374-3306-4b2f-a29b-fa8d489dba3b",
+      "invoiceNumber": "E2E-INV-RE2E20260629222421-15",
+      "checks": [
+        {
+          "ok": true,
+          "message": "order belongs to tenant"
+        },
+        {
+          "ok": true,
+          "message": "order is tagged to this run"
+        },
+        {
+          "ok": true,
+          "message": "order has a positive total"
+        },
+        {
+          "ok": true,
+          "message": "invoice has sent_at stamped"
+        },
+        {
+          "ok": true,
+          "message": "invoice has public token"
+        },
+        {
+          "ok": true,
+          "message": "order has line items"
+        },
+        {
+          "ok": true,
+          "message": "payments ledger has entries"
+        },
+        {
+          "ok": true,
+          "message": "in-app notifications exist"
+        },
+        {
+          "ok": true,
+          "message": "email automation log rows exist"
+        },
+        {
+          "ok": true,
+          "message": "order lifecycle reaches completed"
+        },
+        {
+          "ok": true,
+          "message": "order payment status is paid"
+        },
+        {
+          "ok": true,
+          "message": "invoice balance is settled"
+        },
+        {
+          "ok": true,
+          "message": "invoice status is paid or partial-aware"
+        },
+        {
+          "ok": true,
+          "message": "kitchen prep tasks exist"
+        },
+        {
+          "ok": true,
+          "message": "kitchen prep tasks are done"
+        },
+        {
+          "ok": true,
+          "message": "equipment bookings exist"
+        },
+        {
+          "ok": true,
+          "message": "cleaning handover exists"
+        },
+        {
+          "ok": true,
+          "message": "driver assignments exist"
+        },
+        {
+          "ok": true,
+          "message": "driver assignment reached terminal state"
+        },
+        {
+          "ok": true,
+          "message": "public invoice API returns invoice payload"
+        },
+        {
+          "ok": true,
+          "message": "completed payments cover invoice total"
+        },
+        {
+          "ok": true,
+          "message": "order balance mirrors invoice balance"
+        }
+      ],
+      "notes": [
+        "Cleaning jobs are verified through handovers/bookings; legacy cleaning_jobs rows are not always linked by order_id."
+      ],
+      "counts": {
+        "orderItems": 4,
+        "payments": 2,
+        "kitchenPrep": 4,
+        "driverAssignments": 1,
+        "equipmentBookings": 2,
+        "cleaningJobs": 2,
+        "cleaningHandovers": 1,
+        "notifications": 5,
+        "emailLogs": 3
+      },
+      "durationMs": 16376,
+      "clientId": "9affefcb-392e-448b-8272-77b61808189b",
+      "acceptedViaApi": false
+    }
+  ],
+  "aggregate": {},
+  "notes": [],
+  "fatalError": "Only 12 scenarios passed; need at least 15.",
+  "finishedAt": "2026-06-29T22:28:12.057Z"
+}

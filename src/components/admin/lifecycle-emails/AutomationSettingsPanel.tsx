@@ -63,7 +63,7 @@ export function AutomationSettingsPanel() {
 
         <Card className="border-0 shadow-md hover:shadow-lg transition-shadow">
           <CardContent className="p-5 space-y-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-slate-500 to-blue-600 flex items-center justify-center">
               <Pencil className="w-5 h-5 text-white" />
             </div>
             <div>

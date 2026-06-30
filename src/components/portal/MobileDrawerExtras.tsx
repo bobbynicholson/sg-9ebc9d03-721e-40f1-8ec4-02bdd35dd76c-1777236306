@@ -43,7 +43,7 @@ export interface QuickAction {
   label: string;
   sub?: string;
   icon: React.ComponentType<{ className?: string }>;
-  /** Tailwind classes for the icon tile background, e.g. "from-orange-500 to-red-500". */
+  /** Tailwind classes for the icon tile background, e.g. "from-orange-500 to-rose-500". */
   accent?: string;
   onClick?: () => void;
 }

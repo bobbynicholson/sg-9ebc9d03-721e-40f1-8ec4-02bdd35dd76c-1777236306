@@ -256,7 +256,7 @@ export function AutomationDashboardPanel() {
                 onClick={() => setRange(t.id)}
                 className={`px-3 py-1.5 rounded-md ${
                   range === t.id
-                    ? "bg-purple-600 text-white font-medium"
+                    ? "bg-slate-600 text-white font-medium"
                     : "text-slate-600 hover:bg-slate-50"
                 }`}
               >
@@ -274,7 +274,7 @@ export function AutomationDashboardPanel() {
                 onClick={() => setChannelFilter(c)}
                 className={`px-2.5 py-1.5 rounded-md capitalize ${
                   channelFilter === c
-                    ? "bg-purple-600 text-white font-medium"
+                    ? "bg-slate-600 text-white font-medium"
                     : "text-slate-600 hover:bg-slate-50"
                 }`}
               >
@@ -296,7 +296,7 @@ export function AutomationDashboardPanel() {
                 onClick={() => setStatusFilter(t.id)}
                 className={`px-3 py-1.5 rounded-md ${
                   statusFilter === t.id
-                    ? "bg-purple-600 text-white font-medium"
+                    ? "bg-slate-600 text-white font-medium"
                     : "text-slate-600 hover:bg-slate-50"
                 }`}
               >
@@ -333,7 +333,7 @@ export function AutomationDashboardPanel() {
         <CardHeader>
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <CardTitle className="flex items-center gap-2 text-base">
-              <Mail className="w-4 h-4 text-purple-600" />
+              <Mail className="w-4 h-4 text-slate-600" />
               Recent follow-up sends
             </CardTitle>
             <span className="text-[11px] text-slate-500">

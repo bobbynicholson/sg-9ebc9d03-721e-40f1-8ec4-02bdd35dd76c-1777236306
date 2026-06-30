@@ -98,8 +98,8 @@ export function TrialExpiryBanner() {
 
   if (daysRemaining <= 1) {
     variant = "destructive";
-    bgColor = "bg-red-50 dark:bg-red-950/20 border-red-300 dark:border-red-800";
-    textColor = "text-red-900 dark:text-red-100";
+    bgColor = "bg-rose-50 dark:bg-rose-950/20 border-rose-300 dark:border-rose-800";
+    textColor = "bg-rose-50 dark:bg-rose-950/20";
     emoji = "🚨";
   } else if (daysRemaining <= 3) {
     bgColor = "bg-orange-50 dark:bg-orange-950/20 border-orange-200 dark:border-orange-800";

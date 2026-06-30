@@ -223,27 +223,87 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
     const { data: full } = await (supabase as any)
       .from("quotes")
-      .select("menu_items, equipment_items, delivery_fee, collection_fee, discount_amount")
+      .select("guest_count, menu_items, equipment_items, delivery_fee, collection_fee, discount_amount")
       .eq("id", quote.id)
       .maybeSingle();
 
     const quoteUpdate: Record<string, any> = {};
     if (requestedChanges.event_date) quoteUpdate.event_date = requestedChanges.event_date;
-    if (typeof requestedChanges.guest_count === "number") quoteUpdate.guest_count = requestedChanges.guest_count;
+    const requestedGuestCount =
+      typeof requestedChanges.guest_count === "number"
+        ? Math.max(0, Number(requestedChanges.guest_count) || 0)
+        : null;
+    const previousGuestCount = Math.max(0, Number((full as any)?.guest_count) || 0);
+    const guestCountChanged =
+      requestedGuestCount != null && requestedGuestCount !== previousGuestCount;
+    if (requestedGuestCount != null) quoteUpdate.guest_count = requestedGuestCount;
     if (requestedChanges.venue_address) quoteUpdate.venue_address = requestedChanges.venue_address;
 
     let newMenu: any[] | null = null;
     let newEquip: any[] | null = null;
+    const round2 = (n: number) => Math.round(n * 100) / 100;
+    const recalcLineTotal = (item: any, quantity: number) => {
+      const unit = [
+        item.unit_price,
+        item.unitPrice,
+        item.pricePerPerson,
+        item.price_per_person,
+        item.base_price,
+      ]
+        .map((v) => Number(v))
+        .find((n) => Number.isFinite(n)) || 0;
+      const discountPct = Number(item.discount_pct ?? item.discountPct ?? 0) || 0;
+      return round2(Math.max(0, quantity * unit * (1 - discountPct / 100)));
+    };
+    const normaliseMode = (item: any) =>
+      String(item?.pricing_mode ?? item?.pricingMode ?? item?.pricingModeLabel ?? "")
+        .toLowerCase()
+        .replace(/[\s-]+/g, "_");
+    const shouldFollowGuestCount = (item: any) => {
+      const mode = normaliseMode(item);
+      const qty = Number(item?.quantity);
+      if (["per_person", "per_guest", "per_head"].includes(mode)) return true;
+      return ["per_portion", "per_portions"].includes(mode)
+        && previousGuestCount > 0
+        && Number.isFinite(qty)
+        && Math.abs(qty - previousGuestCount) < 0.001;
+    };
+    const existingMenu = Array.isArray((full as any)?.menu_items) ? (full as any).menu_items : [];
+    const existingByKey = new Map<string, any>();
+    for (const item of existingMenu) {
+      const id = typeof item?.menu_item_id === "string" ? item.menu_item_id : "";
+      const name = String(item?.item_name || item?.name || "").trim().toLowerCase();
+      if (id) existingByKey.set(`id:${id}`, item);
+      if (name) existingByKey.set(`name:${name}`, item);
+    }
+    const findExistingLine = (incoming: any) => {
+      const id = typeof incoming?.menu_item_id === "string" ? incoming.menu_item_id : "";
+      const name = String(incoming?.item_name || incoming?.name || "").trim().toLowerCase();
+      return (id ? existingByKey.get(`id:${id}`) : null) || (name ? existingByKey.get(`name:${name}`) : null) || null;
+    };
+
     if (Array.isArray(requestedChanges.menu_items)) {
-      newMenu = requestedChanges.menu_items.map((m: any) => ({
-        menu_item_id: m.menu_item_id ?? null,
-        item_name: m.item_name,
-        name: m.item_name,
-        quantity: Number(m.quantity) || 0,
-        unit_price: Number(m.unit_price) || 0,
-        line_total: Math.round((Number(m.quantity) || 0) * (Number(m.unit_price) || 0) * 100) / 100,
-        pricing_mode: "per_portion",
-      }));
+      newMenu = requestedChanges.menu_items.map((m: any) => {
+        const existingLine = findExistingLine(m);
+        const base = existingLine ? { ...existingLine } : {};
+        const shouldScale = guestCountChanged && shouldFollowGuestCount(existingLine || m);
+        const quantity = shouldScale
+          ? (requestedGuestCount || 0)
+          : (Number(m.quantity) || 0);
+        const merged = {
+          ...base,
+          menu_item_id: m.menu_item_id ?? base.menu_item_id ?? null,
+          item_name: m.item_name || base.item_name || base.name,
+          name: m.item_name || base.name || base.item_name,
+          quantity,
+          unit_price: Number(m.unit_price ?? base.unit_price ?? base.unitPrice ?? base.pricePerPerson) || 0,
+          pricing_mode: base.pricing_mode ?? base.pricingMode ?? "per_portion",
+        };
+        return {
+          ...merged,
+          line_total: recalcLineTotal(merged, quantity),
+        };
+      });
       quoteUpdate.menu_items = newMenu;
     }
     if (Array.isArray(requestedChanges.equipment_items)) {
@@ -257,12 +317,30 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       quoteUpdate.equipment_items = newEquip;
     }
 
-    // Recompute totals only when the item set actually changed.
+    if (guestCountChanged && !Array.isArray(requestedChanges.menu_items)) {
+      const adjustedMenu = existingMenu.map((item: any) => {
+        if (!shouldFollowGuestCount(item)) return item;
+        const quantity = requestedGuestCount || 0;
+        return {
+          ...item,
+          quantity,
+          line_total: recalcLineTotal(item, quantity),
+        };
+      });
+      if (adjustedMenu.some((item: any, index: number) => item !== existingMenu[index])) {
+        newMenu = adjustedMenu;
+        quoteUpdate.menu_items = adjustedMenu;
+      }
+    }
+
+    // Recompute totals when the item set or guest-driven quantities changed.
     if (newMenu || newEquip) {
       const menuArr = newMenu || (Array.isArray((full as any)?.menu_items) ? (full as any).menu_items : []);
       const equipArr = newEquip || (Array.isArray((full as any)?.equipment_items) ? (full as any).equipment_items : []);
       const lineSum = (arr: any[], priceKeys: string[]) =>
         arr.reduce((s, x) => {
+          const explicitTotal = Number(x.line_total ?? x.lineTotal ?? x.total);
+          if (Number.isFinite(explicitTotal)) return s + Math.max(0, explicitTotal);
           const qty = Number(x.quantity) || 0;
           const price = priceKeys.map((k) => Number(x[k])).find((n) => Number.isFinite(n) && n > 0) || 0;
           return s + qty * price;
@@ -291,7 +369,6 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         if (Number.isFinite(r) && r > 0) rate = r > 1 ? r / 100 : r;
       } catch { /* defaults */ }
 
-      const round2 = (n: number) => Math.round(n * 100) / 100;
       if (incVat) {
         // Prices are gross. total == items+fees; VAT is the embedded portion.
         quoteUpdate.total = round2(itemsAndFees);

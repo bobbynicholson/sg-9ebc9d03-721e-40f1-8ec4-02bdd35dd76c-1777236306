@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Eye, EyeOff, Lock, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
+import { AuthShell } from "@/components/auth/AuthShell";
 
 export default function ResetPassword() {
   const router = useRouter();
@@ -148,7 +149,7 @@ export default function ResetPassword() {
 
   if (validatingSession) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-amber-50 via-white to-orange-50">
+      <AuthShell headline="Secure account access." subcopy="We are validating your reset or invite link before showing the password form.">
         <Card className="w-full max-w-md">
           <CardContent className="pt-6">
             <div className="flex flex-col items-center justify-center py-8">
@@ -157,13 +158,13 @@ export default function ResetPassword() {
             </div>
           </CardContent>
         </Card>
-      </div>
+      </AuthShell>
     );
   }
 
   if (success) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-amber-50 via-white to-orange-50">
+      <AuthShell headline="Your account is ready." subcopy="Your password was updated successfully.">
         <Card className="w-full max-w-md">
           <CardContent className="pt-6">
             <div className="flex flex-col items-center justify-center py-8">
@@ -182,12 +183,12 @@ export default function ResetPassword() {
             </div>
           </CardContent>
         </Card>
-      </div>
+      </AuthShell>
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-amber-50 via-white to-orange-50 p-4">
+    <AuthShell headline="Set a secure password." subcopy="Use the form to finish account setup or recover access.">
       <Card className="w-full max-w-md shadow-xl">
         <CardHeader className="space-y-1 text-center">
           <div className="flex justify-center mb-4">
@@ -301,6 +302,6 @@ export default function ResetPassword() {
           </div>
         </CardContent>
       </Card>
-    </div>
+    </AuthShell>
   );
 }

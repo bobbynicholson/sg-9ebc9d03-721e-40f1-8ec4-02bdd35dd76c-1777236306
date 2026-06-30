@@ -94,7 +94,7 @@ export function WriteOffDialog({ open, onOpenChange, performedBy, items, preSele
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-red-700">
+          <DialogTitle className="flex items-center gap-2 text-rose-700">
             <Trash2 className="w-5 h-5" />
             Write off stock
           </DialogTitle>
@@ -111,7 +111,7 @@ export function WriteOffDialog({ open, onOpenChange, performedBy, items, preSele
                 id="wo_item"
                 value={itemId}
                 onChange={e => setItemId(e.target.value)}
-                className="mt-1 w-full border border-slate-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+                className="mt-1 w-full border border-slate-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500"
               >
                 <option value="">Pick an item...</option>
                 {items.map(opt => (
@@ -159,7 +159,7 @@ export function WriteOffDialog({ open, onOpenChange, performedBy, items, preSele
                   key={r.key}
                   className={`flex items-start gap-3 px-3 py-2 rounded-md border cursor-pointer transition-colors ${
                     reason === r.key
-                      ? "border-red-500 bg-red-50"
+                      ? "border-rose-500 bg-rose-50"
                       : "border-slate-200 hover:border-slate-300 hover:bg-slate-50"
                   }`}
                 >
@@ -169,7 +169,7 @@ export function WriteOffDialog({ open, onOpenChange, performedBy, items, preSele
                     value={r.key}
                     checked={reason === r.key}
                     onChange={() => setReason(r.key)}
-                    className="mt-0.5 accent-red-600"
+                    className="mt-0.5 accent-rose-600"
                   />
                   <div className="flex-1">
                     <p className="text-sm font-medium text-slate-900">{r.key}</p>
@@ -192,16 +192,16 @@ export function WriteOffDialog({ open, onOpenChange, performedBy, items, preSele
           </div>
 
           {selectedItem && validQty && costImpact > 0 && (
-            <div className="rounded-md bg-red-50 border border-red-200 px-3 py-2 flex items-center justify-between">
-              <span className="text-sm text-red-700">Cost impact</span>
-              <span className="text-base font-semibold text-red-800">
+            <div className="rounded-md bg-rose-50 border border-rose-200 px-3 py-2 flex items-center justify-between">
+              <span className="text-sm bg-rose-50">Cost impact</span>
+              <span className="text-base font-semibold bg-rose-50">
                 {tenantCurrency.format(costImpact)}
               </span>
             </div>
           )}
 
           {error && (
-            <div className="flex items-start gap-2 text-sm text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-2">
+            <div className="flex items-start gap-2 text-sm text-rose-700 bg-rose-50 border border-rose-200 rounded-md px-3 py-2">
               <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
               <span>{error}</span>
             </div>

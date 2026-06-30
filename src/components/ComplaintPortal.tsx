@@ -98,7 +98,7 @@ export function ComplaintPortal() {
     const colors = {
       low: "bg-slate-100 text-slate-800",
       medium: "bg-orange-100 text-orange-800",
-      high: "bg-red-100 text-red-800",
+      high: "bg-rose-100 text-rose-800",
     };
     return colors[priority];
   };
@@ -128,11 +128,11 @@ export function ComplaintPortal() {
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      <Card className="border-0 shadow-lg bg-gradient-to-br from-red-50 to-orange-50">
+      <Card className="border-0 shadow-lg bg-gradient-to-br from-rose-50 to-orange-50">
         <CardHeader className="p-4 sm:p-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-red-500 to-orange-500 flex items-center justify-center shadow-lg flex-shrink-0">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-rose-500 to-orange-500 flex items-center justify-center shadow-lg flex-shrink-0">
                 <AlertTriangle className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
               </div>
               <div>
@@ -142,7 +142,7 @@ export function ComplaintPortal() {
             </div>
             <Dialog open={showNewComplaintForm} onOpenChange={setShowNewComplaintForm}>
               <DialogTrigger asChild>
-                <Button className="bg-red-600 hover:bg-red-700 w-full sm:w-auto h-11">
+                <Button className="bg-rose-600 hover:bg-rose-700 w-full sm:w-auto h-11">
                   <AlertTriangle className="w-4 h-4 mr-2" />
                   Submit Complaint
                 </Button>
@@ -246,7 +246,7 @@ export function ComplaintPortal() {
                     </Button>
                     <Button
                       onClick={handleSubmitComplaint}
-                      className="bg-red-600 hover:bg-red-700 w-full sm:w-auto h-11"
+                      className="bg-rose-600 hover:bg-rose-700 w-full sm:w-auto h-11"
                     >
                       <Send className="w-4 h-4 mr-2" />
                       Submit Complaint

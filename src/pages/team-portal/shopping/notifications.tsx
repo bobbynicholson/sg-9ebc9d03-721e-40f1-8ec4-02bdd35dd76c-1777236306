@@ -5,7 +5,9 @@ import { Bell, Check, CheckCircle2, Archive } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { ShoppingNav } from "@/components/navigation/ShoppingNav";
-import { PortalShell, PortalHeader, PortalCard } from "@/components/portal/ui";
+import { PortalShell, PortalHeader, PortalCard,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -165,6 +167,7 @@ export default function ShoppingNotificationsPage() {
               </>
             }
           />
+          <PageWorkbench />
 
           {/* Filter pills: amber fill marks the active tab (selection state),
               everything else stays neutral. The unread count rides the pill. */}

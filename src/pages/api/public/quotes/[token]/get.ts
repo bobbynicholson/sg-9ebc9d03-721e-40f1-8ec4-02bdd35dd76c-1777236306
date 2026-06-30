@@ -77,6 +77,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         vat_registered, vat_number, vat_rate, pricing_includes_vat,
         registration_number, tax_number,
         primary_color, secondary_color, accent_color,
+        brand_font_body, brand_font_display,
         currency, deposit_percent
       )
     `)

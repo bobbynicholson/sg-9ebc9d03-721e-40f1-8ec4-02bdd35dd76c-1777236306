@@ -118,7 +118,7 @@ export function SmoothCompletionCelebration({
 
             <Button
               onClick={onClose}
-              className="w-full bg-gradient-to-r from-brand-primary to-brand-secondary hover:from-brand-primary hover:to-brand-secondary/90"
+              className="w-full bg-brand-primary hover:from-brand-primary hover:to-brand-secondary/90"
               size="lg"
             >
               <PartyPopper className="w-5 h-5 mr-2" />

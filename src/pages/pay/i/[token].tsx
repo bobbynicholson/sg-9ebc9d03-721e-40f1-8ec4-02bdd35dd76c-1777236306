@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import { PayFastService } from "@/lib/payfastService";
 import { formatZAR } from "@/lib/formatters";
+import { applyBrandingToDOM, loadBrandFonts } from "@/lib/branding/applyBranding";
 
 // Use the platform's canonical ZAR formatter (space thousands, dot
 // decimal, single "R") instead of raw Intl, which renders a COMMA
@@ -65,16 +66,9 @@ interface InvoiceView {
     primary_color: string | null;
     secondary_color: string | null;
     accent_color: string | null;
+    brand_font_body?: string | null;
+    brand_font_display?: string | null;
   };
-}
-
-function hexToRgbTriplet(hex: string | null | undefined): string | null {
-  if (!hex || typeof hex !== "string") return null;
-  const m = hex.trim().match(/^#?([0-9a-f]{3}|[0-9a-f]{6})$/i);
-  if (!m) return null;
-  let h = m[1];
-  if (h.length === 3) h = h.split("").map((c) => c + c).join("");
-  return `${parseInt(h.slice(0, 2), 16)} ${parseInt(h.slice(2, 4), 16)} ${parseInt(h.slice(4, 6), 16)}`;
 }
 
 function companyInitials(name: string | null | undefined): string {
@@ -255,23 +249,23 @@ export default function InvoicePaymentPage() {
   // as a string so the field can be cleared/typed freely; parsed on use.
   const [payAmount, setPayAmount] = useState<string>("");
 
-  // Apply per-tenant brand colours once the invoice + company resolve.
-  // Same pattern as /q/[token] - public route, no auth context, so we
-  // set CSS vars on documentElement rather than going through
-  // BrandingContext.
+  // Apply per-tenant brand colours AND fonts once the invoice resolves.
+  // This is a public token route, so it uses the same DOM applier as
+  // logged-in tenant pages without depending on auth context.
   useEffect(() => {
     if (!invoice?.companies) return;
-    const root = document.documentElement;
-    const apply = (key: string, hex: string | null) => {
-      if (!hex) return;
-      const rgb = hexToRgbTriplet(hex);
-      if (!rgb) return;
-      root.style.setProperty(`--brand-${key}`, hex);
-      root.style.setProperty(`--brand-${key}-rgb`, rgb);
+    const row = {
+      id: invoice.companies.id,
+      companyName: invoice.companies.company_name,
+      logoUrl: invoice.companies.logo_url,
+      primaryColor: invoice.companies.primary_color,
+      secondaryColor: invoice.companies.secondary_color,
+      accentColor: invoice.companies.accent_color,
+      fontBody: invoice.companies.brand_font_body ?? null,
+      fontDisplay: invoice.companies.brand_font_display ?? null,
     };
-    apply("primary",   invoice.companies.primary_color);
-    apply("secondary", invoice.companies.secondary_color);
-    apply("accent",    invoice.companies.accent_color);
+    applyBrandingToDOM(row);
+    loadBrandFonts(row);
   }, [invoice?.companies]);
 
   // TIGHTEN I.113: auto-print dispatch. Waits for the invoice render
@@ -675,27 +669,24 @@ export default function InvoicePaymentPage() {
                 </div>
               </div>
 
-              {/* Payment plan: deposit + balance split of the total.
-                  Shown so the client understands the staged structure
-                  (deposit to confirm, balance before the event) even
-                  before any payment lands. Reflects the caterer's
-                  configured deposit %. */}
-              <div className="grid grid-cols-2 gap-4 rounded-lg bg-stone-50 p-4">
-                <div>
-                  <p className="text-[10px] uppercase tracking-[0.15em] text-brand-primary font-bold">
-                    Deposit payment ({depositPct}%)
-                  </p>
-                  <p className="text-lg font-bold text-stone-900 tabular-nums">{fmtMoney.format(depositAmount)}</p>
-                  <p className="text-[11px] text-stone-500 mt-0.5">Payable to confirm your booking</p>
+              {!isPartiallyPaid && !isPaid && (
+                <div className="grid grid-cols-2 gap-4 rounded-lg bg-stone-50 p-4">
+                  <div>
+                    <p className="text-[10px] uppercase tracking-[0.15em] text-brand-primary font-bold">
+                      Deposit payment ({depositPct}%)
+                    </p>
+                    <p className="text-lg font-bold text-stone-900 tabular-nums">{fmtMoney.format(depositAmount)}</p>
+                    <p className="text-[11px] text-stone-500 mt-0.5">Payable to confirm your booking</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase tracking-[0.15em] text-brand-primary font-bold">
+                      Balance payment ({balancePct}%)
+                    </p>
+                    <p className="text-lg font-bold text-stone-900 tabular-nums">{fmtMoney.format(balanceAmount)}</p>
+                    <p className="text-[11px] text-stone-500 mt-0.5">Payable before the event</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-[10px] uppercase tracking-[0.15em] text-brand-primary font-bold">
-                    Balance payment ({balancePct}%)
-                  </p>
-                  <p className="text-lg font-bold text-stone-900 tabular-nums">{fmtMoney.format(balanceAmount)}</p>
-                  <p className="text-[11px] text-stone-500 mt-0.5">Payable before the event</p>
-                </div>
-              </div>
+              )}
 
               <div className="brand-print rounded-lg bg-brand-primary/10 border-2 border-brand-primary p-5 flex items-center justify-between flex-wrap gap-3">
                 <div>

@@ -225,7 +225,7 @@ export function OrderFiltersBar({
           {savedViews.map((v) => (
             <span
               key={v.id}
-              className="inline-flex items-center gap-1 rounded-full border border-purple-200 bg-purple-50 text-purple-700 text-xs"
+              className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 text-slate-700 text-xs"
             >
               <button
                 type="button"
@@ -238,7 +238,7 @@ export function OrderFiltersBar({
               <button
                 type="button"
                 onClick={() => onRemoveSavedView(v.id)}
-                className="pr-1.5 text-purple-500 hover:text-purple-800"
+                className="pr-1.5 text-slate-500 hover:text-slate-800"
                 title="Remove this view"
               >
                 <X className="w-3 h-3" />
@@ -248,7 +248,7 @@ export function OrderFiltersBar({
           <button
             type="button"
             onClick={onSaveCurrentView}
-            className="inline-flex items-center gap-1 rounded-full border border-dashed border-slate-300 text-slate-500 text-xs px-2.5 py-0.5 hover:border-purple-300 hover:text-purple-700"
+            className="inline-flex items-center gap-1 rounded-full border border-dashed border-slate-300 text-slate-500 text-xs px-2.5 py-0.5 hover:border-slate-300 hover:text-slate-700"
             title="Save the current filter combination as a named view"
           >
             + Save view

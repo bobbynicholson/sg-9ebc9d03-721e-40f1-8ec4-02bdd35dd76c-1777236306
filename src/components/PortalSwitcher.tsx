@@ -45,7 +45,7 @@ export function PortalSwitcher() {
     <>
       {/* Floating Badge - Top Right */}
       <div className="fixed top-4 right-4 z-50">
-        <Badge className="bg-gradient-to-r from-brand-primary to-brand-secondary text-white px-4 py-2 shadow-lg animate-pulse border-2 border-brand-primary/40">
+        <Badge className="bg-brand-primary text-white px-4 py-2 shadow-lg animate-pulse border-2 border-brand-primary/40">
           <Crown className="w-4 h-4 mr-2" />
           SUPER ADMIN
         </Badge>
@@ -57,7 +57,7 @@ export function PortalSwitcher() {
         <Button
           onClick={handleBackToDashboard}
           size="lg"
-          className="h-12 px-4 rounded-full shadow-2xl bg-gradient-to-r from-brand-primary to-brand-secondary hover:brightness-105 text-white font-semibold"
+          className="h-12 px-4 rounded-full shadow-2xl bg-brand-primary hover:brightness-105 text-white font-semibold"
           title="Return to Super Admin Dashboard"
         >
           <Crown className="w-5 h-5 mr-2" />
@@ -69,7 +69,7 @@ export function PortalSwitcher() {
           <DropdownMenuTrigger asChild>
             <Button 
               size="lg"
-              className="h-14 w-14 rounded-full shadow-2xl bg-gradient-to-r from-brand-primary to-brand-secondary hover:brightness-105 text-white"
+              className="h-14 w-14 rounded-full shadow-2xl bg-brand-primary hover:brightness-105 text-white"
               title="Quick Portal Switch"
             >
               <LayoutDashboard className="w-6 h-6" />
@@ -102,7 +102,7 @@ export function PortalSwitcher() {
             <DropdownMenuSeparator />
             <DropdownMenuItem
               onClick={handleSignOut}
-              className="cursor-pointer text-red-600 hover:bg-red-50 py-3"
+              className="cursor-pointer text-rose-600 hover:bg-rose-50 py-3"
             >
               <LogOut className="w-4 h-4 mr-3" />
               Sign Out

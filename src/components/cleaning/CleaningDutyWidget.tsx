@@ -269,7 +269,7 @@ export function CleaningDutyWidget() {
                     <CalendarIcon className="w-3 h-3 text-slate-500" />
                     Rostered <strong className="text-slate-900">{myRoster.planned_start.slice(0,5)}-{myRoster.planned_end.slice(0,5)}</strong>
                     {lateMin > 0 && lateMin < 240 && (
-                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-red-100 text-red-700 text-[10px] font-semibold">
+                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 text-[10px] font-semibold">
                         <AlertTriangle className="w-2.5 h-2.5" />
                         {lateMin}m late
                       </span>

@@ -10,7 +10,9 @@ import { ShoppingNav } from "@/components/navigation/ShoppingNav";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
-import { PortalShell, PortalHeader, PortalCard, StatTile } from "@/components/portal/ui";
+import { PortalShell, PortalHeader, PortalCard, StatTile,
+  PageWorkbench,
+} from "@/components/portal/ui";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { staffOrderHref } from "@/lib/orderUrls";
@@ -150,6 +152,7 @@ export default function ShoppingKitchenDemandPage() {
               </Button>
             }
           />
+          <PageWorkbench />
 
           {/* Stat strip */}
           <div className="grid grid-cols-3 gap-3 mb-5">

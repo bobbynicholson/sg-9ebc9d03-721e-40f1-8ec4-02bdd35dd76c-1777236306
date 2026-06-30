@@ -287,6 +287,11 @@ export async function postOrderCreationCascade(
         receipt.email = { ok: false, skipped: true, reason: "order_not_found" };
       } else if (!(order as any).client_email) {
         receipt.email = { ok: false, skipped: true, reason: "no_client_email" };
+      } else if (!opts.depositSettled && receipt.invoice.ok && receipt.invoice.invoiceId) {
+        // On quote acceptance, the deposit invoice email is the single
+        // client-facing confirmation. Sending order_confirmed as well
+        // creates duplicate "you're booked" emails seconds apart.
+        receipt.email = { ok: true, skipped: true, reason: "deposit_invoice_email_owns_acceptance" };
       } else if (await _orderConfirmedAlreadySentRecently(client, orderId)) {
         // Wave 48 A6 - dedup against the status-flip path. When an
         // order is created already at status='confirmed' (the quote

@@ -89,7 +89,7 @@ export default function FeaturesPage() {
         "Conflict detection and alerts",
         "Multi-region view"
       ],
-      gradient: "from-purple-500 to-pink-500",
+      gradient: "from-slate-500 to-rose-500",
       impact: "Zero double-bookings",
       link: null
     },
@@ -119,7 +119,7 @@ export default function FeaturesPage() {
         "Regional operational autonomy",
         "Company-wide reporting"
       ],
-      gradient: "from-indigo-500 to-purple-500",
+      gradient: "from-blue-500 to-slate-500",
       impact: "Unlimited scalability",
       link: null
     },
@@ -134,7 +134,7 @@ export default function FeaturesPage() {
         "Automatic status notifications",
         "Estimated arrival times"
       ],
-      gradient: "from-red-500 to-orange-500",
+      gradient: "from-rose-500 to-orange-500",
       impact: "65-70% fewer tracking calls",
       link: "/features/gps-tracking"
     },
@@ -164,7 +164,7 @@ export default function FeaturesPage() {
         "Production workflow optimization",
         "Waste reduction analytics"
       ],
-      gradient: "from-pink-500 to-rose-500",
+      gradient: "from-rose-500 to-rose-500",
       impact: "30-35% faster prep times",
       link: "/features/kitchen-management"
     },
@@ -209,7 +209,7 @@ export default function FeaturesPage() {
         "Secure payment processing",
         "Feedback and complaint system"
       ],
-      gradient: "from-violet-500 to-purple-500",
+      gradient: "from-slate-500 to-slate-500",
       impact: "75-80% reduction in admin calls",
       link: null
     },
@@ -224,7 +224,7 @@ export default function FeaturesPage() {
         "12-month nurture campaign",
         "Fully customizable templates"
       ],
-      gradient: "from-orange-500 to-red-500",
+      gradient: "from-orange-500 to-rose-500",
       impact: "2-2.5x repeat booking rate",
       link: "/features/email-automation"
     },
@@ -254,7 +254,7 @@ export default function FeaturesPage() {
         "Local payment methods",
         "International expansion ready"
       ],
-      gradient: "from-blue-500 to-indigo-500",
+      gradient: "from-blue-500 to-blue-500",
       impact: "Global reach, local feel",
       link: null
     },

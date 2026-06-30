@@ -186,11 +186,11 @@ export function OrderAlertBanners({ order }: Props) {
     banners.push({
       key: "comms-paused",
       node: (
-        <div className="flex items-start gap-2 p-2.5 rounded-md border border-violet-300 bg-violet-50">
-          <BellOff className="w-4 h-4 text-violet-700 flex-shrink-0 mt-0.5" />
+        <div className="flex items-start gap-2 p-2.5 rounded-md border border-slate-300 bg-slate-50">
+          <BellOff className="w-4 h-4 border-slate-300 flex-shrink-0 mt-0.5" />
           <div className="min-w-0 flex-1 text-xs">
-            <p className="font-semibold text-violet-900">Client comms paused</p>
-            <p className="text-violet-800">No automated comms will go out until {fmtDate(order.comms_paused_until)}. Operators should not chase manually either.</p>
+            <p className="font-semibold text-slate-900">Client comms paused</p>
+            <p className="text-slate-900">No automated comms will go out until {fmtDate(order.comms_paused_until)}. Operators should not chase manually either.</p>
           </div>
         </div>
       ),
@@ -218,11 +218,11 @@ export function OrderAlertBanners({ order }: Props) {
     banners.push({
       key: "two-drivers",
       node: (
-        <div className="flex items-start gap-2 p-2.5 rounded-md border border-indigo-300 bg-indigo-50">
-          <Users className="w-4 h-4 text-indigo-700 flex-shrink-0 mt-0.5" />
+        <div className="flex items-start gap-2 p-2.5 rounded-md border border-blue-300 bg-blue-50">
+          <Users className="w-4 h-4 text-blue-700 flex-shrink-0 mt-0.5" />
           <div className="min-w-0 flex-1 text-xs">
-            <p className="font-semibold text-indigo-900">Two-driver job</p>
-            <p className="text-indigo-800">Heavy load or two-stop run. Dispatch must assign a secondary driver / vehicle.</p>
+            <p className="font-semibold text-blue-900">Two-driver job</p>
+            <p className="text-blue-800">Heavy load or two-stop run. Dispatch must assign a secondary driver / vehicle.</p>
           </div>
         </div>
       ),

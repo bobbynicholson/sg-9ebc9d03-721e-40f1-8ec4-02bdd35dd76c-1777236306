@@ -734,7 +734,7 @@ export default function CompanySignupPage() {
                         slugAvailability.state === "reserved" ||
                         slugAvailability.state === "invalid_format" ||
                         slugAvailability.state === "empty") && (
-                        <X className="w-5 h-5 text-red-500" />
+                        <X className="w-5 h-5 text-rose-500" />
                       )}
                     </div>
                   )}
@@ -745,7 +745,7 @@ export default function CompanySignupPage() {
                       slugMessage.tone === "good"
                         ? "text-brand-primary"
                         : slugMessage.tone === "bad"
-                        ? "text-red-600"
+                        ? "text-rose-600"
                         : "text-slate-500"
                     }`}
                   >

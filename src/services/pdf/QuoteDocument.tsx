@@ -152,9 +152,12 @@ const friendlyTime = (raw: string | null | undefined): string | null => {
 
 const safePrimary = (hex: string | null | undefined): string => {
   if (!hex) return "#d97706";
-  const t = String(hex).trim();
-  if (/^#?[0-9a-f]{3}$/i.test(t) || /^#?[0-9a-f]{6}$/i.test(t)) {
-    return t.startsWith("#") ? t : `#${t}`;
+  const raw = String(hex).trim().replace(/^#/, "");
+  if (/^[0-9a-f]{3}$/i.test(raw)) {
+    return `#${raw.split("").map((ch) => `${ch}${ch}`).join("")}`;
+  }
+  if (/^[0-9a-f]{6}$/i.test(raw)) {
+    return `#${raw}`;
   }
   return "#d97706";
 };
@@ -525,12 +528,12 @@ export const QuoteDocument: React.FC<Props> = ({ data }) => {
             <Text style={styles.sectionLabel} minPresenceAhead={44}>
               From the kitchen
             </Text>
-            {menuItems.map((item, i) => {
-              const name = item?.name || `Item ${i + 1}`;
-              const unitPrice = Number(item?.unit_price || 0);
-              const qty = Number(item?.quantity || 1);
+            {menuItems.map((item: any, i) => {
+              const name = item?.name || item?.item_name || item?.menu_item_name || `Item ${i + 1}`;
+              const unitPrice = Number(item?.unit_price ?? item?.unitPrice ?? item?.pricePerPerson ?? item?.base_price ?? 0);
+              const qty = Number(item?.quantity ?? item?.qty ?? 1);
               const lineTotal = Number(
-                item?.total != null ? item.total : unitPrice * qty,
+                item?.total ?? item?.line_total ?? item?.lineTotal ?? unitPrice * qty,
               );
               const isLast = i === menuItems.length - 1;
               return (
@@ -565,12 +568,12 @@ export const QuoteDocument: React.FC<Props> = ({ data }) => {
             <Text style={styles.sectionLabel} minPresenceAhead={44}>
               Equipment
             </Text>
-            {equipmentItems.map((item, i) => {
-              const name = item?.name || `Equipment ${i + 1}`;
-              const qty = Number(item?.quantity || 1);
-              const unitPrice = Number(item?.unit_price || 0);
+            {equipmentItems.map((item: any, i) => {
+              const name = item?.name || item?.item_name || item?.equipment_name || `Equipment ${i + 1}`;
+              const qty = Number(item?.quantity ?? item?.qty ?? 1);
+              const unitPrice = Number(item?.unit_price ?? item?.unitPrice ?? item?.rentalPrice ?? item?.rental_price ?? 0);
               const lineTotal = Number(
-                item?.total != null ? item.total : unitPrice * qty,
+                item?.total ?? item?.line_total ?? item?.lineTotal ?? unitPrice * qty,
               );
               const isLast = i === equipmentItems.length - 1;
               return (

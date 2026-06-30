@@ -115,6 +115,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     // notifications (owner + client) AFTER the ledger writes - manual
     // mark-paid was previously silent, unlike the PayFast webhook.
     const toNotify: Array<{
+      invoiceId: string;
       orderId: string | null;
       invoiceNumber: string | null;
       clientId: string | null;
@@ -200,6 +201,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         // Skip the idempotent re-run (double-click) so we don't re-notify.
         if (!(rpcData as any)?.idempotent) {
           toNotify.push({
+            invoiceId: inv.id,
             orderId: inv.order_id ?? null,
             invoiceNumber: (rpcData as any)?.invoice_number ?? null,
             clientId: inv.client_id ?? null,
@@ -223,6 +225,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           notifyInvoicePaid({
             admin,
             companyId,
+            invoiceId: n.invoiceId,
             orderId: n.orderId,
             invoiceNumber: n.invoiceNumber,
             clientId: n.clientId,

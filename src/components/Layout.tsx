@@ -4,6 +4,7 @@ import { DynamicNav } from "@/components/DynamicNav";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { TrialExpiryBanner } from "@/components/TrialExpiryBanner";
+import { PageWorkbench } from "@/components/portal/ui";
 
 interface LayoutProps {
   children: ReactNode;
@@ -60,9 +61,18 @@ export function Layout({
   // no empty side rail - matches PortalShell. The maxWidth prop only
   // applies to public/marketing pages, which stay centred + capped.
   const innerMaxWidth = isPortal ? "max-w-full" : maxWidthClasses[maxWidth];
+  const shellBackground = isPortal
+    ? "relative overflow-hidden bg-[linear-gradient(180deg,#eef2f6_0%,#f8fafc_260px,#f8fafc_100%)] dark:bg-[linear-gradient(180deg,#020617_0%,#0f172a_260px,#0f172a_100%)]"
+    : "bg-background";
 
   return (
-    <div className={`min-h-screen flex flex-col bg-background ${portalShell}`}>
+    <div className={`min-h-screen flex flex-col ${shellBackground} ${portalShell}`}>
+      {isPortal && (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 top-0 h-56 bg-[linear-gradient(90deg,rgb(var(--brand-primary-rgb)/0.10),rgb(var(--brand-secondary-rgb)/0.08),rgb(var(--brand-accent-rgb)/0.10))] dark:opacity-35"
+        />
+      )}
       {/* Trial Expiry Banner - Shows for authenticated users with trial status */}
       {user && <TrialExpiryBanner />}
 
@@ -73,8 +83,9 @@ export function Layout({
       {showNav && user && <DynamicNav userRole={user.role} />}
 
       {/* Main Content */}
-      <main className="flex-1">
+      <main className="relative z-0 flex-1">
         <div className={`${innerAlignment} px-4 sm:px-6 lg:px-8 py-8 ${innerMaxWidth}`}>
+          {isPortal && <PageWorkbench />}
           {children}
         </div>
       </main>

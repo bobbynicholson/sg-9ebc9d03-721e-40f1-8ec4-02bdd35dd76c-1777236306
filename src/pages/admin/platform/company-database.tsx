@@ -42,11 +42,12 @@ import type { Company } from "@/components/admin/company-database/types";
 // can share the same shape without circular imports (P2-13 split).
 
 export default function CompanyDatabasePage() {
-  const { user, profile } = useAuth();
+  const { profile } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deletingCompanyId, setDeletingCompanyId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   // Deep-link target row. Subscription management's "View company"
@@ -314,35 +315,47 @@ export default function CompanyDatabasePage() {
   };
 
   const handleDeleteCompany = async (companyId: string, companyName: string) => {
-    if (!confirm(`Are you sure you want to delete "${companyName}"? This action cannot be undone.`)) {
+    if (deletingCompanyId) return;
+
+    if (!confirm(`Delete "${companyName}" and all company data? This action cannot be undone.`)) {
       return;
     }
 
     try {
-      const { error } = await supabase
-        .from("companies")
-        .update({ 
-          is_active: false,
-          subscription_status: 'cancelled',
-          suspended_reason: 'Deleted by super admin'
-        } as any)
-        .eq("id", companyId);
+      setDeletingCompanyId(companyId);
+      const response = await fetch("/api/admin/platform/delete-company", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ companyId }),
+      });
+      const result = await response.json().catch(() => ({}));
 
-      if (error) throw error;
+      if (!response.ok) {
+        throw new Error(result?.error || "Failed to delete company");
+      }
+
+      const authFailures = Array.isArray(result?.authDeleteFailures)
+        ? result.authDeleteFailures.length
+        : 0;
 
       toast({
-        title: "Success",
-        description: `Company "${companyName}" deleted successfully!`,
+        title: "Company deleted",
+        description: authFailures > 0
+          ? `"${companyName}" was deleted, but ${authFailures} auth account${authFailures === 1 ? "" : "s"} need manual cleanup.`
+          : `"${companyName}" and its related data were deleted.`,
       });
 
-      loadCompanies();
+      setCompanies((prev) => prev.filter((company) => company.id !== companyId));
+      await loadCompanies();
     } catch (error: any) {
       console.error("Error deleting company:", error);
       toast({
-        title: "Error",
-        description: "Failed to delete company",
+        title: "Couldn't delete company",
+        description: error?.message || "Failed to delete company",
         variant: "destructive",
       });
+    } finally {
+      setDeletingCompanyId(null);
     }
   };
 
@@ -650,9 +663,11 @@ export default function CompanyDatabasePage() {
                             <Button
                               size="sm"
                               variant="ghost"
+                              disabled={deletingCompanyId === company.id}
                               onClick={() =>
                                 handleDeleteCompany(company.id, company.company_name)
                               }
+                              title="Delete company and company data"
                             >
                               <Trash2 className="w-4 h-4 text-rose-500" />
                             </Button>

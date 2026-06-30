@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Users, UserPlus, Mail, Shield, Trash2, Loader2, CheckCircle2, AlertCircle, Truck, ChefHat, ShoppingCart, Sparkles, User, Activity, Clock, AlertTriangle, Send, Copy, MailWarning } from "lucide-react";
+import { Users, UserPlus, Mail, Shield, Trash2, Loader2, CheckCircle2, AlertCircle, Truck, ChefHat, ShoppingCart, Sparkles, User, Activity, Clock, AlertTriangle, Send, Copy, MailWarning, Building2 } from "lucide-react";
 import { loginActivityBucket } from "@/lib/loginActivity";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -16,7 +15,10 @@ import { userManagementService } from "@/services/userManagementService";
 import { supabase } from "@/integrations/supabase/client";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { useCompanyKitchens } from "@/hooks/useCompanyKitchens";
-import { Building2 } from "lucide-react";
+import { PortalShell, PortalHeader, PortalCard, PortalCardHeader, StatTile,
+  PageWorkbench,
+} from "@/components/portal/ui";
+import { EmptyState } from "@/components/ui/empty-state";
 
 interface StaffMember {
   id: string;
@@ -34,14 +36,14 @@ interface StaffMember {
 // same chip renders on /admin/users (full team management) and here.
 
 const ROLE_OPTIONS = [
-  { value: "company_admin", label: "Company Admin (all branches)", icon: Shield, color: "bg-indigo-100 text-indigo-700" },
-  { value: "region_admin", label: "Branch Manager (single / multi-branch)", icon: Building2, color: "bg-blue-100 text-blue-700" },
-  { value: "sales_admin", label: "Sales Admin (cross-branch sales)", icon: Shield, color: "bg-violet-100 text-violet-700" },
-  { value: "admin", label: "Admin", icon: Shield, color: "bg-purple-100 text-purple-700" },
-  { value: "driver", label: "Driver", icon: Truck, color: "bg-brand-primary/15 text-brand-primary" },
-  { value: "kitchen_staff", label: "Kitchen Staff", icon: ChefHat, color: "bg-orange-100 text-orange-700" },
-  { value: "shopping_staff", label: "Shopping Staff", icon: ShoppingCart, color: "bg-pink-100 text-pink-700" },
-  { value: "cleaning_staff", label: "Cleaning Staff", icon: Sparkles, color: "bg-brand-primary/15 text-brand-primary" },
+  { value: "company_admin", label: "Company Admin (all branches)", icon: Shield, color: "bg-slate-100 text-slate-800 border border-slate-200" },
+  { value: "region_admin", label: "Branch Manager (single / multi-branch)", icon: Building2, color: "bg-sky-50 text-sky-800 border border-sky-200" },
+  { value: "sales_admin", label: "Sales Admin (cross-branch sales)", icon: Shield, color: "bg-amber-50 text-amber-800 border border-amber-200" },
+  { value: "admin", label: "Admin", icon: Shield, color: "bg-slate-100 text-slate-800 border border-slate-200" },
+  { value: "driver", label: "Driver", icon: Truck, color: "bg-blue-50 text-blue-800 border border-blue-200" },
+  { value: "kitchen_staff", label: "Kitchen Staff", icon: ChefHat, color: "bg-orange-50 text-orange-800 border border-orange-200" },
+  { value: "shopping_staff", label: "Shopping Staff", icon: ShoppingCart, color: "bg-emerald-50 text-emerald-800 border border-emerald-200" },
+  { value: "cleaning_staff", label: "Cleaning Staff", icon: Sparkles, color: "bg-cyan-50 text-cyan-800 border border-cyan-200" },
 ];
 
 // Roles that get region scoping. Cross-branch roles (company_admin,
@@ -286,26 +288,23 @@ export default function StaffManagementPage() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-purple-600" />
+        <Loader2 className="w-8 h-8 animate-spin text-slate-500" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6">
-      <div className="w-full">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-4xl font-bold text-slate-900 mb-2">Staff Management</h1>
-            <p className="text-slate-600">Manage your team members and their roles</p>
-          </div>
-
+    <PortalShell className="min-h-screen">
+      <PortalHeader
+        title="Staff management"
+        subtitle="Manage team access, branch scope, invite status, and role ownership from one directory."
+        icon={Users}
+        actions={
           <Dialog open={isDialogOpen} onOpenChange={closeStaffDialog}>
             <DialogTrigger asChild>
-              <Button className="bg-gradient-to-r from-purple-500 to-pink-500 hover:opacity-90">
+              <Button className="bg-slate-950 text-white hover:bg-slate-800">
                 <UserPlus className="w-4 h-4 mr-2" />
-                Add Staff Member
+                Add staff
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-md">
@@ -345,7 +344,7 @@ export default function StaffManagementPage() {
                     </div>
                     {!createResult.emailed && (
                       <p className="text-xs text-slate-500">
-                        Set up an email sender under <strong>Settings → Email</strong> so future invites send automatically.
+                        Set up an email sender under <strong>Email settings</strong> so future invites send automatically.
                       </p>
                     )}
                     <div className="flex justify-between gap-2 pt-2">
@@ -369,7 +368,7 @@ export default function StaffManagementPage() {
 
               <form onSubmit={handleAddStaff} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="full_name">Full Name *</Label>
+                  <Label htmlFor="full_name">Full name *</Label>
                   <Input
                     id="full_name"
                     placeholder="John Smith"
@@ -381,7 +380,7 @@ export default function StaffManagementPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email Address *</Label>
+                  <Label htmlFor="email">Email address *</Label>
                   <div className="relative">
                     <Mail className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
                     <Input
@@ -478,7 +477,7 @@ export default function StaffManagementPage() {
                   <Button
                     type="submit"
                     disabled={saving}
-                    className="flex-1 bg-gradient-to-r from-purple-500 to-pink-500 hover:opacity-90"
+                    className="flex-1 bg-slate-950 text-white hover:bg-slate-800"
                   >
                     {saving ? (
                       <>
@@ -488,7 +487,7 @@ export default function StaffManagementPage() {
                     ) : (
                       <>
                         <UserPlus className="mr-2 h-4 w-4" />
-                        Add Staff Member
+                        Add staff
                       </>
                     )}
                   </Button>
@@ -506,56 +505,51 @@ export default function StaffManagementPage() {
               )}
             </DialogContent>
           </Dialog>
-        </div>
+        }
+      />
+      <PageWorkbench />
 
         {/* Staff Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+        <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {ROLE_OPTIONS.map((roleConfig) => {
             const count = staff.filter(s => s.active_role === roleConfig.value).length;
             const Icon = roleConfig.icon;
             
             return (
-              <Card key={roleConfig.value}>
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-slate-600 mb-1">{roleConfig.label}</p>
-                      <p className="text-3xl font-bold text-slate-900">{count}</p>
-                    </div>
-                    <div className={`w-12 h-12 rounded-xl ${roleConfig.color} flex items-center justify-center`}>
-                      <Icon className="w-6 h-6" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+              <StatTile
+                key={roleConfig.value}
+                label={roleConfig.label}
+                value={count}
+                hint={count === 1 ? "1 account" : `${count} accounts`}
+                icon={Icon}
+              />
             );
           })}
         </div>
 
         {/* Staff List */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Users className="w-5 h-5" />
-              All Staff Members
-            </CardTitle>
-            <CardDescription>
-              {staff.length} team member{staff.length !== 1 ? 's' : ''} in your organization
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
+        <PortalCard>
+          <PortalCardHeader
+            title={
+              <span className="flex items-center gap-2">
+                <Users className="w-4 h-4" />
+                Staff directory
+              </span>
+            }
+            action={
+              <span className="text-xs text-slate-500">
+                {staff.length} team member{staff.length !== 1 ? "s" : ""}
+              </span>
+            }
+          />
             {staff.length === 0 ? (
-              <div className="text-center py-12">
-                <Users className="w-12 h-12 mx-auto mb-4 text-slate-300" />
-                <p className="text-slate-600 mb-4">No staff members yet</p>
-                <Button
-                  onClick={() => setIsDialogOpen(true)}
-                  variant="outline"
-                >
-                  <UserPlus className="w-4 h-4 mr-2" />
-                  Add Your First Staff Member
-                </Button>
-              </div>
+              <EmptyState
+                inCard
+                icon={Users}
+                title="No staff members yet"
+                description="Add the first team member, assign their role, and share their temporary sign-in details."
+                cta={{ label: "Add staff", onClick: () => setIsDialogOpen(true) }}
+              />
             ) : (
               <div className="space-y-3">
                 {staff.map((member) => {
@@ -575,8 +569,8 @@ export default function StaffManagementPage() {
                       className="flex items-center justify-between p-4 border rounded-lg hover:bg-slate-50 transition-colors gap-3"
                     >
                       <div className="flex items-center gap-4 min-w-0">
-                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center flex-shrink-0">
-                          <User className="w-6 h-6 text-white" />
+                        <div className="w-11 h-11 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-center flex-shrink-0">
+                          <User className="w-5 h-5 text-slate-600" />
                         </div>
                         <div className="min-w-0">
                           <h3 className="font-semibold text-slate-900 truncate">{member.full_name}</h3>
@@ -609,7 +603,7 @@ export default function StaffManagementPage() {
                             size="sm"
                             disabled={resendingId === member.id}
                             onClick={() => handleResendInvite(member.id, member.full_name)}
-                            className="text-purple-600 hover:text-purple-700 hover:bg-purple-50 gap-1.5"
+                            className="gap-1.5 border-amber-200 text-amber-800 hover:bg-amber-50"
                           >
                             {resendingId === member.id ? (
                               <Loader2 className="w-4 h-4 animate-spin" />
@@ -625,7 +619,7 @@ export default function StaffManagementPage() {
                             variant="outline"
                             size="sm"
                             onClick={() => handleDeleteStaff(member.id, member.full_name)}
-                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                            className="text-rose-600 hover:text-rose-700 hover:bg-rose-50"
                           >
                             <Trash2 className="w-4 h-4" />
                           </Button>
@@ -636,34 +630,26 @@ export default function StaffManagementPage() {
                 })}
               </div>
             )}
-          </CardContent>
-        </Card>
+        </PortalCard>
 
         {/* Quick Guide */}
-        <Card className="mt-8 bg-gradient-to-br from-purple-50 to-pink-50 border-purple-200">
-          <CardHeader>
-            <CardTitle className="text-purple-900">Quick Guide: Adding Staff</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3 text-sm text-purple-900">
+        <PortalCard className="mt-6 border-amber-200 bg-amber-50/70">
+          <PortalCardHeader title="Access handover checklist" />
+          <div className="space-y-3 text-sm text-amber-950">
             <div className="flex items-start gap-2">
-              <CheckCircle2 className="w-5 h-5 text-purple-600 mt-0.5 flex-shrink-0" />
-              <p><strong>Step 1:</strong> Click "Add Staff Member" button above</p>
+              <CheckCircle2 className="w-5 h-5 text-amber-700 mt-0.5 flex-shrink-0" />
+              <p><strong>Create the account:</strong> add their name, email, role, and branch scope.</p>
             </div>
             <div className="flex items-start gap-2">
-              <CheckCircle2 className="w-5 h-5 text-purple-600 mt-0.5 flex-shrink-0" />
-              <p><strong>Step 2:</strong> Enter their full name and email address</p>
+              <CheckCircle2 className="w-5 h-5 text-amber-700 mt-0.5 flex-shrink-0" />
+              <p><strong>Copy the password once:</strong> the temporary password is shown after save.</p>
             </div>
             <div className="flex items-start gap-2">
-              <CheckCircle2 className="w-5 h-5 text-purple-600 mt-0.5 flex-shrink-0" />
-              <p><strong>Step 3:</strong> Select their role (Driver, Kitchen, Shopping, etc.)</p>
+              <CheckCircle2 className="w-5 h-5 text-amber-700 mt-0.5 flex-shrink-0" />
+              <p><strong>Send the login:</strong> use <code className="rounded bg-amber-100 px-1.5 py-0.5">/{company_slug}/login</code> and ask them to change the password after first sign-in.</p>
             </div>
-            <div className="flex items-start gap-2">
-              <CheckCircle2 className="w-5 h-5 text-purple-600 mt-0.5 flex-shrink-0" />
-              <p><strong>Step 4:</strong> They can log in at <code className="bg-purple-100 px-2 py-1 rounded">/{company_slug}/login</code> using the temporary password shown once on save. Remind them to change it after their first login.</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    </div>
+          </div>
+        </PortalCard>
+    </PortalShell>
   );
 }

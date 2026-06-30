@@ -13,8 +13,7 @@
  *   setup     - indigo, first-week onboarding
  *   quiet     - slate, neutral
  *   pipeline  - blue, sales focus
- *   ops       - brand-primary -> brand-secondary gradient, pulses
- *                (the "live" state)
+ *   ops       - solid brand treatment, pulses (the "live" state)
  *   review    - emerald, end of day
  */
 import { useState } from "react";
@@ -37,8 +36,8 @@ const MODE_META: Record<AdminPortalMode, {
     shortLabel: "Setup",
     description: "Your tenant is new. Finish onboarding to unlock full features.",
     icon: Sparkles,
-    bg: "bg-indigo-50 dark:bg-indigo-950/30 border-indigo-200 dark:border-indigo-800",
-    text: "text-indigo-800 dark:text-indigo-300",
+    bg: "bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800",
+    text: "text-blue-800 dark:text-blue-300",
     pulse: false,
   },
   quiet: {
@@ -64,7 +63,7 @@ const MODE_META: Record<AdminPortalMode, {
     shortLabel: "Ops",
     description: "Events live today. Dispatch + tracking are your primary views right now.",
     icon: Activity,
-    bg: "bg-gradient-to-r from-brand-primary to-brand-secondary border-purple-600",
+    bg: "bg-brand-primary border-brand-primary",
     text: "text-white",
     pulse: true,
   },
@@ -175,13 +174,13 @@ export function AdminModeBadge() {
                 className={cn(
                   "w-full flex items-start gap-2.5 rounded-md border px-2.5 py-2 text-left transition-all",
                   active
-                    ? "border-purple-500 bg-purple-50"
+                    ? "border-slate-950 bg-slate-50"
                     : "border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300",
                 )}
               >
                 <span className={cn(
                   "flex-shrink-0 w-7 h-7 rounded-md flex items-center justify-center mt-0.5",
-                  active ? "bg-purple-500 text-white" : "bg-slate-100 text-slate-600",
+                  active ? "bg-slate-950 text-white" : "bg-slate-100 text-slate-600",
                 )}>
                   <MIcon className="h-3.5 w-3.5" />
                 </span>
@@ -189,12 +188,12 @@ export function AdminModeBadge() {
                   <span className="flex items-center gap-1.5">
                     <span className={cn(
                       "text-[12px] font-semibold",
-                      active ? "text-purple-900" : "text-slate-800",
+                      active ? "text-slate-950" : "text-slate-800",
                     )}>
                       {M.shortLabel}
                     </span>
                     {active && (
-                      <span className="text-[9px] uppercase tracking-wider bg-purple-500 text-white px-1.5 py-0.5 rounded font-bold">
+                      <span className="text-[9px] uppercase tracking-wider bg-slate-950 text-white px-1.5 py-0.5 rounded font-bold">
                         Active
                       </span>
                     )}

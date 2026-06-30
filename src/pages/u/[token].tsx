@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { CheckCircle2, Loader2, MailMinus } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
+import { PublicActionShell } from "@/components/PublicActionShell";
 
 export default function EmailUnsubscribePage() {
   const router = useRouter();
@@ -55,7 +56,7 @@ export default function EmailUnsubscribePage() {
     <>
       <NoIndexMeta />
       <Head><title>Unsubscribe - CateringMS</title></Head>
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4 py-12">
+      <PublicActionShell className="items-center py-12">
         <Card className="max-w-md w-full border-0 shadow-lg">
           <CardContent className="pt-8 pb-6 text-center">
             {done ? (
@@ -94,7 +95,7 @@ export default function EmailUnsubscribePage() {
             )}
           </CardContent>
         </Card>
-      </div>
+      </PublicActionShell>
     </>
   );
 }

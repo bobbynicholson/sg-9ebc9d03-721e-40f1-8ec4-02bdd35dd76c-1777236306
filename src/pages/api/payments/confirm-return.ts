@@ -22,6 +22,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { notifyInvoicePaid } from "@/services/payments/notifyInvoicePaid";
 
 async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") {
@@ -174,6 +175,31 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         }
       } catch (e) {
         console.warn("[confirm-return] order payment reconcile failed:", e);
+      }
+    }
+
+    if ((rpcResult as any)?.idempotent !== true) {
+      try {
+        const { data: freshInvoice } = await sb
+          .from("invoices")
+          .select("invoice_number, status, balance_due, order_id, client_id")
+          .eq("id", invoice.id)
+          .maybeSingle();
+        await notifyInvoicePaid({
+          admin: sb,
+          companyId: invoice.company_id,
+          orderId: (freshInvoice as any)?.order_id || invoice.order_id || null,
+          invoiceId: invoice.id,
+          invoiceNumber: (freshInvoice as any)?.invoice_number || null,
+          clientId: (freshInvoice as any)?.client_id || invoice.client_id || null,
+          amount,
+          currency: "ZAR",
+          fullyPaid:
+            String((freshInvoice as any)?.status || "").toLowerCase() === "paid" ||
+            Number((freshInvoice as any)?.balance_due || 0) <= 0.009,
+        });
+      } catch (notifyErr) {
+        console.warn("[confirm-return] notifyInvoicePaid failed:", notifyErr);
       }
     }
 

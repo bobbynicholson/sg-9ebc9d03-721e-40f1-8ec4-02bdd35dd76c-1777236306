@@ -71,7 +71,7 @@ export function ReceivablesAgingChart({ data, loading }: Props) {
                 Total outstanding:{" "}
                 <span className="font-semibold text-slate-800">{fmtZAR(data.totalOutstanding)}</span>
               </div>
-              <div className="text-[11px] text-red-700">
+              <div className="text-[11px] text-rose-700">
                 Overdue: <span className="font-semibold">{fmtZAR(data.overdueBalance)}</span>
               </div>
             </div>
@@ -102,7 +102,7 @@ export function ReceivablesAgingChart({ data, loading }: Props) {
             {data.worstSingle && (
               <p className="mt-2 text-[11px] text-slate-500 px-1">
                 Largest overdue invoice: {fmtZAR(data.worstSingle.balance)},{" "}
-                <span className="text-red-700">{data.worstSingle.daysOverdue} days late</span>.
+                <span className="text-rose-700">{data.worstSingle.daysOverdue} days late</span>.
               </p>
             )}
           </div>

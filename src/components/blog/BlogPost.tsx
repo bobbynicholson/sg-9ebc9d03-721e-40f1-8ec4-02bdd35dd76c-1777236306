@@ -31,10 +31,10 @@ const CATEGORY_THEMES = {
     button: "bg-blue-600 hover:bg-blue-700",
   },
   "Business Growth": {
-    gradient: "from-purple-500 to-pink-500",
-    badge: "bg-purple-100 text-purple-700 border-purple-200",
-    accent: "text-purple-600",
-    button: "bg-purple-600 hover:bg-purple-700",
+    gradient: "from-slate-500 to-rose-500",
+    badge: "bg-slate-100 text-slate-700 border-slate-200",
+    accent: "from-slate-500",
+    button: "from-slate-500 hover:to-rose-500",
   },
   "Event Planning": {
     gradient: "from-brand-primary to-brand-secondary",
@@ -43,7 +43,7 @@ const CATEGORY_THEMES = {
     button: "bg-brand-primary hover:bg-brand-primary/90",
   },
   "Recipes": {
-    gradient: "from-orange-500 to-red-500",
+    gradient: "from-orange-500 to-rose-500",
     badge: "bg-orange-100 text-orange-700 border-orange-200",
     accent: "text-orange-600",
     button: "bg-orange-600 hover:bg-orange-700",
@@ -55,10 +55,10 @@ const CATEGORY_THEMES = {
     button: "bg-slate-600 hover:bg-slate-700",
   },
   "General": {
-    gradient: "from-indigo-500 to-blue-500",
-    badge: "bg-indigo-100 text-indigo-700 border-indigo-200",
-    accent: "text-indigo-600",
-    button: "bg-indigo-600 hover:bg-indigo-700",
+    gradient: "from-blue-500 to-blue-500",
+    badge: "bg-blue-100 text-blue-700 border-blue-200",
+    accent: "text-blue-600",
+    button: "bg-blue-600 hover:bg-blue-700",
   },
 };
 

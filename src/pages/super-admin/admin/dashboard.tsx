@@ -6,6 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { PageWorkbench, PortalHeader, PortalShell } from "@/components/portal/ui";
 
 interface DashboardStats {
   totalCompanies: number;
@@ -101,36 +102,35 @@ export default function SuperAdminManagementDashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <PortalShell width="narrow">
+        <PortalHeader
+          title="Platform Management"
+          subtitle="Loading the super-admin management dashboard."
+          icon={Activity}
+        />
+        <PageWorkbench />
         <div className="text-center">
-          <Activity className="w-8 h-8 animate-spin mx-auto mb-4 text-blue-600" />
+          <Activity className="w-8 h-8 animate-spin mx-auto mb-4 text-brand-primary" />
           <p className="text-slate-600">Loading platform management...</p>
         </div>
-      </div>
+      </PortalShell>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-900">
-      <div className="border-b bg-white dark:bg-slate-800">
-        <div className="w-full px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
-                Platform Management
-              </h1>
-              <p className="text-slate-600 dark:text-slate-400">
-                CateringMS Super Admin Dashboard
-              </p>
-            </div>
-            <Button onClick={() => router.push("/super-admin")}>
-              Back to Overview
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      <div className="w-full px-6 py-8">
+    <PortalShell>
+      <PortalHeader
+        title="Platform Management"
+        subtitle="CateringMS super-admin dashboard for companies, subscriptions and revenue."
+        icon={Activity}
+        actions={(
+          <Button onClick={() => router.push("/super-admin")}>
+            Back to Overview
+          </Button>
+        )}
+      />
+      <PageWorkbench />
+      <div className="w-full py-6">
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <Card>
@@ -169,7 +169,7 @@ export default function SuperAdminManagementDashboard() {
               <CardTitle className="text-sm font-medium text-slate-600">
                 Monthly Revenue
               </CardTitle>
-              <DollarSign className="w-4 h-4 text-blue-600" />
+                <DollarSign className="w-4 h-4 text-brand-primary" />
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold text-slate-900 dark:text-white">
@@ -278,6 +278,6 @@ export default function SuperAdminManagementDashboard() {
           </CardContent>
         </Card>
       </div>
-    </div>
+    </PortalShell>
   );
 }

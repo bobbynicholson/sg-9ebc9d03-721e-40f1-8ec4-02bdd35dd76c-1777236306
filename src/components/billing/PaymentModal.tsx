@@ -402,7 +402,7 @@ export function PaymentModal({ invoice, open, onClose, onPaymentSuccess, onShowR
         </DialogHeader>
 
         <div className="space-y-5">
-          <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg">
+          <div className="p-4 bg-gradient-to-r from-blue-50 to-blue-50 rounded-lg">
             <div className="flex justify-between items-center mb-1">
               <span className="text-sm text-slate-600">Invoice</span>
               <span className="font-semibold text-slate-900">{invoice.invoice_number}</span>
@@ -532,7 +532,7 @@ export function PaymentModal({ invoice, open, onClose, onPaymentSuccess, onShowR
             ) : (
               <Button
                 onClick={handlePayment}
-                className="flex-1 bg-gradient-to-r from-brand-primary to-brand-secondary"
+                className="flex-1 bg-brand-primary"
                 disabled={processing}
               >
                 {processing ? (

@@ -249,7 +249,7 @@ export function VehiclePickerDialog({
       <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Truck className="w-5 h-5 text-indigo-600" />
+            <Truck className="w-5 h-5 text-blue-600" />
             Vehicle for {order.client_name || "order"}
           </DialogTitle>
           <p className="text-sm text-slate-500">
@@ -272,7 +272,7 @@ export function VehiclePickerDialog({
               onClick={() => setTab(t.id)}
               className={`flex-1 px-3 py-1.5 rounded-md ${
                 tab === t.id
-                  ? "bg-indigo-100 text-indigo-700 font-medium"
+                  ? "bg-blue-100 text-blue-700 font-medium"
                   : "text-slate-600 hover:bg-slate-50"
               }`}
             >
@@ -381,7 +381,7 @@ function VehicleBadges({ v }: { v: Vehicle | null }) {
           <User className="w-3 h-3" /> Driver-owned
         </Badge>
       ) : (
-        <Badge className="bg-indigo-100 text-indigo-800 border-0 text-[10px] gap-1">
+        <Badge className="bg-blue-100 text-blue-800 border-0 text-[10px] gap-1">
           <Building2 className="w-3 h-3" /> Company
         </Badge>
       )}
@@ -508,7 +508,7 @@ function CandidateRow({
 function LoadingRows() {
   return (
     <div className="py-6 text-center text-sm text-slate-500">
-      <div className="animate-spin w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full mx-auto mb-2" />
+      <div className="animate-spin w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full mx-auto mb-2" />
       Scoring fleet for this window...
     </div>
   );

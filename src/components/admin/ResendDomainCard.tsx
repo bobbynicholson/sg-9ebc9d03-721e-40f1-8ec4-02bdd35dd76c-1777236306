@@ -489,7 +489,7 @@ export function ResendDomainCard({ companyId, onVerified, compact }: Props) {
     }
     if (s === "failed") {
       return (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-700">
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-rose-100 text-rose-700">
           <AlertTriangle className="w-3 h-3" /> Action needed
         </span>
       );
@@ -511,7 +511,7 @@ export function ResendDomainCard({ companyId, onVerified, compact }: Props) {
       <div className="space-y-3">
         {!compact && (
           <div className="flex items-start gap-2">
-            <Globe className="w-5 h-5 text-purple-600 mt-0.5" />
+            <Globe className="w-5 h-5 text-slate-600 mt-0.5" />
             <div>
               <p className="font-semibold text-slate-900">
                 Verify your sending domain
@@ -539,7 +539,7 @@ export function ResendDomainCard({ companyId, onVerified, compact }: Props) {
           </Button>
         </div>
         {error && (
-          <div className="text-xs text-red-600 bg-red-50 border border-red-200 rounded p-2 flex items-start gap-2">
+          <div className="text-xs text-rose-600 bg-rose-50 border border-rose-200 rounded p-2 flex items-start gap-2">
             <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
             <span>{error}</span>
           </div>
@@ -560,7 +560,7 @@ export function ResendDomainCard({ companyId, onVerified, compact }: Props) {
       {/* Header row - domain + status chip. */}
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div className="flex items-center gap-2">
-          <Globe className="w-5 h-5 text-purple-600" />
+          <Globe className="w-5 h-5 text-slate-600" />
           <div>
             <p className="font-semibold text-slate-900 break-all">{state.domain}</p>
             {state.verifiedAt && (
@@ -722,8 +722,8 @@ export function ResendDomainCard({ companyId, onVerified, compact }: Props) {
 
       {/* FAILED - distinct from pending, this is operator-actionable. */}
       {failed && (
-        <div className="rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-900 flex items-start gap-2">
-          <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0 text-red-600" />
+        <div className="rounded-lg border border-rose-300 bg-rose-50 p-3 text-sm text-rose-900 flex items-start gap-2">
+          <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0 border-rose-300" />
           <div>
             <p className="font-semibold">Verification failed</p>
             <p className="text-xs mt-0.5">
@@ -798,20 +798,20 @@ export function ResendDomainCard({ companyId, onVerified, compact }: Props) {
                       <tr key={idx} className="border-b border-slate-100 last:border-0 align-top">
                         <td className="px-3 py-2">
                           {matched && <CheckCircle2 className="w-4 h-4 text-brand-primary" />}
-                          {wrongValue && <AlertTriangle className="w-4 h-4 text-red-600" />}
+                          {wrongValue && <AlertTriangle className="w-4 h-4 text-rose-600" />}
                           {stillPropagating && <Loader2 className="w-4 h-4 text-amber-600 animate-spin" />}
                         </td>
                         <td className="px-3 py-2 font-mono text-slate-700">{r.type}</td>
                         <td className="px-3 py-2 font-mono break-all">{r.name}</td>
                         <td className="px-3 py-2 text-slate-600">
                           {matched && <span className="text-brand-primary font-semibold">Match</span>}
-                          {wrongValue && <span className="text-red-700 font-semibold">Wrong value published</span>}
+                          {wrongValue && <span className="text-rose-700 font-semibold">Wrong value published</span>}
                           {stillPropagating && <span className="text-amber-700">Still propagating</span>}
                           {r.diagnosis && (
                             <p className="text-[11px] text-slate-500 mt-0.5">{r.diagnosis}</p>
                           )}
                           {wrongValue && found.length > 0 && (
-                            <p className="text-[11px] text-red-600 mt-0.5 break-all">
+                            <p className="text-[11px] text-rose-600 mt-0.5 break-all">
                               Found: <code>{found.join(", ")}</code>
                             </p>
                           )}
@@ -849,7 +849,7 @@ export function ResendDomainCard({ companyId, onVerified, compact }: Props) {
                               <button
                                 type="button"
                                 onClick={() => copy(r.name, "Name copied")}
-                                className="text-slate-400 hover:text-purple-600 p-0.5"
+                                className="text-slate-400 hover:text-slate-600 p-0.5"
                                 title="Copy name"
                               >
                                 <Copy className="w-3 h-3" />
@@ -864,7 +864,7 @@ export function ResendDomainCard({ companyId, onVerified, compact }: Props) {
                                 <button
                                   type="button"
                                   onClick={() => copy(String(r.priority), "Priority copied")}
-                                  className="text-slate-400 hover:text-purple-600 p-0.5"
+                                  className="text-slate-400 hover:text-slate-600 p-0.5"
                                   title="Copy priority"
                                 >
                                   <Copy className="w-3 h-3" />
@@ -879,7 +879,7 @@ export function ResendDomainCard({ companyId, onVerified, compact }: Props) {
                               <button
                                 type="button"
                                 onClick={() => copy(r.value, "Value copied")}
-                                className="text-slate-400 hover:text-purple-600 p-0.5"
+                                className="text-slate-400 hover:text-slate-600 p-0.5"
                                 title="Copy value"
                               >
                                 <Copy className="w-3 h-3" />
@@ -924,7 +924,7 @@ export function ResendDomainCard({ companyId, onVerified, compact }: Props) {
                         <button
                           type="button"
                           onClick={() => copy(r.name, "Name copied")}
-                          className="text-slate-400 hover:text-purple-600 p-0.5"
+                          className="text-slate-400 hover:text-slate-600 p-0.5"
                           title="Copy name"
                         >
                           <Copy className="w-3 h-3" />
@@ -937,7 +937,7 @@ export function ResendDomainCard({ companyId, onVerified, compact }: Props) {
                         <button
                           type="button"
                           onClick={() => copy(r.value, "Value copied")}
-                          className="text-slate-400 hover:text-purple-600 p-0.5"
+                          className="text-slate-400 hover:text-slate-600 p-0.5"
                           title="Copy value"
                         >
                           <Copy className="w-3 h-3" />
@@ -1094,7 +1094,7 @@ export function ResendDomainCard({ companyId, onVerified, compact }: Props) {
       )}
 
       {error && (
-        <div className="text-xs text-red-600 bg-red-50 border border-red-200 rounded p-2 flex items-start gap-2">
+        <div className="text-xs text-rose-600 bg-rose-50 border border-rose-200 rounded p-2 flex items-start gap-2">
           <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
           <span>{error}</span>
         </div>
@@ -1107,7 +1107,7 @@ export function ResendDomainCard({ companyId, onVerified, compact }: Props) {
             type="button"
             onClick={reset}
             disabled={resetting}
-            className="text-xs text-slate-500 hover:text-red-600 underline-offset-2 hover:underline inline-flex items-center gap-1"
+            className="text-xs text-slate-500 hover:text-rose-600 underline-offset-2 hover:underline inline-flex items-center gap-1"
           >
             {resetting ? <Loader2 className="w-3 h-3 animate-spin" /> : <RotateCcw className="w-3 h-3" />}
             Reset domain

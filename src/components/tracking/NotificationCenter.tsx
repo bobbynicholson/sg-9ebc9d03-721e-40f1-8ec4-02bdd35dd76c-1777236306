@@ -80,7 +80,7 @@ export function NotificationCenter() {
             <Bell className="w-5 h-5" />
             Notifications
             {unreadCount > 0 && (
-              <Badge className="bg-red-500 text-white ml-2">
+              <Badge className="bg-rose-500 text-white ml-2">
                 {unreadCount}
               </Badge>
             )}

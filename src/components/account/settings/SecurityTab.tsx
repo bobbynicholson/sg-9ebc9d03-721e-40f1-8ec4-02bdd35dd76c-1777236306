@@ -30,7 +30,7 @@ function getPasswordStrength(password: string): PasswordStrength {
   if (/[0-9]/.test(password)) strength++;
   if (/[^A-Za-z0-9]/.test(password)) strength++;
 
-  if (strength <= 2) return { strength, label: "Weak", color: "text-red-600" };
+  if (strength <= 2) return { strength, label: "Weak", color: "text-rose-600" };
   if (strength <= 4) return { strength, label: "Medium", color: "text-yellow-600" };
   return { strength, label: "Strong", color: "text-brand-primary" };
 }
@@ -113,7 +113,7 @@ export function SecurityTab({ passwordData, onFieldChange, onUpdate, busy }: Pro
                   <div
                     className={`h-full transition-all ${
                       strength.strength <= 2
-                        ? "bg-red-500 w-1/3"
+                        ? "bg-rose-500 w-1/3"
                         : strength.strength <= 4
                         ? "bg-yellow-500 w-2/3"
                         : "bg-brand-primary w-full"
@@ -148,8 +148,8 @@ export function SecurityTab({ passwordData, onFieldChange, onUpdate, busy }: Pro
               </button>
             </div>
             {passwordData.confirmPassword && passwordData.newPassword !== passwordData.confirmPassword && (
-              <p className="text-xs text-red-600 dark:text-red-400 flex items-center gap-1">
-                <span className="w-1 h-1 bg-red-600 rounded-full"></span>
+              <p className="text-xs text-rose-600 dark:text-rose-400 flex items-center gap-1">
+                <span className="w-1 h-1 text-rose-600 rounded-full"></span>
                 Passwords do not match
               </p>
             )}

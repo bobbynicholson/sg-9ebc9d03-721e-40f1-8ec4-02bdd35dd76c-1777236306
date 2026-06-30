@@ -481,15 +481,20 @@ export function QuoteSendDialog({
               },
             };
           }
-          // Stamp sent_at + flip status on both quotes.
+          // Stamp sent_at after a confirmed send. Converted/accepted
+          // quotes stay accepted; this path is just notifying the client
+          // of an update, not reopening the quote for acceptance.
           const now = new Date().toISOString();
-          const stampIds = [quote.id, secondQuote?.id].filter(Boolean) as string[];
+          const stampQuotes = [quote, secondQuote].filter(Boolean) as QuoteSendDialogQuote[];
           await Promise.allSettled(
-            stampIds.map((id) =>
+            stampQuotes.map((q) =>
               supabase
                 .from("quotes")
-                .update({ status: "sent", sent_at: now })
-                .eq("id", id)
+                .update({
+                  ...(q.is_converted ? {} : { status: "sent" }),
+                  sent_at: now,
+                } as any)
+                .eq("id", q.id)
                 .is("sent_at", null)
             )
           );

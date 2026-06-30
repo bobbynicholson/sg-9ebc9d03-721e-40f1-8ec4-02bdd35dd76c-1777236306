@@ -25,6 +25,7 @@ const supabase: any = new Proxy({}, {
   },
 }) as any;
 import { emailService } from "@/services/emailService";
+import { notifyInvoicePaid } from "@/services/payments/notifyInvoicePaid";
 import crypto from "crypto";
 import { withApiLogging } from "@/lib/withApiLogging";
 import { paymentExistsByGatewayId } from "@/lib/paymentDedup";
@@ -473,10 +474,20 @@ async function handler(
               Number((rpcResult as any)?.balance_due ?? 1) <= 0;
             const firstName = String(recipientName || "there").trim().split(/\s+/)[0] || "there";
             const amountBare = Number(amount_gross).toLocaleString("en-ZA", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            const amountFormatted = `R${amountBare}`;
             await emailService.sendEmail({
               companyId,
               to: recipientEmail,
               subject: `Payment received - invoice ${invoiceData.invoice_number}`,
+              body: fullyPaid
+                ? `Hi {{first_name}},\n\n` +
+                  `Thanks for your payment of R {{amount}} against invoice {{invoice_number}}.\n\n` +
+                  `This invoice is now fully paid.\n\n` +
+                  `Thanks,\n{{tenant_name}}`
+                : `Hi {{first_name}},\n\n` +
+                  `We received your deposit of R {{amount}} against invoice {{invoice_number}}.\n\n` +
+                  `Your booking is secure and your event date is locked in.\n\n` +
+                  `Thanks,\n{{tenant_name}}`,
               template: fullyPaid ? "balance_payment_received" : "deposit_payment_received",
               variables: {
                 first_name: firstName,
@@ -485,6 +496,7 @@ async function handler(
                 company_name: companyData?.company_name || "Your caterer",
                 event_name: eventName,
                 amount: amountBare,
+                amount_formatted: amountFormatted,
                 invoice_number: invoiceData.invoice_number,
                 order_number: invoiceData.invoice_number,
                 // legacy camelCase kept for older tenant overrides
@@ -501,6 +513,27 @@ async function handler(
           // the webhook. Surfaces in the email-failures dashboard
           // (item #9) once that lands.
           console.warn("Invoice payment confirmation email failed:", emailErr);
+        }
+
+        try {
+          const fullyPaid =
+            (rpcResult as any)?.invoice_status === "paid" ||
+            Number((rpcResult as any)?.balance_due ?? 1) <= 0;
+          await notifyInvoicePaid({
+            admin: supabase,
+            companyId,
+            orderId: invoiceData.order_id || null,
+            invoiceId,
+            invoiceNumber: invoiceData.invoice_number || null,
+            clientId: invoiceData.client_id || null,
+            amount: Number(amount_gross) || 0,
+            currency: "ZAR",
+            fullyPaid,
+            skipOwnerInApp: true,
+            skipClientEmail: true,
+          });
+        } catch (notifyErr) {
+          console.warn("[payment-confirmation] invoice payment notifyInvoicePaid failed:", notifyErr);
         }
 
         // Auto-complete the linked order when:
@@ -814,11 +847,19 @@ async function handler(
     try {
       const { data: companyRow } = await supabase
         .from("companies")
-        .select("email, company_name")
+        .select("email, company_name, owner_id")
         .eq("id", order.company_id || order.user_id)
         .maybeSingle();
-      const ownerEmail = (companyRow as any)?.email as string | null | undefined;
+      let ownerEmail = (companyRow as any)?.email as string | null | undefined;
       const companyName = (companyRow as any)?.company_name as string | null | undefined;
+      if (!ownerEmail && (companyRow as any)?.owner_id) {
+        const { data: ownerProfile } = await supabase
+          .from("profiles")
+          .select("email")
+          .eq("id", (companyRow as any).owner_id)
+          .maybeSingle();
+        ownerEmail = (ownerProfile as any)?.email || null;
+      }
       if (ownerEmail) {
         const amountFmt = `R${Number(amount_gross).toLocaleString("en-ZA", { minimumFractionDigits: 2 })}`;
         const subject = isDepositPayment
@@ -1002,6 +1043,15 @@ async function sendClientPaymentConfirmation(
       subject: isDeposit
         ? `Deposit received - order ${order.order_number}`
         : `Final payment received - order ${order.order_number}`,
+      body: isDeposit
+        ? `Hi {{first_name}},\n\n` +
+          `We received your deposit of R {{amount}} for {{event_name}}.\n\n` +
+          `Your booking is secure and your event date is locked in.\n\n` +
+          `Thanks,\n{{tenant_name}}`
+        : `Hi {{first_name}},\n\n` +
+          `We received your final payment of R {{amount}} for {{event_name}}.\n\n` +
+          `Your booking is fully paid.\n\n` +
+          `Thanks,\n{{tenant_name}}`,
       // Template type aligns with the seed in
       // supabase/migrations/20260506130000_seed_email_templates.sql
       // (deposit_payment_received / balance_payment_received). The
@@ -1017,6 +1067,7 @@ async function sendClientPaymentConfirmation(
         company_name: tenantName,
         event_name: order.event_name || "your event",
         amount: Number(amountGross).toLocaleString("en-ZA", { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+        amount_formatted: amountFmt,
         invoice_number: order.order_number,
         order_number: order.order_number,
         event_date: order.event_date

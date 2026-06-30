@@ -131,7 +131,7 @@ export function BookingActions({ variant, actions, sticky = false }: BookingActi
                 onClick={a.onClick}
                 title={a.hint}
                 className={a.tone === "primary"
-                  ? "bg-gradient-to-r from-brand-primary to-brand-secondary hover:opacity-90 text-white"
+                  ? "bg-brand-primary hover:opacity-90 text-white"
                   : ""}
               >
                 {Icon && <Icon className="w-3.5 h-3.5 mr-1.5" />}

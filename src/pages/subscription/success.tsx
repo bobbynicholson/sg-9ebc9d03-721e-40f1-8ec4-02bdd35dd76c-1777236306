@@ -5,6 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { CheckCircle, ArrowRight, Calendar, Mail, Zap } from "lucide-react";
+import { Footer } from "@/components/Footer";
+import { Header } from "@/components/Header";
 
 export default function SubscriptionSuccessPage() {
   const router = useRouter();
@@ -20,17 +22,23 @@ export default function SubscriptionSuccessPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-purple-600 mx-auto mb-4"></div>
-          <p className="text-slate-600">Processing your subscription...</p>
-        </div>
-      </div>
+      <>
+        <Header />
+        <main className="flex min-h-[70vh] items-center justify-center bg-[linear-gradient(180deg,#eef2f6_0%,#f8fafc_260px,#f8fafc_100%)] p-4">
+          <div className="text-center">
+            <div className="mx-auto mb-4 h-16 w-16 animate-spin rounded-full border-b-2 border-brand-primary"></div>
+            <p className="text-slate-600">Processing your subscription...</p>
+          </div>
+        </main>
+        <Footer />
+      </>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 flex items-center justify-center p-4">
+    <>
+      <Header />
+      <main className="flex min-h-screen items-center justify-center bg-[linear-gradient(180deg,#eef2f6_0%,#f8fafc_260px,#f8fafc_100%)] p-4">
       <Card className="max-w-2xl w-full border-0 shadow-2xl">
         <CardHeader className="text-center space-y-4 pb-8">
           <div className="flex justify-center">
@@ -40,7 +48,7 @@ export default function SubscriptionSuccessPage() {
           </div>
           
           <div className="space-y-2">
-            <Badge className="bg-gradient-to-r from-purple-500 to-pink-500 text-white border-0 px-4 py-1.5">
+            <Badge className="bg-gradient-to-r from-slate-500 to-rose-500 text-white border-0 px-4 py-1.5">
               Subscription Activated
             </Badge>
             <CardTitle className="text-3xl font-bold">Welcome Aboard!</CardTitle>
@@ -51,12 +59,12 @@ export default function SubscriptionSuccessPage() {
         </CardHeader>
 
         <CardContent className="space-y-8">
-          <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-lg p-6 space-y-4">
+          <div className="bg-gradient-to-br from-slate-50 to-rose-50 rounded-lg p-6 space-y-4">
             <h3 className="font-semibold text-lg">What happens next?</h3>
             
             <div className="space-y-4">
               <div className="flex items-start gap-4">
-                <div className="w-10 h-10 bg-purple-500 rounded-full flex items-center justify-center flex-shrink-0">
+                <div className="w-10 h-10 bg-slate-500 rounded-full flex items-center justify-center flex-shrink-0">
                   <Mail className="w-5 h-5 text-white" />
                 </div>
                 <div>
@@ -121,7 +129,7 @@ export default function SubscriptionSuccessPage() {
 
           <div className="flex flex-col sm:flex-row gap-4 pt-4">
             <Link href="/" className="flex-1">
-              <Button className="w-full h-12 bg-gradient-to-r from-purple-500 to-pink-500 hover:opacity-90">
+              <Button className="w-full h-12 bg-gradient-to-r from-slate-500 to-rose-500 hover:opacity-90">
                 Go to Dashboard
                 <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
@@ -135,12 +143,14 @@ export default function SubscriptionSuccessPage() {
 
           <div className="text-center text-sm text-slate-600 border-t pt-6">
             Need help? Contact our support team at{" "}
-            <a href="mailto:support@cateringplatform.co.za" className="text-purple-600 hover:underline">
+            <a href="mailto:support@cateringplatform.co.za" className="text-slate-600 hover:underline">
               support@cateringplatform.co.za
             </a>
           </div>
         </CardContent>
       </Card>
-    </div>
+      </main>
+      <Footer />
+    </>
   );
 }

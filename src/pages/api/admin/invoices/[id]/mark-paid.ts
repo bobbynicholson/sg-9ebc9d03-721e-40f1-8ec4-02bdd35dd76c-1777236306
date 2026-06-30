@@ -208,6 +208,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       admin,
       companyId,
       orderId: (invoice as any).order_id ?? null,
+      invoiceId,
       invoiceNumber: (invoice as any).invoice_number ?? null,
       clientId: (invoice as any).client_id ?? null,
       amount,
