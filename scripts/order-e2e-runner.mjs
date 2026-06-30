@@ -105,6 +105,27 @@ async function fetchJson(path, options = {}) {
   }
 }
 
+async function fetchPage(path, options = {}) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), options.timeoutMs || 30000);
+  try {
+    const response = await fetch(`${baseUrl}${path}`, {
+      ...options,
+      signal: controller.signal,
+      headers: { ...(options.headers || {}) },
+    });
+    const text = await response.text();
+    return {
+      ok: response.ok,
+      status: response.status,
+      textLength: text.length,
+      sample: text.slice(0, 200),
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 async function loadFixtures() {
   const { data: company, error: companyErr } = await sb
     .from("companies")
@@ -1232,7 +1253,19 @@ async function createQuoteAcceptScenario(fixture, scenario, index) {
   await completeConvertedOperationalRows(fixture, scenario, order, client);
   let currentInvoice = await applyPayments(fixture, scenario, order, invoice, client);
   const currentOrder = await completeLifecycle(fixture, scenario, order);
-  return { order: currentOrder, invoice: currentInvoice, client, lines, quote, acceptedViaApi };
+  return {
+    order: currentOrder,
+    invoice: currentInvoice,
+    client,
+    lines,
+    quote,
+    acceptedViaApi,
+    quoteAcceptResponse: {
+      status: apiResult.status,
+      bodyOk: Boolean(apiResult.body?.ok),
+      hasOrderId: Boolean(apiResult.body?.orderId || apiResult.body?.order?.id || convertedQuote?.converted_to_order_id),
+    },
+  };
 }
 
 async function verifyPublicInvoice(invoice, target) {
@@ -1240,12 +1273,12 @@ async function verifyPublicInvoice(invoice, target) {
     const api = await fetchJson(`/api/public/invoices/${invoice.public_token}/get`, { method: "GET", timeoutMs: 30000 });
     if (!api.ok || !api.body?.ok) {
       addNote(target, `Public invoice API did not return ok for ${invoice.invoice_number}: HTTP ${api.status}`);
-      return false;
+      return { ok: false, status: api.status, body: api.body };
     }
-    return true;
+    return { ok: true, status: api.status, body: api.body };
   } catch (error) {
     addNote(target, `Public invoice API skipped/failed for ${invoice.invoice_number}: ${error?.message || error}`);
-    return false;
+    return { ok: false, status: 0, body: null };
   }
 }
 
@@ -1265,6 +1298,8 @@ async function verifyScenario(fixture, scenario, context) {
     result.checks.push({ ok: Boolean(condition), message });
     assertOk(condition, message);
   };
+  const emailStatusOk = (status) =>
+    ["queued", "in_progress", "paused", "sent", "failed", "cancelled", "skipped", "pending"].includes(String(status || ""));
 
   const { data: order } = await sb.from("orders").select("*").eq("id", context.order.id).single();
   const { data: invoice } = await sb.from("invoices").select("*").eq("id", context.invoice.id).single();
@@ -1277,6 +1312,11 @@ async function verifyScenario(fixture, scenario, context) {
   const { data: handovers } = await sb.from("cleaning_event_handovers").select("*").eq("order_id", order.id).is("deleted_at", null);
   const { data: notifications } = await sb.from("notifications").select("*").eq("related_entity_id", order.id);
   const { data: emails } = await sb.from("email_automation_log").select("*").eq("order_id", order.id);
+  const { data: emailQueue, error: emailQueueErr } = await sb
+    .from("outgoing_email_queue")
+    .select("*")
+    .eq("trigger_ref_id", order.id);
+  if (emailQueueErr) throw new Error(`email queue lookup failed: ${emailQueueErr.message}`);
 
   check(order.company_id === COMPANY_ID, "order belongs to tenant");
   check(order.internal_notes?.includes(RUN_TAG) || order.event_name?.includes(RUN_ID) || scenario.quoteAccept, "order is tagged to this run");
@@ -1287,6 +1327,38 @@ async function verifyScenario(fixture, scenario, context) {
   check((payments || []).length > 0, "payments ledger has entries");
   check((notifications || []).length > 0, "in-app notifications exist");
   check((emails || []).length > 0, "email automation log rows exist");
+  check((emailQueue || []).length > 0, "outgoing email queue rows exist");
+  check((emails || []).every((email) =>
+    email.recipient_email &&
+    email.subject &&
+    email.template_type &&
+    ["sent", "failed", "blocked", "quarantined", "simulated", "pending", "skipped"].includes(String(email.status || ""))
+  ), "email automation rows have recipient, subject, template, status");
+  check((emailQueue || []).every((email) =>
+    email.to_email &&
+    email.subject &&
+    (email.template_type || email.trigger_event) &&
+    email.trigger_ref_id === order.id &&
+    emailStatusOk(email.status)
+  ), "email queue rows map back to order with recipient, subject, template/event, status");
+  check((notifications || []).every((notification) =>
+    notification.related_entity_id === order.id &&
+    notification.related_entity_type === "order" &&
+    notification.title &&
+    notification.message &&
+    (notification.user_id || notification.recipient_id)
+  ), "notification rows map to order with recipient, title, message");
+
+  if (scenario.quoteAccept) {
+    check(context.quoteAcceptResponse?.status >= 200 && context.quoteAcceptResponse?.status < 300, "public quote accept API returned 2xx");
+    check(context.quoteAcceptResponse?.bodyOk, "public quote accept API body ok");
+    check(context.quoteAcceptResponse?.hasOrderId, "public quote accept conversion maps to order id");
+    const quotePage = await fetchPage(`/q/${context.quote.public_token}?stay=1`, { method: "GET", timeoutMs: 60000 });
+    check(quotePage.status === 200 && quotePage.textLength > 500, "public quote frontend page returns HTTP 200 HTML");
+  }
+
+  const invoicePage = await fetchPage(`/pay/i/${invoice.public_token}`, { method: "GET", timeoutMs: 60000 });
+  check(invoicePage.status === 200 && invoicePage.textLength > 500, "public invoice frontend page returns HTTP 200 HTML");
 
   if (scenario.cancelAfterPayment) {
     check(order.status === "cancelled", "cancel/refund scenario ends cancelled");
@@ -1334,16 +1406,28 @@ async function verifyScenario(fixture, scenario, context) {
   }
 
   if (scenario.gatewayNote) addNote(result, scenario.gatewayNote);
-  const publicInvoiceOk = await verifyPublicInvoice(invoice, result);
-  if (publicInvoiceOk) check(true, "public invoice API returns invoice payload");
-
   const completedPayments = (payments || []).filter((p) => p.payment_status === "completed");
   const completedSum = r2(completedPayments.reduce((sum, p) => sum + Number(p.amount || 0), 0));
+  const publicInvoice = await verifyPublicInvoice(invoice, result);
+  check(publicInvoice.ok && publicInvoice.status === 200, "public invoice API returns HTTP 200 ok");
+  const publicInvoicePayload = publicInvoice.body?.invoice;
+  check(publicInvoicePayload?.id === invoice.id, "public invoice API maps invoice id");
+  check(publicInvoicePayload?.invoice_number === invoice.invoice_number, "public invoice API maps invoice number");
+  check(near(Number(publicInvoicePayload?.total_amount || 0), Number(invoice.total_amount || 0)), "public invoice API total matches DB");
+  check(near(Number(publicInvoicePayload?.balance_due || 0), Number(invoice.balance_due || 0)), "public invoice API balance matches DB");
+  check(publicInvoicePayload?.companies?.id === order.company_id, "public invoice API maps tenant branding company");
+  check((publicInvoicePayload?.payments || []).length === completedPayments.length, "public invoice API maps completed payments");
   if (!scenario.cancelAfterPayment) {
     check(completedSum >= Number(invoice.total_amount || 0) - 0.02, "completed payments cover invoice total");
     check(near(Number(order.balance_amount || 0), Number(invoice.balance_due || 0)), "order balance mirrors invoice balance");
   }
 
+  result.apiResponses = {
+    quoteAcceptStatus: context.quoteAcceptResponse?.status || null,
+    invoiceApiStatus: publicInvoice.status,
+    invoicePageStatus: invoicePage.status,
+    quotePageChecked: Boolean(scenario.quoteAccept),
+  };
   result.status = "passed";
   result.counts = {
     orderItems: (orderItems || []).length,
@@ -1355,6 +1439,7 @@ async function verifyScenario(fixture, scenario, context) {
     cleaningHandovers: (handovers || []).length,
     notifications: (notifications || []).length,
     emailLogs: (emails || []).length,
+    emailQueue: (emailQueue || []).length,
   };
   return result;
 }

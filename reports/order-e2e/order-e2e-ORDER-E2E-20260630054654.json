@@ -1,0 +1,167 @@
+{
+  "runId": "ORDER-E2E-20260630054654",
+  "runTag": "E2E_RUN:ORDER-E2E-20260630054654",
+  "startedAt": "2026-06-30T05:46:54.349Z",
+  "baseUrl": "http://localhost:3000",
+  "companyId": "0e139a19-6526-4e1f-9bf7-87d6adbee5f8",
+  "totals": {
+    "scenarios": 15,
+    "passed": 0,
+    "failed": 15,
+    "notes": 0
+  },
+  "fixtures": {
+    "company": "Spit Braai Delivery",
+    "region": "Cape Town",
+    "staff": {
+      "owner": "hello@spitbraaidelivery.co.za",
+      "admin": "admin@spitbraaidelivery.co.za",
+      "driver": "driver@spitbraaidelivery.co.za",
+      "kitchen": "kitchen@spitbraaidelivery.co.za",
+      "cleaning": "cleaning@spitbraaidelivery.co.za",
+      "shopping": "shopping@spitbraaidelivery.co.za"
+    },
+    "vehicle": "SS Rogers"
+  },
+  "scenarios": [
+    {
+      "key": "standard_quote_accept",
+      "name": "Standard happy path via public quote accept",
+      "status": "failed",
+      "checks": [],
+      "notes": [],
+      "error": "email queue rows map back to order with recipient, subject, template, status",
+      "durationMs": 40164
+    },
+    {
+      "key": "food_only",
+      "name": "Food only, no equipment",
+      "status": "failed",
+      "checks": [],
+      "notes": [],
+      "error": "email queue rows map back to order with recipient, subject, template, status",
+      "durationMs": 13312
+    },
+    {
+      "key": "hire_in_equipment",
+      "name": "Hire-in equipment",
+      "status": "failed",
+      "checks": [],
+      "notes": [],
+      "error": "email queue rows map back to order with recipient, subject, template, status",
+      "durationMs": 15510
+    },
+    {
+      "key": "waiter_only",
+      "name": "Waiter-only service",
+      "status": "failed",
+      "checks": [],
+      "notes": [],
+      "error": "email queue rows map back to order with recipient, subject, template, status",
+      "durationMs": 9365
+    },
+    {
+      "key": "multi_stop_same_day",
+      "name": "Multi-stop same day",
+      "status": "failed",
+      "checks": [],
+      "notes": [],
+      "error": "email queue rows map back to order with recipient, subject, template, status",
+      "durationMs": 16587
+    },
+    {
+      "key": "staged_payment_plan",
+      "name": "Staged payment plan",
+      "status": "failed",
+      "checks": [],
+      "notes": [],
+      "error": "email queue rows map back to order with recipient, subject, template, status",
+      "durationMs": 16478
+    },
+    {
+      "key": "yoco_gateway",
+      "name": "Yoco gateway simulation",
+      "status": "failed",
+      "checks": [],
+      "notes": [],
+      "error": "email queue rows map back to order with recipient, subject, template, status",
+      "durationMs": 15311
+    },
+    {
+      "key": "stripe_manual_eft",
+      "name": "Stripe deposit plus manual EFT balance",
+      "status": "failed",
+      "checks": [],
+      "notes": [],
+      "error": "email queue rows map back to order with recipient, subject, template, status",
+      "durationMs": 14810
+    },
+    {
+      "key": "rush_under_12h",
+      "name": "Rush under 12h",
+      "status": "failed",
+      "checks": [],
+      "notes": [],
+      "error": "email queue rows map back to order with recipient, subject, template, status",
+      "durationMs": 12947
+    },
+    {
+      "key": "cancelled_refunded",
+      "name": "Cancelled and refunded",
+      "status": "failed",
+      "checks": [],
+      "notes": [],
+      "error": "email queue rows map back to order with recipient, subject, template, status",
+      "durationMs": 11882
+    },
+    {
+      "key": "amended_guest_change",
+      "name": "Amended guest count carries to per-person lines",
+      "status": "failed",
+      "checks": [],
+      "notes": [],
+      "error": "email queue rows map back to order with recipient, subject, template, status",
+      "durationMs": 18091
+    },
+    {
+      "key": "partial_then_overpay",
+      "name": "Partial payment then overpay",
+      "status": "failed",
+      "checks": [],
+      "notes": [],
+      "error": "email queue rows map back to order with recipient, subject, template, status",
+      "durationMs": 14748
+    },
+    {
+      "key": "outsourced_delivery",
+      "name": "Outsourced delivery",
+      "status": "failed",
+      "checks": [],
+      "notes": [],
+      "error": "email queue rows map back to order with recipient, subject, template, status",
+      "durationMs": 14888
+    },
+    {
+      "key": "large_multi_day",
+      "name": "Large multi-day event",
+      "status": "failed",
+      "checks": [],
+      "notes": [],
+      "error": "email queue rows map back to order with recipient, subject, template, status",
+      "durationMs": 17218
+    },
+    {
+      "key": "white_label_repeat_client",
+      "name": "White-label repeat client",
+      "status": "failed",
+      "checks": [],
+      "notes": [],
+      "error": "email queue rows map back to order with recipient, subject, template, status",
+      "durationMs": 15192
+    }
+  ],
+  "aggregate": {},
+  "notes": [],
+  "fatalError": "Only 0 scenarios passed; need at least 15.",
+  "finishedAt": "2026-06-30T05:51:03.478Z"
+}
