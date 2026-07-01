@@ -184,12 +184,14 @@ export const quoteService = {
   },
 
   async getQuote(quoteId: string): Promise<Quote | null> {
+    // maybeSingle: a deleted or unknown id is an expected miss (callers
+    // render their own not-found state), not a PostgREST 406.
     const { data, error } = await supabase
       .from("quotes")
       .select("*")
       .eq("id", quoteId)
       .is("deleted_at", null)
-      .single();
+      .maybeSingle();
 
     if (error) {
       console.error("Error fetching quote:", error);

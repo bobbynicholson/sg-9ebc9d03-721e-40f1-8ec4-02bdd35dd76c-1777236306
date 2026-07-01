@@ -118,8 +118,13 @@ function PlatformCurrencyMonitoringPage() {
   };
 
   const handleResolveAlert = async (alertId: string) => {
-    await currencyMonitoringService.resolveAlert(alertId);
-    await loadData();
+    try {
+      await currencyMonitoringService.resolveAlert(alertId);
+      await loadData();
+    } catch (e: any) {
+      console.error("resolveAlert failed:", e);
+      setRefreshError(e?.message || "Could not resolve the alert. Please try again.");
+    }
   };
 
   const calculateFluctuation = () => {

@@ -11,6 +11,8 @@ import Head from "next/head";
 import Image from "next/image";
 import blogPosts from "@/lib/blog.json";
 import { jsonLdSafe } from "@/lib/jsonLd";
+import type { GetStaticProps } from "next";
+import { cmsService } from "@/services/cmsService";
 
 interface BlogPost {
   slug: string;
@@ -27,8 +29,41 @@ interface BlogPost {
   }>;
 }
 
-export default function BlogPage() {
-  const posts = blogPosts as BlogPost[];
+const FALLBACK_COVER = "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=800&auto=format&fit=crop&q=60";
+
+// Posts written in the platform CMS live in blog_posts; the launch set
+// is baked into blog.json. Merge both (CMS wins on slug clashes) so
+// articles published from /admin/platform/cms-blog actually appear here.
+export const getStaticProps: GetStaticProps = async () => {
+  let dbPosts: BlogPost[] = [];
+  try {
+    const rows = await cmsService.getAllBlogPosts(true);
+    dbPosts = (rows || []).map((r: any) => {
+      const plain = String(r.content || "").replace(/[#*`>_[\]]/g, "").replace(/\s+/g, " ").trim();
+      return {
+        slug: r.slug,
+        title: r.title,
+        author: r.author || "CateringMS Team",
+        date: r.published_date || r.created_at || new Date().toISOString(),
+        image: r.cover_image || FALLBACK_COVER,
+        content: [
+          { type: "paragraph", text: r.excerpt || plain.slice(0, 300) },
+          ...(plain ? [{ type: "paragraph", text: plain }] : []),
+        ],
+      };
+    });
+  } catch {
+    // blog_posts unreachable at build time - static set still renders.
+  }
+  const dbSlugs = new Set(dbPosts.map((p) => p.slug));
+  const merged = [
+    ...dbPosts,
+    ...(blogPosts as BlogPost[]).filter((p) => !dbSlugs.has(p.slug)),
+  ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  return { props: { posts: merged }, revalidate: 300 };
+};
+
+export default function BlogPage({ posts = blogPosts as BlogPost[] }: { posts?: BlogPost[] }) {
 
   const getExcerpt = (post: BlogPost): string => {
     const firstParagraph = post.content.find(block => block.type === "paragraph");

@@ -2645,8 +2645,14 @@ function AdminQuotesInner() {
                       : q,
                   ));
                 } catch (err) {
-                  // Non-fatal.
+                  // Non-fatal for the send itself, but tell the admin the
+                  // quote status/sent date did not stick.
                   console.warn("Auto sent_at stamp failed:", err);
+                  toast({
+                    title: "Quote status not updated",
+                    description: "The message went out, but marking the quote as sent failed. Refresh and mark it sent manually.",
+                    variant: "destructive",
+                  });
                 }
               }
 
@@ -2693,6 +2699,11 @@ function AdminQuotesInner() {
                     });
                   } catch (logErr) {
                     console.warn("[quotes] follow-up log insert failed:", logErr);
+                    toast({
+                      title: "Follow-up not logged",
+                      description: "The message went out but the follow-up log write failed, so the pill stays amber. Try logging it again from the row.",
+                      variant: "destructive",
+                    });
                   }
                 }
               }

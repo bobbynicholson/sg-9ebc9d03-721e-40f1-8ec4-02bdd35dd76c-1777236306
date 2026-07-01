@@ -259,8 +259,8 @@ function StockPage() {
 
       // Equipment commitments next Nd
       const bookingsSelect = regionFilterId
-        ? "id, booked_from, booked_to, quantity, status, equipment_id, equipment:equipment_id(id, name), orders!inner(region_id)"
-        : "id, booked_from, booked_to, quantity, status, equipment_id, equipment:equipment_id(id, name)";
+        ? "id, booked_from, booked_until, quantity, status, equipment_id, equipment:equipment_id(id, name), orders!inner(region_id)"
+        : "id, booked_from, booked_until, quantity, status, equipment_id, equipment:equipment_id(id, name)";
       let bookingsQ = supabase
         .from("equipment_bookings")
         .select(bookingsSelect)
@@ -274,7 +274,7 @@ function StockPage() {
       }
       const { data: bookingRows } = await bookingsQ;
       type BookingRow = {
-        id: string; booked_from: string | null; booked_to: string | null;
+        id: string; booked_from: string | null; booked_until: string | null;
         quantity: number | null; status: string; equipment_id: string;
         equipment: { id: string; name: string } | null;
       };
@@ -300,14 +300,14 @@ function StockPage() {
       const dblBooks: DoubleBooking[] = [];
       for (const [eid, list] of Object.entries(bookingsByEquip)) {
         if (list.length < 2) continue;
-        // Sort by booked_from then walk; any pair where bookA.booked_to
+        // Sort by booked_from then walk; any pair where bookA.booked_until
         // > bookB.booked_from is an overlap.
         const sorted = [...list].sort((a, b) => (a.booked_from || "").localeCompare(b.booked_from || ""));
         const conflictDates = new Set<string>();
         for (let i = 0; i < sorted.length - 1; i++) {
           const a = sorted[i];
           const b = sorted[i + 1];
-          const aEnd = a.booked_to || a.booked_from;
+          const aEnd = a.booked_until || a.booked_from;
           const bStart = b.booked_from;
           if (aEnd && bStart && aEnd > bStart) {
             conflictDates.add((bStart || "").slice(0, 10));

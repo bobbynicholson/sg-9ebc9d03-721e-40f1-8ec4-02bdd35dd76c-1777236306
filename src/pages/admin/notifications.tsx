@@ -28,6 +28,7 @@ import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { isStaleNotification, STALE_NOTIFICATION_DAYS } from "@/lib/notificationDisplay";
 import { staffOrderHref } from "@/lib/orderUrls";
 import { useTenantHref } from "@/lib/tenantUrl";
+import { useToast } from "@/hooks/use-toast";
 
 export default function ProtectedNotificationsPage() {
   return (
@@ -39,6 +40,7 @@ export default function ProtectedNotificationsPage() {
 
 function NotificationsPage() {
   const { user, activeRole } = useAuth();
+  const { toast } = useToast();
   // Wave 26.1: tenant-slug wrapper. Every smart-CTA destination
   // (notification.link OR the fallback paths the smart-CTA branches
   // synthesise like /admin/leads?id=...) gets prefixed with the
@@ -95,33 +97,62 @@ function NotificationsPage() {
   };
 
   const handleMarkAsRead = async (notificationId: string) => {
-    await notificationService.markAsRead(notificationId);
-    setNotifications((prev) =>
-      prev.map((n) =>
-        n.id === notificationId ? { ...n, is_read: true } : n
-      )
-    );
+    try {
+      await notificationService.markAsRead(notificationId);
+      setNotifications((prev) =>
+        prev.map((n) =>
+          n.id === notificationId ? { ...n, is_read: true } : n
+        )
+      );
+    } catch (err) {
+      console.error("markAsRead failed:", err);
+      toast({ title: "Could not mark as read", description: "The change was not saved. Please try again.", variant: "destructive" });
+    }
   };
 
   const handleMarkAllAsRead = async () => {
     if (!user?.id) return;
-    await notificationService.markAllAsRead(user.id, activeRole);
-    setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
+    try {
+      await notificationService.markAllAsRead(user.id, activeRole);
+      setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
+    } catch (err) {
+      console.error("markAllAsRead failed:", err);
+      toast({ title: "Could not mark all as read", description: "The change was not saved. Please try again.", variant: "destructive" });
+    }
   };
 
   const handleDelete = async (notificationId: string) => {
-    await notificationService.deleteNotification(notificationId);
-    setNotifications((prev) => prev.filter((n) => n.id !== notificationId));
+    try {
+      await notificationService.deleteNotification(notificationId);
+      setNotifications((prev) => prev.filter((n) => n.id !== notificationId));
+    } catch (err) {
+      console.error("deleteNotification failed:", err);
+      toast({ title: "Could not delete notification", description: "It is still in your inbox. Please try again.", variant: "destructive" });
+    }
   };
 
   const handleDeleteAll = async () => {
     if (!user?.id || !window.confirm("Delete all read notifications?")) return;
 
     const readNotifications = notifications.filter(n => n.is_read);
+    const failed: string[] = [];
     for (const notification of readNotifications) {
-      await notificationService.deleteNotification(notification.id);
+      try {
+        await notificationService.deleteNotification(notification.id);
+      } catch (err) {
+        console.error("deleteNotification failed:", notification.id, err);
+        failed.push(notification.id);
+      }
     }
-    setNotifications((prev) => prev.filter((n) => !n.is_read));
+    // Only remove the rows that actually deleted so the list matches the DB.
+    setNotifications((prev) => prev.filter((n) => !n.is_read || failed.includes(n.id)));
+    if (failed.length > 0) {
+      toast({
+        title: "Some notifications were not deleted",
+        description: `${failed.length} of ${readNotifications.length} could not be deleted. Please try again.`,
+        variant: "destructive",
+      });
+    }
   };
 
   // Wave 24: bulk-clear notifications older than the shared stale
@@ -132,10 +163,23 @@ function NotificationsPage() {
     const stale = notifications.filter((n) => isStaleNotification(n.created_at));
     if (stale.length === 0) return;
     if (!window.confirm(`Delete ${stale.length} notification${stale.length === 1 ? "" : "s"} older than ${STALE_NOTIFICATION_DAYS} days?`)) return;
+    const failed = new Set<string>();
     for (const n of stale) {
-      try { await notificationService.deleteNotification(n.id); } catch { /* keep going */ }
+      try {
+        await notificationService.deleteNotification(n.id);
+      } catch (err) {
+        console.error("stale delete failed:", n.id, err);
+        failed.add(n.id);
+      }
     }
-    setNotifications((prev) => prev.filter((n) => !isStaleNotification(n.created_at)));
+    setNotifications((prev) => prev.filter((n) => !isStaleNotification(n.created_at) || failed.has(n.id)));
+    if (failed.size > 0) {
+      toast({
+        title: "Some notifications were not deleted",
+        description: `${failed.size} of ${stale.length} stale notifications could not be deleted. Please try again.`,
+        variant: "destructive",
+      });
+    }
   };
 
   const getPriorityIcon = (priority: string | null) => {

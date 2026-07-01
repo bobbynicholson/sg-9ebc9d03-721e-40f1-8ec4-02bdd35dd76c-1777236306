@@ -93,26 +93,46 @@ function PlatformSubscriptionManagement() {
     }
   }, [user]);
 
-  // Resolve a plan name + monthly rate from the company's subscription_plan
-  // string. When we wire real billing later this should look up the plans
-  // table; for now treat unknown plans as 0 so trial/free customers don't
-  // pollute MRR.
-  const resolvePlanPricing = (plan: string | null | undefined) => {
-    const map: Record<string, { name: string; amount: number }> = {
-      starter: { name: "Starter", amount: 499 },
-      growth: { name: "Growth", amount: 1499 },
-      scale: { name: "Scale", amount: 3999 },
-      enterprise: { name: "Enterprise", amount: 9999 },
-    };
+  // Fallback rates only for when the pricing-plans API is unreachable.
+  // Live rates come from platform_pricing_plans (the same table the
+  // pricing-management page edits) so MRR follows real price changes.
+  const FALLBACK_PLAN_RATES: Record<string, { name: string; amount: number }> = {
+    starter: { name: "Starter", amount: 499 },
+    growth: { name: "Growth", amount: 1499 },
+    scale: { name: "Scale", amount: 3999 },
+    enterprise: { name: "Enterprise", amount: 9999 },
+  };
+
+  const fetchPlanRates = async (): Promise<Record<string, { name: string; amount: number }>> => {
+    try {
+      const r = await fetch("/api/platform/pricing-plans");
+      if (!r.ok) return FALLBACK_PLAN_RATES;
+      const body = await r.json();
+      const map: Record<string, { name: string; amount: number }> = {};
+      for (const p of body?.plans || []) {
+        if (p?.slug) map[String(p.slug).toLowerCase()] = { name: p.name || p.slug, amount: Number(p.zar_price) || 0 };
+      }
+      return Object.keys(map).length > 0 ? map : FALLBACK_PLAN_RATES;
+    } catch {
+      return FALLBACK_PLAN_RATES;
+    }
+  };
+
+  const resolvePlanPricing = (
+    plan: string | null | undefined,
+    rates: Record<string, { name: string; amount: number }>,
+  ) => {
     if (!plan) return { name: "Free trial", amount: 0 };
     const key = plan.toLowerCase();
-    return map[key] || { name: plan, amount: 0 };
+    return rates[key] || { name: plan, amount: 0 };
   };
 
   const loadData = async () => {
     try {
       setLoading(true);
       setError(null);
+
+      const planRates = await fetchPlanRates();
 
       // 1. Pull every company. Each one is a subscription in our world.
       const { data: companies, error: companiesErr } = await supabase
@@ -139,7 +159,7 @@ function PlatformSubscriptionManagement() {
       // 3. Build the synthetic subscription rows.
       const rows: CompanySubscription[] = (companies || []).map((c: any) => {
         const owner = c.owner_id ? ownersById.get(c.owner_id) : null;
-        const plan = resolvePlanPricing(c.subscription_plan);
+        const plan = resolvePlanPricing(c.subscription_plan, planRates);
         // A.13 #3 sweep: was a defensive 'trialing' -> 'trial'
         // normalisation. Migration 20260518740000 dropped 'trialing'
         // from the subscription_status enum so this branch can no
@@ -392,7 +412,7 @@ function PlatformSubscriptionManagement() {
             label={
               <span className="flex items-center gap-1.5">
                 Monthly MRR
-                <InfoTooltip content="Recurring monthly revenue from every active subscription added together.\n\nPlan rates are still based on a fixed price list (Starter ZAR 499, Growth ZAR 1499, Scale ZAR 3999, Enterprise ZAR 9999) until proper billing is wired up." />
+                <InfoTooltip content="Recurring monthly revenue from every active subscription added together.\n\nPlan rates come from the live pricing plans (the same ones edited on Pricing Management), so a price change there updates this figure on the next load." />
               </span>
             }
             value={<span className="text-brand-primary dark:text-brand-primary">{formatCurrency(stats.totalMRR)}</span>}

@@ -114,19 +114,37 @@ export default function CMSBlogPage() {
     setAiGenerating(true);
 
     try {
-      // Simulate AI generation (replace with actual API call to OpenAI/Claude)
-      await new Promise(resolve => setTimeout(resolve, 2000));
-
+      // Same generator the CMS Pages editor uses (Anthropic with a
+      // Groq fallback server-side). FAQ / schema / internal links stay
+      // deterministic client-side helpers layered on top of the draft.
       const wordCount = brief.contentLength === "short" ? 800 : brief.contentLength === "medium" ? 1500 : 2500;
+      const res = await fetch("/api/cms/ai-draft", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          topic: brief.topic,
+          audience: brief.targetAudience || "catering business owners",
+          tone: brief.tone,
+          wordTarget: wordCount,
+          keywords: brief.keywords.join(", "),
+        }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok || !body?.ok) {
+        throw new Error(body?.error || `Draft generation failed (${res.status})`);
+      }
 
+      const plain = String(body.content || "").replace(/[#*`>_[\]]/g, "").replace(/\s+/g, " ").trim();
+      const metaKeywords = String(body.meta_keywords || "")
+        .split(",").map((k: string) => k.trim()).filter(Boolean);
       const content: GeneratedContent = {
-        title: `${brief.topic}: A Comprehensive Guide for ${brief.targetAudience || 'Catering Businesses'}`,
-        excerpt: `Discover everything you need to know about ${brief.topic.toLowerCase()} in the catering industry. Expert insights, practical tips, and proven strategies.`,
-        content: generateSampleContent(brief.topic, wordCount, brief.tone, brief.includeInternalLinks),
-        metaDescription: `Complete guide to ${brief.topic.toLowerCase()} for catering businesses. Learn best practices, tips, and strategies from industry experts.`,
+        title: body.title || brief.topic,
+        excerpt: plain.length > 200 ? `${plain.slice(0, 197)}...` : plain,
+        content: body.content || "",
+        metaDescription: body.meta_description || "",
         faqs: brief.includeFAQ ? generateFAQs(brief.topic) : [],
         schema: brief.includeSchema ? generateSchema(brief.topic) : "",
-        suggestedKeywords: [...brief.keywords, `${brief.topic.toLowerCase()} guide`, `catering ${brief.topic.toLowerCase()}`],
+        suggestedKeywords: [...new Set([...brief.keywords, ...metaKeywords])],
         internalLinks: brief.includeInternalLinks ? generateInternalLinks(brief.topic) : [],
       };
 
@@ -140,7 +158,7 @@ export default function CMSBlogPage() {
       console.error("Error generating content:", error);
       toast({
         title: "Generation Failed",
-        description: "Failed to generate content. Please try again.",
+        description: error instanceof Error ? error.message : "Failed to generate content. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -242,7 +260,7 @@ export default function CMSBlogPage() {
                         <span className="flex items-center gap-2">
                           <Search className="w-5 h-5" />
                           Content Brief
-                          <InfoTooltip content="Fill in the topic, keywords and tone for the AI generator to work from.\n\nHeads up: generation is currently a mock that returns sample text, not a live AI call. Publishing still saves the post properly." />
+                          <InfoTooltip content="Fill in the topic, keywords and tone for the AI generator to work from.\n\nGeneration runs through the live AI drafting endpoint (the same one CMS Pages uses), then FAQ, schema and internal-link helpers are layered on top. Publishing saves the post to the blog." />
                         </span>
                       }
                     />
@@ -647,57 +665,6 @@ export default function CMSBlogPage() {
       </PortalShell>
     </div>
   );
-}
-
-// Helper functions for demo (replace with actual AI API calls)
-function generateSampleContent(topic: string, wordCount: number, tone: string, includeLinks: boolean): string {
-  const linkExample = includeLinks 
-    ? "\n\nLearn more about [[our platform features|/features]] and how they can help your business grow.\n\n" 
-    : "\n\n";
-
-  return `# ${topic}
-
-## Introduction
-
-In today's competitive catering industry, ${topic.toLowerCase()} has become essential for business success. This comprehensive guide will walk you through everything you need to know.${linkExample}
-
-## Why This Matters
-
-Understanding ${topic.toLowerCase()} is crucial because it directly impacts your business growth, customer satisfaction, and operational efficiency.
-
-## Key Strategies
-
-### Strategy 1: Foundation
-Building a strong foundation is the first step...
-
-### Strategy 2: Implementation
-Once you have the basics in place...
-
-### Strategy 3: Optimization
-Continuous improvement ensures long-term success...
-
-## Best Practices
-
-- Always prioritize quality over quantity
-- Listen to customer feedback
-- Stay updated with industry trends
-- Invest in your team's training
-
-${includeLinks ? "Check out our [[pricing plans|/pricing]] to see which solution fits your needs best.\n" : ""}
-
-## Common Challenges and Solutions
-
-Every catering business faces challenges. Here's how to overcome them...
-
-## Conclusion
-
-Mastering ${topic.toLowerCase()} will set your catering business apart from competitors and drive sustainable growth.
-
-${includeLinks ? "Ready to get started? [[Sign up for a free trial|/company-signup]] today!\n" : ""}
-
----
-
-*Note: This is AI-generated content. Please review and edit before publishing.*`;
 }
 
 function generateFAQs(topic: string): Array<{ question: string; answer: string }> {

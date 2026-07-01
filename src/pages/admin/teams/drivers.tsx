@@ -168,7 +168,6 @@ function DriversTeamPage() {
         const tomorrowDate = new Date(today);
         tomorrowDate.setDate(tomorrowDate.getDate() + 1);
         const tomorrowISO = toLocalISO(tomorrowDate);
-        const weekStartISO = startOfWeek().toISOString();
         const weekAgoISO = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
         const nowMs = Date.now();
 
@@ -190,11 +189,13 @@ function DriversTeamPage() {
         // there's no `drivers` table - driver identity lives on
         // profiles with role='driver' - so region scoping happens
         // at the per-driver-name-lookup layer below, not here.
+        // planned_start is a bare time column; the week window lives on
+        // shift_date (date), so filter on that or PostgREST 400s.
         const weekShiftsQ = supabase.from("driver_shifts")
           .select("id, driver_id, actual_start, actual_end, hours_worked, status")
           .eq("company_id", companyId)
           .is("deleted_at", null)
-          .gte("planned_start", weekStartISO);
+          .gte("shift_date", toLocalISO(startOfWeek()));
 
         // Today's driver_assignments with the joined order columns
         // we need - event_time + region_id for filtering + status

@@ -287,11 +287,21 @@ function InvoicesPageInner() {
     setStatusFilter(v.statusFilter);
   };
   const removeSavedInvoiceView = async (id: string) => {
+    // Remember the row so a failed delete can put it back instead of
+    // silently resurrecting on next load.
+    const removed = savedInvoiceViews.find((v) => v.id === id);
     setSavedInvoiceViews((prev) => prev.filter((v) => v.id !== id));
     try {
-      await (supabase as any).from("user_saved_views").delete().eq("id", id);
+      const { error } = await (supabase as any).from("user_saved_views").delete().eq("id", id);
+      if (error) throw error;
     } catch (e) {
       console.warn("[invoices] saved view delete failed:", e);
+      if (removed) setSavedInvoiceViews((prev) => [...prev, removed]);
+      toast({
+        title: "Saved view not deleted",
+        description: "The delete did not reach the server. Please try again.",
+        variant: "destructive",
+      });
     }
   };
   const [selectedInvoice, setSelectedInvoice] = useState<any>(null);

@@ -206,8 +206,17 @@ function SubscriptionPage() {
     try {
       await subscriptionService.cancelAccountDeletion(pendingDeletion.id);
       await loadSubscriptionData();
+      toast({
+        title: "Deletion cancelled",
+        description: "Your account is no longer scheduled for deletion.",
+      });
     } catch (error) {
       console.error("Error cancelling deletion:", error);
+      toast({
+        title: "Could not cancel deletion",
+        description: "The deletion request is still active. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
