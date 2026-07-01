@@ -273,7 +273,7 @@ export default function TrialManagementPage() {
       "expired": { label: "Expired", color: "bg-rose-500" }
     };
 
-    const config = typeMap[type] || { label: type, color: "bg-gray-500" };
+    const config = typeMap[type] || { label: type, color: "bg-slate-500" };
     return <Badge className={config.color}>{config.label}</Badge>;
   };
 

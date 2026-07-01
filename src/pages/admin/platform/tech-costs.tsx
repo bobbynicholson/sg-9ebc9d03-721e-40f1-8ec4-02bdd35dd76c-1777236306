@@ -782,7 +782,7 @@ function TechCostsDashboard() {
           {/* Scaling table */}
           <PortalCard className="mt-6">
               <div className="flex items-center gap-2 mb-3">
-                <TrendingUp className="w-5 h-5 text-blue-600" />
+                <TrendingUp className="w-5 h-5 text-brand-primary" />
                 <h2 className="text-base font-bold text-slate-900">Cost at scale</h2>
                 <InfoTooltip content={"Holds your per-tenant assumptions constant and varies the tenant count. Watch the per-tenant cost drop as fixed costs (Vercel + Supabase base + DB compute) get spread thinner."} />
               </div>

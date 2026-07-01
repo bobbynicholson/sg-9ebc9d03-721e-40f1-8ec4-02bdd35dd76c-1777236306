@@ -451,7 +451,7 @@ function CMSPageManagement() {
                     <PortalCardHeader
                       title={
                         <span className="flex items-center gap-2">
-                          <ImageIcon className="w-4 h-4 text-blue-600" />
+                          <ImageIcon className="w-4 h-4 text-brand-primary" />
                           Header image
                         </span>
                       }
@@ -486,7 +486,7 @@ function CMSPageManagement() {
                       ) : (
                         <label
                           htmlFor="header-image-input"
-                          className="flex flex-col items-center justify-center border-2 border-dashed border-slate-300 rounded-lg p-8 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition"
+                          className="flex flex-col items-center justify-center border-2 border-dashed border-slate-300 rounded-lg p-8 text-center cursor-pointer hover:border-brand-primary hover:bg-brand-primary/10 transition"
                         >
                           {imageBusy ? (
                             <Loader2 className="w-7 h-7 text-slate-400 animate-spin mb-2" />

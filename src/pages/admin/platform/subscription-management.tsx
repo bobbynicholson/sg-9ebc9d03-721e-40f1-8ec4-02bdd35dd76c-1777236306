@@ -278,10 +278,10 @@ function PlatformSubscriptionManagement() {
       trial: { label: "Trial", className: "bg-blue-500" },
       past_due: { label: "Past Due", className: "bg-yellow-500" },
       cancelled: { label: "Cancelled", className: "bg-rose-500" },
-      expired: { label: "Expired", className: "bg-gray-500" }
+      expired: { label: "Expired", className: "bg-slate-500" }
     };
 
-    const { label, className } = config[status] || { label: status, className: "bg-gray-500" };
+    const { label, className } = config[status] || { label: status, className: "bg-slate-500" };
     return <Badge className={className}>{label}</Badge>;
   };
 

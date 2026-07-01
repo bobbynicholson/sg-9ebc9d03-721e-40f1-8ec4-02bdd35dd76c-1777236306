@@ -6,7 +6,6 @@ import { PlatformNav } from "@/components/admin/PlatformNav";
 import { PortalShell, PortalHeader, PortalCard, PortalCardHeader, StatTile,
   PageWorkbench,
 } from "@/components/portal/ui";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -128,9 +127,6 @@ function PlatformDashboard() {
     setRefreshing(false);
   };
 
-  // 🔧 DEV MODE: Show simplified dashboard
-  const isDevMode = user?.email === "dev@cateringms.local";
-
   // Show loading only if we don't have a user yet
   if (!user || loading) {
     return (
@@ -144,154 +140,6 @@ function PlatformDashboard() {
             </div>
           </PortalCard>
         </PortalShell>
-      </div>
-    );
-  }
-
-  // 🔧 DEV MODE UI
-  if (isDevMode) {
-    return (
-      <div className="min-h-screen bg-slate-50">
-        <Head>
-          <title>Platform dashboard (dev mode) - CateringMS</title>
-          <meta name="robots" content="noindex, nofollow" />
-        </Head>
-
-        <div className="p-6 max-w-full">
-          <div className="flex items-center justify-between mb-8">
-            <div>
-              <h1 className="text-3xl md:text-4xl font-bold text-slate-950">
-                🔧 DEV MODE - Super Admin Dashboard
-              </h1>
-              <p className="text-slate-600">Full platform access - All companies & settings</p>
-            </div>
-            <div className="flex items-center gap-4">
-              <CompanySwitcher />
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => router.push("/auth/login")}
-              >
-                Exit DEV Mode
-              </Button>
-            </div>
-          </div>
-
-          {/* DEV MODE Quick Access Card */}
-          <Card className="mb-8 border-amber-200 bg-amber-50">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-4 mb-4">
-                <div className="w-16 h-16 rounded-full bg-yellow-500 flex items-center justify-center">
-                  <Activity className="w-8 h-8 text-white" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-bold text-slate-900">🔧 Development Mode Active</h3>
-                  <p className="text-sm text-slate-600">You have full super admin access to all features</p>
-                </div>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <Button
-                  variant="outline"
-                  className="h-auto p-4 flex flex-col items-start gap-2 hover:border-slate-400 hover:bg-slate-50"
-                  onClick={() => router.push("/admin/platform/company-database")}
-                >
-                  <Users className="w-6 h-6 text-slate-700" />
-                  <div className="text-left">
-                    <div className="font-semibold">Companies</div>
-                    <div className="text-xs text-slate-500">View all companies</div>
-                  </div>
-                </Button>
-
-                <Button
-                  variant="outline"
-                  className="h-auto p-4 flex flex-col items-start gap-2 hover:border-blue-500 hover:bg-blue-50"
-                  onClick={() => router.push("/admin/platform/subscription-management")}
-                >
-                  <DollarSign className="w-6 h-6 text-blue-600" />
-                  <div className="text-left">
-                    <div className="font-semibold">Subscriptions</div>
-                    <div className="text-xs text-slate-500">Manage billing</div>
-                  </div>
-                </Button>
-
-                <Button
-                  variant="outline"
-                  className="h-auto p-4 flex flex-col items-start gap-2 hover:border-brand-primary hover:bg-brand-primary/10"
-                  onClick={() => router.push("/admin/platform/user-management")}
-                >
-                  <Users className="w-6 h-6 text-brand-primary" />
-                  <div className="text-left">
-                    <div className="font-semibold">Users</div>
-                    <div className="text-xs text-slate-500">Manage all users</div>
-                  </div>
-                </Button>
-
-                <Button
-                  variant="outline"
-                  className="h-auto p-4 flex flex-col items-start gap-2 hover:border-orange-500 hover:bg-orange-50"
-                  onClick={() => router.push("/admin/dashboard")}
-                >
-                  <Package className="w-6 h-6 text-orange-600" />
-                  <div className="text-left">
-                    <div className="font-semibold">Test Company</div>
-                    <div className="text-xs text-slate-500">View as company admin</div>
-                  </div>
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Mock Stats */}
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-8">
-            <StatCard
-              title="Total Revenue"
-              value="ZAR 0.00"
-              subtitle="No real data in DEV MODE"
-              icon={DollarSign}
-            />
-            <StatCard
-              title="Active Companies"
-              value="0"
-              subtitle="Create companies to see data"
-              icon={Users}
-            />
-            <StatCard
-              title="Monthly Recurring Revenue"
-              value="ZAR 0.00"
-              subtitle="MRR"
-              icon={TrendingUp}
-            />
-            <StatCard
-              title="Platform Status"
-              value="DEV"
-              subtitle="Development Mode"
-              icon={Activity}
-            />
-          </div>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>🔧 DEV MODE Instructions</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4 text-sm text-slate-600">
-                <p>✅ <strong>You're logged in as DEV Super Admin</strong> - You have access to everything</p>
-                <p>✅ <strong>No authentication required</strong> - Middleware bypasses all auth checks</p>
-                <p>✅ <strong>Access all portals:</strong></p>
-                <ul className="list-disc pl-6 space-y-2">
-                  <li><strong>/admin/platform/*</strong> - Platform management (current)</li>
-                  <li><strong>/admin/*</strong> - Company admin view (test any company)</li>
-                  <li><strong>/[company-slug]/admin/*</strong> - Company-specific admin</li>
-                  <li><strong>/team-portal/*</strong> - Staff views (driver, kitchen, etc.)</li>
-                  <li><strong>/client-portal/*</strong> - Client views</li>
-                </ul>
-                <p className="mt-4 text-amber-600">
-                  <strong>⚠️ Note:</strong> Real analytics data requires actual companies and subscriptions. Create test companies in the Company Database to populate this dashboard.
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
       </div>
     );
   }
@@ -340,23 +188,16 @@ function PlatformDashboard() {
         />
         <PageWorkbench />
 
-        {/* Platform Health: compact horizontal strip */}
+        {/* Live platform snapshot: only real, live figures (no placeholder metrics). */}
         <PortalCard className="mb-6 sm:mb-8 flex flex-wrap items-center gap-x-6 gap-y-3 p-4">
             <div className="flex items-center gap-2.5">
               <div className="w-2 h-2 rounded-full bg-brand-primary ring-4 ring-brand-primary/20 animate-pulse" />
-              <span className="text-sm font-semibold text-slate-900 dark:text-white flex items-center gap-1.5">
-                Platform Health
-                <InfoTooltip content="A quick health snapshot of the platform.\n\nOnly the active companies number is live right now. The 98% score, response time, ticket count and uptime are placeholders until a monitoring service is connected." />
-              </span>
-              <span className="text-2xl font-bold text-brand-primary tabular-nums">98%</span>
+              <span className="text-sm font-semibold text-slate-900 dark:text-white">Live platform snapshot</span>
             </div>
             <div className="h-4 w-px bg-slate-200 dark:bg-slate-700 hidden sm:block" />
             <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-xs text-slate-600 dark:text-slate-400">
-              <span><span className="font-semibold text-slate-900 dark:text-white">{metrics?.activeCompanies ?? metrics?.activeSubscriptions ?? 0}</span> active companies</span>
-              <span><span className="font-semibold text-slate-900 dark:text-white">1.2s</span> avg response</span>
-              <span><span className="font-semibold text-slate-900 dark:text-white">3</span> open tickets</span>
-              <span><span className="font-semibold text-rose-600">0</span> failed payments</span>
-              <span>99.9% uptime</span>
+              <span><span className="font-semibold text-slate-900 dark:text-white tabular-nums">{metrics?.activeCompanies ?? metrics?.activeSubscriptions ?? 0}</span> active companies</span>
+              <span><span className="font-semibold text-slate-900 dark:text-white tabular-nums">{metrics?.totalCompanies ?? 0}</span> total tenants</span>
             </div>
         </PortalCard>
 
