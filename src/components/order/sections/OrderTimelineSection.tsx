@@ -155,6 +155,10 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen }: Props) {
   const [cleaningStarted, setCleaningStarted] = useState<string | null>(null);
   const [cleaningAllDone, setCleaningAllDone] = useState<string | null>(null);
   const [hasCleaningJobs, setHasCleaningJobs] = useState(false);
+  const [handoverStarted, setHandoverStarted] = useState<string | null>(null);
+  const [handoverReturned, setHandoverReturned] = useState<string | null>(null);
+  const [handoverDone, setHandoverDone] = useState<string | null>(null);
+  const [hasCleaningHandover, setHasCleaningHandover] = useState(false);
   // The driver's "Equipment collected" tap (markEquipmentCollected) flips
   // the collection driver_assignment to status='picked_up' and stamps
   // picked_up_at - it does NOT touch event_attendance.equipment_returned_at
@@ -206,6 +210,48 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen }: Props) {
         setEquipmentReturned(earliest(...rows.map((r) => r.equipment_returned_at)));
       } catch (e: any) {
         captureException(e, { tags: { route: "/order/[id]", step: "loadTimelineAttendance", orderId: order.id } });
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [order.id]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data } = await (supabase as any)
+          .from("cleaning_event_handovers")
+          .select("status, expected_at, in_progress_at, completed_at, total_items_expected, total_items_returned, created_at, updated_at")
+          .eq("order_id", order.id)
+          .is("deleted_at", null);
+        if (cancelled) return;
+        const rows = ((data || []) as any[]).filter((r) => r.status !== "cancelled");
+        setHasCleaningHandover(rows.length > 0);
+        if (rows.length === 0) {
+          setHandoverStarted(null);
+          setHandoverReturned(null);
+          setHandoverDone(null);
+          return;
+        }
+        setHandoverStarted(earliest(...rows.map((r) => r.in_progress_at || r.expected_at || r.created_at)));
+        const returned = rows
+          .filter((r) => {
+            const expected = Number(r.total_items_expected || 0);
+            const returnedCount = Number(r.total_items_returned || 0);
+            return r.status === "in_progress" || r.status === "complete" || returnedCount > 0 || (expected > 0 && returnedCount >= expected);
+          })
+          .map((r) => r.in_progress_at || r.completed_at || r.updated_at || r.expected_at || r.created_at)
+          .filter((v): v is string => !!v)
+          .sort();
+        setHandoverReturned(returned.length > 0 ? returned[0] : null);
+        const completed = rows.filter((r) => ["complete", "completed"].includes(String(r.status || "")));
+        const done = completed
+          .map((r) => r.completed_at || r.updated_at || r.expected_at || r.created_at)
+          .filter((v): v is string => !!v)
+          .sort();
+        setHandoverDone(done.length > 0 ? done[done.length - 1] : null);
+      } catch (e: any) {
+        captureException(e, { tags: { route: "/order/[id]", step: "loadTimelineHandovers", orderId: order.id } });
       }
     })();
     return () => { cancelled = true; };
@@ -544,6 +590,7 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen }: Props) {
     equipmentReturned ||
     collectionPickedUpAt ||
     hasCleaningJobs ||
+    hasCleaningHandover ||
     // Equipment is BOOKED on this order - there's gear to bring back, so
     // the collection + cleaning closeout steps are applicable (pending),
     // not N/A. Without this the "Up next" marker skipped them and jumped
@@ -614,8 +661,8 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen }: Props) {
     // proof that gear arrived back at base). Then the cleaning team
     // takes over and the order can't close until every cleaning job
     // for it lands on status='complete'.
-    { key: "equipment",     label: "Equipment collected",  Icon: PackageCheck,   at: equipmentReturned || collectionPickedUpAt || cleaningStarted, show: hasEquipmentSignal, lane: "closeout" },
-    { key: "cleaning",      label: "In cleaning cycle",    Icon: Droplets,       at: cleaningAllDone || cleaningStarted,   show: hasEquipmentSignal, lane: "closeout" },
+    { key: "equipment",     label: "Equipment collected",  Icon: PackageCheck,   at: equipmentReturned || collectionPickedUpAt || handoverReturned || handoverDone || cleaningStarted, show: hasEquipmentSignal, lane: "closeout" },
+    { key: "cleaning",      label: "In cleaning cycle",    Icon: Droplets,       at: cleaningAllDone || handoverDone || cleaningStarted || handoverReturned,   show: hasEquipmentSignal, lane: "closeout" },
     { key: "completed",     label: "Closed",               Icon: CheckCircle2,   at: order.completed_at,        lane: "closeout" },
   ] as Step[]);
   // "Stock & shopping" and "Equipment ready" are PARALLEL prereqs -
@@ -750,10 +797,10 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen }: Props) {
         ? [{
             id: "order-doc-collection",
             assignment_type: "collection",
-            status: collectionPickedUpAt ? "picked_up" : "assigned",
+            status: collectionPickedUpAt || handoverReturned || handoverDone ? "picked_up" : "assigned",
             created_at: order.departed_venue_at || effEventComplete || order.delivered_at || order.created_at,
-            picked_up_at: collectionPickedUpAt,
-            completed_at: collectionPickedUpAt,
+            picked_up_at: collectionPickedUpAt || handoverReturned || handoverDone,
+            completed_at: collectionPickedUpAt || handoverReturned || handoverDone,
           }]
         : []),
     ],
@@ -763,6 +810,15 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen }: Props) {
           actual_start: cleaningStarted,
           actual_end: cleaningAllDone,
           status: cleaningAllDone ? "complete" : "in_progress",
+        }]
+      : [],
+    cleaningHandoversForOrder: hasCleaningHandover
+      ? [{
+          created_at: handoverStarted,
+          expected_at: handoverStarted,
+          in_progress_at: handoverReturned,
+          completed_at: handoverDone,
+          status: handoverDone ? "complete" : handoverReturned ? "in_progress" : "expected",
         }]
       : [],
     hasOnSiteService: needsService,

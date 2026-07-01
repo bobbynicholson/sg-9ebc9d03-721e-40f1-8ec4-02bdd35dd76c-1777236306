@@ -165,15 +165,15 @@ const STAGE_GLOSSARY: Record<StageKey, { trigger: string; owner: string }> = {
     owner: "Driver",
   },
   collection_scheduled: {
-    trigger: "Driver assignment of type 'collection' exists for this order.",
+    trigger: "Collection assignment exists, or post-event cleaning has started for this order.",
     owner: "Dispatcher",
   },
   collection_done: {
-    trigger: "Collection driver_assignment marked completed.",
+    trigger: "Collection assignment marked picked up/completed, or all post-event cleaning jobs are complete.",
     owner: "Driver",
   },
   post_event_cleaning: {
-    trigger: "All equipment_cleaning_status rows back to ready / stored / available.",
+    trigger: "All order-level post-event cleaning jobs are complete.",
     owner: "Cleaning team",
   },
   final_invoice_issued: {

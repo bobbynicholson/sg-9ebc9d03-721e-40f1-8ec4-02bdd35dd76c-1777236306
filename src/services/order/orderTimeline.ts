@@ -217,6 +217,19 @@ export interface OrderTimelineInput {
    *  equipmentCleaningStatus is empty we derive post_event_cleaning from
    *  these instead: done when every non-cancelled job is status='complete'. */
   cleaningJobsForOrder?: Array<{ created_at?: string | null; actual_end?: string | null; actual_start?: string | null; status?: string | null }>;
+  /** Event-level cleaning handover rows for this order. These are the
+   *  canonical post-event container in newer flows; legacy/E2E orders may
+   *  have a completed handover even when cleaning_jobs are not linked. */
+  cleaningHandoversForOrder?: Array<{
+    created_at?: string | null;
+    updated_at?: string | null;
+    expected_at?: string | null;
+    in_progress_at?: string | null;
+    completed_at?: string | null;
+    status?: string | null;
+    total_items_expected?: number | string | null;
+    total_items_returned?: number | string | null;
+  }>;
   /** Wave 44 T2 - delivery shifts linked to this order via
    *  kitchen_shifts.order_id. When driver_assigned_delivery is the
    *  current stage and this is empty, surface "No driver claimed
@@ -307,6 +320,12 @@ function deriveFlags(input: OrderTimelineInput): OrderTimelineFlags {
   const hasBalance = Number(o.balance_amount || 0) > 0;
   const hasExternalHire =
     (input.equipmentHireOrders || []).length > 0;
+  const activeCleaningJobs = (input.cleaningJobsForOrder || []).filter(
+    (j) => String(j?.status || "") !== "cancelled",
+  );
+  const activeHandovers = (input.cleaningHandoversForOrder || []).filter(
+    (h) => String(h?.status || "") !== "cancelled",
+  );
   // Owned equipment = an equipment_bookings row pointing to a real
   // equipment_id (vs a hire-only booking). When the joined payload
   // doesn't carry the `equipment` join we fall back to "any booking".
@@ -319,9 +338,12 @@ function deriveFlags(input: OrderTimelineInput): OrderTimelineFlags {
   const returnMethod = String(o.equipment_return_method || "").toLowerCase();
   const isDeliverAndCollect = returnMethod
     ? returnMethod === "deliver_and_collect" || returnMethod === "collect"
-    : (input.equipmentBookings || []).length > 0;
+    : (input.equipmentBookings || []).length > 0 || activeCleaningJobs.length > 0 || activeHandovers.length > 0;
   const hasCleaningWork =
-    (input.equipmentCleaningStatus || []).length > 0 || hasOwnedEquipment;
+    (input.equipmentCleaningStatus || []).length > 0
+    || hasOwnedEquipment
+    || activeCleaningJobs.length > 0
+    || activeHandovers.length > 0;
   const hasPrepTasks = (input.kitchenPrepTasks || []).length > 0;
 
   return {
@@ -357,6 +379,7 @@ function resolveStage(
     for (const c of cs) if (c) return String(c);
     return null;
   };
+  const postEvent = getPostEventSignals(input);
 
   switch (key) {
     case "quote_accepted": {
@@ -694,11 +717,15 @@ function resolveStage(
       const collection = (input.driverAssignments || []).find(
         (a) => String(a?.assignment_type || "") === "collection",
       );
-      const scheduled = !!collection;
+      // Some legacy/import/E2E orders reached post-event cleaning without
+      // a persisted collection driver_assignment. Once cleaning exists, the
+      // collection workflow has effectively been scheduled/started, so don't
+      // leave the timeline stuck on a missing dispatch row.
+      const scheduled = !!collection || !!postEvent.startedAt;
       return {
         status: scheduled ? "completed" : "upcoming",
         startedAt: null,
-        completedAt: scheduled ? firstTs(collection.created_at) : null,
+        completedAt: scheduled ? firstTs(collection?.created_at, postEvent.startedAt) : null,
         blockedReason: null,
         // Wave 66.6 - repoint from /admin/driver-schedule (no
         // orderId or type handling) to /admin/order-assignments,
@@ -719,12 +746,17 @@ function resolveStage(
       // driver's return drive to base ('completed'). Treat either as done,
       // and prefer the picked_up time as the completion stamp when present.
       const cstatus = collection ? String(collection.status || "") : "";
-      const done = cstatus === "picked_up" || cstatus === "completed";
+      const collectionDone = cstatus === "picked_up" || cstatus === "completed";
+      // Delivered orders can queue cleaning work before the collection driver
+      // taps the gear as picked up. For legacy/import/E2E orders without a
+      // collection assignment, a returned booking or active/complete cleaning
+      // handover proves the equipment made it back.
+      const done = collectionDone || !!postEvent.returnedAt || !!postEvent.cleaningCompletedAt;
       return {
         status: done ? "completed" : "upcoming",
         startedAt: collection ? firstTs(collection.started_at) : null,
         completedAt: done
-          ? firstTs(collection.picked_up_at || collection.completed_at)
+          ? firstTs(collection?.picked_up_at || collection?.completed_at, postEvent.returnedAt, postEvent.cleaningCompletedAt)
           : null,
         blockedReason: null,
         // Wave 66.6 - same destination as collection_scheduled.
@@ -750,6 +782,21 @@ function resolveStage(
         const jobs = (input.cleaningJobsForOrder || []).filter(
           (j) => String(j?.status || "") !== "cancelled",
         );
+        if (postEvent.cleaningCompletedAt) {
+          return {
+            status: "completed",
+            startedAt: postEvent.startedAt,
+            completedAt: postEvent.cleaningCompletedAt,
+            blockedReason: null,
+            sourceLink: cleaningLink,
+            meta: {
+              progress: {
+                done: Math.max(jobs.length, 1),
+                total: Math.max(jobs.length, 1),
+              },
+            },
+          };
+        }
         if (jobs.length > 0) {
           const allComplete = jobs.every((j) => String(j?.status || "") === "complete");
           const anyInProgress = jobs.some((j) => String(j?.status || "") === "in_progress");
@@ -769,6 +816,16 @@ function resolveStage(
                 total: jobs.length,
               },
             },
+          };
+        }
+        if (postEvent.returnedAt) {
+          return {
+            status: "current",
+            startedAt: postEvent.returnedAt,
+            completedAt: null,
+            blockedReason: null,
+            sourceLink: cleaningLink,
+            meta: { progress: { done: 0, total: 1 } },
           };
         }
         return {
@@ -933,6 +990,88 @@ function notApplicable(): Resolved {
   };
 }
 
+function earliestTs(...values: Array<string | null | undefined>): string | null {
+  const sorted = values.filter((v): v is string => !!v).map(String).sort();
+  return sorted[0] || null;
+}
+
+function latestTs(...values: Array<string | null | undefined>): string | null {
+  const sorted = values.filter((v): v is string => !!v).map(String).sort();
+  return sorted[sorted.length - 1] || null;
+}
+
+function statusIsComplete(status: unknown): boolean {
+  return ["complete", "completed"].includes(String(status || "").toLowerCase());
+}
+
+function statusIsCancelled(status: unknown): boolean {
+  return String(status || "").toLowerCase() === "cancelled";
+}
+
+function bookingReturnedAt(row: any): string | null {
+  const qty = Number(row?.quantity || 0);
+  const returnedQty = Number(row?.returned_quantity || 0);
+  const returned =
+    ["returned", "complete", "completed"].includes(String(row?.status || "").toLowerCase())
+    || (qty > 0 && returnedQty >= qty);
+  if (!returned) return null;
+  return row?.returned_at || row?.updated_at || row?.booked_until || row?.created_at || null;
+}
+
+function handoverReturnedAt(row: any): string | null {
+  const status = String(row?.status || "").toLowerCase();
+  const expected = Number(row?.total_items_expected || 0);
+  const returned = Number(row?.total_items_returned || 0);
+  const hasReturnSignal =
+    status === "in_progress"
+    || statusIsComplete(status)
+    || returned > 0
+    || (expected > 0 && returned >= expected);
+  if (!hasReturnSignal) return null;
+  return row?.in_progress_at || row?.completed_at || row?.updated_at || row?.expected_at || row?.created_at || null;
+}
+
+function getPostEventSignals(input: OrderTimelineInput): {
+  startedAt: string | null;
+  returnedAt: string | null;
+  cleaningCompletedAt: string | null;
+} {
+  const jobs = (input.cleaningJobsForOrder || []).filter((j) => !statusIsCancelled(j?.status));
+  const handovers = (input.cleaningHandoversForOrder || []).filter((h) => !statusIsCancelled(h?.status));
+  const bookings = (input.equipmentBookings || []).filter((b) => !!b?.equipment_id);
+
+  const jobsStartedAt = earliestTs(
+    ...jobs.map((j) => j?.actual_start || j?.created_at),
+  );
+  const jobsCompletedAt = jobs.length > 0 && jobs.every((j) => statusIsComplete(j?.status))
+    ? latestTs(...jobs.map((j) => j?.actual_end || j?.actual_start || j?.created_at))
+    : null;
+
+  const handoverStartedAt = earliestTs(
+    ...handovers.map((h) => h?.in_progress_at || h?.expected_at || h?.created_at),
+  );
+  const completeHandovers = handovers.filter((h) => statusIsComplete(h?.status));
+  const handoverCompletedAt = completeHandovers.length > 0
+    ? latestTs(...completeHandovers.map((h) => h?.completed_at || h?.updated_at || h?.expected_at || h?.created_at))
+    : null;
+  const handoverReturnTimes = handovers
+    .map((h) => handoverReturnedAt(h))
+    .filter((v): v is string => !!v);
+  const handoversReturnedAt = handoverReturnTimes.length > 0 ? earliestTs(...handoverReturnTimes) : null;
+
+  const returnedBookingTimes = bookings
+    .map((b) => bookingReturnedAt(b))
+    .filter((v): v is string => !!v);
+  const allBookingsReturned = bookings.length > 0 && returnedBookingTimes.length === bookings.length;
+  const bookingsReturnedAt = allBookingsReturned ? latestTs(...returnedBookingTimes) : null;
+
+  return {
+    startedAt: earliestTs(jobsStartedAt, handoverStartedAt, bookingsReturnedAt),
+    returnedAt: earliestTs(bookingsReturnedAt, handoversReturnedAt, handoverCompletedAt),
+    cleaningCompletedAt: jobsCompletedAt || handoverCompletedAt,
+  };
+}
+
 // --- Public API ------------------------------------------------------------
 
 export function computeOrderTimeline(input: OrderTimelineInput): OrderTimeline {
@@ -993,6 +1132,7 @@ export function computeOrderTimeline(input: OrderTimelineInput): OrderTimeline {
   const isCompleted = String(ord.status || "") === "completed" || !!ord.completed_at;
   if (isCompleted) {
     const CLOSURE_DEFINITIONAL = new Set<StageKey>([
+      "collection_scheduled", "collection_done", "post_event_cleaning",
       "deposit_invoice_issued", "deposit_paid",
       "final_invoice_issued", "final_invoice_sent",
       "balance_paid", "receipt_issued",

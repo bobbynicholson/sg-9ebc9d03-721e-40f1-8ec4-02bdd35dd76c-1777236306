@@ -25,7 +25,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Truck, ChefHat, Users, Calendar, Banknote } from "lucide-react";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
-import { toLocalISO } from "@/lib/localDate";
+import { DEFAULT_TENANT_TIMEZONE, tenantToday, toLocalISO } from "@/lib/localDate";
 import { shiftService } from "@/services/shiftService";
 import { ALL_ACTIVE_AND_REALISED_STATUSES } from "@/lib/orderRevenueClassification";
 import { useTenantHref } from "@/lib/tenantUrl";
@@ -42,7 +42,13 @@ const ZERO: PulseStats = {
   todayEvents: 0, inTransit: 0, driversOnShift: 0, kitchenPrep: 0, paidToday: 0,
 };
 
-export function TodaysPulse({ companyId }: { companyId: string | null }) {
+export function TodaysPulse({
+  companyId,
+  timezone = DEFAULT_TENANT_TIMEZONE,
+}: {
+  companyId: string | null;
+  timezone?: string | null;
+}) {
   const [stats, setStats] = useState<PulseStats>(ZERO);
   const [loading, setLoading] = useState(true);
   const tenantCurrency = useTenantCurrency(companyId);
@@ -52,7 +58,7 @@ export function TodaysPulse({ companyId }: { companyId: string | null }) {
     if (!companyId) return;
     let cancelled = false;
     const load = async () => {
-      const today = toLocalISO(new Date());
+      const today = toLocalISO(tenantToday(timezone || DEFAULT_TENANT_TIMEZONE));
       try {
         const [todayCount, inTransitCount, prepCount, paymentsToday, activeDrivers] = await Promise.all([
           // Today's confirmed events. TIGHTEN I.77: use canonical
@@ -89,6 +95,8 @@ export function TodaysPulse({ companyId }: { companyId: string | null }) {
             .from("payments")
             .select("amount, created_at")
             .eq("company_id", companyId)
+            .eq("payment_status", "completed")
+            .neq("payment_type", "refund")
             .gte("created_at", `${today}T00:00:00`)
             .lte("created_at", `${today}T23:59:59`),
           // Drivers currently on shift - service handles the
@@ -120,7 +128,7 @@ export function TodaysPulse({ companyId }: { companyId: string | null }) {
     // Refresh every 60s so the strip stays live without a manual reload.
     const id = setInterval(load, 60_000);
     return () => { cancelled = true; clearInterval(id); };
-  }, [companyId]);
+  }, [companyId, timezone]);
 
   if (!companyId) return null;
 

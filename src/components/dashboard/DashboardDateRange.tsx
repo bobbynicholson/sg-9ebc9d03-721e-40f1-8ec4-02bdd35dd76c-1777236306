@@ -6,7 +6,7 @@
  * Catering businesses think in terms of when the event happens, not when
  * the order was created, so we filter on event_date by default.
  */
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Popover, PopoverContent, PopoverTrigger,
@@ -37,8 +37,8 @@ const startOfDay = (d: Date) => { const c = new Date(d); c.setHours(0, 0, 0, 0);
 const endOfDay   = (d: Date) => { const c = new Date(d); c.setHours(23, 59, 59, 999); return c; };
 const addDays    = (d: Date, n: number) => { const c = new Date(d); c.setDate(c.getDate() + n); return c; };
 
-export function resolvePreset(id: DateRangePresetId): DateRange {
-  const today = startOfDay(new Date());
+export function resolvePreset(id: DateRangePresetId, anchorDate: Date = new Date()): DateRange {
+  const today = startOfDay(anchorDate);
   switch (id) {
     case "today":
       return { from: today, to: endOfDay(today), presetId: id, label: "Today" };
@@ -81,15 +81,22 @@ const PRESETS: { id: DateRangePresetId; label: string }[] = [
 export function DashboardDateRange({
   range,
   onChange,
+  anchorDate,
   className = "",
 }: {
   range: DateRange;
   onChange: (r: DateRange) => void;
+  anchorDate?: Date;
   className?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [customFrom, setCustomFrom] = useState<Date | undefined>(range.from);
   const [customTo, setCustomTo] = useState<Date | undefined>(range.to);
+
+  useEffect(() => {
+    setCustomFrom(range.from);
+    setCustomTo(range.to);
+  }, [range.from, range.to]);
 
   const formatted = useMemo(() => {
     if (range.presetId !== "custom") return range.label;
@@ -117,7 +124,7 @@ export function DashboardDateRange({
               <button
                 key={p.id}
                 onClick={() => {
-                  const next = resolvePreset(p.id);
+                  const next = resolvePreset(p.id, anchorDate);
                   onChange(next);
                   setCustomFrom(next.from);
                   setCustomTo(next.to);

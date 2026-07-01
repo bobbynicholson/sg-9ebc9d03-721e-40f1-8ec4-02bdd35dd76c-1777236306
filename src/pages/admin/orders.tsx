@@ -780,10 +780,11 @@ function OrderProcessDashboard() {
             hireRes,
             prepRes,
             assignmentsRes,
+            outsourceRes,
             invoicesRes,
             emailLogRes,
             deliveryShiftsRes,
-            outsourceRes,
+            handoversRes,
             orderItemsRes,
             kitchenShiftsEventDayRes,
             vehiclesRes,
@@ -801,7 +802,7 @@ function OrderProcessDashboard() {
             // bookings batch was silently erroring (or returning
             // empty) for every page load. We derive pre-event
             // cleaning state from cleaning_jobs instead now.
-            supabase.from("equipment_bookings").select("order_id, equipment_id, status, returned_quantity").in("order_id", orderIds),
+            supabase.from("equipment_bookings").select("order_id, equipment_id, quantity, booked_until, status, returned_quantity, created_at").in("order_id", orderIds),
             supabase.from("equipment_hire_orders").select("order_id, supplier_name, expected_pickup_date, actual_pickup_date, expected_return_date, actual_return_date, status, created_at").in("order_id", orderIds),
             supabase.from("kitchen_prep_tasks").select("order_id, status, started_at, completed_at").in("order_id", orderIds),
             // driver_assignments has no `started_at` column (the lifecycle
@@ -836,6 +837,11 @@ function OrderProcessDashboard() {
               .select("id, order_id, staff_id, planned_start, actual_start")
               .in("order_id", orderIds)
               .eq("shift_type", "delivery")
+              .is("deleted_at", null),
+            (supabase as any)
+              .from("cleaning_event_handovers")
+              .select("order_id, status, expected_at, in_progress_at, completed_at, total_items_expected, total_items_returned, created_at, updated_at")
+              .in("order_id", orderIds)
               .is("deleted_at", null),
             // Wave 46 T3 additions:
             (supabase as any)
@@ -940,6 +946,7 @@ function OrderProcessDashboard() {
           const invoicesByOrder = bucket(invoicesRes.data as any[] | null);
           const emailLogByOrder = bucket(emailLogRes.data as any[] | null);
           const deliveryShiftsByOrder = bucket(deliveryShiftsRes.data as any[] | null);
+          const handoversByOrder = bucket(handoversRes.data as any[] | null);
           // Wave 67 Phase E - outsource assignments bucketed by order_id
           // with provider_name flattened for the timeline blocker chip.
           const outsourceByOrder = (() => {
@@ -1038,6 +1045,7 @@ function OrderProcessDashboard() {
               emailLog: emailLogByOrder.get(o.id) || [],
               cleaningJobsActive,
               cleaningJobsForOrder: cleaningJobsForOrderByOrder.get(o.id) || [],
+              cleaningHandoversForOrder: handoversByOrder.get(o.id) || [],
               deliveryShifts: deliveryShiftsByOrder.get(o.id) || [],
               outsourceAssignments: outsourceByOrder.get(o.id) || [],
               tenantTimezone,

@@ -14,20 +14,19 @@
  *   1. Mark every kitchen_prep_task that's still pending / in
  *      progress as 'done'. Preserves rows (no soft-delete) so
  *      the timeline + reporting keep the audit trail.
- *   2. Stamp orders.ready_at + picked_up_at + delivered_at
+ *   2. Stamp orders.prep_started_at + ready_at + picked_up_at + delivered_at
  *      if they weren't set (uses event_time on event_date as the
  *      best-guess clock for historical orders, else now).
- *   3. Flip order status straight to 'delivered' via the canonical
- *      updateOrderStatus path - that fires the order_status_history
- *      row + status-change notifications + any post-completion
- *      cascades the workflow service handles centrally.
+ *   3. Walk the missing status transitions via the canonical
+ *      updateOrderStatus path - that fires order_status_history,
+ *      status notifications, delivery cascades, and completion hooks.
  *   4. Audit-log a force_close action so the trail records WHO
  *      forced + WHEN + WHY.
  *
  * Body:
  *   {
  *     reason?: string,   // free-text "why we're force-closing"
- *     target_status?: "delivered" | "completed"  // default 'delivered'
+ *     target_status?: "delivered" | "completed"  // default 'completed'
  *                       // (the codebase's terminal closed state)
  *   }
  *
@@ -44,7 +43,25 @@ import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 
 
 const ADMIN_ROLES = new Set(["super_admin", "company_admin", "admin", "owner"]);
-const TERMINAL_STATUSES = new Set(["delivered", "completed", "cancelled", "refunded"]);
+const TERMINAL_STATUSES = new Set(["completed", "cancelled", "refunded"]);
+
+function forceClosePath(currentStatus: string, targetStatus: "delivered" | "completed"): string[] {
+  const normalized = currentStatus || "pending";
+  const toDelivered: Record<string, string[]> = {
+    draft: ["confirmed", "preparing", "ready", "in_transit", "delivered"],
+    pending: ["confirmed", "preparing", "ready", "in_transit", "delivered"],
+    confirmed: ["preparing", "ready", "in_transit", "delivered"],
+    preparing: ["ready", "in_transit", "delivered"],
+    ready: ["in_transit", "delivered"],
+    in_transit: ["delivered"],
+    delivered: [],
+  };
+  const path = [...(toDelivered[normalized] || [targetStatus])];
+  if (targetStatus === "completed" && normalized !== "completed") {
+    path.push("completed");
+  }
+  return path.filter((status, index, arr) => status !== normalized && arr.indexOf(status) === index);
+}
 
 async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
@@ -70,7 +87,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
     const body = (req.body || {}) as { reason?: string; target_status?: string };
     const reason = (body.reason || "").trim().slice(0, 500) || null;
-    const targetStatus = body.target_status === "completed" ? "completed" : "delivered";
+    const targetStatus: "delivered" | "completed" = body.target_status === "delivered" ? "delivered" : "completed";
 
     // Wave 70.46 - the lookup now uses the SSR client (the
     // authenticated user's session) rather than the service-role
@@ -104,7 +121,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     // completed_at). Every prior force-close attempt was silently
     // PGRST204-erroring on the SELECT, which is why this endpoint had
     // been quietly broken alongside the other bugs the smoke surfaced.
-    const lookupSelect = "id, order_number, company_id, status, event_date, event_time, ready_at, picked_up_at, delivered_at";
+    const lookupSelect = "id, order_number, company_id, status, event_date, event_time, prep_started_at, ready_at, picked_up_at, delivered_at";
     const { data: byId, error: byIdErr } = await ssr
       .from("orders")
       .select(lookupSelect)
@@ -216,6 +233,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     })();
     const bestGuessIso = new Date(bestGuessMs).toISOString();
     const stamps: Record<string, string> = {};
+    if (!(order as any).prep_started_at) stamps.prep_started_at = bestGuessIso;
     if (!(order as any).ready_at) stamps.ready_at = bestGuessIso;
     if (!(order as any).picked_up_at) stamps.picked_up_at = bestGuessIso;
     if (!(order as any).delivered_at) stamps.delivered_at = bestGuessIso;
@@ -223,21 +241,24 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       await admin.from("orders").update(stamps).eq("id", resolvedOrderId);
     }
 
-    // 3. Run the canonical status transition so order_status_history
-    //    + notifications + downstream cascades fire normally. We use
-    //    the workflow helper rather than a bare update so behaviour
-    //    matches a "real" delivery being recorded.
-    const statusResult = await updateOrderStatus(resolvedOrderId, targetStatus as any, {
-      actorUserId: user.id,
-      // Pass a marker so the history row records this was forced.
-      note: reason
-        ? `Force-closed by admin: ${reason}`
-        : "Force-closed by admin override",
-    } as any);
-    if (!(statusResult as any)?.success && !(statusResult as any)?.ok) {
-      // updateOrderStatus returns various shapes across the codebase;
-      // we don't bail on shape mismatch, just log.
-      console.warn("[orders/force-close] updateOrderStatus returned unexpected shape:", statusResult);
+    // 3. Walk the canonical state machine instead of jumping directly.
+    //    updateOrderStatus rejects confirmed -> completed by design, so
+    //    recovery closeout must pass through the missing lifecycle states.
+    const transitions = forceClosePath(currentStatus, targetStatus);
+    const transitionResults: Array<{ to: string; ok: boolean; error?: string }> = [];
+    for (const nextStatus of transitions) {
+      const statusResult = await updateOrderStatus(resolvedOrderId, nextStatus as any, user.id);
+      const ok = !!((statusResult as any)?.success || (statusResult as any)?.ok);
+      transitionResults.push({ to: nextStatus, ok, error: (statusResult as any)?.error });
+      if (!ok) {
+        console.warn("[orders/force-close] updateOrderStatus failed:", statusResult);
+        return res.status(409).json({
+          error: (statusResult as any)?.error || `Could not move order to ${nextStatus}.`,
+          currentStatus,
+          targetStatus,
+          transitions: transitionResults,
+        });
+      }
     }
 
     // 4. Standalone audit log entry so a SAR / compliance review can
@@ -252,6 +273,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         details: {
           from_status: currentStatus,
           to_status: targetStatus,
+          transitions: transitionResults,
           tasks_flipped: tasksFlipped || 0,
           stamps_added: stamps,
           reason,

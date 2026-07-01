@@ -101,6 +101,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     invoicesRes,
     emailLogRes,
     deliveryShiftsRes,
+    handoversRes,
   ] = await Promise.all([
     // Same live-DB schema drift fixed in admin/orders.tsx: payments has no
     // `status` (use payment_status, aliased so downstream reads p.status) and
@@ -109,7 +110,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     // equipment_bookings has no pre_event_cleaning_done_at column on the live
     // DB - selecting it 400'd this batch. Drop it (pre-event cleaning state is
     // derived from cleaning_jobs elsewhere; it was never populated here).
-    supabase.from("equipment_bookings").select("order_id, equipment_id, status, returned_quantity").in("order_id", orderIds),
+    supabase.from("equipment_bookings").select("order_id, equipment_id, quantity, booked_until, status, returned_quantity, created_at").in("order_id", orderIds),
     supabase.from("equipment_hire_orders").select("order_id, supplier_name, expected_pickup_date, actual_pickup_date, expected_return_date, actual_return_date, status, created_at").in("order_id", orderIds),
     supabase.from("kitchen_prep_tasks").select("order_id, status, started_at, completed_at").in("order_id", orderIds),
     // driver_assignments has no started_at; alias en_route_at -> started_at
@@ -124,6 +125,11 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       .select("id, order_id, staff_id, planned_start, actual_start")
       .in("order_id", orderIds)
       .eq("shift_type", "delivery")
+      .is("deleted_at", null),
+    supabase
+      .from("cleaning_event_handovers")
+      .select("order_id, status, expected_at, in_progress_at, completed_at, total_items_expected, total_items_returned, created_at, updated_at")
+      .in("order_id", orderIds)
       .is("deleted_at", null),
   ]);
 
@@ -166,6 +172,22 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     }));
   }
 
+  const cleaningJobsForOrderByOrder = new Map<string, any[]>();
+  {
+    const { data: cjAll, error: cjAllErr } = await supabase
+      .from("cleaning_jobs")
+      .select("triggered_by_event_id, created_at, actual_start, actual_end, status")
+      .in("triggered_by_event_id", orderIds)
+      .is("deleted_at", null);
+    if (cjAllErr) console.error("[cron/order-stage-notify] cleaning_jobs by order failed:", cjAllErr);
+    for (const r of (cjAll || []) as Array<{ triggered_by_event_id?: string | null }>) {
+      const key = String(r.triggered_by_event_id || "");
+      if (!key) continue;
+      const arr = cleaningJobsForOrderByOrder.get(key);
+      if (arr) arr.push(r); else cleaningJobsForOrderByOrder.set(key, [r]);
+    }
+  }
+
   const bucket = <T extends { order_id?: string | null }>(rows: T[] | null) => {
     const m = new Map<string, T[]>();
     for (const r of rows || []) {
@@ -184,6 +206,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   const invoicesByOrder = bucket(invoicesRes.data as any[] | null);
   const emailLogByOrder = bucket(emailLogRes.data as any[] | null);
   const deliveryShiftsByOrder = bucket(deliveryShiftsRes.data as any[] | null);
+  const handoversByOrder = bucket(handoversRes.data as any[] | null);
 
   // Wave 46 T1 - batch-fetch tenant timezones for every distinct
   // company in this run so the per-order timeline urgency tier
@@ -248,6 +271,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         invoices: invoicesByOrder.get(o.id) || [],
         emailLog: emailLogByOrder.get(o.id) || [],
         cleaningJobsActive,
+        cleaningJobsForOrder: cleaningJobsForOrderByOrder.get(o.id) || [],
+        cleaningHandoversForOrder: handoversByOrder.get(o.id) || [],
         deliveryShifts: deliveryShiftsByOrder.get(o.id) || [],
         quoteAccepted: true,
         // Wave 46 T1 - pass per-order tenant tz so the urgency

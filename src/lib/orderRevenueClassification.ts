@@ -76,6 +76,11 @@ export interface OrderForRevenue {
   payment_status?: string | null;
 }
 
+function hasSettledOrPartialPayment(status: string | null | undefined): boolean {
+  const s = String(status || "").toLowerCase();
+  return s === "paid" || s === "partial" || s === "completed";
+}
+
 const ACTIVE_STATUSES = new Set([
   "confirmed", "preparing", "ready", "in_transit",
 ]);
@@ -95,8 +100,7 @@ export function classifyOrderRevenue(order: OrderForRevenue | null | undefined):
     const lockedIn =
       !!order.deposit_paid
       || !!order.confirmed_at
-      || order.payment_status === "paid"
-      || order.payment_status === "partial";
+      || hasSettledOrPartialPayment(order.payment_status);
     return lockedIn ? "booked" : "pipeline";
   }
   return "excluded";

@@ -18,6 +18,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { toLocalISO } from "@/lib/localDate";
+import { isBookedRevenue } from "@/lib/orderRevenueClassification";
 
 interface PriorStats {
   revenue: number;
@@ -60,7 +61,7 @@ export function YearOverYearCard({
         const toIso = toLocalISO(shiftYear(range.to, -1));
         const { data, error } = await (supabase as any)
           .from("orders")
-          .select("total_amount, status, payment_status, deposit_paid, confirmed_at")
+          .select("total_amount, status, payment_status, deposit_paid, confirmed_at, cancelled_at")
           .eq("company_id", companyId)
           .is("deleted_at", null)
           .gte("event_date", fromIso)
@@ -73,11 +74,7 @@ export function YearOverYearCard({
         let revenue = 0;
         let count = 0;
         for (const o of (data || []) as any[]) {
-          const status = String(o.status || "").toLowerCase();
-          if (status === "cancelled") continue;
-          const pay = String(o.payment_status || "").toLowerCase();
-          const isBooked = o.deposit_paid === true || !!o.confirmed_at || pay === "paid" || pay === "partial";
-          if (!isBooked) continue;
+          if (!isBookedRevenue(o)) continue;
           revenue += Number(o.total_amount || 0);
           count += 1;
         }

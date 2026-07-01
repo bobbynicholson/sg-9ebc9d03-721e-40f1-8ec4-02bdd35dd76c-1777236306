@@ -129,7 +129,7 @@ export function OrderReadinessChip({
   const showCloseOut = (() => {
     if (!canShowCloseOut || !orderId) return false;
     const s = (status || "").toString().toLowerCase();
-    if (["delivered", "completed", "cancelled", "refunded"].includes(s)) return false;
+    if (["completed", "cancelled", "refunded"].includes(s)) return false;
     if (!eventDate) return false;
     const dt = eventTime
       ? new Date(`${eventDate}T${String(eventTime).slice(0, 8)}`)
@@ -153,7 +153,7 @@ export function OrderReadinessChip({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ reason: "Closed from order readiness chip" }),
+        body: JSON.stringify({ target_status: "completed", reason: "Closed from order readiness chip" }),
       });
       const data = await r.json();
       if (!r.ok) {

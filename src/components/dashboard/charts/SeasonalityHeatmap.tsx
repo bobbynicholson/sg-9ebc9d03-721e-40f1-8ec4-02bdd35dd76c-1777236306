@@ -7,7 +7,7 @@
  * with the chosen metric (events count by default, revenue when
  * toggled). Tooltip on hover gives exact figures.
  */
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { Calendar, ToggleLeft, ToggleRight } from "lucide-react";
@@ -123,7 +123,7 @@ export function SeasonalityHeatmap({ data, loading }: Props) {
 
               {/* 7 rows - one per day of week */}
               {DAY_LABELS.map((dayLabel, dow) => (
-                <>
+                <Fragment key={`row-${dow}`}>
                   <div key={`dow-${dow}`} className="text-[9px] text-slate-500 pr-1 text-right leading-none self-center">
                     {dayLabel}
                   </div>
@@ -140,7 +140,7 @@ export function SeasonalityHeatmap({ data, loading }: Props) {
                       />
                     );
                   })}
-                </>
+                </Fragment>
               ))}
             </div>
 

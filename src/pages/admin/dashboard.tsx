@@ -50,7 +50,7 @@ import { RegionPerformanceWidget } from "@/components/admin/RegionPerformanceWid
 import { YearOverYearCard } from "@/components/admin/YearOverYearCard";
 import { CashflowSnapshotWidget } from "@/components/admin/CashflowSnapshotWidget";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
-import { toLocalISO } from "@/lib/localDate";
+import { DEFAULT_TENANT_TIMEZONE, tenantToday, toLocalISO } from "@/lib/localDate";
 import { useTenantHref } from "@/lib/tenantUrl";
 
 interface Stats {
@@ -101,6 +101,8 @@ interface Stats {
   /** Phase 12 #6: quote conversion. accepted / closed in range. */
   quoteConversionRate: number;
   quoteConversionSample: number;
+  testOrdersInRange: number;
+  testRevenueInRange: number;
 }
 
 const EMPTY: Stats = {
@@ -117,9 +119,20 @@ const EMPTY: Stats = {
   refundsOutstandingValue: 0, topCancelReason: "-",
   vatCollected: 0,
   quoteConversionRate: 0, quoteConversionSample: 0,
+  testOrdersInRange: 0, testRevenueInRange: 0,
 };
 
 const ACTIVE_STATUSES = ["confirmed", "preparing", "ready", "in_transit"];
+
+function isAutomatedTestOrder(order: any): boolean {
+  const markerText = [
+    order?.order_number,
+    order?.event_name,
+    order?.internal_notes,
+  ].filter(Boolean).join(" ");
+
+  return /\b(E2E-ORD|E2E_RUN:|ORDER-E2E|Codex E2E)\b/i.test(markerText);
+}
 
 function AdminDashboardPage() {
   const { user, profile, companySlug } = useAuth();
@@ -158,6 +171,11 @@ function AdminDashboardPage() {
   // in companies.timezone, but multi-region tenants couldn't
   // see which clock was driving the math.
   const [tenantTimezone, setTenantTimezone] = useState<string | null>(null);
+  const effectiveTenantTimezone = tenantTimezone || DEFAULT_TENANT_TIMEZONE;
+  const tenantDateAnchor = useMemo(
+    () => tenantToday(effectiveTenantTimezone),
+    [effectiveTenantTimezone],
+  );
   useEffect(() => {
     if (!companyId) return;
     let cancelled = false;
@@ -170,10 +188,19 @@ function AdminDashboardPage() {
       if (error) {
         console.error("[admin/dashboard] companies.timezone fetch failed:", error);
       }
-      if (!cancelled) setTenantTimezone((data as any)?.timezone || null);
+      if (!cancelled) setTenantTimezone((data as any)?.timezone || DEFAULT_TENANT_TIMEZONE);
     })();
     return () => { cancelled = true; };
   }, [companyId]);
+
+  useEffect(() => {
+    if (!tenantTimezone) return;
+    setRange((prev) => (
+      prev.presetId === "custom"
+        ? prev
+        : resolvePreset(prev.presetId, tenantToday(tenantTimezone))
+    ));
+  }, [tenantTimezone]);
 
   // Phase 11 #1: tenant currency on the main dashboard metric
   // cards. Resolves the symbol + locale from companies.currency
@@ -197,6 +224,16 @@ function AdminDashboardPage() {
       return new Intl.NumberFormat("en-ZA", { style: "currency", currency: "ZAR", maximumFractionDigits: 0 });
     }
   }, [tenantCurrency.code]);
+  const testOrdersReviewHref = useMemo(() => {
+    const params = new URLSearchParams({
+      q: "E2E-ORD",
+      dateFilter: "custom",
+      from: toLocalISO(range.from),
+      to: toLocalISO(range.to),
+      view: "timeline",
+    });
+    return withSlug(`/admin/orders?${params.toString()}`);
+  }, [range.from, range.to, withSlug]);
 
   const loadMetrics = async () => {
     if (!companyId) return;
@@ -206,7 +243,7 @@ function AdminDashboardPage() {
 
       const fromISO = toLocalISO(range.from);
       const toISO   = toLocalISO(range.to);
-      const todayISO = toLocalISO(new Date());
+      const todayISO = toLocalISO(tenantToday(effectiveTenantTimezone));
 
       // Pull every order whose event falls in the range, plus the always-on
       // counters (low stock, pending quotes, team size) which don't bind to range.
@@ -218,7 +255,7 @@ function AdminDashboardPage() {
       const [ordersRes, quotesRes, quotesCirculatingRes, usersRes, invRes, conversionRes, draftsRes, shortfallRes] = await Promise.all([
         supabase
           .from("orders")
-          .select("id, status, payment_status, total_amount, tax_amount, deposit_paid, deposit_amount, balance_paid, balance_amount, amount_paid, event_date, confirmed_at, cancellation_reason_category")
+          .select("id, order_number, event_name, internal_notes, status, payment_status, total_amount, tax_amount, deposit_paid, deposit_amount, balance_paid, balance_amount, amount_paid, event_date, confirmed_at, cancelled_at, cancellation_reason_category")
           .eq("company_id", companyId)
           .is("deleted_at", null)
           .gte("event_date", fromISO)
@@ -324,6 +361,12 @@ function AdminDashboardPage() {
       });
 
       const orders = ordersRes.data || [];
+      const testOrders = orders.filter((o: any) => isAutomatedTestOrder(o));
+      const testOrdersInRange = testOrders.length;
+      const testRevenueInRange = testOrders.reduce(
+        (sum: number, o: any) => sum + (isBookedRevenue(o) ? Number(o.total_amount || 0) : 0),
+        0,
+      );
 
       // Revenue maths
       // BOOKED: order is locked in (not cancelled, not draft) - the catering
@@ -365,7 +408,7 @@ function AdminDashboardPage() {
         } else {
           if (o.deposit_paid && Number(o.deposit_amount || 0) > 0) received += Number(o.deposit_amount);
           if (o.balance_paid && Number(o.balance_amount || 0) > 0) received += Number(o.balance_amount);
-          if (received === 0 && pay === "paid") received = total;
+          if (received === 0 && (pay === "paid" || pay === "completed")) received = total;
         }
         if (received > 0) collectedOrders += 1;
         collectedRevenue += received;
@@ -380,7 +423,7 @@ function AdminDashboardPage() {
       const outstandingRevenue = Math.max(0, bookedRevenue - collectedRevenue);
 
       const activeOrders = orders.filter((o: any) =>
-        ACTIVE_STATUSES.includes(String(o.status || "").toLowerCase()),
+        ACTIVE_STATUSES.includes(String(o.status || "").toLowerCase()) && !o.cancelled_at,
       ).length;
 
       // Wave 70.56: also compute the earliest-event date so the
@@ -389,7 +432,11 @@ function AdminDashboardPage() {
       // before (which conflated upcoming with activeOrders).
       const upcomingOrders = orders.filter((o: any) => {
         const status = String(o.status || "").toLowerCase();
-        return o.event_date >= todayISO && status !== "cancelled" && status !== "completed";
+        return o.event_date >= todayISO
+          && status !== "cancelled"
+          && status !== "completed"
+          && status !== "delivered"
+          && !o.cancelled_at;
       });
       const upcomingEvents = upcomingOrders.length;
       const nextEventDate = upcomingOrders.length === 0
@@ -415,7 +462,7 @@ function AdminDashboardPage() {
       // edge case stays excluded from the denominator.
       const completedOrdersInRange = orders.filter((o: any) => {
         const s = String(o.status || "").toLowerCase();
-        return s === "completed" || s === "delivered";
+        return (s === "completed" || s === "delivered") && !o.cancelled_at;
       }).length;
 
       const totalOrdersInRange = orders.filter((o: any) => {
@@ -464,12 +511,12 @@ function AdminDashboardPage() {
       // (refunds are queue-style - pending refunds are about
       // "what's outstanding right now", not bound to the date filter).
       const cancelledOrdersInRange = orders.filter((o: any) =>
-        String(o.status || "").toLowerCase() === "cancelled",
+        String(o.status || "").toLowerCase() === "cancelled" || !!o.cancelled_at,
       ).length;
 
       const reasonCounts: Record<string, number> = {};
       for (const o of orders) {
-        if (String(o.status || "").toLowerCase() !== "cancelled") continue;
+        if (String(o.status || "").toLowerCase() !== "cancelled" && !o.cancelled_at) continue;
         const cat = (o as any).cancellation_reason_category || "other";
         reasonCounts[cat] = (reasonCounts[cat] || 0) + 1;
       }
@@ -521,6 +568,7 @@ function AdminDashboardPage() {
         refundsOutstandingValue, topCancelReason,
         vatCollected,
         quoteConversionRate, quoteConversionSample,
+        testOrdersInRange, testRevenueInRange,
       });
     } catch (err: any) {
       console.error("Dashboard load error:", err);
@@ -581,14 +629,14 @@ function AdminDashboardPage() {
                 {tenantTimezone && (
                   <span className="ml-2 inline-flex items-center gap-1 text-[11px] text-slate-500 align-middle">
                     <Clock className="w-3 h-3" />
-                    <span className="font-mono">{tenantTimezone}</span>
+                    <span className="font-mono">{effectiveTenantTimezone}</span>
                   </span>
                 )}
               </>
             }
             actions={
               <>
-                <DashboardDateRange range={range} onChange={setRange} />
+                <DashboardDateRange range={range} onChange={setRange} anchorDate={tenantDateAnchor} />
                 <Button
                   variant="outline"
                   size="sm"
@@ -631,6 +679,35 @@ function AdminDashboardPage() {
             </div>
           )}
 
+          {stats.testOrdersInRange > 0 && (
+            <Card className="mb-6 border border-amber-200 bg-amber-50 shadow-sm">
+              <CardContent className="flex flex-col gap-4 p-4 sm:flex-row sm:items-start sm:justify-between">
+                <div className="flex items-start gap-3">
+                  <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-amber-700" />
+                  <div>
+                    <h2 className="text-sm font-semibold text-amber-950">Test data included in this dashboard</h2>
+                    <p className="mt-1 text-sm leading-5 text-amber-900">
+                      This date range includes {stats.testOrdersInRange} automated E2E order{stats.testOrdersInRange === 1 ? "" : "s"} worth{" "}
+                      {fmt.format(stats.testRevenueInRange)}. The totals are calculated correctly, but they are not pure client trading until those test rows are purged or you choose a clean date range.
+                    </p>
+                    <p className="mt-1 text-xs text-amber-800">
+                      Detected from order numbers or tags such as E2E-ORD, E2E_RUN, ORDER-E2E, and Codex E2E.
+                    </p>
+                  </div>
+                </div>
+                <Link href={testOrdersReviewHref} className="shrink-0">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full border-amber-300 bg-white text-amber-900 hover:bg-amber-100 sm:w-auto"
+                  >
+                    Review test orders
+                  </Button>
+                </Link>
+              </CardContent>
+            </Card>
+          )}
+
           {/* AD-7 (admin-dashboard audit): fresh-tenant empty
               state. When the tenant has zero data across every
               dimension the page would normally show, render the
@@ -664,7 +741,7 @@ function AdminDashboardPage() {
               today's confirmed events, in-transit deliveries, drivers
               on shift, kitchen prep load, money landed today. Refreshes
               every 60 seconds so the tab stays current. */}
-          <WidgetErrorBoundary label="Today's pulse"><TodaysPulse companyId={companyId} /></WidgetErrorBoundary>
+          <WidgetErrorBoundary label="Today's pulse"><TodaysPulse companyId={companyId} timezone={effectiveTenantTimezone} /></WidgetErrorBoundary>
 
           {/* === KPI HEADLINES (Wave 70.53) ====================================
               Moved here from below Quick Actions. Owner brief 2026-05-22:
@@ -705,7 +782,7 @@ function AdminDashboardPage() {
               label="Collected"
               value={fmt.format(stats.collectedRevenue)}
               hint={`Money received in ${range.label}`}
-              tooltip={"Money actually banked from clients in this period. Includes deposits, partial payments and fully settled invoices. Cancelled-with-deposit cash stays counted here until a refund payment is recorded (Wave 70.52a).\n\nPulled from recorded payments on each order."}
+              tooltip={"Money actually banked from clients in this period. Includes deposits, partial payments and fully settled invoices. If a cancelled booking still has cash on record, it stays counted here until a refund payment is recorded.\n\nPulled from recorded payments on each order."}
               icon={CheckCircle}
               iconColor="text-brand-primary"
               badge={{ text: `${stats.collectedOrders} paid`, tone: "green" }}
@@ -761,7 +838,7 @@ function AdminDashboardPage() {
                   label="Quote conversion"
                   value={`${stats.quoteConversionRate.toFixed(0)}%`}
                   hint={`${stats.quoteConversionSample} closed in range${stats.quoteConversionSample < 5 ? " (small sample)" : ""}`}
-                  tooltip={"Accepted ÷ closed quotes (accepted + rejected + expired) whose decision landed in this date range. Drafts are excluded - they were never sent so the outcome is undecided.\n\nSample size matters. A 100% rate over 1 closed quote means much less than 60% over 30."}
+                  tooltip={"Accepted quotes divided by closed quotes (accepted + rejected + expired) whose decision landed in this date range. Drafts are excluded - they were never sent so the outcome is undecided.\n\nSample size matters. A 100% rate over 1 closed quote means much less than 60% over 30."}
                   icon={CheckCircle}
                   iconColor="text-brand-primary"
                   badge={stats.quoteConversionSample < 5
@@ -785,7 +862,7 @@ function AdminDashboardPage() {
               label="Quotes in circulation"
               value={fmt.format(stats.quotesInCirculationValue)}
               hint={`${stats.quotesInCirculationCount} quote${stats.quotesInCirculationCount === 1 ? "" : "s"} sent, awaiting client response`}
-              tooltip={"Total rand value of quotes sent to clients but not yet accepted or declined. Filters on the 'sent' status (Wave 70.52a fix - previously also queried for 'viewed' and 'revised' which don't exist in the quote_status enum; PostgREST silently rejected the filter and the tile read R0 forever).\n\nThis is your live pipeline. The bigger this is, the more revenue is sitting one client decision away."}
+              tooltip={"Total value of quotes sent to clients but not yet accepted or declined. This is your live sales pipeline: the bigger this is, the more revenue is sitting one client decision away."}
               icon={FileText}
               iconColor="text-amber-600"
               badge={stats.quotesInCirculationCount > 0 ? { text: "In play", tone: "amber" } : undefined}
@@ -830,7 +907,7 @@ function AdminDashboardPage() {
               label="Team Members"
               value={stats.activeUsers}
               hint="Active users"
-              tooltip={"Everyone currently on your team. Excludes soft-deleted profiles (deleted_at) and explicitly deactivated accounts (is_active=false), so an offboarded driver no longer inflates the headline. Not affected by the date filter."}
+              tooltip={"Everyone currently on your team. Excludes deleted or deactivated accounts, so offboarded staff no longer inflate the headline. Not affected by the date filter."}
               icon={Users}
               iconColor="text-brand-primary"
               loading={loading}
