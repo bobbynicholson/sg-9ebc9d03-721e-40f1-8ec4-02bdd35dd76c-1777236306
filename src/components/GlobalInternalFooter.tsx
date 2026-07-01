@@ -36,15 +36,12 @@ export function GlobalInternalFooter() {
   const displayName = branding?.companyName || "CateringMS";
   const isWhiteLabeled = isWhiteLabelRow(branding);
 
-  // Wave 70.27 - the slim footer is `fixed` so it doesn't take up
-  // space in normal flow. On long scrolling pages that would let the
-  // footer cover the last ~32px of content. The spacer below sits in
-  // normal flow at the end of the page body so the user can always
-  // scroll the final line of content above the footer. Sized to match
-  // the footer's own height (py-2 ~ 32px) plus a small breathing gap.
+  // Desktop footer is fixed, so the spacer gives long pages room to scroll the
+  // final line above it. Mobile footer is normal flow and does not need a
+  // spacer.
   return (
     <>
-      <div aria-hidden className="h-10" />
+      <div aria-hidden className="hidden h-10 lg:block" />
       <SlimInternalFooter displayName={displayName} isWhiteLabeled={isWhiteLabeled} />
     </>
   );

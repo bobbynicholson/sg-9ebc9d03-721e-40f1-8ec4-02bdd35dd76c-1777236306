@@ -12,6 +12,7 @@ import { UserRole } from "@/types/app";
 import Head from "next/head";
 import { AlertTriangle } from "lucide-react";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { CatalogueOperationsStrip } from "@/components/admin/CatalogueOperationsStrip";
 import { PortalShell, PortalHeader,
   PageWorkbench,
 } from "@/components/portal/ui";
@@ -45,6 +46,7 @@ function EquipmentDamagesPage() {
             icon={AlertTriangle}
           />
           <PageWorkbench />
+          <CatalogueOperationsStrip active="damages" />
           <DamageAnalytics />
         </PortalShell>
 

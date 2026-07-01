@@ -68,7 +68,6 @@ import {
   Shield,
   CookingPot,
   FlaskConical,
-  AlertTriangle,
 } from "lucide-react";
 import { useRouter } from "next/router";
 import { Badge } from "@/components/ui/badge";
@@ -262,7 +261,6 @@ export function AdminNav(_: AdminNavProps = {}) {
         { title: "Routes",          href: "/admin/route-planning",  icon: Route,         description: "Plan tomorrow" },
         { title: "Vehicles",        href: "/admin/vehicles",        icon: Truck,         description: "Fleet and cold chain" },
         { title: "Regions",         href: "/admin/regions",         icon: Map,           description: "Manage service regions" },
-        { title: "Public holidays", href: "/admin/public-holidays", icon: CalendarHeart, description: "BCEA rate dates" },
       ],
     },
     // MONEY - finance nucleus, gated to finance-bearing roles.
@@ -291,7 +289,6 @@ export function AdminNav(_: AdminNavProps = {}) {
         { title: "Stock",               href: "/admin/stock",               icon: BarChart3,   description: "Low and committed stock" },
         { title: "Inventory",           href: "/admin/inventory",           icon: Package,     description: "Pantry and chiller" },
         { title: "Equipment",           href: "/admin/equipment",           icon: Layers,      description: "Availability and hire-in" },
-        { title: "Equipment damages",   href: "/admin/equipment-damages",   icon: AlertTriangle, description: "Broken or lost gear" },
         { title: "Suppliers",           href: "/admin/suppliers",           icon: Building2,   description: "Contacts, products, spend" },
         { title: "Outsource",           href: "/admin/outsource-providers", icon: HardHat,     description: "External event help" },
         { title: "Shopping",            href: "/admin/shopping",            icon: ShoppingBag, description: "Buy lists and slips" },
@@ -308,6 +305,14 @@ export function AdminNav(_: AdminNavProps = {}) {
         { title: "Drivers",       href: "/admin/teams/drivers",  icon: Truck,     description: "Roster and routes" },
         { title: "Cleaning",      href: "/admin/teams/cleaning", icon: Sparkles,  description: "Roster and workflows" },
         { title: "HR",            href: "/admin/hr-solutions",   icon: Briefcase, description: "Contracts and compliance" },
+        ...((profile && [
+          UserRole.SUPER_ADMIN,
+          UserRole.OWNER,
+          UserRole.COMPANY_ADMIN,
+          UserRole.ADMIN,
+        ].includes(profile.role as UserRole)) ? [
+          { title: "Holiday calendar", href: "/admin/public-holidays", icon: CalendarHeart, description: "Payroll rate dates" },
+        ] : []),
         { title: "Onboarding",    href: "/admin/onboarding",     icon: Wand2,     description: "Import clients and orders" },
         // Payroll cluster - same finance gate as Money.
         ...(profile && canAccessFinance(profile.role as UserRole) ? [

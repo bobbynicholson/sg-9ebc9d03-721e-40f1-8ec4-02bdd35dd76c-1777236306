@@ -34,6 +34,7 @@ import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { CatalogueOperationsStrip } from "@/components/admin/CatalogueOperationsStrip";
 import { PortalShell, PortalHeader,
   PageWorkbench,
 } from "@/components/portal/ui";
@@ -888,6 +889,7 @@ function StockPage() {
             }
           />
           <PageWorkbench />
+          <CatalogueOperationsStrip active="stock" />
 
           {/* STK-B: aging hire-in escalation banner. Loud when one or
               more suppliers owe orders that are >7 days overdue. */}

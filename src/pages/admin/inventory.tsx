@@ -6,6 +6,7 @@ import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import { useSortable, type ColumnDef } from "@/lib/useSortable";
 import { SortHeader } from "@/components/ui/sort-header";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { CatalogueOperationsStrip } from "@/components/admin/CatalogueOperationsStrip";
 import { PortalShell, PortalHeader,
   PageWorkbench,
 } from "@/components/portal/ui";
@@ -1022,6 +1023,7 @@ function AdminInventory() {
             }
           />
           <PageWorkbench />
+          <CatalogueOperationsStrip active="inventory" />
 
           {/* Recent receipts that fed inventory - collapsible audit
               trail tying stock movements back to the slip they came from. */}

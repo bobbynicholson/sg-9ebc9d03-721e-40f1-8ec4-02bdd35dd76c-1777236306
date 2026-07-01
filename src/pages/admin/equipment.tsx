@@ -47,6 +47,7 @@ import {
   type EquipmentReservationRow,
 } from "@/services/equipmentAvailabilityService";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { CatalogueOperationsStrip } from "@/components/admin/CatalogueOperationsStrip";
 import { PortalShell, PortalHeader,
   PageWorkbench,
 } from "@/components/portal/ui";
@@ -199,6 +200,7 @@ function EquipmentPage() {
             icon={Package}
           />
           <PageWorkbench />
+          <CatalogueOperationsStrip active={tab === "damages" ? "damages" : "equipment"} />
 
           <Tabs value={tab} onValueChange={handleTabChange} className="w-full">
             <TabsList className="grid grid-cols-2 md:grid-cols-5 w-full md:w-auto h-auto">

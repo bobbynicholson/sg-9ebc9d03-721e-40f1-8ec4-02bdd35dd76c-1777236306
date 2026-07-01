@@ -547,6 +547,7 @@ function RegionsPage() {
     }
 
     toast({ title: editing ? "Branch updated" : "Branch created", description: form.name });
+    emitRegionUpdated(editing?.id || null, editing ? "update" : "create");
     setCreateOpen(false);
     setEditing(null);
     setForm(emptyForm());
@@ -603,6 +604,7 @@ function RegionsPage() {
         return;
       }
       toast({ title: "Branch paused", description: `${region.name} won't accept new work. History preserved.` });
+      emitRegionUpdated(region.id, "pause");
       void loadRegions();
       return;
     }
@@ -615,7 +617,19 @@ function RegionsPage() {
       return;
     }
     toast({ title: "Branch deleted", description: region.name });
+    emitRegionUpdated(region.id, "delete");
     void loadRegions();
+  };
+
+  const emitRegionUpdated = (regionId: string | null, action: "create" | "update" | "pause" | "delete") => {
+    if (typeof window === "undefined") return;
+    try {
+      window.dispatchEvent(new CustomEvent("cateringms:region-updated", {
+        detail: { regionId, action, source: "regions" },
+      }));
+    } catch {
+      // CustomEvent is available in supported browsers; ignore old polyfill gaps.
+    }
   };
 
   const countryConfig = useMemo(() => getCountry(form.country), [form.country]);

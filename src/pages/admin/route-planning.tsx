@@ -97,6 +97,17 @@ function RoutePlanningInner() {
 
   useEffect(() => { loadBatchPairs(); }, [loadBatchPairs]);
 
+  const emitOrderUpdated = useCallback((orderIds: string[], action: string) => {
+    if (typeof window === "undefined" || orderIds.length === 0) return;
+    try {
+      window.dispatchEvent(new CustomEvent("cateringms:order-updated", {
+        detail: { orderIds, action, source: "route-planning" },
+      }));
+    } catch {
+      // CustomEvent is available in supported browsers; ignore old polyfill gaps.
+    }
+  }, []);
+
   const handleBatchAssign = async (pair: any) => {
     if (!user?.company_id) return;
     // Pick the top-suggested driver for the primary order, then assign both.
@@ -138,6 +149,10 @@ function RoutePlanningInner() {
         description: `${top.driver.full_name} on ${pair.primary.client_name} + ${pair.secondary.client_name}`,
         variant: ok === 0 ? "destructive" : "default",
       });
+      emitOrderUpdated(
+        [r1.ok ? pair.primary.id : null, r2.ok ? pair.secondary.id : null].filter(Boolean) as string[],
+        "batch-assign",
+      );
       loadDispatchData();
       loadBatchPairs();
     } finally {
@@ -237,6 +252,7 @@ function RoutePlanningInner() {
     setAutoAssigning(true);
     let assigned = 0;
     let skipped = 0;
+    const assignedIds: string[] = [];
     try {
       for (const order of unassignedOrders) {
         const o: any = order;
@@ -251,21 +267,29 @@ function RoutePlanningInner() {
         }, 1);
         const top = suggestions.find(s => s.capacity.ok && s.feasibility.ok && s.vehicle.ok);
         if (!top) { skipped += 1; continue; }
+        const orderId = o.order_id || o.id;
         const r = await dispatchService.assignDriverWithGate({
           companyId: user.company_id,
-          orderId: o.order_id || o.id,
+          orderId,
           driverId: top.driver.id,
           performedBy: user.id,
           score: top.score.total,
           reason: "Auto-assigned from route planning",
         });
-        if (r.ok) assigned += 1; else skipped += 1;
+        if (r.ok) {
+          assigned += 1;
+          assignedIds.push(orderId);
+        } else {
+          skipped += 1;
+        }
       }
       toast({
         title: `Auto-assigned ${assigned} order${assigned === 1 ? "" : "s"}`,
         description: skipped > 0 ? `${skipped} skipped (no eligible driver).` : "All confirmed orders now have a driver.",
       });
+      emitOrderUpdated(assignedIds, "auto-assign");
       loadDispatchData();
+      loadBatchPairs();
     } finally {
       setAutoAssigning(false);
     }
@@ -342,6 +366,7 @@ function RoutePlanningInner() {
       // refresh unassigned orders so the dispatcher sees the queue shrink.
       setOptimizedRoutes((prev) => prev.filter((r) => r.driver_id !== route.driver_id));
       setSelectedRoute(null);
+      emitOrderUpdated(route.stops.map((stop) => stop.order_id), "route-apply");
       loadDispatchData();
     } catch (error) {
       console.error("Error applying route:", error);

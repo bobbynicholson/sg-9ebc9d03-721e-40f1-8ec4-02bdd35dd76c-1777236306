@@ -39,6 +39,7 @@ import {
 } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { CatalogueOperationsStrip } from "@/components/admin/CatalogueOperationsStrip";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { useAuth } from "@/contexts/AuthContext";
 import { UserRole } from "@/types/app";
@@ -259,6 +260,7 @@ function SuppliersList() {
             }
           />
           <PageWorkbench />
+          <CatalogueOperationsStrip active="suppliers" />
 
           {/* Top stat tiles. Rand tiles are gated behind finance-vis. */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
@@ -1302,7 +1304,7 @@ export default function SuppliersPage() {
     // SUP-A (suppliers audit, SUP-2): admit sales_admin (supplier
     // contact for client advisories) + region_admin (regional view).
     // SUP-B: rand columns gated inside the page via canSeeFinance.
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.SALES_ADMIN, UserRole.REGION_ADMIN]}>
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.OWNER, UserRole.ADMIN, UserRole.SALES_ADMIN, UserRole.REGION_ADMIN]}>
       <SuppliersList />
     </ProtectedRoute>
   );

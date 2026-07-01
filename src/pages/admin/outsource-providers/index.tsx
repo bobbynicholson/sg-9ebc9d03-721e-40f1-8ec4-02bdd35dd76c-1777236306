@@ -20,6 +20,7 @@ import { useEffect, useMemo, useState } from "react";
 import Head from "next/head";
 import Link from "next/link";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { CatalogueOperationsStrip } from "@/components/admin/CatalogueOperationsStrip";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -519,6 +520,7 @@ function ProvidersList() {
             }
           />
           <PageWorkbench />
+          <CatalogueOperationsStrip active="outsource" />
 
           {/* OUT-B: cron dry-run tester. Demoted from always-on
               yellow banner to a collapsed disclosure. Only owner /
@@ -1486,7 +1488,7 @@ export default function ProtectedOutsourceProvidersPage() {
   return (
     // OUT-A (outsource-providers audit, OUT-2): admit sales_admin
     // (advise on per-event chef / florist / photographer) + region.
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.SALES_ADMIN, UserRole.REGION_ADMIN]}>
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.OWNER, UserRole.ADMIN, UserRole.SALES_ADMIN, UserRole.REGION_ADMIN]}>
       <ProvidersList />
     </ProtectedRoute>
   );

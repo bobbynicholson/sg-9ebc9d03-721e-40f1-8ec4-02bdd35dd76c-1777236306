@@ -64,8 +64,9 @@ function classifyRoute(pathname: string): "marketing" | "internal" {
  * requires (Privacy + Terms). That's it.
  *
  * No big slate-gradient block, no contact details, no resources list.
- * Single calm hairline divider, slate-500 text, sits flush at the
- * bottom of the page content.
+ * Single calm hairline divider, slate-500 text. On desktop it pins to the
+ * viewport below the sidebar; on mobile it stays in normal document flow so it
+ * cannot cover scrollable page content.
  */
 export function SlimInternalFooter({
   displayName,
@@ -75,18 +76,13 @@ export function SlimInternalFooter({
   isWhiteLabeled: boolean;
 }) {
   const currentYear = new Date().getFullYear();
-  // Wave 70.27 - pinned to the bottom of the viewport with `fixed`
-  // so it never leaves dead whitespace between content and footer
-  // on short admin pages (the page wrappers use min-h-screen which
-  // forces them to 100vh tall even when content is short - if the
-  // footer were a normal block, that whole 100vh would render
-  // before the footer hit the page bottom). Offsets for the
-  // admin / portal sidebars on lg+ so the footer doesn't render
-  // under the nav. backdrop-blur + 95% bg so content scrolling
-  // underneath stays legible.
+  // Desktop: pinned to the bottom of the viewport so short admin pages do not
+  // leave a dead band before the footer. Mobile: normal flow. A fixed mobile
+  // footer covered filters and list rows on long pages because it floated over
+  // the viewport while the page kept scrolling underneath.
   return (
     <footer
-      className="internal-footer-shell fixed bottom-0 left-0 right-0 lg:left-72 xl:left-80 z-30 border-t border-slate-200 dark:border-slate-700 bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm"
+      className="internal-footer-shell border-t border-slate-200 bg-white/95 backdrop-blur-sm dark:border-slate-700 dark:bg-slate-900/95 lg:fixed lg:bottom-0 lg:left-72 lg:right-0 lg:z-30 xl:left-80"
       style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
     >
       <div className="px-4 py-2">

@@ -29,6 +29,7 @@ import { useEffect, useMemo, useState } from "react";
 import Head from "next/head";
 import Link from "next/link";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { CatalogueOperationsStrip } from "@/components/admin/CatalogueOperationsStrip";
 import { PortalShell, PortalHeader,
   PageWorkbench,
 } from "@/components/portal/ui";
@@ -475,6 +476,7 @@ function OfferingPage() {
             }
           />
           <PageWorkbench />
+          <CatalogueOperationsStrip active="offering" />
 
           {/* OFR-B: inline error banner. Pre-OFR-B a network failure
               left the page showing zeros silently; now the operator

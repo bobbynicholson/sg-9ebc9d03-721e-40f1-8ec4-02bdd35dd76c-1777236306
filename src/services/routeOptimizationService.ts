@@ -426,6 +426,7 @@ export const routeOptimizationService = {
   async getUnassignedOrders(companyId: string): Promise<DeliveryStop[]> {
     // An order is unassigned only when both legacy `driver_id` and the
     // canonical `assigned_driver_id` are empty.
+    const today = new Date().toISOString().slice(0, 10);
     const { data, error } = await supabase
       .from("orders")
       .select("*")
@@ -433,12 +434,13 @@ export const routeOptimizationService = {
       .is("driver_id", null)
       .is("assigned_driver_id", null)
       .in("status", ["confirmed", "preparing", "ready"])
+      .gte("event_date", today)
       .not("venue_lat", "is", null)
       .not("venue_lng", "is", null);
 
     if (error) {
       console.error("Error fetching unassigned orders:", error);
-      return [];
+      throw error;
     }
 
     // Pull the arrival buffer from dispatch_settings so each stop carries it
@@ -466,6 +468,10 @@ export const routeOptimizationService = {
         id: order.id,
         order_id: order.id,
         client_name: order.client_name,
+        event_date: order.event_date ?? null,
+        event_time: order.event_time ?? null,
+        region_id: order.region_id ?? null,
+        requires_refrigeration: !!order.requires_refrigeration,
         venue_address: order.venue_address,
         venue_lat: order.venue_lat,
         venue_lng: order.venue_lng,
@@ -596,31 +602,102 @@ export const routeOptimizationService = {
    * Save optimized route to database
    */
   async saveOptimizedRoute(route: OptimizedRoute): Promise<boolean> {
+    let createdRouteId: string | null = null;
     try {
-      // Update driver assignments
-      const updates = route.stops.map((stop, index) => ({
-        order_id: stop.order_id,
-        driver_id: route.driver_id,
-        sequence: index + 1,
-        estimated_arrival: new Date(
-          Date.now() + index * 30 * 60000
-        ).toISOString(), // Rough estimate
-      }));
+      const orderIds = Array.from(new Set(route.stops.map((stop) => stop.order_id).filter(Boolean)));
+      if (orderIds.length === 0) throw new Error("Route has no order stops.");
 
-      // Update orders with driver and sequence. Write both `driver_id`
-      // (legacy) and `assigned_driver_id` (canonical) so every consumer
-      // sees the assignment regardless of which column they read.
-      for (const stop of route.stops) {
-        // orders has no delivery_sequence column (stop order lives on
-        // delivery_route_stops.sequence_number); only persist the driver here.
-        await supabase
-          .from("orders")
-          .update({
-            driver_id: route.driver_id,
-            assigned_driver_id: route.driver_id,
-          } as any)
-          .eq("id", stop.order_id);
+      const { data: orderRows, error: orderErr } = await (supabase as any)
+        .from("orders")
+        .select("id, company_id, assigned_driver_id, driver_id, event_date")
+        .in("id", orderIds);
+      if (orderErr) throw orderErr;
+
+      const ordersById = new Map<string, any>();
+      for (const row of ((orderRows as any[]) || [])) ordersById.set(row.id, row);
+      const missing = orderIds.filter((id) => !ordersById.has(id));
+      if (missing.length > 0) throw new Error(`Route contains ${missing.length} order that no longer exists.`);
+
+      const companyId = (orderRows as any[])?.[0]?.company_id;
+      if (!companyId) throw new Error("Could not resolve company for route.");
+      if (((orderRows as any[]) || []).some((row) => row.company_id !== companyId)) {
+        throw new Error("Route contains orders from more than one company.");
       }
+
+      const conflicts = ((orderRows as any[]) || []).filter((row) => {
+        const assigned = row.assigned_driver_id || row.driver_id;
+        return assigned && assigned !== route.driver_id;
+      });
+      if (conflicts.length > 0) {
+        throw new Error(`${conflicts.length} stop${conflicts.length === 1 ? "" : "s"} were assigned by someone else. Refresh route planning.`);
+      }
+
+      const routeDate =
+        route.stops
+          .map((stop) => stop.event_date || stop.delivery_time?.slice(0, 10) || ordersById.get(stop.order_id)?.event_date)
+          .filter(Boolean)
+          .sort()[0] || new Date().toISOString().slice(0, 10);
+
+      const { error: deleteErr } = await (supabase as any)
+        .from("delivery_routes")
+        .delete()
+        .eq("company_id", companyId)
+        .eq("driver_id", route.driver_id)
+        .eq("route_date", routeDate)
+        .eq("status", "planned");
+      if (deleteErr) throw deleteErr;
+
+      const { data: createdRoute, error: routeErr } = await (supabase as any)
+        .from("delivery_routes")
+        .insert({
+          company_id: companyId,
+          driver_id: route.driver_id,
+          route_date: routeDate,
+          status: "planned",
+          total_distance: route.total_distance,
+          estimated_duration: route.total_duration,
+        })
+        .select("id")
+        .single();
+      if (routeErr) throw routeErr;
+      createdRouteId = createdRoute?.id || null;
+      if (!createdRouteId) throw new Error("Route was not created.");
+
+      const { error: stopsErr } = await (supabase as any)
+        .from("delivery_route_stops")
+        .insert(route.stops.map((stop, index) => ({
+          route_id: createdRouteId,
+          order_id: stop.order_id,
+          driver_id: route.driver_id,
+          stop_type: "delivery",
+          stop_name: stop.client_name,
+          stop_address: stop.venue_address,
+          stop_lat: stop.venue_lat,
+          stop_lng: stop.venue_lng,
+          latitude: stop.venue_lat,
+          longitude: stop.venue_lng,
+          sequence_number: index + 1,
+          estimated_arrival_time: stop.predicted_arrival_at || stop.delivery_time || null,
+          status: "pending",
+          reason: stop.time_window_breach
+            ? `Predicted ${Math.abs(stop.slack_minutes || 0)}m late`
+            : null,
+        })));
+      if (stopsErr) throw stopsErr;
+
+      // Update orders in one statement. Stop order lives on
+      // delivery_route_stops.sequence_number; the order row only needs
+      // the driver and "route optimised" flag.
+      const { error: updateErr } = await (supabase as any)
+        .from("orders")
+        .update({
+          driver_id: route.driver_id,
+          assigned_driver_id: route.driver_id,
+          assigned_at: new Date().toISOString(),
+          delivery_route_optimized: true,
+        })
+        .in("id", orderIds);
+      if (updateErr) throw updateErr;
 
       // Trigger automated real-time notification to the driver. The
       // routes page surfaces all stops; we don't have a single
@@ -630,7 +707,7 @@ export const routeOptimizationService = {
       await notificationService.createNotification({
         recipient_id: route.driver_id,
         notification_type: "route_assigned",
-        title: "New Route Assigned 🗺️",
+        title: "New route assigned",
         message: `You have a new optimized route with ${route.stops.length} stops (${route.total_distance.toFixed(1)} km). Tap here to view.`,
         link: "/team-portal/driver/routes",
         priority: "high",
@@ -640,6 +717,13 @@ export const routeOptimizationService = {
       return true;
     } catch (error) {
       console.error("Error saving optimized route:", error);
+      if (createdRouteId) {
+        try {
+          await (supabase as any).from("delivery_routes").delete().eq("id", createdRouteId);
+        } catch (cleanupError) {
+          console.error("Error cleaning up failed route:", cleanupError);
+        }
+      }
       return false;
     }
   },

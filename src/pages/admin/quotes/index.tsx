@@ -1541,6 +1541,8 @@ function AdminQuotesInner() {
             }
           />
 
+          <PageWorkbench />
+
           {/* Wave 70.92: date range selector that scopes the KPI
               tiles. Bobby asked "Won THIS PERIOD - which period?"
               Default = this month. Chip strip + list below stay
@@ -2504,7 +2506,6 @@ function AdminQuotesInner() {
                                 </>
                               )}
                               <DropdownMenuSeparator />
-          <PageWorkbench />
                               <DropdownMenuItem
                                 onClick={() => setDeleteTarget(quote)}
                                 className="text-rose-600 focus:text-rose-700 focus:bg-rose-50"

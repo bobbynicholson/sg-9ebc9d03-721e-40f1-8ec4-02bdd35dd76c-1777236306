@@ -206,7 +206,7 @@ export const vehicleService = {
       .order("plate");
     if (error) {
       console.error("Error fetching vehicles:", error);
-      return [];
+      throw error;
     }
     return (data || []) as Vehicle[];
   },

@@ -100,6 +100,7 @@ function VehiclesPage() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [drivers, setDrivers] = useState<DriverProfile[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [search, setSearch] = useState("");
   // Phase 29 #7: "/" or Cmd-F focuses search; "n" opens the
   // Add vehicle dialog. Same keyboard pattern as the other admin
@@ -172,13 +173,18 @@ function VehiclesPage() {
   const load = useCallback(async () => {
     if (!companyId) { setLoading(false); return; }
     setLoading(true);
+    setLoadError("");
     try {
       const list = await vehicleService.getVehiclesForCompany(companyId);
       setVehicles(list);
+    } catch (e: any) {
+      const message = e?.message || "Could not load vehicles.";
+      setLoadError(message);
+      toast({ title: "Could not load vehicles", description: message, variant: "destructive" });
     } finally {
       setLoading(false);
     }
-  }, [companyId]);
+  }, [companyId, toast]);
 
   // Pull drivers + admins so the owner / primary picker has names not
   // raw uuids. Tenant-scoped on the profiles table by RLS.
@@ -263,9 +269,15 @@ function VehiclesPage() {
     from.setDate(to.getDate() - utilFromDays);
     vehicleService.getUtilisation(companyId, from.toISOString(), to.toISOString())
       .then((rows) => { if (!cancelled) setUtilisation(rows as UtilisationRow[]); })
+      .catch((e: any) => {
+        if (cancelled) return;
+        const message = e?.message || "Could not load vehicle utilisation.";
+        setLoadError(message);
+        toast({ title: "Could not load utilisation", description: message, variant: "destructive" });
+      })
       .finally(() => { if (!cancelled) setUtilLoading(false); });
     return () => { cancelled = true; };
-  }, [tab, companyId, utilFromDays]);
+  }, [tab, companyId, utilFromDays, toast]);
 
   const driverNameById = useMemo(() => {
     const m: Record<string, string> = { ...extraOwnerNames };
@@ -600,6 +612,13 @@ function VehiclesPage() {
             }
           />
           <PageWorkbench />
+
+          {loadError && (
+            <div className="mb-4 flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>{loadError}</span>
+            </div>
+          )}
 
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
             <Card className="border-0 shadow-sm">

@@ -30,6 +30,7 @@ import {
 import { captureException } from "@/lib/observability";
 import { supabase } from "@/integrations/supabase/client";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { CatalogueOperationsStrip } from "@/components/admin/CatalogueOperationsStrip";
 import { PortalShell, PortalHeader,
   PageWorkbench,
 } from "@/components/portal/ui";
@@ -1065,7 +1066,14 @@ function MenuPage() {
   // ── Render ───────────────────────────────────────────────────────────
 
   return (
-    <ProtectedRoute allowedRoles={[UserRole.ADMIN, UserRole.SUPER_ADMIN]}>
+    <ProtectedRoute allowedRoles={[
+      UserRole.SUPER_ADMIN,
+      UserRole.COMPANY_ADMIN,
+      UserRole.OWNER,
+      UserRole.ADMIN,
+      UserRole.SALES_ADMIN,
+      UserRole.REGION_ADMIN,
+    ]}>
       <Head><title>Menu - CateringMS</title></Head>
       <NoIndexMeta />
       <AdminNav />
@@ -1165,6 +1173,7 @@ function MenuPage() {
             }
           />
           <PageWorkbench />
+          <CatalogueOperationsStrip active="menu" />
 
           {/* Stat strip - MNU-B widened to 6 tiles. */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-5">

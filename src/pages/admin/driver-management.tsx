@@ -320,7 +320,9 @@ function DriverManagementPage() {
   // Load vehicles when company is known
   useEffect(() => {
     if (!user?.company_id) return;
-    vehicleService.getVehiclesForCompany(user.company_id).then(setVehicles);
+    vehicleService.getVehiclesForCompany(user.company_id).then(setVehicles).catch((err) => {
+      console.error("Failed to load vehicles for driver management:", err);
+    });
   }, [user?.company_id]);
 
   // Load company-level pay rate defaults so the dialogs can show them
@@ -612,7 +614,9 @@ function DriverManagementPage() {
       loadDrivers();
       // Refresh the local vehicle list so the new driver-owned vehicle
       // (or the freshly-claimed company vehicle) reflects in pickers.
-      vehicleService.getVehiclesForCompany(user.company_id).then(setVehicles);
+      vehicleService.getVehiclesForCompany(user.company_id).then(setVehicles).catch((err) => {
+        console.error("Failed to refresh vehicles for driver management:", err);
+      });
 
       // Always show the credentials. The server-generated temp password
       // is a working login even when the invite email goes out (the email

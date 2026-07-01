@@ -43,6 +43,7 @@ import { ReconcileSlipDrawer } from "@/components/shopping/ReconcileSlipDrawer";
 import { ReceiptsTab } from "@/components/shopping/ReceiptsTab";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { CatalogueOperationsStrip } from "@/components/admin/CatalogueOperationsStrip";
 import { PortalShell, PortalHeader,
   PageWorkbench,
 } from "@/components/portal/ui";
@@ -1245,6 +1246,8 @@ function SmartShoppingPage() {
             </>
             }
           />
+          <PageWorkbench />
+          <CatalogueOperationsStrip active="shopping" />
 
           {/* Top stats */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
@@ -1896,7 +1899,6 @@ function SmartShoppingPage() {
                   accountant-facing overview. */}
               <TabsContent value="receipts">
                 <ReceiptsTab companyId={companyId || ""} userId={user?.id || ""} />
-          <PageWorkbench />
               </TabsContent>
             </Tabs>
           )}
@@ -2636,7 +2638,7 @@ function ItemTable({
 // narrows per-region writes.
 export default function ProtectedShopping() {
   return (
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.SHOPPING_STAFF, UserRole.REGION_ADMIN]}>
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.OWNER, UserRole.ADMIN, UserRole.SHOPPING_STAFF, UserRole.REGION_ADMIN]}>
       <SmartShoppingPage />
     </ProtectedRoute>
   );
