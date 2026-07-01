@@ -48,6 +48,7 @@ import { captureException } from "@/lib/observability";
 import { canAccessFinance } from "@/lib/authGuards";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { whatsappIntegrationService } from "@/services/whatsappIntegrationService";
+import { countTeamBuckets, teamBucketsForUser, type TeamRoleBucket } from "@/lib/teamRoleBuckets";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose,
   DialogDescription,
@@ -194,18 +195,24 @@ function TeamsIndexPage() {
       const lastWeekISO = lastWeekSameDayIso();
       const next4hISO = nextHoursIso(4);
 
-      // Active staff per role (profiles)
+      // Active staff per team. Counts role + active_role + user_departments
+      // so manager roles and cross-trained staff land in the right team
+      // bucket without collapsing their role labels elsewhere.
       const { data: staffRows } = await supabase
         .from("profiles")
-        .select("id, role")
+        .select("id, role, active_role, is_active")
         .eq("company_id", companyId);
 
-      const staffByRole: Record<string, number> = {};
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      for (const s of (staffRows || []) as any[]) {
-        const r = String(s.role || "").toLowerCase();
-        staffByRole[r] = (staffByRole[r] || 0) + 1;
-      }
+      const activeStaffRows = ((staffRows || []) as any[]).filter((s) => s.is_active !== false);
+      const staffIds = activeStaffRows.map((s) => s.id).filter(Boolean);
+      const { data: departmentRows } = staffIds.length > 0
+        ? await supabase
+            .from("user_departments")
+            .select("user_id, department, is_primary")
+            .in("user_id", staffIds)
+        : { data: [] as Array<{ user_id: string | null; department: string | null; is_primary: boolean | null }> };
+      const staffByTeam = countTeamBuckets(activeStaffRows, departmentRows || []);
 
       // Two shift tables, two purposes:
       //   * kitchen_duty_shifts - the live duty board (per-order,
@@ -625,7 +632,7 @@ function TeamsIndexPage() {
           iconColor: "text-amber-600",
           bg: "from-amber-50 to-orange-50",
           href: "/admin/teams/kitchen",
-          headCount: staffByRole["kitchen_staff"] || 0,
+          headCount: staffByTeam.kitchen || 0,
           hoursThisWeek: Math.round(kitchenHours),
           jobsToday: kitchenJobs ?? 0,
           jobsSameDayLastWeek: kitchenLastWeekJobs ?? null,
@@ -648,7 +655,7 @@ function TeamsIndexPage() {
           iconColor: "text-sky-600",
           bg: "from-sky-50 to-blue-50",
           href: "/admin/teams/drivers",
-          headCount: staffByRole["driver"] || 0,
+          headCount: staffByTeam.drivers || 0,
           hoursThisWeek: Math.round(driverHours),
           jobsToday: driverJobs,
           jobsSameDayLastWeek: driverLastWeekJobs ?? null,
@@ -674,7 +681,7 @@ function TeamsIndexPage() {
           // landing built in admin/teams/shopping.tsx - same IA as
           // kitchen / drivers / cleaning.
           href: "/admin/teams/shopping",
-          headCount: staffByRole["shopping_staff"] || 0,
+          headCount: staffByTeam.shopping || 0,
           // null = honest "we don't track shift hours for this team"
           // - the tile renders "-" instead of a misleading 0.
           hoursThisWeek: null,
@@ -695,7 +702,7 @@ function TeamsIndexPage() {
           iconColor: "text-slate-600",
           bg: "text-slate-600 to-rose-50",
           href: "/admin/teams/cleaning",
-          headCount: staffByRole["cleaning_staff"] || 0,
+          headCount: staffByTeam.cleaning || 0,
           // null - same honesty as shopping.
           hoursThisWeek: null,
           jobsToday: cleaningJobsToday,
@@ -724,7 +731,7 @@ function TeamsIndexPage() {
           iconColor: "text-blue-600",
           bg: "from-blue-50 to-slate-50",
           href: "/admin/leads",
-          headCount: staffByRole["sales_admin"] || 0,
+          headCount: staffByTeam.sales || 0,
           hoursThisWeek: null,
           jobsToday: (leadsTodayRes.count ?? 0) + (quotesTodayRes.count ?? 0),
           jobsSameDayLastWeek: null,
@@ -780,7 +787,10 @@ function TeamsIndexPage() {
     }
   };
 
-  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [companyId, regionFilterId]);
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyId, regionFilterId]);
 
   // TMS-B: realtime debounce. A driver clocking in, a kitchen
   // task completing, a shopping list landing - all should bump
@@ -796,15 +806,24 @@ function TeamsIndexPage() {
     };
     const channel = supabase
       .channel(`teams-hub:${companyId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "profiles", filter: `company_id=eq.${companyId}` }, bump)
+      .on("postgres_changes", { event: "*", schema: "public", table: "user_departments" }, bump)
       .on("postgres_changes", { event: "*", schema: "public", table: "kitchen_duty_shifts", filter: `company_id=eq.${companyId}` }, bump)
+      .on("postgres_changes", { event: "*", schema: "public", table: "kitchen_staff_shifts", filter: `company_id=eq.${companyId}` }, bump)
       .on("postgres_changes", { event: "*", schema: "public", table: "driver_assignments", filter: `company_id=eq.${companyId}` }, bump)
+      .on("postgres_changes", { event: "*", schema: "public", table: "driver_shifts", filter: `company_id=eq.${companyId}` }, bump)
+      .on("postgres_changes", { event: "*", schema: "public", table: "orders", filter: `company_id=eq.${companyId}` }, bump)
       .on("postgres_changes", { event: "*", schema: "public", table: "shopping_lists", filter: `company_id=eq.${companyId}` }, bump)
       .on("postgres_changes", { event: "*", schema: "public", table: "cleaning_jobs", filter: `company_id=eq.${companyId}` }, bump)
+      .on("postgres_changes", { event: "*", schema: "public", table: "cleaning_event_handovers", filter: `company_id=eq.${companyId}` }, bump)
+      .on("postgres_changes", { event: "*", schema: "public", table: "cleaning_duty_logs", filter: `company_id=eq.${companyId}` }, bump)
       // TMS-D (task #206, 2026-05-24): also listen on the tables
       // backing the new Sales / Outsource / Hire-in surfaces so
       // those tiles + the Pipelines card stay fresh.
       .on("postgres_changes", { event: "*", schema: "public", table: "leads", filter: `company_id=eq.${companyId}` }, bump)
+      .on("postgres_changes", { event: "*", schema: "public", table: "quotes", filter: `company_id=eq.${companyId}` }, bump)
       .on("postgres_changes", { event: "*", schema: "public", table: "outsource_assignments", filter: `company_id=eq.${companyId}` }, bump)
+      .on("postgres_changes", { event: "*", schema: "public", table: "outsource_providers", filter: `company_id=eq.${companyId}` }, bump)
       .on("postgres_changes", { event: "*", schema: "public", table: "equipment_hire_orders", filter: `company_id=eq.${companyId}` }, bump)
       .subscribe();
     return () => {
@@ -908,7 +927,7 @@ function TeamsIndexPage() {
                 ? null
                 : r.jobsToday - r.jobsSameDayLastWeek;
               return (
-                <Card key={r.key} className="border-0 shadow-md hover:shadow-lg transition-shadow">
+                <Card key={r.key} className="border border-slate-200 bg-white shadow-sm transition-colors hover:border-slate-300">
                   <CardContent className="p-4 sm:p-5">
                     {/* TMS-C (task #205, 2026-05-24): split the row
                         into the click-through Link (covers icon +
@@ -918,7 +937,7 @@ function TeamsIndexPage() {
                         only navigate; now they get both. */}
                     <div className="flex items-center gap-4 flex-wrap sm:flex-nowrap">
                       <Link href={withSlug(r.href)} className="flex items-center gap-4 flex-1 min-w-0">
-                        <div className={`w-12 h-12 sm:w-14 sm:h-14 rounded-xl bg-gradient-to-br ${r.bg} flex items-center justify-center flex-shrink-0`}>
+                        <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-lg border border-slate-200 bg-slate-50 flex items-center justify-center flex-shrink-0">
                           <r.icon className={`w-6 h-6 ${r.iconColor}`} />
                         </div>
                         <div className="flex-1 min-w-0">
@@ -1041,11 +1060,11 @@ function TeamsIndexPage() {
                 Operational pipelines
               </h2>
               <Link href={withSlug("/admin/equipment?tab=hire-in")} className="block">
-                <Card className="border-0 shadow-md hover:shadow-lg transition-shadow">
+                <Card className="border border-slate-200 bg-white shadow-sm transition-colors hover:border-slate-300">
                   <CardContent className="p-4 sm:p-5">
                     <div className="flex items-center gap-4 flex-wrap sm:flex-nowrap">
-                      <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl bg-gradient-to-br from-slate-50 to-rose-50 flex items-center justify-center flex-shrink-0">
-                        <ShoppingBag className="w-6 h-6 from-slate-50" />
+                      <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-lg border border-slate-200 bg-slate-50 flex items-center justify-center flex-shrink-0">
+                        <ShoppingBag className="w-6 h-6 text-slate-600" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
@@ -1139,18 +1158,6 @@ function BroadcastDialog({
   const [loadingRecipients, setLoadingRecipients] = useState(false);
   const [sending, setSending] = useState(false);
 
-  // role key -> profiles.role filter. Cleaning uses cleaning_staff,
-  // kitchen uses kitchen_staff, drivers uses driver, shopping uses
-  // shopping_staff. Matches the headCount lookups in load().
-  const roleByTeam: Record<string, string> = {
-    kitchen: "kitchen_staff",
-    drivers: "driver",
-    shopping: "shopping_staff",
-    cleaning: "cleaning_staff",
-    sales: "sales_admin",
-    outsource: "outsource",
-  };
-
   // Load roster every time the dialog opens for a new team.
   useEffect(() => {
     if (!team || !companyId) { setRecipients([]); return; }
@@ -1158,20 +1165,37 @@ function BroadcastDialog({
     setLoadingRecipients(true);
     setBody(""); // fresh dialog state per team
     (async () => {
-      const role = roleByTeam[team.key];
+      const teamBucket = team.key as TeamRoleBucket;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data } = await (supabase as any)
         .from("profiles")
-        .select("id, full_name, phone_number, whatsapp_opt_in")
+        .select("id, full_name, phone_number, whatsapp_opt_in, role, active_role, is_active")
         .eq("company_id", companyId)
-        .eq("role", role)
         .not("phone_number", "is", null);
+      const profileRows = (data || []) as Array<{
+        id: string;
+        full_name: string | null;
+        phone_number: string | null;
+        whatsapp_opt_in: boolean | null;
+        role: string | null;
+        active_role: string | null;
+        is_active?: boolean | null;
+      }>;
+      const profileIds = profileRows.map((p) => p.id).filter(Boolean);
+      const { data: departmentRows } = profileIds.length > 0
+        ? await supabase
+            .from("user_departments")
+            .select("user_id, department, is_primary")
+            .in("user_id", profileIds)
+        : { data: [] as Array<{ user_id: string | null; department: string | null; is_primary: boolean | null }> };
       if (cancelled) return;
-      const rcpts = (data || [])
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .filter((p: any) => p.phone_number && p.whatsapp_opt_in !== false)
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .map((p: any) => ({ id: p.id, name: p.full_name, phone: p.phone_number }));
+      const rcpts = profileRows
+        .filter((p) =>
+          p.is_active !== false
+          && p.phone_number
+          && p.whatsapp_opt_in !== false
+          && teamBucketsForUser(p, departmentRows || []).has(teamBucket))
+        .map((p) => ({ id: p.id, name: p.full_name, phone: p.phone_number as string }));
       setRecipients(rcpts);
       setLoadingRecipients(false);
     })();

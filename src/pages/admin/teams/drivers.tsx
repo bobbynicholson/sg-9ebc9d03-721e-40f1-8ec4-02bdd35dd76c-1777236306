@@ -54,6 +54,7 @@ import { useTenantHref } from "@/lib/tenantUrl";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { canAccessFinance } from "@/lib/authGuards";
 import { captureException } from "@/lib/observability";
+import { teamBucketsForUser } from "@/lib/teamRoleBuckets";
 import {
   Truck, ArrowLeft, Users, Clock, ClipboardList, Loader2,
   Receipt, Map as MapIcon, Car, AlertTriangle, Banknote, CalendarDays,
@@ -131,6 +132,30 @@ function DriversTeamPage() {
     vehiclesActive: 0, vehiclesTotal: 0, vehiclesColdChain: 0,
     topDriverHours: [],
   });
+  const [refreshTick, setRefreshTick] = useState(0);
+
+  useEffect(() => {
+    if (!companyId) return;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const bump = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => setRefreshTick((n) => n + 1), 1500);
+    };
+    const channel = supabase
+      .channel(`teams-drivers:${companyId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "profiles", filter: `company_id=eq.${companyId}` }, bump)
+      .on("postgres_changes", { event: "*", schema: "public", table: "user_departments" }, bump)
+      .on("postgres_changes", { event: "*", schema: "public", table: "driver_assignments", filter: `company_id=eq.${companyId}` }, bump)
+      .on("postgres_changes", { event: "*", schema: "public", table: "driver_shifts", filter: `company_id=eq.${companyId}` }, bump)
+      .on("postgres_changes", { event: "*", schema: "public", table: "orders", filter: `company_id=eq.${companyId}` }, bump)
+      .on("postgres_changes", { event: "*", schema: "public", table: "driver_payouts", filter: `company_id=eq.${companyId}` }, bump)
+      .on("postgres_changes", { event: "*", schema: "public", table: "vehicles", filter: `company_id=eq.${companyId}` }, bump)
+      .subscribe();
+    return () => {
+      if (timer) clearTimeout(timer);
+      supabase.removeChannel(channel);
+    };
+  }, [companyId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -147,10 +172,13 @@ function DriversTeamPage() {
         const weekAgoISO = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
         const nowMs = Date.now();
 
-        // Active driver count from profiles.
+        // Active driver team from profiles + active_role +
+        // user_departments. Drivers do not have a manager enum today,
+        // but multi-role staff can still carry driver access through
+        // the department table.
         let staffQ = supabase.from("profiles")
-          .select("id", { count: "exact", head: true })
-          .eq("company_id", companyId).eq("role", "driver");
+          .select("id, full_name, region_id, role, active_role, is_active")
+          .eq("company_id", companyId);
         if (regionFilterId) {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           staffQ = (staffQ as any).eq("region_id", regionFilterId);
@@ -221,22 +249,38 @@ function DriversTeamPage() {
           .is("deleted_at", null);
         if (regionFilterId) vehiclesQ = vehiclesQ.eq("region_id", regionFilterId);
 
-        // Driver names for the per-driver hours chip strip. There's
-        // no `drivers` table - drivers live in profiles with role=
-        // 'driver'. Region scope honoured here.
-        let driversNameQ = supabase.from("profiles")
-          .select("id, full_name, region_id")
-          .eq("company_id", companyId)
-          .eq("role", "driver");
-        if (regionFilterId) driversNameQ = driversNameQ.eq("region_id", regionFilterId);
-
         const [
           staffRes, weekShiftsRes, assnTodayRes, ordersTodayRes,
-          tomorrowRes, issuesRes, settlementRes, vehiclesRes, driversNameRes,
+          tomorrowRes, issuesRes, settlementRes, vehiclesRes,
         ] = await Promise.all([
           staffQ, weekShiftsQ, assnTodayQ, ordersTodayQ,
-          tomorrowQ, issuesQ, settlementQ, vehiclesQ, driversNameQ,
+          tomorrowQ, issuesQ, settlementQ, vehiclesQ,
         ]);
+
+        const staffProfileRows = ((staffRes.data || []) as Array<{
+          id: string;
+          full_name: string | null;
+          region_id?: string | null;
+          role: string | null;
+          active_role: string | null;
+          is_active?: boolean | null;
+        }>).filter((p) => p.is_active !== false);
+        const staffProfileIds = staffProfileRows.map((p) => p.id).filter(Boolean);
+        const { data: staffDepartmentRows } = staffProfileIds.length > 0
+          ? await supabase
+              .from("user_departments")
+              .select("user_id, department, is_primary")
+              .in("user_id", staffProfileIds)
+          : { data: [] as Array<{ user_id: string | null; department: string | null; is_primary: boolean | null }> };
+        const activeDriverRows = staffProfileRows.filter((p) =>
+          teamBucketsForUser(p, staffDepartmentRows || []).has("drivers"),
+        );
+        const nameById = new Map<string, string>();
+        const inScope = new Set<string>();
+        for (const d of activeDriverRows) {
+          nameById.set(d.id, d.full_name || "Driver");
+          inScope.add(d.id);
+        }
 
         // Hours-this-week + per-driver bucket. driver_shifts.
         // hours_worked is the canonical source; fall back to actual
@@ -247,6 +291,7 @@ function DriversTeamPage() {
         const minsByDriver = new Map<string, number>();
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         for (const s of (weekShiftsRes.data || []) as any[]) {
+          if (!s.driver_id || !inScope.has(s.driver_id)) continue;
           const status = String(s.status || "").toLowerCase();
           if (status === "scheduled" || status === "missed") continue;
           let mins = 0;
@@ -257,7 +302,7 @@ function DriversTeamPage() {
           }
           if (mins > 0) {
             hours += mins / 60;
-            if (s.driver_id) minsByDriver.set(s.driver_id, (minsByDriver.get(s.driver_id) || 0) + mins);
+            minsByDriver.set(s.driver_id, (minsByDriver.get(s.driver_id) || 0) + mins);
           }
           // Clocked-in now: actual_start exists, actual_end null,
           // status not completed/missed.
@@ -329,22 +374,15 @@ function DriversTeamPage() {
         // drivers in the active region scope so a regional admin
         // doesn't see cross-region rollups even though the shifts
         // table itself isn't region-scoped.
-        const nameById = new Map<string, string>();
-        const inScope = new Set<string>();
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        for (const d of (driversNameRes.data || []) as any[]) {
-          nameById.set(d.id, d.full_name || "Driver");
-          inScope.add(d.id);
-        }
         const topDriverHours = Array.from(minsByDriver.entries())
-          .filter(([id]) => !regionFilterId || inScope.has(id))
+          .filter(([id]) => inScope.has(id))
           .map(([id, mins]) => ({ id, name: nameById.get(id) || "Driver", mins }))
           .sort((a, b) => b.mins - a.mins)
           .slice(0, 6);
 
         if (!cancelled) {
           setStats({
-            active: staffRes.count ?? 0,
+            active: activeDriverRows.length,
             hoursWeek: Math.round(hours),
             jobsToday: assnRows.length,
             clockedNow,
@@ -368,7 +406,7 @@ function DriversTeamPage() {
     };
     run();
     return () => { cancelled = true; };
-  }, [companyId, regionFilterId]);
+  }, [companyId, regionFilterId, refreshTick]);
 
   const tiles = [
     { href: "/admin/driver-management", icon: Users, label: "Driver management", sub: "Roster, availability, ratings", bg: "from-sky-50 to-blue-50", iconColor: "text-sky-600" },
@@ -503,7 +541,7 @@ function DriversTeamPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-4">
             {/* Today's deliveries pipeline. */}
             <Link href={withSlug("/admin/order-assignments")}>
-              <Card className={`border-0 shadow-md hover:shadow-lg transition-shadow ${stats.asnOverdue > 0 ? "bg-gradient-to-br from-rose-50 to-amber-50" : "bg-gradient-to-br from-sky-50 to-blue-50"}`}>
+              <Card className={`border shadow-sm transition-colors hover:border-slate-300 ${stats.asnOverdue > 0 ? "border-rose-200 bg-rose-50" : "border-slate-200 bg-white"}`}>
                 <CardContent className="p-5">
                   <div className="flex items-start gap-3">
                     <Truck className={`w-6 h-6 ${stats.asnOverdue > 0 ? "text-rose-600" : "text-sky-600"} flex-shrink-0`} />
@@ -555,7 +593,7 @@ function DriversTeamPage() {
 
             {/* Tomorrow's load. */}
             <Link href={withSlug(`/admin/calendar?date=${toLocalISO(new Date(Date.now() + 24 * 3600 * 1000))}`)}>
-              <Card className={`border-0 shadow-md hover:shadow-lg transition-shadow bg-gradient-to-br ${stats.tomorrowJobs > 0 ? "from-blue-50 to-slate-50" : "from-slate-50 to-slate-100"}`}>
+              <Card className="border border-slate-200 bg-white shadow-sm transition-colors hover:border-slate-300">
                 <CardContent className="p-5">
                   <div className="flex items-start gap-3">
                     <CalendarDays className={`w-6 h-6 ${stats.tomorrowJobs > 0 ? "text-blue-700" : "text-slate-400"} flex-shrink-0`} />
@@ -578,7 +616,7 @@ function DriversTeamPage() {
 
             {/* Fleet readiness. */}
             <Link href={withSlug("/admin/vehicles")}>
-              <Card className={`border-0 shadow-md hover:shadow-lg transition-shadow ${stats.vehiclesActive < stats.vehiclesTotal ? "bg-gradient-to-br from-amber-50 to-yellow-50" : "bg-gradient-to-br from-slate-50 to-slate-100"}`}>
+              <Card className={`border shadow-sm transition-colors hover:border-slate-300 ${stats.vehiclesActive < stats.vehiclesTotal ? "border-amber-200 bg-amber-50" : "border-slate-200 bg-white"}`}>
                 <CardContent className="p-5">
                   <div className="flex items-start gap-3">
                     <Wrench className={`w-6 h-6 ${stats.vehiclesActive < stats.vehiclesTotal ? "text-amber-700" : "text-slate-400"} flex-shrink-0`} />
@@ -610,7 +648,7 @@ function DriversTeamPage() {
 
             {/* Recent issues. */}
             <Link href={withSlug("/admin/order-assignments?filter=issues")}>
-              <Card className={`border-0 shadow-md hover:shadow-lg transition-shadow ${stats.issuesThisWeek > 0 ? "bg-gradient-to-br from-rose-50 to-rose-50" : "bg-gradient-to-br from-slate-50 to-slate-100"}`}>
+              <Card className={`border shadow-sm transition-colors hover:border-slate-300 ${stats.issuesThisWeek > 0 ? "border-rose-200 bg-rose-50" : "border-slate-200 bg-white"}`}>
                 <CardContent className="p-5">
                   <div className="flex items-start gap-3">
                     <AlertTriangle className={`w-6 h-6 ${stats.issuesThisWeek > 0 ? "text-rose-600" : "text-slate-400"} flex-shrink-0`} />
@@ -636,7 +674,7 @@ function DriversTeamPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             {tiles.map((t) => (
               <Link key={t.label} href={withSlug(t.href)}>
-                <Card className={`border-0 shadow-md hover:shadow-lg transition-shadow bg-gradient-to-br ${t.bg}`}>
+                <Card className="border border-slate-200 bg-white shadow-sm transition-colors hover:border-slate-300">
                   <CardContent className="p-5">
                     <div className="flex items-start gap-3">
                       <t.icon className={`w-6 h-6 ${t.iconColor} flex-shrink-0`} />

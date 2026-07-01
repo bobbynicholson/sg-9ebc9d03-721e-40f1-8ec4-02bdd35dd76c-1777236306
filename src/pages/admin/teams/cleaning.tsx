@@ -60,6 +60,7 @@ import {
 } from "lucide-react";
 import { PageWorkbench, PortalHeader, PortalShell } from "@/components/portal/ui";
 import { damageReporterName, type DamageReporterProfile } from "@/lib/damageReporter";
+import { teamBucketsForUser } from "@/lib/teamRoleBuckets";
 
 function startOfWeek(): Date {
   const d = new Date();
@@ -144,9 +145,14 @@ function CleaningTeamPage() {
     };
     const channel = supabase
       .channel(`teams-cleaning:${companyId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "profiles", filter: `company_id=eq.${companyId}` }, bump)
+      .on("postgres_changes", { event: "*", schema: "public", table: "user_departments" }, bump)
+      .on("postgres_changes", { event: "*", schema: "public", table: "orders", filter: `company_id=eq.${companyId}` }, bump)
       .on("postgres_changes", { event: "*", schema: "public", table: "cleaning_event_handovers", filter: `company_id=eq.${companyId}` }, bump)
       .on("postgres_changes", { event: "*", schema: "public", table: "cleaning_jobs", filter: `company_id=eq.${companyId}` }, bump)
       .on("postgres_changes", { event: "*", schema: "public", table: "cleaning_duty_logs", filter: `company_id=eq.${companyId}` }, bump)
+      .on("postgres_changes", { event: "*", schema: "public", table: "cleaning_machines", filter: `company_id=eq.${companyId}` }, bump)
+      .on("postgres_changes", { event: "*", schema: "public", table: "inventory_items", filter: `company_id=eq.${companyId}` }, bump)
       .on("postgres_changes", { event: "*", schema: "public", table: "equipment_damages", filter: `company_id=eq.${companyId}` }, bump)
       .subscribe();
     return () => {
@@ -173,11 +179,12 @@ function CleaningTeamPage() {
         const tomorrowStartISO = `${tomorrowISO}T00:00:00`;
         const tomorrowEndISO = `${tomorrowISO}T23:59:59`;
 
-        // Active cleaning staff. Region scope via profiles.region_id.
+        // Active cleaning team. Includes cleaning_manager, cleaning_staff,
+        // active_role, and user_departments aliases so managers and staff
+        // remain distinct users while both count toward cleaning capacity.
         let staffQ = supabase.from("profiles")
-          .select("id, full_name", { count: "exact" })
-          .eq("company_id", companyId)
-          .eq("role", "cleaning_staff");
+          .select("id, full_name, role, active_role, is_active")
+          .eq("company_id", companyId);
         if (regionFilterId) {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           staffQ = (staffQ as any).eq("region_id", regionFilterId);
@@ -194,7 +201,7 @@ function CleaningTeamPage() {
 
         // Clocked-now count.
         const clockedNowQ = supabase.from("cleaning_duty_logs")
-          .select("id", { count: "exact", head: true })
+          .select("id, user_id")
           .eq("company_id", companyId)
           .eq("on_duty", true);
 
@@ -284,11 +291,29 @@ function CleaningTeamPage() {
           damagesQ, suppliesQ, machinesQ,
         ]);
 
-        // Build name lookup off the staff list (also used as the
-        // region-scoped allow-list for the per-cleaner hours strip).
+        const staffProfileRows = ((staffRes.data || []) as Array<{
+          id: string;
+          full_name: string | null;
+          role: string | null;
+          active_role: string | null;
+          is_active?: boolean | null;
+        }>).filter((p) => p.is_active !== false);
+        const staffProfileIds = staffProfileRows.map((p) => p.id).filter(Boolean);
+        const { data: staffDepartmentRows } = staffProfileIds.length > 0
+          ? await supabase
+              .from("user_departments")
+              .select("user_id, department, is_primary")
+              .in("user_id", staffProfileIds)
+          : { data: [] as Array<{ user_id: string | null; department: string | null; is_primary: boolean | null }> };
+        const activeCleaningTeam = staffProfileRows.filter((p) =>
+          teamBucketsForUser(p, staffDepartmentRows || []).has("cleaning"),
+        );
+
+        // Build name lookup off the resolved cleaning roster (also used
+        // as the allow-list for hours + clocked-now strips).
         const nameById = new Map<string, string>();
         const staffIdSet = new Set<string>();
-        for (const p of ((staffRes.data || []) as Array<{ id: string; full_name: string | null }>)) {
+        for (const p of activeCleaningTeam) {
           nameById.set(p.id, p.full_name || "Cleaner");
           staffIdSet.add(p.id);
         }
@@ -303,7 +328,7 @@ function CleaningTeamPage() {
           duty_ended_at: string | null; on_duty: boolean | null;
         }>)) {
           if (!r.user_id || !r.duty_started_at) continue;
-          if (regionFilterId && !staffIdSet.has(r.user_id)) continue;
+          if (!staffIdSet.has(r.user_id)) continue;
           const start = new Date(r.duty_started_at).getTime();
           const end = r.duty_ended_at
             ? new Date(r.duty_ended_at).getTime()
@@ -408,13 +433,15 @@ function CleaningTeamPage() {
         const machineRows = (machinesRes.data || []) as Array<{ active: boolean | null }>;
         const machinesActive = machineRows.filter((m) => m.active).length;
         const machinesTotal = machineRows.length;
+        const clockedNow = ((clockedNowRes.data || []) as Array<{ user_id: string | null }>)
+          .filter((row) => row.user_id && staffIdSet.has(row.user_id)).length;
 
         if (!cancelled) {
           setStats({
-            active: staffRes.count ?? staffIdSet.size,
+            active: activeCleaningTeam.length,
             hoursWeek: Math.round(totalMins / 60),
             jobsToday: ordersTodayRes.count ?? 0,
-            clockedNow: clockedNowRes.count ?? 0,
+            clockedNow,
             handoversExpected, handoversInProgress, handoversComplete, handoversOverdue,
             jobsQueued, jobsInProgress, jobsComplete, jobsOverdue,
             tomorrowHandovers: handoversTomorrowRes.count ?? 0,
@@ -578,7 +605,7 @@ function CleaningTeamPage() {
 
             {/* Today's handover pipeline. */}
             <Link href={withSlug("/admin/cleaning-schedule")}>
-              <Card className="border-0 shadow-md hover:shadow-lg transition-shadow bg-white">
+              <Card className="border border-slate-200 bg-white shadow-sm transition-colors hover:border-slate-300">
                 <CardContent className="p-5">
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
@@ -619,7 +646,7 @@ function CleaningTeamPage() {
 
             {/* Today's cleaning_jobs pipeline. */}
             <Link href={withSlug("/admin/cleaning-schedule")}>
-              <Card className="border-0 shadow-md hover:shadow-lg transition-shadow bg-white">
+              <Card className="border border-slate-200 bg-white shadow-sm transition-colors hover:border-slate-300">
                 <CardContent className="p-5">
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
@@ -663,7 +690,7 @@ function CleaningTeamPage() {
 
             {/* Tomorrow's load. */}
             <Link href={withSlug(`/admin/calendar?date=${toLocalISO(new Date(Date.now() + 24 * 3600 * 1000))}`)}>
-              <Card className={`border-0 shadow-md hover:shadow-lg transition-shadow bg-gradient-to-br ${stats.tomorrowHandovers > 0 ? "from-slate-50 to-rose-50" : "from-slate-50 to-slate-100"}`}>
+              <Card className="border border-slate-200 bg-white shadow-sm transition-colors hover:border-slate-300">
                 <CardContent className="p-5">
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
@@ -691,7 +718,7 @@ function CleaningTeamPage() {
 
             {/* Recent damages + supplies. */}
             <Link href={withSlug("/team-portal/cleaning/damage")}>
-              <Card className={`border-0 shadow-md hover:shadow-lg transition-shadow bg-gradient-to-br ${stats.damagesThisWeek > 0 ? "from-amber-50 to-rose-50" : "from-slate-50 to-slate-100"}`}>
+              <Card className={`border shadow-sm transition-colors hover:border-slate-300 ${stats.damagesThisWeek > 0 ? "border-amber-200 bg-amber-50" : "border-slate-200 bg-white"}`}>
                 <CardContent className="p-5">
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
@@ -735,7 +762,7 @@ function CleaningTeamPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             {tiles.map((t) => (
               <Link key={t.label} href={withSlug(t.href)}>
-                <Card className={`border-0 shadow-md hover:shadow-lg transition-shadow bg-gradient-to-br ${t.bg}`}>
+                <Card className="border border-slate-200 bg-white shadow-sm transition-colors hover:border-slate-300">
                   <CardContent className="p-5">
                     <div className="flex items-start gap-3">
                       <t.icon className={`w-6 h-6 ${t.iconColor} flex-shrink-0`} />

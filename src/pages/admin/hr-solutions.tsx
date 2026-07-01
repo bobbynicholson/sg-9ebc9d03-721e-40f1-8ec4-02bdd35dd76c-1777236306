@@ -59,6 +59,7 @@ import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { canAccessFinance } from "@/lib/authGuards";
 import { captureException } from "@/lib/observability";
 import { ChatBot } from "@/components/ChatBot";
+import { teamBucketsForUser } from "@/lib/teamRoleBuckets";
 import {
   Users, Clock, Calendar, TrendingUp, Award, FileText,
   Banknote, UserPlus, Loader2, ChefHat, Sparkles, Truck,
@@ -122,7 +123,12 @@ function AdminHRSolutions() {
     const channel = supabase
       .channel(`hr-solutions:${companyId}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "profiles", filter: `company_id=eq.${companyId}` }, bump)
+      .on("postgres_changes", { event: "*", schema: "public", table: "user_departments" }, bump)
       .on("postgres_changes", { event: "*", schema: "public", table: "staff_invitations", filter: `company_id=eq.${companyId}` }, bump)
+      .on("postgres_changes", { event: "*", schema: "public", table: "kitchen_staff_shifts", filter: `company_id=eq.${companyId}` }, bump)
+      .on("postgres_changes", { event: "*", schema: "public", table: "kitchen_duty_shifts", filter: `company_id=eq.${companyId}` }, bump)
+      .on("postgres_changes", { event: "*", schema: "public", table: "cleaning_duty_logs", filter: `company_id=eq.${companyId}` }, bump)
+      .on("postgres_changes", { event: "*", schema: "public", table: "driver_shifts", filter: `company_id=eq.${companyId}` }, bump)
       .subscribe();
     return () => {
       if (timer) clearTimeout(timer);
@@ -143,7 +149,7 @@ function AdminHRSolutions() {
         // Staff by role + region scope. Pulls the full role list so
         // we can bucket into kitchen / cleaning / drivers / other.
         let staffQ = supabase.from("profiles")
-          .select("id, role")
+          .select("id, role, active_role, is_active")
           .eq("company_id", companyId);
         if (regionFilterId) {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -180,7 +186,7 @@ function AdminHRSolutions() {
 
         // Driver shifts this week. hours_worked is generated.
         const driverShiftsQ = supabase.from("driver_shifts")
-          .select("hours_worked, shift_date, actual_end")
+          .select("driver_id, hours_worked, shift_date, actual_end")
           .eq("company_id", companyId)
           .gte("shift_date", new Date(startOfWeek()).toISOString().slice(0, 10));
 
@@ -192,14 +198,14 @@ function AdminHRSolutions() {
 
         // Cleaning duty on_duty=true (clocked-now bucket B).
         const cleaningClockedQ = supabase.from("cleaning_duty_logs")
-          .select("id", { count: "exact", head: true })
+          .select("id, user_id")
           .eq("company_id", companyId)
           .eq("on_duty", true);
 
         // Driver shifts still open (clocked-now bucket C). actual_end
         // IS NULL on an in-progress driver_shifts row.
         const driverClockedQ = supabase.from("driver_shifts")
-          .select("id", { count: "exact", head: true })
+          .select("id, driver_id")
           .eq("company_id", companyId)
           .is("actual_end", null);
 
@@ -213,17 +219,33 @@ function AdminHRSolutions() {
           kitchenClockedQ, cleaningClockedQ, driverClockedQ,
         ]);
 
-        // Bucket staff by role.
+        const activeStaffRows = ((staffRes.data || []) as Array<{
+          id: string;
+          role: string | null;
+          active_role: string | null;
+          is_active?: boolean | null;
+        }>).filter((p) => p.is_active !== false);
+        const staffProfileIds = activeStaffRows.map((p) => p.id).filter(Boolean);
+        const { data: staffDepartmentRows } = staffProfileIds.length > 0
+          ? await supabase
+              .from("user_departments")
+              .select("user_id, department, is_primary")
+              .in("user_id", staffProfileIds)
+          : { data: [] as Array<{ user_id: string | null; department: string | null; is_primary: boolean | null }> };
+
+        // Bucket staff by resolved access. Managers and staff stay
+        // distinct role labels, but both land in their department.
         const byDept: DeptCount = { kitchen: 0, cleaning: 0, drivers: 0, other: 0 };
         const staffIdByRole: Record<string, Set<string>> = { kitchen: new Set(), cleaning: new Set(), drivers: new Set(), other: new Set() };
-        for (const p of ((staffRes.data || []) as Array<{ id: string; role: string | null }>)) {
-          const r = String(p.role || "").toLowerCase();
-          if (r === "kitchen_staff") { byDept.kitchen += 1; staffIdByRole.kitchen.add(p.id); }
-          else if (r === "cleaning_staff") { byDept.cleaning += 1; staffIdByRole.cleaning.add(p.id); }
-          else if (r === "driver") { byDept.drivers += 1; staffIdByRole.drivers.add(p.id); }
-          else { byDept.other += 1; staffIdByRole.other.add(p.id); }
+        for (const p of activeStaffRows) {
+          const buckets = teamBucketsForUser(p, staffDepartmentRows || []);
+          let operational = false;
+          if (buckets.has("kitchen")) { byDept.kitchen += 1; staffIdByRole.kitchen.add(p.id); operational = true; }
+          if (buckets.has("cleaning")) { byDept.cleaning += 1; staffIdByRole.cleaning.add(p.id); operational = true; }
+          if (buckets.has("drivers")) { byDept.drivers += 1; staffIdByRole.drivers.add(p.id); operational = true; }
+          if (!operational) { byDept.other += 1; staffIdByRole.other.add(p.id); }
         }
-        const staffTotal = byDept.kitchen + byDept.cleaning + byDept.drivers + byDept.other;
+        const staffTotal = activeStaffRows.length;
 
         // Hours by department.
         const hoursByDept: DeptCount = { kitchen: 0, cleaning: 0, drivers: 0, other: 0 };
@@ -243,7 +265,7 @@ function AdminHRSolutions() {
           duty_ended_at: string | null; on_duty: boolean | null;
         }>)) {
           if (!r.user_id || !r.duty_started_at) continue;
-          if (regionFilterId && !staffIdByRole.cleaning.has(r.user_id)) continue;
+          if (!staffIdByRole.cleaning.has(r.user_id)) continue;
           const start = new Date(r.duty_started_at).getTime();
           const end = r.duty_ended_at
             ? new Date(r.duty_ended_at).getTime()
@@ -252,7 +274,8 @@ function AdminHRSolutions() {
         }
         // Driver hours via hours_worked (generated). Open shifts
         // (actual_end IS NULL) contribute nothing yet.
-        for (const r of ((driverShiftsRes.data || []) as Array<{ hours_worked: number | null }>)) {
+        for (const r of ((driverShiftsRes.data || []) as Array<{ driver_id: string | null; hours_worked: number | null }>)) {
+          if (!r.driver_id || !staffIdByRole.drivers.has(r.driver_id)) continue;
           if (r.hours_worked) hoursByDept.drivers += Number(r.hours_worked);
         }
         hoursByDept.kitchen = Math.round(hoursByDept.kitchen);
@@ -260,7 +283,11 @@ function AdminHRSolutions() {
         hoursByDept.drivers = Math.round(hoursByDept.drivers);
 
         const hoursWeek = hoursByDept.kitchen + hoursByDept.cleaning + hoursByDept.drivers;
-        const clockedNow = (kitchenClockedRes.count ?? 0) + (cleaningClockedRes.count ?? 0) + (driverClockedRes.count ?? 0);
+        const cleaningClocked = ((cleaningClockedRes.data || []) as Array<{ user_id: string | null }>)
+          .filter((row) => row.user_id && staffIdByRole.cleaning.has(row.user_id)).length;
+        const driverClocked = ((driverClockedRes.data || []) as Array<{ driver_id: string | null }>)
+          .filter((row) => row.driver_id && staffIdByRole.drivers.has(row.driver_id)).length;
+        const clockedNow = (kitchenClockedRes.count ?? 0) + cleaningClocked + driverClocked;
 
         // staff_invitations.email + full_name are added by the
         // USR-C migration (20260524230000) but the generated types
@@ -360,11 +387,12 @@ function AdminHRSolutions() {
     },
     {
       id: "training",
-      title: "Training & Onboarding",
-      description: "Certifications, induction checklist, refresher schedule.",
+      title: "Setup & Onboarding",
+      description: "Business setup wizard, email, clients and import data.",
       Icon: Award,
-      link: "#",
-      status: "coming-soon",
+      link: "/admin/onboarding",
+      status: "active",
+      chip: "Wizard",
     },
     {
       id: "documents",
@@ -444,7 +472,7 @@ function AdminHRSolutions() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4 mb-6">
 
             {/* Staff by department. */}
-            <Card className="border-0 shadow-md bg-white">
+            <Card className="border border-slate-200 bg-white shadow-sm">
               <CardContent className="p-5">
                 <div className="flex items-center gap-2 mb-3">
                   <Users className="w-5 h-5 text-blue-600" />
@@ -484,7 +512,7 @@ function AdminHRSolutions() {
             </Card>
 
             {/* Hours by department. */}
-            <Card className="border-0 shadow-md bg-white">
+            <Card className="border border-slate-200 bg-white shadow-sm">
               <CardContent className="p-5">
                 <div className="flex items-center gap-2 mb-3">
                   <Clock className="w-5 h-5 text-brand-primary" />
@@ -512,7 +540,7 @@ function AdminHRSolutions() {
             </Card>
 
             {/* Pending invitations. */}
-            <Card className={`border-0 shadow-md ${stats.pendingInvites > 0 ? "bg-gradient-to-br from-amber-50 to-orange-50" : "bg-white"}`}>
+            <Card className={`border shadow-sm ${stats.pendingInvites > 0 ? "border-amber-200 bg-amber-50" : "border-slate-200 bg-white"}`}>
               <CardContent className="p-5">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
@@ -554,7 +582,7 @@ function AdminHRSolutions() {
               return (
                 <Card
                   key={feature.id}
-                  className={`border-0 shadow-md hover:shadow-lg transition-shadow ${!isActive ? "opacity-75" : ""}`}
+                  className={`border border-slate-200 bg-white shadow-sm transition-colors hover:border-slate-300 ${!isActive ? "opacity-75" : ""}`}
                 >
                   <CardContent className="p-5">
                     <div className="flex items-start justify-between mb-3">

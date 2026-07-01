@@ -64,6 +64,7 @@ import {
 import { KitchenRulesPanel } from "@/components/admin/KitchenRulesPanel";
 import { PageWorkbench, PortalHeader, PortalShell } from "@/components/portal/ui";
 import { damageReporterName, type DamageReporterProfile } from "@/lib/damageReporter";
+import { teamBucketsForUser } from "@/lib/teamRoleBuckets";
 
 function startOfWeek(): Date {
   const d = new Date();
@@ -166,9 +167,15 @@ function KitchenTeamPage() {
     };
     const channel = supabase
       .channel(`teams-kitchen:${companyId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "profiles", filter: `company_id=eq.${companyId}` }, bump)
+      .on("postgres_changes", { event: "*", schema: "public", table: "user_departments" }, bump)
+      .on("postgres_changes", { event: "*", schema: "public", table: "orders", filter: `company_id=eq.${companyId}` }, bump)
       .on("postgres_changes", { event: "*", schema: "public", table: "kitchen_prep_tasks", filter: `company_id=eq.${companyId}` }, bump)
       .on("postgres_changes", { event: "*", schema: "public", table: "kitchen_duty_shifts", filter: `company_id=eq.${companyId}` }, bump)
       .on("postgres_changes", { event: "*", schema: "public", table: "kitchen_staff_shifts", filter: `company_id=eq.${companyId}` }, bump)
+      .on("postgres_changes", { event: "*", schema: "public", table: "kitchen_staff_members", filter: `company_id=eq.${companyId}` }, bump)
+      .on("postgres_changes", { event: "*", schema: "public", table: "inventory_items", filter: `company_id=eq.${companyId}` }, bump)
+      .on("postgres_changes", { event: "*", schema: "public", table: "inventory_batches", filter: `company_id=eq.${companyId}` }, bump)
       .on("postgres_changes", { event: "*", schema: "public", table: "equipment_damages", filter: `company_id=eq.${companyId}` }, bump)
       .on("postgres_changes", { event: "*", schema: "public", table: "equipment_handovers" }, bump)
       .subscribe();
@@ -195,12 +202,12 @@ function KitchenTeamPage() {
         const todayEndISO = `${todayISO}T23:59:59`;
         const threeDaysISO = toLocalISO(new Date(Date.now() + 3 * 24 * 3600 * 1000));
 
-        // Active kitchen staff. KIT-A: region scope via region_id
-        // on profiles when active.
+        // Active kitchen team. Includes kitchen_manager, kitchen_staff,
+        // active_role, and user_departments aliases so staff and manager
+        // accounts stay distinct but both count toward kitchen capacity.
         let staffQ = supabase.from("profiles")
-          .select("id", { count: "exact", head: true })
-          .eq("company_id", companyId)
-          .eq("role", "kitchen_staff");
+          .select("id, role, active_role, is_active")
+          .eq("company_id", companyId);
         if (regionFilterId) {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           staffQ = (staffQ as any).eq("region_id", regionFilterId);
@@ -329,6 +336,20 @@ function KitchenTeamPage() {
           handoverWaitingQ, kitchenMembersQ,
         ]);
 
+        const staffProfileRows = ((staffRes.data || []) as Array<{
+          id: string; role: string | null; active_role: string | null; is_active?: boolean | null;
+        }>).filter((p) => p.is_active !== false);
+        const staffProfileIds = staffProfileRows.map((p) => p.id).filter(Boolean);
+        const { data: staffDepartmentRows } = staffProfileIds.length > 0
+          ? await supabase
+              .from("user_departments")
+              .select("user_id, department, is_primary")
+              .in("user_id", staffProfileIds)
+          : { data: [] as Array<{ user_id: string | null; department: string | null; is_primary: boolean | null }> };
+        const activeKitchenTeamCount = staffProfileRows.filter((p) =>
+          teamBucketsForUser(p, staffDepartmentRows || []).has("kitchen"),
+        ).length;
+
         // Hours-this-week + wage burn today, walking the same rows.
         // KIT-B (task #211, 2026-05-25): also bucket mins per member
         // so we can render the per-staff overtime chips below.
@@ -453,7 +474,7 @@ function KitchenTeamPage() {
 
         if (!cancelled) {
           setStats({
-            active: staffRes.count ?? 0,
+            active: activeKitchenTeamCount,
             hoursWeek: Math.round(hours),
             jobsToday: jobsTodayRes.count ?? 0,
             clockedNow: activeDutyRes.count ?? 0,
@@ -645,7 +666,7 @@ function KitchenTeamPage() {
                 chip. Done-percent caption frames where the kitchen
                 actually is right now. */}
             <Link href={withSlug("/admin/kitchen-schedule")}>
-              <Card className={`border-0 shadow-md hover:shadow-lg transition-shadow ${stats.prepOverdue > 0 ? "bg-gradient-to-br from-rose-50 to-rose-50" : "bg-gradient-to-br from-brand-primary/10 to-brand-secondary/10"}`}>
+              <Card className={`border shadow-sm transition-colors hover:border-slate-300 ${stats.prepOverdue > 0 ? "border-rose-200 bg-rose-50" : "border-slate-200 bg-white"}`}>
                 <CardContent className="p-5">
                   <div className="flex items-start gap-3">
                     <Flame className={`w-6 h-6 ${stats.prepOverdue > 0 ? "text-rose-600" : "text-brand-primary"} flex-shrink-0`} />
@@ -693,7 +714,7 @@ function KitchenTeamPage() {
             {/* Tomorrow's prep load. Helps the manager call extra
                 staff in before the day arrives. */}
             <Link href={withSlug(`/admin/calendar?date=${toLocalISO(new Date(Date.now() + 24 * 3600 * 1000))}`)}>
-              <Card className={`border-0 shadow-md hover:shadow-lg transition-shadow bg-gradient-to-br ${stats.tomorrowEvents > 0 ? "from-blue-50 to-blue-50" : "from-slate-50 to-slate-100"}`}>
+              <Card className="border border-slate-200 bg-white shadow-sm transition-colors hover:border-slate-300">
                 <CardContent className="p-5">
                   <div className="flex items-start gap-3">
                     <CalendarDays className={`w-6 h-6 ${stats.tomorrowEvents > 0 ? "text-blue-700" : "text-slate-400"} flex-shrink-0`} />
@@ -718,7 +739,7 @@ function KitchenTeamPage() {
                 team's primary signal too - we surface the same number
                 so the kitchen manager isn't blindsided. */}
             <Link href={withSlug("/admin/equipment?tab=shortages")}>
-              <Card className={`border-0 shadow-md hover:shadow-lg transition-shadow ${stats.issuesThisWeek > 0 ? "bg-gradient-to-br from-rose-50 to-rose-50" : "bg-gradient-to-br from-slate-50 to-slate-100"}`}>
+              <Card className={`border shadow-sm transition-colors hover:border-slate-300 ${stats.issuesThisWeek > 0 ? "border-rose-200 bg-rose-50" : "border-slate-200 bg-white"}`}>
                 <CardContent className="p-5">
                   <div className="flex items-start gap-3">
                     <Wrench className={`w-6 h-6 ${stats.issuesThisWeek > 0 ? "text-rose-600" : "text-slate-400"} flex-shrink-0`} />
@@ -751,7 +772,7 @@ function KitchenTeamPage() {
             {/* Stock at risk - perishable. The manager's "what do I
                 need to check on the fly today" prompt. */}
             <Link href={withSlug("/admin/stock?filter=perishable-risk")}>
-              <Card className={`border-0 shadow-md hover:shadow-lg transition-shadow ${stats.stockAtRisk > 0 ? "bg-gradient-to-br from-rose-50 to-rose-50" : "bg-gradient-to-br from-slate-50 to-slate-100"}`}>
+              <Card className={`border shadow-sm transition-colors hover:border-slate-300 ${stats.stockAtRisk > 0 ? "border-rose-200 bg-rose-50" : "border-slate-200 bg-white"}`}>
                 <CardContent className="p-5">
                   <div className="flex items-start gap-3">
                     <Package className={`w-6 h-6 ${stats.stockAtRisk > 0 ? "text-rose-600" : "text-slate-400"} flex-shrink-0`} />
@@ -777,7 +798,7 @@ function KitchenTeamPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
             {tiles.map((t) => (
               <Link key={t.label} href={withSlug(t.href)}>
-                <Card className={`border-0 shadow-md hover:shadow-lg transition-shadow bg-gradient-to-br ${t.bg}`}>
+                <Card className="border border-slate-200 bg-white shadow-sm transition-colors hover:border-slate-300">
                   <CardContent className="p-5">
                     <div className="flex items-start gap-3">
                       <t.icon className={`w-6 h-6 ${t.iconColor} flex-shrink-0`} />

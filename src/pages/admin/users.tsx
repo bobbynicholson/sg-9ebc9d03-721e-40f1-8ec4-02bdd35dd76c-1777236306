@@ -54,16 +54,15 @@ import Head from "next/head";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { useAuth } from "@/contexts/AuthContext";
 import { userManagementService, UserWithDepartments } from "@/services/userManagementService";
-import type { DepartmentAssignment } from "@/services/userManagementService";
 import { useToast } from "@/hooks/use-toast";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { formatLocalDate } from "@/lib/localFormat";
-import { formatDistanceToNow } from "date-fns";
 import { loginActivityBucket } from "@/lib/loginActivity";
 import { toLocalISO } from "@/lib/localDate";
+import { normalizeRoleValue as normalizeAppRoleValue } from "@/lib/roleDerivation";
 
 // USR-C (task #208, 2026-05-24): pending-invite shape used by the
 // new Pending tab + Invite dialog.
@@ -236,14 +235,10 @@ function AdminUsersPage() {
     },
   ];
 
-  const normalizeRoleValue = (value?: UserRole | string | null): UserRole | null => {
-    if (!value) return null;
-    if (value === "kitchen") return UserRole.KITCHEN_STAFF;
-    if (value === "shopping") return UserRole.SHOPPING_STAFF;
-    if (value === "cleaning") return UserRole.CLEANING_STAFF;
-    if (Object.values(UserRole).includes(value as UserRole)) return value as UserRole;
-    return null;
-  };
+  const normalizeRoleValue = (
+    value?: UserRole | string | null,
+    fallbackRole?: UserRole | string | null,
+  ): UserRole | null => normalizeAppRoleValue(value || null, fallbackRole || null);
 
   const roleMetaFor = (value?: UserRole | string | null) => {
     const normalized = normalizeRoleValue(value);
@@ -251,13 +246,15 @@ function AdminUsersPage() {
   };
 
   const userAccessRoles = (targetUser: UserWithDepartments): UserRole[] => {
+    const baseRole = normalizeRoleValue(targetUser.role as string | null | undefined);
+    const activeRole = normalizeRoleValue(targetUser.active_role, baseRole);
+    const fallbackRole = activeRole || baseRole;
     const roles = [
-      targetUser.role,
-      (targetUser as any).active_role,
-      targetUser.primary_department,
-      ...(targetUser.departments || []),
+      baseRole,
+      activeRole,
+      normalizeRoleValue(targetUser.primary_department, fallbackRole),
+      ...(targetUser.departments || []).map((role) => normalizeRoleValue(role as string | null | undefined, fallbackRole)),
     ]
-      .map((role) => normalizeRoleValue(role as string | null | undefined))
       .filter((role): role is UserRole => Boolean(role));
     return Array.from(new Set(roles));
   };
@@ -555,16 +552,19 @@ function AdminUsersPage() {
   const handleEditUser = (userId: string) => {
     const targetUser = users.find(u => u.id === userId);
     if (targetUser) {
+      const fallbackRole = normalizeRoleValue(
+        targetUser.active_role,
+        normalizeRoleValue(targetUser.role as string | null | undefined),
+      ) || normalizeRoleValue(targetUser.role as string | null | undefined);
       const normalizedDepartments = (targetUser.departments || [])
-        .map((dept) => normalizeRoleValue(dept))
+        .map((dept) => normalizeRoleValue(dept, fallbackRole))
         .filter((dept): dept is UserRole => Boolean(dept));
-      const fallbackRole = normalizeRoleValue(targetUser.role as string | null | undefined);
       const nextDepartments = normalizedDepartments.length > 0
         ? Array.from(new Set(normalizedDepartments))
         : fallbackRole
           ? [fallbackRole]
           : [];
-      const nextPrimary = normalizeRoleValue(targetUser.primary_department) || nextDepartments[0] || null;
+      const nextPrimary = normalizeRoleValue(targetUser.primary_department, fallbackRole) || nextDepartments[0] || null;
       setEditingUser(userId);
       setSelectedDepartments(nextDepartments);
       setPrimaryDepartment(nextPrimary);
@@ -677,7 +677,7 @@ function AdminUsersPage() {
     { key: "name",    accessor: (u) => u.full_name || u.email,                type: "string" },
     { key: "role",    accessor: (u) => (u.role || "").toString(),             type: "string" },
     { key: "email",   accessor: (u) => u.email || "",                         type: "string" },
-    { key: "created", accessor: (u) => (u as any).created_at,                 type: "date"   },
+    { key: "created", accessor: (u) => u.created_at,                          type: "date"   },
   ], []);
   const userSort = useSortable<UserWithDepartments>(fuzzyOrAll, userSortColumns, { defaultKey: "name", defaultDir: "asc" });
   const filteredUsers = userSort.rows;
@@ -859,15 +859,15 @@ function AdminUsersPage() {
 
           <div className="grid gap-5 xl:grid-cols-[320px_minmax(0,1fr)]">
             <aside className="space-y-4 xl:sticky xl:top-6 xl:self-start">
-              <section className="rounded-2xl bg-slate-950 p-4 text-white shadow-[0_1px_2px_rgba(15,23,42,0.08),0_18px_42px_-28px_rgba(15,23,42,0.7)]">
+              <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="text-sm font-semibold">Access control</p>
-                    <p className="mt-1 text-xs leading-5 text-slate-300">
+                    <p className="text-sm font-semibold text-slate-950">Access control</p>
+                    <p className="mt-1 text-xs leading-5 text-slate-600">
                       Staff logins only. Client portal users stay with Contacts.
                     </p>
                   </div>
-                  <span className="rounded-full border border-white/15 bg-white/10 px-2 py-1 text-[11px] font-medium text-white">
+                  <span className="rounded-full border border-brand-primary/20 bg-brand-primary/10 px-2 py-1 text-[11px] font-medium text-brand-primary">
                     Live roster
                   </span>
                 </div>
@@ -878,15 +878,15 @@ function AdminUsersPage() {
                     { label: "Inactive", value: inactiveUserCount },
                     { label: "Pending", value: pendingInviteCount },
                   ].map((item) => (
-                    <div key={item.label} className="rounded-xl border border-white/10 bg-white/[0.06] p-3">
-                      <p className="text-[11px] font-medium text-slate-300">{item.label}</p>
-                      <p className="mt-1 text-2xl font-semibold tabular-nums text-white">{item.value}</p>
+                    <div key={item.label} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                      <p className="text-[11px] font-medium text-slate-500">{item.label}</p>
+                      <p className="mt-1 text-2xl font-semibold tabular-nums text-slate-950">{item.value}</p>
                     </div>
                   ))}
                 </div>
               </section>
 
-              <section className="rounded-2xl border border-slate-300/80 bg-white p-4 shadow-[0_1px_1px_rgba(15,23,42,0.04),0_14px_28px_-24px_rgba(15,23,42,0.35)]">
+              <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
                 <div className="mb-3 flex items-center justify-between gap-2">
                   <h2 className="text-sm font-semibold text-slate-950">Role map</h2>
                   <span className="text-xs text-slate-500">Counts from visible tenant</span>
@@ -925,7 +925,7 @@ function AdminUsersPage() {
             </aside>
 
             <main className="space-y-4">
-              <section className="rounded-2xl border border-slate-300/80 bg-white shadow-[0_1px_1px_rgba(15,23,42,0.04),0_14px_28px_-24px_rgba(15,23,42,0.35)]">
+              <section className="rounded-lg border border-slate-200 bg-white shadow-sm">
                 <div className="flex flex-col gap-3 border-b border-slate-200 p-4 lg:flex-row lg:items-center lg:justify-between">
                   <div>
                     <h2 className="text-base font-semibold text-slate-950">Team members</h2>
@@ -984,13 +984,17 @@ function AdminUsersPage() {
                       const roles = userAccessRoles(targetUser);
                       const primaryRole = roleMetaFor(targetUser.primary_department || targetUser.role);
                       const PrimaryIcon = primaryRole?.icon || UserCircle;
+                      const primaryFallbackRole = normalizeRoleValue(
+                        targetUser.active_role,
+                        normalizeRoleValue(targetUser.role as string | null | undefined),
+                      );
                       const activity = loginActivityBucket(targetUser.last_sign_in_at);
                       return (
                         <div key={targetUser.id} className="p-4 transition-colors hover:bg-slate-50/70">
                           <div className="grid gap-4 xl:grid-cols-[minmax(220px,1.15fr)_minmax(220px,1fr)_170px_220px] xl:items-start">
                             <div className="min-w-0">
                               <div className="flex min-w-0 items-center gap-3">
-                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-slate-100 text-sm font-semibold text-slate-700">
+                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-slate-100 text-sm font-semibold text-slate-700">
                                   {(targetUser.full_name || targetUser.email || "?").slice(0, 2).toUpperCase()}
                                 </div>
                                 <div className="min-w-0">
@@ -1031,7 +1035,7 @@ function AdminUsersPage() {
                                   roles.map((dept) => {
                                     const config = roleMetaFor(dept);
                                     const Icon = config?.icon || UserCircle;
-                                    const isPrimary = dept === normalizeRoleValue(targetUser.primary_department);
+                                    const isPrimary = dept === normalizeRoleValue(targetUser.primary_department, primaryFallbackRole);
                                     return (
                                       <Badge key={dept} className={`text-xs ${config?.color} ${isPrimary ? "ring-2 ring-offset-1 ring-slate-500" : ""}`}>
                                         <Icon className="mr-1 h-3 w-3" />
@@ -1119,7 +1123,7 @@ function AdminUsersPage() {
                           </div>
 
                       {editingUser === targetUser.id && (
-                        <div className="mt-4 space-y-4 rounded-xl border border-slate-300 bg-slate-50 p-3 md:p-4">
+                        <div className="mt-4 space-y-4 rounded-lg border border-slate-200 bg-slate-50 p-3 md:p-4">
                           {/* USR-D (task #209, 2026-05-25): grouped
                               picker with per-role descriptions. The
                               old flat 7-checkbox grid gave no hint
@@ -1283,7 +1287,7 @@ function AdminUsersPage() {
                 )}
               </section>
 
-              <section className="rounded-2xl border border-slate-300/80 bg-white shadow-[0_1px_1px_rgba(15,23,42,0.04),0_14px_28px_-24px_rgba(15,23,42,0.35)]">
+              <section className="rounded-lg border border-slate-200 bg-white shadow-sm">
                 <div className="flex items-center justify-between gap-3 border-b border-slate-200 p-4">
                   <div>
                     <h2 className="text-base font-semibold text-slate-950">Pending invitations</h2>
