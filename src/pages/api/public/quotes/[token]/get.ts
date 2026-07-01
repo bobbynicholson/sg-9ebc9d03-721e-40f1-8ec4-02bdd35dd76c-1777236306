@@ -27,6 +27,7 @@ import {
   isUuid,
 } from "@/lib/embedFormApi";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { getEventCapacityForDate, publicCapacityMessage } from "@/lib/eventCapacity";
 
 
 export const config = {
@@ -115,6 +116,35 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   } catch (e) {
     console.warn("[public/quotes/get] pending change-request probe failed:", e);
     (data as any).pending_change_request = false;
+  }
+
+  (data as any).event_capacity = null;
+  try {
+    const companyId = (data as any)?.company?.id;
+    const eventDate = (data as any)?.event_date;
+    const alreadyTerminal =
+      !!(data as any)?.converted_to_order_id ||
+      ["accepted", "rejected", "expired"].includes(String((data as any)?.status || "").toLowerCase());
+    if (companyId && eventDate && !alreadyTerminal) {
+      const capacity = await getEventCapacityForDate(supabase, {
+        companyId,
+        eventDate,
+        includeOpenQuotes: false,
+        excludeQuoteId: (data as any).id,
+        candidateEventCount: 1,
+        candidateGuestCount: (data as any).guest_count,
+      });
+      const blocked = capacity.blocksPublicAcceptance;
+      (data as any).event_capacity = {
+        status: capacity.status,
+        accepting_blocked: blocked,
+        message: blocked
+          ? publicCapacityMessage((data as any)?.company?.company_name || null)
+          : null,
+      };
+    }
+  } catch (e) {
+    console.warn("[public/quotes/get] capacity probe failed:", e);
   }
 
   const companyPct = Number((data as any)?.company?.deposit_percent);

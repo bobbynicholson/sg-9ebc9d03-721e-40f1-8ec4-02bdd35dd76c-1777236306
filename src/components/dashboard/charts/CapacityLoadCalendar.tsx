@@ -4,7 +4,7 @@
  *
  * Stacked bar chart per day. Bottom segment = confirmed orders, top
  * (semi-transparent) = open quotes. Horizontal reference line at the
- * tenant's per-day capacity ceiling (default 3, configurable later).
+ * tenant's per-day capacity ceiling (default 5; admin setting overrides).
  * Days at or over the ceiling get a red border on the bar.
  */
 import { useMemo } from "react";
@@ -23,7 +23,7 @@ interface Props {
   loading?: boolean;
 }
 
-export function CapacityLoadCalendar({ data, capacityCeiling = 3, loading }: Props) {
+export function CapacityLoadCalendar({ data, capacityCeiling = 5, loading }: Props) {
   const { days } = data;
 
   const ariaSummary = useMemo(() => {

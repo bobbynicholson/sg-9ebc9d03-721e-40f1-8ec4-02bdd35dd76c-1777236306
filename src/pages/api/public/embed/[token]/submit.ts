@@ -14,6 +14,7 @@ import {
 } from "@/lib/embedFormApi";
 import { notifyAdminOfEmbedLead } from "@/lib/embed/notifyAdminOfEmbedLead";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { getEventCapacityForDate } from "@/lib/eventCapacity";
 
 
 /**
@@ -413,12 +414,31 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     })();
   }
 
+  let capacitySuccessMessage: string | null = null;
+  if (leadInsert.event_date) {
+    try {
+      const capacity = await getEventCapacityForDate(supabase, {
+        companyId: company.id,
+        eventDate: leadInsert.event_date,
+        includeOpenQuotes: false,
+        candidateEventCount: 1,
+        candidateGuestCount: leadInsert.guest_count,
+      });
+      if (capacity.blocksPublicAcceptance) {
+        capacitySuccessMessage =
+          "Thanks, we've received your enquiry. The requested date or event size is currently above capacity, so the team will confirm alternatives before sending a quote.";
+      }
+    } catch (capacityErr) {
+      console.warn("[embed/submit] capacity message check failed", capacityErr);
+    }
+  }
+
   return res.status(200).json({
     ok: true,
     leadId: leadRow.id,
     redirectUrl: form.redirect_url || null,
     message:
-      form.success_message || "Thanks, we'll be in touch shortly.",
+      capacitySuccessMessage || form.success_message || "Thanks, we'll be in touch shortly.",
   });
 }
 

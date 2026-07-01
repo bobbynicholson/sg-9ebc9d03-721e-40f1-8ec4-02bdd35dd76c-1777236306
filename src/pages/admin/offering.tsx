@@ -1,16 +1,14 @@
 /**
  * Offering glance - "what are we actually selling?".
  *
- * Three tiles above the fold (Menu, Equipment, Packages) plus a
+ * Two tiles above the fold (Menu, Equipment) plus a
  * "recently quoted" strip and a "never quoted" callout below.
  * Owner-level snapshot, no edits happen here - every chip + tile
- * deep-links to the action surface (/admin/menu, /admin/equipment,
- * /admin/packages) so a tap on the gap lands the operator on the
- * filtered list ready to fix.
+ * deep-links to the action surface (/admin/menu, /admin/equipment)
+ * so a tap on a gap lands the operator on the filtered list ready to
+ * fix.
  *
  * OFR-B (offering deferred, 2026-05-24):
- *   - Packages tile (count + orders missing dates / venues - same
- *     gap framing the equipment tile uses)
  *   - OWNER role admitted (per project_cateringms_owner_dashboard)
  *   - Missing-photo / missing-price chips on both menu + equipment,
  *     linkifying to the action surface
@@ -22,7 +20,7 @@
  *   - "Never quoted in N days" callout - dead-stock signal
  *   - Revenue-weighted Top 3 alongside the volume Top 3
  *   - Linkified Top 3 rows deep-linking to the menu editor via ?item=
- *   - Realtime channel on menu_items + equipment + booking_packages
+ *   - Realtime channel on menu_items + equipment
  *   - Inline error banner with Retry
  *   - captureException tagged route + step + companyId
  *   - as-any cleanup on auth
@@ -48,7 +46,7 @@ import { useTenantHref } from "@/lib/tenantUrl";
 import { captureException } from "@/lib/observability";
 import {
   UtensilsCrossed, Package, AlertTriangle, ImageOff, Tag,
-  TrendingUp, Loader2, ArrowRight, Sparkles, Boxes, CalendarOff,
+  TrendingUp, Loader2, ArrowRight, Sparkles,
   RefreshCw,
 } from "lucide-react";
 
@@ -71,16 +69,6 @@ interface MenuTile {
   topByRevenue: { id: string; name: string; revenue: number; marginPct: number | null }[];
 }
 
-// OFR-C: top packages by revenue in the active window. orders.total_
-// amount summed where orders.package_id matches and the order isn't
-// soft-deleted / cancelled.
-interface PackageRevenueRow {
-  id: string;
-  name: string;
-  orderCount: number;
-  revenue: number;
-}
-
 // OFR-C: bundle suggestions - menu_item co-occurrence on the same
 // order. Top 3 unordered pairs (a, b) by frequency. Useful "what
 // goes with what" intel for the operator building the next quote.
@@ -96,12 +84,6 @@ interface EquipmentTile {
   withPrice: number;
   missingPrice: number;
   missingPhoto: number;
-}
-
-interface PackagesTile {
-  total: number;
-  ordersMissingDates: number;
-  ordersMissingVenues: number;
 }
 
 interface RecentItem {
@@ -146,13 +128,9 @@ function OfferingPage() {
     active: 0, total: 0, withPhoto: 0, withPrice: 0, missingPhoto: 0, missingPrice: 0,
     stalePhoto: 0, lastEdited: null, topQuoted: [], topByRevenue: [],
   });
-  const [packageRevenue, setPackageRevenue] = useState<PackageRevenueRow[]>([]);
   const [bundlePairs, setBundlePairs] = useState<BundlePair[]>([]);
   const [equipTile, setEquipTile] = useState<EquipmentTile>({
     total: 0, withPhoto: 0, withPrice: 0, missingPrice: 0, missingPhoto: 0,
-  });
-  const [packagesTile, setPackagesTile] = useState<PackagesTile>({
-    total: 0, ordersMissingDates: 0, ordersMissingVenues: 0,
   });
   const [recent, setRecent] = useState<RecentItem[]>([]);
   const [neverQuoted, setNeverQuoted] = useState<NeverQuotedItem[]>([]);
@@ -166,12 +144,11 @@ function OfferingPage() {
       const sincePeriod = toLocalISO(new Date(today.getTime() - period * 24 * 3600 * 1000));
 
       // Parallel fan-out: menu list (with image + price for gap chips),
-      // equipment list, package list, recent order_items, recent
-      // equipment_bookings. One round trip per source.
+      // equipment list, recent order_items, recent equipment_bookings.
+      // One round trip per source.
       const [
         menuRes,
         equipRes,
-        packagesRes,
         oiRes,
         equipBookingsRes,
       ] = await Promise.all([
@@ -188,30 +165,13 @@ function OfferingPage() {
           .select("id, name, rental_price, image_url, is_available")
           .eq("company_id", companyId)
           .eq("is_available", true),
-        // OFR-B: package definitions joined to the orders that use
-        // them, so the tile can surface "X orders using packages are
-        // missing dates / venues". Same gap framing equipment uses,
-        // but operational rather than catalogue.
-        // booking_packages uses deleted_at as the live signal (no
-        // is_active boolean - it has a `status` text column instead).
-        supabase
-          .from("booking_packages")
-          .select(`
-            id,
-            name,
-            status,
-            orders:orders!package_id(id, event_date, event_location:venue_address, deleted_at, status)
-          `)
-          .eq("company_id", companyId)
-          .is("deleted_at", null),
         // order_items uses line_total (not total_price).
         // OFR-C (task #183 deferred, 2026-05-24): also pull order_id
         // (for bundle co-occurrence), unit_cost (for margin maths)
-        // and orders.total_amount + orders.package_id (for package
-        // revenue rollup).
+        // and order status/date for recent accepted items.
         supabase
           .from("order_items")
-          .select("order_id, menu_item_id, item_name, line_total, quantity, unit_cost, orders!inner(company_id, event_date, deleted_at, status, total_amount, package_id)")
+          .select("order_id, menu_item_id, item_name, line_total, quantity, unit_cost, orders!inner(company_id, event_date, deleted_at, status)")
           .eq("orders.company_id", companyId)
           .is("orders.deleted_at", null)
           .gte("orders.event_date", sincePeriod)
@@ -229,21 +189,6 @@ function OfferingPage() {
 
       if (menuRes.error) throw menuRes.error;
       if (equipRes.error) throw equipRes.error;
-      // booking_packages may not exist on every legacy tenant - swallow
-      // the error and treat as zero packages rather than blocking the
-      // page render.
-      const packageRows = packagesRes.error ? [] : ((packagesRes.data || []) as unknown as Array<{
-        id: string;
-        name: string;
-        status: string;
-        orders: Array<{ id: string; event_date: string | null; event_location: string | null; deleted_at: string | null; status: string }> | null;
-      }>);
-      if (packagesRes.error) {
-        // Log but don't throw; the tile gracefully renders zeros.
-        captureException(packagesRes.error, {
-          tags: { route: "/admin/offering", step: "load-packages", companyId },
-        });
-      }
 
       const menuRows = (menuRes.data || []) as Array<{
         id: string; item_name: string; image_url: string | null; base_price: number | null;
@@ -283,20 +228,6 @@ function OfferingPage() {
       const equipWithPhoto = equipRows.length - equipMissingPhoto;
       const equipWithPrice = equipRows.length - equipMissingPrice;
 
-      // OFR-B: package operational gaps. Walks the joined orders array
-      // and counts how many lack event_date or event_location. RLS
-      // already scopes to company_id via the package row.
-      let ordersMissingDates = 0;
-      let ordersMissingVenues = 0;
-      for (const pkg of packageRows) {
-        for (const o of pkg.orders || []) {
-          if (o.deleted_at) continue;
-          if (o.status === "cancelled" || o.status === "declined") continue;
-          if (!o.event_date) ordersMissingDates += 1;
-          if (!o.event_location || o.event_location.trim() === "") ordersMissingVenues += 1;
-        }
-      }
-
       // Volume + revenue Top 3 from order_items. order_items uses
       // line_total (= unit_price * quantity).
       // OFR-C: now also tracks per-item cost (sum quantity * unit_
@@ -309,7 +240,6 @@ function OfferingPage() {
         unit_cost: number | null;
         orders: {
           status?: string; event_date?: string;
-          total_amount?: number | null; package_id?: string | null;
         } | null;
       }>;
       const freq: Record<string, { id: string; name: string; count: number; revenue: number; cost: number; costRows: number }> = {};
@@ -335,34 +265,6 @@ function OfferingPage() {
           ? Math.round(((m.revenue - m.cost) / m.revenue) * 100)
           : null,
       }));
-
-      // OFR-C: package revenue rollup. Walk the order_items, dedupe
-      // by order_id (each order's total_amount counts once), group
-      // by orders.package_id. Top 5 packages by revenue in window.
-      const pkgRev = new Map<string, { orderIds: Set<string>; revenue: number }>();
-      const seenOrderPkg = new Set<string>();
-      for (const r of oiRows) {
-        const pkgId = r.orders?.package_id;
-        const orderId = r.order_id;
-        if (!pkgId || !orderId) continue;
-        const orderPkgKey = `${orderId}:${pkgId}`;
-        if (seenOrderPkg.has(orderPkgKey)) continue;
-        seenOrderPkg.add(orderPkgKey);
-        const slot = pkgRev.get(pkgId) || { orderIds: new Set<string>(), revenue: 0 };
-        slot.orderIds.add(orderId);
-        slot.revenue += Number(r.orders?.total_amount || 0);
-        pkgRev.set(pkgId, slot);
-      }
-      const pkgNameById = new Map(packageRows.map((p) => [p.id, p.name]));
-      const packageRevRows: PackageRevenueRow[] = Array.from(pkgRev.entries())
-        .map(([id, slot]) => ({
-          id,
-          name: pkgNameById.get(id) || "Unknown package",
-          orderCount: slot.orderIds.size,
-          revenue: slot.revenue,
-        }))
-        .sort((a, b) => b.revenue - a.revenue)
-        .slice(0, 5);
 
       // OFR-C: bundle co-occurrence. Group order_items by order_id,
       // emit every unordered (a, b) pair, count frequency. O(n^2) on
@@ -410,7 +312,6 @@ function OfferingPage() {
         topQuoted,
         topByRevenue,
       });
-      setPackageRevenue(packageRevRows);
       setBundlePairs(topPairs);
       setEquipTile({
         total: equipRows.length,
@@ -419,12 +320,6 @@ function OfferingPage() {
         missingPrice: equipMissingPrice,
         missingPhoto: equipMissingPhoto,
       });
-      setPackagesTile({
-        total: packageRows.length,
-        ordersMissingDates,
-        ordersMissingVenues,
-      });
-
       // Recent strip: accepted orders in window.
       const acceptedRows = oiRows.filter((r) => {
         const orders = (r as unknown as { orders: { status?: string } }).orders;
@@ -517,7 +412,6 @@ function OfferingPage() {
       .channel(`offering:${companyId}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "menu_items", filter: `company_id=eq.${companyId}` }, bump)
       .on("postgres_changes", { event: "*", schema: "public", table: "equipment", filter: `company_id=eq.${companyId}` }, bump)
-      .on("postgres_changes", { event: "*", schema: "public", table: "booking_packages", filter: `company_id=eq.${companyId}` }, bump)
       .subscribe();
     return () => {
       if (timer) clearTimeout(timer);
@@ -528,7 +422,6 @@ function OfferingPage() {
 
   const showMenuEmpty = !loading && menuTile.active === 0;
   const showEquipEmpty = !loading && equipTile.total === 0;
-  const showPackagesEmpty = !loading && packagesTile.total === 0;
 
   const menuPhotoPct = useMemo(
     () => menuTile.active > 0 ? Math.round((menuTile.withPhoto / menuTile.active) * 100) : 0,
@@ -551,7 +444,7 @@ function OfferingPage() {
           <PortalHeader
             title="Offering"
             icon={Sparkles}
-            subtitle="Snapshot of what you sell. Menu items, equipment for hire, and packages combined into one view so you can spot gaps in pricing or photos before they hit a quote."
+            subtitle="Snapshot of what you sell. Menu items and equipment for hire in one view so you can spot gaps in pricing or photos before they hit a quote."
             actions={
             <>
               {/* OFR-B: period selector. Drives Top 3 + Recent strip
@@ -601,10 +494,10 @@ function OfferingPage() {
             </Card>
           )}
 
-          {/* OFR-B: three tiles. Menu + Equipment + Packages. Snapshot
+          {/* OFR-B: Menu + Equipment. Snapshot
               framing - every chip + big number deep-links to the
               action surface. */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 mb-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-6">
             {/* Menu tile */}
             <Card className="border-0 shadow-lg overflow-hidden">
               <CardHeader className="bg-gradient-to-r from-brand-primary/10 to-brand-secondary/10 border-b">
@@ -869,123 +762,6 @@ function OfferingPage() {
               </CardContent>
             </Card>
 
-            {/* OFR-B: Packages tile. Same gap framing as Equipment but
-                operational - the package definitions are usually
-                sound; what goes wrong is orders attached to packages
-                that lack dates or venues, which become events-without-
-                logistics. Surfacing them here lets the operator chase
-                clients for missing info before the day-of-prep panic. */}
-            <Card className="border-0 shadow-lg overflow-hidden">
-              <CardHeader className="bg-gradient-to-r from-slate-50 to-slate-50 border-b">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-slate-500/10 flex items-center justify-center">
-                      <Boxes className="w-5 h-5 bg-slate-500/10" />
-                    </div>
-                    <div>
-                      <CardTitle className="text-lg sm:text-xl">Packages</CardTitle>
-                      <p className="text-xs text-slate-600">Pre-built combos clients can pick</p>
-                    </div>
-                  </div>
-                  <Link href={withSlug("/admin/packages")}>
-                    <Button size="sm" className="gap-1">
-                      Manage packages <ArrowRight className="w-3.5 h-3.5" />
-                    </Button>
-                  </Link>
-                </div>
-              </CardHeader>
-              <CardContent className="pt-4">
-                {showPackagesEmpty ? (
-                  <div className="py-8 text-center text-slate-500">
-                    <Boxes className="w-10 h-10 mx-auto mb-3 text-slate-300" />
-                    <p className="font-medium text-slate-700">No packages yet</p>
-                    <p className="text-sm mt-1">Bundle menu + equipment combos so clients can pick a whole event in one click.</p>
-                    <Link href={withSlug("/admin/packages")}>
-                      <Button size="sm" className="mt-3">Build your first package</Button>
-                    </Link>
-                  </div>
-                ) : (
-                  <>
-                    <Link href={withSlug("/admin/packages")} className="block group">
-                      <div className="flex items-baseline gap-3 mb-3">
-                        <span className="text-4xl font-bold text-slate-900 group-hover:text-slate-700 transition-colors">
-                          {loading ? "-" : packagesTile.total}
-                        </span>
-                        <span className="text-sm text-slate-600">active package{packagesTile.total === 1 ? "" : "s"}</span>
-                      </div>
-                    </Link>
-                    <div className="flex flex-wrap gap-2 mb-3">
-                      {packagesTile.ordersMissingDates > 0 ? (
-                        <Link href={withSlug("/admin/orders?missing=date")}>
-                          <Badge variant="destructive" className="bg-amber-500 hover:bg-amber-600 cursor-pointer">
-                            <CalendarOff className="w-3 h-3 mr-1" />
-                            {packagesTile.ordersMissingDates} order{packagesTile.ordersMissingDates === 1 ? "" : "s"} missing date
-                          </Badge>
-                        </Link>
-                      ) : (
-                        <Badge variant="secondary">
-                          <CalendarOff className="w-3 h-3 mr-1" />
-                          0 orders missing date
-                        </Badge>
-                      )}
-                      {packagesTile.ordersMissingVenues > 0 ? (
-                        <Link href={withSlug("/admin/orders?missing=venue")}>
-                          <Badge variant="destructive" className="bg-amber-500 hover:bg-amber-600 cursor-pointer">
-                            <AlertTriangle className="w-3 h-3 mr-1" />
-                            {packagesTile.ordersMissingVenues} missing venue
-                          </Badge>
-                        </Link>
-                      ) : (
-                        <Badge variant="secondary">
-                          <AlertTriangle className="w-3 h-3 mr-1" />
-                          0 missing venue
-                        </Badge>
-                      )}
-                    </div>
-                    {(packagesTile.ordersMissingDates > 0 || packagesTile.ordersMissingVenues > 0) && (
-                      <Link
-                        href={withSlug(`/admin/orders?missing=${packagesTile.ordersMissingDates > 0 ? "date" : "venue"}`)}
-                        className="block"
-                      >
-                        <p className="text-xs text-amber-700 flex items-start gap-1 hover:underline">
-                          <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
-                          Package-driven orders without dates or venues won't make it onto the calendar.
-                        </p>
-                      </Link>
-                    )}
-                    {/* OFR-C (task #183 deferred, 2026-05-24): Top
-                        packages by revenue in window. Tells the
-                        operator which bundles are actually pulling
-                        weight - the rest can be retired or repriced. */}
-                    {packageRevenue.length > 0 && (
-                      <div className="mt-3 pt-3 border-t border-slate-100">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
-                          Top by revenue ({period}d)
-                        </p>
-                        <ul className="space-y-1">
-                          {packageRevenue.slice(0, 3).map((p) => (
-                            <li key={p.id}>
-                              <Link
-                                href={withSlug(`/admin/packages?id=${p.id}`)}
-                                className="flex items-center justify-between text-sm hover:bg-slate-50 rounded px-1 -mx-1 py-0.5"
-                              >
-                                <span className="truncate text-slate-700">{p.name}</span>
-                                <span className="flex items-center gap-1.5 ml-2 flex-shrink-0">
-                                  <Badge variant="outline" className="text-[10px] tabular-nums border-slate-300">
-                                    {p.orderCount}x
-                                  </Badge>
-                                  <Badge variant="secondary" className="tabular-nums">{fmtR(p.revenue)}</Badge>
-                                </span>
-                              </Link>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                  </>
-                )}
-              </CardContent>
-            </Card>
           </div>
 
           {/* OFR-C (task #183 deferred, 2026-05-24): bundle suggestions.

@@ -10,6 +10,7 @@ import {
 } from "@/lib/embedFormApi";
 import { resolveClientUserId } from "@/services/lifecycle/resolveClientUserId";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { getEventCapacityForDate, publicCapacityMessage } from "@/lib/eventCapacity";
 
 
 /**
@@ -67,7 +68,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   // weeks later. Gate the acceptance on a fresh status check first.
   const { data: existing, error: existingErr } = await (supabase as any)
     .from("quotes")
-    .select("id, status, valid_until, converted_to_order_id")
+    .select("id, company_id, status, valid_until, converted_to_order_id, event_date, guest_count")
     .eq("public_token", token)
     .is("deleted_at", null)
     .maybeSingle();
@@ -101,6 +102,32 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         .update({ status: "expired" })
         .eq("id", existing.id);
       return res.status(409).json({ ok: false, error: "This quote has expired. Please request a new one." });
+    }
+  }
+
+  if (existing.event_date && existing.company_id) {
+    try {
+      const capacity = await getEventCapacityForDate(supabase, {
+        companyId: existing.company_id,
+        eventDate: existing.event_date,
+        includeOpenQuotes: false,
+        excludeQuoteId: existing.id,
+        candidateEventCount: 1,
+        candidateGuestCount: existing.guest_count,
+      });
+      if (capacity.blocksPublicAcceptance) {
+        return res.status(409).json({
+          ok: false,
+          code: "event_capacity_full",
+          error: publicCapacityMessage(),
+        });
+      }
+    } catch (capacityErr) {
+      console.error("[public/quotes/[token]/accept] capacity check failed:", capacityErr);
+      return res.status(500).json({
+        ok: false,
+        error: "Couldn't confirm event availability right now. Please try again or contact the caterer.",
+      });
     }
   }
 

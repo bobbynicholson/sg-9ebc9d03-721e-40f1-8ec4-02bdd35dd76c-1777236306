@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, CalendarCheck, Loader2, MapPin, Save } from "lucide-react";
+import { AlertTriangle, ArrowLeft, CalendarCheck, Loader2, MapPin, Save } from "lucide-react";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
@@ -34,6 +34,7 @@ import { useTenantHref } from "@/lib/tenantUrl";
 import { PageWorkbench } from "@/components/portal/ui";
 import { supabase } from "@/integrations/supabase/client";
 import { toLocalISO } from "@/lib/localDate";
+import { getEventCapacityForDate, type EventCapacityCheck, type EventCapacityStatus } from "@/lib/eventCapacity";
 
 const todayISO = () => toLocalISO(new Date());
 
@@ -139,7 +140,16 @@ export default function NewLead() {
   });
 
   const eventDate = watch("eventDate");
-  const [dateLoad, setDateLoad] = useState<{ checking: boolean; orders: number; quotes: number } | null>(null);
+  const watchedGuestCount = watch("guestCount");
+  const [dateLoad, setDateLoad] = useState<{
+    checking: boolean;
+    orders: number;
+    quotes: number;
+    max: number;
+    remaining: number;
+    status: EventCapacityStatus;
+    capacity?: EventCapacityCheck | null;
+  } | null>(null);
 
   useEffect(() => {
     if (!user?.company_id || !eventDate) {
@@ -147,30 +157,25 @@ export default function NewLead() {
       return;
     }
     let cancelled = false;
-    setDateLoad({ checking: true, orders: 0, quotes: 0 });
+    setDateLoad({ checking: true, orders: 0, quotes: 0, max: 0, remaining: 0, status: "available" });
     (async () => {
       try {
-        const [ordersRes, quotesRes] = await Promise.all([
-          supabase
-            .from("orders")
-            .select("id", { count: "exact", head: true })
-            .eq("company_id", user.company_id)
-            .eq("event_date", eventDate)
-            .is("deleted_at", null)
-            .not("status", "in", "(cancelled)"),
-          supabase
-            .from("quotes")
-            .select("id", { count: "exact", head: true })
-            .eq("company_id", user.company_id)
-            .eq("event_date", eventDate)
-            .is("deleted_at", null)
-            .not("status", "in", "(rejected,expired)"),
-        ]);
+        const capacity = await getEventCapacityForDate(supabase, {
+          companyId: user.company_id,
+          eventDate,
+          includeOpenQuotes: true,
+          candidateEventCount: 1,
+          candidateGuestCount: watchedGuestCount ? parseInt(watchedGuestCount, 10) : 0,
+        });
         if (!cancelled) {
           setDateLoad({
             checking: false,
-            orders: ordersRes.count || 0,
-            quotes: quotesRes.count || 0,
+            orders: capacity.bookedOrders,
+            quotes: capacity.openQuotes,
+            max: capacity.maxConcurrentEvents,
+            remaining: capacity.remainingSlots,
+            status: capacity.status,
+            capacity,
           });
         }
       } catch (e) {
@@ -179,7 +184,7 @@ export default function NewLead() {
       }
     })();
     return () => { cancelled = true; };
-  }, [eventDate, user?.company_id]);
+  }, [eventDate, watchedGuestCount, user?.company_id]);
 
   // Branch / kitchen scoping. Single-branch tenants get auto-picked
   // and the picker stays hidden; multi-branch tenants must choose
@@ -423,22 +428,32 @@ export default function NewLead() {
                           className={`mt-2 flex items-start gap-1.5 rounded-md border px-2.5 py-2 text-xs ${
                             dateLoad.checking
                               ? "border-slate-200 bg-slate-50 text-slate-600"
-                              : dateLoad.orders + dateLoad.quotes > 0
-                                ? "border-amber-200 bg-amber-50 text-amber-800"
-                                : "border-brand-primary/20 bg-brand-primary/10 text-brand-primary"
+                              : dateLoad.status === "over_capacity"
+                                ? "border-rose-200 bg-rose-50 text-rose-800"
+                                : dateLoad.status === "at_capacity"
+                                  ? "border-amber-200 bg-amber-50 text-amber-800"
+                                  : dateLoad.orders + dateLoad.quotes > 0
+                                    ? "border-amber-200 bg-amber-50 text-amber-800"
+                                    : "border-brand-primary/20 bg-brand-primary/10 text-brand-primary"
                           }`}
                         >
                           {dateLoad.checking ? (
                             <Loader2 className="mt-0.5 h-3.5 w-3.5 animate-spin flex-shrink-0" />
+                          ) : dateLoad.status !== "available" ? (
+                            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
                           ) : (
                             <CalendarCheck className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
                           )}
                           <span>
                             {dateLoad.checking
                               ? "Checking existing work for this date..."
-                              : dateLoad.orders + dateLoad.quotes > 0
-                                ? `${dateLoad.orders} order${dateLoad.orders === 1 ? "" : "s"} and ${dateLoad.quotes} quote${dateLoad.quotes === 1 ? "" : "s"} already use this date. Check capacity before promising it.`
-                                : "No existing orders or quotes found for this date."}
+                              : dateLoad.status === "over_capacity"
+                                ? `Over capacity if this lead converts: ${dateLoad.capacity?.limitReasons.join("; ") || `${dateLoad.orders} confirmed events are already booked`}. Create it only if admin will offer another date, change the quote size, or raise capacity.`
+                                : dateLoad.status === "at_capacity"
+                                  ? `At capacity: ${dateLoad.orders} of ${dateLoad.max} confirmed events booked${dateLoad.capacity?.maxKitchenLoadPerDay ? `; kitchen load ${dateLoad.capacity.projectedKitchenLoad}/${dateLoad.capacity.maxKitchenLoadPerDay}` : ""}${dateLoad.capacity?.maxGuestsPerEvent ? `; this enquiry ${dateLoad.capacity.candidateGuests}/${dateLoad.capacity.maxGuestsPerEvent} guests` : ""}. Offer another date unless admin is deliberately using the remaining capacity.`
+                                  : dateLoad.orders + dateLoad.quotes > 0
+                                    ? `${dateLoad.orders} confirmed event${dateLoad.orders === 1 ? "" : "s"} and ${dateLoad.quotes} open quote${dateLoad.quotes === 1 ? "" : "s"} already use this date. ${dateLoad.remaining} event slot${dateLoad.remaining === 1 ? "" : "s"} left; booked guests ${dateLoad.capacity?.bookedGuests || 0}${dateLoad.capacity?.maxKitchenLoadPerDay ? `/${dateLoad.capacity.maxKitchenLoadPerDay} kitchen capacity` : ""}.`
+                                    : `Open date: no confirmed events or open quotes found. Max is ${dateLoad.max} event${dateLoad.max === 1 ? "" : "s"} for the day${dateLoad.capacity?.maxKitchenLoadPerDay ? ` and ${dateLoad.capacity.maxKitchenLoadPerDay} kitchen guest-units` : ""}.`}
                           </span>
                         </div>
                       )}

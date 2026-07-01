@@ -116,6 +116,7 @@ import { QuoteSendDialog } from "@/components/billing/QuoteSendDialog";
 import { toLocalISO } from "@/lib/localDate";
 import { EntityNotesThread } from "@/components/admin/EntityNotesThread";
 import { PageWorkbench } from "@/components/portal/ui";
+import { getEventCapacityForDate, type EventCapacityCheck } from "@/lib/eventCapacity";
 
 // ── Types ─────────────────────────────────────────────────────────────
 
@@ -319,7 +320,10 @@ function NewQuotePage() {
   // Wave 27: tenant-slug wrapper for internal navigations.
   const { withSlug } = useTenantHref();
   const { leadId, fromQuoteId } = router.query;
-  const companyId = (user?.user_metadata?.company_id as string | undefined) || null;
+  const companyId =
+    (user?.company_id as string | undefined) ||
+    (user?.user_metadata?.company_id as string | undefined) ||
+    null;
 
   // Phase 6 #1: tenant-currency-aware money formatter. Hook resolves
   // the tenant's currency (companies.currency, ZAR default) and we
@@ -469,6 +473,36 @@ function NewQuotePage() {
   /** The id of the row in `quotes` once it's been saved. Null until then. */
   const [quoteId, setQuoteId] = useState<string | null>(null);
   const [quoteNumber, setQuoteNumber] = useState<string | null>(null);
+  const [eventCapacity, setEventCapacity] = useState<EventCapacityCheck | null>(null);
+  const [eventCapacityChecking, setEventCapacityChecking] = useState(false);
+  useEffect(() => {
+    if (!companyId || !eventDate) {
+      setEventCapacity(null);
+      setEventCapacityChecking(false);
+      return;
+    }
+    let cancelled = false;
+    setEventCapacityChecking(true);
+    (async () => {
+      try {
+        const capacity = await getEventCapacityForDate(supabase, {
+          companyId,
+          eventDate,
+          includeOpenQuotes: true,
+          excludeQuoteId: quoteId,
+          candidateEventCount: 1,
+          candidateGuestCount: guestCount,
+        });
+        if (!cancelled) setEventCapacity(capacity);
+      } catch (e) {
+        console.warn("[quotes/new] event capacity check failed:", e);
+        if (!cancelled) setEventCapacity(null);
+      } finally {
+        if (!cancelled) setEventCapacityChecking(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [companyId, eventDate, quoteId, guestCount]);
   // Wave 12 audit: capture the persisted total at hydrate time so we
   // can warn when the live recompute drifts away from it - happens
   // when the operator opens an old quote whose persisted columns
@@ -2388,6 +2422,40 @@ function NewQuotePage() {
                     <div>
                       <Label className="text-xs flex items-center gap-1"><Calendar className="w-3 h-3" /> Event date</Label>
                       <Input type="date" value={eventDate} onChange={(e) => setEventDate(e.target.value)} />
+                      {(eventCapacityChecking || eventCapacity) && (
+                        <div
+                          className={`mt-2 flex items-start gap-1.5 rounded-md border px-2.5 py-2 text-[11px] ${
+                            eventCapacityChecking
+                              ? "border-slate-200 bg-slate-50 text-slate-600"
+                              : eventCapacity?.status === "over_capacity"
+                                ? "border-rose-200 bg-rose-50 text-rose-800"
+                                : eventCapacity?.status === "at_capacity"
+                                  ? "border-amber-200 bg-amber-50 text-amber-800"
+                                  : (eventCapacity?.bookedOrders || 0) + (eventCapacity?.openQuotes || 0) > 0
+                                    ? "border-amber-200 bg-amber-50 text-amber-800"
+                                    : "border-brand-primary/20 bg-brand-primary/10 text-brand-primary"
+                          }`}
+                        >
+                          {eventCapacityChecking ? (
+                            <Loader2 className="mt-0.5 h-3.5 w-3.5 animate-spin shrink-0" />
+                          ) : eventCapacity?.status !== "available" ? (
+                            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                          ) : (
+                            <Calendar className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                          )}
+                          <span>
+                            {eventCapacityChecking
+                              ? "Checking diary capacity for this date..."
+                              : eventCapacity?.status === "over_capacity"
+                                ? `Over capacity: ${eventCapacity.limitReasons.join("; ")}. Admin can still save/send, but the public accept button will block until capacity is freed, the quote changes, or the cap is raised.`
+                                : eventCapacity?.status === "at_capacity"
+                                  ? `At capacity: ${eventCapacity.bookedOrders} of ${eventCapacity.maxConcurrentEvents} confirmed events booked${eventCapacity.maxKitchenLoadPerDay ? `; kitchen load ${eventCapacity.projectedKitchenLoad}/${eventCapacity.maxKitchenLoadPerDay}` : ""}${eventCapacity.maxGuestsPerEvent ? `; this quote ${eventCapacity.candidateGuests}/${eventCapacity.maxGuestsPerEvent} guests` : ""}. Send only if admin is deliberately using the remaining capacity.`
+                                  : (eventCapacity?.bookedOrders || 0) + (eventCapacity?.openQuotes || 0) > 0
+                                    ? `${eventCapacity?.bookedOrders || 0} confirmed event${(eventCapacity?.bookedOrders || 0) === 1 ? "" : "s"} and ${eventCapacity?.openQuotes || 0} open quote${(eventCapacity?.openQuotes || 0) === 1 ? "" : "s"} on this date. ${eventCapacity?.remainingSlots || 0} event slot${(eventCapacity?.remainingSlots || 0) === 1 ? "" : "s"} left; booked guests ${eventCapacity?.bookedGuests || 0}${eventCapacity?.maxKitchenLoadPerDay ? `/${eventCapacity.maxKitchenLoadPerDay} kitchen capacity` : ""}.`
+                                    : `Open date: no confirmed events or open quotes found. Max is ${eventCapacity?.maxConcurrentEvents || 0} event${(eventCapacity?.maxConcurrentEvents || 0) === 1 ? "" : "s"} for the day${eventCapacity?.maxKitchenLoadPerDay ? ` and ${eventCapacity.maxKitchenLoadPerDay} kitchen guest-units` : ""}.`}
+                          </span>
+                        </div>
+                      )}
                     </div>
                     <div>
                       <Label className="text-xs flex items-center gap-1">

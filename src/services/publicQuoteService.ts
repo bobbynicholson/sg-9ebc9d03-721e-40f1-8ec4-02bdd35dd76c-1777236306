@@ -70,6 +70,11 @@ export interface PublicQuoteView {
    * Save & Sends (which marks the request addressed).
    */
   pending_change_request?: boolean;
+  event_capacity?: {
+    status: "available" | "at_capacity" | "over_capacity";
+    accepting_blocked: boolean;
+    message: string | null;
+  } | null;
   company: {
     id: string;
     company_name: string | null;

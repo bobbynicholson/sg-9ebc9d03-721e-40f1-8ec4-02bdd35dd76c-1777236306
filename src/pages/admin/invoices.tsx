@@ -60,6 +60,7 @@ import {
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { PendingClaimsBanner } from "@/components/billing/PendingClaimsBanner";
 import { InvoiceAgingCard } from "@/components/admin/InvoiceAgingCard";
+import { isAutomatedTestInvoice } from "@/lib/testDataDetection";
 
 // An invoice is "effectively overdue" when the cron has already flipped
 // it to 'overdue' OR it's still sent / partially_paid with a balance and
@@ -73,6 +74,14 @@ function isEffectivelyOverdue(inv: any): boolean {
   if (Number(inv.balance_due || 0) <= 0) return false;
   if (!inv.due_date) return false;
   return String(inv.due_date).slice(0, 10) < new Date().toISOString().slice(0, 10);
+}
+
+const CLOSED_OUT_INVOICE_STATUSES = new Set(["written_off", "voided"]);
+
+function isLiveUnpaidInvoice(inv: any): boolean {
+  if (!inv) return false;
+  return ["sent", "partially_paid", "overdue"].includes(String(inv.status || ""))
+    && Number(inv.balance_due || 0) > 0;
 }
 
 function InvoicesPageInner() {
@@ -104,6 +113,14 @@ function InvoicesPageInner() {
       return rid === regionFilterId;
     });
   }, [allInvoices, regionFilterId]);
+  const testInvoices = useMemo(
+    () => invoices.filter((inv: any) => isAutomatedTestInvoice(inv)),
+    [invoices],
+  );
+  const testInvoiceTotal = useMemo(
+    () => testInvoices.reduce((sum: number, inv: any) => sum + Number(inv.total_amount || 0), 0),
+    [testInvoices],
+  );
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -146,7 +163,7 @@ function InvoicesPageInner() {
   // VAT bad-debt recovery, linked order integrity, client credit
   // history) but they shouldn't clutter the live AR triage view.
   // Default: hide. Operator can flip back on with the toggle pill,
-  // and an explicit statusFilter='written_off' selection always wins.
+  // and an explicit closed-out status selection always wins.
   const [includeWrittenOff, setIncludeWrittenOff] = useState(false);
   // Wave 65 - date-range + amount-range filters. Bookkeepers running
   // monthly reconciliation need "April invoices only" or "all
@@ -750,6 +767,9 @@ function InvoicesPageInner() {
           *,
           orders (
             order_number,
+            event_name,
+            internal_notes,
+            client_name,
             event_date,
             client_id,
             quote_id,
@@ -1177,6 +1197,11 @@ function InvoicesPageInner() {
         label: "Written off",
         help: "Voided / written off. No longer chased.",
       },
+      voided: {
+        color: "bg-slate-100 text-slate-500 border-slate-300 line-through",
+        label: "Voided",
+        help: "Cancelled before collection or voided in accounting. No longer chased.",
+      },
     };
 
     const variant = variants[status] || variants.draft;
@@ -1189,7 +1214,9 @@ function InvoicesPageInner() {
 
   const statusFilteredInvoices = useMemo(() => {
     let rows: any[] = invoices;
-    if (statusFilter === "overdue") {
+    if (statusFilter === "unpaid") {
+      rows = rows.filter(isLiveUnpaidInvoice);
+    } else if (statusFilter === "overdue") {
       // Effective overdue (stored 'overdue' + past-due unpaid) so the
       // view is right even if the overdue cron hasn't run yet.
       rows = rows.filter(isEffectivelyOverdue);
@@ -1197,10 +1224,10 @@ function InvoicesPageInner() {
       rows = rows.filter((inv: any) => inv.status === statusFilter);
     } else if (!includeWrittenOff) {
       // Wave 66.7 - with "All statuses" selected and the toggle off,
-      // strip written_off rows from the default triage view. Explicit
-      // statusFilter="written_off" above bypasses this branch so the
+      // strip closed-out rows from the default triage view. Explicit
+      // statusFilter="written_off" / "voided" above bypasses this branch so the
       // operator can always pull them up on demand.
-      rows = rows.filter((inv: any) => inv.status !== "written_off");
+      rows = rows.filter((inv: any) => !CLOSED_OUT_INVOICE_STATUSES.has(String(inv.status || "")));
     }
     if (clientFilterId) {
       rows = rows.filter((inv: any) => inv.orders?.client_id === clientFilterId);
@@ -1237,13 +1264,17 @@ function InvoicesPageInner() {
   // Live counts per status for the quick-filter chips. Written-off rows
   // are excluded (they're closed-loop); overdue uses the effective rule.
   const statusCounts = useMemo(() => {
-    const base = invoices.filter((i: any) => i.status !== "written_off");
+    const base = invoices.filter((i: any) => !CLOSED_OUT_INVOICE_STATUSES.has(String(i.status || "")));
     return {
       all: base.length,
+      unpaid: base.filter(isLiveUnpaidInvoice).length,
       sent: base.filter((i: any) => i.status === "sent").length,
       partially_paid: base.filter((i: any) => i.status === "partially_paid").length,
       overdue: base.filter(isEffectivelyOverdue).length,
       paid: base.filter((i: any) => i.status === "paid").length,
+      draft: base.filter((i: any) => i.status === "draft").length,
+      written_off: invoices.filter((i: any) => i.status === "written_off").length,
+      voided: invoices.filter((i: any) => i.status === "voided").length,
     };
   }, [invoices]);
 
@@ -1310,7 +1341,9 @@ function InvoicesPageInner() {
       <AdminNav />
 
       <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
-        <CashflowContextBanner message="Filtered to unpaid invoices. Send bulk reminders from the forecast page, or pick a row below to chase individually." />
+        {["unpaid", "sent", "partially_paid", "overdue"].includes(statusFilter) && (
+          <CashflowContextBanner message="Filtered to unpaid invoices. Send bulk reminders from the forecast page, or pick a row below to chase individually." />
+        )}
         {/* Wave 66 - accounting reconnect banner. Surfaces when an
             integration is marked active but its OAuth refresh has
             died (60-day Xero idle, manual revoke). Pre-Wave-66 the
@@ -1478,6 +1511,38 @@ function InvoicesPageInner() {
         />
         <PageWorkbench />
 
+        {testInvoices.length > 0 && (
+          <div data-print-hidden="true" className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-amber-700" />
+              <div>
+                <p className="text-sm font-semibold text-amber-950">Automated test invoices found</p>
+                <p className="mt-0.5 text-xs leading-5 text-amber-900">
+                  This ledger includes {testInvoices.length} E2E {testInvoices.length === 1 ? "invoice" : "invoices"} worth {tenantMoney.format(testInvoiceTotal)}.
+                  They stay visible here for reconciliation, while dashboard business metrics exclude test rows.
+                </p>
+              </div>
+            </div>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="border-amber-300 text-amber-900 hover:bg-amber-100 sm:flex-shrink-0"
+              onClick={() => {
+                setSearchTerm("E2E-INV");
+                setStatusFilter("all");
+                setIncludeWrittenOff(true);
+                setDateFrom("");
+                setDateTo("");
+                setAmountMin("");
+                setAmountMax("");
+              }}
+            >
+              Review test invoices
+            </Button>
+          </div>
+        )}
+
         {/* Client filter pill - shows when /admin/invoices was opened
             with ?clientId. Click X to clear back to the unfiltered
             view (also strips the param from the URL). */}
@@ -1537,10 +1602,7 @@ function InvoicesPageInner() {
                   Now: sum balance_due across the live unpaid set,
                   and surface the count as a subtext. */}
               {(() => {
-                const live = invoices.filter((i: any) =>
-                  ["sent", "partially_paid", "overdue"].includes(i.status)
-                  && Number(i.balance_due ?? 0) > 0,
-                );
+                const live = invoices.filter(isLiveUnpaidInvoice);
                 const total = live.reduce((s: number, i: any) => s + Number(i.balance_due || 0), 0);
                 return (
                   <>
@@ -1588,7 +1650,7 @@ function InvoicesPageInner() {
                   invoices
                     .filter((inv) => {
                       const s = (inv.status || "").toLowerCase();
-                      return s !== "draft" && s !== "written_off";
+                      return s !== "draft" && !CLOSED_OUT_INVOICE_STATUSES.has(s);
                     })
                     .reduce((sum, inv) => sum + (inv.total_amount || 0), 0),
                 )}
@@ -1696,7 +1758,8 @@ function InvoicesPageInner() {
               <div className="flex flex-wrap items-center gap-1.5 w-full" data-print-hidden="true">
                 {([
                   { key: "all", label: "All", count: statusCounts.all, tone: "slate" },
-                  { key: "sent", label: "Awaiting payment", count: statusCounts.sent, tone: "blue" },
+                  { key: "unpaid", label: "Unpaid", count: statusCounts.unpaid, tone: "amber" },
+                  { key: "sent", label: "Sent", count: statusCounts.sent, tone: "blue" },
                   { key: "partially_paid", label: "Part paid", count: statusCounts.partially_paid, tone: "amber" },
                   { key: "overdue", label: "Overdue", count: statusCounts.overdue, tone: "rose" },
                   { key: "paid", label: "Paid", count: statusCounts.paid, tone: "emerald" },
@@ -1737,12 +1800,14 @@ function InvoicesPageInner() {
                     which matched zero rows, while sent + partially_paid
                     + written_off had no filter route in. */}
                 <option value="all">{includeWrittenOff ? "All statuses" : "All (chase view)"}</option>
+                <option value="unpaid">Unpaid / owing</option>
                 <option value="draft">Draft</option>
-                <option value="sent">Awaiting payment</option>
+                <option value="sent">Sent</option>
                 <option value="partially_paid">Part paid</option>
                 <option value="paid">Paid</option>
                 <option value="overdue">Overdue</option>
                 <option value="written_off">Written off</option>
+                <option value="voided">Voided</option>
               </select>
             </div>
 
@@ -1752,7 +1817,7 @@ function InvoicesPageInner() {
                 (statusFilter='all'); explicit Written off filter
                 bypasses the hide logic so it's always discoverable. */}
             {statusFilter === "all" && (() => {
-              const writtenOffCount = invoices.filter((i: any) => i.status === "written_off").length;
+              const writtenOffCount = invoices.filter((i: any) => CLOSED_OUT_INVOICE_STATUSES.has(String(i.status || ""))).length;
               if (writtenOffCount === 0) return null;
               return (
                 <div className="mt-2 flex items-center gap-2 text-xs">
@@ -1764,10 +1829,10 @@ function InvoicesPageInner() {
                         ? "bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200"
                         : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
                     }`}
-                    title="Written-off invoices stay on file for SARS audit + VAT bad-debt recovery. Toggle to include them in the list."
+                    title="Closed invoices stay on file for SARS audit, VAT bad-debt recovery, and accounting reconciliation. Toggle to include them in the list."
                   >
                     <span className={`inline-block w-1.5 h-1.5 rounded-full ${includeWrittenOff ? "bg-slate-500" : "bg-slate-300"}`} />
-                    {includeWrittenOff ? "Including" : "Hiding"} {writtenOffCount} written-off invoice{writtenOffCount === 1 ? "" : "s"}
+                    {includeWrittenOff ? "Including" : "Hiding"} {writtenOffCount} closed invoice{writtenOffCount === 1 ? "" : "s"}
                   </button>
                   {includeWrittenOff && (
                     <span className="text-[11px] text-slate-500">
@@ -2092,10 +2157,10 @@ function InvoicesPageInner() {
                     className={`flex flex-col md:flex-row md:items-center md:justify-between gap-3 p-4 border rounded-lg hover:bg-slate-50 transition-colors ${overdueBorder} ${
                       bulkMarkPaidIds.has(invoice.id) ? "ring-2 ring-brand-primary/20 bg-brand-primary/10" : ""
                     } ${
-                      /* Wave 66.7 - written-off rows fade to 60% so
+                      /* Wave 66.7 - closed rows fade to 60% so
                          they read as closed-loop at a glance even when
                          the operator has chosen to include them. */
-                      invoice.status === "written_off" ? "opacity-60 bg-slate-50/50" : ""
+                      CLOSED_OUT_INVOICE_STATUSES.has(String(invoice.status || "")) ? "opacity-60 bg-slate-50/50" : ""
                     } ${
                       /* Wave 70.35 - highlight ring on the row the
                          operator landed on via "Fix it". Auto-clears
@@ -2118,14 +2183,9 @@ function InvoicesPageInner() {
                       {/* Phase 14 #10: row checkbox. Only renders for
                           invoices that aren't already paid - a paid
                           row has nothing to bulk-action. */}
-                      {/* Wave 30.6: invoice_status enum is
-                          {draft|sent|paid|partially_paid|overdue|written_off}.
-                          'cancelled' never matches a real row - the
-                          actual void value is 'written_off'. Kept the
-                          legacy literal for back-compat just in case
-                          any historical row carried it before the enum
-                          was tightened. */}
-                      {invoice.status !== "paid" && invoice.status !== "cancelled" && invoice.status !== "written_off" && (
+                      {/* Bulk mark-paid only applies to invoices that
+                          can still be settled. */}
+                      {invoice.status !== "paid" && !CLOSED_OUT_INVOICE_STATUSES.has(String(invoice.status || "")) && (
                         <input
                           type="checkbox"
                           className="mt-1 h-4 w-4 cursor-pointer accent-brand-primary shrink-0"
@@ -2382,9 +2442,9 @@ function InvoicesPageInner() {
                       {/* Wave 66.5 - per-row Mark paid. Surfaced as
                           a coloured pill rather than a ghost icon so
                           it reads as the primary affordance on the
-                          row. Self-hides for fully-paid / written-off
+                          row. Self-hides for fully-paid / closed-out
                           rows where there's nothing to record. */}
-                      {invoice.status !== "paid" && invoice.status !== "written_off" && (
+                      {invoice.status !== "paid" && !CLOSED_OUT_INVOICE_STATUSES.has(String(invoice.status || "")) && (
                         <Button
                           variant="outline"
                           size="sm"

@@ -49,6 +49,8 @@ export interface OperationsSettings {
   kitchenPrepHours: number;
   deliveryBufferMinutes: number;
   maxConcurrentEvents: number;
+  maxGuestsPerEvent: number;
+  maxKitchenLoadPerDay: number;
   driverRadius: number;
   deliveryCostPerKm: number;
 }

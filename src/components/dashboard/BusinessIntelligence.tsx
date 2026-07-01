@@ -71,6 +71,14 @@ import { TopProductsBarChart } from "./charts/TopProductsBarChart";
 import { BranchSpiderChart } from "./charts/BranchSpiderChart";
 import { BranchCapacityHeatmap } from "./charts/BranchCapacityHeatmap";
 import { toLocalISO } from "@/lib/localDate";
+import {
+  isAutomatedTestClient,
+  isAutomatedTestInvoice,
+  isAutomatedTestOrder,
+  isAutomatedTestOrderItem,
+  isAutomatedTestQuote,
+} from "@/lib/testDataDetection";
+import { DEFAULT_MAX_CONCURRENT_EVENTS, resolveMaxConcurrentEvents } from "@/lib/eventCapacity";
 
 interface Props {
   companyId: string | null | undefined;
@@ -117,6 +125,7 @@ export function BusinessIntelligence({ companyId, dateRange }: Props) {
   const [clients, setClients] = useState<ClientLookupRow[]>([]);
   const [invoices, setInvoices] = useState<InvoiceForAging[]>([]);
   const [orderItems, setOrderItems] = useState<OrderItemForProducts[]>([]);
+  const [capacityCeiling, setCapacityCeiling] = useState(DEFAULT_MAX_CONCURRENT_EVENTS);
   const [loading, setLoading] = useState(true);
   const [overflow, setOverflow] = useState(false);
 
@@ -143,7 +152,7 @@ export function BusinessIntelligence({ companyId, dateRange }: Props) {
       try {
         const ordersBase = supabase
           .from("orders")
-          .select("id, status, payment_status, total_amount, amount_paid, deposit_paid, deposit_amount, balance_paid, balance_amount, event_date, region_id, client_id, cancelled_at, cancellation_reason")
+          .select("id, order_number, event_name, internal_notes, client_name, status, payment_status, total_amount, amount_paid, deposit_paid, deposit_amount, balance_paid, balance_amount, event_date, region_id, client_id, cancelled_at, cancellation_reason")
           .eq("company_id", companyId)
           .is("deleted_at", null)
           .gte("event_date", startISO)
@@ -160,7 +169,7 @@ export function BusinessIntelligence({ companyId, dateRange }: Props) {
           // aggregators can detect won-then-cancelled
           // (lost_reason='order_cancelled' + converted_to_order_id
           // set) and net it out of conversion rates.
-          .select("id, status, total_amount, event_date, created_at, sent_at, accepted_at, region_id, converted_to_order_id, lost_reason")
+          .select("id, quote_number, quote_name, client_name, notes, status, total_amount, event_date, created_at, sent_at, accepted_at, region_id, converted_to_order_id, lost_reason")
           .eq("company_id", companyId)
           .is("deleted_at", null)
           .gte("created_at", startISO)
@@ -180,7 +189,7 @@ export function BusinessIntelligence({ companyId, dateRange }: Props) {
         // branch, but the query doesn't fail-closed for company_admins.
         const clientsBase = supabase
           .from("clients")
-          .select("id, client_name, email, outstanding_balance, created_at, region_id")
+          .select("id, client_name, email, notes, historical_notes, outstanding_balance, created_at, region_id")
           .eq("company_id", companyId)
           .is("deleted_at", null)
           .limit(ROW_CAP);
@@ -189,7 +198,7 @@ export function BusinessIntelligence({ companyId, dateRange }: Props) {
         // No date floor - old debts are exactly what we want to surface.
         const invoicesBase = supabase
           .from("invoices")
-          .select("id, status, due_date, balance_due, total_amount, client_id")
+          .select("id, invoice_number, status, due_date, balance_due, total_amount, client_id, order:order_id(order_number, event_name, internal_notes, client_name)")
           .eq("company_id", companyId)
           .is("deleted_at", null)
           .neq("status", "paid")
@@ -200,20 +209,27 @@ export function BusinessIntelligence({ companyId, dateRange }: Props) {
         // explicit filter for index hits.
         const orderItemsBase = supabase
           .from("order_items")
-          .select("id, order_id, menu_item_id, item_name, quantity, line_total, orders!inner(company_id, event_date, region_id, status, deleted_at)")
+          .select("id, order_id, menu_item_id, item_name, quantity, line_total, orders!inner(company_id, event_date, region_id, status, deleted_at, order_number, event_name, internal_notes, client_name)")
           .eq("orders.company_id", companyId)
           .is("orders.deleted_at", null)
           .gte("orders.event_date", startISO)
           .lte("orders.event_date", futureCapISO)
           .limit(ROW_CAP);
 
-        const [ordersRes, quotesRes, leadsRes, clientsRes, invoicesRes, orderItemsRes] = await Promise.all([
+        const companySettingsBase = supabase
+          .from("companies")
+          .select("dispatch_settings")
+          .eq("id", companyId)
+          .maybeSingle();
+
+        const [ordersRes, quotesRes, leadsRes, clientsRes, invoicesRes, orderItemsRes, companySettingsRes] = await Promise.all([
           regionFilterId ? ordersBase.or(`region_id.eq.${regionFilterId},region_id.is.null`) : ordersBase,
           regionFilterId ? quotesBase.or(`region_id.eq.${regionFilterId},region_id.is.null`) : quotesBase,
           regionFilterId ? leadsBase.or(`region_id.eq.${regionFilterId},region_id.is.null`) : leadsBase,
           regionFilterId ? clientsBase.or(`region_id.eq.${regionFilterId},region_id.is.null`) : clientsBase,
           invoicesBase,
           regionFilterId ? orderItemsBase.or(`region_id.eq.${regionFilterId},region_id.is.null`, { foreignTable: "orders" }) : orderItemsBase,
+          companySettingsBase,
         ]);
 
         if (cancelled) return;
@@ -232,12 +248,17 @@ export function BusinessIntelligence({ companyId, dateRange }: Props) {
           setOverflow(true);
         }
 
-        setOrders(oRows);
-        setQuotes(qRows);
+        setOrders(oRows.filter((r: any) => !isAutomatedTestOrder(r)));
+        setQuotes(qRows.filter((r: any) => !isAutomatedTestQuote(r)));
         setLeads(lRows);
-        setClients(cRows);
-        setInvoices(iRows);
-        setOrderItems(oiRows);
+        setClients(cRows.filter((r: any) => !isAutomatedTestClient(r)));
+        setInvoices(iRows.filter((r: any) => !isAutomatedTestInvoice(r)));
+        setOrderItems(oiRows.filter((r: any) => !isAutomatedTestOrderItem(r)));
+        if (!(companySettingsRes as any)?.error) {
+          setCapacityCeiling(resolveMaxConcurrentEvents((companySettingsRes as any)?.data?.dispatch_settings));
+        } else {
+          setCapacityCeiling(DEFAULT_MAX_CONCURRENT_EVENTS);
+        }
       } catch (e) {
         console.warn("[BusinessIntelligence] fetch failed:", e);
       } finally {
@@ -262,8 +283,8 @@ export function BusinessIntelligence({ companyId, dateRange }: Props) {
     [orders],
   );
   const capacity = useMemo(
-    () => aggregateCapacityLoad(orders, quotes as any),
-    [orders, quotes],
+    () => aggregateCapacityLoad(orders, quotes as any, capacityCeiling),
+    [orders, quotes, capacityCeiling],
   );
   const funnel = useMemo(() => {
     const start = dateRange?.from ?? new Date(new Date().setDate(new Date().getDate() - 30));
@@ -366,7 +387,7 @@ export function BusinessIntelligence({ companyId, dateRange }: Props) {
           {/* Tier 2 - pressure */}
           <SeasonalityHeatmap data={seasonality} loading={loading} />
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <CapacityLoadCalendar data={capacity} loading={loading} />
+            <CapacityLoadCalendar data={capacity} capacityCeiling={capacityCeiling} loading={loading} />
             <ConversionFunnelChart data={funnel} loading={loading} />
           </div>
 

@@ -104,6 +104,8 @@ function SettingsPage() {
       kitchenPrepHours: 48,
       deliveryBufferMinutes: 30,
       maxConcurrentEvents: 5,
+      maxGuestsPerEvent: 0,
+      maxKitchenLoadPerDay: 0,
       driverRadius: 50,
       deliveryCostPerKm: 8.50,
     },
@@ -150,12 +152,14 @@ function SettingsPage() {
       // would balloon every diff in the project.
       const { data: company } = await (supabase as any)
         .from("companies")
-        .select("company_name, email, phone, address_line1, logo_url, headquarters_lat, headquarters_lng, deposit_percent, balance_due_days, amendment_cutoff_days, cancellation_fee_percent, refund_process_days")
+        .select("company_name, email, phone, address_line1, logo_url, headquarters_lat, headquarters_lng, deposit_percent, balance_due_days, amendment_cutoff_days, cancellation_fee_percent, refund_process_days, currency, vat_rate, dispatch_settings, kitchen_settings")
         .eq("id", profile.company_id)
         .maybeSingle();
       if (!company || cancelled) return;
 
       setSettings((prev) => {
+        const dispatchSettings = ((company as any).dispatch_settings || {}) as Record<string, any>;
+        const kitchenSettings = ((company as any).kitchen_settings || {}) as Record<string, any>;
         const next = {
           ...prev,
           company: {
@@ -193,6 +197,37 @@ function SettingsPage() {
             refundProcessDays: (company as any).refund_process_days != null
               ? Number((company as any).refund_process_days)
               : prev.financial.refundProcessDays,
+            currency: (company as any).currency || prev.financial.currency,
+            taxRate: (company as any).vat_rate != null
+              ? Number((company as any).vat_rate)
+              : prev.financial.taxRate,
+          },
+          operations: {
+            ...prev.operations,
+            deliveryBufferMinutes: dispatchSettings.deliveryBufferMinutes != null
+              ? Number(dispatchSettings.deliveryBufferMinutes)
+              : prev.operations.deliveryBufferMinutes,
+            maxConcurrentEvents: dispatchSettings.maxConcurrentEvents != null
+              ? Number(dispatchSettings.maxConcurrentEvents)
+              : prev.operations.maxConcurrentEvents,
+            maxGuestsPerEvent: dispatchSettings.maxGuestsPerEvent != null
+              ? Number(dispatchSettings.maxGuestsPerEvent)
+              : prev.operations.maxGuestsPerEvent,
+            maxKitchenLoadPerDay: dispatchSettings.maxKitchenLoadPerDay != null
+              ? Number(dispatchSettings.maxKitchenLoadPerDay)
+              : prev.operations.maxKitchenLoadPerDay,
+            driverRadius: dispatchSettings.driverRadius != null
+              ? Number(dispatchSettings.driverRadius)
+              : prev.operations.driverRadius,
+            deliveryCostPerKm: dispatchSettings.deliveryCostPerKm != null
+              ? Number(dispatchSettings.deliveryCostPerKm)
+              : prev.operations.deliveryCostPerKm,
+            equipmentCleaningHours: dispatchSettings.equipmentCleaningHours != null
+              ? Number(dispatchSettings.equipmentCleaningHours)
+              : prev.operations.equipmentCleaningHours,
+            kitchenPrepHours: kitchenSettings.kitchenPrepHours != null
+              ? Number(kitchenSettings.kitchenPrepHours)
+              : prev.operations.kitchenPrepHours,
           },
         };
         // Take the snapshot AFTER the company fields land so the
@@ -282,6 +317,8 @@ function SettingsPage() {
                 deliveryBufferMinutes: Number(settings.operations.deliveryBufferMinutes) || 30,
                 driverRadius: Number(settings.operations.driverRadius) || 50,
                 maxConcurrentEvents: Number(settings.operations.maxConcurrentEvents) || 5,
+                maxGuestsPerEvent: Number(settings.operations.maxGuestsPerEvent) || 0,
+                maxKitchenLoadPerDay: Number(settings.operations.maxKitchenLoadPerDay) || 0,
                 equipmentCleaningHours: Number(settings.operations.equipmentCleaningHours) || 4,
                 pricing: {
                   ...((priorDispatch as any).pricing || {}),

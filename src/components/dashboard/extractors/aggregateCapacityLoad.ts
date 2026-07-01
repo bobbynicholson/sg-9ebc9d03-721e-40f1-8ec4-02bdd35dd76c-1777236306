@@ -7,7 +7,7 @@ import { toLocalISO } from "@/lib/localDate";
  *   - Open quotes still in play (semi-transparent on top)
  *
  * The chart can highlight days that breach the over-capacity line
- * (default 3 events/day; tenants override via setting later).
+ * (default 5 events/day; tenants override via Settings -> Operations).
  *
  * Pure function: takes orders + quotes already filtered to status,
  * returns 90 daily buckets (oldest first = today).
@@ -63,7 +63,7 @@ const fmtLabel = (d: Date): string =>
 export function aggregateCapacityLoad(
   orders: CapacityOrderInput[],
   quotes: CapacityQuoteInput[],
-  capacityCeiling: number = 3,
+  capacityCeiling: number = 5,
   startAt: Date = new Date(),
   daysAhead: number = 90,
 ): CapacityLoadResult {

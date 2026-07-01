@@ -52,6 +52,8 @@ import { CashflowSnapshotWidget } from "@/components/admin/CashflowSnapshotWidge
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { DEFAULT_TENANT_TIMEZONE, tenantToday, toLocalISO } from "@/lib/localDate";
 import { useTenantHref } from "@/lib/tenantUrl";
+import { isAutomatedTestOrder, isAutomatedTestQuote } from "@/lib/testDataDetection";
+import { OPEN_REFUND_STATUSES } from "@/lib/refundStatus";
 
 interface Stats {
   bookedRevenue: number;
@@ -123,16 +125,6 @@ const EMPTY: Stats = {
 };
 
 const ACTIVE_STATUSES = ["confirmed", "preparing", "ready", "in_transit"];
-
-function isAutomatedTestOrder(order: any): boolean {
-  const markerText = [
-    order?.order_number,
-    order?.event_name,
-    order?.internal_notes,
-  ].filter(Boolean).join(" ");
-
-  return /\b(E2E-ORD|E2E_RUN:|ORDER-E2E|Codex E2E)\b/i.test(markerText);
-}
 
 function AdminDashboardPage() {
   const { user, profile, companySlug } = useAuth();
@@ -262,7 +254,7 @@ function AdminDashboardPage() {
           .lte("event_date", toISO),
         supabase
           .from("quotes")
-          .select("id", { count: "exact", head: true })
+          .select("id, status, quote_number, quote_name, client_name, notes")
           .eq("company_id", companyId)
           .is("deleted_at", null)
           .in("status", ["draft", "sent"]),
@@ -276,7 +268,7 @@ function AdminDashboardPage() {
         // Filter on the one real "out for client" value: 'sent'.
         supabase
           .from("quotes")
-          .select("total_amount")
+          .select("total_amount, quote_number, quote_name, client_name, notes")
           .eq("company_id", companyId)
           .is("deleted_at", null)
           .in("status", ["sent"]),
@@ -313,7 +305,7 @@ function AdminDashboardPage() {
         // real revenue".
         supabase
           .from("quotes")
-          .select("status, lost_reason, converted_to_order_id")
+          .select("status, lost_reason, converted_to_order_id, quote_number, quote_name, client_name, notes")
           .eq("company_id", companyId)
           .is("deleted_at", null)
           .in("status", ["accepted", "rejected", "expired"])
@@ -324,7 +316,7 @@ function AdminDashboardPage() {
         // ("drafts to finish" vs "sent, awaiting client").
         supabase
           .from("quotes")
-          .select("id", { count: "exact", head: true })
+          .select("id, quote_number, quote_name, client_name, notes")
           .eq("company_id", companyId)
           .is("deleted_at", null)
           .eq("status", "draft"),
@@ -362,6 +354,7 @@ function AdminDashboardPage() {
 
       const orders = ordersRes.data || [];
       const testOrders = orders.filter((o: any) => isAutomatedTestOrder(o));
+      const metricOrders = orders.filter((o: any) => !isAutomatedTestOrder(o));
       const testOrdersInRange = testOrders.length;
       const testRevenueInRange = testOrders.reduce(
         (sum: number, o: any) => sum + (isBookedRevenue(o) ? Number(o.total_amount || 0) : 0),
@@ -393,7 +386,7 @@ function AdminDashboardPage() {
       // the same row. Auditors flagged 6 divergent "Revenue"
       // definitions across the platform - this is the first widget
       // adopting the shared classifier.
-      for (const o of orders) {
+      for (const o of metricOrders) {
         const pay    = String(o.payment_status || "").toLowerCase();
         const total  = Number(o.total_amount || 0);
 
@@ -422,7 +415,7 @@ function AdminDashboardPage() {
 
       const outstandingRevenue = Math.max(0, bookedRevenue - collectedRevenue);
 
-      const activeOrders = orders.filter((o: any) =>
+      const activeOrders = metricOrders.filter((o: any) =>
         ACTIVE_STATUSES.includes(String(o.status || "").toLowerCase()) && !o.cancelled_at,
       ).length;
 
@@ -430,7 +423,7 @@ function AdminDashboardPage() {
       // Priority Actions row can say "Next: Sat 23 May" instead of
       // the misleading "X currently active in range" sub it had
       // before (which conflated upcoming with activeOrders).
-      const upcomingOrders = orders.filter((o: any) => {
+      const upcomingOrders = metricOrders.filter((o: any) => {
         const status = String(o.status || "").toLowerCase();
         return o.event_date >= todayISO
           && status !== "cancelled"
@@ -460,12 +453,12 @@ function AdminDashboardPage() {
       // widgets - some use status only, some use the stamp, some use
       // both. Now this KPI uses both so a reverted-status-with-stamp
       // edge case stays excluded from the denominator.
-      const completedOrdersInRange = orders.filter((o: any) => {
+      const completedOrdersInRange = metricOrders.filter((o: any) => {
         const s = String(o.status || "").toLowerCase();
         return (s === "completed" || s === "delivered") && !o.cancelled_at;
       }).length;
 
-      const totalOrdersInRange = orders.filter((o: any) => {
+      const totalOrdersInRange = metricOrders.filter((o: any) => {
         const s = String(o.status || "").toLowerCase();
         return s !== "cancelled" && !o.cancelled_at;
       }).length;
@@ -499,23 +492,24 @@ function AdminDashboardPage() {
         lost_reason: string | null;
         converted_to_order_id: string | null;
       }>;
-      const cleanWins = closedQuotes.filter(
+      const liveClosedQuotes = closedQuotes.filter((q: any) => !isAutomatedTestQuote(q));
+      const liveCleanWins = liveClosedQuotes.filter(
         (q) => q.status === "accepted" && q.lost_reason !== "order_cancelled",
       ).length;
-      const closedTotal = closedQuotes.length;
-      const quoteConversionRate = closedTotal > 0 ? (cleanWins / closedTotal) * 100 : 0;
+      const closedTotal = liveClosedQuotes.length;
+      const quoteConversionRate = closedTotal > 0 ? (liveCleanWins / closedTotal) * 100 : 0;
       const quoteConversionSample = closedTotal;
 
       // Cancellations + refunds tile data. Pulls cancelled orders in
       // the date window plus all pending refunds for this tenant
       // (refunds are queue-style - pending refunds are about
       // "what's outstanding right now", not bound to the date filter).
-      const cancelledOrdersInRange = orders.filter((o: any) =>
+      const cancelledOrdersInRange = metricOrders.filter((o: any) =>
         String(o.status || "").toLowerCase() === "cancelled" || !!o.cancelled_at,
       ).length;
 
       const reasonCounts: Record<string, number> = {};
-      for (const o of orders) {
+      for (const o of metricOrders) {
         if (String(o.status || "").toLowerCase() !== "cancelled" && !o.cancelled_at) continue;
         const cat = (o as any).cancellation_reason_category || "other";
         reasonCounts[cat] = (reasonCounts[cat] || 0) + 1;
@@ -527,27 +521,30 @@ function AdminDashboardPage() {
       // Phase 4B: read payment_status (enum) instead of legacy status text mirror.
       const { data: refundRows, error: refundRowsError } = await supabase
         .from("payments")
-        .select("amount, payment_status")
+        .select("amount, payment_status, order:order_id ( order_number, event_name, internal_notes, client_name )")
         .eq("company_id", companyId)
         .eq("payment_type", "refund")
-        .neq("payment_status", "completed");
+        .in("payment_status", OPEN_REFUND_STATUSES);
       if (refundRowsError) {
         console.error("[admin/dashboard] payments refunds fetch failed:", refundRowsError);
       }
-      const refundsOutstandingCount = (refundRows || []).length;
-      const refundsOutstandingValue = (refundRows || []).reduce(
-        (sum: number, r: any) => sum + (Number(r.amount) || 0),
+      const liveRefundRows = (refundRows || []).filter((r: any) => !isAutomatedTestOrder(r.order));
+      const refundsOutstandingCount = liveRefundRows.length;
+      const refundsOutstandingValue = liveRefundRows.reduce(
+        (sum: number, r: any) => sum + Math.abs(Number(r.amount) || 0),
         0,
       );
 
-      const quotesInCirculationRows = (quotesCirculatingRes.data || []) as any[];
+      const quotesInCirculationRows = ((quotesCirculatingRes.data || []) as any[])
+        .filter((q: any) => !isAutomatedTestQuote(q));
       const quotesInCirculationCount = quotesInCirculationRows.length;
       const quotesInCirculationValue = quotesInCirculationRows.reduce(
         (sum: number, q: any) => sum + (Number(q.total_amount) || 0),
         0,
       );
 
-      const pendingQuoteDrafts = draftsRes?.count ?? 0;
+      const pendingQuoteRows = ((quotesRes.data || []) as any[]).filter((q: any) => !isAutomatedTestQuote(q));
+      const pendingQuoteDrafts = ((draftsRes.data || []) as any[]).filter((q: any) => !isAutomatedTestQuote(q)).length;
       const pendingQuoteSent = quotesInCirculationCount; // already filters status='sent'
       const shortfallItems = shortfallRes?.count ?? 0;
 
@@ -557,7 +554,7 @@ function AdminDashboardPage() {
         activeOrders, upcomingEvents,
         totalOrdersInRange, completedOrdersInRange,
         averageOrderValue, completionRate,
-        pendingQuotes: quotesRes.count ?? 0,
+        pendingQuotes: pendingQuoteRows.length,
         quotesInCirculationCount,
         quotesInCirculationValue,
         activeUsers: usersRes.count ?? 0,
@@ -685,10 +682,10 @@ function AdminDashboardPage() {
                 <div className="flex items-start gap-3">
                   <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-amber-700" />
                   <div>
-                    <h2 className="text-sm font-semibold text-amber-950">Test data included in this dashboard</h2>
+                    <h2 className="text-sm font-semibold text-amber-950">Automated test data found</h2>
                     <p className="mt-1 text-sm leading-5 text-amber-900">
                       This date range includes {stats.testOrdersInRange} automated E2E order{stats.testOrdersInRange === 1 ? "" : "s"} worth{" "}
-                      {fmt.format(stats.testRevenueInRange)}. The totals are calculated correctly, but they are not pure client trading until those test rows are purged or you choose a clean date range.
+                      {fmt.format(stats.testRevenueInRange)}. Owner-facing dashboard totals and charts exclude those rows so the live business figures stay clean.
                     </p>
                     <p className="mt-1 text-xs text-amber-800">
                       Detected from order numbers or tags such as E2E-ORD, E2E_RUN, ORDER-E2E, and Codex E2E.
@@ -1188,7 +1185,7 @@ function AdminDashboardPage() {
                       icon={AlertCircle} accent="border-rose-500" iconColor="text-rose-600"
                       title={`${stats.shortfallItems} Stock Shortfall${stats.shortfallItems !== 1 ? "s" : ""}`}
                       sub="Confirmed orders in the next 7 days need more than you have on hand"
-                      cta={{ href: withSlug("/admin/shopping"), label: "Shop now", variant: "default" }}
+                      cta={{ href: withSlug("/admin/shopping?tab=buy_now"), label: "Shop now", variant: "default" }}
                     />
                   )}
 
@@ -1221,7 +1218,7 @@ function AdminDashboardPage() {
                       icon={Package} accent="border-orange-500" iconColor="text-orange-600"
                       title={`${stats.lowStockItems} Low Stock Item${stats.lowStockItems !== 1 ? "s" : ""}`}
                       sub="At or below the configured reorder level - top up at the usual cadence"
-                      cta={{ href: withSlug("/admin/shopping"), label: "View", variant: "outline" }}
+                      cta={{ href: withSlug("/admin/shopping?tab=buy_now"), label: "View", variant: "outline" }}
                     />
                   )}
 
@@ -1268,7 +1265,7 @@ function AdminDashboardPage() {
                     table. Badge mirrors lowStockItems so the
                     urgency is visible at a glance. */}
                 <Link
-                  href={withSlug("/admin/shopping")}
+                  href={withSlug("/admin/shopping?tab=buy_now")}
                   className="flex items-center gap-3 p-4 bg-gradient-to-br from-amber-50 to-orange-50 rounded-lg hover:shadow-md transition-all"
                 >
                   <div className="relative flex-shrink-0">

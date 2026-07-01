@@ -71,6 +71,7 @@ const entityHref = (entityType: string, entityId: string | null): string | null 
   if (!entityId) return null;
   switch (entityType) {
     case "order":
+    case "orders":
       return staffOrderHref(entityId, "admin");
     case "quote":
       return `/admin/quotes/${entityId}`;
@@ -255,7 +256,7 @@ function CompanyAuditLogsViewer() {
   // dropdown surfaces real options without a round-trip to discover
   // them. Anything else still appears in the row label.
   const ENTITY_TYPES = [
-    "all", "order", "quote", "invoice", "payment", "driver_shift",
+    "all", "order", "orders", "quote", "invoice", "payment", "driver_shift",
     "driver_assignment", "lead", "client", "company", "user", "menu_item", "equipment",
   ];
 
@@ -470,6 +471,7 @@ function CompanyAuditLogsViewer() {
                   {([
                     { v: "all", label: "All" },
                     { v: "order", label: "Orders" },
+                    { v: "orders", label: "Order batches" },
                     { v: "quote", label: "Quotes" },
                     { v: "invoice", label: "Invoices" },
                     { v: "payment", label: "Payments" },
@@ -491,6 +493,22 @@ function CompanyAuditLogsViewer() {
                       </button>
                     );
                   })}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEntityTypeFilter("payment");
+                      setActionFilter("refund");
+                      setPage(0);
+                    }}
+                    className={`inline-flex items-center rounded-full text-xs px-2.5 py-0.5 border transition ${
+                      entityTypeFilter === "payment" && actionFilter === "refund"
+                        ? "border-slate-700 bg-slate-900 text-white"
+                        : "border-slate-200 bg-white text-slate-600 hover:border-slate-400 hover:text-slate-900"
+                    }`}
+                    title="Show refund-related payment audit rows"
+                  >
+                    Refunds
+                  </button>
                 </div>
                 {/* Phase 17 #3: saved-view chips for compliance +
                     ops slices that recur. */}

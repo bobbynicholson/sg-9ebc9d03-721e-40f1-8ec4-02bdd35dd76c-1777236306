@@ -1,13 +1,9 @@
 /**
- * PendingRefundsWidget - list of refund payments still awaiting
- * payout (status != completed).
+ * PendingRefundsWidget - refund payments still awaiting payout or retry.
  *
- * Phase 14 #6. The dashboard's stat card shows the count + total
- * but no row-level detail. The bookkeeping team had to open
- * /admin/refunds and filter by hand to see which clients were
- * waiting.
- *
- * Self-hides when no refunds are pending.
+ * Only pending / processing / failed refunds belong here. Rows already
+ * marked refunded or completed are settled and should not appear as
+ * awaiting payout.
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useState } from "react";
@@ -21,6 +17,8 @@ import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { useReportWidgetError } from "@/components/dashboard/WidgetErrorBoundary";
 import { daysSince } from "@/lib/dashboardWindows";
+import { OPEN_REFUND_STATUSES } from "@/lib/refundStatus";
+import { isAutomatedTestOrder } from "@/lib/testDataDetection";
 
 interface RefundRow {
   id: string;
@@ -30,6 +28,8 @@ interface RefundRow {
   created_at: string | null;
   order: {
     order_number: string | null;
+    event_name: string | null;
+    internal_notes: string | null;
     client_name: string | null;
   } | null;
 }
@@ -52,16 +52,16 @@ export function PendingRefundsWidget({ companyId }: { companyId: string | null }
           .from("payments")
           .select(`
             id, amount, payment_status, payment_method, created_at,
-            order:order_id ( order_number, client_name )
+            order:order_id ( order_number, event_name, internal_notes, client_name )
           `)
           .eq("company_id", companyId)
           .eq("payment_type", "refund")
-          .neq("payment_status", "completed")
+          .in("payment_status", OPEN_REFUND_STATUSES)
           .order("created_at", { ascending: true })
           .limit(5);
         if (error) throw error;
         if (!cancelled) {
-          setRows((data || []) as RefundRow[]);
+          setRows(((data || []) as RefundRow[]).filter((r) => !isAutomatedTestOrder(r.order)));
           reportError(null);
         }
       } catch (e: any) {
@@ -90,7 +90,7 @@ export function PendingRefundsWidget({ companyId }: { companyId: string | null }
               Refunds awaiting payout
             </CardTitle>
             <CardDescription className="text-xs">
-              Refund rows on payments where payment_status hasn't reached completed.
+              Refund payment rows still pending, processing, or failed. Refunded/completed rows are already settled.
             </CardDescription>
           </div>
           <Link href={withSlug("/admin/refunds")}>
@@ -112,10 +112,6 @@ export function PendingRefundsWidget({ companyId }: { companyId: string | null }
                 : age >= 3
                   ? "bg-orange-100 text-orange-800 border-orange-200"
                   : "bg-amber-100 text-amber-800 border-amber-200";
-              // Phase 22 #9: each row now deep-links into the
-              // refunds page with the row's payment id so the
-              // bookkeeper can act in one click. Mirrors the
-              // Phase 22 #8 OverdueInvoicesWidget pattern.
               return (
                 <li key={r.id}>
                   <Link
@@ -135,11 +131,11 @@ export function PendingRefundsWidget({ companyId }: { companyId: string | null }
                         )}
                       </p>
                       <p className="text-[11px] text-slate-500 capitalize">
-                        {r.payment_method || "method tbc"} · {r.payment_status || "pending"}
+                        {r.payment_method || "method tbc"} - {r.payment_status || "pending"}
                       </p>
                     </div>
                     <span className="shrink-0 text-sm font-bold tabular-nums text-amber-800">
-                      {tenantCurrency.format(Number(r.amount || 0), 0)}
+                      {tenantCurrency.format(Math.abs(Number(r.amount || 0)), 0)}
                     </span>
                   </Link>
                 </li>

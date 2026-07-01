@@ -17,9 +17,14 @@ import { BarChart3 } from "lucide-react";
 import { toLocalISO } from "@/lib/localDate";
 import { useReportWidgetError } from "@/components/dashboard/WidgetErrorBoundary";
 import { ALL_ACTIVE_AND_REALISED_STATUSES } from "@/lib/orderRevenueClassification";
+import { isAutomatedTestOrder } from "@/lib/testDataDetection";
 
 interface OrderRow {
   event_date: string | null;
+  order_number: string | null;
+  event_name: string | null;
+  internal_notes: string | null;
+  client_name: string | null;
 }
 
 interface DayBucket {
@@ -55,7 +60,7 @@ export function WeeklyOrdersChart({ companyId }: { companyId: string | null }) {
         const endIso = toLocalISO(end);
         const { data, error } = await (supabase as any)
           .from("orders")
-          .select("event_date")
+          .select("event_date, order_number, event_name, internal_notes, client_name")
           .eq("company_id", companyId)
           .is("deleted_at", null)
           .in("status", ALL_ACTIVE_AND_REALISED_STATUSES as unknown as string[])
@@ -64,7 +69,7 @@ export function WeeklyOrdersChart({ companyId }: { companyId: string | null }) {
           .limit(2000);
         if (error) throw error;
         if (!cancelled) {
-          setRows((data || []) as OrderRow[]);
+          setRows(((data || []) as OrderRow[]).filter((r) => !isAutomatedTestOrder(r)));
           reportError(null);
         }
       } catch (e: any) {

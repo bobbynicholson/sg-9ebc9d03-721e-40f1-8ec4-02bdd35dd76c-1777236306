@@ -32,6 +32,7 @@ import { WidgetErrorBoundary } from "@/components/dashboard/WidgetErrorBoundary"
 import { dispatchService, computeRiskScore } from "@/services/dispatchService";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { isAutomatedTestOrder } from "@/lib/testDataDetection";
 
 // Haversine + average speed for ETA. Phase 3 will plug real traffic.
 function haversineKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
@@ -66,6 +67,19 @@ function parseEventDateTime(eventDate: string, eventTime: string): Date | null {
   const dt = new Date(`${eventDate}T${time}`);
   if (isNaN(dt.getTime())) return null;
   return dt;
+}
+
+function getTodayISO(): string {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return toLocalISO(today);
+}
+
+function getTomorrowISO(): string {
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  tomorrow.setHours(0, 0, 0, 0);
+  return toLocalISO(tomorrow);
 }
 
 // Dynamically import the map component with SSR disabled.
@@ -137,15 +151,18 @@ function AdminTrackingInner() {
   // "View on Map" button in the list view can switch the active tab.
   // Default = "map" matches the previous defaultValue.
   const [activeTab, setActiveTab] = useState<"map" | "list">("map");
+  const [operationsScope, setOperationsScope] = useState<"today" | "all">("today");
 
   useEffect(() => {
     const status = typeof router.query.status === "string" ? router.query.status : "";
-    if (["all", "confirmed", "preparing", "ready", "in_transit"].includes(status)) {
+    if (["all", "confirmed", "preparing", "ready", "in_transit", "delivered"].includes(status)) {
       setStatusFilter(status);
     }
     const view = typeof router.query.view === "string" ? router.query.view : "";
     if (view === "map" || view === "list") setActiveTab(view);
-  }, [router.query.status, router.query.view]);
+    const scope = typeof router.query.scope === "string" ? router.query.scope : "";
+    if (scope === "today" || scope === "all") setOperationsScope(scope);
+  }, [router.query.status, router.query.view, router.query.scope]);
 
   // Load dispatch settings once for the arrival buffer (used in at-risk calc).
   useEffect(() => {
@@ -171,9 +188,7 @@ function AdminTrackingInner() {
       // ~30. The query now applies both filters server-side. Null
       // event_dates are kept (legacy rows) via the .or clause so
       // staff can still find them.
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const todayISO = toLocalISO(today);
+      const todayISO = getTodayISO();
 
       const { data: rawOrders, error: ordersErr } = await supabase
         .from("orders")
@@ -188,13 +203,10 @@ function AdminTrackingInner() {
         `)
         .eq("company_id", companyId)
         .is("deleted_at", null)
-        // Wave 70.61: dropped 'delivered' from the live-ops in-flight
-        // set. Once an order is delivered the truck is already back;
-        // it doesn't belong on the "today's deliveries in flight"
-        // tracker. Recently-completed orders surface elsewhere
-        // (orders list + dashboard). Keeping it here just inflated
-        // the list as the day progressed.
-        .in("status", ["confirmed", "preparing", "ready", "in_transit"])
+        // Live operations starts at today and moves forward. Delivered
+        // stays in the set so the Today scope can show completed work
+        // without forcing the admin back to the full orders page.
+        .in("status", ["confirmed", "preparing", "ready", "in_transit", "delivered"])
         // Wave 70.61: removed the .or(event_date.is.null) branch.
         // It was meant to keep "legacy rows" visible for cleanup but
         // in practice it dragged every undated draft / quote shell
@@ -205,7 +217,7 @@ function AdminTrackingInner() {
       if (ordersErr) {
         console.error("[admin/tracking] active-orders query error:", ordersErr);
       }
-      const activeOrders = (rawOrders || []) as any[];
+      const activeOrders = ((rawOrders || []) as any[]).filter((order) => !isAutomatedTestOrder(order));
 
       // Load driver data. Phase 2 #1: enrich with the latest pin from
       // driver_locations - profiles.current_lat / current_lng is the
@@ -498,26 +510,65 @@ function AdminTrackingInner() {
     setDriverLocations(updatedLocations);
   };
 
-  // Apply status + driver filters first so the fuzzy matcher only ranks
+  const todayISO = getTodayISO();
+  const tomorrowISO = getTomorrowISO();
+  const isTodayOrder = useCallback((order: any) => {
+    return String(order?.event_date || "").slice(0, 10) === todayISO;
+  }, [todayISO]);
+  const getOrderDateBadge = useCallback((order: any) => {
+    const date = String(order?.event_date || "").slice(0, 10);
+    if (!date) {
+      return { label: "No date", className: "bg-slate-100 text-slate-600 border-slate-200" };
+    }
+    if (date === todayISO) {
+      return { label: "Today", className: "bg-brand-primary/15 text-brand-primary border-brand-primary/20" };
+    }
+    if (date === tomorrowISO) {
+      return { label: "Tomorrow", className: "bg-blue-50 text-blue-700 border-blue-200" };
+    }
+    const parsed = new Date(`${date}T00:00:00`);
+    return {
+      label: Number.isNaN(parsed.getTime())
+        ? date
+        : parsed.toLocaleDateString("en-ZA", { weekday: "short", day: "numeric", month: "short" }),
+      className: "bg-slate-50 text-slate-600 border-slate-200",
+    };
+  }, [todayISO, tomorrowISO]);
+  const todayOrders = useMemo(() => orders.filter(isTodayOrder), [orders, isTodayOrder]);
+  const scopedOrders = useMemo(
+    () => operationsScope === "today" ? todayOrders : orders,
+    [operationsScope, orders, todayOrders],
+  );
+
+  // Apply scope + status + driver filters first so the fuzzy matcher only ranks
   // orders the user has narrowed to (smart search rollout 29 Apr 2026).
   const statusDriverFilteredOrders = useMemo(() => {
-    return orders.filter((order: any) => {
+    return scopedOrders.filter((order: any) => {
       const matchesStatus = statusFilter === "all" || order.status === statusFilter;
       const matchesDriver = driverFilter === "all" || order.driver_id === driverFilter;
       return matchesStatus && matchesDriver;
     });
-  }, [orders, statusFilter, driverFilter]);
+  }, [scopedOrders, statusFilter, driverFilter]);
 
   const filteredOrders = useFuzzyItems(
     statusDriverFilteredOrders,
     searchTerm,
     [
+      { key: "order_number" as any, weight: 3 },
       { key: "client_name" as any, weight: 3 },
+      { key: "event_name" as any, weight: 2 },
       { key: "venue_address" as any, weight: 2 },
       { key: "driver_name" as any, weight: 2 },
     ],
     { limit: 0 },
   );
+
+  useEffect(() => {
+    if (!selectedOrder) return;
+    if (!scopedOrders.some((order: any) => order.id === selectedOrder.id)) {
+      setSelectedOrder(null);
+    }
+  }, [selectedOrder?.id, scopedOrders]);
 
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
@@ -543,13 +594,16 @@ function AdminTrackingInner() {
   };
 
   const stats = {
-    atRisk: orders.filter((o) =>
+    atRisk: scopedOrders.filter((o) =>
+      o.status !== "delivered" &&
       o.delivery_status !== "arrived" &&
       (o.risk_tier === "high" || o.risk_tier === "critical")
     ).length,
-    active: orders.filter((o) => o.status === "in_transit").length,
-    preparing: orders.filter((o) => o.status === "preparing").length,
-    ready: orders.filter((o) => o.status === "ready").length,
+    active: scopedOrders.filter((o) => o.status === "in_transit").length,
+    preparing: scopedOrders.filter((o) => o.status === "preparing").length,
+    ready: scopedOrders.filter((o) => o.status === "ready").length,
+    today: todayOrders.length,
+    total: orders.length,
   };
 
   return (
@@ -566,12 +620,80 @@ function AdminTrackingInner() {
           <PortalHeader
             title="Live operations"
             icon={Navigation}
-            subtitle="Today's deliveries in flight. Live driver pins on the map, prep status per order, and at-risk flags surfaced first so you can intervene before the client phones."
+            subtitle={operationsScope === "today"
+              ? "Today's confirmed-and-onwards orders, with live driver pins, prep status, and at-risk flags surfaced first."
+              : "All active and upcoming confirmed-and-onwards orders from today forward. Use Today when the floor is running service."}
+            actions={
+              <Link href={withSlug("/admin/orders")}>
+                <Button variant="outline" className="gap-1.5">
+                  <ExternalLink className="w-4 h-4" />
+                  All orders
+                </Button>
+              </Link>
+            }
           />
           <PageWorkbench />
 
+          <div className="mb-4 flex flex-col gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-sm md:flex-row md:items-center md:justify-between">
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-slate-900">
+                {operationsScope === "today" ? "Today is highlighted" : "All live orders"}
+              </p>
+              <p className="text-xs text-slate-500 tabular-nums">
+                {stats.today} today - {stats.total} active/upcoming from today forward
+              </p>
+            </div>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <div className="inline-grid grid-cols-2 rounded-lg border border-slate-200 bg-slate-50 p-1">
+                <button
+                  type="button"
+                  onClick={() => setOperationsScope("today")}
+                  className={`rounded-md px-3 py-2 text-sm font-medium transition ${
+                    operationsScope === "today"
+                      ? "bg-brand-primary text-white shadow-sm"
+                      : "text-slate-600 hover:bg-white"
+                  }`}
+                >
+                  Today <span className="ml-1 tabular-nums">{stats.today}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setOperationsScope("all")}
+                  className={`rounded-md px-3 py-2 text-sm font-medium transition ${
+                    operationsScope === "all"
+                      ? "bg-brand-primary text-white shadow-sm"
+                      : "text-slate-600 hover:bg-white"
+                  }`}
+                >
+                  All live <span className="ml-1 tabular-nums">{stats.total}</span>
+                </button>
+              </div>
+              <Link
+                href={withSlug("/admin/orders")}
+                className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              >
+                <Package className="w-4 h-4" />
+                Full order book
+              </Link>
+            </div>
+          </div>
+
           {/* Stats Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-6">
+            <Card className={operationsScope === "today" && stats.today > 0 ? "border-brand-primary/30 bg-brand-primary/5" : ""}>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-slate-600 flex items-center gap-1">
+                      {operationsScope === "today" ? "Today" : "Shown"} <InfoTooltip content={"Orders in the current Live operations scope before search, driver, and status filters."} />
+                    </p>
+                    <p className={`text-2xl font-bold ${operationsScope === "today" ? "text-brand-primary" : "text-slate-900"}`}>{scopedOrders.length}</p>
+                  </div>
+                  <Clock className={`w-7 h-7 ${operationsScope === "today" ? "text-brand-primary" : "text-slate-500"}`} />
+                </div>
+              </CardContent>
+            </Card>
+
             <Card className={stats.atRisk > 0 ? "border-rose-300 bg-rose-50/40" : ""}>
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
@@ -756,8 +878,8 @@ function AdminTrackingInner() {
           {/* Main Content */}
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "map" | "list")} className="w-full">
             <TabsList className="grid w-full grid-cols-2 mb-6">
-              <TabsTrigger value="map">Map View</TabsTrigger>
-              <TabsTrigger value="list">List View</TabsTrigger>
+              <TabsTrigger value="map">Map View <span className="ml-1 tabular-nums">({filteredOrders.length})</span></TabsTrigger>
+              <TabsTrigger value="list">List View <span className="ml-1 tabular-nums">({filteredOrders.length})</span></TabsTrigger>
             </TabsList>
 
             <TabsContent value="map">
@@ -791,7 +913,7 @@ function AdminTrackingInner() {
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       <MapPin className="w-5 h-5" />
-                      {selectedOrder ? "Order details" : "Active orders"}
+                      {selectedOrder ? "Order details" : operationsScope === "today" ? "Today's orders" : "Live orders"}
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="max-h-[700px] overflow-y-auto">
@@ -806,22 +928,26 @@ function AdminTrackingInner() {
                       <div className="space-y-2">
                         {filteredOrders.length === 0 ? (
                           <p className="text-sm text-slate-600 text-center py-8">
-                            All clear, nothing in motion right now.
+                            {operationsScope === "today"
+                              ? "No active orders for today match these filters."
+                              : "No active or upcoming orders match these filters."}
                           </p>
                         ) : (
                           filteredOrders.map((order) => {
-                            const atRisk = order.is_at_risk;
                             const margin = order.margin_minutes;
                             const eta = order.eta_minutes;
                             const isSelected = selectedOrder?.id === order.id;
                             const riskTier = order.risk_tier as ("ok" | "watch" | "high" | "critical" | undefined);
                             const riskReasons: string[] = order.risk_reasons || [];
                             const arrived = order.delivery_status === "arrived";
+                            const dateBadge = getOrderDateBadge(order);
+                            const isToday = isTodayOrder(order);
                             const borderTone =
                               arrived          ? "border-l-brand-primary bg-brand-primary/10 hover:bg-brand-primary/10" :
                               riskTier === "critical" ? "border-l-red-600 bg-rose-50/40 hover:bg-rose-50" :
                               riskTier === "high"     ? "border-l-red-500 bg-rose-50/40 hover:bg-rose-50" :
                               riskTier === "watch"    ? "border-l-amber-500 hover:bg-amber-50/40" :
+                              isToday                 ? "border-l-brand-primary border border-brand-primary/20 bg-brand-primary/5 hover:bg-brand-primary/10" :
                                                         "border-l-transparent border border-slate-200 hover:bg-slate-50";
                             return (
                               <div
@@ -834,6 +960,9 @@ function AdminTrackingInner() {
                                   <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-1.5 flex-wrap">
                                       <p className="font-semibold text-sm truncate">{order.client_name}</p>
+                                      <Badge className={`${dateBadge.className} border text-[9px] font-bold tracking-wide`}>
+                                        {dateBadge.label}
+                                      </Badge>
                                       {arrived && (
                                         <Badge className="bg-brand-primary/15 text-brand-primary border-0 text-[9px] font-bold tracking-wide">ARRIVED</Badge>
                                       )}
@@ -854,6 +983,11 @@ function AdminTrackingInner() {
                                     {order.status}
                                   </Badge>
                                 </div>
+                                {order.event_time && (
+                                  <p className="mb-2 text-[11px] text-slate-500 tabular-nums">
+                                    Event {String(order.event_time).slice(0, 5)}
+                                  </p>
+                                )}
                                 <div className="flex items-center justify-between text-xs">
                                   <div className="flex items-center gap-2 text-slate-600 min-w-0">
                                     {order.driver_name ? (
@@ -904,18 +1038,43 @@ function AdminTrackingInner() {
                     </div>
                   ) : (
                     <div className="space-y-4">
-                      {filteredOrders.map((order) => (
-                        <div key={order.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                      <div className="flex flex-col gap-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
+                        <p className="text-sm font-medium text-slate-800">
+                          {operationsScope === "today" ? "Today's operation list" : "All live operation list"}
+                        </p>
+                        <p className="text-xs text-slate-500 tabular-nums">
+                          {filteredOrders.length} shown after filters
+                        </p>
+                      </div>
+                      {filteredOrders.map((order) => {
+                        const dateBadge = getOrderDateBadge(order);
+                        const isToday = isTodayOrder(order);
+                        const riskTier = order.risk_tier as ("ok" | "watch" | "high" | "critical" | undefined);
+                        const rowTone =
+                          riskTier === "critical" ? "border-rose-300 bg-rose-50/40" :
+                          riskTier === "high"     ? "border-rose-200 bg-rose-50/30" :
+                          isToday                 ? "border-brand-primary/30 bg-brand-primary/5" :
+                                                    "border-slate-200";
+                        return (
+                        <div key={order.id} className={`border rounded-lg p-4 hover:shadow-md transition-shadow ${rowTone}`}>
                           <div className="flex items-start justify-between mb-3">
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-3 mb-2 flex-wrap">
                                 <h3 className="font-semibold text-slate-900">{order.client_name}</h3>
+                                <Badge className={`${dateBadge.className} border`}>
+                                  {dateBadge.label}
+                                </Badge>
                                 <Badge className={getStatusColor(order.status || "")}>
                                   <span className="flex items-center gap-1">
                                     {getStatusIcon(order.status || "")}
                                     {order.status}
                                   </span>
                                 </Badge>
+                                {(riskTier === "critical" || riskTier === "high") && order.status !== "delivered" && (
+                                  <Badge className={riskTier === "critical" ? "bg-rose-200 text-rose-900" : "bg-rose-100 text-rose-800"}>
+                                    {riskTier === "critical" ? "Critical" : "At risk"}
+                                  </Badge>
+                                )}
                               </div>
 
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-slate-600">
@@ -926,7 +1085,11 @@ function AdminTrackingInner() {
 
                                 <div className="flex items-center gap-2">
                                   <Clock className="w-4 h-4 flex-shrink-0" />
-                                  <span>{order.delivery_time || (order.event_date ? new Date(order.event_date).toLocaleString("en-ZA") : "No time set")}</span>
+                                  <span>
+                                    {order.event_date || "No date"}
+                                    {order.event_time ? ` ${String(order.event_time).slice(0, 5)}` : ""}
+                                    {order.delivery_time ? ` - delivery ${order.delivery_time}` : ""}
+                                  </span>
                                 </div>
 
                                 {order.driver_name && (
@@ -994,7 +1157,8 @@ function AdminTrackingInner() {
                             </div>
                           )}
                         </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </CardContent>
@@ -1018,7 +1182,7 @@ function AdminTrackingInner() {
         <p style={{ fontSize: "10pt", color: "#475569", marginBottom: "14pt", fontFamily: "sans-serif" }}>
           {new Date().toLocaleString("en-ZA", { weekday: "long", year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" })}
           {" - "}
-          {filteredOrders.length} order{filteredOrders.length === 1 ? "" : "s"} in flight
+          {filteredOrders.length} order{filteredOrders.length === 1 ? "" : "s"} shown in {operationsScope === "today" ? "today" : "all live orders"}
           {" · "}
           {stats.atRisk} at risk
         </p>

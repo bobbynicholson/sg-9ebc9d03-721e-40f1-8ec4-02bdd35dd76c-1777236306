@@ -104,6 +104,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { cn } from "@/lib/utils";
 import { toLocalISO } from "@/lib/localDate";
+import { getEventCapacityForDate, type EventCapacityCheck } from "@/lib/eventCapacity";
 
 // TIGHTEN I.84: module-scope ZAR formatter kept as a fallback for any
 // sibling helpers / dialogs that reference it from outside the main
@@ -1255,6 +1256,8 @@ function AdminQuotesInner() {
   const [depositAmount, setDepositAmount] = useState<string>("");
   const [depositMethod, setDepositMethod] = useState<"cash" | "eft" | "card" | "other">("eft");
   const [depositReference, setDepositReference] = useState<string>("");
+  const [acceptCapacity, setAcceptCapacity] = useState<EventCapacityCheck | null>(null);
+  const [acceptCapacityChecking, setAcceptCapacityChecking] = useState(false);
   // Company-level deposit_percent fallback. Older quotes were created
   // before Settings -> Financial persisted the company default, so
   // quote.deposit_percentage on those rows is still 30 (the original
@@ -1309,6 +1312,37 @@ function AdminQuotesInner() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [acceptPreflight, companyDepositPct]);
+
+  useEffect(() => {
+    const eventDate = (acceptPreflight as any)?.event_date || null;
+    const companyId = user?.company_id || (acceptPreflight as any)?.company_id || null;
+    if (!acceptPreflight || !eventDate || !companyId) {
+      setAcceptCapacity(null);
+      setAcceptCapacityChecking(false);
+      return;
+    }
+    let cancelled = false;
+    setAcceptCapacityChecking(true);
+    (async () => {
+      try {
+        const capacity = await getEventCapacityForDate(supabase, {
+          companyId,
+          eventDate,
+          includeOpenQuotes: false,
+          excludeQuoteId: acceptPreflight.id,
+          candidateEventCount: 1,
+          candidateGuestCount: (acceptPreflight as any).guest_count,
+        });
+        if (!cancelled) setAcceptCapacity(capacity);
+      } catch (e) {
+        console.warn("[quotes] accept capacity check failed:", e);
+        if (!cancelled) setAcceptCapacity(null);
+      } finally {
+        if (!cancelled) setAcceptCapacityChecking(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [acceptPreflight, user?.company_id]);
 
   const runAcceptOnBehalf = async (quote: Quote) => {
     setAcceptingId(quote.id);
@@ -2689,6 +2723,32 @@ function AdminQuotesInner() {
                     ? "The client already accepted - this creates the live order and fires the standard handoff. The quote stays in the system as audit history."
                     : "This converts the quote into a confirmed order and fires the standard accept handoff. The quote stays in the system as audit history."}
                 </p>
+                {(acceptCapacityChecking || (!!acceptCapacity && acceptCapacity.status !== "available")) && (
+                  <div
+                    className={`rounded-md border px-3 py-2.5 text-xs ${
+                      acceptCapacityChecking
+                        ? "border-slate-200 bg-slate-50 text-slate-600"
+                        : acceptCapacity?.status === "over_capacity"
+                          ? "border-rose-200 bg-rose-50 text-rose-800"
+                          : "border-amber-200 bg-amber-50 text-amber-800"
+                    }`}
+                  >
+                    <div className="flex items-start gap-2">
+                      {acceptCapacityChecking ? (
+                        <RefreshCw className="mt-0.5 h-3.5 w-3.5 animate-spin shrink-0" />
+                      ) : (
+                        <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                      )}
+                      <span>
+                        {acceptCapacityChecking
+                          ? "Checking the day's capacity before conversion..."
+                          : acceptCapacity?.status === "over_capacity"
+                            ? `Over capacity: ${acceptCapacity.limitReasons.join("; ")}. Confirming here is an admin override and will still create the order.`
+                            : `At capacity: ${acceptCapacity?.bookedOrders || 0} of ${acceptCapacity?.maxConcurrentEvents || 0} confirmed events booked${acceptCapacity?.maxKitchenLoadPerDay ? `; kitchen load ${acceptCapacity.projectedKitchenLoad}/${acceptCapacity.maxKitchenLoadPerDay}` : ""}${acceptCapacity?.maxGuestsPerEvent ? `; this quote ${acceptCapacity.candidateGuests}/${acceptCapacity.maxGuestsPerEvent} guests` : ""}. Confirming here is an admin override and will still create the order.`}
+                      </span>
+                    </div>
+                  </div>
+                )}
                 <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2.5 space-y-1.5 text-xs">
                   <p className="font-semibold uppercase tracking-wide text-slate-600">What happens on confirm</p>
                   <div className="flex items-start gap-2">

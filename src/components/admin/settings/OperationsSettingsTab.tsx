@@ -45,7 +45,23 @@ const ROWS: Field[][] = [
       key: "maxConcurrentEvents",
       label: "Max Concurrent Events",
       tooltip:
-        "Hard cap on the number of events your team will accept on the same day.\n\nQuote builder warns when the cap would be exceeded so you don't overbook your kitchen capacity.",
+        "Hard cap on the number of events your team will accept on the same day.\n\nQuote builder and public quote acceptance use this to prevent overbooking the diary.",
+    },
+  ],
+  [
+    {
+      key: "maxGuestsPerEvent",
+      label: "Max Guests Per Event",
+      tooltip:
+        "Largest single event size your team will accept.\n\nLeave 0 for no limit. When set, a quote above this guest count is flagged for admin and blocked from public acceptance until the admin changes the cap or the quote.",
+      helpText: "0 means no per-event guest limit.",
+    },
+    {
+      key: "maxKitchenLoadPerDay",
+      label: "Kitchen Capacity Per Day",
+      tooltip:
+        "Maximum total guest-equivalent kitchen load for one event date.\n\nLeave 0 for no limit. The current calculation uses guest count as the kitchen-load unit, so two 150-guest events count as 300.",
+      helpText: "0 means no daily kitchen-load limit.",
     },
   ],
   [

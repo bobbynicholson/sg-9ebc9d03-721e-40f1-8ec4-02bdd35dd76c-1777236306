@@ -312,7 +312,7 @@ export function InventoryLowStockWidget({ companyId }: Props) {
               Items short of stock right now. Each line shows what you have, what confirmed orders need it in the next 7 days, and which specific bookings will run short.
             </CardDescription>
           </div>
-          <Link href={withSlug("/admin/shopping")}>
+          <Link href={withSlug("/admin/shopping?tab=buy_now")}>
             <Button variant="ghost" size="sm" className="text-orange-700">
               Buy now <ShoppingCart className="w-3.5 h-3.5 ml-1" />
             </Button>
@@ -447,7 +447,7 @@ export function InventoryLowStockWidget({ companyId }: Props) {
                       )}
 
                       <div className="mt-2 flex flex-wrap gap-2">
-                        <Link href={withSlug("/admin/shopping")}>
+                        <Link href={withSlug("/admin/shopping?tab=buy_now")}>
                           <Button size="sm" variant="outline" className="h-7 text-[11px] gap-1">
                             <ShoppingCart className="w-3 h-3" /> Add to shopping
                           </Button>

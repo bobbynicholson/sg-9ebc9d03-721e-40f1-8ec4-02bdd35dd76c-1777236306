@@ -24,10 +24,13 @@ import { useTenantHref } from "@/lib/tenantUrl";
 import { useReportWidgetError } from "@/components/dashboard/WidgetErrorBoundary";
 import { daysAgoIso, daysSince } from "@/lib/dashboardWindows";
 import { staffOrderHref } from "@/lib/orderUrls";
+import { isAutomatedTestOrder } from "@/lib/testDataDetection";
 
 interface CancelRow {
   id: string;
   order_number: string | null;
+  event_name: string | null;
+  internal_notes: string | null;
   client_name: string | null;
   total_amount: number | null;
   cancelled_at: string | null;
@@ -63,7 +66,7 @@ export function CancelledOrdersWidget({ companyId }: { companyId: string | null 
         // one was the outlier.
         const { data, error } = await (supabase as any)
           .from("orders")
-          .select("id, order_number, client_name, total_amount, cancelled_at, cancellation_reason")
+          .select("id, order_number, event_name, internal_notes, client_name, total_amount, cancelled_at, cancellation_reason")
           .eq("company_id", companyId)
           .is("deleted_at", null)
           .eq("status", "cancelled")
@@ -71,7 +74,9 @@ export function CancelledOrdersWidget({ companyId }: { companyId: string | null 
           .order("cancelled_at", { ascending: false })
           .limit(50);
         if (error) throw error;
-        const list = ((data || []) as CancelRow[]).filter((r) => !!r.cancelled_at);
+        const list = ((data || []) as CancelRow[])
+          .filter((r) => !!r.cancelled_at)
+          .filter((r) => !isAutomatedTestOrder(r));
         if (cancelled) return;
         setRows(list.slice(0, 5));
         setTotalLost(list.reduce((s, r) => s + Number(r.total_amount || 0), 0));

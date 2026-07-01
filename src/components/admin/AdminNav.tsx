@@ -194,10 +194,19 @@ export function AdminNav(_: AdminNavProps = {}) {
           title: "Live operations",
           href: "/admin/tracking",
           icon: MapPin,
-          description: "Track active jobs",
+          description: "Today + GPS",
           badge: () => liveCounts.inTransitNow > 0
             ? { text: `${liveCounts.inTransitNow} driving`, tone: "default" as const, pulse: true }
             : null,
+        },
+        {
+          title: "All orders",
+          href: "/admin/orders",
+          icon: Package,
+          description: "Full order book",
+          liveDescription: () => liveCounts.eventsToday > 0
+            ? `${liveCounts.eventsToday} today`
+            : "Search bookings",
         },
         {
           title: "Calendar",
@@ -241,7 +250,6 @@ export function AdminNav(_: AdminNavProps = {}) {
             ? { text: "overdue", tone: "critical" as const }
             : null,
         },
-        { title: "Packages",      href: "/admin/packages",      icon: Layers,           description: "Grouped events" },
         { title: "Client search", href: "/admin/client-search", icon: Search,           description: "Find any client" },
         { title: "Reviews",       href: "/admin/reviews",       icon: Star,             description: "Client ratings + comments" },
       ],

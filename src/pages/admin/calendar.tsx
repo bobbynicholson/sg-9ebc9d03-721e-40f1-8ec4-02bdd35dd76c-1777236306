@@ -34,6 +34,8 @@ import { staffOrderHref } from "@/lib/orderUrls";
 import { useToast } from "@/hooks/use-toast";
 import { onOrderUpdated } from "@/lib/events/orderEvents";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
+import { isAutomatedTestOrder, isAutomatedTestQuote } from "@/lib/testDataDetection";
+import { DEFAULT_MAX_CONCURRENT_EVENTS, resolveMaxConcurrentEvents } from "@/lib/eventCapacity";
 
 // CAL-C (CAL-4): region_admin + sales_admin need diary access.
 // RLS on orders narrows region_admin to their regions_covered
@@ -77,7 +79,10 @@ const OPEN_QUOTE_STATUSES = ["draft", "sent"];
 
 interface OpenQuote {
   id: string;
+  quote_number?: string | null;
+  quote_name?: string | null;
   client_name: string | null;
+  notes?: string | null;
   event_date: string;
   event_time: string | null;
   total: number | null;
@@ -256,7 +261,7 @@ function AdminCalendar() {
         setOrders([]);
         return;
       }
-      setOrders((data || []) as unknown as AppOrder[]);
+      setOrders(((data || []) as unknown as AppOrder[]).filter((order: any) => !isAutomatedTestOrder(order)));
     } catch (e) {
       console.error("Calendar load failed:", e);
     } finally {
@@ -272,11 +277,11 @@ function AdminCalendar() {
     try {
       const { data } = await supabase
         .from("quotes")
-        .select("id, client_name, event_date, event_time, total, status, valid_until, sent_at")
+        .select("id, quote_number, quote_name, client_name, notes, event_date, event_time, total, status, valid_until, sent_at")
         .eq("company_id", user.company_id)
         .in("status", OPEN_QUOTE_STATUSES as any[])
         .not("event_date", "is", null);
-      setOpenQuotes((data || []) as OpenQuote[]);
+      setOpenQuotes(((data || []) as OpenQuote[]).filter((quote: any) => !isAutomatedTestQuote(quote)));
     } catch (e) {
       console.error("Calendar open-quotes load failed:", e);
     }
@@ -485,13 +490,7 @@ function AdminCalendar() {
     return m;
   }, [holidays]);
 
-  /** CAL-C (CAL-5): maxConcurrentEvents from operations settings.
-   *  Canonical store is auth user_metadata.admin_settings (mirrored
-   *  to localStorage by /admin/settings for offline fallback). Read
-   *  from user_metadata first so a fresh-device user gets their
-   *  persisted value; fall back to localStorage; finally default 5
-   *  matching the settings tab default. */
-  const maxConcurrent = useMemo(() => {
+  const fallbackMaxConcurrent = useMemo(() => {
     const fromMeta = Number(
       (user as any)?.user_metadata?.admin_settings?.operations?.maxConcurrentEvents,
     );
@@ -500,11 +499,34 @@ function AdminCalendar() {
       const raw = typeof window !== "undefined"
         ? window.localStorage.getItem("admin_settings")
         : null;
-      if (!raw) return 5;
+      if (!raw) return DEFAULT_MAX_CONCURRENT_EVENTS;
       const s = JSON.parse(raw);
-      return Number(s?.operations?.maxConcurrentEvents) || 5;
-    } catch { return 5; }
+      return Number(s?.operations?.maxConcurrentEvents) || DEFAULT_MAX_CONCURRENT_EVENTS;
+    } catch { return DEFAULT_MAX_CONCURRENT_EVENTS; }
   }, [user]);
+  const [maxConcurrent, setMaxConcurrent] = useState(fallbackMaxConcurrent);
+
+  useEffect(() => {
+    setMaxConcurrent(fallbackMaxConcurrent);
+    if (!user?.company_id) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data, error } = await (supabase as any)
+          .from("companies")
+          .select("dispatch_settings")
+          .eq("id", user.company_id)
+          .maybeSingle();
+        if (error) throw error;
+        if (!cancelled) {
+          setMaxConcurrent(resolveMaxConcurrentEvents((data as any)?.dispatch_settings));
+        }
+      } catch (e) {
+        console.warn("[calendar] maxConcurrentEvents load failed:", e);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [fallbackMaxConcurrent, user?.company_id]);
 
   const todayISO = useMemo(() => toLocalISO(new Date()), []);
   const monthNames = [
@@ -588,14 +610,10 @@ function AdminCalendar() {
   [orders, todayISO]);
   const upcoming = useMemo(() => upcomingAll.slice(0, 5), [upcomingAll]);
 
-  /** Wave 70.69: real operational conflicts. For every day, detect
-   *  events that share a driver / vehicle / chef. That's a hard
-   *  double-book - the same person/vehicle can't be in two places
-   *  at once, regardless of event time. Two events at 10:00 and
-   *  17:00 on the same day with the same driver assigned would
-   *  technically be physically possible but the operator should
-   *  know - so we flag any same-day same-resource overlap and let
-   *  dispatch decide.
+  /** Wave 70.69: assignment review. For every day, detect events
+   *  that share a driver / vehicle / chef. The same resource may be
+   *  intentionally reused on a long day, so the calendar should not
+   *  call this a "conflict"; it is an admin check before dispatch.
    *
    *  Returned shape: per-ISO map -> reasons array, plus the count
    *  surfaced on the gap-finder tile. */
@@ -613,17 +631,17 @@ function AdminCalendar() {
         const label = o.client_name || o.order_number || "Event";
         if (driver) {
           const prev = seenDriver.get(driver);
-          if (prev) reasons.push(`Driver double-booked: ${prev} + ${label}`);
+          if (prev) reasons.push(`Driver assigned to two events: ${prev} + ${label}`);
           else seenDriver.set(driver, label);
         }
         if (vehicle) {
           const prev = seenVehicle.get(vehicle);
-          if (prev) reasons.push(`Vehicle double-booked: ${prev} + ${label}`);
+          if (prev) reasons.push(`Vehicle assigned to two events: ${prev} + ${label}`);
           else seenVehicle.set(vehicle, label);
         }
         if (chef) {
           const prev = seenChef.get(chef);
-          if (prev) reasons.push(`Chef double-booked: ${prev} + ${label}`);
+          if (prev) reasons.push(`Chef assigned to two events: ${prev} + ${label}`);
           else seenChef.set(chef, label);
         }
       }
@@ -644,8 +662,10 @@ function AdminCalendar() {
     let empty = 0;
     let competingQuotes = 0;
     let opsConflicts = 0;
+    let capacityChecks = 0;
     const winnableDays: Array<{ iso: string; quotes: OpenQuote[] }> = [];
     const opsConflictDays: Array<{ iso: string; reasons: string[] }> = [];
+    const capacityDays: Array<{ iso: string; count: number; over: boolean }> = [];
     for (let i = 0; i < horizon; i++) {
       const d = new Date(today);
       d.setDate(today.getDate() + i);
@@ -657,6 +677,10 @@ function AdminCalendar() {
       else empty += 1;
       if (qu.length > 1 && ev.length === 0) competingQuotes += 1;
       if (qu.length > 0 && ev.length === 0) winnableDays.push({ iso, quotes: qu });
+      if (ev.length >= maxConcurrent) {
+        capacityChecks += 1;
+        capacityDays.push({ iso, count: ev.length, over: ev.length > maxConcurrent });
+      }
       const opsReasons = opsConflictsByDay[iso];
       if (opsReasons && opsReasons.length > 0) {
         opsConflicts += 1;
@@ -669,10 +693,12 @@ function AdminCalendar() {
       booked, winnable, empty,
       conflicts: competingQuotes,
       opsConflicts,
+      capacityChecks,
       winnableDays,
       opsConflictDays,
+      capacityDays,
     };
-  }, [ordersByDay, quotesByDay, opsConflictsByDay, todayISO]);
+  }, [ordersByDay, quotesByDay, opsConflictsByDay, todayISO, maxConcurrent]);
 
   const dayEvents = selectedDate
     ? ordersByDay[toLocalISO(selectedDate)] || []
@@ -686,7 +712,7 @@ function AdminCalendar() {
   // operator had to add up revenue + guests in their head and had
   // no signal on operational risk. This computes everything we can
   // derive from already-loaded orders (no extra DB hits):
-  //   - mode: quiet / relaxed / busy / packed / conflict
+  //   - mode: quiet / relaxed / busy / packed / tight
   //   - aggregates: totalGuests, totalRevenue, timeSpread
   //   - per-event lightweight readiness: missing driver / time /
   //     pickup, past-event-not-delivered, pending-within-3-days
@@ -702,7 +728,7 @@ function AdminCalendar() {
     const times: number[] = []; // minutes-of-day for each event
     let eventsWithIssues = 0;
     let pastDue = 0;
-    let conflictMarker = false; // overlapping same time-of-day
+    let tightScheduleMarker = false; // events close together in time
 
     // Per-event lightweight issue list. Heavy signals (prep tasks,
     // invoice sent_at, kitchen rostered) need joins - those live on
@@ -738,17 +764,17 @@ function AdminCalendar() {
       }
     }
 
-    // Conflict detection: any two events within 60 minutes of each other.
+    // Tight-schedule detection: any two events within 60 minutes of each other.
     times.sort((a, b) => a - b);
     for (let i = 1; i < times.length; i += 1) {
-      if (times[i] - times[i - 1] < 60) { conflictMarker = true; break; }
+      if (times[i] - times[i - 1] < 60) { tightScheduleMarker = true; break; }
     }
 
-    // Mode: ordered priority - conflict beats packed beats busy etc.
-    type Mode = "quiet" | "relaxed" | "busy" | "packed" | "conflict";
+    // Mode: ordered priority - tight beats packed beats busy etc.
+    type Mode = "quiet" | "relaxed" | "busy" | "packed" | "tight";
     let mode: Mode = "quiet";
     if (dayEvents.length === 0) mode = "quiet";
-    else if (conflictMarker) mode = "conflict";
+    else if (tightScheduleMarker) mode = "tight";
     else if (dayEvents.length >= 6) mode = "packed";
     else if (dayEvents.length >= 3) mode = "busy";
     else mode = "relaxed";
@@ -778,7 +804,7 @@ function AdminCalendar() {
     relaxed:  { label: "Relaxed",  sublabel: "Light day, room to focus on prep",       bg: "bg-brand-primary/10 border-brand-primary/20", text: "text-brand-primary", pulse: false },
     busy:     { label: "Busy",     sublabel: "Solid run - keep the team aligned",     bg: "bg-blue-50 border-blue-200", text: "text-blue-800", pulse: false },
     packed:   { label: "Packed",   sublabel: "Heavy load - watch capacity + drivers", bg: "bg-amber-50 border-amber-200", text: "text-amber-800", pulse: false },
-    conflict: { label: "Conflicts","sublabel": "Multiple events within 60 min of each other - review", bg: "bg-rose-50 border-rose-200", text: "text-rose-800", pulse: true },
+    tight:    { label: "Tight",    sublabel: "Events are close together - check dispatch timing", bg: "bg-amber-50 border-amber-200", text: "text-amber-800", pulse: false },
   };
 
   return (
@@ -1074,14 +1100,14 @@ function AdminCalendar() {
                       return days.map((d) => {
                         const isToday = d.iso === todayISO;
                         const opsReasons = opsConflictsByDay[d.iso];
-                        const hasConflict = !!opsReasons && opsReasons.length > 0;
+                        const needsAssignmentReview = !!opsReasons && opsReasons.length > 0;
                         return (
                           <div
                             key={d.iso}
                             className={cn(
                               "rounded-lg border p-3",
                               isToday ? "border-slate-400 bg-slate-50/60" :
-                              hasConflict ? "border-rose-300 bg-rose-50/30" :
+                              needsAssignmentReview ? "border-amber-300 bg-amber-50/30" :
                               d.events.length > 0 ? "border-blue-200 bg-white" :
                               "border-amber-200 bg-amber-50/30",
                             )}
@@ -1098,9 +1124,9 @@ function AdminCalendar() {
                                 )}>
                                   {d.label}{isToday ? " · Today" : ""}
                                 </span>
-                                {hasConflict && (
-                                  <span className="text-[10px] font-semibold text-rose-800 inline-flex items-center gap-1">
-                                    <AlertCircle className="w-3 h-3" /> Conflict
+                                {needsAssignmentReview && (
+                                  <span className="text-[10px] font-semibold text-amber-800 inline-flex items-center gap-1">
+                                    <AlertCircle className="w-3 h-3" /> Assignment check
                                   </span>
                                 )}
                               </div>
@@ -1207,12 +1233,13 @@ function AdminCalendar() {
                         (s: number, e: any) => s + Number(e.total_amount || 0),
                         0,
                       );
-                      // Wave 70.69: per-cell ops conflict badge.
+                      // Wave 70.69: per-cell assignment review badge.
                       const opsConflictReasons = opsConflictsByDay[iso];
-                      const hasOpsConflict = !!opsConflictReasons && opsConflictReasons.length > 0;
+                      const needsAssignmentReview = !!opsConflictReasons && opsConflictReasons.length > 0;
                       // Diary state - drives the cell border colour. Past
                       // days are excluded from the gap-finder logic; they
                       // can't be filled retroactively.
+                      const overCapacity = events.length > maxConcurrent;
                       const atCapacity = events.length >= maxConcurrent;
                       const hasQuotes = !isPast && quotes.length > 0;
                       // A day with ANY paused order surfaces as "paused"
@@ -1242,7 +1269,7 @@ function AdminCalendar() {
                             "hover:shadow-md hover:scale-[1.02] focus:outline-none",
                             isToday  && "ring-2 ring-slate-500 ring-offset-1",
                             cellState === "selected"          && "bg-slate-50 border-slate-500",
-                            cellState === "capacity"          && "bg-rose-50 border-rose-300",
+                            cellState === "capacity"          && (overCapacity ? "bg-rose-50 border-rose-300" : "bg-amber-50 border-amber-300"),
                             cellState === "paused"            && "bg-blue-50/40 border-blue-300 border-dashed",
                             cellState === "booked_with_quotes"&& "bg-blue-50/60 border-amber-300",
                             cellState === "booked"            && "bg-blue-50/60 border-blue-200",
@@ -1330,21 +1357,23 @@ function AdminCalendar() {
                               </div>
                             )}
                             {atCapacity && (
-                              <div className="text-[10px] font-semibold text-rose-700">
-                                Full ({events.length} of {maxConcurrent})
+                              <div className={cn(
+                                "text-[10px] font-semibold",
+                                overCapacity ? "text-rose-700" : "text-amber-700",
+                              )}>
+                                {overCapacity ? "Over cap" : "At cap"} ({events.length} of {maxConcurrent})
                               </div>
                             )}
-                            {hasOpsConflict && (
-                              // Wave 70.69: red ops-conflict badge.
+                            {needsAssignmentReview && (
                               // Same driver / vehicle / chef on >1
-                              // event for this day. Tooltip shows
-                              // the specific reason on hover.
+                              // event for this day. Tooltip shows the
+                              // specific assignment to review.
                               <div
-                                className="text-[10px] font-semibold text-rose-800 flex items-center gap-1"
+                                className="text-[10px] font-semibold text-amber-800 flex items-center gap-1"
                                 title={opsConflictReasons!.join(" \n")}
                               >
                                 <AlertCircle className="w-3 h-3" />
-                                Conflict
+                                Assignment check
                               </div>
                             )}
                             {/* CAL-C: layered producer icon strip.
@@ -1414,7 +1443,8 @@ function AdminCalendar() {
                 <span className="inline-flex items-center gap-1 text-[10px] text-slate-700 px-2 py-0.5 rounded border-2 border-blue-200 bg-blue-50/60">Booked</span>
                 <span className="inline-flex items-center gap-1 text-[10px] text-amber-800 px-2 py-0.5 rounded border-2 border-amber-300 bg-amber-50/60">Quotes out (winnable)</span>
                 <span className="inline-flex items-center gap-1 text-[10px] text-amber-800 px-2 py-0.5 rounded border-2 border-amber-300 bg-blue-50/60">Booked + extra quotes</span>
-                <span className="inline-flex items-center gap-1 text-[10px] text-rose-700 px-2 py-0.5 rounded border-2 border-rose-300 bg-rose-50">Full ({maxConcurrent} cap)</span>
+                <span className="inline-flex items-center gap-1 text-[10px] text-amber-800 px-2 py-0.5 rounded border-2 border-amber-300 bg-amber-50">At cap ({maxConcurrent})</span>
+                <span className="inline-flex items-center gap-1 text-[10px] text-rose-700 px-2 py-0.5 rounded border-2 border-rose-300 bg-rose-50">Over cap</span>
                 <span className="inline-flex items-center gap-1 text-[10px] text-blue-800 px-2 py-0.5 rounded border-2 border-blue-300 border-dashed bg-blue-50/40">Paused (at risk)</span>
                 <span className="inline-flex items-center gap-1 text-[10px] text-slate-600 px-2 py-0.5 rounded border-2 border-slate-200 bg-white">Open</span>
               </div>
@@ -1505,15 +1535,11 @@ function AdminCalendar() {
                       >Empty days</p>
                       <p className="text-lg font-bold text-slate-900 tabular-nums">{horizonStats.empty}</p>
                     </div>
-                    {/* Wave 70.66 -> 70.69: rename + split. The
-                        original "Conflicts" tile counted
-                        competing-quote days (sales pipeline). The
-                        new Ops conflicts tile counts real ops
-                        double-bookings (driver / vehicle / chef
-                        assigned to >1 event the same day). Both
-                        live in the gap finder so the operator
-                        sees pipeline pressure + assignment risk
-                        at one glance. */}
+                    {/* Wave 70.66 -> 70.69: rename + split. Competing
+                        quotes are sales pipeline pressure. Assignment
+                        checks are admin review work when a driver /
+                        vehicle / chef appears on more than one event
+                        on the same day. */}
                     <div className="rounded-md bg-rose-50 border border-rose-200 px-2 py-1.5">
                       <p className="text-rose-800 text-[10px] uppercase font-semibold">Competing quotes</p>
                       <p
@@ -1521,19 +1547,60 @@ function AdminCalendar() {
                         title="Days where more than one open quote targets the same empty slot - pick one to convert or chase both clients to a different date"
                       >{horizonStats.conflicts}</p>
                     </div>
-                    <div className={`rounded-md ${horizonStats.opsConflicts > 0 ? "bg-rose-100 border-rose-300" : "bg-slate-50 border-slate-200"} border px-2 py-1.5 col-span-2`}>
-                      <p className={`${horizonStats.opsConflicts > 0 ? "text-rose-900" : "text-slate-700"} text-[10px] uppercase font-semibold`}>Ops conflicts (next 30d)</p>
+                    <div className={`rounded-md ${horizonStats.capacityChecks > 0 ? "bg-amber-50 border-amber-300" : "bg-slate-50 border-slate-200"} border px-2 py-1.5 col-span-2`}>
+                      <p className={`${horizonStats.capacityChecks > 0 ? "text-amber-900" : "text-slate-700"} text-[10px] uppercase font-semibold`}>
+                        Capacity checks (next 30d)
+                      </p>
                       <p
-                        className={`text-lg font-bold ${horizonStats.opsConflicts > 0 ? "text-rose-900" : "text-slate-900"} tabular-nums`}
-                        title="Days where the same driver, vehicle or chef is assigned to more than one event - hard double-book that needs reassignment"
+                        className={`text-lg font-bold ${horizonStats.capacityChecks > 0 ? "text-amber-900" : "text-slate-900"} tabular-nums`}
+                        title="Days at or above the max concurrent event setting. Review before taking more work for that date."
+                      >
+                        {horizonStats.capacityChecks}
+                        {horizonStats.capacityChecks > 0 && (
+                          <span className="text-[11px] font-normal ml-2 text-amber-800">
+                            - max {maxConcurrent} event{maxConcurrent === 1 ? "" : "s"} / day
+                          </span>
+                        )}
+                      </p>
+                      {horizonStats.capacityChecks > 0 && (
+                        <ul className="mt-1.5 space-y-0.5 text-[11px] text-amber-900">
+                          {horizonStats.capacityDays.slice(0, 3).map((d) => {
+                            const dt = new Date(`${d.iso}T12:00:00`);
+                            const niceDate = dt.toLocaleDateString("en-ZA", { weekday: "short", day: "numeric", month: "short" });
+                            return (
+                              <li key={d.iso}>
+                                <button
+                                  type="button"
+                                  className="font-semibold underline-offset-2 hover:underline text-left"
+                                  onClick={() => { setSelectedDate(dt); setFocusedISO(d.iso); }}
+                                >
+                                  {niceDate}
+                                </button>
+                                <span className="ml-1">
+                                  - {d.over ? "over cap" : "at cap"} ({d.count}/{maxConcurrent})
+                                </span>
+                              </li>
+                            );
+                          })}
+                          {horizonStats.capacityDays.length > 3 && (
+                            <li className="text-amber-700/80">+{horizonStats.capacityDays.length - 3} more days</li>
+                          )}
+                        </ul>
+                      )}
+                    </div>
+                    <div className={`rounded-md ${horizonStats.opsConflicts > 0 ? "bg-amber-50 border-amber-300" : "bg-slate-50 border-slate-200"} border px-2 py-1.5 col-span-2`}>
+                      <p className={`${horizonStats.opsConflicts > 0 ? "text-amber-900" : "text-slate-700"} text-[10px] uppercase font-semibold`}>Assignment checks (next 30d)</p>
+                      <p
+                        className={`text-lg font-bold ${horizonStats.opsConflicts > 0 ? "text-amber-900" : "text-slate-900"} tabular-nums`}
+                        title="Days where the same driver, vehicle or chef is assigned to more than one event. Review before dispatch."
                       >
                         {horizonStats.opsConflicts}
                         {horizonStats.opsConflicts > 0 && (
-                          <span className="text-[11px] font-normal ml-2 text-rose-800">- driver / vehicle / chef double-booked</span>
+                          <span className="text-[11px] font-normal ml-2 text-amber-800">- resource assigned twice</span>
                         )}
                       </p>
                       {horizonStats.opsConflicts > 0 && (
-                        <ul className="mt-1.5 space-y-0.5 text-[11px] text-rose-900">
+                        <ul className="mt-1.5 space-y-0.5 text-[11px] text-amber-900">
                           {horizonStats.opsConflictDays.slice(0, 3).map((d) => {
                             const dt = new Date(`${d.iso}T12:00:00`);
                             const niceDate = dt.toLocaleDateString("en-ZA", { weekday: "short", day: "numeric", month: "short" });
@@ -1551,7 +1618,7 @@ function AdminCalendar() {
                             );
                           })}
                           {horizonStats.opsConflictDays.length > 3 && (
-                            <li className="text-rose-700/80">+{horizonStats.opsConflictDays.length - 3} more days</li>
+                            <li className="text-amber-700/80">+{horizonStats.opsConflictDays.length - 3} more days</li>
                           )}
                         </ul>
                       )}
