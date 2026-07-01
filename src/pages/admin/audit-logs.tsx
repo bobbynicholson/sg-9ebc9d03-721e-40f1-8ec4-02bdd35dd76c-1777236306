@@ -241,6 +241,14 @@ function CompanyAuditLogsViewer() {
       }
     } catch (e: any) {
       console.error("[audit-logs] load failed:", e);
+      // Silent-failure audit: an empty table after a failed load read
+      // as "no audit activity", which is exactly the wrong signal on
+      // a compliance surface.
+      toast({
+        title: "Could not load audit logs",
+        description: e?.message || "The audit trail couldn't be fetched. Refresh to try again.",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
@@ -324,8 +332,15 @@ function CompanyAuditLogsViewer() {
       a.download = `audit_logs_${stamp}.csv`;
       a.click();
       URL.revokeObjectURL(url);
-    } catch (e) {
+    } catch (e: any) {
       console.error("[audit-logs] export failed:", e);
+      // Silent-failure audit: the button just stopped spinning with
+      // no file and no explanation.
+      toast({
+        title: "Export failed",
+        description: e?.message || "The CSV couldn't be generated. Try again.",
+        variant: "destructive",
+      });
     } finally {
       setExporting(false);
     }

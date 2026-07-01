@@ -302,6 +302,7 @@ export function AdminNav(_: AdminNavProps = {}) {
         { title: "Users & roles",  href: "/admin/users",          icon: Users,     description: "Access and permissions" },
         { title: "Kitchen",       href: "/admin/teams/kitchen",  icon: ChefHat,   description: "Prep staff and duties" },
         { title: "Drivers",       href: "/admin/teams/drivers",  icon: Truck,     description: "Roster and routes" },
+        { title: "Driver schedule", href: "/admin/driver-schedule", icon: Clock,   description: "Weekly shift grid" },
         { title: "Cleaning",      href: "/admin/teams/cleaning", icon: Sparkles,  description: "Roster and workflows" },
         { title: "HR",            href: "/admin/hr-solutions",   icon: Briefcase, description: "Contracts and compliance" },
         ...((profile && [
@@ -319,6 +320,7 @@ export function AdminNav(_: AdminNavProps = {}) {
           { title: "Staff rates",      href: "/admin/staff",             icon: Users,      description: "Pay rates" },
           { title: "Staff hours",      href: "/admin/staff-hours",       icon: Clock,      description: "Time worked" },
           { title: "Driver settlement", href: "/admin/driver-settlement", icon: Banknote, description: "Distance and callouts" },
+          { title: "Kitchen settlement", href: "/admin/kitchen-settlement", icon: Banknote, description: "Kitchen payslips and balances" },
         ] : []),
       ],
     },

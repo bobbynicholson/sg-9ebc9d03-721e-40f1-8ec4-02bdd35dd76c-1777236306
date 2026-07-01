@@ -8,6 +8,7 @@ import { PortalShell, PortalHeader, PortalCard, PortalCardHeader, StatTile,
 } from "@/components/portal/ui";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
@@ -78,6 +79,7 @@ function PlatformDashboard() {
   const { user } = useAuth();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [dateRange, setDateRange] = useState("all");
   const [metrics, setMetrics] = useState<any>(null);
@@ -95,6 +97,7 @@ function PlatformDashboard() {
   const loadDashboardData = async () => {
     try {
       setLoading(true);
+      setLoadError(null);
       const [
         metricsData,
         growthData,
@@ -114,8 +117,13 @@ function PlatformDashboard() {
       setPlanDistribution(plansData);
       setGeoDistribution(geoData);
       setTopCustomers(customersData);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error loading dashboard data:", error);
+      // Silent-failure audit: a failed load used to render an all-zero
+      // dashboard that looked like an empty platform. Flag it instead.
+      setLoadError(
+        error?.message || "Couldn't load the platform analytics. Please try again.",
+      );
     } finally {
       setLoading(false);
     }
@@ -187,6 +195,20 @@ function PlatformDashboard() {
           }
         />
         <PageWorkbench />
+
+        {/* Load-failure banner: without it a failed fetch rendered
+            zeroed tiles indistinguishable from an empty platform. */}
+        {loadError && (
+          <Alert variant="destructive" className="mb-6">
+            <AlertDescription className="flex flex-wrap items-center gap-3">
+              <span>{loadError}</span>
+              <Button variant="outline" size="sm" onClick={loadDashboardData}>
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Try again
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
 
         {/* Live platform snapshot: only real, live figures (no placeholder metrics). */}
         <PortalCard className="mb-6 sm:mb-8 flex flex-wrap items-center gap-x-6 gap-y-3 p-4">

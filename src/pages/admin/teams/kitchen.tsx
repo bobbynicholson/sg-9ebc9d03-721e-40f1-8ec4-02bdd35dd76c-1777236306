@@ -509,7 +509,10 @@ function KitchenTeamPage() {
     // to the kitchen portal; /admin/kitchen-schedule is the live admin
     // view with late/missed badges, so we route there directly.
     { href: "/admin/kitchen-schedule", icon: ClipboardList, label: "Schedule + clock-ins", sub: "Weekly roster, late/missed badges", bg: "from-rose-50 to-rose-50", iconColor: "text-rose-600" },
-    { href: "/admin/inventory-recipes", icon: BookOpen, label: "Recipes & inventory", sub: "Link recipes to stock", bg: "from-brand-primary/10 to-brand-secondary/10", iconColor: "text-brand-primary" },
+    // Recipes live on the menu builder now (recipes + recipe_ingredients
+    // tables per menu item); the old /admin/inventory-recipes static page
+    // redirects there too.
+    { href: "/admin/menu", icon: BookOpen, label: "Menu & recipes", sub: "Dishes, recipes, stock links", bg: "from-brand-primary/10 to-brand-secondary/10", iconColor: "text-brand-primary" },
   ];
 
   const totalPrep = stats.prepPending + stats.prepInProgress + stats.prepDone;

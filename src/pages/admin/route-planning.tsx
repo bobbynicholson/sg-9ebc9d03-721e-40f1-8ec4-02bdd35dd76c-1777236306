@@ -186,11 +186,11 @@ function RoutePlanningInner() {
       });
       setUnassignedOrders(sortedOrders);
       setDrivers(activeDrivers);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error loading dispatch data:", error);
       toast({
         title: "Could not load dispatch data",
-        description: "Check your connection and try again.",
+        description: error?.message || "Check your connection and try again.",
         variant: "destructive",
       });
     } finally {

@@ -104,6 +104,19 @@ function AdminCalendar() {
   const [orders, setOrders] = useState<AppOrder[]>([]);
   const [openQuotes, setOpenQuotes] = useState<OpenQuote[]>([]);
 
+  // Silent-failure audit: secondary loaders (open quotes, dispatch
+  // settings) enrich the grid but shouldn't stack toasts on every
+  // realtime/focus refetch. One non-blocking heads-up per mount.
+  const enrichmentFailureNotified = useRef(false);
+  const notifyEnrichmentFailed = () => {
+    if (enrichmentFailureNotified.current) return;
+    enrichmentFailureNotified.current = true;
+    toast({
+      title: "Some calendar extras didn't load",
+      description: "Open quotes or dispatch settings couldn't be fetched, so those overlays may be incomplete. Refresh to retry.",
+    });
+  };
+
   // CAL-C (XSC Wave C, task #257): five more event producers can
   // now layer onto the calendar grid. Default to orders + holidays
   // visible (clean morning view) and the rest togglable via the
@@ -256,14 +269,17 @@ function AdminCalendar() {
         .lte("event_date", endISO)
         .order("event_date", { ascending: true });
 
-      if (error) {
-        console.error("Calendar load failed:", error);
-        setOrders([]);
-        return;
-      }
+      if (error) throw error;
       setOrders(((data || []) as unknown as AppOrder[]).filter((order: any) => !isAutomatedTestOrder(order)));
-    } catch (e) {
+    } catch (e: any) {
       console.error("Calendar load failed:", e);
+      // Silent-failure audit: a failed load left an empty grid that
+      // read as "no events this month". Tell the operator.
+      toast({
+        title: "Couldn't load calendar events",
+        description: e?.message || "The events for this month couldn't be fetched. Refresh to try again.",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
@@ -275,15 +291,17 @@ function AdminCalendar() {
   // ("winnable diary").
   const loadOpenQuotes = async () => {
     try {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("quotes")
         .select("id, quote_number, quote_name, client_name, notes, event_date, event_time, total, status, valid_until, sent_at")
         .eq("company_id", user.company_id)
         .in("status", OPEN_QUOTE_STATUSES as any[])
         .not("event_date", "is", null);
+      if (error) throw error;
       setOpenQuotes(((data || []) as OpenQuote[]).filter((quote: any) => !isAutomatedTestQuote(quote)));
     } catch (e) {
       console.error("Calendar open-quotes load failed:", e);
+      notifyEnrichmentFailed();
     }
   };
 
@@ -523,6 +541,7 @@ function AdminCalendar() {
         }
       } catch (e) {
         console.warn("[calendar] maxConcurrentEvents load failed:", e);
+        notifyEnrichmentFailed();
       }
     })();
     return () => { cancelled = true; };

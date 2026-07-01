@@ -123,6 +123,10 @@ function AdminTrackingInner() {
   const [drivers, setDrivers] = useState<any[]>([]);
   const [companyName, setCompanyName] = useState<string | undefined>(undefined);
   const [loading, setLoading] = useState(true);
+  // Silent-failure audit: this page auto-refreshes, so an inline
+  // banner (not a toast per failed poll) flags when the live data
+  // couldn't be fetched. Clears itself on the next good load.
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState("all");
   const [driverFilter, setDriverFilter] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
@@ -216,6 +220,9 @@ function AdminTrackingInner() {
         .order("created_at", { ascending: false });
       if (ordersErr) {
         console.error("[admin/tracking] active-orders query error:", ordersErr);
+        // Silent-failure audit: an empty board after a failed query
+        // read as "no live jobs". Throw so the banner below shows.
+        throw ordersErr;
       }
       const activeOrders = ((rawOrders || []) as any[]).filter((order) => !isAutomatedTestOrder(order));
 
@@ -343,8 +350,10 @@ function AdminTrackingInner() {
         if (!current) return current;
         return enrichedOrders.find((o: any) => o.id === current.id) || current;
       });
-    } catch (error) {
+      setLoadError(null);
+    } catch (error: any) {
       console.error("Error loading tracking data:", error);
+      setLoadError(error?.message || "Couldn't load live tracking data. It will retry on the next refresh.");
     } finally {
       setLoading(false);
     }
@@ -633,6 +642,18 @@ function AdminTrackingInner() {
             }
           />
           <PageWorkbench />
+
+          {/* Load-failure banner: without it a failed fetch showed an
+              empty board that read as "nothing running today". */}
+          {loadError && (
+            <div className="mb-4 flex items-start gap-3 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3">
+              <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-rose-600" />
+              <p className="flex-1 text-sm text-rose-900">{loadError}</p>
+              <Button variant="outline" size="sm" onClick={loadTrackingData} disabled={loading}>
+                Try again
+              </Button>
+            </div>
+          )}
 
           <div className="mb-4 flex flex-col gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-sm md:flex-row md:items-center md:justify-between">
             <div className="min-w-0">

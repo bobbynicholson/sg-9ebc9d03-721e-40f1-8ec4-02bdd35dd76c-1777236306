@@ -264,6 +264,16 @@ function DispatchQueuePage() {
         setOrders([]);
         setInterestByOrder({});
         setTotalCount(0);
+        // Silent-failure audit: an empty queue after a failed load
+        // read as "nothing to dispatch". Tell the dispatcher.
+        toast({
+          title: "Could not load the dispatch queue",
+          description: dbErrorMessage(error, {
+            entity: "order",
+            fallback: "The order list couldn't be fetched. Refresh to try again.",
+          }),
+          variant: "destructive",
+        });
         return;
       }
       const mapped: OrderRow[] = (rows || []).map((r: any) => ({

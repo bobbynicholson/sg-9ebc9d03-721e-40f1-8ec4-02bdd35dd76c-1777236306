@@ -109,6 +109,9 @@ function KitchenSettlementPage() {
         .order("full_name", { ascending: true });
       if (staffResError) {
         console.error("[admin/kitchen-settlement] profiles fetch failed:", staffResError);
+        // Silent-failure audit: an empty staff list here read as
+        // "no staff to settle". Route it to the toast in the catch.
+        throw staffResError;
       }
       const staffRows = (staffRes || []) as Staffer[];
       setStaff(staffRows);
@@ -143,6 +146,9 @@ function KitchenSettlementPage() {
         .is("deleted_at", null);
       if (psRowsError) {
         console.error("[admin/kitchen-settlement] kitchen_payslips fetch failed:", psRowsError);
+        // Silent-failure audit: missing payslip rows made already-
+        // issued payslips look unissued. Route to the catch toast.
+        throw psRowsError;
       }
       const psMap: Record<string, PayslipRow> = {};
       for (const r of (psRows || []) as PayslipRow[]) {

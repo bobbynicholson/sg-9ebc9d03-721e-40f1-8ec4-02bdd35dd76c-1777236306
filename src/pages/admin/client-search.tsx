@@ -7,6 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { Search, Users, FileText, Receipt, Eye, Mail, Phone, MapPin, Building, ArrowLeft, X } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
@@ -54,6 +56,7 @@ function ClientSearchPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [clients, setClients] = useState<ClientView[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [selectedRegion, setSelectedRegion] = useState("all");
 
   useEffect(() => {
@@ -67,6 +70,7 @@ function ClientSearchPage() {
     if (!user?.company_id) return;
     try {
       setLoading(true);
+      setLoadError(null);
       // Query the clients table - not profiles. Companies have
       // hundreds of imported contacts that never sign up, so they
       // don't get a profiles row. clients holds the canonical record
@@ -101,6 +105,15 @@ function ClientSearchPage() {
       setClients(mapped);
     } catch (error) {
       console.error("Error loading clients:", error);
+      // Silent-failure audit: without this the page rendered an empty
+      // directory that was indistinguishable from a tenant with no
+      // clients. Surface the failure inline.
+      setLoadError(
+        dbErrorMessage(error, {
+          entity: "client",
+          fallback: "Couldn't load your clients. Please try again.",
+        }),
+      );
     } finally {
       setLoading(false);
     }
@@ -190,6 +203,19 @@ function ClientSearchPage() {
             }
           />
           <PageWorkbench />
+
+          {/* Load-failure banner: the client list is the whole page,
+              so a failed fetch must not look like "no clients". */}
+          {loadError && (
+            <Alert variant="destructive" className="mb-6">
+              <AlertDescription className="flex flex-wrap items-center gap-3">
+                <span>{loadError}</span>
+                <Button variant="outline" size="sm" onClick={loadClients}>
+                  Try again
+                </Button>
+              </AlertDescription>
+            </Alert>
+          )}
 
           {/* Header */}
           <div className="mb-8">

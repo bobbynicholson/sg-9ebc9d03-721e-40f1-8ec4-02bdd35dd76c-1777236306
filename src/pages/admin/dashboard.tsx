@@ -147,6 +147,10 @@ function AdminDashboardPage() {
   const [stats, setStats] = useState<Stats>(EMPTY);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Silent-failure audit (Wave 70.52b): when one of the parallel tile
+  // queries fails we keep the page alive but flag which tiles may be
+  // showing 0 instead of leaving the operator to guess.
+  const [tileWarning, setTileWarning] = useState<string | null>(null);
   // AD-7 (admin-dashboard audit): derived flag for "this tenant
   // has no data yet". Used both for the hero render at the top
   // of the page and to suppress the duplicate FirstStepsCard
@@ -232,6 +236,7 @@ function AdminDashboardPage() {
     try {
       setLoading(true);
       setError(null);
+      setTileWarning(null);
 
       const fromISO = toLocalISO(range.from);
       const toISO   = toLocalISO(range.to);
@@ -338,8 +343,9 @@ function AdminDashboardPage() {
       // so a broken filter on any other res (e.g. the
       // quotes-in-circulation enum bug) silently zeroed the tile
       // forever and nobody noticed. console.warn keeps the page alive;
-      // the affected tile renders its empty/zero state. Wave 70.52b
-      // will surface this in a per-tile error chip.
+      // the affected tile renders its empty/zero state. Wave 70.52b:
+      // collect the failures and surface a "some tiles failed" banner.
+      const failedTiles: string[] = [];
       [
         ["quotesAll", quotesRes],
         ["quotesCirculating", quotesCirculatingRes],
@@ -349,7 +355,10 @@ function AdminDashboardPage() {
         ["draftQuotes", draftsRes],
         ["shortfall", shortfallRes],
       ].forEach(([label, res]: any) => {
-        if (res?.error) console.warn(`[admin/dashboard] ${label} query failed (tile may show 0):`, res.error);
+        if (res?.error) {
+          console.warn(`[admin/dashboard] ${label} query failed (tile may show 0):`, res.error);
+          failedTiles.push(label);
+        }
       });
 
       const orders = ordersRes.data || [];
@@ -527,7 +536,15 @@ function AdminDashboardPage() {
         .in("payment_status", OPEN_REFUND_STATUSES);
       if (refundRowsError) {
         console.error("[admin/dashboard] payments refunds fetch failed:", refundRowsError);
+        failedTiles.push("refunds");
       }
+      // Partial-failure banner: the page still renders, but the
+      // operator is told which tiles may be reading 0 by mistake.
+      setTileWarning(
+        failedTiles.length
+          ? `Some dashboard tiles failed to load and may show 0 (${failedTiles.join(", ")}). Refresh to retry.`
+          : null,
+      );
       const liveRefundRows = (refundRows || []).filter((r: any) => !isAutomatedTestOrder(r.order));
       const refundsOutstandingCount = liveRefundRows.length;
       const refundsOutstandingValue = liveRefundRows.reduce(
@@ -672,6 +689,22 @@ function AdminDashboardPage() {
               <p className="text-sm text-slate-600 mb-3">{error}</p>
               <Button onClick={loadMetrics} size="sm" className="bg-brand-primary hover:bg-brand-primary/90">
                 <TrendingUp className="w-4 h-4 mr-2" /> Retry
+              </Button>
+            </div>
+          )}
+
+          {/* Partial-load warning: the top-level catch above only
+              fires when the orders query dies; the per-tile queries
+              fail independently and used to zero their tiles in
+              silence. */}
+          {!error && tileWarning && (
+            <div className="mb-6 flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4">
+              <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-amber-700" />
+              <div className="flex-1">
+                <p className="text-sm text-amber-900">{tileWarning}</p>
+              </div>
+              <Button onClick={loadMetrics} size="sm" variant="outline" disabled={loading}>
+                Retry
               </Button>
             </div>
           )}

@@ -232,6 +232,13 @@ export default function UserManagementPage() {
       setCompanies(data || []);
     } catch (error) {
       console.error("Error loading companies:", error);
+      // Silent-failure audit: without this the company filter +
+      // create-user company picker were just quietly empty.
+      toast({
+        title: "Failed to load companies",
+        description: dbErrorMessage(error, { entity: "company" }),
+        variant: "destructive",
+      });
     }
   };
 

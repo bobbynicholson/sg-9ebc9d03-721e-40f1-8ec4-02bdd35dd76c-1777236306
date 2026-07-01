@@ -151,8 +151,11 @@ export default function TrialManagementPage() {
     } catch (error) {
       console.error("Error loading trial companies:", error);
       toast({
-        title: "Error",
-        description: "Failed to load trial companies",
+        title: "Failed to load trial companies",
+        description: dbErrorMessage(error, {
+          entity: "trial",
+          fallback: "The trial list couldn't be fetched. Please try again.",
+        }),
         variant: "destructive"
       });
     } finally {

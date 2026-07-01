@@ -22,6 +22,8 @@ import { PortalShell, PortalHeader, PortalCard, PortalCardHeader, StatTile,
   PageWorkbench,
 } from "@/components/portal/ui";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 import {
   Activity,
   AlertTriangle,
@@ -84,6 +86,7 @@ function TenantHealthDashboard() {
   const router = useRouter();
   const [rows, setRows] = useState<HealthRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     if (authLoading) return;
@@ -97,6 +100,7 @@ function TenantHealthDashboard() {
 
   const load = async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const { data: companies, error: cErr } = await supabase
         .from("companies")
@@ -155,8 +159,11 @@ function TenantHealthDashboard() {
         };
       });
       setRows(merged);
-    } catch (e) {
+    } catch (e: any) {
       console.error("[tenant-health] load failed:", e);
+      // Silent-failure audit: a failed load previously rendered four
+      // zeroed tiles + "all clear" tables. Say so instead.
+      setLoadError(e?.message || "Couldn't load tenant health data. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -250,6 +257,20 @@ function TenantHealthDashboard() {
             icon={Activity}
           />
           <PageWorkbench />
+
+          {/* Load-failure banner: zeroed tiles are indistinguishable
+              from a healthy platform, so a failed load must announce
+              itself. */}
+          {loadError && (
+            <Alert variant="destructive" className="mb-6">
+              <AlertDescription className="flex flex-wrap items-center gap-3">
+                <span>{loadError}</span>
+                <Button variant="outline" size="sm" onClick={() => void load()}>
+                  Try again
+                </Button>
+              </AlertDescription>
+            </Alert>
+          )}
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
             <StatTile
