@@ -26,7 +26,7 @@ import { toLocalISO } from "@/lib/localDate";
 export interface DispatchSettings {
   slaAssignMinutes: number;          // event-T threshold below which unassigned glows red
   arrivalBufferMinutes: number;      // driver must arrive at least this many minutes before event_time
-  autoAssignEnabled: boolean;        // when true, assignment commits without dispatcher confirmation
+  autoAssignEnabled: boolean;        // legacy setting; assignment commits only through explicit actions
   autoSuggestEnabled: boolean;       // when true, page surfaces top suggestions
   /** Phase 3: max distance in km between two orders to qualify as a batch candidate. */
   batchDistanceKm: number;
@@ -75,6 +75,10 @@ export interface DriverCandidate {
   regions_covered?: string[] | null;
   home_postcode?: string | null;
   region_id?: string | null;
+  on_time_rate?: number | null;
+  completed_jobs_30d?: number | null;
+  average_rating?: number | null;
+  rating_count?: number | null;
 }
 
 export interface OrderForDispatch {
@@ -146,7 +150,7 @@ export const dispatchService = {
     return {
       slaAssignMinutes:       Number(raw.sla_assign_minutes        ?? DEFAULT_SETTINGS.slaAssignMinutes),
       arrivalBufferMinutes:   Number(raw.arrival_buffer_minutes    ?? DEFAULT_SETTINGS.arrivalBufferMinutes),
-      autoAssignEnabled:      Boolean(raw.auto_assign_enabled      ?? DEFAULT_SETTINGS.autoAssignEnabled),
+      autoAssignEnabled:      false,
       autoSuggestEnabled:     Boolean(raw.auto_suggest_enabled     ?? DEFAULT_SETTINGS.autoSuggestEnabled),
       batchDistanceKm:        Number(raw.batch_distance_km         ?? DEFAULT_SETTINGS.batchDistanceKm),
       batchTimeWindowMinutes: Number(raw.batch_time_window_minutes ?? DEFAULT_SETTINGS.batchTimeWindowMinutes),
@@ -157,7 +161,7 @@ export const dispatchService = {
         currentLoad: Number(raw.auto_assign_weights?.current_load ?? DEFAULT_SETTINGS.weights.currentLoad),
         regionMatch: Number(raw.auto_assign_weights?.region_match ?? DEFAULT_SETTINGS.weights.regionMatch),
         onTimeRate:  Number(raw.auto_assign_weights?.on_time_rate ?? DEFAULT_SETTINGS.weights.onTimeRate),
-        rating:      Number(raw.auto_assign_weights?.rating       ?? DEFAULT_SETTINGS.weights.rating),
+        rating:      0,
       },
     };
   },
@@ -166,7 +170,7 @@ export const dispatchService = {
     const payload = {
       sla_assign_minutes:        s.slaAssignMinutes,
       arrival_buffer_minutes:    s.arrivalBufferMinutes,
-      auto_assign_enabled:       s.autoAssignEnabled,
+      auto_assign_enabled:       false,
       auto_suggest_enabled:      s.autoSuggestEnabled,
       batch_distance_km:         s.batchDistanceKm,
       batch_time_window_minutes: s.batchTimeWindowMinutes,
@@ -177,7 +181,7 @@ export const dispatchService = {
         current_load: s.weights.currentLoad,
         region_match: s.weights.regionMatch,
         on_time_rate: s.weights.onTimeRate,
-        rating:       s.weights.rating,
+        rating:       0,
       },
     };
     const { error } = await supabase
@@ -325,6 +329,7 @@ export const dispatchService = {
     // On-time rate (0-1). When unknown, treat as 0.85 (industry baseline) to avoid penalising new drivers.
     const onTimeScore = Math.max(0, Math.min(1, ctx.onTimeRate ?? 0.85));
     if (ctx.onTimeRate != null) reasons.push(`${Math.round(ctx.onTimeRate * 100)}% on-time`);
+    else reasons.push("No on-time history yet");
 
     // Rating removed from selection (2026-06-17): drivers aren't chosen on
     // a star rating, so it no longer influences the score. We score on
@@ -505,20 +510,24 @@ export const dispatchService = {
 
     const driverIds = drivers.map(d => d.id);
     const loadMap = await this.getDriverLoadMap(driverIds, order.event_date);
+    const metricsByDriver = await this.getDriverDispatchMetrics(companyId, driverIds, 30);
 
     // Current location for each driver - single-row-per-driver lookup
     // off driver_locations (P1-23 split).
     const { data: gpsRows } = await (supabase as any)
       .from("driver_locations")
       .select("driver_id, latitude, longitude, updated_at")
-      .in("driver_id", driverIds);
+      .in("driver_id", driverIds)
+      .order("updated_at", { ascending: false });
     const latestGps: Record<string, { lat: number; lng: number }> = {};
     for (const row of gpsRows || []) {
       const did = (row as any).driver_id;
-      if (!latestGps[did]) {
+      const lat = Number((row as any).latitude);
+      const lng = Number((row as any).longitude);
+      if (!latestGps[did] && Number.isFinite(lat) && Number.isFinite(lng)) {
         latestGps[did] = {
-          lat: Number((row as any).latitude),
-          lng: Number((row as any).longitude),
+          lat,
+          lng,
         };
       }
     }
@@ -526,9 +535,18 @@ export const dispatchService = {
     const suggestions: DispatchSuggestion[] = drivers.map(d => {
       const currentLoad = loadMap[d.id] ?? 0;
       const driverLatLng = latestGps[d.id] || null;
+      const metrics = metricsByDriver[d.id] || null;
+      const driverWithMetrics: DriverCandidate = {
+        ...d,
+        on_time_rate: metrics?.onTimeRate ?? null,
+        completed_jobs_30d: metrics?.completedJobs ?? 0,
+        average_rating: metrics?.averageRating ?? null,
+        rating_count: metrics?.ratingCount ?? 0,
+      };
       const score = this.scoreDriverForOrder(d, order, {
         currentLoad,
         driverLatLng,
+        onTimeRate: metrics?.onTimeRate ?? undefined,
         weights: settings.weights,
       });
       const max = d.max_jobs_per_shift ?? null;
@@ -552,7 +570,7 @@ export const dispatchService = {
             : { ok: true, refrigerated: true }
         : { ok: true, refrigerated: !!driverVehicle?.refrigerated };
 
-      return { driver: d, score, capacity, feasibility, vehicle };
+      return { driver: driverWithMetrics, score, capacity, feasibility, vehicle };
     });
 
     // Sort by score desc, demoting candidates that fail any hard gate.
@@ -564,6 +582,102 @@ export const dispatchService = {
     });
 
     return suggestions.slice(0, limit);
+  },
+
+  async getDriverDispatchMetrics(
+    companyId: string,
+    driverIds: string[],
+    days = 30,
+  ): Promise<Record<string, {
+    completedJobs: number;
+    onTimeRate: number | null;
+    averageRating: number | null;
+    ratingCount: number;
+  }>> {
+    const out: Record<string, {
+      completedJobs: number;
+      onTimeRate: number | null;
+      averageRating: number | null;
+      ratingCount: number;
+    }> = {};
+    for (const id of driverIds) {
+      out[id] = { completedJobs: 0, onTimeRate: null, averageRating: null, ratingCount: 0 };
+    }
+    if (driverIds.length === 0) return out;
+
+    const settings = await this.getDispatchSettings(companyId);
+    const since = new Date();
+    since.setDate(since.getDate() - days);
+    const sinceDate = since.toISOString().slice(0, 10);
+    const todayDate = toLocalISO(new Date());
+    const inList = driverIds.join(",");
+
+    const { data: orders, error } = await supabase
+      .from("orders")
+      .select("id, driver_id, assigned_driver_id, event_date, event_time, delivered_at, status")
+      .eq("company_id", companyId)
+      .gte("event_date", sinceDate)
+      .lte("event_date", todayDate)
+      .in("status", ["delivered", "completed"])
+      .or(`driver_id.in.(${inList}),assigned_driver_id.in.(${inList})`)
+      .is("deleted_at", null);
+    if (error) {
+      console.warn("[dispatchService] driver metrics order lookup failed:", error);
+      return out;
+    }
+
+    const orderToDriver = new Map<string, string>();
+    const onTimeCounts: Record<string, { total: number; onTime: number }> = {};
+    for (const row of (orders || []) as any[]) {
+      const driverId = driverIds.includes(row.assigned_driver_id)
+        ? row.assigned_driver_id
+        : row.driver_id;
+      if (!driverId) continue;
+      orderToDriver.set(row.id, driverId);
+      out[driverId].completedJobs += 1;
+      if (row.event_date && row.event_time && row.delivered_at) {
+        if (!onTimeCounts[driverId]) onTimeCounts[driverId] = { total: 0, onTime: 0 };
+        onTimeCounts[driverId].total += 1;
+        const eventDt = new Date(`${row.event_date}T${row.event_time}`);
+        const deadline = eventDt.getTime() + settings.arrivalBufferMinutes * 60_000;
+        const delivered = new Date(row.delivered_at).getTime();
+        if (!Number.isNaN(deadline) && !Number.isNaN(delivered) && delivered <= deadline) {
+          onTimeCounts[driverId].onTime += 1;
+        }
+      }
+    }
+    for (const driverId of Object.keys(onTimeCounts)) {
+      const stats = onTimeCounts[driverId];
+      out[driverId].onTimeRate = stats.total > 0 ? stats.onTime / stats.total : null;
+    }
+
+    const orderIds = Array.from(orderToDriver.keys());
+    if (orderIds.length === 0) return out;
+    const { data: feedback, error: feedbackError } = await (supabase as any)
+      .from("delivery_feedback")
+      .select("order_id, overall_rating, driver_professionalism_rating")
+      .eq("company_id", companyId)
+      .in("order_id", orderIds);
+    if (feedbackError) {
+      console.warn("[dispatchService] driver metrics feedback lookup failed:", feedbackError);
+      return out;
+    }
+
+    const ratings: Record<string, number[]> = {};
+    for (const item of feedback || []) {
+      const driverId = orderToDriver.get((item as any).order_id);
+      if (!driverId) continue;
+      const value = Number((item as any).driver_professionalism_rating ?? (item as any).overall_rating);
+      if (!Number.isFinite(value) || value <= 0) continue;
+      if (!ratings[driverId]) ratings[driverId] = [];
+      ratings[driverId].push(value);
+    }
+    for (const driverId of Object.keys(ratings)) {
+      const values = ratings[driverId];
+      out[driverId].ratingCount = values.length;
+      out[driverId].averageRating = Math.round((values.reduce((sum, value) => sum + value, 0) / values.length) * 10) / 10;
+    }
+    return out;
   },
 
   // ── Assign + audit ────────────────────────────────────────────────────────
@@ -1127,8 +1241,8 @@ export const dispatchService = {
    * graph-clustering approach when there are 3+ tightly grouped orders.
    */
   async findBatchableOrders(companyId: string): Promise<Array<{
-    primary: { id: string; client_name: string; event_date: string; event_time: string | null; venue_lat: number; venue_lng: number; venue_name: string | null };
-    secondary: { id: string; client_name: string; event_date: string; event_time: string | null; venue_lat: number; venue_lng: number; venue_name: string | null };
+    primary: { id: string; client_name: string; event_date: string; event_time: string | null; venue_lat: number; venue_lng: number; venue_name: string | null; region_id: string | null; requires_refrigeration: boolean | null };
+    secondary: { id: string; client_name: string; event_date: string; event_time: string | null; venue_lat: number; venue_lng: number; venue_name: string | null; region_id: string | null; requires_refrigeration: boolean | null };
     distance_km: number;
     minutes_apart: number;
   }>> {
@@ -1137,7 +1251,7 @@ export const dispatchService = {
 
     const { data: orders } = await supabase
       .from("orders")
-      .select("id, client_name, event_date, event_time, venue_lat, venue_lng, venue_name")
+      .select("id, client_name, event_date, event_time, venue_lat, venue_lng, venue_name, region_id, requires_refrigeration")
       .eq("company_id", companyId)
       .is("assigned_driver_id", null)
       .is("deleted_at", null)

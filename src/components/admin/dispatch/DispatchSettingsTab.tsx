@@ -44,7 +44,7 @@ export function DispatchSettingsTab({ companyId: companyIdProp }: Props = {}) {
 
   const totalWeight =
     settings.weights.distance + settings.weights.currentLoad + settings.weights.regionMatch +
-    settings.weights.onTimeRate + settings.weights.rating;
+    settings.weights.onTimeRate;
 
   const handleSave = async () => {
     if (!companyId) { setError("No company on your profile."); return; }
@@ -159,7 +159,7 @@ export function DispatchSettingsTab({ companyId: companyIdProp }: Props = {}) {
                 Auto-suggest top drivers
               </Label>
               <p className="text-xs text-slate-500 mt-0.5">
-                Show the dispatcher the top 3 ranked drivers in the assign dialog. One click to accept the top match.
+                Show the dispatcher ranked drivers in the assign dialog. One click to accept the top match.
               </p>
             </div>
             <input
@@ -170,20 +170,11 @@ export function DispatchSettingsTab({ companyId: companyIdProp }: Props = {}) {
             />
           </div>
 
-          <div className="flex items-center justify-between mb-1">
-            <div>
-              <Label className="text-sm md:text-base font-medium">Auto-commit top suggestion</Label>
-              <p className="text-xs text-slate-500 mt-0.5">
-                When enabled, the system auto-assigns the top-scored driver without asking. Requires auto-suggest to be on.
-              </p>
-            </div>
-            <input
-              type="checkbox"
-              checked={settings.autoAssignEnabled}
-              onChange={e => setSettings({ ...settings, autoAssignEnabled: e.target.checked })}
-              disabled={!settings.autoSuggestEnabled}
-              className="w-5 h-5 accent-brand-primary cursor-pointer disabled:opacity-30"
-            />
+          <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
+            <Label className="text-sm md:text-base font-medium">Manual commit with audit</Label>
+            <p className="text-xs text-slate-500 mt-0.5">
+              The queue shows ranked suggestions, then an admin confirms the driver. Route Planning has a separate Auto-assign button for bulk assignment.
+            </p>
           </div>
         </div>
 
@@ -191,7 +182,7 @@ export function DispatchSettingsTab({ companyId: companyIdProp }: Props = {}) {
           <div className="mb-3">
             <Label className="text-sm md:text-base font-medium">Auto-suggest weights</Label>
             <p className="text-xs text-slate-500 mt-0.5">
-              How the matcher ranks drivers per order. Each component is 0-1 normalised, weighted, summed. The five values must add up to 1.00.
+              How the matcher ranks drivers per order. Each component is 0-1 normalised, weighted, summed. These four operational weights must add up to 1.00.
             </p>
           </div>
 
@@ -220,12 +211,9 @@ export function DispatchSettingsTab({ companyId: companyIdProp }: Props = {}) {
               value={settings.weights.onTimeRate}
               onChange={v => updateWeight("onTimeRate", v)}
             />
-            <WeightRow
-              label="Driver rating"
-              helper="Customer feedback rolling average"
-              value={settings.weights.rating}
-              onChange={v => updateWeight("rating", v)}
-            />
+            <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+              Driver rating is shown on each suggestion as context, but it is not used to rank drivers.
+            </div>
           </div>
 
           <div className={`mt-3 px-3 py-2 rounded-md border text-sm ${

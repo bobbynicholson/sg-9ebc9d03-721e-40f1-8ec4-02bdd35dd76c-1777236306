@@ -23,7 +23,7 @@
  */
 import { useEffect, useMemo, useState } from "react";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -252,12 +252,12 @@ export function VehiclePickerDialog({
             <Truck className="w-5 h-5 text-blue-600" />
             Vehicle for {order.client_name || "order"}
           </DialogTitle>
-          <p className="text-sm text-slate-500">
+          <DialogDescription>
             Round-trip window: <span className="font-mono">{fmtTime(runWindow.booked_from)}</span>
             {" "}to <span className="font-mono">{fmtTime(runWindow.booked_until)}</span> on{" "}
             {new Date(order.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}.
             Vehicles already booked for this window are filtered out.
-          </p>
+          </DialogDescription>
         </DialogHeader>
 
         {/* Tabs */}

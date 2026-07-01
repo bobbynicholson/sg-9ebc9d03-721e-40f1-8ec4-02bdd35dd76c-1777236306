@@ -1069,7 +1069,7 @@ export async function postOrderCreationCascade(
           // Fetch the order detail the suggester needs.
           const { data: orderDetail } = await (client as any)
             .from("orders")
-            .select("id, event_date, event_time, venue_lat, venue_lng, region_id")
+            .select("id, event_date, event_time, venue_lat, venue_lng, region_id, requires_refrigeration")
             .eq("id", orderId)
             .maybeSingle();
           const od = orderDetail as any;
@@ -1084,6 +1084,7 @@ export async function postOrderCreationCascade(
               venue_lat: od.venue_lat ?? null,
               venue_lng: od.venue_lng ?? null,
               region_id: od.region_id ?? null,
+              requires_refrigeration: !!od.requires_refrigeration,
             }, 1);
             const top = suggestions.find((s: any) => s.capacity.ok && s.feasibility.ok && s.vehicle.ok);
             if (!top) {

@@ -11,7 +11,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose,
 } from "@/components/ui/dialog";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
@@ -53,10 +53,12 @@ import {
 
 interface OrderRow {
   id: string;
+  order_number: string | null;
   client_id: string | null;
   client_name: string;
   event_date: string;
   event_time: string | null;
+  region_id: string | null;
   venue: string;
   status: string;
   total_amount: number;
@@ -99,6 +101,19 @@ const STATUSES: Array<{ value: string; label: string }> = [
 function formatDriverRating(interest: DriverInterestSummary): string {
   if (interest.average_rating == null || interest.rating_count === 0) return "No rating yet";
   return `${interest.average_rating.toFixed(1)} rating (${interest.rating_count})`;
+}
+
+function formatCandidateRating(driver: DispatchSuggestion["driver"]): string {
+  const count = Number(driver.rating_count || 0);
+  if (driver.average_rating == null || count === 0) return "No client rating yet";
+  return `${Number(driver.average_rating).toFixed(1)} driver rating (${count})`;
+}
+
+function formatCandidateOnTime(driver: DispatchSuggestion["driver"]): string {
+  const completed = Number(driver.completed_jobs_30d || 0);
+  if (completed === 0) return "No completed jobs in 30d";
+  if (driver.on_time_rate == null) return `${completed} jobs, no delivery-time data`;
+  return `${Math.round(driver.on_time_rate * 100)}% on-time (${completed} jobs)`;
 }
 
 function DispatchQueuePage() {
@@ -207,9 +222,9 @@ function DispatchQueuePage() {
       const { data: rows, error, count } = await supabase
         .from("orders")
         .select(`
-          id, client_id, client_name, event_date, event_time, pickup_time, status, total_amount,
+          id, order_number, client_id, client_name, event_date, event_time, pickup_time, status, total_amount,
           venue_lat, venue_lng, venue_name, venue_address,
-          confirmed_at, assigned_driver_id, assigned_at, assignment_score,
+          confirmed_at, assigned_driver_id, assigned_at, assignment_score, region_id,
           assigned_chef_id,
           guest_count, requires_refrigeration, requires_waiter, requires_two_drivers,
           assigned_vehicle_id, secondary_vehicle_id,
@@ -253,10 +268,12 @@ function DispatchQueuePage() {
       }
       const mapped: OrderRow[] = (rows || []).map((r: any) => ({
         id: r.id,
+        order_number: r.order_number ?? null,
         client_id: r.client_id ?? null,
         client_name: r.client_name ?? "Unnamed",
         event_date: r.event_date,
         event_time: r.event_time ?? null,
+        region_id: r.region_id ?? null,
         venue: r.venue_name ?? r.venue_address ?? "-",
         status: r.status ?? "confirmed",
         total_amount: Number(r.total_amount ?? 0),
@@ -476,6 +493,7 @@ function DispatchQueuePage() {
       const q = debouncedSearch.trim().toLowerCase();
       list = list.filter(o =>
         o.client_name.toLowerCase().includes(q) ||
+        (o.order_number || "").toLowerCase().includes(q) ||
         o.id.toLowerCase().includes(q) ||
         (o.venue || "").toLowerCase().includes(q) ||
         (o.assigned_driver_name || "").toLowerCase().includes(q)
@@ -530,7 +548,8 @@ function DispatchQueuePage() {
         event_time: order.event_time,
         venue_lat: order.venue_lat,
         venue_lng: order.venue_lng,
-        region_id: (order as any).region_id ?? null,
+        region_id: order.region_id,
+        requires_refrigeration: order.requires_refrigeration,
         // Was capped at 3, which hid the rest of the fleet - operators
         // couldn't pick a driver outside the top suggestions. Return the
         // whole scored list (best-first); the dialog scrolls. 200 is an
@@ -808,13 +827,14 @@ function DispatchQueuePage() {
                     return /[",\n]/.test(s) ? `"${s}"` : s;
                   };
                   const headers = [
-                    "Event date", "Event time", "Client", "Venue", "Guests",
+                    "Order", "Event date", "Event time", "Client", "Venue", "Guests",
                     "Status", "Driver", "Vehicle", "Refrigeration",
                     "Two drivers", "Total amount", "Assigned at",
                   ];
                   const lines = [headers.join(",")];
                   for (const o of filtered as any[]) {
                     lines.push([
+                      esc(o.order_number || o.id || ""),
                       esc(o.event_date || ""),
                       esc(o.event_time || ""),
                       esc(o.client_name || ""),
@@ -869,9 +889,16 @@ function DispatchQueuePage() {
 
           {/* KPIs */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-            <button
-              type="button"
+            <div
+              role="button"
+              tabIndex={0}
               onClick={() => setStatusFilter("at_risk")}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  setStatusFilter("at_risk");
+                }
+              }}
               className={`text-left rounded-lg border bg-white p-4 shadow-sm hover:shadow transition-all ${
                 (kpis?.unassignedAtRisk ?? 0) > 0 ? "ring-2 ring-rose-200 border-rose-300" : "border-slate-200"
               } ${statusFilter === "at_risk" ? "ring-2 ring-rose-200" : ""}`}
@@ -889,11 +916,18 @@ function DispatchQueuePage() {
               <p className="text-xs text-slate-500 mt-1">
                 {settings ? `event in < ${(settings.slaAssignMinutes / 60).toFixed(0)}h` : "-"}
               </p>
-            </button>
+            </div>
 
-            <button
-              type="button"
+            <div
+              role="button"
+              tabIndex={0}
               onClick={() => setStatusFilter("unassigned")}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  setStatusFilter("unassigned");
+                }
+              }}
               className={`text-left rounded-lg border border-slate-200 bg-white p-4 shadow-sm hover:shadow transition-all ${statusFilter === "unassigned" ? "ring-2 ring-slate-300" : ""}`}
             >
               <div className="flex items-center justify-between mb-2">
@@ -905,7 +939,7 @@ function DispatchQueuePage() {
               </div>
               <p className="text-2xl font-semibold text-slate-900">{kpis?.unassignedTotal ?? "-"}</p>
               <p className="text-xs text-slate-500 mt-1">click to filter</p>
-            </button>
+            </div>
 
             <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
               <div className="flex items-center justify-between mb-2">
@@ -1153,7 +1187,7 @@ function DispatchQueuePage() {
                       <div className="min-w-0">
                         <p className="text-sm font-medium text-slate-900 truncate">{order.client_name}</p>
                         <p className="text-xs text-slate-500 truncate">
-                          {order.id.slice(0, 8)} · {order.venue}
+                          {order.order_number || order.id.slice(0, 8)} · {order.venue}
                         </p>
                         {/* Quick drilldowns - jump to the underlying order
                             or client without leaving the queue. */}
@@ -1422,8 +1456,9 @@ function DispatchQueuePage() {
                                     way to read good/bad without this. Mirrors
                                     the dispatchService.scoreDriverForOrder
                                     weighting (distance + load + region +
-                                    on-time + rating). */}
-                                <InfoTooltip content={"Score 0-100. Weighted blend of distance to venue, jobs already booked today, region match, on-time rate, and driver rating. 70+ is a strong match; under 50 is worth a manual override."} />
+                                    on-time). Rating is displayed as context
+                                    in the picker, not used for selection. */}
+                                <InfoTooltip content={"Score 0-100. Weighted blend of distance to venue, jobs already booked today, region match, and real 30-day on-time rate. Client driver rating is shown as context in the picker, but it is not used to rank drivers. 70+ is a strong match; under 50 is worth a manual override."} />
                               </p>
                             )}
                           </div>
@@ -1525,9 +1560,9 @@ function DispatchQueuePage() {
               <Sparkles className="w-5 h-5 text-brand-primary" />
               Assign driver · {assignTarget?.client_name}
             </DialogTitle>
-            <p className="text-sm text-slate-500">
-              Every driver, scored by distance, current load, region and on-time rate - best match first. Pick anyone; one click to assign.
-            </p>
+            <DialogDescription>
+              Every active driver is scored with real dispatch data: distance, current load, branch match, vehicle fit and 30-day on-time rate. Client driver rating is shown for context, not used to rank drivers.
+            </DialogDescription>
           </DialogHeader>
 
           {suggestLoading ? (
@@ -1634,9 +1669,15 @@ function DispatchQueuePage() {
                           <p className="text-sm font-medium text-slate-900">{s.driver.full_name}</p>
                         </div>
                         <p className="text-xs text-slate-600">
-                          {s.score.reasons.slice(0, 3).join(" · ")}
+                          Why: {s.score.reasons.join(" · ")}
                         </p>
                         <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                          <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-700">
+                            {formatCandidateOnTime(s.driver)}
+                          </span>
+                          <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-700">
+                            {formatCandidateRating(s.driver)}
+                          </span>
                           {!s.capacity.ok && (
                             <span className="text-[10px] px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 font-medium">
                               {s.capacity.reason}
@@ -1697,9 +1738,9 @@ function DispatchQueuePage() {
               <Users className="w-5 h-5 text-orange-600" />
               Bulk assign {selected.size} order{selected.size === 1 ? "" : "s"}
             </DialogTitle>
-            <p className="text-sm text-slate-500">
+            <DialogDescription>
               Pick a driver and the system assigns all selected orders. Capacity checks run silently.
-            </p>
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
             <div>

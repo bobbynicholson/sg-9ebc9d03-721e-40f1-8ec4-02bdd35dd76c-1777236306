@@ -2,7 +2,7 @@
 // @ts-nocheck
 import { useEffect, useState } from "react";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -159,10 +159,9 @@ export function ReassignDriverDialog({
             <Sparkles className="w-5 h-5 text-brand-primary" />
             Reassign driver{order.client_name ? ` · ${order.client_name}` : ""}
           </DialogTitle>
-          <p className="text-sm text-slate-500">
-            Top matches scored by distance, current load, region and on-time rate.
-            Capacity, vehicle and time-window gates already applied.
-          </p>
+          <DialogDescription>
+            Top matches are scored by distance, current load, branch match, vehicle fit and 30-day on-time rate. Client driver rating is shown for context only.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="mb-3">

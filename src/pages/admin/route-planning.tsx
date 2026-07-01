@@ -109,6 +109,7 @@ function RoutePlanningInner() {
         venue_lat: pair.primary.venue_lat,
         venue_lng: pair.primary.venue_lng,
         region_id: pair.primary.region_id ?? null,
+        requires_refrigeration: !!(pair.primary.requires_refrigeration || pair.secondary.requires_refrigeration),
       }, 1);
       const top = suggestions.find(s => s.capacity.ok && s.feasibility.ok && s.vehicle.ok);
       if (!top) {
@@ -246,6 +247,7 @@ function RoutePlanningInner() {
           venue_lat: o.venue_lat ?? o.delivery_lat ?? null,
           venue_lng: o.venue_lng ?? o.delivery_lng ?? null,
           region_id: o.region_id ?? null,
+          requires_refrigeration: !!o.requires_refrigeration,
         }, 1);
         const top = suggestions.find(s => s.capacity.ok && s.feasibility.ok && s.vehicle.ok);
         if (!top) { skipped += 1; continue; }

@@ -8,6 +8,10 @@ export interface DeliveryStop {
   id: string;
   order_id: string;
   client_name: string;
+  event_date?: string | null;
+  event_time?: string | null;
+  region_id?: string | null;
+  requires_refrigeration?: boolean | null;
   venue_address: string;
   venue_lat: number;
   venue_lng: number;
@@ -401,6 +405,10 @@ export const routeOptimizationService = {
         id: order.id,
         order_id: order.id,
         client_name: order.client_name,
+        event_date: order.event_date ?? null,
+        event_time: order.event_time ?? null,
+        region_id: order.region_id ?? null,
+        requires_refrigeration: !!order.requires_refrigeration,
         venue_address: order.venue_address,
         venue_lat: order.venue_lat,
         venue_lng: order.venue_lng,
