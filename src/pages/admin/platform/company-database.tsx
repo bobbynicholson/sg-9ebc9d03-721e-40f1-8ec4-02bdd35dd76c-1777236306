@@ -23,7 +23,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Building2, Search, Users, Calendar, MapPin, Edit, Trash2, Eye, AlertCircle, CheckCircle, X } from "lucide-react";
+import { Building2, Search, Users, Calendar, MapPin, Edit, Trash2, Eye, AlertCircle, CheckCircle, RefreshCw, X } from "lucide-react";
 import { companyService } from "@/services/companyService";
 import { userManagementService } from "@/services/userManagementService";
 import { supabase } from "@/integrations/supabase/client";
@@ -42,7 +42,7 @@ import type { Company } from "@/components/admin/company-database/types";
 // can share the same shape without circular imports (P2-13 split).
 
 export default function CompanyDatabasePage() {
-  const { profile } = useAuth();
+  const { profile, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
   const [companies, setCompanies] = useState<Company[]>([]);
@@ -82,7 +82,7 @@ export default function CompanyDatabasePage() {
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
 
   useEffect(() => {
-    if (profile?.active_role === "super_admin") {
+    if (profile?.active_role === "super_admin" || profile?.role === "super_admin") {
       loadCompanies();
     }
   }, [profile]);
@@ -192,6 +192,10 @@ export default function CompanyDatabasePage() {
 
           return {
             ...company,
+            // companies stores the tenant slug in `slug`; the UI shape
+            // (and the add/edit form) call it company_slug. Normalise
+            // here so /{slug} chips and the edit dialog show the truth.
+            company_slug: company.company_slug || company.slug || "",
             owner_name: company.profiles?.full_name || "Unknown",
             total_users: userCount || 0,
             total_orders: orderCount || 0,
@@ -426,7 +430,25 @@ export default function CompanyDatabasePage() {
 
   // getStatusBadge moved to CompanyStatusBadge component (P2-13 split).
 
-  if (profile?.active_role !== "super_admin") {
+  // Wait for the auth context before judging the role - rendering the
+  // denial while profile is still null flashed "Access Denied" at real
+  // super admins on every hard load. A null profile means hydration is
+  // still settling (middleware already bounces signed-out visitors), so
+  // treat it as loading too, not as a role failure.
+  if (authLoading || !profile) {
+    return (
+      <div className="admin-page-shell">
+        <PlatformNav />
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+          <div className="flex items-center justify-center py-24">
+            <RefreshCw className="w-6 h-6 animate-spin text-slate-400" />
+          </div>
+        </PortalShell>
+      </div>
+    );
+  }
+
+  if (profile?.active_role !== "super_admin" && profile?.role !== "super_admin") {
     return (
       <div className="admin-page-shell">
         <PlatformNav />

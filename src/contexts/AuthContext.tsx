@@ -80,6 +80,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
        window.location.search.includes("dev=true"));
 
     if (isDevEnvironment) {
+      // A REAL session in the browser always wins over the dev
+      // shortcut. Otherwise every locally signed-in tenant (and every
+      // Playwright run with a minted cookie) is silently replaced by
+      // the fake DEV TEST COMPANY identity and pages render day-zero
+      // states instead of the real account's data.
+      let cancelled = false;
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (cancelled) return;
+        if (session?.user) {
+          handleSessionChange(session);
+          return;
+        }
+        applyDevBypass();
+      });
+      const {
+        data: { subscription },
+      } = supabase.auth.onAuthStateChange((_event, session) => {
+        if (session?.user) handleSessionChange(session);
+      });
+      return () => {
+        cancelled = true;
+        subscription.unsubscribe();
+      };
+    }
+
+    function applyDevBypass() {
       console.log("🔧 DEV MODE ACTIVE: Creating fake super admin user (no login required)");
       
       // Create a fake super admin user for dev mode with full access
@@ -112,7 +138,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } as unknown as Company;
 
       setUser(devUser);
-      setProfile(null);
+      // Fake profile to match the fake user - pages that gate on
+      // profile.role/active_role (e.g. platform/company-database)
+      // otherwise dead-end in dev because profile stays null forever.
+      setProfile({
+        id: devUser.id,
+        email: devUser.email,
+        full_name: devUser.full_name,
+        role: "super_admin",
+        active_role: "super_admin",
+        company_id: devUser.company_id,
+        currency: "ZAR",
+        created_at: devUser.created_at,
+      } as unknown as DbProfile);
       setCompany(devCompany);
       setUserRoles([UserRole.SUPER_ADMIN]);
       setActiveRole(UserRole.SUPER_ADMIN);

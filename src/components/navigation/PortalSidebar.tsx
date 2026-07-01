@@ -247,7 +247,7 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
           "group relative flex items-center gap-2.5 overflow-hidden rounded-lg border border-transparent transition-colors duration-150",
           footer ? "px-3 py-2 text-[13px] font-medium" : "px-3 py-2.5 text-sm font-medium",
           active
-            ? "border-slate-300 bg-slate-100 text-slate-950 shadow-sm dark:border-slate-700 dark:bg-slate-800/80 dark:text-white"
+            ? "border-brand-primary/20 bg-brand-primary/[0.07] text-slate-950 shadow-sm dark:border-brand-primary/30 dark:bg-brand-primary/10 dark:text-white"
             : footer ? "text-slate-600 dark:text-slate-400" : "text-slate-700 dark:text-slate-300",
           !active && config.hoverClasses,
           collapsed ? "justify-center" : "",

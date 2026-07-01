@@ -50,15 +50,21 @@ export function MetricCard({
 }: MetricCardProps) {
   const cardBody = (
     <Card
-      className={`border-0 shadow-lg transition-shadow ${
-        href ? "hover:shadow-xl cursor-pointer hover:bg-slate-50/50 dark:hover:bg-slate-900/40" : "hover:shadow-xl"
+      className={`relative overflow-hidden transition-[box-shadow,border-color] duration-200 ${
+        href ? "cursor-pointer hover:border-brand-primary/30 hover:shadow-[0_2px_4px_rgba(15,23,42,0.06),0_16px_32px_-16px_rgba(15,23,42,0.18)] dark:hover:border-brand-primary/40" : ""
       }`}
     >
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute left-0 top-0 h-[2px] w-10 rounded-br-full bg-gradient-to-r from-brand-primary/70 to-transparent"
+      />
       <CardHeader className="pb-2 sm:pb-3 px-3 sm:px-6 pt-3 sm:pt-6">
         <CardTitle className="flex items-start justify-between gap-2 text-xs sm:text-sm font-medium">
           <span className="flex items-center gap-1.5 sm:gap-2 min-w-0">
             {Icon && <Icon className={`w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0 ${iconColor}`} />}
-            <span className="text-xs sm:text-sm truncate">{label}</span>
+            {/* Wrap instead of truncate - "Outstandin..." next to a wide
+                badge read like a rendering bug on 4-up rows. */}
+            <span className="text-[11px] font-semibold uppercase tracking-wider leading-4 text-slate-500 dark:text-slate-400">{label}</span>
             {tooltip && <InfoTooltip content={tooltip} className="flex-shrink-0" />}
           </span>
           {badge && (

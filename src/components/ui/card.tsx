@@ -12,7 +12,7 @@ const Card = React.forwardRef<
       // Matched to the redesigned PortalCard so older admin pages using
       // shadcn cards share the same desk-panel treatment instead of
       // drifting back into generic rounded white boxes.
-      "rounded-2xl border border-slate-300/80 bg-card text-card-foreground shadow-[0_1px_1px_rgba(15,23,42,0.04),0_14px_28px_-24px_rgba(15,23,42,0.35)] dark:border-slate-800",
+      "rounded-xl border border-slate-200/90 bg-card text-card-foreground shadow-[0_1px_2px_rgba(15,23,42,0.05),0_8px_16px_-8px_rgba(15,23,42,0.08),0_24px_48px_-24px_rgba(15,23,42,0.16)] dark:border-slate-800",
       className
     )}
     {...props}

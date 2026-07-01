@@ -3,11 +3,11 @@ import { ArrowUpRight, ArrowDownRight, Route } from "lucide-react";
 import { useRouter } from "next/router";
 import { cn } from "@/lib/utils";
 
-// Desk-panel shadow: a tighter operational surface than the earlier
-// floaty card treatment. It separates dense tools without making every
-// page feel like a stack of marketing cards.
+// Desk-panel shadow: layered and soft. A crisp 1px contact line plus a
+// wide low-alpha ambient makes panels feel physically seated on the
+// canvas without the floaty marketing-card look.
 const SOFT_SHADOW =
-  "shadow-[0_1px_1px_rgba(15,23,42,0.04),0_14px_28px_-24px_rgba(15,23,42,0.35)]";
+  "shadow-[0_1px_2px_rgba(15,23,42,0.05),0_8px_16px_-8px_rgba(15,23,42,0.08),0_24px_48px_-24px_rgba(15,23,42,0.16)]";
 
 /**
  * Shared container primitives for the staff portals. One definition so every
@@ -36,7 +36,7 @@ export function PortalShell({
   return (
     <div
       className={cn(
-        "relative min-h-screen overflow-x-hidden bg-[linear-gradient(180deg,#eef2f6_0%,#f8fafc_260px,#f8fafc_100%)] dark:bg-[linear-gradient(180deg,#020617_0%,#0f172a_260px,#0f172a_100%)]",
+        "relative min-h-screen overflow-x-hidden bg-[linear-gradient(180deg,#e9edf3_0%,#f6f8fb_320px,#f6f8fb_100%)] dark:bg-[linear-gradient(180deg,#020617_0%,#0f172a_320px,#0f172a_100%)]",
         className,
       )}
     >
@@ -44,13 +44,20 @@ export function PortalShell({
         aria-hidden="true"
         className="pointer-events-none absolute inset-x-0 top-0 h-px bg-slate-950/10 dark:bg-white/10"
       />
+      {/* Brand wash: a soft top band in the tenant's colours so every
+          page opens with a hint of their identity, fading to neutral
+          before the content grid starts. */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-[linear-gradient(90deg,rgb(var(--brand-primary-rgb)/0.012),rgb(var(--brand-secondary-rgb)/0.008),rgb(var(--brand-accent-rgb)/0.012))] dark:opacity-10"
+        className="pointer-events-none absolute inset-x-0 top-0 h-56 bg-[linear-gradient(180deg,rgb(var(--brand-primary-rgb)/0.055),rgb(var(--brand-secondary-rgb)/0.02)_60%,transparent)] dark:opacity-20"
+      />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 top-0 h-56 bg-[radial-gradient(60%_120%_at_18%_0%,rgba(255,255,255,0.65),transparent_70%)] dark:hidden"
       />
       <div
         className={cn(
-          "relative z-0 w-full px-4 py-5 sm:px-6 sm:py-7 lg:px-8",
+          "relative z-0 w-full px-4 py-6 sm:px-6 sm:py-8 lg:px-9",
           width === "narrow" ? "mx-auto max-w-3xl" : "max-w-none",
         )}
       >
@@ -77,22 +84,22 @@ export function PortalHeader({
   return (
     <header
       className={cn(
-        "mb-6 grid gap-4 border-b border-slate-300/70 pb-5 dark:border-slate-800 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end",
+        "relative mb-7 grid gap-4 border-b border-slate-300/70 pb-6 dark:border-slate-800 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end",
         className,
       )}
     >
-      <div className="flex min-w-0 items-start gap-3.5">
+      <div className="flex min-w-0 items-start gap-4">
         {Icon && (
-          <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-600 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
+          <span className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-brand-primary/20 bg-gradient-to-br from-brand-primary/12 via-white to-brand-secondary/10 text-brand-primary shadow-sm dark:border-brand-primary/30 dark:from-brand-primary/15 dark:via-slate-900 dark:to-brand-secondary/10">
             <Icon className="h-5 w-5" aria-hidden="true" />
           </span>
         )}
         <div className="min-w-0">
-          <h1 className="font-brand-display text-balance text-[1.55rem] font-semibold leading-tight tracking-normal text-slate-950 dark:text-white">
+          <h1 className="font-brand-display text-balance text-[1.75rem] font-semibold leading-[1.15] tracking-tight text-slate-950 dark:text-white sm:text-3xl">
             {title}
           </h1>
           {subtitle && (
-            <p className="mt-1.5 max-w-4xl text-pretty text-sm leading-6 text-slate-600 dark:text-slate-400">
+            <p className="mt-2 max-w-4xl text-pretty text-sm leading-6 text-slate-600 dark:text-slate-400">
               {subtitle}
             </p>
           )}
@@ -103,6 +110,12 @@ export function PortalHeader({
           {actions}
         </div>
       )}
+      {/* Short brand accent seated on the divider - the one flourish
+          each page carries, everything else stays neutral. */}
+      <span
+        aria-hidden="true"
+        className="absolute -bottom-px left-0 h-[2px] w-24 rounded-full bg-gradient-to-r from-brand-primary via-brand-primary/70 to-transparent"
+      />
     </header>
   );
 }
@@ -175,22 +188,22 @@ export function PageWorkbench({
     <nav
       aria-label="Page context"
       className={cn(
-        "!mb-7 flex flex-col gap-2 border-b border-slate-200/80 pb-4 text-xs text-slate-500 dark:border-slate-800 dark:text-slate-400 sm:flex-row sm:items-center sm:justify-between",
+        "!mb-7 flex items-center justify-between gap-3 text-xs",
         className,
       )}
     >
-      <div className="flex min-w-0 items-center gap-2">
-        <Route className="h-3.5 w-3.5 shrink-0 text-slate-400 dark:text-slate-500" aria-hidden="true" />
-        <div className="flex min-w-0 flex-wrap items-center gap-1.5 font-semibold text-slate-700 dark:text-slate-300">
+      <div className="flex min-w-0 items-center gap-2 rounded-full border border-slate-200/90 bg-white/80 px-3 py-1.5 backdrop-blur-sm dark:border-slate-800 dark:bg-slate-900/70">
+        <Route className="h-3.5 w-3.5 shrink-0 text-brand-primary/70" aria-hidden="true" />
+        <div className="flex min-w-0 flex-wrap items-center gap-1.5 font-medium text-slate-600 dark:text-slate-300">
           <span className="truncate">{surface.scope}</span>
-          {parent && <span className="text-slate-400">/</span>}
+          {parent && <span className="text-slate-300 dark:text-slate-600">/</span>}
           {parent && <span className="truncate">{parent}</span>}
-          <span className="text-slate-400">/</span>
-          <span className="truncate text-slate-950 dark:text-white">{page}</span>
+          <span className="text-slate-300 dark:text-slate-600">/</span>
+          <span className="truncate font-semibold text-slate-950 dark:text-white">{page}</span>
         </div>
       </div>
-      <span className="truncate font-medium text-slate-500 dark:text-slate-400">
-        {surface.area} - {pathname.replace(/\[(.*?)\]/g, ":$1")}
+      <span className="hidden shrink-0 rounded-full border border-slate-200/90 bg-white/80 px-3 py-1.5 font-medium uppercase tracking-wider text-slate-400 backdrop-blur-sm dark:border-slate-800 dark:bg-slate-900/70 dark:text-slate-500 sm:inline-flex">
+        {surface.area}
       </span>
     </nav>
   );
@@ -233,7 +246,7 @@ export function PortalOverview({
   return (
     <section
       className={cn(
-        "mb-6 rounded-lg border border-slate-300/80 bg-white p-4 dark:border-slate-800 dark:bg-slate-900/95 sm:p-5",
+        "mb-6 rounded-xl border border-slate-200/90 bg-white p-4 dark:border-slate-800 dark:bg-slate-900/95 sm:p-5",
         SOFT_SHADOW,
         className,
       )}
@@ -311,10 +324,10 @@ export function PortalCard({
   return (
     <div
       className={cn(
-        "rounded-lg border border-slate-300/80 bg-white dark:border-slate-800 dark:bg-slate-900/95",
+        "rounded-xl border border-slate-200/90 bg-white dark:border-slate-800 dark:bg-slate-900/95",
         SOFT_SHADOW,
         interactive &&
-          "cursor-pointer transition-[box-shadow,border-color,transform] duration-200 ease-standard hover:-translate-y-px hover:border-slate-400 hover:shadow-[0_1px_2px_rgba(15,23,42,0.06),0_18px_36px_-26px_rgba(15,23,42,0.45)] dark:hover:border-slate-700",
+          "cursor-pointer transition-[box-shadow,border-color,transform] duration-200 ease-standard hover:-translate-y-0.5 hover:border-brand-primary/30 hover:shadow-[0_2px_4px_rgba(15,23,42,0.06),0_16px_32px_-16px_rgba(15,23,42,0.18),0_32px_64px_-32px_rgba(15,23,42,0.22)] dark:hover:border-brand-primary/40",
         padded && "p-4 sm:p-5",
         className,
       )}
@@ -342,7 +355,10 @@ export function PortalCardHeader({
         className,
       )}
     >
-      <h2 className="text-sm font-semibold leading-5 tracking-normal text-slate-950 dark:text-white">{title}</h2>
+      <h2 className="flex items-center gap-2 text-sm font-semibold leading-5 tracking-normal text-slate-950 dark:text-white">
+        <span aria-hidden="true" className="h-3.5 w-1 shrink-0 rounded-full bg-brand-primary/60" />
+        {title}
+      </h2>
       {action}
     </div>
   );
@@ -369,21 +385,27 @@ export function StatTile({
   return (
     <div
       className={cn(
-        "rounded-lg border border-slate-300/80 bg-white p-4 dark:border-slate-800 dark:bg-slate-900/95",
+        "group relative overflow-hidden rounded-xl border border-slate-200/90 bg-white p-4 dark:border-slate-800 dark:bg-slate-900/95",
         SOFT_SHADOW,
         className,
       )}
     >
+      {/* Hairline brand tick in the top corner - reads as a designed
+          object without shouting. */}
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute left-0 top-0 h-[2px] w-10 rounded-br-full bg-gradient-to-r from-brand-primary/70 to-transparent"
+      />
       <div className="flex items-center justify-between gap-2">
-        <p className="text-xs font-semibold leading-4 text-slate-600 dark:text-slate-400">{label}</p>
+        <p className="text-[11px] font-semibold uppercase leading-4 tracking-wider text-slate-500 dark:text-slate-400">{label}</p>
         {Icon && (
-          <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-brand-primary/20 bg-brand-primary/10 text-brand-primary dark:border-brand-primary/30 dark:bg-brand-primary/10 dark:text-brand-primary">
+          <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-brand-primary/20 bg-gradient-to-br from-brand-primary/12 to-brand-secondary/8 text-brand-primary dark:border-brand-primary/30 dark:from-brand-primary/15 dark:to-brand-secondary/10 dark:text-brand-primary">
             <Icon className="h-4 w-4" />
           </span>
         )}
       </div>
       <div className="mt-3 flex items-end justify-between gap-2">
-        <p className="text-2xl font-semibold leading-none tracking-normal tabular-nums text-slate-950 dark:text-white sm:text-[1.75rem]">
+        <p className="text-[1.75rem] font-semibold leading-none tracking-tight tabular-nums text-slate-950 dark:text-white sm:text-3xl">
           {value}
         </p>
         {trend && (
