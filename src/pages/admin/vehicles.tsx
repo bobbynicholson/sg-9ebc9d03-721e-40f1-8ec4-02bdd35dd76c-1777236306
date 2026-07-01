@@ -37,6 +37,7 @@ import {
 import {
   Truck, Plus, Snowflake, Edit, Trash2, AlertCircle, Search, Flame,
   User, Building2, Users, AlertTriangle, X, RefreshCw,
+  type LucideIcon,
 } from "lucide-react";
 import Head from "next/head";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
@@ -620,43 +621,31 @@ function VehiclesPage() {
             </div>
           )}
 
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-            <Card className="border-0 shadow-sm">
-              <CardContent className="pt-5 pb-4">
-                <p className="text-xs uppercase tracking-wide text-slate-500 font-semibold mb-1 flex items-center gap-1.5">
-                  Total fleet
-                  <InfoTooltip content={"Every active vehicle, company-owned and driver-owned together."} />
-                </p>
-                <p className="text-3xl font-bold text-slate-900">{stats.total}</p>
-              </CardContent>
-            </Card>
-            <Card className="border-0 shadow-sm bg-gradient-to-br from-blue-50 to-blue-100">
-              <CardContent className="pt-5 pb-4">
-                <p className="text-xs uppercase tracking-wide text-blue-700 font-semibold mb-1 flex items-center gap-1.5">
-                  <Building2 className="w-3 h-3" />
-                  Company
-                </p>
-                <p className="text-3xl font-bold text-blue-900">{stats.company}</p>
-              </CardContent>
-            </Card>
-            <Card className="border-0 shadow-sm bg-gradient-to-br from-amber-50 to-amber-100">
-              <CardContent className="pt-5 pb-4">
-                <p className="text-xs uppercase tracking-wide text-amber-700 font-semibold mb-1 flex items-center gap-1.5">
-                  <User className="w-3 h-3" />
-                  Driver-owned
-                </p>
-                <p className="text-3xl font-bold text-amber-900">{stats.driverOwned}</p>
-              </CardContent>
-            </Card>
-            <Card className="border-0 shadow-sm bg-gradient-to-br from-blue-50 to-blue-100">
-              <CardContent className="pt-5 pb-4">
-                <p className="text-xs uppercase tracking-wide text-blue-700 font-semibold mb-1 flex items-center gap-1.5">
-                  <Snowflake className="w-3 h-3" />
-                  Refrigerated
-                </p>
-                <p className="text-3xl font-bold text-blue-900">{stats.refrigerated}</p>
-              </CardContent>
-            </Card>
+          <div className="mb-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <VehicleMetricTile
+              label="Total fleet"
+              value={stats.total}
+              icon={Truck}
+              tooltip="Every active vehicle, company-owned and driver-owned together."
+            />
+            <VehicleMetricTile
+              label="Company"
+              value={stats.company}
+              icon={Building2}
+              tone="brand"
+            />
+            <VehicleMetricTile
+              label="Driver-owned"
+              value={stats.driverOwned}
+              icon={User}
+              tone="amber"
+            />
+            <VehicleMetricTile
+              label="Refrigerated"
+              value={stats.refrigerated}
+              icon={Snowflake}
+              tone="sky"
+            />
           </div>
 
           {/* VEH-B (vehicles audit, VEH-5): cold-chain coverage gap.
@@ -696,7 +685,7 @@ function VehiclesPage() {
           )}
 
           {/* Roster vs Utilisation tabs */}
-          <div className="flex gap-1 rounded-lg border border-slate-200 bg-white shadow-sm p-1 text-xs mb-4 w-fit">
+          <div className="mb-4 flex w-fit gap-1 rounded-lg border border-slate-200 bg-white p-1 text-xs shadow-sm">
             {([
               { id: "roster", label: "Roster" },
               { id: "utilisation", label: "Utilisation" },
@@ -707,7 +696,7 @@ function VehiclesPage() {
                 onClick={() => setTab(t.id)}
                 className={`px-4 py-1.5 rounded-md ${
                   tab === t.id
-                    ? "bg-blue-100 text-blue-700 font-medium"
+                    ? "bg-brand-primary/10 text-brand-primary font-medium"
                     : "text-slate-600 hover:bg-slate-50"
                 }`}
               >
@@ -735,7 +724,7 @@ function VehiclesPage() {
                 placeholder="Search by plate, nickname, make or model (press /)"
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                className="w-full pl-9 pr-9 py-2 text-sm border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full pl-9 pr-9 py-2 text-sm border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary"
               />
               {/* Phase 25 #8: clear-search affordance. */}
               {search && (
@@ -764,7 +753,7 @@ function VehiclesPage() {
                   onClick={() => setFilter(p.id)}
                   className={`px-3 py-1.5 rounded-md ${
                     filter === p.id
-                      ? "bg-blue-100 text-blue-700 font-medium"
+                      ? "bg-brand-primary/10 text-brand-primary font-medium"
                       : "text-slate-600 hover:bg-slate-50"
                   }`}
                 >
@@ -778,7 +767,7 @@ function VehiclesPage() {
           <div className="rounded-lg border border-slate-200 bg-white shadow-sm overflow-hidden">
             {loading ? (
               <div className="text-center py-12">
-                <div className="animate-spin w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full mx-auto mb-3" />
+                <div className="animate-spin w-6 h-6 border-2 border-brand-primary border-t-transparent rounded-full mx-auto mb-3" />
                 <p className="text-sm text-slate-500">Loading...</p>
               </div>
             ) : filtered.length === 0 ? (
@@ -825,13 +814,13 @@ function VehiclesPage() {
                               {v.driver_owner_id ? driverNameById[v.driver_owner_id] || "Driver-owned" : "Driver-owned"}
                             </Badge>
                           ) : (
-                            <Badge className="bg-blue-100 text-blue-800 border-0 text-[10px] gap-1">
+                            <Badge className="border border-slate-200 bg-slate-50 text-slate-700 text-[10px] gap-1">
                               <Building2 className="w-3 h-3" />
                               Company
                             </Badge>
                           )}
                           {v.refrigerated && (
-                            <Badge className="bg-blue-100 text-blue-800 border-0 text-[10px] gap-1">
+                            <Badge className="border border-sky-200 bg-sky-50 text-sky-700 text-[10px] gap-1">
                               <Snowflake className="w-3 h-3" />
                               Fridge
                             </Badge>
@@ -1328,6 +1317,44 @@ function VehiclesPage() {
   );
 }
 
+function VehicleMetricTile({
+  label,
+  value,
+  icon: Icon,
+  tooltip,
+  tone = "slate",
+}: {
+  label: string;
+  value: number;
+  icon: LucideIcon;
+  tooltip?: string;
+  tone?: "slate" | "brand" | "amber" | "sky";
+}) {
+  const toneClass = {
+    slate: "bg-slate-100 text-slate-600",
+    brand: "bg-brand-primary/10 text-brand-primary",
+    amber: "bg-amber-50 text-amber-700",
+    sky: "bg-sky-50 text-sky-700",
+  }[tone];
+
+  return (
+    <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-sm">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-normal text-slate-500">
+            {label}
+            {tooltip && <InfoTooltip content={tooltip} />}
+          </p>
+          <p className="mt-1 text-lg font-semibold tabular-nums text-slate-950">{value}</p>
+        </div>
+        <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md ${toneClass}`}>
+          <Icon className="h-4 w-4" />
+        </span>
+      </div>
+    </div>
+  );
+}
+
 /**
  * Utilisation rollup. Helps the dispatcher spot the truck nobody's
  * touching and the truck doing all the work. Window picker (7 / 30
@@ -1364,7 +1391,7 @@ function UtilisationView({
               onClick={() => onDaysChange(n)}
               className={`px-3 py-1.5 rounded-md ${
                 days === n
-                  ? "bg-blue-100 text-blue-700 font-medium"
+                  ? "bg-brand-primary/10 text-brand-primary font-medium"
                   : "text-slate-600 hover:bg-slate-50"
               }`}
             >
@@ -1384,7 +1411,7 @@ function UtilisationView({
       <div className="rounded-lg border border-slate-200 bg-white shadow-sm overflow-hidden">
         {loading ? (
           <div className="text-center py-12">
-            <div className="animate-spin w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full mx-auto mb-3" />
+            <div className="animate-spin w-6 h-6 border-2 border-brand-primary border-t-transparent rounded-full mx-auto mb-3" />
             <p className="text-sm text-slate-500">Crunching bookings...</p>
           </div>
         ) : rows.length === 0 ? (
@@ -1435,7 +1462,7 @@ function UtilisationView({
                       <div className="inline-flex items-center gap-2">
                         <span>{share.toFixed(0)}%</span>
                         <div className="w-16 h-1.5 rounded-full bg-slate-100 overflow-hidden">
-                          <div className="h-full bg-blue-500" style={{ width: `${Math.min(100, share)}%` }} />
+                          <div className="h-full bg-brand-primary" style={{ width: `${Math.min(100, share)}%` }} />
                         </div>
                       </div>
                     </td>
