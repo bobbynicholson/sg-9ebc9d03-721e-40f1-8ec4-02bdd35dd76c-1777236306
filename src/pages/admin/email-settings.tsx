@@ -494,7 +494,7 @@ function EmailSettingsPage() {
           <PageWorkbench />
 
           {/* Daily quota tile */}
-          <Card className="border-0 shadow-lg mb-6 bg-gradient-to-r from-blue-50 to-blue-50">
+          <Card className="mb-6 bg-gradient-to-r from-blue-50 to-blue-50">
             <CardContent className="py-4">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
@@ -578,7 +578,7 @@ function EmailSettingsPage() {
               spit-braai-delivery's setup. The platform send.cateringms.com
               subdomain is verified at the Skylight level, so every
               tenant gets working email out of the box. */}
-          <Card className="border-0 shadow-lg mb-6 bg-gradient-to-br from-brand-primary/10 to-sky-50">
+          <Card className="mb-6 bg-gradient-to-br from-brand-primary/10 to-sky-50">
             <CardContent className="py-5">
               <div className="flex items-start gap-3">
                 <div className="w-10 h-10 rounded-lg bg-brand-primary/15 flex items-center justify-center flex-shrink-0">
@@ -603,7 +603,7 @@ function EmailSettingsPage() {
           </Card>
 
           {/* Resend domain verification - optional upgrade path */}
-          <Card className="border-0 shadow-lg mb-6 bg-gradient-to-br from-white to-slate-50/40">
+          <Card className="mb-6 bg-gradient-to-br from-white to-slate-50/40">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <ShieldCheck className="w-5 h-5 text-slate-600" />
@@ -648,7 +648,7 @@ function EmailSettingsPage() {
               advanced. They get their own dedicated section near the
               top with the send-test affordance attached so the
               operator can verify a change without scrolling. */}
-          <Card className="border-0 shadow-lg mb-6">
+          <Card className="mb-6">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Mail className="w-5 h-5 text-slate-600" />
@@ -748,7 +748,7 @@ function EmailSettingsPage() {
               touch this. The Resend (default) tile is always the
               correct choice unless the operator has a specific reason
               to route via their own Gmail/365/SMTP. */}
-          <details className="mb-6 rounded-lg border-0 shadow-lg bg-white overflow-hidden">
+          <details className="mb-6 rounded-lg bg-white overflow-hidden">
             <summary className="cursor-pointer px-6 py-4 select-none flex items-center justify-between gap-3">
               <span className="flex items-center gap-2 font-semibold text-slate-900">
                 <Server className="w-5 h-5 text-slate-600" />
@@ -915,7 +915,7 @@ function EmailSettingsPage() {
               operator's mental model better. The old title described
               the mechanism (attach a link); the new one describes the
               decision (when do these emails fire). */}
-          <Card className="border-0 shadow-lg mb-6">
+          <Card className="mb-6">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Send className="w-5 h-5 text-slate-600" />
@@ -992,10 +992,10 @@ function EmailSettingsPage() {
           </Card>
 
           {/* Mailchimp integration */}
-          <Card className="border-0 shadow-lg mb-6">
+          <Card className="mb-6">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Inbox className="w-5 h-5 text-orange-600" />
+                <Inbox className="w-5 h-5 text-brand-primary" />
                 Mailchimp (bulk sender)
               </CardTitle>
               <CardDescription>

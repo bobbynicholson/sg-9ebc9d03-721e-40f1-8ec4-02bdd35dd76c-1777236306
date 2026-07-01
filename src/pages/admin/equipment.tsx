@@ -655,13 +655,13 @@ function CatalogTab({ companyId }: { companyId: string | null }) {
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <Card className="border-0 shadow-md"><CardContent className="p-4"><p className="text-xs text-slate-600 mb-1">Catalog items</p><p className="text-2xl font-bold text-slate-900">{totalItems}</p></CardContent></Card>
+        <Card><CardContent className="p-4"><p className="text-xs text-slate-600 mb-1">Catalog items</p><p className="text-2xl font-bold text-slate-900">{totalItems}</p></CardContent></Card>
         {/* EQP-B: replaced "Total units" vanity tile with hire-in
             committed - the operator-actionable number is "how much
             am I spending on third-party rentals". Falls back to
             total-units for roles without finance visibility. */}
         {canSeeFinance ? (
-          <Card className="border-0 shadow-md">
+          <Card>
             <CardContent className="p-4">
               <p className="text-xs text-slate-600 mb-1">Hire-in spend (90d)</p>
               <p className="text-2xl font-bold text-rose-600">
@@ -673,9 +673,9 @@ function CatalogTab({ companyId }: { companyId: string | null }) {
             </CardContent>
           </Card>
         ) : (
-          <Card className="border-0 shadow-md"><CardContent className="p-4"><p className="text-xs text-slate-600 mb-1">Total units</p><p className="text-2xl font-bold text-blue-600">{totalUnits}</p></CardContent></Card>
+          <Card><CardContent className="p-4"><p className="text-xs text-slate-600 mb-1">Total units</p><p className="text-2xl font-bold text-blue-600">{totalUnits}</p></CardContent></Card>
         )}
-        <Card className="border-0 shadow-md"><CardContent className="p-4"><p className="text-xs text-slate-600 mb-1">No stock free</p><p className="text-2xl font-bold text-amber-600">{lowStock}</p></CardContent></Card>
+        <Card><CardContent className="p-4"><p className="text-xs text-slate-600 mb-1">No stock free</p><p className="text-2xl font-bold text-amber-600">{lowStock}</p></CardContent></Card>
         {/* EQP-B: clickable tile drilldown to the hidden subset. */}
         <button
           type="button"
@@ -770,7 +770,7 @@ function CatalogTab({ companyId }: { companyId: string | null }) {
       </div>
 
       {loading ? (
-        <Card className="border-0 shadow-md"><CardContent className="p-12 text-center text-slate-500">Loading...</CardContent></Card>
+        <Card><CardContent className="p-12 text-center text-slate-500">Loading...</CardContent></Card>
       ) : rows.length === 0 ? (
         <Card className="border-2 border-dashed">
           <CardContent className="p-12 text-center">
@@ -826,7 +826,7 @@ function CatalogTab({ companyId }: { companyId: string | null }) {
                   const isOverdue = !!nextDue && nextDue < now;
                   const isDueSoon = !!nextDue && !isOverdue && nextDue - now <= sevenDays;
                   return (
-                    <Card key={r.id} className={`border-0 shadow-md ${offline ? "opacity-60" : ""}`}>
+                    <Card key={r.id} className={`${offline ? "opacity-60" : ""}`}>
                       <CardContent className="p-4 flex flex-wrap items-center gap-3">
                         <div className="flex-1 min-w-[200px]">
                           <div className="flex items-center gap-2 flex-wrap">
@@ -1685,7 +1685,7 @@ function AvailabilityTab({ companyId }: { companyId: string | null }) {
 
   return (
     <>
-      <Card className="border-0 shadow-md mb-5">
+      <Card className="mb-5">
         <CardContent className="p-4">
           <div className="flex flex-col md:flex-row md:items-end gap-3">
             <div className="space-y-1">
@@ -1718,7 +1718,7 @@ function AvailabilityTab({ companyId }: { companyId: string | null }) {
       </Card>
 
       {loadingItems ? (
-        <Card className="border-0 shadow-md"><CardContent className="p-12 text-center text-slate-500">
+        <Card><CardContent className="p-12 text-center text-slate-500">
           <Loader2 className="w-5 h-5 mx-auto mb-2 animate-spin" />
           Loading catalog...
         </CardContent></Card>
@@ -1738,7 +1738,7 @@ function AvailabilityTab({ companyId }: { companyId: string | null }) {
                 <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-500">{cat}</h2>
                 <span className="text-xs text-slate-400">{rows.length} item{rows.length === 1 ? "" : "s"}</span>
               </div>
-              <Card className="border-0 shadow-sm">
+              <Card>
                 <CardContent className="p-0">
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
@@ -1779,7 +1779,7 @@ function AvailabilityTab({ companyId }: { companyId: string | null }) {
             </div>
           ))}
           {!computing && filteredResults.length === 0 && (
-            <Card className="border-0 shadow-sm"><CardContent className="p-8 text-center text-sm text-slate-500">
+            <Card><CardContent className="p-8 text-center text-sm text-slate-500">
               No items match the filter.
             </CardContent></Card>
           )}

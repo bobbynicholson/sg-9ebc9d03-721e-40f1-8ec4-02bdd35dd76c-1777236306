@@ -1293,7 +1293,7 @@ function DriverManagementPage() {
 
             return (
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <Card className="border-0 shadow-md bg-gradient-to-br from-brand-primary/10 to-brand-secondary/10">
+                <Card className="bg-gradient-to-br from-brand-primary/10 to-brand-secondary/10">
                   <CardContent className="pt-5 pb-4">
                     <p className="text-xs uppercase tracking-wide text-brand-primary font-semibold mb-1 flex items-center gap-1.5">
                       On shift now
@@ -1303,7 +1303,7 @@ function DriverManagementPage() {
                     <p className="text-xs text-brand-primary mt-0.5">of {activeDrivers} active</p>
                   </CardContent>
                 </Card>
-                <Card className="border-0 shadow-md">
+                <Card>
                   <CardContent className="pt-5 pb-4">
                     <p className="text-xs uppercase tracking-wide text-slate-500 font-semibold mb-1 flex items-center gap-1.5">
                       Total drivers
@@ -1313,7 +1313,7 @@ function DriverManagementPage() {
                     <p className="text-xs text-slate-500 mt-0.5">{inactiveDrivers} inactive</p>
                   </CardContent>
                 </Card>
-                <Card className="border-0 shadow-md">
+                <Card>
                   <CardContent className="pt-5 pb-4">
                     <p className="text-xs uppercase tracking-wide text-slate-500 font-semibold mb-1 flex items-center gap-1.5">
                       Jobs today
@@ -1323,7 +1323,7 @@ function DriverManagementPage() {
                     <p className="text-xs text-slate-500 mt-0.5">avg {avgLoad.toFixed(1)} per driver</p>
                   </CardContent>
                 </Card>
-                <Card className="border-0 shadow-md bg-gradient-to-br from-amber-50 to-amber-100">
+                <Card className="bg-gradient-to-br from-amber-50 to-amber-100">
                   <CardContent className="pt-5 pb-4">
                     <p className="text-xs uppercase tracking-wide text-amber-700 font-semibold mb-1 flex items-center gap-1.5">
                       Stale pings
@@ -1390,7 +1390,7 @@ function DriverManagementPage() {
         </div>
 
         {/* Drivers List */}
-        <Card className="border-0 shadow-lg">
+        <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-1.5">All Drivers <InfoTooltip content={"Every driver matching your search, active and inactive."} /></CardTitle>
             <CardDescription>
@@ -1676,7 +1676,7 @@ function DriverManagementPage() {
             no tenant branding). Self-signup isn't a route - drivers
             are added by an admin and sign in with the credentials they
             receive by email. */}
-        <Card className="border-0 shadow-lg mt-6 bg-gradient-to-br from-blue-50 to-blue-50">
+        <Card className="mt-6 bg-gradient-to-br from-blue-50 to-blue-50">
           <CardHeader>
             <CardTitle className="text-blue-900">Driver Portal Access</CardTitle>
           </CardHeader>
@@ -1983,12 +1983,12 @@ function CompanyPayDefaultsCard({
     v == null ? <span className="text-slate-400">Not set</span> : `R ${v.toFixed(2)}`;
 
   return (
-    <Card className="mb-6 border-orange-200 bg-gradient-to-br from-orange-50 to-amber-50">
+    <Card className="mb-6 border-brand-primary/20 bg-gradient-to-br from-brand-primary/5 to-brand-secondary/5">
       <CardContent className="p-4">
         <div className="flex flex-col sm:flex-row sm:items-start gap-4">
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-1">
-              <Activity className="w-4 h-4 text-orange-600" />
+              <Activity className="w-4 h-4 text-brand-primary" />
               <h3 className="text-sm font-semibold text-slate-900">Company pay defaults</h3>
             </div>
             <p className="text-xs text-slate-600 mb-3">

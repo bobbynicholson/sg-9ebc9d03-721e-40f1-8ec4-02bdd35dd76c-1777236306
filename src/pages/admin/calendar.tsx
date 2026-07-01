@@ -1039,7 +1039,7 @@ function AdminCalendar() {
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2">
-              <Card className="border-0 shadow-lg">
+              <Card>
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -1452,7 +1452,7 @@ function AdminCalendar() {
 
             {/* Sidebar */}
             <div className="space-y-6">
-              <Card className="border-0 shadow-lg">
+              <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Clock className="w-5 h-5 text-slate-600" />
@@ -1496,7 +1496,7 @@ function AdminCalendar() {
               {/* Gap finder - the diary opportunity panel. Lists days
                   in the next 30 with quotes out but nothing booked, so
                   the operator can pick which quote to chase. */}
-              <Card className="border-0 shadow-lg">
+              <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Sparkles className="w-5 h-5 text-amber-600" />
@@ -1666,7 +1666,7 @@ function AdminCalendar() {
                 </CardContent>
               </Card>
 
-              <Card className="border-0 shadow-lg bg-gradient-to-br from-blue-50 to-blue-50">
+              <Card className="bg-gradient-to-br from-blue-50 to-blue-50">
                 <CardContent className="pt-6 space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-slate-600 flex items-center gap-1.5">Total events <InfoTooltip content={"Every confirmed-and-onwards event in the loaded ±6-month window. Cancelled, pending and draft orders are excluded - they live on /admin/orders, not the calendar."} /></span>
@@ -1881,7 +1881,7 @@ function AdminCalendar() {
                         className="block"
                       >
                         <Card className={cn(
-                          "border-0 shadow hover:shadow-lg transition-all hover:-translate-y-0.5",
+                          "hover:shadow-lg transition-all hover:-translate-y-0.5",
                           issues.length > 0 ? "ring-1 ring-rose-200" : "",
                         )}>
                           <CardContent className="py-4 px-4">

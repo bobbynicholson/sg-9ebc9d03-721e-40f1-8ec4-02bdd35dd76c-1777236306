@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { AlertTriangle, ArrowLeft, CalendarCheck, Loader2, MapPin, Save } from "lucide-react";
+import { AlertTriangle, ArrowLeft, CalendarCheck, Loader2, MapPin, Save, UserPlus } from "lucide-react";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
@@ -31,7 +31,7 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useTenantHref } from "@/lib/tenantUrl";
-import { PageWorkbench } from "@/components/portal/ui";
+import { PageWorkbench, PortalHeader, PortalShell } from "@/components/portal/ui";
 import { supabase } from "@/integrations/supabase/client";
 import { toLocalISO } from "@/lib/localDate";
 import { getEventCapacityForDate, type EventCapacityCheck, type EventCapacityStatus } from "@/lib/eventCapacity";
@@ -291,20 +291,23 @@ export default function NewLead() {
       <AdminNav />
 
       <div className="admin-page-shell">
-        <div className="px-4 py-8 max-w-full">
-          <PageWorkbench className="mb-5" />
-          <div className="mb-8">
-            <Link href={withSlug("/admin/leads")}>
-              <Button variant="ghost" className="mb-4">
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back to Leads
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+          <PortalHeader
+            title="Create New Lead"
+            subtitle="Add a potential customer to your pipeline"
+            icon={UserPlus}
+            actions={
+              <Button asChild variant="outline" className="gap-2">
+                <Link href={withSlug("/admin/leads")}>
+                  <ArrowLeft className="w-4 h-4" />
+                  Back to Leads
+                </Link>
               </Button>
-            </Link>
-            <h1 className="text-3xl font-bold text-slate-900">Create New Lead</h1>
-            <p className="text-slate-600">Add a potential customer to your pipeline</p>
-          </div>
+            }
+          />
+          <PageWorkbench />
 
-          <Card className="border-0 shadow-lg">
+          <Card>
             <CardHeader>
               <CardTitle>Lead information</CardTitle>
               <p className="text-sm text-slate-500 mt-1">
@@ -565,7 +568,7 @@ export default function NewLead() {
               </form>
             </CardContent>
           </Card>
-        </div>
+        </PortalShell>
 
         <Footer />
       </div>

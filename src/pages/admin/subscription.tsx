@@ -284,7 +284,7 @@ function SubscriptionPage() {
             />
             <PageWorkbench />
 
-            <Card className="border-0 shadow-sm">
+            <Card>
               <CardHeader>
                 <CardTitle>
                   {trialStatus?.isInTrial ? "No subscription yet" : "No active subscription"}

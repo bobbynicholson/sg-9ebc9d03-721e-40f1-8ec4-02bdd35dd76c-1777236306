@@ -1723,7 +1723,7 @@ function OrderProcessDashboard() {
 
             {/* Kanban Board / Timeline View */}
             {loading ? (
-              <Card className="border-0 shadow-lg">
+              <Card>
                 <CardContent className="py-24">
                   <div className="text-center">
                     <div className="animate-spin w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full mx-auto mb-4" />

@@ -51,7 +51,7 @@ import {
 import { describeQuoteEditImpact } from "@/services/quote/propagateQuoteEdit";
 import { breakdownFromLineSum } from "@/lib/vatMath";
 import { usePricingMode } from "@/hooks/usePricingMode";
-import { PageWorkbench } from "@/components/portal/ui";
+import { PortalShell, PortalHeader, PageWorkbench } from "@/components/portal/ui";
 
 const STATUS_COLOURS: Record<string, string> = {
   draft: "bg-slate-100 text-slate-700",
@@ -595,39 +595,45 @@ function AdminQuoteDetailInner() {
 
   return (
     <>
+      <NoIndexMeta />
       <Head>
         <title>Quote details - CateringMS</title>
       </Head>
-      <NoIndexMeta />
 
       {/* Wave 14 follow-up: page used to render edge-to-edge so the
           fixed AdminNav sidebar overlapped the content card on
-          desktop. Match the lg:pl-72 / xl:pl-80 pattern every other
-          /admin/* page uses, plus the pt-20/lg:pt-6 mobile spacing
-          for the floating nav button. */}
+          desktop. The admin-page-shell class now carries the sidebar
+          offset (lg pl-72 / xl pl-80) plus the mobile top spacing for
+          the floating nav button; PortalShell is the single width
+          container inside it. */}
       <AdminNav />
       <div className="admin-page-shell">
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+          <PortalHeader
+            title="Quote details"
+            icon={FileText}
+            subtitle="Price the request line by line, respond to client change requests, then save or send. Quotes that already went out stay read-only to preserve history."
+            actions={
+              <Link href={withSlug("/admin/quotes")}>
+                <Button variant="outline">
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Back to Quotes
+                </Button>
+              </Link>
+            }
+          />
 
-        <div className="max-w-full px-4 pt-20 lg:pt-6 pb-12">
-          <PageWorkbench className="mb-5" />
-          <div className="mb-6">
-            <Link href={withSlug("/admin/quotes")}>
-              <Button variant="ghost" size="sm">
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back to Quotes
-              </Button>
-            </Link>
-          </div>
+          <PageWorkbench />
 
           {loading ? (
-            <Card className="border-0 shadow-lg">
+            <Card>
               <CardContent className="p-12 text-center text-slate-500">
                 <Loader2 className="w-6 h-6 mx-auto mb-2 animate-spin" />
                 Loading quote...
               </CardContent>
             </Card>
           ) : !quote ? (
-            <Card className="border-0 shadow-lg">
+            <Card>
               <CardContent className="p-12 text-center">
                 <FileText className="w-16 h-16 text-slate-300 mx-auto mb-4" />
                 <h2 className="text-xl font-semibold text-slate-900 mb-2">Quote not found</h2>
@@ -641,7 +647,7 @@ function AdminQuoteDetailInner() {
             <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_22rem] gap-6 items-start">
               <div className="space-y-6 min-w-0">
               {/* Header card, client + status + provenance */}
-              <Card className="border-0 shadow-lg">
+              <Card>
                 <CardHeader>
                   <div className="flex items-start justify-between flex-wrap gap-3">
                     <div>
@@ -752,7 +758,7 @@ function AdminQuoteDetailInner() {
               </Card>
 
               {/* Menu items, editable when draft, read-only otherwise */}
-              <Card className="border-0 shadow-lg">
+              <Card>
                 <CardHeader>
                   <div className="flex items-center justify-between flex-wrap gap-2">
                     <CardTitle className="text-lg">Menu items</CardTitle>
@@ -866,7 +872,7 @@ function AdminQuoteDetailInner() {
               </Card>
 
               {/* Adjustments + totals */}
-              <Card className="border-0 shadow-lg">
+              <Card>
                 <CardHeader>
                   <CardTitle className="text-lg">Pricing</CardTitle>
                 </CardHeader>
@@ -976,7 +982,7 @@ function AdminQuoteDetailInner() {
               </Card>
 
               {/* Notes, editable when draft */}
-              <Card className="border-0 shadow-lg">
+              <Card>
                 <CardHeader>
                   <CardTitle className="text-lg">Internal notes</CardTitle>
                 </CardHeader>
@@ -1223,7 +1229,7 @@ function AdminQuoteDetailInner() {
               </div>
             </div>
           )}
-        </div>
+        </PortalShell>
 
         <Footer />
       </div>

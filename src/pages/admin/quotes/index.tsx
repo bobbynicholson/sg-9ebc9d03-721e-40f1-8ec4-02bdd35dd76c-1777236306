@@ -1560,28 +1560,28 @@ function AdminQuotesInner() {
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-6">
-            <Card className="border-0 shadow-lg">
+            <Card>
               <CardContent className="p-4">
                 <p className="text-sm text-slate-600 mb-1 flex items-center gap-1.5">Total Quotes <InfoTooltip content={`Every quote created within the selected range (${tileRange.label}). Branch + mine-only filters still apply.`} /></p>
                 <p className="text-2xl font-bold text-slate-900">{tileRows.length}</p>
                 <p className="text-[11px] text-slate-500 mt-0.5">{tileRange.label}</p>
               </CardContent>
             </Card>
-            <Card className="border-0 shadow-lg">
+            <Card>
               <CardContent className="p-4">
                 <p className="text-sm text-slate-600 mb-1 flex items-center gap-1.5">Action needed <InfoTooltip content={"Drafts to price and send (including new client portal requests), and quotes whose validity is running out. Scoped to the selected range."} /></p>
                 <p className="text-2xl font-bold text-rose-600">{tileCounts.action_needed}</p>
                 <p className="text-[11px] text-slate-500 mt-0.5">{tileRange.label}</p>
               </CardContent>
             </Card>
-            <Card className="border-0 shadow-lg">
+            <Card>
               <CardContent className="p-4">
                 <p className="text-sm text-slate-600 mb-1 flex items-center gap-1.5">Won {tileRange.label.toLowerCase()} <InfoTooltip content={`Quotes the client has accepted within ${tileRange.label}. Convert these to orders if not already done. Won quotes whose linked order was later cancelled drop out of this count.`} /></p>
                 <p className="text-2xl font-bold text-brand-primary">{tileCounts.won}</p>
                 <p className="text-[11px] text-slate-500 mt-0.5">{tileRange.label}</p>
               </CardContent>
             </Card>
-            <Card className="border-0 shadow-lg">
+            <Card>
               <CardContent className="p-4">
                 <p className="text-sm text-slate-600 mb-1 flex items-center gap-1.5">Total Value <InfoTooltip content={`Sum of quote totals created within ${tileRange.label}.`} /></p>
                 <p className="text-2xl font-bold text-brand-primary">
@@ -1852,7 +1852,7 @@ function AdminQuotesInner() {
               remind them that the day-of-prep / dispatch / invoicing
               work for those quotes lives on /admin/orders. */}
           {bucket === "won" && bucketFilteredRows.length > 0 && (
-            <Card className="border-0 shadow-sm mb-4 bg-brand-primary/10">
+            <Card className="mb-4 bg-brand-primary/10">
               <CardContent className="py-3 px-4 flex items-start gap-3">
                 <Crown className="w-4 h-4 text-brand-primary mt-0.5 shrink-0" />
                 <div className="text-xs text-brand-primary leading-relaxed flex-1">
@@ -1929,7 +1929,7 @@ function AdminQuotesInner() {
                   <Card
                     key={quote.id}
                     id={`quote-${quote.id}`}
-                    className={`border-0 shadow-lg hover:shadow-xl transition-all scroll-mt-24 ${
+                    className={`hover:shadow-lg transition-all scroll-mt-24 ${
                       // Deep-link focus wins over the urgency rings so
                       // the user instantly sees which quote they were
                       // pointed at by the notification.

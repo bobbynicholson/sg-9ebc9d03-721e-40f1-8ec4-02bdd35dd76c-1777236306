@@ -716,7 +716,7 @@ function AdminDashboardPage() {
               Detection: no orders / quotes / inventory / team
               members in the current range AND no rows. */}
           {(isFreshTenant && companyId) ? (
-            <Card className="border-0 shadow-lg mb-6 bg-gradient-to-br from-brand-primary/10 via-brand-primary/10 to-brand-secondary/10">
+            <Card className="mb-6 bg-gradient-to-br from-brand-primary/10 via-brand-primary/10 to-brand-secondary/10">
               <CardHeader>
                 <CardTitle className="text-xl sm:text-2xl flex items-center gap-2">
                   <LayoutDashboard className="w-6 h-6 text-brand-primary" />
@@ -762,7 +762,7 @@ function AdminDashboardPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6 mb-6">
             {/* Wave 70.52a - every MetricCard now carries an href so
                 clicking drills to the dedicated surface for that
-                number. Previously hover:shadow-xl made tiles look
+                number. Previously hover:shadow-lg made tiles look
                 clickable while doing nothing. */}
             <MetricCard
               label="Booked Revenue"
@@ -1166,7 +1166,7 @@ function AdminDashboardPage() {
             || stats.pendingQuoteDrafts > 0
             || stats.lowStockItems > 0
             || stats.upcomingEvents > 0) && (
-            <Card className="border-0 shadow-lg mb-6 bg-gradient-to-r from-amber-50 to-orange-50">
+            <Card className="mb-6 bg-gradient-to-r from-amber-50 to-orange-50">
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
                   <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-amber-600" />
@@ -1241,7 +1241,7 @@ function AdminDashboardPage() {
           )}
 
           {/* Quick Actions */}
-          <Card className="border-0 shadow-lg mb-6">
+          <Card className="mb-6">
             <CardHeader>
               <CardTitle className="text-base sm:text-lg">Quick Actions</CardTitle>
             </CardHeader>

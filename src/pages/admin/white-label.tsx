@@ -639,7 +639,7 @@ function WhiteLabelPage() {
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="space-y-6">
-              <Card className="border-0 shadow-lg">
+              <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <ImageIcon className="w-5 h-5" />
@@ -702,7 +702,7 @@ function WhiteLabelPage() {
                 </CardContent>
               </Card>
 
-              <Card className="border-0 shadow-lg">
+              <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Palette className="w-5 h-5" />
@@ -1005,7 +1005,7 @@ function WhiteLabelPage() {
             </div>
 
             <div>
-              <Card className="border-0 shadow-lg sticky top-8">
+              <Card className="sticky top-8">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Eye className="w-5 h-5" />
@@ -1075,7 +1075,7 @@ function WhiteLabelPage() {
             </div>
           </div>
 
-          <Card className="mt-6 border-0 shadow-lg bg-blue-50">
+          <Card className="mt-6 bg-blue-50">
             <CardContent className="py-6">
               <div className="flex items-start gap-3">
                 <Sparkles className="w-5 h-5 text-blue-600 mt-0.5" />

@@ -357,7 +357,7 @@ function NotificationsPage() {
           </div>
 
           <TabsContent value={tab} className="mt-0">
-            <Card className="border-0 shadow-lg">
+            <Card>
               <CardContent className="p-0">
                 <ScrollArea className="h-[600px]">
                   {loading ? (

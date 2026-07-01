@@ -375,7 +375,7 @@ function IntegrationsPage() {
           <PageWorkbench />
 
           {/* Quickstart */}
-          <Card className="border-0 shadow-lg mb-6 bg-gradient-to-r from-brand-primary/10 to-brand-secondary/10">
+          <Card className="mb-6 bg-gradient-to-r from-brand-primary/10 to-brand-secondary/10">
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-base">
                 <Sparkles className="w-5 h-5 text-brand-primary" />
@@ -384,23 +384,23 @@ function IntegrationsPage() {
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
-                <div className="bg-white rounded-lg p-3 border border-orange-100">
+                <div className="bg-white rounded-lg p-3 border border-brand-primary/20">
                   <div className="flex items-center gap-2 font-semibold text-slate-900 mb-1">
-                    <span className="w-6 h-6 rounded-full bg-orange-500 text-white flex items-center justify-center text-xs">1</span>
+                    <span className="w-6 h-6 rounded-full bg-brand-primary text-white flex items-center justify-center text-xs">1</span>
                     Pick a recipe
                   </div>
                   <p className="text-xs text-slate-600">Browse the gallery below and click "Open in Zapier".</p>
                 </div>
-                <div className="bg-white rounded-lg p-3 border border-orange-100">
+                <div className="bg-white rounded-lg p-3 border border-brand-primary/20">
                   <div className="flex items-center gap-2 font-semibold text-slate-900 mb-1">
-                    <span className="w-6 h-6 rounded-full bg-orange-500 text-white flex items-center justify-center text-xs">2</span>
+                    <span className="w-6 h-6 rounded-full bg-brand-primary text-white flex items-center justify-center text-xs">2</span>
                     Copy the catch-hook URL
                   </div>
                   <p className="text-xs text-slate-600">Zapier shows it in step 1 of any "Webhooks - Catch Hook" trigger.</p>
                 </div>
-                <div className="bg-white rounded-lg p-3 border border-orange-100">
+                <div className="bg-white rounded-lg p-3 border border-brand-primary/20">
                   <div className="flex items-center gap-2 font-semibold text-slate-900 mb-1">
-                    <span className="w-6 h-6 rounded-full bg-orange-500 text-white flex items-center justify-center text-xs">3</span>
+                    <span className="w-6 h-6 rounded-full bg-brand-primary text-white flex items-center justify-center text-xs">3</span>
                     Paste here & "Fire test"
                   </div>
                   <p className="text-xs text-slate-600">Zapier sees a sample payload and you can finish the Zap. Done.</p>
@@ -410,7 +410,7 @@ function IntegrationsPage() {
           </Card>
 
           {/* Xero accounting */}
-          <Card className="border-0 shadow-lg mb-6 bg-gradient-to-br from-blue-50 to-brand-secondary/10">
+          <Card className="mb-6 bg-gradient-to-br from-blue-50 to-brand-secondary/10">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Receipt className="w-5 h-5 text-blue-600" />
@@ -474,7 +474,7 @@ function IntegrationsPage() {
           {/* Phase 5 #8: QuickBooks counterpart. Same OAuth pattern;
               the sync endpoint mirrors Xero's drift / 401-retry /
               token-refresh shape via the shared accountingTokens lib. */}
-          <Card className="border-0 shadow-lg mb-6 bg-gradient-to-br from-brand-primary/10 to-brand-secondary/10">
+          <Card className="mb-6 bg-gradient-to-br from-brand-primary/10 to-brand-secondary/10">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Receipt className="w-5 h-5 text-brand-primary" />
@@ -519,10 +519,10 @@ function IntegrationsPage() {
           {/* Legacy outsource-fulfilment recipes block stays untouched. */}
 
           {/* Outbound webhooks */}
-          <Card className="border-0 shadow-lg mb-6">
+          <Card className="mb-6">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Webhook className="w-5 h-5 text-orange-600" />
+                <Webhook className="w-5 h-5 text-brand-primary" />
                 Outbound webhooks
                 <InfoTooltip content={"When something happens in CateringMS, we send the details to a URL you choose.\n\nPaste a Zapier 'Catch Hook' URL here and you can trigger any of the 5,000+ apps Zapier connects to."} />
               </CardTitle>
@@ -628,7 +628,7 @@ function IntegrationsPage() {
           </Card>
 
           {/* Inbound API keys */}
-          <Card className="border-0 shadow-lg mb-6">
+          <Card className="mb-6">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Key className="w-5 h-5 text-brand-primary" />
@@ -739,7 +739,7 @@ function IntegrationsPage() {
           </Card>
 
           {/* Recipe gallery */}
-          <Card className="border-0 shadow-lg">
+          <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Sparkles className="w-5 h-5 text-slate-600" />
@@ -911,7 +911,7 @@ function SageCard({ companyId }: { companyId: string | null | undefined }) {
   const allFourSet = !!(metadata.default_ledger_account_id && metadata.default_tax_rate_id && metadata.default_bank_account_id);
 
   return (
-    <Card className="border-0 shadow-lg mb-6 bg-gradient-to-br from-blue-50 to-brand-secondary/10">
+    <Card className="mb-6 bg-gradient-to-br from-blue-50 to-brand-secondary/10">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 flex-wrap">
           <Receipt className="w-5 h-5 text-blue-600" />

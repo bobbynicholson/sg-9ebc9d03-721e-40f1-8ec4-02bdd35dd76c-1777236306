@@ -304,7 +304,7 @@ function NotificationSettingsPage() {
           <PageWorkbench />
 
           {loading ? (
-            <Card className="border-0 shadow-lg">
+            <Card>
               <CardContent className="py-12 text-center">
                 <Loader2 className="w-6 h-6 mx-auto text-slate-400 animate-spin" />
                 <p className="text-sm text-slate-500 mt-3">Loading your preferences...</p>
@@ -313,7 +313,7 @@ function NotificationSettingsPage() {
           ) : (
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             {/* Email Notifications */}
-            <Card className="border-0 shadow-lg">
+            <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Mail className="w-5 h-5 text-blue-600" />
@@ -330,7 +330,7 @@ function NotificationSettingsPage() {
             </Card>
 
             {/* Push Notifications */}
-            <Card className="border-0 shadow-lg">
+            <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Bell className="w-5 h-5 text-slate-600" />
@@ -347,7 +347,7 @@ function NotificationSettingsPage() {
             </Card>
 
             {/* SMS Notifications */}
-            <Card className="border-0 shadow-lg">
+            <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <MessageSquare className="w-5 h-5 text-brand-primary" />
@@ -362,7 +362,7 @@ function NotificationSettingsPage() {
             </Card>
 
             {/* WhatsApp Notifications */}
-            <Card className="border-0 shadow-lg">
+            <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <MessageSquare className="w-5 h-5 text-brand-primary" />
@@ -379,7 +379,7 @@ function NotificationSettingsPage() {
             </Card>
 
             {/* Save Button */}
-            <Card className="border-0 shadow-lg bg-gradient-to-r from-blue-50 to-slate-50">
+            <Card className="bg-gradient-to-r from-blue-50 to-slate-50">
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">

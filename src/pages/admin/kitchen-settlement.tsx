@@ -346,31 +346,31 @@ function KitchenSettlementPage() {
 
             {/* Headline totals */}
             <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-              <Card className="border-0 shadow-sm">
+              <Card>
                 <CardContent className="p-4">
                   <div className="text-[10px] uppercase tracking-wider text-slate-500">Chefs with hours</div>
                   <div className="text-2xl font-bold tabular-nums text-slate-900 mt-1">{totals.chefsWithHours}</div>
                 </CardContent>
               </Card>
-              <Card className="border-0 shadow-sm">
+              <Card>
                 <CardContent className="p-4">
                   <div className="text-[10px] uppercase tracking-wider text-slate-500">Total hours</div>
                   <div className="text-2xl font-bold tabular-nums text-slate-900 mt-1">{totals.hours.toFixed(1)}<span className="text-sm font-normal text-slate-500 ml-0.5">h</span></div>
                 </CardContent>
               </Card>
-              <Card className="border-0 shadow-sm">
+              <Card>
                 <CardContent className="p-4">
                   <div className="text-[10px] uppercase tracking-wider text-slate-500">Base pay</div>
                   <div className="text-2xl font-bold tabular-nums text-slate-900 mt-1">{fmtCurrency(totals.base)}</div>
                 </CardContent>
               </Card>
-              <Card className="border-0 shadow-sm">
+              <Card>
                 <CardContent className="p-4">
                   <div className="text-[10px] uppercase tracking-wider text-slate-500">OT + premium</div>
                   <div className="text-2xl font-bold tabular-nums text-amber-700 mt-1">{fmtCurrency(totals.ot + totals.mult)}</div>
                 </CardContent>
               </Card>
-              <Card className="border-0 shadow-sm">
+              <Card>
                 <CardContent className="p-4">
                   <div className="text-[10px] uppercase tracking-wider text-slate-500">Total pay</div>
                   <div className="text-2xl font-bold tabular-nums text-brand-primary mt-1">{fmtCurrency(totals.total)}</div>

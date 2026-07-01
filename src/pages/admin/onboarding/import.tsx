@@ -36,7 +36,7 @@ import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCompanyKitchens } from "@/hooks/useCompanyKitchens";
 import { Building2 } from "lucide-react";
-import { PageWorkbench } from "@/components/portal/ui";
+import { PortalShell, PortalHeader, PageWorkbench } from "@/components/portal/ui";
 
 type Step = "upload" | "mapping" | "preview" | "commit" | "done";
 
@@ -401,24 +401,18 @@ function ImportPage() {
       <AdminNav />
 
       <div className="admin-page-shell">
-        <div className="px-4 sm:px-6 pt-20 lg:pt-8 pb-12 max-w-full">
-          <PageWorkbench className="mb-5" />
-
-          {/* Header */}
-          <div className="mb-6 flex items-center gap-3">
-            <div className="p-3 rounded-2xl bg-gradient-to-br from-brand-primary to-brand-secondary shadow-lg">
-              <Wand2 className="w-7 h-7 text-white" />
-            </div>
-            <div>
-              <h1 className="text-2xl lg:text-3xl font-bold text-slate-900 flex items-center gap-2">
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+          <PortalHeader
+            title={
+              <span className="inline-flex items-center gap-2">
                 AI Import
                 <InfoTooltip content={"Five-step wizard for moving your existing book of business into CateringMS in one go.\n\nUpload, then we map your column headings to our schema. You preview every row before anything is committed, and you have a 24-hour rollback window if anything looks wrong after."} />
-              </h1>
-              <p className="text-sm text-slate-600 mt-0.5">
-                Drop a spreadsheet of your existing clients and outstanding orders. We match the columns, normalise the data, show you a preview, then load it.
-              </p>
-            </div>
-          </div>
+              </span>
+            }
+            subtitle="Drop a spreadsheet of your existing clients and outstanding orders. We match the columns, normalise the data, show you a preview, then load it."
+            icon={Wand2}
+          />
+          <PageWorkbench />
 
           {/* Stepper. Each pill has its own info tooltip so a brand-new
               tenant can hover and understand what each step does. */}
@@ -454,7 +448,7 @@ function ImportPage() {
 
           {/* Step 1: Upload */}
           {step === "upload" && (
-            <Card className="border-0 shadow-lg">
+            <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Upload className="w-5 h-5 text-slate-600" />
@@ -511,7 +505,7 @@ function ImportPage() {
 
           {/* Step 2: Mapping */}
           {step === "mapping" && (
-            <Card className="border-0 shadow-lg">
+            <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Sparkles className="w-5 h-5 text-slate-600" />
@@ -596,7 +590,7 @@ function ImportPage() {
 
           {/* Step 3: Preview */}
           {step === "preview" && (
-            <Card className="border-0 shadow-lg">
+            <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Eye className="w-5 h-5 text-slate-600" />
@@ -964,7 +958,7 @@ function ImportPage() {
 
           {/* Step 5: Done */}
           {step === "done" && (
-            <Card className="border-0 shadow-lg">
+            <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <CheckCircle2 className="w-5 h-5 text-brand-primary" />
@@ -1018,7 +1012,7 @@ function ImportPage() {
               )}
             </div>
           )}
-        </div>
+        </PortalShell>
 
         <Footer />
       </div>

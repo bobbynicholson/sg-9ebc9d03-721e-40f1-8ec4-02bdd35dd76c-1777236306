@@ -1125,7 +1125,7 @@ function AdminInventory() {
               cross-link is one click via AdminNav -> Equipment. */}
 
           {/* At risk this week (the most valuable block, now first) */}
-          <Card id="at-risk-panel" className="border-0 shadow-sm mb-6">
+          <Card id="at-risk-panel" className="mb-6">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <div>

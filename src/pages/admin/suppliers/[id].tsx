@@ -40,7 +40,7 @@ import {
   supplierService, type Supplier, type SupplierProduct,
   type SupplierPurchaseSummary, type SupplierReceiptRow,
 } from "@/services/supplierService";
-import { PageWorkbench } from "@/components/portal/ui";
+import { PageWorkbench, PortalHeader, PortalShell } from "@/components/portal/ui";
 
 const fmtR = (v: number | null | undefined) =>
   v == null ? "-" : `R ${Number(v).toLocaleString("en-ZA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -137,82 +137,79 @@ function SupplierDetail() {
       <AdminNav />
 
       <div className="admin-page-shell">
-        <div className="px-3 sm:px-4 md:px-6 pt-20 lg:pt-6 pb-6 max-w-full">
-          <PageWorkbench className="mb-5" />
-
-          <Link
-            href={withSlug("/admin/suppliers")}
-            className="text-sm text-slate-500 hover:text-slate-700 inline-flex items-center gap-1 mb-3"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" /> Back to suppliers
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+          <Link href={withSlug("/admin/suppliers")}>
+            <Button variant="ghost" className="mb-4" size="sm">
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to suppliers
+            </Button>
           </Link>
 
+          <PortalHeader
+            title={supplier?.supplier_name || "Supplier"}
+            icon={Building2}
+            subtitle="Contact details, purchase analytics, linked products and receipts for this supplier."
+            actions={
+              <Button
+                onClick={() => setComposeOpen(true)}
+                disabled={!supplier?.email}
+                className="bg-brand-primary text-white"
+              >
+                <Send className="w-4 h-4 mr-1.5" /> Compose email
+              </Button>
+            }
+          />
+          <PageWorkbench />
+
           {loading || !supplier ? (
-            <Card className="border-0 shadow"><CardContent className="py-16 text-center text-slate-500">
+            <Card><CardContent className="py-16 text-center text-slate-500">
               <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" /> Loading supplier...
             </CardContent></Card>
           ) : (
             <>
-              {/* Header */}
-              <Card className="border-0 shadow-lg mb-5">
-                <CardContent className="pt-6 pb-5 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                  <div className="flex items-start gap-3 min-w-0">
-                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-brand-primary to-brand-secondary flex items-center justify-center shadow-lg flex-shrink-0">
-                      <Building2 className="w-6 h-6 text-white" />
+              {/* Contact + terms (title and primary CTA live in the PortalHeader) */}
+              <Card className="mb-5">
+                <CardContent className="pt-5 pb-5">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-3 flex-wrap text-sm text-slate-600">
+                      {supplier.contact_person && <span className="text-slate-900">{supplier.contact_person}</span>}
+                      {supplier.email && (
+                        <span className="inline-flex items-center gap-1"><Mail className="w-3 h-3" />{supplier.email}</span>
+                      )}
+                      {supplier.phone && (
+                        <span className="inline-flex items-center gap-1"><Phone className="w-3 h-3" />{supplier.phone}</span>
+                      )}
+                      {(supplier as any).website && (
+                        <a href={(supplier as any).website} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-amber-700 hover:underline">
+                          <Globe className="w-3 h-3" />{(supplier as any).website}
+                        </a>
+                      )}
                     </div>
-                    <div className="min-w-0">
-                      <h1 className="text-2xl md:text-3xl font-bold text-slate-900">
-                        {supplier.supplier_name}
-                      </h1>
-                      <div className="flex items-center gap-3 flex-wrap text-sm text-slate-600 mt-1">
-                        {supplier.contact_person && <span className="text-slate-900">{supplier.contact_person}</span>}
-                        {supplier.email && (
-                          <span className="inline-flex items-center gap-1"><Mail className="w-3 h-3" />{supplier.email}</span>
-                        )}
-                        {supplier.phone && (
-                          <span className="inline-flex items-center gap-1"><Phone className="w-3 h-3" />{supplier.phone}</span>
-                        )}
-                        {(supplier as any).website && (
-                          <a href={(supplier as any).website} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-amber-700 hover:underline">
-                            <Globe className="w-3 h-3" />{(supplier as any).website}
-                          </a>
-                        )}
+                    {((supplier as any).supplier_categories || []).length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-2">
+                        {((supplier as any).supplier_categories || []).map((c: string) => (
+                          <Badge key={c} variant="outline" className="text-[10px] bg-slate-50 text-slate-700 border-slate-200">
+                            {c}
+                          </Badge>
+                        ))}
                       </div>
-                      {((supplier as any).supplier_categories || []).length > 0 && (
-                        <div className="flex flex-wrap gap-1 mt-2">
-                          {((supplier as any).supplier_categories || []).map((c: string) => (
-                            <Badge key={c} variant="outline" className="text-[10px] bg-slate-50 text-slate-700 border-slate-200">
-                              {c}
-                            </Badge>
-                          ))}
-                        </div>
-                      )}
-                      {(supplier.payment_terms || (supplier as any).payment_method) && (
-                        <p className="text-xs text-slate-500 mt-2">
-                          {(supplier as any).payment_method && <span className="capitalize">{(supplier as any).payment_method}</span>}
-                          {(supplier as any).payment_method && supplier.payment_terms && <span> · </span>}
-                          {supplier.payment_terms && <span>{supplier.payment_terms}</span>}
-                        </p>
-                      )}
-                      {supplier.notes && (
-                        <p className="text-xs text-slate-600 mt-2 max-w-xl">{supplier.notes}</p>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2 flex-shrink-0">
-                    <Button
-                      onClick={() => setComposeOpen(true)}
-                      disabled={!supplier.email}
-                      className="bg-brand-primary text-white"
-                    >
-                      <Send className="w-4 h-4 mr-1.5" /> Compose email
-                    </Button>
+                    )}
+                    {(supplier.payment_terms || (supplier as any).payment_method) && (
+                      <p className="text-xs text-slate-500 mt-2">
+                        {(supplier as any).payment_method && <span className="capitalize">{(supplier as any).payment_method}</span>}
+                        {(supplier as any).payment_method && supplier.payment_terms && <span> · </span>}
+                        {supplier.payment_terms && <span>{supplier.payment_terms}</span>}
+                      </p>
+                    )}
+                    {supplier.notes && (
+                      <p className="text-xs text-slate-600 mt-2 max-w-xl">{supplier.notes}</p>
+                    )}
                   </div>
                 </CardContent>
               </Card>
 
               {/* Date range + summary tiles */}
-              <Card className="border-0 shadow-sm mb-5">
+              <Card className="mb-5">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-base flex items-center gap-2">
                     <TrendingUp className="w-4 h-4 text-brand-primary" />
@@ -228,7 +225,7 @@ function SupplierDetail() {
                         onClick={() => setRange(r)}
                         className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${
                           range === r
-                            ? "bg-amber-100 text-amber-700 border-amber-200"
+                            ? "bg-brand-primary/10 text-brand-primary border-brand-primary/20"
                             : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
                         }`}
                       >
@@ -297,7 +294,7 @@ function SupplierDetail() {
                   query). Gives the admin the temporal context
                   for the spend on this page. Tap a row to open the
                   order. */}
-              <Card className="border-0 shadow-sm mb-5">
+              <Card className="mb-5">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-base flex items-center gap-2">
                     <Calendar className="w-4 h-4 text-blue-600" />
@@ -360,7 +357,7 @@ function SupplierDetail() {
               </Card>
 
               {/* Products supplied */}
-              <Card className="border-0 shadow-sm mb-5">
+              <Card className="mb-5">
                 <CardHeader className="pb-2 flex flex-row items-center justify-between">
                   <CardTitle className="text-base flex items-center gap-2">
                     <Package className="w-4 h-4 text-slate-600" />
@@ -427,7 +424,7 @@ function SupplierDetail() {
               </Card>
 
               {/* Receipts list for this window */}
-              <Card className="border-0 shadow-sm mb-5">
+              <Card className="mb-5">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-base flex items-center gap-2">
                     <Receipt className="w-4 h-4 text-blue-600" />
@@ -464,7 +461,7 @@ function SupplierDetail() {
               </Card>
             </>
           )}
-        </div>
+        </PortalShell>
       </div>
 
       {/* Compose email - Gmail / Outlook / default / clipboard */}
@@ -528,7 +525,7 @@ function SummaryTile({
 }: { label: string; value: string; icon: typeof TrendingUp; accent?: "slate" | "emerald" }) {
   const accentClass = accent === "emerald" ? "text-brand-primary" : "text-slate-700";
   return (
-    <Card className="border-0 shadow-sm">
+    <Card>
       <CardContent className="py-4">
         <div className="flex items-center justify-between mb-1">
           <p className="text-xs uppercase tracking-wide text-slate-500">{label}</p>
@@ -581,7 +578,7 @@ function ComposeSupplierEmail({
         </DialogHeader>
 
         <div className="space-y-3">
-          <Card className="border-0 shadow-sm bg-slate-50">
+          <Card className="bg-slate-50">
             <CardContent className="py-3 text-xs space-y-0.5">
               <div className="flex justify-between"><span className="text-slate-500">To</span><span className="font-medium">{supplier.email || "(no email)"}</span></div>
               {supplier.contact_person && (

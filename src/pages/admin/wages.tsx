@@ -823,7 +823,7 @@ function WageDashboardPage() {
           </Tabs>
 
           {/* Period selector */}
-          <Card className="border-0 shadow-sm mb-5">
+          <Card className="mb-5">
             <CardContent className="p-4">
               <div className="flex flex-col gap-3">
                 <div className="flex flex-wrap gap-1.5">
@@ -869,28 +869,28 @@ function WageDashboardPage() {
           {/* Headline tiles */}
           {isDriversTab ? (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
-              <Card className="border-0 shadow-sm">
+              <Card>
                 <CardContent className="p-4">
                   <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1">Hourly</div>
                   <div className="text-xl sm:text-2xl font-bold text-slate-900 tabular-nums">{fmtZAR(driverTotals.hourly)}</div>
                   <div className="text-[10px] text-slate-500 mt-1">On-shift hours x rate</div>
                 </CardContent>
               </Card>
-              <Card className="border-0 shadow-sm">
+              <Card>
                 <CardContent className="p-4">
                   <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1">Distance</div>
                   <div className="text-xl sm:text-2xl font-bold text-slate-900 tabular-nums">{fmtZAR(driverTotals.distance)}</div>
                   <div className="text-[10px] text-slate-500 mt-1">Per-km on completed runs</div>
                 </CardContent>
               </Card>
-              <Card className="border-0 shadow-sm">
+              <Card>
                 <CardContent className="p-4">
                   <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1">Callouts</div>
                   <div className="text-xl sm:text-2xl font-bold text-slate-900 tabular-nums">{fmtZAR(driverTotals.callout)}</div>
                   <div className="text-[10px] text-slate-500 mt-1">Flat fee per dispatch</div>
                 </CardContent>
               </Card>
-              <Card className="border-0 shadow-sm bg-brand-primary/10">
+              <Card className="bg-brand-primary/10">
                 <CardContent className="p-4">
                   <div className="text-[10px] uppercase tracking-wider text-brand-primary mb-1">Combined</div>
                   <div className="text-xl sm:text-2xl font-bold text-brand-primary tabular-nums">{fmtZAR(driverTotals.combined)}</div>
@@ -900,7 +900,7 @@ function WageDashboardPage() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
-              <Card className="border-0 shadow-sm bg-brand-primary/10">
+              <Card className="bg-brand-primary/10">
                 <CardContent className="p-4">
                   <div className="text-[10px] uppercase tracking-wider text-brand-primary mb-1">Period total</div>
                   <div className="text-2xl sm:text-3xl font-bold text-brand-primary tabular-nums">{fmtZAR(grandTotal)}</div>
@@ -928,7 +928,7 @@ function WageDashboardPage() {
                   </div>
                 </CardContent>
               </Card>
-              <Card className="border-0 shadow-sm">
+              <Card>
                 <CardContent className="p-4">
                   <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1 inline-flex items-center gap-1">
                     <TrendingUp className="w-3 h-3" />Overtime split
@@ -939,7 +939,7 @@ function WageDashboardPage() {
                   </div>
                 </CardContent>
               </Card>
-              <Card className="border-0 shadow-sm">
+              <Card>
                 <CardContent className="p-4">
                   <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1 inline-flex items-center gap-1">
                     <AlertTriangle className="w-3 h-3" />Public-holiday 2x
@@ -954,7 +954,7 @@ function WageDashboardPage() {
                   financial-dashboard surfaces as staffPaymentsOwed.
                   Sits next to the period total so "we paid X" and
                   "we owe Y" read as one picture. */}
-              <Card className="border-0 shadow-sm bg-amber-50/60">
+              <Card className="bg-amber-50/60">
                 <CardContent className="p-4">
                   <div className="text-[10px] uppercase tracking-wider text-amber-800 mb-1 inline-flex items-center gap-1">
                     <Wallet className="w-3 h-3" />Owed to staff
@@ -976,7 +976,7 @@ function WageDashboardPage() {
               state below). */}
           {!isDriversTab && staffRows.length > 0 && (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
-              <Card className="border-0 shadow-sm">
+              <Card>
                 <CardContent className="p-4">
                   <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1 inline-flex items-center gap-1">
                     <Trophy className="w-3 h-3" />Top earner
@@ -993,7 +993,7 @@ function WageDashboardPage() {
                   )}
                 </CardContent>
               </Card>
-              <Card className="border-0 shadow-sm">
+              <Card>
                 <CardContent className="p-4">
                   <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1 inline-flex items-center gap-1">
                     <ClockIcon className="w-3 h-3" />Cost per event
@@ -1031,7 +1031,7 @@ function WageDashboardPage() {
                   else { tone = "bg-rose-50/60"; valueTone = "text-rose-700"; }
                 }
                 return (
-                  <Card className={`border-0 shadow-sm ${tone}`}>
+                  <Card className={`${tone}`}>
                     <CardContent className="p-4">
                       <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1 inline-flex items-center gap-1">
                         <Banknote className="w-3 h-3" />Wage % of revenue
@@ -1057,7 +1057,7 @@ function WageDashboardPage() {
                   any open shift older than 12h - probable forgot-
                   to-clock-out. Pulled straight off the open_shift
                   flag that's already on every StaffWageSummary. */}
-              <Card className={`border-0 shadow-sm ${staffRows.some((r) => r.open_shift) ? "bg-amber-50/60" : ""}`}>
+              <Card className={`${staffRows.some((r) => r.open_shift) ? "bg-amber-50/60" : ""}`}>
                 <CardContent className="p-4">
                   <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1 inline-flex items-center gap-1">
                     <AlertTriangle className="w-3 h-3" />Open shifts
@@ -1095,7 +1095,7 @@ function WageDashboardPage() {
 
             <TabsContent value="summary">
               {isLoading ? (
-                <Card className="border-0 shadow-sm">
+                <Card>
                   <CardContent className="p-12 text-center text-slate-500">
                     <Loader2 className="w-5 h-5 mx-auto animate-spin mb-2" />
                     Loading wages...
@@ -1120,7 +1120,7 @@ function WageDashboardPage() {
 
             <TabsContent value="by-person">
               {isLoading ? (
-                <Card className="border-0 shadow-sm">
+                <Card>
                   <CardContent className="p-12 text-center text-slate-500">
                     <Loader2 className="w-5 h-5 mx-auto animate-spin mb-2" />
                     Loading staff...
@@ -1196,7 +1196,7 @@ function KitchenSummaryView({
   const salariedStaffCount = staffRows.filter((r) => r.pay_type === "monthly").length;
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-      <Card className="border-0 shadow-sm lg:col-span-2">
+      <Card className="lg:col-span-2">
         <CardContent className="p-4">
           <div className="text-sm font-semibold text-slate-700 mb-3">Daily wage spend</div>
           {chartData.length === 0 ? (
@@ -1235,7 +1235,7 @@ function KitchenSummaryView({
         </CardContent>
       </Card>
 
-      <Card className="border-0 shadow-sm">
+      <Card>
         <CardContent className="p-4">
           <div className="text-sm font-semibold text-slate-700 mb-3">Top 5 cost drivers</div>
           {topFive.length === 0 ? (
@@ -1318,7 +1318,7 @@ function DriverSummaryView({ rows, totals, fmtZAR = fmtZARDefault, fmtZARDetaile
   }));
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-      <Card className="border-0 shadow-sm lg:col-span-2">
+      <Card className="lg:col-span-2">
         <CardContent className="p-4">
           <div className="text-sm font-semibold text-slate-700 mb-3">Pay by component, top drivers</div>
           {data.length === 0 ? (
@@ -1343,7 +1343,7 @@ function DriverSummaryView({ rows, totals, fmtZAR = fmtZARDefault, fmtZARDetaile
         </CardContent>
       </Card>
 
-      <Card className="border-0 shadow-sm">
+      <Card>
         <CardContent className="p-4">
           <div className="text-sm font-semibold text-slate-700 mb-3">Top 5 drivers by total</div>
           <ul className="space-y-2">
@@ -1414,7 +1414,7 @@ function KitchenByPersonTable({
     return <EmptyState department={"all"} />;
   }
   return (
-    <Card className="border-0 shadow-sm">
+    <Card>
       <CardContent className="p-0">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -1521,7 +1521,7 @@ function DriverByPersonTable({ rows, fmtZAR = fmtZARDefault }: {
   // deep-link each row there. Pre-DRV-B operators bounced between
   // the two pages without a clear "where do I act" signal.
   return (
-    <Card className="border-0 shadow-sm">
+    <Card>
       <CardContent className="p-0">
         <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/60 text-xs text-slate-600 flex items-center gap-2">
           <Truck className="w-3.5 h-3.5 text-blue-600" />

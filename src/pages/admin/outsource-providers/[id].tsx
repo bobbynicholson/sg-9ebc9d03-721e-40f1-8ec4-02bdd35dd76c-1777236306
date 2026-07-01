@@ -46,7 +46,7 @@ import {
   COMMON_ROLES,
   RATE_TYPE_OPTIONS,
 } from "@/services/outsourceProviderService";
-import { PageWorkbench } from "@/components/portal/ui";
+import { PageWorkbench, PortalHeader, PortalShell } from "@/components/portal/ui";
 
 interface AssignmentRow {
   id: string;
@@ -212,18 +212,24 @@ function ProviderDetail() {
       <Head><title>{provider?.provider_name || "Provider"} - CateringMS</title></Head>
       <AdminNav />
       <div className="admin-page-shell">
-        {/* Wave 70.6 - mobile pass. pt-20 clears the mobile
-            AdminNav top bar (lg: nav is the left sidebar so pt-6 is
-            enough). Full width so it matches every other portal page
-            and leaves no empty side rail on big screens. */}
-        <div className="pt-20 lg:pt-6 px-3 sm:px-4 pb-8 w-full">
-          <PageWorkbench className="mb-5" />
-          <Link
-            href={withSlug("/admin/outsource-providers")}
-            className="inline-flex items-center gap-1 text-sm text-slate-600 hover:text-slate-900 mb-4"
-          >
-            <ArrowLeft className="w-4 h-4" /> Back to outsource providers
+        {/* Wave 70.6 - mobile pass. admin-page-shell clears the mobile
+            AdminNav top bar and offsets the lg: left sidebar; PortalShell
+            is the single full-width container so there's no empty side
+            rail on big screens. */}
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+          <Link href={withSlug("/admin/outsource-providers")}>
+            <Button variant="ghost" className="mb-4" size="sm">
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to outsource providers
+            </Button>
           </Link>
+
+          <PortalHeader
+            title={provider?.provider_name || "Provider"}
+            icon={HardHat}
+            subtitle="Booking history, accept rate, response time and billing for this outsource provider."
+          />
+          <PageWorkbench />
 
           {loading ? (
             <Card><CardContent className="p-12 text-center text-slate-500">
@@ -235,16 +241,12 @@ function ProviderDetail() {
             </CardContent></Card>
           ) : (
             <>
-              {/* Header. On mobile the rate tile stacks below the
-                  title block and right-aligns. md+ they sit side by
-                  side. */}
+              {/* Profile strip (title lives in the PortalHeader). On
+                  mobile the rate tile stacks below the badge block and
+                  right-aligns. md+ they sit side by side. */}
               <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 mb-6">
                 <div className="min-w-0">
-                  <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 inline-flex items-center gap-2">
-                    <HardHat className="w-6 h-6 sm:w-7 sm:h-7 text-blue-600 shrink-0" />
-                    <span className="break-words">{provider.provider_name}</span>
-                  </h1>
-                  <div className="flex items-center gap-2 mt-2 flex-wrap">
+                  <div className="flex items-center gap-2 flex-wrap">
                     {!provider.is_active && (
                       <Badge className="bg-slate-200 text-slate-700">Inactive</Badge>
                     )}
@@ -566,7 +568,7 @@ function ProviderDetail() {
               )}
             </>
           )}
-        </div>
+        </PortalShell>
       </div>
     </>
   );

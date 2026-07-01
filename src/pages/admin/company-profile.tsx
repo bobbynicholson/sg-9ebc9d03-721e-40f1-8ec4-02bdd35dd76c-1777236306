@@ -395,7 +395,7 @@ function CompanyProfilePage() {
             const allDone = requiredDone === requiredTotal && optionalDone === optionalTotal;
             if (allDone) return null;
             return (
-              <Card className="border-0 shadow mb-6 bg-gradient-to-br from-brand-primary/10 to-brand-secondary/10">
+              <Card className="mb-6 bg-gradient-to-br from-brand-primary/10 to-brand-secondary/10">
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
                     <div className="flex items-center gap-2">
@@ -438,7 +438,7 @@ function CompanyProfilePage() {
           })()}
 
           {/* Identity */}
-          <Card id="section-identity" className="border-0 shadow-lg mb-6 scroll-mt-20">
+          <Card id="section-identity" className="mb-6 scroll-mt-20">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Building2 className="w-5 h-5 text-slate-600" />
@@ -493,7 +493,7 @@ function CompanyProfilePage() {
               invoices / payslips. Pre-populated to Africa/Johannesburg
               + ZAR by the DB migration so existing tenants don't see
               an empty value. */}
-          <Card id="section-region" className="border-0 shadow-lg mb-6 scroll-mt-20">
+          <Card id="section-region" className="mb-6 scroll-mt-20">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Globe className="w-5 h-5 text-blue-600" />
@@ -566,7 +566,7 @@ function CompanyProfilePage() {
               Empty values fall back to the SA wedding default (May-
               September) in aiFinancialService. End < start wraps
               year-end so US Q4 caterers can set 11..1. */}
-          <Card id="section-peak" className="border-0 shadow-lg mb-6 scroll-mt-20">
+          <Card id="section-peak" className="mb-6 scroll-mt-20">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Calendar className="w-5 h-5 text-amber-600" />
@@ -643,7 +643,7 @@ function CompanyProfilePage() {
               reconciles daily sets ~36; a once-a-week back office
               sets ~144. Capped at 30 days (720h) so the badge can
               never be permanently suppressed. */}
-          <Card className="border-0 shadow-lg mb-6">
+          <Card className="mb-6">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Calendar className="w-5 h-5 text-amber-600" />
@@ -689,7 +689,7 @@ function CompanyProfilePage() {
               and invoices: VAT-registered businesses issue 'Tax
               Invoice' (with a VAT number on the document); everyone
               else issues a plain 'Invoice'. SARS rule. */}
-          <Card id="section-vat" className="border-0 shadow-lg mb-6 scroll-mt-20">
+          <Card id="section-vat" className="mb-6 scroll-mt-20">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Globe className="w-5 h-5 text-brand-primary" />
@@ -773,7 +773,7 @@ function CompanyProfilePage() {
               invoice. The reference clients use is the invoice
               number, hard-coded in the EFT flow - the only
               reconciliation rule that needs to hold. */}
-          <Card id="section-banking" className="border-0 shadow-lg mb-6 scroll-mt-20">
+          <Card id="section-banking" className="mb-6 scroll-mt-20">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Landmark className="w-5 h-5 text-blue-600" />
@@ -860,7 +860,7 @@ function CompanyProfilePage() {
           </Card>
 
           {/* Address + map coords */}
-          <Card id="section-address" className="border-0 shadow-lg mb-6 scroll-mt-20">
+          <Card id="section-address" className="mb-6 scroll-mt-20">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <MapPin className="w-5 h-5 text-brand-primary" />
@@ -943,7 +943,7 @@ function CompanyProfilePage() {
 
           {/* Brand colours - managed on the dedicated White Label page so
               there's a single source of truth for logo + palette. */}
-          <Card id="section-brand" className="border-0 shadow-lg mb-6 scroll-mt-20">
+          <Card id="section-brand" className="mb-6 scroll-mt-20">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Palette className="w-5 h-5 text-rose-600" />
@@ -1181,7 +1181,7 @@ function DocumentNumberingCard({ companyId }: { companyId: string }) {
   };
 
   return (
-    <Card className="border-0 shadow-lg mb-6">
+    <Card className="mb-6">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Hash className="w-5 h-5 text-blue-600" />

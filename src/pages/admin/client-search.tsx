@@ -194,7 +194,7 @@ function ClientSearchPage() {
           {/* Header */}
           <div className="mb-8">
             {/* Search and Filters */}
-            <div className="bg-white rounded-xl shadow-lg p-6 space-y-4">
+            <div className="rounded-2xl border border-slate-300/80 bg-white p-6 space-y-4 shadow-[0_1px_1px_rgba(15,23,42,0.04),0_14px_28px_-24px_rgba(15,23,42,0.35)] dark:border-slate-800 dark:bg-slate-900/95">
               <div className="flex flex-col md:flex-row gap-4">
                 <div className="flex-1 relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
@@ -252,7 +252,7 @@ function ClientSearchPage() {
               <p className="text-slate-600 mt-4">Loading clients...</p>
             </div>
           ) : filteredClients.length === 0 ? (
-            <Card className="border-0 shadow-lg">
+            <Card>
               <CardContent className="py-12 text-center">
                 <Users className="w-16 h-16 text-slate-300 mx-auto mb-4" />
                 <p className="text-xl font-semibold text-slate-700 mb-2">
@@ -268,7 +268,7 @@ function ClientSearchPage() {
           ) : (
             <div className="grid gap-4">
               {filteredClients.map((client) => (
-                <Card key={client.id} className="border-0 shadow-lg hover:shadow-xl transition-all duration-300">
+                <Card key={client.id} className="hover:shadow-lg transition-all duration-300">
                   <CardContent className="p-6">
                     <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                       {/* Client Info */}
@@ -357,7 +357,7 @@ function ClientSearchPage() {
                           size="sm"
                           variant="outline"
                           onClick={() => handleViewOrders(client.id)}
-                          className="hover:bg-orange-50 hover:border-orange-300"
+                          className="hover:bg-brand-primary/10 hover:border-brand-primary/30"
                         >
                           <Users className="w-4 h-4 mr-2" />
                           Orders

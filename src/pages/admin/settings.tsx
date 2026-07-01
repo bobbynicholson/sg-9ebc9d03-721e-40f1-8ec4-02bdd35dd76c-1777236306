@@ -433,7 +433,7 @@ function SettingsPage() {
             </div>
 
             {loading ? (
-              <Card className="border-0 shadow-lg">
+              <Card>
                 <CardContent className="flex items-center justify-center gap-2 py-12 text-sm text-slate-500">
                   <Loader2 className="h-4 w-4 animate-spin" />
                   Loading settings...
@@ -522,7 +522,7 @@ function SettingsPage() {
 function SettingsShortcutCard({ item, href }: { item: SettingsShortcut; href: string }) {
   const Icon = item.icon;
   return (
-    <Card className="border-0 shadow-lg transition-shadow hover:shadow-xl">
+    <Card className="transition-shadow hover:shadow-lg">
       <CardContent className="flex h-full flex-col gap-4 p-4">
         <div className="flex items-start gap-3">
           <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-brand-primary/10 text-brand-primary">

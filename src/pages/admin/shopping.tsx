@@ -1229,7 +1229,7 @@ function SmartShoppingPage() {
                 <Printer className="w-3.5 h-3.5" /> Print today
               </Button>
               {pickedCount > 0 && (
-                <Card className="border-0 shadow bg-brand-primary/10 px-4 py-2 flex items-center gap-3">
+                <Card className="bg-brand-primary/10 px-4 py-2 flex items-center gap-3">
                   <CheckCircle2 className="w-5 h-5 text-brand-primary" />
                   <div>
                     <p className="text-xs text-brand-primary">In your PO list</p>
@@ -1301,7 +1301,7 @@ function SmartShoppingPage() {
               supplier till slip after a shop run; the same scan tags
               tax-deductibility AND can feed inventory in the
               reconciliation step. */}
-          <Card className="border-0 shadow mb-6">
+          <Card className="mb-6">
             <button
               type="button"
               onClick={() => setScannerOpen((v) => !v)}
@@ -1351,11 +1351,11 @@ function SmartShoppingPage() {
           />
 
           {loading ? (
-            <Card className="border-0 shadow"><CardContent className="py-16 flex items-center justify-center text-slate-500 gap-2">
+            <Card><CardContent className="py-16 flex items-center justify-center text-slate-500 gap-2">
               <Loader2 className="w-5 h-5 animate-spin" /> Loading procurement brain...
             </CardContent></Card>
           ) : outlook.length === 0 ? (
-            <Card className="border-0 shadow"><CardContent className="py-16 text-center text-slate-500">
+            <Card><CardContent className="py-16 text-center text-slate-500">
               <Package className="w-10 h-10 mx-auto text-slate-300 mb-3" />
               <p className="font-semibold text-slate-700">No inventory configured yet</p>
               <p className="text-sm">Add items in <Link href={withSlug("/admin/inventory")} className="text-brand-primary">Inventory</Link>, link them to recipes, and this page lights up.</p>
@@ -1396,7 +1396,7 @@ function SmartShoppingPage() {
                   return (
                     <div className="mb-4 space-y-3">
                       {orderedRows.length > 0 && (
-                        <Card className="border-0 shadow-sm bg-blue-50">
+                        <Card className="bg-blue-50">
                           <CardContent className="p-3">
                             <div className="flex items-center gap-2 mb-2">
                               <Truck className="w-4 h-4 text-blue-700" />
@@ -1445,7 +1445,7 @@ function SmartShoppingPage() {
                         </Card>
                       )}
                       {snoozedRows.length > 0 && (
-                        <Card className="border-0 shadow-sm bg-slate-50">
+                        <Card className="bg-slate-50">
                           <CardContent className="p-3">
                             <div className="flex items-center gap-2 mb-2">
                               <p className="text-xs font-semibold text-slate-700">
@@ -1481,7 +1481,7 @@ function SmartShoppingPage() {
                     </div>
                   );
                 })()}
-                <Card className="border-0 shadow-lg">
+                <Card>
                   <CardHeader>
                     <div className="flex items-start justify-between gap-3 flex-wrap">
                       <div>
@@ -1549,7 +1549,7 @@ function SmartShoppingPage() {
 
               {/* PLAN AHEAD */}
               <TabsContent value="plan">
-                <Card className="border-0 shadow-lg">
+                <Card>
                   <CardHeader>
                     <div className="flex items-start justify-between gap-3 flex-wrap">
                       <div>
@@ -1709,7 +1709,7 @@ function SmartShoppingPage() {
                 )}
                 <div className="space-y-3">
                   {bySupplier.length === 0 ? (
-                    <Card className="border-0 shadow"><CardContent className="py-12 text-center text-slate-500">
+                    <Card><CardContent className="py-12 text-center text-slate-500">
                       <Building2 className="w-10 h-10 mx-auto text-slate-300 mb-2" />
                       Nothing to order right now.
                     </CardContent></Card>
@@ -1717,7 +1717,7 @@ function SmartShoppingPage() {
                     bySupplier.map((g) => {
                       const isOpen = openSupplier === g.id;
                       return (
-                        <Card key={g.id} className="border-0 shadow-lg">
+                        <Card key={g.id}>
                           {/* SHOP-J: dropped the outer <button> that
                               wrapped the entire header. It had a
                               nested <button> for Email order
@@ -2214,7 +2214,7 @@ function SmartShoppingPage() {
 
 function SummaryTile({ label, value, accent, icon: Icon, hint, isMoney, tooltip }: any) {
   return (
-    <Card className="border-0 shadow">
+    <Card>
       <CardContent className="p-4 flex items-center justify-between">
         <div>
           <p className="text-xs uppercase tracking-wide text-slate-500 flex items-center gap-1">{label}{tooltip && <InfoTooltip content={tooltip} />}</p>

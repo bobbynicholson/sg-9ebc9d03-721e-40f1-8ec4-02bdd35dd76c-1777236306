@@ -869,14 +869,14 @@ function RegionsPage() {
           </div>
 
           {loading ? (
-            <Card className="border-0 shadow">
+            <Card>
               <CardContent className="py-16 flex items-center justify-center text-slate-500 gap-2">
                 <Loader2 className="w-5 h-5 animate-spin" />
                 Loading regions...
               </CardContent>
             </Card>
           ) : regions.length === 0 ? (
-            <Card className="border-0 shadow">
+            <Card>
               <CardContent className="py-16 text-center">
                 <Globe className="w-12 h-12 text-slate-300 mx-auto mb-3" />
                 <p className="font-semibold text-slate-700 mb-1">No regions yet</p>
@@ -891,7 +891,7 @@ function RegionsPage() {
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {regions.map((region) => (
-                <Card key={region.id} className="border-0 shadow-lg hover:shadow-xl transition-shadow">
+                <Card key={region.id} className="hover:shadow-lg transition-shadow">
                   <CardHeader>
                     <div className="flex items-start justify-between gap-3">
                       <div>
@@ -1435,7 +1435,7 @@ function RegionsPage() {
 
 function StatTile({ label, value, accent = "text-slate-900", tooltip }: { label: string; value: number | string; accent?: string; tooltip?: string }) {
   return (
-    <Card className="border-0 shadow">
+    <Card>
       <CardContent className="p-4">
         <p className="text-xs uppercase tracking-wide text-slate-500 mb-1 flex items-center gap-1">{label}{tooltip && <InfoTooltip content={tooltip} />}</p>
         <p className={`text-2xl font-bold ${accent}`}>{value}</p>

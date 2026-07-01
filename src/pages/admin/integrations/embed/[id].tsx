@@ -53,7 +53,7 @@ import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { getSetupChecklist, summariseReadiness, type SetupCheck, TEMPLATE_INTENT } from "@/lib/embed/setupChecks";
 import { CheckCircle2, AlertTriangle, Info } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { PageWorkbench } from "@/components/portal/ui";
+import { PageWorkbench, PortalHeader, PortalShell } from "@/components/portal/ui";
 
 const FIELD_TYPES: { value: EmbedFieldType; label: string }[] = [
   { value: "text",       label: "Text" },
@@ -320,9 +320,14 @@ export default function EmbedFormCustomiser() {
     return (
       <>
         <NoIndexMeta />
+        <Head><title>Lead capture form - CateringMS</title></Head>
         <AdminNav />
-        <div className="admin-page-shell admin-page-shell--center">
-          <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
+        <div className="admin-page-shell">
+          <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+            <div className="flex min-h-[50vh] items-center justify-center">
+              <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
+            </div>
+          </PortalShell>
         </div>
       </>
     );
@@ -331,67 +336,71 @@ export default function EmbedFormCustomiser() {
   return (
     <>
       <NoIndexMeta />
-      <Head><title>{form.name} - Lead Capture Forms</title></Head>
+      <Head><title>{form.name} - CateringMS</title></Head>
       <AdminNav />
 
       <div className="admin-page-shell">
-        <div className="px-4 py-6 md:py-8 max-w-full">
-          <PageWorkbench className="mb-5" />
-
-          {/* Top bar */}
-          <div className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-            <div className="flex items-center gap-3 min-w-0">
-              <Button asChild variant="ghost" size="icon">
-                <Link href={withSlug("/admin/integrations/embed")}>
-                  <ArrowLeft className="w-5 h-5" />
-                </Link>
-              </Button>
-              <Input
-                value={form.name}
-                onChange={(e) => patchLocal({ name: e.target.value })}
-                onBlur={() => dirty && saveForm({ name: form.name }, { silent: true })}
-                className="text-xl md:text-2xl font-bold border-0 shadow-none px-0 focus-visible:ring-0 bg-transparent min-w-[260px]"
-              />
-              {dirty && <span className="text-xs text-amber-600">Unsaved</span>}
-              {/* LCF-B: persistent readiness chip beside the title.
-                  Reads from the same checklist that powers the
-                  banner below. */}
-              {!readiness.ready ? (
-                <Badge className="bg-rose-100 text-rose-800 border border-rose-200 gap-1 ml-2">
-                  <AlertTriangle className="w-3 h-3" />
-                  {readiness.failingRequired} required gap{readiness.failingRequired === 1 ? "" : "s"}
-                </Badge>
-              ) : readiness.failingRecommended > 0 ? (
-                <Badge className="bg-amber-100 text-amber-800 border border-amber-200 gap-1 ml-2">
-                  <Info className="w-3 h-3" />
-                  {readiness.failingRecommended} recommended
-                </Badge>
-              ) : (
-                <Badge className="bg-brand-primary/15 text-brand-primary border border-brand-primary/20 gap-1 ml-2">
-                  <CheckCircle2 className="w-3 h-3" />
-                  Ready to embed
-                </Badge>
-              )}
-            </div>
-            <div className="flex items-center gap-2 flex-shrink-0">
-              <Button
-                variant="outline"
-                onClick={() => setSnippetOpen(true)}
-                className="gap-2"
-                title={readiness.ready ? "Copy embed snippet" : "Form has setup gaps - tap the checklist below first"}
-              >
-                <Code2 className="w-4 h-4" /> Get snippet
-              </Button>
-              <Button
-                onClick={() => saveForm(form)}
-                disabled={saving || !dirty}
-                className="gap-2 bg-brand-primary hover:bg-brand-primary/90"
-              >
-                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                Save
-              </Button>
-            </div>
-          </div>
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+          <PortalHeader
+            icon={Code2}
+            title={
+              <span className="flex min-w-0 flex-wrap items-center gap-2">
+                <Input
+                  value={form.name}
+                  onChange={(e) => patchLocal({ name: e.target.value })}
+                  onBlur={() => dirty && saveForm({ name: form.name }, { silent: true })}
+                  className="text-xl md:text-2xl font-bold border-0 shadow-none px-0 focus-visible:ring-0 bg-transparent min-w-[260px]"
+                />
+                {dirty && <span className="text-xs font-normal text-amber-600">Unsaved</span>}
+                {/* LCF-B: persistent readiness chip beside the title.
+                    Reads from the same checklist that powers the
+                    banner below. */}
+                {!readiness.ready ? (
+                  <Badge className="bg-rose-100 text-rose-800 border border-rose-200 gap-1">
+                    <AlertTriangle className="w-3 h-3" />
+                    {readiness.failingRequired} required gap{readiness.failingRequired === 1 ? "" : "s"}
+                  </Badge>
+                ) : readiness.failingRecommended > 0 ? (
+                  <Badge className="bg-amber-100 text-amber-800 border border-amber-200 gap-1">
+                    <Info className="w-3 h-3" />
+                    {readiness.failingRecommended} recommended
+                  </Badge>
+                ) : (
+                  <Badge className="bg-brand-primary/15 text-brand-primary border border-brand-primary/20 gap-1">
+                    <CheckCircle2 className="w-3 h-3" />
+                    Ready to embed
+                  </Badge>
+                )}
+              </span>
+            }
+            subtitle="Customise fields, theme, and after-submit behaviour. Edits auto-save on blur and update the live preview."
+            actions={
+              <>
+                <Button asChild variant="ghost" className="gap-2">
+                  <Link href={withSlug("/admin/integrations/embed")}>
+                    <ArrowLeft className="w-4 h-4" /> Back to forms
+                  </Link>
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setSnippetOpen(true)}
+                  className="gap-2"
+                  title={readiness.ready ? "Copy embed snippet" : "Form has setup gaps - tap the checklist below first"}
+                >
+                  <Code2 className="w-4 h-4" /> Get snippet
+                </Button>
+                <Button
+                  onClick={() => saveForm(form)}
+                  disabled={saving || !dirty}
+                  className="gap-2 bg-brand-primary hover:bg-brand-primary/90"
+                >
+                  {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                  Save
+                </Button>
+              </>
+            }
+          />
+          <PageWorkbench />
 
           {/* LCF-B (task #223, 2026-05-25): per-template setup
               checklist. Each row is anchored to the section it
@@ -403,7 +412,7 @@ export default function EmbedFormCustomiser() {
             if (failing.length === 0 && readiness.failingRequired === 0 && readiness.failingRecommended === 0) {
               // Render a slim green confirmation strip when nothing's failing.
               return (
-                <Card className="border-0 shadow mb-4 bg-gradient-to-br from-brand-primary/10 to-brand-secondary/10">
+                <Card className="mb-4 bg-gradient-to-br from-brand-primary/10 to-brand-secondary/10">
                   <CardContent className="p-3 flex items-center gap-2">
                     <CheckCircle2 className="w-4 h-4 text-brand-primary flex-shrink-0" />
                     <p className="text-xs text-brand-primary">
@@ -423,7 +432,7 @@ export default function EmbedFormCustomiser() {
               ? <AlertTriangle className="w-5 h-5 text-rose-600 flex-shrink-0" />
               : <Info className="w-5 h-5 text-amber-600 flex-shrink-0" />;
             return (
-              <Card className={`border-0 shadow mb-4 bg-gradient-to-br ${toneClass}`}>
+              <Card className={`mb-4 bg-gradient-to-br ${toneClass}`}>
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
                     <div className="flex items-center gap-2">
@@ -495,7 +504,7 @@ export default function EmbedFormCustomiser() {
 
             {/* Left: field editor */}
             <div id="section-fields" className="lg:col-span-4 scroll-mt-20">
-              <Card className="border-0 shadow-lg">
+              <Card>
                 <CardContent className="p-4 space-y-3">
                   <div className="flex items-center justify-between mb-2">
                     <h3 className="font-bold text-slate-900">Fields</h3>
@@ -531,7 +540,7 @@ export default function EmbedFormCustomiser() {
 
             {/* Middle: live preview */}
             <div className="lg:col-span-5">
-              <Card className="border-0 shadow-lg">
+              <Card>
                 <CardContent className="p-3">
                   <div className="flex items-center justify-between mb-2 px-1">
                     <h3 className="font-bold text-slate-900 flex items-center gap-2">
@@ -569,7 +578,7 @@ export default function EmbedFormCustomiser() {
             <div className="lg:col-span-3 space-y-4">
 
               {/* Form settings */}
-              <Card id="section-form-settings" className="border-0 shadow-lg scroll-mt-20">
+              <Card id="section-form-settings" className="scroll-mt-20">
                 <CardContent className="p-4 space-y-3">
                   <h3 className="font-bold text-slate-900">Form settings</h3>
                   <div>
@@ -593,7 +602,7 @@ export default function EmbedFormCustomiser() {
               </Card>
 
               {/* Theme */}
-              <Card className="border-0 shadow-lg">
+              <Card>
                 <CardContent className="p-4 space-y-3">
                   <h3 className="font-bold text-slate-900">Theme</h3>
                   <ColorRow
@@ -644,7 +653,7 @@ export default function EmbedFormCustomiser() {
               </Card>
 
               {/* Success behaviour */}
-              <Card id="section-after-submit" className="border-0 shadow-lg scroll-mt-20">
+              <Card id="section-after-submit" className="scroll-mt-20">
                 <CardContent className="p-4 space-y-3">
                   <h3 className="font-bold text-slate-900">After submit</h3>
                   <div>
@@ -675,7 +684,7 @@ export default function EmbedFormCustomiser() {
                   auto-reply flags. Defaults to "yes, email me" because
                   Bobby explicitly called this out as the must-work
                   behaviour for tenants going live. */}
-              <Card className="border-0 shadow-lg">
+              <Card>
                 <CardContent className="p-4 space-y-3">
                   <h3 className="font-bold text-slate-900">Notifications</h3>
                   <div className="flex items-center justify-between">
@@ -712,7 +721,7 @@ export default function EmbedFormCustomiser() {
 
               {/* Pricing tiers (only when relevant template) */}
               {showsPricing && (
-                <Card id="section-pricing-tiers" className="border-0 shadow-lg scroll-mt-20">
+                <Card id="section-pricing-tiers" className="scroll-mt-20">
                   <CardContent className="p-4 space-y-3">
                     <h3 className="font-bold text-slate-900 flex items-center gap-2">
                       <Calculator className="w-4 h-4 text-amber-500" /> Pricing tiers
@@ -783,7 +792,7 @@ export default function EmbedFormCustomiser() {
               )}
 
               {/* Analytics */}
-              <Card className="border-0 shadow-lg">
+              <Card>
                 <CardContent className="p-4 space-y-3">
                   <h3 className="font-bold text-slate-900">Analytics</h3>
                   <AnalyticsBlock formId={form.id} />
@@ -793,7 +802,7 @@ export default function EmbedFormCustomiser() {
 
           </div>
 
-        </div>
+        </PortalShell>
         <Footer />
       </div>
 

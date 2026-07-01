@@ -248,21 +248,21 @@ function OutstandingBalancesPage() {
 
           {/* Summary cards */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
-            <Card className="border-0 shadow-sm">
+            <Card>
               <CardContent className="py-4 px-5">
                 <p className="text-[11px] uppercase tracking-wide text-slate-500 font-semibold">Total outstanding</p>
                 <p className="text-2xl font-bold text-slate-900 dark:text-white tabular-nums">{fmt.format(summary.totalOwed)}</p>
                 <p className="text-xs text-slate-500 mt-0.5">{summary.count} invoice{summary.count === 1 ? "" : "s"}</p>
               </CardContent>
             </Card>
-            <Card className="border-0 shadow-sm">
+            <Card>
               <CardContent className="py-4 px-5">
                 <p className="text-[11px] uppercase tracking-wide text-rose-600 font-semibold">Overdue</p>
                 <p className="text-2xl font-bold text-rose-700 tabular-nums">{fmt.format(summary.overdueOwed)}</p>
                 <p className="text-xs text-slate-500 mt-0.5">{summary.overdueCount} past due date</p>
               </CardContent>
             </Card>
-            <Card className="border-0 shadow-sm">
+            <Card>
               <CardContent className="py-4 px-5">
                 <p className="text-[11px] uppercase tracking-wide text-slate-500 font-semibold">Clients owing</p>
                 <p className="text-2xl font-bold text-slate-900 dark:text-white tabular-nums">
@@ -274,7 +274,7 @@ function OutstandingBalancesPage() {
           </div>
 
           {/* Filters */}
-          <Card className="border-0 shadow-sm mb-4">
+          <Card className="mb-4">
             <CardContent className="py-3 px-4 flex flex-wrap items-end gap-3">
               <div className="flex-1 min-w-[200px]">
                 <label className="text-[11px] text-slate-500 font-medium">Search</label>
@@ -308,7 +308,7 @@ function OutstandingBalancesPage() {
           </Card>
 
           {/* List */}
-          <Card className="border-0 shadow-sm">
+          <Card>
             <CardContent className="p-0">
               {loading ? (
                 <div className="flex items-center justify-center py-16 text-slate-500">

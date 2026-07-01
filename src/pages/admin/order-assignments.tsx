@@ -1735,7 +1735,7 @@ function DispatchQueuePage() {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Users className="w-5 h-5 text-orange-600" />
+              <Users className="w-5 h-5 text-brand-primary" />
               Bulk assign {selected.size} order{selected.size === 1 ? "" : "s"}
             </DialogTitle>
             <DialogDescription>

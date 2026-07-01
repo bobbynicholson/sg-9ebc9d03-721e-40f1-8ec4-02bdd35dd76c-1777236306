@@ -1180,7 +1180,7 @@ function AdminLeadsInner() {
               cancelled is archived). Total Leads also respects
               the region filter. */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-            <Card className="border-0 shadow-lg">
+            <Card>
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
@@ -1194,7 +1194,7 @@ function AdminLeadsInner() {
               </CardContent>
             </Card>
 
-            <Card className="border-0 shadow-lg">
+            <Card>
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
@@ -1210,7 +1210,7 @@ function AdminLeadsInner() {
               </CardContent>
             </Card>
 
-            <Card className="border-0 shadow-lg">
+            <Card>
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
@@ -1226,7 +1226,7 @@ function AdminLeadsInner() {
               </CardContent>
             </Card>
 
-            <Card className="border-0 shadow-lg">
+            <Card>
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
@@ -1243,7 +1243,7 @@ function AdminLeadsInner() {
             </Card>
           </div>
 
-          <Card className="border-0 shadow-lg">
+          <Card>
             <CardHeader className="space-y-4">
               <div className="flex items-center gap-4">
                 <div className="relative flex-1">

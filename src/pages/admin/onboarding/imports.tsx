@@ -32,7 +32,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { ChatBot } from "@/components/ChatBot";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
-import { PageWorkbench } from "@/components/portal/ui";
+import { PortalShell, PortalHeader, PageWorkbench } from "@/components/portal/ui";
 
 interface ImportJobRow {
   id: string;
@@ -208,31 +208,25 @@ function ImportsHistoryPage() {
       <AdminNav />
 
       <div className="admin-page-shell">
-        <div className="px-4 sm:px-6 pt-20 lg:pt-8 pb-12 max-w-full">
-          <PageWorkbench className="mb-5" />
-
-          {/* Header */}
-          <div className="mb-6 flex items-center justify-between flex-wrap gap-3">
-            <div className="flex items-center gap-3">
-              <div className="p-3 rounded-2xl bg-gradient-to-br from-brand-primary to-brand-secondary shadow-lg">
-                <Wand2 className="w-7 h-7 text-white" />
-              </div>
-              <div>
-                <h1 className="text-2xl lg:text-3xl font-bold text-slate-900 flex items-center gap-2">
-                  Onboarding
-                  <InfoTooltip content={"This is your one-stop shop for getting your existing business into CateringMS.\n\nThree paths below cover the usual sources: a simple client list, a richer spreadsheet of clients + outstanding orders, and supplier receipts you snap on your phone. Run the right tool for the file you have, then come back here any time to roll a previous import back."} />
-                </h1>
-                <p className="text-sm text-slate-600 mt-0.5">
-                  Bring your existing clients, orders and supplier slips into the system. Every import shows below with a 24-hour rollback window.
-                </p>
-              </div>
-            </div>
-            <Link href={`${slugPrefix}/admin/onboarding/import`}>
-              <Button className="bg-brand-primary">
-                <Upload className="w-4 h-4 mr-1.5" /> New import
-              </Button>
-            </Link>
-          </div>
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+          <PortalHeader
+            title={
+              <span className="inline-flex items-center gap-2">
+                Onboarding
+                <InfoTooltip content={"This is your one-stop shop for getting your existing business into CateringMS.\n\nThree paths below cover the usual sources: a simple client list, a richer spreadsheet of clients + outstanding orders, and supplier receipts you snap on your phone. Run the right tool for the file you have, then come back here any time to roll a previous import back."} />
+              </span>
+            }
+            subtitle="Bring your existing clients, orders and supplier slips into the system. Every import shows below with a 24-hour rollback window."
+            icon={Wand2}
+            actions={
+              <Link href={`${slugPrefix}/admin/onboarding/import`}>
+                <Button className="bg-brand-primary">
+                  <Upload className="w-4 h-4 mr-1.5" /> New import
+                </Button>
+              </Link>
+            }
+          />
+          <PageWorkbench />
 
           {/* Stats */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -525,7 +519,7 @@ function ImportsHistoryPage() {
               })}
             </div>
           )}
-        </div>
+        </PortalShell>
 
         <Footer />
       </div>
@@ -543,7 +537,7 @@ function Stat({
     tone === "amber"   ? "text-amber-600"   :
     tone === "rose"    ? "text-rose-600"    : "text-slate-900";
   return (
-    <Card className="border-0 shadow-md">
+    <Card>
       <CardContent className="p-4">
         <p className="text-xs text-slate-600 mb-1 flex items-center gap-1.5">
           {label}

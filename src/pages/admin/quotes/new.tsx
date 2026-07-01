@@ -115,7 +115,7 @@ import { propagateQuoteEditToOrder } from "@/services/quote/propagateQuoteEdit";
 import { QuoteSendDialog } from "@/components/billing/QuoteSendDialog";
 import { toLocalISO } from "@/lib/localDate";
 import { EntityNotesThread } from "@/components/admin/EntityNotesThread";
-import { PageWorkbench } from "@/components/portal/ui";
+import { PortalShell, PortalHeader, PageWorkbench } from "@/components/portal/ui";
 import { getEventCapacityForDate, type EventCapacityCheck } from "@/lib/eventCapacity";
 
 // ── Types ─────────────────────────────────────────────────────────────
@@ -2142,8 +2142,10 @@ function NewQuotePage() {
       <AdminNav />
 
       <div className="admin-page-shell">
-        <div className="px-4 pt-32 pb-8 lg:pt-24 max-w-full">
-          <PageWorkbench className="mb-5" />
+        {/* pt-24/lg:pt-16 on the shell clears the pinned action bar
+            below - the bar is fixed to the viewport, so without the
+            extra top padding the header renders underneath it. */}
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent pt-24 lg:pt-16">
           {/* Pinned action bar (Raj, 2026-06-25): the live quote total +
               Save buttons stay in view as the operator scrolls a long
               quote. MUST be `fixed` not `sticky` - the page wrapper's
@@ -2151,9 +2153,10 @@ function NewQuotePage() {
               position:sticky (the bar just scrolled away). Fixed pins to
               the viewport regardless. Sits below the mobile nav (top-14)
               and flush at the top on desktop (lg:top-0, aligned to the
-              content via lg:pl-72). Content above has pt-32/lg:pt-24 to
-              clear it. Tapping the total drops the same price breakdown
-              as the Running total card (shared renderTotalsBreakdown). */}
+              content via lg:pl-72). The PortalShell above carries extra
+              top padding (pt-24/lg:pt-16) to clear it. Tapping the total
+              drops the same price breakdown as the Running total card
+              (shared renderTotalsBreakdown). */}
           <div className="fixed left-0 right-0 top-14 lg:top-0 z-30 lg:pl-72 xl:pl-80 px-4 pt-2">
             <div className="relative">
               <div className="rounded-xl border border-slate-200 bg-white/95 backdrop-blur shadow-lg px-4 py-2.5 flex items-center justify-between gap-3">
@@ -2217,45 +2220,111 @@ function NewQuotePage() {
             </div>
           </div>
 
-          <Link href={withSlug("/admin/quotes")}>
-            <Button variant="ghost" className="mb-4 text-sm">
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Quotes
-            </Button>
-          </Link>
+          <PortalHeader
+            title={quoteId ? "Edit Quote" : "Create Quote"}
+            icon={Banknote}
+            subtitle={
+              <span className="flex items-center gap-2 flex-wrap">
+                {quoteNumber && (
+                  <span className="font-mono text-slate-700">{quoteNumber}</span>
+                )}
+                {status !== "draft" && (
+                  <Badge className="bg-brand-primary/10 text-brand-primary border-brand-primary/20">{status}</Badge>
+                )}
+                {savedAt && (
+                  <span className="inline-flex items-center gap-1 text-brand-primary text-xs">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    Saved {savedAt.toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" })}
+                  </span>
+                )}
+                {saving && (
+                  <span className="inline-flex items-center gap-1 text-slate-500 text-xs">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" /> Saving...
+                  </span>
+                )}
+                {dirty && !saving && status === "draft" && (
+                  <span className="text-xs text-amber-600">Unsaved changes</span>
+                )}
+              </span>
+            }
+            actions={
+              <>
+                <Link href={withSlug("/admin/quotes")}>
+                  <Button variant="ghost" className="text-sm">
+                    <ArrowLeft className="w-4 h-4 mr-2" />
+                    Back to Quotes
+                  </Button>
+                </Link>
+                {/* Client preview hidden for now (Raj, 2026-06-25): no
+                    toggle button, the preview card below never renders
+                    because previewOpen stays false. Kept in place so it
+                    can be switched back on later without rebuilding it. */}
+                {/* TIGHTEN I.120: when the quote already has a linked
+                    order, the operator's intent is "update the order".
+                    Save = mirror without notifying; Save & Notify =
+                    mirror + send a "your booking has been updated"
+                    email. Original Save draft / Save & Send labels stay
+                    for non-converted quotes. */}
+                {isConvertedQuote ? (
+                  <>
+                    <div className="flex items-center gap-1">
+                      <Button variant="outline" onClick={handleSaveDraft} disabled={saving || !clientName || !!setupTimeError}>
+                        <Save className="w-4 h-4 mr-2" />
+                        Save
+                      </Button>
+                      <InfoTooltip content={"Save your changes to the quote and mirror them straight to the linked order. Re-plans kitchen prep, re-syncs equipment bookings, recalculates balance due. No email goes out - use Save & Notify for that."} />
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        onClick={() => handleSend()}
+                        disabled={sending || saving || computed.total <= 0 || !email || !!setupTimeError}
+                        className="bg-brand-primary"
+                      >
+                        {sending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
+                        Save &amp; Notify
+                      </Button>
+                      <InfoTooltip content={"Save + mirror to the order AND email the client a 'your booking has been updated' message with a link to the live order page.\n\nThe client doesn't need to re-accept - the booking is already confirmed."} />
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex items-center gap-1">
+                      <Button variant="outline" onClick={handleSaveDraft} disabled={saving || !clientName || !!setupTimeError}>
+                        <Save className="w-4 h-4 mr-2" />
+                        {status === "accepted" ? "Save" : "Save draft"}
+                      </Button>
+                      {/* Accepted-but-unconverted: Save keeps the
+                          acceptance (the operator is usually here to fix
+                          a missing field like guest count before
+                          converting). Save & Send is the explicit
+                          "revise and ask the client to re-accept" path. */}
+                      <InfoTooltip content={status === "accepted"
+                        ? "Save your changes and keep the quote accepted - the client does not need to re-accept. Use this to fill in a missing field (e.g. guest count) before converting to an order.\n\nUse Save & Send instead if the pricing changed and the client must re-accept."
+                        : "Save current state of the quote with status = 'draft'. The client doesn't get an email and the quote doesn't appear on their portal. It's parked privately for you to come back to.\n\nGreat when you're partway through and need to step away."} />
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        onClick={() => handleSend()}
+                        disabled={sending || saving || computed.total <= 0 || !email || !!setupTimeError}
+                        className="bg-brand-primary"
+                      >
+                        {sending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
+                        Save &amp; Send
+                      </Button>
+                      <InfoTooltip content={"Save the quote with status = 'sent', generate a public link, and email the client a branded message with a 'View Quote' button.\n\nThe quote shows up on their portal too. Disabled until the client has an email + the total is greater than zero.\n\nResending an already-sent quote sends a fresh email. The client gets a 'we've updated your quote' message."} />
+                    </div>
+                  </>
+                )}
+              </>
+            }
+          />
 
-          {/* Header */}
-          <div className="mb-6 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="p-3 bg-gradient-to-br from-brand-primary to-brand-secondary rounded-2xl shadow-lg flex-shrink-0">
-                <Banknote className="w-7 h-7 text-white" />
-              </div>
-              <div className="min-w-0">
-                <h1 className="text-2xl lg:text-3xl font-bold text-slate-900">
-                  {quoteId ? "Edit Quote" : "Create Quote"}
-                </h1>
-                <p className="text-sm text-slate-600 mt-0.5 flex items-center gap-2 flex-wrap">
-                  {quoteNumber && (
-                    <span className="font-mono text-slate-700">{quoteNumber}</span>
-                  )}
-                  {status !== "draft" && (
-                    <Badge className="bg-brand-primary/10 text-brand-primary border-brand-primary/20">{status}</Badge>
-                  )}
-                  {savedAt && (
-                    <span className="inline-flex items-center gap-1 text-brand-primary text-xs">
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                      Saved {savedAt.toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" })}
-                    </span>
-                  )}
-                  {saving && (
-                    <span className="inline-flex items-center gap-1 text-slate-500 text-xs">
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" /> Saving...
-                    </span>
-                  )}
-                  {dirty && !saving && status === "draft" && (
-                    <span className="text-xs text-amber-600">Unsaved changes</span>
-                  )}
-                </p>
+          <PageWorkbench />
+
+          {/* Context banners - moved out of the old ad-hoc header block,
+              same conditions + copy. empty:hidden collapses the wrapper
+              (and its margin) when no banner is active. */}
+          <div className="mb-6 space-y-2 empty:hidden">
                 {/* Wave 14 audit + TIGHTEN I.120: banner copy reflects
                     what actually happens. Pre-acceptance revisions
                     reset the public lifecycle and email the client.
@@ -2263,13 +2332,13 @@ function NewQuotePage() {
                     order without re-acceptance - the client already
                     accepted and owns the order page now. */}
                 {appliedChangeRequest && (
-                  <div className="mt-2 p-2.5 rounded-md border border-brand-primary/30 bg-brand-primary/10 text-xs text-brand-primary max-w-xl">
+                  <div className="p-2.5 rounded-md border border-brand-primary/30 bg-brand-primary/10 text-xs text-brand-primary max-w-xl">
                     <strong className="font-semibold">Loaded the client's requested changes.</strong>{" "}
                     The date, guests, venue, and items below now reflect what the client asked for. Review the pricing (and re-pick the venue if the address changed, so delivery/collection recompute), then Save &amp; Send to return the updated quote. This marks the change request as addressed.
                   </div>
                 )}
                 {isRevisingNonDraft && (
-                  <div className="mt-2 p-2.5 rounded-md border border-brand-primary/20 bg-brand-primary/10 text-xs text-brand-primary max-w-xl">
+                  <div className="p-2.5 rounded-md border border-brand-primary/20 bg-brand-primary/10 text-xs text-brand-primary max-w-xl">
                     {isConvertedQuote ? (
                       <>
                         <strong className="font-semibold">Editing the booking behind {linkedOrderNumber ? `order ${linkedOrderNumber}` : "the linked order"}.</strong>{" "}
@@ -2292,7 +2361,7 @@ function NewQuotePage() {
                     keeps showing the stale number until the operator
                     saves. Surface it inline so the operator knows. */}
                 {quoteId && persistedTotalAtLoad !== null && Math.abs((computed.total || 0) - persistedTotalAtLoad) > 0.01 && (
-                  <div className="mt-2 p-2.5 rounded-md border border-amber-200 bg-amber-50 text-xs text-amber-900 max-w-xl">
+                  <div className="p-2.5 rounded-md border border-amber-200 bg-amber-50 text-xs text-amber-900 max-w-xl">
                     <strong className="font-semibold">Totals out of sync.</strong>{" "}
                     The live total is <span className="font-mono">{tenantCurrency.symbol}{computed.total.toFixed(2)}</span>,
                     but the customer-facing quote still shows the saved <span className="font-mono">{tenantCurrency.symbol}{persistedTotalAtLoad.toFixed(2)}</span>.
@@ -2307,78 +2376,13 @@ function NewQuotePage() {
                       : <> Hit <em>Save draft</em> to refresh the public view.</>}
                   </div>
                 )}
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              {/* Client preview hidden for now (Raj, 2026-06-25): no
-                  toggle button, the preview card below never renders
-                  because previewOpen stays false. Kept in place so it
-                  can be switched back on later without rebuilding it. */}
-              {/* TIGHTEN I.120: when the quote already has a linked
-                  order, the operator's intent is "update the order".
-                  Save = mirror without notifying; Save & Notify =
-                  mirror + send a "your booking has been updated"
-                  email. Original Save draft / Save & Send labels stay
-                  for non-converted quotes. */}
-              {isConvertedQuote ? (
-                <>
-                  <div className="flex items-center gap-1">
-                    <Button variant="outline" onClick={handleSaveDraft} disabled={saving || !clientName || !!setupTimeError}>
-                      <Save className="w-4 h-4 mr-2" />
-                      Save
-                    </Button>
-                    <InfoTooltip content={"Save your changes to the quote and mirror them straight to the linked order. Re-plans kitchen prep, re-syncs equipment bookings, recalculates balance due. No email goes out - use Save & Notify for that."} />
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Button
-                      onClick={() => handleSend()}
-                      disabled={sending || saving || computed.total <= 0 || !email || !!setupTimeError}
-                      className="bg-brand-primary"
-                    >
-                      {sending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
-                      Save &amp; Notify
-                    </Button>
-                    <InfoTooltip content={"Save + mirror to the order AND email the client a 'your booking has been updated' message with a link to the live order page.\n\nThe client doesn't need to re-accept - the booking is already confirmed."} />
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="flex items-center gap-1">
-                    <Button variant="outline" onClick={handleSaveDraft} disabled={saving || !clientName || !!setupTimeError}>
-                      <Save className="w-4 h-4 mr-2" />
-                      {status === "accepted" ? "Save" : "Save draft"}
-                    </Button>
-                    {/* Accepted-but-unconverted: Save keeps the
-                        acceptance (the operator is usually here to fix
-                        a missing field like guest count before
-                        converting). Save & Send is the explicit
-                        "revise and ask the client to re-accept" path. */}
-                    <InfoTooltip content={status === "accepted"
-                      ? "Save your changes and keep the quote accepted - the client does not need to re-accept. Use this to fill in a missing field (e.g. guest count) before converting to an order.\n\nUse Save & Send instead if the pricing changed and the client must re-accept."
-                      : "Save current state of the quote with status = 'draft'. The client doesn't get an email and the quote doesn't appear on their portal. It's parked privately for you to come back to.\n\nGreat when you're partway through and need to step away."} />
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Button
-                      onClick={() => handleSend()}
-                      disabled={sending || saving || computed.total <= 0 || !email || !!setupTimeError}
-                      className="bg-brand-primary"
-                    >
-                      {sending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
-                      Save &amp; Send
-                    </Button>
-                    <InfoTooltip content={"Save the quote with status = 'sent', generate a public link, and email the client a branded message with a 'View Quote' button.\n\nThe quote shows up on their portal too. Disabled until the client has an email + the total is greater than zero.\n\nResending an already-sent quote sends a fresh email. The client gets a 'we've updated your quote' message."} />
-                  </div>
-                </>
-              )}
-            </div>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Left column: form */}
             <div className="lg:col-span-2 space-y-6">
               {/* Client + Event */}
-              <Card className="border-0 shadow-lg">
+              <Card>
                 <CardHeader>
                   <CardTitle className="text-base flex items-center gap-2">
                     <Sparkles className="w-4 h-4 text-brand-primary" />
@@ -2758,7 +2762,7 @@ function NewQuotePage() {
               </Card>
 
               {/* Menu lines */}
-              <Card className="border-0 shadow-lg">
+              <Card>
                 <CardHeader>
                   <div className="flex items-center justify-between flex-wrap gap-2">
                     <div>
@@ -2908,7 +2912,7 @@ function NewQuotePage() {
               </Card>
 
               {/* Equipment */}
-              <Card className="border-0 shadow-lg">
+              <Card>
                 <CardHeader>
                   <div className="flex items-center justify-between flex-wrap gap-2">
                     <div>
@@ -3117,7 +3121,7 @@ function NewQuotePage() {
               </Card>
 
               {/* Adjustments */}
-              <Card className="border-0 shadow-lg">
+              <Card>
                 <CardHeader>
                   <CardTitle className="text-base flex items-center gap-2">
                     <TrendingUp className="w-4 h-4 text-amber-600" />
@@ -3164,7 +3168,7 @@ function NewQuotePage() {
               </Card>
 
               {/* Notes */}
-              <Card className="border-0 shadow-lg">
+              <Card>
                 <CardHeader>
                   <CardTitle className="text-base">Notes</CardTitle>
                   <CardDescription>Internal notes never go to the client.</CardDescription>
@@ -3216,7 +3220,7 @@ function NewQuotePage() {
                     Always visible, uses the same per-line math as the
                     Running total / public quote. */}
                 {(menuItems.some((l) => l.name) || equipment.some((e) => e.name)) && (
-                  <Card className="border-0 shadow-xl">
+                  <Card>
                     <CardHeader>
                       <CardTitle className="text-base">Items in this quote</CardTitle>
                       <CardDescription>Dishes + equipment on this quote and what each adds up to.</CardDescription>
@@ -3258,7 +3262,7 @@ function NewQuotePage() {
                   </Card>
                 )}
 
-                <Card className="border-0 shadow-xl">
+                <Card>
                   <CardHeader>
                     <CardTitle className="text-base">Running total</CardTitle>
                   </CardHeader>
@@ -3283,7 +3287,7 @@ function NewQuotePage() {
                 </Card>
 
                 {previewOpen && (
-                  <Card className="border-0 shadow-xl">
+                  <Card>
                     <CardHeader>
                       <CardTitle className="text-base flex items-center gap-2">
                         <Eye className="w-4 h-4" /> Client preview
@@ -3368,7 +3372,7 @@ function NewQuotePage() {
               </div>
             </div>
           </div>
-        </div>
+        </PortalShell>
 
         <Footer />
       </div>

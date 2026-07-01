@@ -1426,7 +1426,7 @@ function ClientsCRM() {
           </div>
 
           {/* Email cap notice, ties to pricing tier */}
-          <Card className="border-0 shadow mb-6 bg-gradient-to-r from-blue-50 to-blue-50">
+          <Card className="mb-6 bg-gradient-to-r from-blue-50 to-blue-50">
             <CardContent className="py-3 px-4 flex items-start gap-3">
               <Inbox className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
               <div className="text-sm">
@@ -1461,7 +1461,7 @@ function ClientsCRM() {
           )}
 
           {/* Table */}
-          <Card className="border-0 shadow-lg">
+          <Card>
             <CardContent className="p-0">
               {loading ? (
                 <div className="py-16 text-center text-slate-500">Loading contacts...</div>

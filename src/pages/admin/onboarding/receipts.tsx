@@ -28,7 +28,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { ChatBot } from "@/components/ChatBot";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { ReceiptScanner } from "@/components/shopping/ReceiptScanner";
-import { PageWorkbench } from "@/components/portal/ui";
+import { PortalShell, PortalHeader, PageWorkbench } from "@/components/portal/ui";
 
 const MAX_FILES = 20;
 
@@ -59,38 +59,31 @@ function ReceiptsImportPage() {
       <AdminNav />
 
       <div className="admin-page-shell">
-        <div className="px-4 sm:px-6 pt-20 lg:pt-8 pb-12 max-w-full">
-          <PageWorkbench className="mb-5" />
-
-          {/* Header */}
-          <div className="mb-4">
-            <Link href={`${slugPrefix}/admin/onboarding/imports`}>
-              <Button variant="ghost" size="sm">
-                <ArrowLeft className="w-4 h-4 mr-1.5" /> Back to imports
-              </Button>
-            </Link>
-          </div>
-
-          <div className="mb-6 flex items-center gap-3">
-            <div className="p-3 rounded-2xl bg-gradient-to-br from-brand-primary to-brand-secondary shadow-lg">
-              <Camera className="w-7 h-7 text-white" />
-            </div>
-            <div>
-              <h1 className="text-2xl lg:text-3xl font-bold text-slate-900 flex items-center gap-2">
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+          <PortalHeader
+            title={
+              <span className="inline-flex items-center gap-2">
                 Receipt scanner
                 <InfoTooltip content={"Snap photos of your last few weeks of supplier slips and we'll seed your inventory cost prices automatically.\n\nWe read each receipt and pull the supplier name, date, line items, quantities and totals. You review the extraction and commit, no typing required."} />
-              </h1>
-              <p className="text-sm text-slate-600 mt-0.5">
-                Photograph up to {MAX_FILES} supplier slips. The model extracts supplier, date, line items and cost prices so your inventory loads itself.
-              </p>
-            </div>
-          </div>
+              </span>
+            }
+            subtitle={`Photograph up to ${MAX_FILES} supplier slips. The model extracts supplier, date, line items and cost prices so your inventory loads itself.`}
+            icon={Camera}
+            actions={
+              <Link href={`${slugPrefix}/admin/onboarding/imports`}>
+                <Button variant="outline" size="sm">
+                  <ArrowLeft className="w-4 h-4 mr-1.5" /> Back to imports
+                </Button>
+              </Link>
+            }
+          />
+          <PageWorkbench />
 
           <ReceiptScanner
             historyHref={`${slugPrefix}/admin/onboarding/imports`}
             accent="purple"
           />
-        </div>
+        </PortalShell>
 
         <Footer />
       </div>

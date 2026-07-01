@@ -1177,19 +1177,19 @@ function MenuPage() {
 
           {/* Stat strip - MNU-B widened to 6 tiles. */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-5">
-            <Card className="border-0 shadow-sm">
+            <Card>
               <CardContent className="p-4">
                 <p className="text-xs uppercase tracking-wider text-slate-500 mb-1">Active items</p>
                 <p className="text-2xl font-bold text-slate-900 tabular-nums">{stats.total}</p>
               </CardContent>
             </Card>
-            <Card className="border-0 shadow-sm">
+            <Card>
               <CardContent className="p-4">
                 <p className="text-xs uppercase tracking-wider text-slate-500 mb-1">With recipe</p>
                 <p className="text-2xl font-bold text-brand-primary tabular-nums">{stats.withRecipe}</p>
               </CardContent>
             </Card>
-            <Card className="border-0 shadow-sm">
+            <Card>
               <CardContent className="p-4">
                 <p className="text-xs uppercase tracking-wider text-slate-500 mb-1 inline-flex items-center gap-1">
                   Median margin
@@ -1235,7 +1235,7 @@ function MenuPage() {
             {/* MNU-B: photo coverage tile. Matches the equivalent
                 surface on /admin/offering and tells the operator
                 where to focus the next photoshoot. */}
-            <Card className={`border-0 shadow-sm ${stats.missingPhoto > 0 ? "bg-amber-50" : ""}`}>
+            <Card className={`${stats.missingPhoto > 0 ? "bg-amber-50" : ""}`}>
               <CardContent className="p-4">
                 <p className="text-xs uppercase tracking-wider text-slate-500 mb-1 inline-flex items-center gap-1">
                   Photo coverage
@@ -1253,7 +1253,7 @@ function MenuPage() {
                 )}
               </CardContent>
             </Card>
-            <Card className={`border-0 shadow-sm ${stats.incompleteCost > 0 ? "bg-amber-50" : ""}`}>
+            <Card className={`${stats.incompleteCost > 0 ? "bg-amber-50" : ""}`}>
               <CardContent className="p-4">
                 <p className="text-xs uppercase tracking-wider text-slate-500 mb-1 inline-flex items-center gap-1">
                   Cost incomplete
@@ -1267,7 +1267,7 @@ function MenuPage() {
                 )}
               </CardContent>
             </Card>
-            <Card className={`border-0 shadow-sm ${stats.missingRecipe > 0 ? "bg-amber-50" : ""}`}>
+            <Card className={`${stats.missingRecipe > 0 ? "bg-amber-50" : ""}`}>
               <CardContent className="p-4">
                 <p className="text-xs uppercase tracking-wider text-slate-500 mb-1 inline-flex items-center gap-1">
                   Missing recipe
@@ -1370,7 +1370,7 @@ function MenuPage() {
               <Loader2 className="w-4 h-4 mr-2 animate-spin" />Loading menu...
             </div>
           ) : grouped.length === 0 ? (
-            <Card className="border-0 shadow-sm">
+            <Card>
               <CardContent className="p-0">
                 <EmptyState
                   inCard
@@ -1390,7 +1390,7 @@ function MenuPage() {
               {grouped.map(([cat, list]) => (
                 <div key={cat}>
                   <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 px-1">{cat}, {list.length}</h2>
-                  <Card className="border-0 shadow-sm">
+                  <Card>
                     <CardContent className="p-0">
                       <ul className="divide-y divide-slate-100">
                         {list.map(it => {

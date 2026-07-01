@@ -482,7 +482,7 @@ function OfferingPage() {
               left the page showing zeros silently; now the operator
               sees what went wrong + can retry without a tab reload. */}
           {error && (
-            <Card className="border-0 shadow-sm bg-rose-50 border-l-4 border-l-rose-500 mb-4">
+            <Card className="bg-rose-50 border-l-4 border-l-rose-500 mb-4">
               <CardContent className="py-3 px-4 flex items-start gap-3">
                 <AlertTriangle className="w-5 h-5 text-rose-700 shrink-0 mt-0.5" />
                 <div className="flex-1 min-w-0">
@@ -501,7 +501,7 @@ function OfferingPage() {
               action surface. */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-6">
             {/* Menu tile */}
-            <Card className="border-0 shadow-lg overflow-hidden">
+            <Card className="overflow-hidden">
               <CardHeader className="bg-gradient-to-r from-brand-primary/10 to-brand-secondary/10 border-b">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-center gap-3">
@@ -666,7 +666,7 @@ function OfferingPage() {
             </Card>
 
             {/* Equipment tile */}
-            <Card className="border-0 shadow-lg overflow-hidden">
+            <Card className="overflow-hidden">
               <CardHeader className="bg-gradient-to-r from-sky-50 to-blue-50 border-b">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-center gap-3">
@@ -771,7 +771,7 @@ function OfferingPage() {
               times in the window. Cross-sell intel - "clients who picked
               X also picked Y". Hidden when no qualifying pairs exist. */}
           {!loading && bundlePairs.length > 0 && (
-            <Card className="border-0 shadow-lg mb-6">
+            <Card className="mb-6">
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
                   <Sparkles className="w-4 h-4 text-slate-600" />
@@ -815,7 +815,7 @@ function OfferingPage() {
           )}
 
           {/* Recently quoted strip */}
-          <Card className="border-0 shadow-lg mb-6">
+          <Card className="mb-6">
             <CardHeader>
               <CardTitle className="text-lg">Recently quoted ({period} days)</CardTitle>
               <p className="text-xs text-slate-600 mt-0.5">What clients accepted onto orders most recently.</p>
@@ -862,7 +862,7 @@ function OfferingPage() {
               the operator should review or retire. Far more actionable
               than "recently quoted" for catalogue hygiene. */}
           {!loading && neverQuoted.length > 0 && (
-            <Card className="border-0 shadow-lg">
+            <Card>
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
                   <AlertTriangle className="w-4 h-4 text-amber-600" />

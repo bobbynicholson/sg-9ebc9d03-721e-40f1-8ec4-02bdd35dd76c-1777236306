@@ -894,7 +894,7 @@ function StockPage() {
           {/* STK-B: aging hire-in escalation banner. Loud when one or
               more suppliers owe orders that are >7 days overdue. */}
           {agingHireIns.length > 0 && (
-            <Card className="border-0 shadow-sm bg-rose-50 border-l-4 border-l-rose-500 mb-4">
+            <Card className="bg-rose-50 border-l-4 border-l-rose-500 mb-4">
               <CardContent className="py-3 px-4 flex items-start gap-3 flex-wrap">
                 <Phone className="w-5 h-5 text-rose-700 shrink-0 mt-0.5" />
                 <div className="flex-1 min-w-0">
@@ -913,7 +913,7 @@ function StockPage() {
 
           {/* Three top tiles */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4 md:gap-6 mb-6">
-            <Card className="border-0 shadow-lg">
+            <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="flex items-center gap-2 text-base">
                   <Package className="w-4 h-4 text-rose-600" />
@@ -974,7 +974,7 @@ function StockPage() {
               </CardContent>
             </Card>
 
-            <Card className="border-0 shadow-lg">
+            <Card>
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between gap-2">
                   <CardTitle className="flex items-center gap-2 text-base">
@@ -1023,7 +1023,7 @@ function StockPage() {
               </CardContent>
             </Card>
 
-            <Card className="border-0 shadow-lg">
+            <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="flex items-center gap-2 text-base">
                   <ShoppingBag className="w-4 h-4 text-amber-600" />
@@ -1062,7 +1062,7 @@ function StockPage() {
 
           {/* STK-B: stockout risk forecast (next 7 days). */}
           {stockouts.length > 0 && (
-            <Card className="border-0 shadow-lg mb-6 border-l-4 border-l-red-500 bg-rose-50/40">
+            <Card className="mb-6 border-l-4 border-l-red-500 bg-rose-50/40">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
                   <ZapOff className="w-4 h-4 sm:w-5 sm:h-5 text-rose-600" />
@@ -1103,7 +1103,7 @@ function StockPage() {
               event in the equipment-window. Bar fills based on a
               composite (ingredients short + hire-ins outstanding). */}
           {eventReadiness.length > 0 && (
-            <Card className="border-0 shadow-lg mb-6">
+            <Card className="mb-6">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
                   <ListChecks className="w-4 h-4 sm:w-5 sm:h-5 text-brand-primary" />
@@ -1152,7 +1152,7 @@ function StockPage() {
           {(doubleBookings.length > 0 || leadTimeFlags.length > 0 || reorderTrend.length > 0 || supplierContribution.length > 0 || wastage.length > 0) && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
               {doubleBookings.length > 0 && (
-                <Card className="border-0 shadow-sm border-l-4 border-l-rose-500">
+                <Card className="border-l-4 border-l-rose-500">
                   <CardContent className="p-4">
                     <p className="text-xs uppercase tracking-wide font-semibold text-rose-700 mb-2 inline-flex items-center gap-1">
                       <AlertTriangle className="w-3 h-3" /> Equipment double-booked
@@ -1169,7 +1169,7 @@ function StockPage() {
                 </Card>
               )}
               {leadTimeFlags.length > 0 && (
-                <Card className="border-0 shadow-sm border-l-4 border-l-rose-500">
+                <Card className="border-l-4 border-l-rose-500">
                   <CardContent className="p-4">
                     <p className="text-xs uppercase tracking-wide font-semibold text-rose-700 mb-2 inline-flex items-center gap-1">
                       <Clock className="w-3 h-3" /> Won't arrive in time
@@ -1189,7 +1189,7 @@ function StockPage() {
                 </Card>
               )}
               {reorderTrend.length > 0 && (
-                <Card className="border-0 shadow-sm border-l-4 border-l-amber-500">
+                <Card className="border-l-4 border-l-amber-500">
                   <CardContent className="p-4">
                     <p className="text-xs uppercase tracking-wide font-semibold text-amber-700 mb-2 inline-flex items-center gap-1">
                       <TrendingUp className="w-3 h-3" /> Re-order point too tight
@@ -1207,7 +1207,7 @@ function StockPage() {
                 </Card>
               )}
               {supplierContribution.length > 0 && (
-                <Card className="border-0 shadow-sm border-l-4 border-l-slate-400">
+                <Card className="border-l-4 border-l-slate-400">
                   <CardContent className="p-4">
                     <p className="text-xs uppercase tracking-wide font-semibold text-slate-700 mb-2 inline-flex items-center gap-1">
                       <Truck className="w-3 h-3" /> Top suppliers by low-stock
@@ -1224,7 +1224,7 @@ function StockPage() {
                 </Card>
               )}
               {wastage.length > 0 && (
-                <Card className="border-0 shadow-sm border-l-4 border-l-slate-400">
+                <Card className="border-l-4 border-l-slate-400">
                   <CardContent className="p-4">
                     <p className="text-xs uppercase tracking-wide font-semibold text-slate-700 mb-2 inline-flex items-center gap-1">
                       <Trash2 className="w-3 h-3" /> Wastage, last 30 days
@@ -1245,7 +1245,7 @@ function StockPage() {
           )}
 
           {/* Needs attention feed */}
-          <Card id="needs-attention" className="border-0 shadow-lg mb-6 scroll-mt-20">
+          <Card id="needs-attention" className="mb-6 scroll-mt-20">
             <CardHeader>
               <div className="flex items-center justify-between gap-3 flex-wrap">
                 <CardTitle className="flex items-center gap-2 text-base sm:text-lg">

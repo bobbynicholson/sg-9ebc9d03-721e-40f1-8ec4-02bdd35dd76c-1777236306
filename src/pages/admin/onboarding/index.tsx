@@ -45,7 +45,7 @@ import { onboardingProgressService } from "@/services/onboardingProgressService"
 import { ImportRecordsModal } from "@/components/admin/ImportRecordsModal";
 import { ResendDomainCard } from "@/components/admin/ResendDomainCard";
 import { captureException } from "@/lib/observability";
-import { PageWorkbench } from "@/components/portal/ui";
+import { PortalShell, PortalHeader, PageWorkbench } from "@/components/portal/ui";
 
 interface CompanyForm {
   // Basics
@@ -331,21 +331,21 @@ function OnboardingWizard() {
       <AdminNav />
 
       <div className="admin-page-shell">
-        <div className="px-4 sm:px-6 pt-20 lg:pt-8 pb-12 max-w-full">
-          <PageWorkbench className="mb-5" />
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+          <PortalHeader
+            title="Set up your business"
+            subtitle="Walk through the essentials so your quotes, invoices and client portal look right from day one. Every step saves as you go."
+            icon={Sparkles}
+          />
+          <PageWorkbench />
           {/* Progress strip across the top - step pills + filled bar.
               On phones the labels collapse to icons only so the row
               doesn't crush. */}
           <div className="mb-6">
             <div className="flex items-center justify-between mb-3">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Setup wizard
-                </p>
-                <h1 className="text-xl sm:text-2xl font-bold text-slate-900">
-                  Step {stepIndex + 1} of {totalSteps}: {STEPS[stepIndex].label}
-                </h1>
-              </div>
+              <p className="text-sm font-semibold text-slate-900">
+                Step {stepIndex + 1} of {totalSteps}: {STEPS[stepIndex].label}
+              </p>
               <p className="text-sm text-slate-500">{progressPct}%</p>
             </div>
             <div className="h-2 rounded-full bg-slate-200 overflow-hidden">
@@ -387,7 +387,7 @@ function OnboardingWizard() {
             </div>
           </div>
 
-          <Card className="border-0 shadow-lg">
+          <Card>
             <CardContent className="p-5 sm:p-7 space-y-5">
               {step === "welcome" && (
                 <WelcomeStep
@@ -532,7 +532,7 @@ function OnboardingWizard() {
           <p className="text-center text-xs text-slate-500 mt-4">
             You can change any of this later under <strong>Settings</strong> in the sidebar.
           </p>
-        </div>
+        </PortalShell>
       </div>
     </>
   );

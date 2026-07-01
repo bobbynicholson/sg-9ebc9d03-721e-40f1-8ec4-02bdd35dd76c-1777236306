@@ -30,7 +30,7 @@ import {
   Upload, ArrowLeft, FileSpreadsheet, ClipboardPaste, CheckCircle2,
   AlertTriangle, Trash2, Loader2, Users,
 } from "lucide-react";
-import { PageWorkbench } from "@/components/portal/ui";
+import { PortalShell, PortalHeader, PageWorkbench } from "@/components/portal/ui";
 
 type RawRow = { name?: string; surname?: string; email?: string; phone?: string; notes?: string };
 
@@ -295,30 +295,26 @@ function ClientImportPage() {
       <AdminNav />
 
       <div className="admin-page-shell">
-        <div className="px-4 sm:px-6 pt-20 lg:pt-8 pb-12 max-w-full">
-          <PageWorkbench className="mb-5" />
-          <Link
-            href={withSlug("/admin/onboarding/imports")}
-            className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-900 mb-3"
-          >
-            <ArrowLeft className="w-4 h-4" /> Back to imports
-          </Link>
-
-          <div className="flex items-start gap-3 mb-6">
-            <div className="p-3 rounded-xl bg-gradient-to-br from-brand-primary to-brand-secondary shadow-md">
-              <Users className="w-6 h-6 text-white" />
-            </div>
-            <div>
-              <h1 className="text-2xl lg:text-3xl font-bold text-slate-900">
-                Bring your client list across
-              </h1>
-              <p className="text-sm text-slate-600 mt-0.5 max-w-2xl">
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+          <PortalHeader
+            title="Bring your client list across"
+            subtitle={
+              <>
                 Drop a spreadsheet or paste rows from Excel / Sheets. We only need <strong>Name</strong>,
                 <strong> Surname</strong>, <strong>Email</strong> and <strong>Phone</strong>.
                 Existing clients with the same email are skipped automatically.
-              </p>
-            </div>
-          </div>
+              </>
+            }
+            icon={Users}
+            actions={
+              <Link href={withSlug("/admin/onboarding/imports")}>
+                <Button variant="outline" size="sm">
+                  <ArrowLeft className="w-4 h-4 mr-1.5" /> Back to imports
+                </Button>
+              </Link>
+            }
+          />
+          <PageWorkbench />
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
             {/* File drop */}
@@ -383,7 +379,7 @@ function ClientImportPage() {
 
           {/* Preview + import */}
           {rows.length > 0 && (
-            <Card className="border-0 shadow-md mb-6">
+            <Card className="mb-6">
               <CardContent className="p-4 lg:p-6">
                 <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
                   <div>
@@ -524,7 +520,7 @@ function ClientImportPage() {
               </CardContent>
             </Card>
           )}
-        </div>
+        </PortalShell>
       </div>
     </>
   );

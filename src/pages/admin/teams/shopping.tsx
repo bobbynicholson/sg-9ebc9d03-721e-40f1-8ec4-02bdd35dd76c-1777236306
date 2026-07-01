@@ -221,7 +221,7 @@ function ShoppingTeamPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-4">
             {canSeeFinance && stats.topVendorThisMonth && (
               <Link href={withSlug(`/admin/suppliers?q=${encodeURIComponent(stats.topVendorThisMonth.vendor)}`)}>
-                <Card className="border-0 shadow-md hover:shadow-lg transition-shadow bg-gradient-to-br from-brand-primary/10 to-brand-secondary/10">
+                <Card className="hover:shadow-lg transition-shadow bg-gradient-to-br from-brand-primary/10 to-brand-secondary/10">
                   <CardContent className="p-5">
                     <div className="flex items-start gap-3">
                       <TrendingDown className="w-6 h-6 text-brand-primary flex-shrink-0" />
@@ -239,7 +239,7 @@ function ShoppingTeamPage() {
               </Link>
             )}
             <Link href={withSlug("/admin/shopping?filter=overdue")}>
-              <Card className={`border-0 shadow-md hover:shadow-lg transition-shadow bg-gradient-to-br ${stats.overdueLists > 0 ? "from-rose-50 to-amber-50" : "from-slate-50 to-slate-100"}`}>
+              <Card className={`hover:shadow-lg transition-shadow bg-gradient-to-br ${stats.overdueLists > 0 ? "from-rose-50 to-amber-50" : "from-slate-50 to-slate-100"}`}>
                 <CardContent className="p-5">
                   <div className="flex items-start gap-3">
                     <AlertTriangle className={`w-6 h-6 ${stats.overdueLists > 0 ? "text-rose-600" : "text-slate-400"} flex-shrink-0`} />
@@ -264,7 +264,7 @@ function ShoppingTeamPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             {tiles.map((t) => (
               <Link key={t.label} href={withSlug(t.href)}>
-                <Card className={`border-0 shadow-md hover:shadow-lg transition-shadow bg-gradient-to-br ${t.bg}`}>
+                <Card className={`hover:shadow-lg transition-shadow bg-gradient-to-br ${t.bg}`}>
                   <CardContent className="p-5">
                     <div className="flex items-start gap-3">
                       <t.icon className={`w-6 h-6 ${t.iconColor} flex-shrink-0`} />

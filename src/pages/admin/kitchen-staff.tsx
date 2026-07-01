@@ -686,13 +686,13 @@ function KitchenStaffPage() {
 
           {/* Stat strip */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
-            <Card className="border-0 shadow-sm">
+            <Card>
               <CardContent className="p-4">
                 <p className="text-xs uppercase tracking-wider text-slate-500 mb-1">Active staff</p>
                 <p className="text-2xl font-bold text-slate-900 tabular-nums">{stats.total}</p>
               </CardContent>
             </Card>
-            <Card className={`border-0 shadow-sm ${stats.missingRate > 0 ? "bg-amber-50" : ""}`}>
+            <Card className={`${stats.missingRate > 0 ? "bg-amber-50" : ""}`}>
               <CardContent className="p-4">
                 <p className="text-xs uppercase tracking-wider text-slate-500 mb-1 flex items-center gap-1">
                   Missing rate
@@ -706,7 +706,7 @@ function KitchenStaffPage() {
                 )}
               </CardContent>
             </Card>
-            <Card className="border-0 shadow-sm">
+            <Card>
               <CardContent className="p-4 flex items-center justify-between">
                 <div>
                   <p className="text-xs uppercase tracking-wider text-slate-500 mb-1">Wage dashboard</p>
@@ -800,7 +800,7 @@ function KitchenStaffPage() {
           </div>
 
           {/* Staff list */}
-          <Card className="border-0 shadow-sm">
+          <Card>
             <CardContent className="p-0">
               {loading ? (
                 <div className="text-center py-12 text-slate-500 text-sm">Loading staff...</div>

@@ -285,7 +285,7 @@ function SuppliersList() {
           </div>
 
           {/* Filters */}
-          <Card className="border-0 shadow-sm mb-4">
+          <Card className="mb-4">
             <CardContent className="py-3 flex flex-wrap items-center gap-3">
               <div className="relative flex-1 min-w-[260px]">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -312,7 +312,7 @@ function SuppliersList() {
           </Card>
 
           {/* Suppliers table (desktop) + card list (mobile) */}
-          <Card className="border-0 shadow-lg">
+          <Card>
             <CardContent className="p-0">
               {loading ? (
                 <div className="py-16 text-center text-slate-500">
@@ -685,7 +685,7 @@ function StatTile({
     : accent === "rose"    ? "text-rose-600"
     : "text-slate-700";
   return (
-    <Card className="border-0 shadow-sm">
+    <Card>
       <CardContent className="py-4">
         <div className="flex items-center justify-between mb-1">
           <p className="text-xs uppercase tracking-wide text-slate-500">{label}</p>

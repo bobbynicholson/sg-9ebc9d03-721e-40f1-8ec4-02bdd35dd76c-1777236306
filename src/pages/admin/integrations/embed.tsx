@@ -303,7 +303,7 @@ export default function AdminEmbedFormsPage() {
 
           {/* List or empty state */}
           {isEmpty ? (
-            <Card className="border-0 shadow-lg">
+            <Card>
               <CardContent className="py-16 text-center">
                 <div className="mx-auto mb-6 w-16 h-16 rounded-2xl bg-gradient-to-br from-brand-primary to-brand-secondary flex items-center justify-center shadow-lg">
                   <Sparkles className="w-8 h-8 text-white" />
@@ -328,7 +328,7 @@ export default function AdminEmbedFormsPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
               {loading ? (
                 Array.from({ length: 3 }).map((_, i) => (
-                  <Card key={i} className="border-0 shadow-lg">
+                  <Card key={i}>
                     <CardContent className="p-6">
                       <div className="h-32 bg-slate-100 rounded-lg animate-pulse mb-4" />
                       <div className="h-5 w-2/3 bg-slate-100 rounded animate-pulse mb-2" />
@@ -337,7 +337,7 @@ export default function AdminEmbedFormsPage() {
                   </Card>
                 ))
               ) : filteredForms.length === 0 ? (
-                <Card className="border-0 shadow-lg col-span-full">
+                <Card className="col-span-full">
                   <CardContent className="py-12 text-center text-slate-500">
                     No forms match "{search}"
                   </CardContent>
@@ -454,7 +454,7 @@ function FormCard({
     : "";
 
   return (
-    <Card className="border-0 shadow-lg hover:shadow-xl transition-shadow">
+    <Card className="hover:shadow-lg transition-shadow">
       <CardContent className="p-0">
         {/* Thumbnail iframe. LCF-K (task #232, 2026-05-25):
             bumped to h-[480px] and dropped the pointer-events-none

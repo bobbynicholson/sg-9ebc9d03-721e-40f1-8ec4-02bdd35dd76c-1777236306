@@ -712,7 +712,7 @@ function DriverSettlementPage() {
           <PageWorkbench />
 
           {/* Period picker */}
-          <Card className="border-0 shadow mb-6">
+          <Card className="mb-6">
             <CardContent className="p-4 flex flex-wrap items-end gap-3">
               <div>
                 <Label className="text-xs text-slate-500">Period</Label>
@@ -968,13 +968,13 @@ function DriverSettlementPage() {
           })()}
 
           {loadingDrivers ? (
-            <Card className="border-0 shadow">
+            <Card>
               <CardContent className="py-16 flex items-center justify-center text-slate-500 gap-2">
                 <Loader2 className="w-5 h-5 animate-spin" /> Loading drivers...
               </CardContent>
             </Card>
           ) : rows.length === 0 ? (
-            <Card className="border-0 shadow">
+            <Card>
               <CardContent className="py-16 text-center text-slate-500">
                 No drivers configured yet. Add some on /admin/driver-management.
               </CardContent>
@@ -1014,10 +1014,10 @@ function DriverSettlementPage() {
                 }
               });
             return (
-              <Card className="border-0 shadow-lg">
+              <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <Wallet className="w-5 h-5 text-orange-600" />
+                    <Wallet className="w-5 h-5 text-brand-primary" />
                     Per-driver breakdown
                   </CardTitle>
                 </CardHeader>
@@ -1906,7 +1906,7 @@ function TotalCard({
   emphasize?: boolean;
 }) {
   return (
-    <Card className={`border-0 shadow ${emphasize ? "ring-2 ring-brand-primary/20" : ""}`}>
+    <Card className={`${emphasize ? "ring-2 ring-brand-primary/20" : ""}`}>
       <CardContent className="p-4">
         <p className="text-[10px] uppercase tracking-wide font-semibold text-slate-500">{label}</p>
         <div className="flex items-center gap-2 mt-1">

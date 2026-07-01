@@ -359,7 +359,7 @@ function TaxPurchasesPage() {
                 the per-slip rose chip to a louder warning so the
                 accountant sees it before exporting. */}
             {(summary.mismatchCount > 0 || summary.overrideCount > 0) && (
-              <Card className="border-0 shadow-sm bg-amber-50 border-l-4 border-l-amber-500 mb-4">
+              <Card className="bg-amber-50 border-l-4 border-l-amber-500 mb-4">
                 <CardContent className="py-3 px-4 flex items-start gap-3 flex-wrap">
                   <AlertTriangle className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
                   <div className="flex-1 min-w-0">
@@ -384,7 +384,7 @@ function TaxPurchasesPage() {
             )}
 
             {/* WHERE-TO-EDIT BANNER */}
-            <Card className="border-0 shadow-sm bg-brand-primary/10 mb-4">
+            <Card className="bg-brand-primary/10 mb-4">
               <CardContent className="py-3 px-4 flex items-center gap-3 flex-wrap">
                 <ShoppingCart className="w-5 h-5 text-brand-primary shrink-0" />
                 <div className="flex-1 min-w-0">
@@ -401,7 +401,7 @@ function TaxPurchasesPage() {
 
             {/* SUMMARY STRIP */}
             <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3 mb-4">
-              <Card className="border-0 shadow-sm">
+              <Card>
                 <CardContent className="py-4 px-4">
                   <p className="text-xs uppercase tracking-wide text-slate-500 font-semibold">Slips logged</p>
                   <p className="text-2xl font-bold text-slate-900 mt-1 tabular-nums">{summary.receiptCount}</p>
@@ -412,7 +412,7 @@ function TaxPurchasesPage() {
                   )}
                 </CardContent>
               </Card>
-              <Card className="border-0 shadow-sm bg-gradient-to-br from-brand-primary/10 to-brand-secondary/10">
+              <Card className="bg-gradient-to-br from-brand-primary/10 to-brand-secondary/10">
                 <CardContent className="py-4 px-4">
                   <p className="text-xs uppercase tracking-wide text-brand-primary font-semibold">Deductible total</p>
                   <p className="text-2xl font-bold text-brand-primary mt-1 tabular-nums">{fmtR(summary.deductibleTotal)}</p>
@@ -433,7 +433,7 @@ function TaxPurchasesPage() {
               {/* TAX-B: VAT input claim tile. The actual rand amount
                   the operator can claim back from SARS. Often the
                   single most useful number on the page. */}
-              <Card className="border-0 shadow-sm bg-gradient-to-br from-blue-50 to-blue-100">
+              <Card className="bg-gradient-to-br from-blue-50 to-blue-100">
                 <CardContent className="py-4 px-4">
                   <p className="text-xs uppercase tracking-wide text-blue-700 font-semibold">VAT input claim</p>
                   <p className="text-2xl font-bold text-blue-900 mt-1 tabular-nums">{fmtR(summary.vatClaimableTotal)}</p>
@@ -442,13 +442,13 @@ function TaxPurchasesPage() {
                   </p>
                 </CardContent>
               </Card>
-              <Card className="border-0 shadow-sm">
+              <Card>
                 <CardContent className="py-4 px-4">
                   <p className="text-xs uppercase tracking-wide text-slate-500 font-semibold">Non-deductible</p>
                   <p className="text-2xl font-bold text-slate-900 mt-1 tabular-nums">{fmtR(summary.nonDeductibleTotal)}</p>
                 </CardContent>
               </Card>
-              <Card className={`border-0 shadow-sm ${summary.unfiledCount > 0 ? "bg-amber-50" : ""}`}>
+              <Card className={`${summary.unfiledCount > 0 ? "bg-amber-50" : ""}`}>
                 <CardContent className="py-4 px-4">
                   <p className={`text-xs uppercase tracking-wide font-semibold ${summary.unfiledCount > 0 ? "text-amber-700" : "text-slate-500"}`}>
                     Slips needing lines
@@ -464,7 +464,7 @@ function TaxPurchasesPage() {
                 the accountant a one-glance answer to "are we ready
                 to file?" plus a 6-month view of deductible velocity. */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-4">
-              <Card className={`border-0 shadow-sm ${
+              <Card className={`${
                 sarsReadiness.color === "emerald" ? "bg-brand-primary/10"
                 : sarsReadiness.color === "amber" ? "bg-amber-50/80"
                 : sarsReadiness.color === "rose" ? "bg-rose-50/80"
@@ -518,7 +518,7 @@ function TaxPurchasesPage() {
                 </CardContent>
               </Card>
 
-              <Card className="border-0 shadow-sm lg:col-span-2">
+              <Card className="lg:col-span-2">
                 <CardContent className="py-4 px-4">
                   <div className="flex items-center justify-between gap-2 mb-2">
                     <p className="text-xs uppercase tracking-wide font-semibold text-slate-700 inline-flex items-center gap-1">
@@ -559,7 +559,7 @@ function TaxPurchasesPage() {
             </div>
 
             {/* WINDOW PICKER */}
-            <Card className="border-0 shadow-sm mb-4">
+            <Card className="mb-4">
               <CardContent className="py-3 px-4 flex flex-wrap items-center gap-3">
                 <span className="text-xs uppercase tracking-wide text-slate-500 font-semibold">Window</span>
                 <div className="flex flex-wrap gap-1 rounded-lg border border-slate-200 bg-white p-1 text-xs">
@@ -599,7 +599,7 @@ function TaxPurchasesPage() {
             </Card>
 
             {/* DEDUCTIBLE BREAKDOWN BY CATEGORY */}
-            <Card className="border-0 shadow-sm mb-4">
+            <Card className="mb-4">
               <CardContent className="py-4 px-4">
                 <h2 className="text-sm font-semibold text-slate-900 mb-3 flex items-center gap-2">
                   <FileText className="w-4 h-4 text-brand-primary" />
@@ -656,7 +656,7 @@ function TaxPurchasesPage() {
             {/* TAX-B: slip list. Expandable per-row with per-line
                 drilldown so the accountant can audit without
                 bouncing to /admin/shopping. */}
-            <Card className="border-0 shadow-sm">
+            <Card>
               <CardContent className="py-4 px-4">
                 <h2 className="text-sm font-semibold text-slate-900 mb-3 flex items-center gap-2">
                   <Receipt className="w-4 h-4 text-brand-primary" />
