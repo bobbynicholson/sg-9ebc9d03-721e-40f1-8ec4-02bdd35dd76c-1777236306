@@ -19,9 +19,9 @@ const TIMELINE = [
 ];
 
 /**
- * Email-automation tab for /admin/settings. Pure informational
- * summary of the 12-month, six-email post-event journey; actual
- * template editing lives on /admin/after-sales-emails. The parent
+ * Email-automation tab for legacy /admin/settings variants. Pure
+ * informational summary of the 12-month, six-email post-event journey;
+ * actual template editing lives on /admin/email-templates. The parent
  * passes a tenant-scoped href so this component stays free of
  * useTenantHref.
  *

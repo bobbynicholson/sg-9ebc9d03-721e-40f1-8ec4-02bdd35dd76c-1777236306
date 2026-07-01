@@ -9,6 +9,7 @@ import {
 import { ClipboardCheck, Loader2, Check, Play, Clock, MapPin } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { CleaningNav } from "@/components/navigation/CleaningNav";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { PortalShell, PortalHeader, PortalCard, StatTile,
   PageWorkbench,
 } from "@/components/portal/ui";
@@ -17,6 +18,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { toLocalISO } from "@/lib/localDate";
 import { useTenantHref } from "@/lib/tenantUrl";
+import { UserRole } from "@/types/app";
 
 interface Schedule {
   id: string;
@@ -41,7 +43,7 @@ const statusTone: Record<string, string> = {
   skipped:     "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-900",
 };
 
-export default function CleaningTasksPage() {
+function CleaningTasksPageInner() {
   const { user } = useAuth();
   const { toast } = useToast();
   const { withSlug } = useTenantHref();
@@ -57,6 +59,20 @@ export default function CleaningTasksPage() {
   useEffect(() => {
     if (!user?.company_id) return;
     load();
+  }, [user?.company_id, filter]);
+
+  useEffect(() => {
+    if (!user?.company_id) return;
+    const channel = supabase
+      .channel(`cleaning-tasks-${user.company_id}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "cleaning_schedules", filter: `company_id=eq.${user.company_id}` },
+        () => void load(),
+      )
+      .subscribe();
+    return () => { void supabase.removeChannel(channel); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.company_id, filter]);
 
   const load = async () => {
@@ -86,12 +102,13 @@ export default function CleaningTasksPage() {
   };
 
   const start = async (t: Schedule) => {
+    if (!user?.company_id) return;
     try {
       await supabase.from("cleaning_schedules").update({
         status: "in_progress",
         started_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
-      }).eq("id", t.id);
+      }).eq("id", t.id).eq("company_id", user.company_id);
       toast({ title: "Task started" });
       load();
     } catch {
@@ -103,7 +120,7 @@ export default function CleaningTasksPage() {
   const closeComplete = () => { setCompleting(null); setCompletionNotes(""); };
 
   const confirmComplete = async () => {
-    if (!completing || !user?.id) return;
+    if (!completing || !user?.id || !user?.company_id) return;
     setSaving(true);
     try {
       await supabase.from("cleaning_schedules").update({
@@ -112,7 +129,7 @@ export default function CleaningTasksPage() {
         completed_by: user.id,
         notes: completionNotes.trim() || completing.notes,
         updated_at: new Date().toISOString(),
-      }).eq("id", completing.id);
+      }).eq("id", completing.id).eq("company_id", user.company_id);
       toast({ title: "Task completed", description: completing.area_name ?? "" });
       closeComplete();
       load();
@@ -142,7 +159,7 @@ export default function CleaningTasksPage() {
             subtitle={
               <>
                 Scheduled checklist work lives here. Equipment returns and washing queues stay on the Cleaning desk.{" "}
-                <a href={withSlug("/team-portal/cleaning/schedules")} className="text-brand-primary underline">Manage the recurring schedule</a> if you need to add a new repeating area.
+                <a href={withSlug("/team-portal/cleaning/schedules")} className="text-brand-primary underline">Open the schedule plan</a> if you need to add a new area checklist.
               </>
             }
             icon={ClipboardCheck}
@@ -249,5 +266,13 @@ export default function CleaningTasksPage() {
         </DialogContent>
       </Dialog>
     </>
+  );
+}
+
+export default function CleaningTasksPage() {
+  return (
+    <ProtectedRoute allowedRoles={[UserRole.CLEANING_MANAGER, UserRole.CLEANING_STAFF, UserRole.ADMIN]}>
+      <CleaningTasksPageInner />
+    </ProtectedRoute>
   );
 }

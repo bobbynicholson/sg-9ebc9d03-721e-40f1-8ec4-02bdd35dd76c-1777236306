@@ -19,6 +19,7 @@ import { PortalShell, PortalHeader, PortalCard, StatTile,
   PageWorkbench,
 } from "@/components/portal/ui";
 import { KitchenNav } from "@/components/navigation/KitchenNav";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { inventoryService, type Inventory } from "@/services/inventoryService";
@@ -26,6 +27,7 @@ import { kitchenPrepService, type IngredientDemand } from "@/services/kitchenPre
 import { supabase } from "@/integrations/supabase/client";
 import { captureException } from "@/lib/observability";
 import { toLocalISO } from "@/lib/localDate";
+import { UserRole } from "@/types/app";
 
 const ROUTE = "/team-portal/kitchen/stock";
 
@@ -38,7 +40,7 @@ type StockAction = "used" | "received" | "wasted" | "count";
 
 type SortKey = "name" | "status" | "location";
 
-export default function KitchenStockPage() {
+function KitchenStockPageInner() {
   const { user } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
@@ -399,6 +401,7 @@ export default function KitchenStockPage() {
         user.id,
         usedNotes || defaultNote,
         type,
+        user.company_id,
       );
       const sign = delta > 0 ? "+" : "";
       toast({
@@ -869,5 +872,13 @@ export default function KitchenStockPage() {
         </DialogContent>
       </Dialog>
     </>
+  );
+}
+
+export default function KitchenStockPage() {
+  return (
+    <ProtectedRoute allowedRoles={[UserRole.KITCHEN_MANAGER, UserRole.KITCHEN_STAFF, UserRole.ADMIN]}>
+      <KitchenStockPageInner />
+    </ProtectedRoute>
   );
 }

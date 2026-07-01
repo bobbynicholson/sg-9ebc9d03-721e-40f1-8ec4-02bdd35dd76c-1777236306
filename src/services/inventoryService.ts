@@ -100,12 +100,13 @@ export const inventoryService = {
     return s;
   },
 
-  async getInventoryItem(itemId: string): Promise<Inventory | null> {
-    const { data, error } = await supabase
+  async getInventoryItem(itemId: string, companyId?: string | null): Promise<Inventory | null> {
+    let query = supabase
       .from("inventory_items")
       .select("*")
-      .eq("id", itemId)
-      .single();
+      .eq("id", itemId);
+    if (companyId) query = query.eq("company_id", companyId);
+    const { data, error } = await query.single();
 
     if (error) {
       console.error("Error fetching inventory item:", error);
@@ -172,17 +173,22 @@ export const inventoryService = {
     performedBy: string,
     notes?: string,
     transactionType: "adjustment" | "usage" | "waste" | "transfer" | "return" = "adjustment",
+    companyId?: string | null,
   ): Promise<Inventory | null> {
-    const current = await this.getInventoryItem(itemId);
+    const current = await this.getInventoryItem(itemId, companyId);
     if (!current) throw new Error("Inventory item not found");
 
     const previous = Number(current.current_stock || 0);
     const delta = Number(newStock) - previous;
 
-    const { data, error } = await supabase
+    let updateQuery = supabase
       .from("inventory_items")
       .update({ current_stock: newStock, updated_at: new Date().toISOString() })
-      .eq("id", itemId)
+      .eq("id", itemId);
+    if (companyId || current.company_id) {
+      updateQuery = updateQuery.eq("company_id", companyId || current.company_id);
+    }
+    const { data, error } = await updateQuery
       .select()
       .single();
 

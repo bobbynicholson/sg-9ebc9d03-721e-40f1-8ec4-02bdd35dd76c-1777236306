@@ -15,6 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { AlertTriangle, Plus, Loader2, Search, Check, FileWarning, Package, Calendar as CalendarIcon, User, Image as ImageIcon } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { CleaningNav } from "@/components/navigation/CleaningNav";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { PortalShell, PortalHeader, PortalCard, StatTile,
   PageWorkbench,
 } from "@/components/portal/ui";
@@ -24,6 +25,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { notificationService } from "@/services/notificationService";
 import { formatDistanceToNow } from "date-fns";
 import { damageReporterName, damageReporterRole, reporterNameFromUser, type DamageReporterProfile } from "@/lib/damageReporter";
+import { UserRole } from "@/types/app";
 
 interface Damage {
   id: string;
@@ -67,13 +69,16 @@ interface Equipment { id: string; name: string | null; replacement_cost: number 
 
 const typeTone: Record<string, string> = {
   damage:     "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-900",
+  damaged:    "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-900",
   missing:    "bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-950 dark:text-rose-300 dark:border-rose-900",
+  lost:       "bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-950 dark:text-rose-300 dark:border-rose-900",
+  stolen:     "bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-950 dark:text-rose-300 dark:border-rose-900",
   broken:     "bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-950 dark:text-rose-300 dark:border-rose-900",
   worn:       "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700",
   cosmetic:   "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700",
 };
 
-export default function CleaningDamagePage() {
+function CleaningDamagePageInner() {
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -93,6 +98,18 @@ export default function CleaningDamagePage() {
   useEffect(() => {
     if (!user?.company_id) return;
     load();
+  }, [user?.company_id, tab]);
+
+  useEffect(() => {
+    if (!user?.company_id) return;
+    const refresh = () => void load();
+    const channel = supabase
+      .channel(`cleaning-damage-${user.company_id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "equipment_damages", filter: `company_id=eq.${user.company_id}` }, refresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "equipment", filter: `company_id=eq.${user.company_id}` }, refresh)
+      .subscribe();
+    return () => { void supabase.removeChannel(channel); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.company_id, tab]);
 
   const load = async () => {
@@ -149,6 +166,7 @@ export default function CleaningDamagePage() {
     search,
     [
       { key: "notes" as any, weight: 2 },
+      { key: "description" as any, weight: 2 },
       { key: "damage_type" as any, weight: 2 },
       { key: ((d: Damage) => damageReporterName(d)) as any, weight: 2, label: "reporter" },
       { key: ((d: Damage) => d.order?.order_number || "") as any, weight: 2, label: "order" },
@@ -178,6 +196,11 @@ export default function CleaningDamagePage() {
       toast({ title: "Notes are required", variant: "destructive" });
       return;
     }
+    const parsedRepairCost = repairCost ? Number(repairCost) : null;
+    if (parsedRepairCost != null && (!Number.isFinite(parsedRepairCost) || parsedRepairCost < 0)) {
+      toast({ title: "Enter a valid repair cost", variant: "destructive" });
+      return;
+    }
     setSaving(true);
     try {
       const { data: inserted, error } = await supabase
@@ -191,7 +214,7 @@ export default function CleaningDamagePage() {
           equipment_id: equipmentId || null,
           damage_type: damageType,
           notes: notes.trim(),
-          repair_cost: repairCost ? Number(repairCost) : null,
+          repair_cost: parsedRepairCost,
           reported_by: user.id,
           responsible_name: reporterNameFromUser(user),
           damage_stage: "cleaning",
@@ -215,7 +238,7 @@ export default function CleaningDamagePage() {
         const eqLabel = equipmentId
           ? (equipment.find((e) => e.id === equipmentId)?.name || "an item")
           : "an item";
-        const costLabel = repairCost ? ` Repair estimate R${Number(repairCost).toFixed(2)}.` : "";
+        const costLabel = parsedRepairCost ? ` Repair estimate R${parsedRepairCost.toFixed(2)}.` : "";
         await notificationService.broadcastNotification({
           companyId: user.company_id,
           targetRoles: ["company_admin", "admin", "owner"] as any,
@@ -245,8 +268,9 @@ export default function CleaningDamagePage() {
   };
 
   const markResolved = async (id: string) => {
+    if (!user?.company_id) return;
     try {
-      await supabase.from("equipment_damages").update({ resolved: true }).eq("id", id);
+      await supabase.from("equipment_damages").update({ resolved: true }).eq("id", id).eq("company_id", user.company_id);
       toast({ title: "Marked resolved" });
       load();
     } catch {
@@ -441,5 +465,13 @@ export default function CleaningDamagePage() {
         </DialogContent>
       </Dialog>
     </>
+  );
+}
+
+export default function CleaningDamagePage() {
+  return (
+    <ProtectedRoute allowedRoles={[UserRole.CLEANING_MANAGER, UserRole.CLEANING_STAFF, UserRole.ADMIN]}>
+      <CleaningDamagePageInner />
+    </ProtectedRoute>
   );
 }

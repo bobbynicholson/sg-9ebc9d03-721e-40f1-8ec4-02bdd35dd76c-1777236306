@@ -17,6 +17,8 @@ import type { GetServerSideProps } from "next";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { useEffect } from "react";
 import { useRouter } from "next/router";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { UserRole } from "@/types/app";
 
 export const getServerSideProps: GetServerSideProps = async () => {
   // Best we can do server-side without knowing the slug: bounce
@@ -25,7 +27,7 @@ export const getServerSideProps: GetServerSideProps = async () => {
   return { props: {} };
 };
 
-export default function KitchenSettingsRedirect() {
+function KitchenSettingsRedirectInner() {
   const router = useRouter();
   const { withSlug } = useTenantHref();
 
@@ -39,5 +41,13 @@ export default function KitchenSettingsRedirect() {
         Redirecting to Kitchen today...
       </div>
     </div>
+  );
+}
+
+export default function KitchenSettingsRedirect() {
+  return (
+    <ProtectedRoute allowedRoles={[UserRole.KITCHEN_MANAGER, UserRole.KITCHEN_STAFF, UserRole.ADMIN]}>
+      <KitchenSettingsRedirectInner />
+    </ProtectedRoute>
   );
 }

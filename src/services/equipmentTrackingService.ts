@@ -244,7 +244,8 @@ export const equipmentTrackingService = {
         const { error: invErr } = await supabase
           .from("equipment")
           .update({ available_quantity: newAvail, updated_at: new Date().toISOString() } as any)
-          .eq("id", params.equipmentId);
+          .eq("id", params.equipmentId)
+          .eq("company_id", companyId);
         if (invErr) {
           console.warn("[equipmentTrackingService/reportDamage] availability deduction failed (non-blocking):", invErr);
         }

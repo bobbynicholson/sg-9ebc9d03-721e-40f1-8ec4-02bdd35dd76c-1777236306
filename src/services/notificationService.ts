@@ -138,6 +138,7 @@ interface NotificationFilters {
  *     email: { orderConfirmation, orderUpdates, paymentReceived, dailySummary },
  *     push:  { urgentAlerts, newOrders, staffUpdates, inventoryAlerts },
  *     sms:   { criticalAlerts, paymentReminders },
+ *     whatsapp: { urgentAlerts, newOrders, staffUpdates, inventoryAlerts },
  *   }
  *
  * broadcastNotification fan-out reads each candidate recipient's

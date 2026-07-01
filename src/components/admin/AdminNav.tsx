@@ -67,7 +67,6 @@ import {
   Activity,
   Shield,
   CookingPot,
-  FlaskConical,
 } from "lucide-react";
 import { useRouter } from "next/router";
 import { Badge } from "@/components/ui/badge";
@@ -328,6 +327,7 @@ export function AdminNav(_: AdminNavProps = {}) {
       UserRole.SUPER_ADMIN,
       UserRole.OWNER,
       UserRole.COMPANY_ADMIN,
+      UserRole.ADMIN,
     ].includes(profile.role as UserRole) ? [{
       id: "settings",
       title: "Settings",
@@ -342,9 +342,6 @@ export function AdminNav(_: AdminNavProps = {}) {
         { title: "Messages",              href: "/admin/email-templates",       icon: MessageSquare, description: "Email and WhatsApp templates" },
         { title: "Notifications",         href: "/admin/notification-settings", icon: Bell,          description: "Routing and opt-ins" },
         { title: "Audit log",             href: "/admin/audit-logs",            icon: Shield,        description: "Compliance trail - who did what" },
-        ...([UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN].includes(profile.role as UserRole)
-          ? [{ title: "Smoke test", href: "/admin/smoke-test", icon: FlaskConical, description: "Run end-to-end regression" }]
-          : []),
         { title: "System",                href: "/admin/settings",              icon: Settings,      description: "General settings" },
       ],
     } as PortalSidebarSection] : []),

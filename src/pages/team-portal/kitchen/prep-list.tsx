@@ -15,6 +15,7 @@ import { PortalShell, PortalHeader, PortalCard, PortalCardHeader,
   PageWorkbench,
 } from "@/components/portal/ui";
 import { KitchenNav } from "@/components/navigation/KitchenNav";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { Footer } from "@/components/Footer";
@@ -81,7 +82,7 @@ const dayBucket = (d: string, today: Date) => {
 
 type ViewMode = "by_order" | "by_ingredient";
 
-export default function KitchenPrepListPage() {
+function KitchenPrepListPageInner() {
   const { profile } = useAuth();
   // Wave 70.44b - only show the "Open menu editor" / "Add recipes"
   // links to users who can actually open /admin/menu. Kitchen staff
@@ -1189,5 +1190,13 @@ export default function KitchenPrepListPage() {
         <Footer />
       </div>
     </>
+  );
+}
+
+export default function KitchenPrepListPage() {
+  return (
+    <ProtectedRoute allowedRoles={[UserRole.KITCHEN_MANAGER, UserRole.KITCHEN_STAFF, UserRole.ADMIN]}>
+      <KitchenPrepListPageInner />
+    </ProtectedRoute>
   );
 }

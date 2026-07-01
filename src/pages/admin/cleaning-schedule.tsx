@@ -207,6 +207,27 @@ function CleaningScheduleGrid() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [companyId, weekStart]);
 
+  useEffect(() => {
+    if (!companyId) return;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const refresh = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => void load(), 750);
+    };
+    const channel = supabase
+      .channel(`admin-cleaning-schedule-${companyId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "kitchen_shifts", filter: `company_id=eq.${companyId}` }, refresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "profiles", filter: `company_id=eq.${companyId}` }, refresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "staff_shift_tasks" }, refresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "user_departments" }, refresh)
+      .subscribe();
+    return () => {
+      if (timer) clearTimeout(timer);
+      void supabase.removeChannel(channel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyId, weekStart]);
+
   const shiftIndex = useMemo(() => {
     const map: Record<string, ShiftRow[]> = {};
     for (const s of shifts) {

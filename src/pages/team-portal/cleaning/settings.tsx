@@ -8,11 +8,13 @@ import { Settings as SettingsIcon, Save, Loader2, Camera, AlertTriangle, ListChe
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { CleaningNav } from "@/components/navigation/CleaningNav";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { PortalShell, PortalHeader, PortalCard,
   PageWorkbench,
 } from "@/components/portal/ui";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { UserRole } from "@/types/app";
 
 interface Settings {
   photoRequiredForVerify: boolean;
@@ -38,7 +40,7 @@ const DEFAULTS: Settings = {
 
 const storageKey = (companyId: string) => `cms_cleaning_settings_${companyId}`;
 
-export default function CleaningSettingsPage() {
+function CleaningSettingsPageInner() {
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -199,5 +201,13 @@ export default function CleaningSettingsPage() {
         </PortalShell>
       </main>
     </>
+  );
+}
+
+export default function CleaningSettingsPage() {
+  return (
+    <ProtectedRoute allowedRoles={[UserRole.CLEANING_MANAGER, UserRole.ADMIN]}>
+      <CleaningSettingsPageInner />
+    </ProtectedRoute>
   );
 }

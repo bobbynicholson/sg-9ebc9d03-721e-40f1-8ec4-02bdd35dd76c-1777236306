@@ -1,5 +1,8 @@
 ﻿import { useEffect } from "react";
 import { useRouter } from "next/router";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { useTenantHref } from "@/lib/tenantUrl";
+import { UserRole } from "@/types/app";
 
 /**
  * Admin entry point for kitchen duty tracking.
@@ -21,8 +24,9 @@ import { useRouter } from "next/router";
  * retention). Once the next retention sweep clears the old rows,
  * this file can be deleted.
  */
-export default function KitchenDutyTrackingRedirect() {
+function KitchenDutyTrackingRedirectInner() {
   const router = useRouter();
+  const { withSlug } = useTenantHref();
   useEffect(() => {
     // Preserve any querystring (shiftId is the common one).
     const { shiftId, ...rest } = router.query as Record<string, string>;
@@ -32,7 +36,15 @@ export default function KitchenDutyTrackingRedirect() {
       if (typeof v === "string") qs.set(k, v);
     }
     const suffix = qs.toString();
-    router.replace(`/admin/kitchen-schedule${suffix ? `?${suffix}` : ""}`);
-  }, [router]);
+    router.replace(withSlug(`/admin/kitchen-schedule${suffix ? `?${suffix}` : ""}`));
+  }, [router, withSlug]);
   return null;
+}
+
+export default function KitchenDutyTrackingRedirect() {
+  return (
+    <ProtectedRoute allowedRoles={[UserRole.ADMIN, UserRole.KITCHEN_MANAGER]}>
+      <KitchenDutyTrackingRedirectInner />
+    </ProtectedRoute>
+  );
 }

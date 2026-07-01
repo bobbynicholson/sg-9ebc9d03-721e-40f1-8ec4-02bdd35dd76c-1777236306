@@ -67,7 +67,14 @@ export function KitchenNav(_: KitchenNavProps = {}) {
 
   const isService = serviceMode.mode === "service";
   const activeRole = String(profile?.active_role || profile?.role || user?.active_role || user?.role || "").toLowerCase();
-  const isKitchenManager = activeRole === "kitchen_manager";
+  const canSeeManagerLinks = [
+    "kitchen_manager",
+    "admin",
+    "company_admin",
+    "super_admin",
+    "owner",
+    "region_admin",
+  ].includes(activeRole);
 
   const config: PortalSidebarConfig = {
     role: "kitchen",
@@ -151,7 +158,7 @@ export function KitchenNav(_: KitchenNavProps = {}) {
           { title: "Recipes", href: "/team-portal/kitchen/menu",  icon: BookOpen, description: "Recipe library" },
         ],
       },
-      ...(isKitchenManager ? [{
+      ...(canSeeManagerLinks ? [{
         id: "manager",
         title: "Manager",
         defaultOpen: true,

@@ -8,9 +8,9 @@
  * toast was technically true but the preferences had zero effect on
  * what got delivered. See docs/notifications.md sections 4 and 5.
  *
- * Consumer-side wiring (notificationService reading these prefs
- * before fan-out) is a follow-up PR. localStorage still hydrated as
- * a fallback for offline / no-session cases.
+ * notificationService reads these preferences before in-app and
+ * WhatsApp fan-out. Legacy boolean columns are also kept in step for
+ * older email notification paths.
  *
  * Phase 5 #7: react-hook-form + zod. Every Switch wires through
  * Controller so RHF manages state without cascade re-renders.
@@ -36,6 +36,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { UserRole } from "@/types/app";
 
 // Avoid an unused-import lint complaint. The Tabs component is
 // still re-exported in the codebase but the page no longer uses it.
@@ -58,6 +60,17 @@ const schema = z.object({
     criticalAlerts: z.boolean(),
     paymentReminders: z.boolean(),
   }),
+  whatsapp: z.object({
+    urgentAlerts: z.boolean(),
+    newOrders: z.boolean(),
+    staffUpdates: z.boolean(),
+    inventoryAlerts: z.boolean(),
+  }).default({
+    urgentAlerts: true,
+    newOrders: true,
+    staffUpdates: true,
+    inventoryAlerts: true,
+  }),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -79,7 +92,24 @@ const DEFAULTS: FormValues = {
     criticalAlerts: true,
     paymentReminders: false,
   },
+  whatsapp: {
+    urgentAlerts: true,
+    newOrders: true,
+    staffUpdates: true,
+    inventoryAlerts: true,
+  },
 };
+
+function mergePreferenceDefaults(value: unknown): FormValues {
+  const patch = value && typeof value === "object" ? value as Partial<FormValues> : {};
+
+  return {
+    email: { ...DEFAULTS.email, ...(patch.email || {}) },
+    push: { ...DEFAULTS.push, ...(patch.push || {}) },
+    sms: { ...DEFAULTS.sms, ...(patch.sms || {}) },
+    whatsapp: { ...DEFAULTS.whatsapp, ...(patch.whatsapp || {}) },
+  };
+}
 
 // Kept for an offline fallback hydrate when the DB read fails. Writes
 // also mirror here so the next page load can show the user's settings
@@ -91,7 +121,8 @@ interface ToggleProps {
   name:
     | `email.${keyof FormValues["email"]}`
     | `push.${keyof FormValues["push"]}`
-    | `sms.${keyof FormValues["sms"]}`;
+    | `sms.${keyof FormValues["sms"]}`
+    | `whatsapp.${keyof FormValues["whatsapp"]}`;
   id: string;
   title: string;
   desc: string;
@@ -115,9 +146,26 @@ function ToggleRow({ control, name, id, title, desc }: ToggleProps) {
   );
 }
 
-export default function NotificationSettings() {
+export default function ProtectedNotificationSettings() {
+  return (
+    <ProtectedRoute allowedRoles={[
+      UserRole.SUPER_ADMIN,
+      UserRole.OWNER,
+      UserRole.COMPANY_ADMIN,
+      UserRole.ADMIN,
+    ]}>
+      <NotificationSettingsPage />
+    </ProtectedRoute>
+  );
+}
+
+function NotificationSettingsPage() {
   const { toast } = useToast();
-  const { user } = useAuth() as { user: { id?: string; company_id?: string } | null };
+  const { user, profile } = useAuth() as {
+    user: { id?: string; company_id?: string } | null;
+    profile: { company_id?: string } | null;
+  };
+  const companyId = profile?.company_id || user?.company_id || null;
   const [loading, setLoading] = useState(true);
 
   const { control, handleSubmit, reset, formState: { isSubmitting } } = useForm<FormValues>({
@@ -143,7 +191,7 @@ export default function NotificationSettings() {
             .eq("user_id", user.id)
             .maybeSingle();
           if (!error && data?.preferences) {
-            const parsed = schema.safeParse(data.preferences);
+            const parsed = schema.safeParse(mergePreferenceDefaults(data.preferences));
             if (parsed.success) {
               if (!cancelled) {
                 reset(parsed.data);
@@ -163,7 +211,7 @@ export default function NotificationSettings() {
         try {
           const saved = window.localStorage.getItem(STORAGE_KEY);
           if (saved) {
-            const parsed = schema.safeParse(JSON.parse(saved));
+            const parsed = schema.safeParse(mergePreferenceDefaults(JSON.parse(saved)));
             if (parsed.success && !cancelled) {
               reset(parsed.data);
             }
@@ -196,8 +244,17 @@ export default function NotificationSettings() {
         .upsert(
           {
             user_id: user.id,
-            company_id: user.company_id || null,
+            company_id: companyId,
             preferences: values,
+            order_confirmed: values.email.orderConfirmation,
+            order_status_changed: values.email.orderUpdates,
+            payment_received: values.email.paymentReceived,
+            daily_summary: values.email.dailySummary,
+            low_stock_alert: values.push.inventoryAlerts,
+            out_of_stock_alert: values.push.inventoryAlerts,
+            driver_assigned: values.push.staffUpdates,
+            task_assigned: values.push.staffUpdates,
+            payment_due: values.sms.paymentReminders,
             updated_at: new Date().toISOString(),
           },
           { onConflict: "user_id" },
@@ -242,7 +299,7 @@ export default function NotificationSettings() {
           <PortalHeader
             title="Notification settings"
             icon={Bell}
-            subtitle="Per-user channels and triggers. Decide which events ping you by email, in-app banner, WhatsApp, or push. Owners get everything by default. Tune the noise from here."
+            subtitle="Per-user channels and triggers. Decide which events ping you by email, in-app banner, WhatsApp, push, or SMS. Owners get everything by default. Tune the noise from here."
           />
           <PageWorkbench />
 
@@ -261,7 +318,7 @@ export default function NotificationSettings() {
                 <CardTitle className="flex items-center gap-2">
                   <Mail className="w-5 h-5 text-blue-600" />
                   Email Notifications
-                  <InfoTooltip content={"Choose which email alerts you want for orders, payments and daily summaries.\n\nSaved to your account. Consumer-side wiring is rolling out per channel - see docs/notifications.md."} />
+                  <InfoTooltip content={"Choose which email alerts you want for orders, payments and daily summaries.\n\nSaved to your account and mirrored into legacy columns for older email notification workers."} />
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -304,6 +361,23 @@ export default function NotificationSettings() {
               </CardContent>
             </Card>
 
+            {/* WhatsApp Notifications */}
+            <Card className="border-0 shadow-lg">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <MessageSquare className="w-5 h-5 text-brand-primary" />
+                  WhatsApp Notifications
+                  <InfoTooltip content={"WhatsApp fan-out uses the same event buckets as push. A message is queued only when the tenant has WhatsApp connected and your profile has a WhatsApp-enabled phone number."} />
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <ToggleRow control={control} name="whatsapp.urgentAlerts" id="waUrgentAlerts" title="Urgent Alerts" desc="Critical issues requiring immediate attention" />
+                <ToggleRow control={control} name="whatsapp.newOrders" id="waNewOrders" title="New Orders" desc="Confirmed orders and claimable jobs" />
+                <ToggleRow control={control} name="whatsapp.staffUpdates" id="waStaffUpdates" title="Staff Updates" desc="Driver, kitchen, amendment, and cancellation changes" />
+                <ToggleRow control={control} name="whatsapp.inventoryAlerts" id="waInventoryAlerts" title="Inventory Alerts" desc="Low stock and equipment shortage messages" />
+              </CardContent>
+            </Card>
+
             {/* Save Button */}
             <Card className="border-0 shadow-lg bg-gradient-to-r from-blue-50 to-slate-50">
               <CardContent className="pt-6">
@@ -311,7 +385,7 @@ export default function NotificationSettings() {
                   <div className="flex items-center gap-3">
                     <AlertCircle className="w-5 h-5 text-blue-600" />
                     <p className="text-sm text-slate-700">
-                      Saved to your account; consumer-side wiring rolls out per channel.
+                      Saved to your account and used by the notification fan-out service.
                     </p>
                   </div>
                   <Button type="submit" size="lg" disabled={isSubmitting}>

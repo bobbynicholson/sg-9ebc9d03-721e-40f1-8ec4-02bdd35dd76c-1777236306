@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Bell, Check, AlertCircle, AlertTriangle, Info, CheckCircle2, Archive } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { CleaningNav } from "@/components/navigation/CleaningNav";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { PortalShell, PortalHeader, PortalCard,
   PageWorkbench,
 } from "@/components/portal/ui";
@@ -14,6 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { formatDistanceToNow } from "date-fns";
 import { effectivePriority, isStaleNotification, STALE_NOTIFICATION_DAYS } from "@/lib/notificationDisplay";
 import { useTenantHref } from "@/lib/tenantUrl";
+import { UserRole } from "@/types/app";
 
 interface Notification {
   id: string;
@@ -44,7 +46,7 @@ const priorityTone = (p?: string | null) => {
   return "text-slate-400 dark:text-slate-500";
 };
 
-export default function CleaningNotificationsPage() {
+function CleaningNotificationsPageInner() {
   const { user } = useAuth();
   const { toast } = useToast();
   const { withSlug } = useTenantHref();
@@ -70,17 +72,17 @@ export default function CleaningNotificationsPage() {
   }, [user?.id, user?.company_id, tab, refreshKey]);
 
   useEffect(() => {
-    if (!user?.id) return;
+    if (!user?.company_id) return;
     const channel = supabase
-      .channel(`notif-page-${user.id}-${Math.random().toString(36).slice(2, 8)}`)
+      .channel(`cleaning-notifications-${user.company_id}`)
       .on(
         "postgres_changes",
-        { event: "INSERT", schema: "public", table: "notifications", filter: `recipient_id=eq.${user.id}` },
+        { event: "*", schema: "public", table: "notifications", filter: `company_id=eq.${user.company_id}` },
         () => setRefreshKey((k) => k + 1),
       )
       .subscribe();
     return () => { void supabase.removeChannel(channel); };
-  }, [user?.id]);
+  }, [user?.company_id]);
 
   const load = async () => {
     if (!user?.id || !user?.company_id) return;
@@ -105,8 +107,9 @@ export default function CleaningNotificationsPage() {
   };
 
   const markRead = async (id: string) => {
+    if (!user?.company_id) return;
     try {
-      await supabase.from("notifications").update({ is_read: true, read_at: new Date().toISOString() }).eq("id", id);
+      await supabase.from("notifications").update({ is_read: true, read_at: new Date().toISOString() }).eq("id", id).eq("company_id", user.company_id);
       setNotifs((p) => p.map((n) => n.id === id ? { ...n, is_read: true } : n));
     } catch {
       toast({ title: "Could not mark read", variant: "destructive" });
@@ -115,8 +118,9 @@ export default function CleaningNotificationsPage() {
   const markAllRead = async () => {
     const ids = notifs.filter((n) => !n.is_read).map((n) => n.id);
     if (ids.length === 0) return;
+    if (!user?.company_id) return;
     try {
-      await supabase.from("notifications").update({ is_read: true, read_at: new Date().toISOString() }).in("id", ids);
+      await supabase.from("notifications").update({ is_read: true, read_at: new Date().toISOString() }).eq("company_id", user.company_id).in("id", ids);
       setNotifs((p) => p.map((n) => ({ ...n, is_read: true })));
       toast({ title: "All marked as read" });
     } catch {
@@ -145,7 +149,8 @@ export default function CleaningNotificationsPage() {
     try {
       const ids = stale.map((n) => n.id);
       if (ids.length === 0) return;
-      await supabase.from("notifications").delete().in("id", ids);
+      if (!user?.company_id) return;
+      await supabase.from("notifications").delete().eq("company_id", user.company_id).in("id", ids);
       setNotifs((p) => p.filter((n) => !isStaleNotification(n.created_at)));
       toast({ title: `${stale.length} stale notification${stale.length === 1 ? "" : "s"} cleared` });
     } catch {
@@ -246,5 +251,13 @@ export default function CleaningNotificationsPage() {
         </PortalShell>
       </main>
     </>
+  );
+}
+
+export default function CleaningNotificationsPage() {
+  return (
+    <ProtectedRoute allowedRoles={[UserRole.CLEANING_MANAGER, UserRole.CLEANING_STAFF, UserRole.ADMIN]}>
+      <CleaningNotificationsPageInner />
+    </ProtectedRoute>
   );
 }

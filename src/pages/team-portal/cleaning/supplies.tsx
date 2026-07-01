@@ -11,12 +11,15 @@ import {
 import { Wrench, Search, AlertTriangle, Loader2, Minus } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { CleaningNav } from "@/components/navigation/CleaningNav";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { PortalShell, PortalHeader, PortalCard, StatTile,
   PageWorkbench,
 } from "@/components/portal/ui";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { inventoryService, type Inventory } from "@/services/inventoryService";
+import { supabase } from "@/integrations/supabase/client";
+import { UserRole } from "@/types/app";
 
 const CLEANING_KEYWORDS = [
   "detergent", "cleaner", "soap", "bleach", "sanitiser", "sanitizer",
@@ -24,7 +27,7 @@ const CLEANING_KEYWORDS = [
   "cleaning", "disinfect", "scrubb", "rubber", "bin liner", "paper towel",
 ];
 
-export default function CleaningSuppliesPage() {
+function CleaningSuppliesPageInner() {
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -41,6 +44,20 @@ export default function CleaningSuppliesPage() {
   useEffect(() => {
     if (!user?.company_id) return;
     load();
+  }, [user?.company_id]);
+
+  useEffect(() => {
+    if (!user?.company_id) return;
+    const channel = supabase
+      .channel(`cleaning-supplies-${user.company_id}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "inventory_items", filter: `company_id=eq.${user.company_id}` },
+        () => void load(),
+      )
+      .subscribe();
+    return () => { void supabase.removeChannel(channel); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.company_id]);
 
   const load = async () => {
@@ -102,6 +119,14 @@ export default function CleaningSuppliesPage() {
       return;
     }
     const current = Number(usingItem.current_stock || 0);
+    if (qty > current) {
+      toast({
+        title: "Not enough stock on hand",
+        description: `${usingItem.item_name} has ${current} ${usingItem.unit_of_measure || ""} available.`,
+        variant: "destructive",
+      });
+      return;
+    }
     const newStock = Math.max(0, current - qty);
     setSaving(true);
     try {
@@ -177,8 +202,8 @@ export default function CleaningSuppliesPage() {
             ) : filtered.length === 0 ? (
               <div className="text-center py-16 text-slate-500 dark:text-slate-400">
                 <Wrench className="h-10 w-10 mx-auto mb-3 text-slate-300 dark:text-slate-600" />
-                <p className="font-medium text-slate-700 dark:text-slate-200">No cleaning supplies found</p>
-                <p className="text-xs mt-1">Add inventory items with category 'Cleaning' or 'Consumable' to populate this view</p>
+                <p className="font-medium text-slate-700 dark:text-slate-200">{belowParOnly || search ? "No supplies match this filter" : "No cleaning supplies found"}</p>
+                <p className="text-xs mt-1">{belowParOnly || search ? "Clear the filter to see the full cleaning stock list" : "Add inventory items with category 'Cleaning' or 'Consumable' to populate this view"}</p>
               </div>
             ) : (
               <div className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -233,5 +258,13 @@ export default function CleaningSuppliesPage() {
         </DialogContent>
       </Dialog>
     </>
+  );
+}
+
+export default function CleaningSuppliesPage() {
+  return (
+    <ProtectedRoute allowedRoles={[UserRole.CLEANING_MANAGER, UserRole.CLEANING_STAFF, UserRole.ADMIN]}>
+      <CleaningSuppliesPageInner />
+    </ProtectedRoute>
   );
 }

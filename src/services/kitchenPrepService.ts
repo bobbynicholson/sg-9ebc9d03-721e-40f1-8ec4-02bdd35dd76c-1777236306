@@ -1598,29 +1598,34 @@ export const kitchenPrepService = {
    *   - total_break_min: cumulative minutes of completed breaks
    * One column flip when starting, two when stopping (stamp + accumulate).
    */
-  async startBreak(shiftId: string): Promise<void> {
-    const { error } = await supabase
+  async startBreak(shiftId: string, companyId?: string | null): Promise<void> {
+    let query = supabase
       .from("kitchen_duty_shifts")
       .update({ break_started_at: new Date().toISOString() })
       .eq("id", shiftId);
+    if (companyId) query = query.eq("company_id", companyId);
+    const { error } = await query;
     if (error) throw error;
   },
 
-  async endBreak(shiftId: string): Promise<void> {
-    const { data: shift, error: gErr } = await supabase
+  async endBreak(shiftId: string, companyId?: string | null): Promise<void> {
+    let getQuery = supabase
       .from("kitchen_duty_shifts")
       .select("break_started_at, total_break_min")
-      .eq("id", shiftId)
-      .single();
+      .eq("id", shiftId);
+    if (companyId) getQuery = getQuery.eq("company_id", companyId);
+    const { data: shift, error: gErr } = await getQuery.single();
     if (gErr || !shift?.break_started_at) return;
     const elapsedMin = Math.max(0, Math.floor(
       (Date.now() - new Date(shift.break_started_at).getTime()) / 60_000,
     ));
     const newTotal = (shift.total_break_min || 0) + elapsedMin;
-    const { error } = await supabase
+    let updateQuery = supabase
       .from("kitchen_duty_shifts")
       .update({ break_started_at: null, total_break_min: newTotal })
       .eq("id", shiftId);
+    if (companyId) updateQuery = updateQuery.eq("company_id", companyId);
+    const { error } = await updateQuery;
     if (error) throw error;
   },
 

@@ -112,7 +112,16 @@ export function EquipmentVerificationPanel() {
       return;
     }
 
-    const quantityReceived = parseInt(actualCount);
+    const quantityReceived = parseInt(actualCount, 10);
+    const quantitySent = Number(handover.quantity_sent || 0);
+    if (!Number.isFinite(quantityReceived) || quantityReceived < 0 || quantityReceived > quantitySent) {
+      toast({
+        title: "Check the received quantity",
+        description: `Received quantity must be between 0 and ${quantitySent}.`,
+        variant: "destructive",
+      });
+      return;
+    }
     const hasDiscrepancy = quantityReceived !== handover.quantity_sent;
 
     if (hasDiscrepancy && !notes.trim()) {
@@ -128,6 +137,7 @@ export function EquipmentVerificationPanel() {
     try {
       await equipmentTrackingService.confirmHandoverReceipt({
         handoverId: handover.id,
+        receivedByUserId: user?.id,
         receivedByName: reporterNameFromUser(user),
         quantityReceived,
         discrepancyReason: hasDiscrepancy ? notes : undefined,

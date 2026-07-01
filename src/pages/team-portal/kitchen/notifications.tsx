@@ -6,6 +6,7 @@ import { Bell, Check, Loader2, AlertCircle, AlertTriangle, Info, CheckCircle2, A
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { KitchenNav } from "@/components/navigation/KitchenNav";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -16,6 +17,7 @@ import { PortalShell, PortalHeader, PortalCard,
 } from "@/components/portal/ui";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { cn } from "@/lib/utils";
+import { UserRole } from "@/types/app";
 
 interface Notification {
   id: string;
@@ -48,7 +50,7 @@ const priorityTone = (p?: string | null) => {
   return "text-slate-400 dark:text-slate-500";
 };
 
-export default function KitchenNotificationsPage() {
+function KitchenNotificationsPageInner() {
   const { user } = useAuth();
   const { toast } = useToast();
   const { withSlug } = useTenantHref();
@@ -76,17 +78,17 @@ export default function KitchenNotificationsPage() {
   }, [user?.id, user?.company_id, tab, refreshKey]);
 
   useEffect(() => {
-    if (!user?.id) return;
+    if (!user?.company_id) return;
     const channel = supabase
-      .channel(`notif-page-${user.id}-${Math.random().toString(36).slice(2, 8)}`)
+      .channel(`kitchen-notifications-${user.company_id}`)
       .on(
         "postgres_changes",
-        { event: "INSERT", schema: "public", table: "notifications", filter: `recipient_id=eq.${user.id}` },
+        { event: "*", schema: "public", table: "notifications", filter: `company_id=eq.${user.company_id}` },
         () => setRefreshKey((k) => k + 1),
       )
       .subscribe();
     return () => { void supabase.removeChannel(channel); };
-  }, [user?.id]);
+  }, [user?.company_id]);
 
   const load = async () => {
     if (!user?.id || !user?.company_id) return;
@@ -111,8 +113,9 @@ export default function KitchenNotificationsPage() {
   };
 
   const markRead = async (id: string) => {
+    if (!user?.company_id) return;
     try {
-      await supabase.from("notifications").update({ is_read: true, read_at: new Date().toISOString() }).eq("id", id);
+      await supabase.from("notifications").update({ is_read: true, read_at: new Date().toISOString() }).eq("id", id).eq("company_id", user.company_id);
       setNotifs((prev) => prev.map((n) => n.id === id ? { ...n, is_read: true } : n));
     } catch (e) {
       toast({ title: "Could not mark as read", variant: "destructive" });
@@ -120,11 +123,11 @@ export default function KitchenNotificationsPage() {
   };
 
   const markAllRead = async () => {
-    if (!user?.id) return;
+    if (!user?.id || !user?.company_id) return;
     try {
       const ids = notifs.filter((n) => !n.is_read).map((n) => n.id);
       if (ids.length === 0) return;
-      await supabase.from("notifications").update({ is_read: true, read_at: new Date().toISOString() }).in("id", ids);
+      await supabase.from("notifications").update({ is_read: true, read_at: new Date().toISOString() }).eq("company_id", user.company_id).in("id", ids);
       setNotifs((prev) => prev.map((n) => ({ ...n, is_read: true })));
       toast({ title: "All marked as read" });
     } catch (e) {
@@ -157,7 +160,8 @@ export default function KitchenNotificationsPage() {
     try {
       const ids = stale.map((n) => n.id);
       if (ids.length === 0) return;
-      await supabase.from("notifications").delete().in("id", ids);
+      if (!user?.company_id) return;
+      await supabase.from("notifications").delete().eq("company_id", user.company_id).in("id", ids);
       setNotifs((prev) => prev.filter((n) => !isStaleNotification(n.created_at)));
       toast({ title: `${stale.length} stale notification${stale.length === 1 ? "" : "s"} cleared` });
     } catch (e) {
@@ -278,5 +282,13 @@ export default function KitchenNotificationsPage() {
         </PortalShell>
       </main>
     </>
+  );
+}
+
+export default function KitchenNotificationsPage() {
+  return (
+    <ProtectedRoute allowedRoles={[UserRole.KITCHEN_MANAGER, UserRole.KITCHEN_STAFF, UserRole.ADMIN]}>
+      <KitchenNotificationsPageInner />
+    </ProtectedRoute>
   );
 }

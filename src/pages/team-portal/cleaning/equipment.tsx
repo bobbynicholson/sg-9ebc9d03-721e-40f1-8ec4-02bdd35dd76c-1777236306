@@ -16,6 +16,7 @@ import { Package, Search, Loader2, CheckCircle2, AlertTriangle, ShieldCheck, Boo
 import Link from "next/link";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { CleaningNav } from "@/components/navigation/CleaningNav";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -23,6 +24,7 @@ import { PortalShell, PortalHeader, PortalCard, StatTile,
   PageWorkbench,
 } from "@/components/portal/ui";
 import { useTenantHref } from "@/lib/tenantUrl";
+import { UserRole } from "@/types/app";
 
 interface Equipment {
   id: string;
@@ -44,7 +46,7 @@ const conditionTone: Record<string, string> = {
   damaged: "bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-950 dark:text-rose-300 dark:border-rose-900",
 };
 
-export default function CleaningEquipmentPage() {
+function CleaningEquipmentPageInner() {
   const { user } = useAuth();
   const { toast } = useToast();
   const { withSlug } = useTenantHref();
@@ -64,6 +66,18 @@ export default function CleaningEquipmentPage() {
   useEffect(() => {
     if (!user?.company_id) return;
     load();
+  }, [user?.company_id]);
+
+  useEffect(() => {
+    if (!user?.company_id) return;
+    const refresh = () => void load();
+    const channel = supabase
+      .channel(`cleaning-equipment-${user.company_id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "equipment", filter: `company_id=eq.${user.company_id}` }, refresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "equipment_damages", filter: `company_id=eq.${user.company_id}` }, refresh)
+      .subscribe();
+    return () => { void supabase.removeChannel(channel); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.company_id]);
 
   const load = async () => {
@@ -137,19 +151,29 @@ export default function CleaningEquipmentPage() {
       toast({ title: "Quantities must be positive numbers", variant: "destructive" });
       return;
     }
+    const expected = Number(verifyItem.quantity || 0);
+    if (verified > expected || missing > expected || verified + missing > expected) {
+      toast({
+        title: "Check the quantities",
+        description: `Returned plus missing cannot exceed ${expected}.`,
+        variant: "destructive",
+      });
+      return;
+    }
     setSaving(true);
     try {
       await supabase.from("equipment").update({
         condition: verifyCondition,
-        available_quantity: Math.max(0, verified - missing),
-      }).eq("id", verifyItem.id);
+        available_quantity: Math.max(0, Math.min(expected, verified)),
+      }).eq("id", verifyItem.id).eq("company_id", user.company_id);
 
-      if (missing > 0 || damageNotes.trim()) {
+      const conditionNeedsDamageRow = verifyCondition === "poor" || verifyCondition === "damaged";
+      if (missing > 0 || damageNotes.trim() || conditionNeedsDamageRow) {
         await supabase.from("equipment_damages").insert([{
           company_id: user.company_id,
           equipment_id: verifyItem.id,
           damage_type: missing > 0 ? "lost" : "damaged",
-          notes: damageNotes.trim() || `${missing} missing on verification`,
+          notes: damageNotes.trim() || (missing > 0 ? `${missing} missing on verification` : `Condition marked ${verifyCondition} during verification`),
           repair_cost: missing * Number(verifyItem.replacement_cost || 0),
           reported_by: user.id,
           resolved: false,
@@ -328,5 +352,13 @@ export default function CleaningEquipmentPage() {
         </DialogContent>
       </Dialog>
     </>
+  );
+}
+
+export default function CleaningEquipmentPage() {
+  return (
+    <ProtectedRoute allowedRoles={[UserRole.CLEANING_MANAGER, UserRole.CLEANING_STAFF, UserRole.ADMIN]}>
+      <CleaningEquipmentPageInner />
+    </ProtectedRoute>
   );
 }

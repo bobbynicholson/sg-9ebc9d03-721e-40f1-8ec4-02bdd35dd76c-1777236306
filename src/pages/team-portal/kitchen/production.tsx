@@ -17,6 +17,7 @@ import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { KitchenNav } from "@/components/navigation/KitchenNav";
 import { KitchenServiceFAB } from "@/components/kitchen/KitchenServiceFAB";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -31,6 +32,7 @@ import { PortalShell, PortalHeader, PortalCard, StatTile,
   PageWorkbench,
 } from "@/components/portal/ui";
 import { dedupeKitchenPrepTasks, formatKitchenPrepTaskType } from "@/lib/kitchen/prepTasks";
+import { UserRole } from "@/types/app";
 
 interface Order {
   id: string;
@@ -125,7 +127,7 @@ function fmtTime(t?: string | null) {
 
 type ViewMode = "day" | "week";
 
-export default function KitchenProductionPage() {
+function KitchenProductionPageInner() {
   const { user, profile } = useAuth();
   const { toast } = useToast();
   const { withSlug } = useTenantHref();
@@ -1231,5 +1233,13 @@ export default function KitchenProductionPage() {
       {/* Wave 70.7c - bottom-left FAB during service hours */}
       <KitchenServiceFAB />
     </>
+  );
+}
+
+export default function KitchenProductionPage() {
+  return (
+    <ProtectedRoute allowedRoles={[UserRole.KITCHEN_MANAGER, UserRole.KITCHEN_STAFF, UserRole.ADMIN]}>
+      <KitchenProductionPageInner />
+    </ProtectedRoute>
   );
 }

@@ -13,12 +13,14 @@ import { BookOpen, Search, Loader2, Clock, Users as UsersIcon, ImageOff } from "
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { KitchenNav } from "@/components/navigation/KitchenNav";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { PortalShell, PortalHeader, PortalCard,
   PageWorkbench,
 } from "@/components/portal/ui";
+import { UserRole } from "@/types/app";
 
 interface MenuItem {
   id: string;
@@ -60,7 +62,7 @@ const dietaryTone: Record<string, string> = {
   "nut-free":   NEUTRAL_TAG,
 };
 
-export default function KitchenMenuItemsPage() {
+function KitchenMenuItemsPageInner() {
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -76,6 +78,20 @@ export default function KitchenMenuItemsPage() {
   useEffect(() => {
     if (!user?.company_id) return;
     load();
+  }, [user?.company_id]);
+
+  useEffect(() => {
+    if (!user?.company_id) return;
+    const channel = supabase
+      .channel(`kitchen-menu-${user.company_id}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "menu_items", filter: `company_id=eq.${user.company_id}` },
+        () => void load(),
+      )
+      .subscribe();
+    return () => { void supabase.removeChannel(channel); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.company_id]);
 
   const load = async () => {
@@ -339,5 +355,13 @@ export default function KitchenMenuItemsPage() {
         </DialogContent>
       </Dialog>
     </>
+  );
+}
+
+export default function KitchenMenuItemsPage() {
+  return (
+    <ProtectedRoute allowedRoles={[UserRole.KITCHEN_MANAGER, UserRole.KITCHEN_STAFF, UserRole.ADMIN]}>
+      <KitchenMenuItemsPageInner />
+    </ProtectedRoute>
   );
 }

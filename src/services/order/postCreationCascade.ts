@@ -51,12 +51,12 @@ export interface PostOrderCascadeOpts {
   skipConflictCheck?: boolean;
   skipShoppingSuggestion?: boolean;
   /** REG-D (regions follow-ups): opt out of the branch-driven driver
-   *  auto-assignment step. The smoke-test runner and manual operator
-   *  flows that want to pick a driver themselves should pass true. */
+   *  auto-assignment step. Manual operator flows that want to pick a
+   *  driver themselves should pass true. */
   skipAutoAssign?: boolean;
   /** TIGHTEN I.24: opt out of the cleaning-handover anticipation row
-   *  Wave 70.24 added. Default off (handover IS created). Smoke tests
-   *  + flows that don't need the cleaning portal pre-warmed pass true. */
+   *  Wave 70.24 added. Default off (handover IS created). Flows that
+   *  don't need the cleaning portal pre-warmed pass true. */
   skipCleaning?: boolean;
   /** FIX (2026-06-12): true when the operator recorded the deposit as
    *  already paid at convert time. When FALSE and a deposit invoice

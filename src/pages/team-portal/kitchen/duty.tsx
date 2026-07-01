@@ -10,6 +10,7 @@ import { Users, Clock, Loader2, Play, Square, ChefHat, TrendingUp, Target, Coffe
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { KitchenNav } from "@/components/navigation/KitchenNav";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -57,7 +58,7 @@ interface SelfProfile extends Profile {
 // observability call carries the same route identifier.
 const ROUTE = "/team-portal/kitchen/duty";
 
-export default function KitchenDutyRosterPage() {
+function KitchenDutyRosterPageInner() {
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -550,7 +551,8 @@ export default function KitchenDutyRosterPage() {
               status: "active",
               duty_shift_id: (insertedShift as any).id,
             })
-            .eq("id", myRoster.id);
+            .eq("id", myRoster.id)
+            .eq("company_id", user.company_id);
         } catch (rosterErr) {
           console.warn("Could not stamp roster actual_start (non-blocking):", rosterErr);
         }
@@ -574,7 +576,7 @@ export default function KitchenDutyRosterPage() {
     setSaving(true);
     try {
       const nowIso = new Date().toISOString();
-      const { error } = await supabase
+      let endShiftQuery = supabase
         .from("kitchen_duty_shifts")
         .update({
           is_active: false,
@@ -582,6 +584,10 @@ export default function KitchenDutyRosterPage() {
           updated_at: nowIso,
         })
         .eq("id", endingShift.id);
+      if (user?.company_id) {
+        endShiftQuery = endShiftQuery.eq("company_id", user.company_id);
+      }
+      const { error } = await endShiftQuery;
       if (error) throw error;
 
       // Wave 36.1: stamp roster actual_end + flip status to
@@ -597,6 +603,7 @@ export default function KitchenDutyRosterPage() {
           } else {
             q = q.eq("duty_shift_id", endingShift.id);
           }
+          q = q.eq("company_id", user.company_id);
           await q;
         } catch (rosterErr) {
           console.warn("Could not stamp roster actual_end (non-blocking):", rosterErr);
@@ -649,10 +656,10 @@ export default function KitchenDutyRosterPage() {
     setSaving(true);
     try {
       if (shift.break_started_at) {
-        await kitchenPrepService.endBreak(shift.id);
+        await kitchenPrepService.endBreak(shift.id, user?.company_id ?? null);
         toast({ title: "Break ended", description: "Welcome back to your shift." });
       } else {
-        await kitchenPrepService.startBreak(shift.id);
+        await kitchenPrepService.startBreak(shift.id, user?.company_id ?? null);
         toast({ title: "Break started", description: "Take 5. Tap again when you return." });
       }
       load();
@@ -667,7 +674,7 @@ export default function KitchenDutyRosterPage() {
   // acknowledged_by so the original author can see "yes, the next
   // shift saw it." Idempotent - a re-ack is a no-op.
   const handleAcknowledgeHandoff = async (handoffId: string) => {
-    if (!user?.id) return;
+    if (!user?.id || !user?.company_id) return;
     setAcking(handoffId);
     try {
       await supabase
@@ -676,7 +683,8 @@ export default function KitchenDutyRosterPage() {
           acknowledged_at: new Date().toISOString(),
           acknowledged_by: user.id,
         } as never)
-        .eq("id", handoffId);
+        .eq("id", handoffId)
+        .eq("company_id", user.company_id);
       // Optimistic local update so the button flips without a full reload.
       setHandoffs((prev) =>
         prev.map((h) =>
@@ -1430,5 +1438,13 @@ export default function KitchenDutyRosterPage() {
         </DialogContent>
       </Dialog>
     </>
+  );
+}
+
+export default function KitchenDutyRosterPage() {
+  return (
+    <ProtectedRoute allowedRoles={[UserRole.KITCHEN_MANAGER, UserRole.KITCHEN_STAFF, UserRole.ADMIN]}>
+      <KitchenDutyRosterPageInner />
+    </ProtectedRoute>
   );
 }

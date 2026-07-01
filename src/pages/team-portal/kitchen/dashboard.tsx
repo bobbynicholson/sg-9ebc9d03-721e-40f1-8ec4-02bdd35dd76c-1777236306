@@ -19,7 +19,8 @@ import { orderDisplayName } from "@/lib/orderDisplayName";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
-import { DynamicNav } from "@/components/DynamicNav";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { KitchenNav } from "@/components/navigation/KitchenNav";
 import { PortalShell, PortalHeader, PortalCard, PortalCardHeader, StatTile,
   PageWorkbench,
 } from "@/components/portal/ui";
@@ -104,7 +105,7 @@ function addDays(date: Date, days: number): Date {
   return out;
 }
 
-export default function KitchenDashboard() {
+function KitchenDashboardInner() {
   const { user } = useAuth();
   const { toast } = useToast();
   const { withSlug } = useTenantHref();
@@ -1112,7 +1113,7 @@ export default function KitchenDashboard() {
       </Head>
       <NoIndexMeta />
 
-      <DynamicNav userRole={UserRole.KITCHEN_STAFF} />
+      <KitchenNav />
 
       <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
@@ -2547,5 +2548,13 @@ export default function KitchenDashboard() {
         }
       `}</style>
     </>
+  );
+}
+
+export default function KitchenDashboard() {
+  return (
+    <ProtectedRoute allowedRoles={[UserRole.KITCHEN_MANAGER, UserRole.KITCHEN_STAFF, UserRole.ADMIN]}>
+      <KitchenDashboardInner />
+    </ProtectedRoute>
   );
 }

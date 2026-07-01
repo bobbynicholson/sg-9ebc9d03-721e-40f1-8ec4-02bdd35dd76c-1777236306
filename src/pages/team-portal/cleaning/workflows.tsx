@@ -1,17 +1,20 @@
 import { useState, useEffect, useMemo } from "react";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import Head from "next/head";
+import { useRouter } from "next/router";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Search, ChevronDown, ChevronRight as ChevronRightIcon, Clock, ShieldCheck } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { CleaningNav } from "@/components/navigation/CleaningNav";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { PortalShell, PortalHeader, PortalCard,
   PageWorkbench,
 } from "@/components/portal/ui";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { UserRole } from "@/types/app";
 
 interface Equipment {
   id: string;
@@ -90,9 +93,10 @@ function pickSops(category: string | null): string[] {
   return SOPS_BY_CATEGORY.default;
 }
 
-export default function CleaningWorkflowsPage() {
+function CleaningWorkflowsPageInner() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const router = useRouter();
 
   const [items, setItems] = useState<Equipment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -102,6 +106,26 @@ export default function CleaningWorkflowsPage() {
   useEffect(() => {
     if (!user?.company_id) return;
     load();
+  }, [user?.company_id]);
+
+  useEffect(() => {
+    if (!router.isReady) return;
+    const category = typeof router.query.category === "string" ? router.query.category.trim() : "";
+    if (category) setSearch(category);
+  }, [router.isReady, router.query.category]);
+
+  useEffect(() => {
+    if (!user?.company_id) return;
+    const channel = supabase
+      .channel(`cleaning-workflows-${user.company_id}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "equipment", filter: `company_id=eq.${user.company_id}` },
+        () => void load(),
+      )
+      .subscribe();
+    return () => { void supabase.removeChannel(channel); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.company_id]);
 
   const load = async () => {
@@ -255,5 +279,13 @@ export default function CleaningWorkflowsPage() {
         </PortalShell>
       </main>
     </>
+  );
+}
+
+export default function CleaningWorkflowsPage() {
+  return (
+    <ProtectedRoute allowedRoles={[UserRole.CLEANING_MANAGER, UserRole.CLEANING_STAFF, UserRole.ADMIN]}>
+      <CleaningWorkflowsPageInner />
+    </ProtectedRoute>
   );
 }

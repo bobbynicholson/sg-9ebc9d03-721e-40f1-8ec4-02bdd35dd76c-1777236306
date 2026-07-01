@@ -514,9 +514,11 @@ function EmailSettingsPage() {
                   style={{ width: `${capPct}%` }}
                 />
               </div>
-              <p className="text-xs text-slate-500 mt-2">
-                Your <Badge variant="outline" className="capitalize">{subscriptionPlan}</Badge> plan caps daily personal sends at <strong>{tierCap}</strong>. Tier rules in <Link href="/pricing" className="text-slate-600">Pricing</Link>.
-              </p>
+              <div className="mt-2 flex flex-wrap items-center gap-1 text-xs text-slate-500">
+                <span>Your</span>
+                <Badge variant="outline" className="capitalize">{subscriptionPlan}</Badge>
+                <span>plan caps daily personal sends at <strong>{tierCap}</strong>. Tier rules in <Link href="/pricing" className="text-slate-600">Pricing</Link>.</span>
+              </div>
 
               {/* ES-B (task #221, 2026-05-25): 7-day send sparkline.
                   Reads from outgoing_email_log so the operator can

@@ -82,8 +82,6 @@ export interface FinancialSettings {
  * replacements. Listed in tab order for readability.
  */
 export interface AdminSettings {
-  company: CompanySettings;
-  notifications: NotificationSettings;
   automation: AutomationSettings;
   pricing: PricingSettings;
   operations: OperationsSettings;

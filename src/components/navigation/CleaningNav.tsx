@@ -7,7 +7,7 @@
  *
  *   LIVE NOW   - Today, Returns, Washing, Task board (4 items, always open)
  *   INVENTORY  - Equipment, Supplies, Workflows     (3 items, closed by default)
- *   REPORTS    - Damages, Recurring plan            (2 items, closed by default)
+ *   REPORTS    - Damages, Schedule plan             (2 items, closed by default)
  *   FOOTER     - Notifications, Settings            (footer treatment)
  *
  * The new live layer surfaces above the sections:
@@ -84,7 +84,14 @@ export function CleaningNav(_: CleaningNavProps = {}) {
 
   const isReturnsActive = mode.mode === "returns";
   const activeRole = String(profile?.active_role || profile?.role || user?.active_role || user?.role || "").toLowerCase();
-  const isCleaningManager = activeRole === "cleaning_manager";
+  const canSeeManagerLinks = [
+    "cleaning_manager",
+    "admin",
+    "company_admin",
+    "super_admin",
+    "owner",
+    "region_admin",
+  ].includes(activeRole);
 
   const config: PortalSidebarConfig = {
     role: "cleaning",
@@ -129,7 +136,7 @@ export function CleaningNav(_: CleaningNavProps = {}) {
               if (mode.outboundToday > 0) bits.push(`${mode.outboundToday} out`);
               if (mode.returnsDue > 0) bits.push(`${mode.returnsDue} due`);
               if (mode.activeHandovers > 0) bits.push(`${mode.activeHandovers} in wash`);
-              return bits.join(" · ");
+              return bits.join(" - ");
             },
           },
           {
@@ -196,10 +203,10 @@ export function CleaningNav(_: CleaningNavProps = {}) {
               ? { text: `${counts.openDamages} open`, tone: "warning" }
               : null,
           },
-          { title: "Recurring plan", href: "/team-portal/cleaning/schedules", icon: CalendarClock, description: "Daily, weekly, monthly areas" },
+          { title: "Schedule plan", href: "/team-portal/cleaning/schedules", icon: CalendarClock, description: "Area checklists by date" },
         ],
       },
-      ...(isCleaningManager ? [{
+      ...(canSeeManagerLinks ? [{
         id: "manager",
         title: "Manager",
         defaultOpen: true,

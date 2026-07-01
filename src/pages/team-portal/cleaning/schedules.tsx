@@ -14,6 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Calendar, Plus, Loader2, Clock } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { CleaningNav } from "@/components/navigation/CleaningNav";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { PortalShell, PortalHeader, PortalCard,
   PageWorkbench,
 } from "@/components/portal/ui";
@@ -22,6 +23,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { toLocalISO } from "@/lib/localDate";
 import { useTenantHref } from "@/lib/tenantUrl";
+import { UserRole } from "@/types/app";
 
 interface Schedule {
   id: string;
@@ -45,7 +47,7 @@ const statusTone: Record<string, string> = {
 
 const STATUS_FALLBACK = "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700";
 
-export default function CleaningSchedulesPage() {
+function CleaningSchedulesPageInner() {
   const { user } = useAuth();
   const { toast } = useToast();
   const { withSlug } = useTenantHref();
@@ -63,6 +65,20 @@ export default function CleaningSchedulesPage() {
   useEffect(() => {
     if (!user?.company_id) return;
     load();
+  }, [user?.company_id]);
+
+  useEffect(() => {
+    if (!user?.company_id) return;
+    const channel = supabase
+      .channel(`cleaning-schedules-${user.company_id}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "cleaning_schedules", filter: `company_id=eq.${user.company_id}` },
+        () => void load(),
+      )
+      .subscribe();
+    return () => { void supabase.removeChannel(channel); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.company_id]);
 
   const load = async () => {
@@ -145,9 +161,9 @@ export default function CleaningSchedulesPage() {
             icon={Calendar}
             subtitle={
               <>
-                Recurring plan - daily / weekly / monthly cadence per area. Spawns the day's{" "}
+                Dated cleaning checklists with a cadence label for each area. Open the{" "}
                 <a href={withSlug("/team-portal/cleaning/tasks")} className="text-brand-primary underline">tasks</a>{" "}
-                that the team actually ticks off.
+                board for start, complete, and notes.
               </>
             }
             actions={
@@ -179,7 +195,7 @@ export default function CleaningSchedulesPage() {
               <div className="text-center py-16 px-6">
                 <Calendar className="h-10 w-10 mx-auto mb-3 text-slate-300 dark:text-slate-600" />
                 <p className="font-medium text-slate-900 dark:text-white">No schedules yet</p>
-                <p className="text-xs mt-1 text-slate-500 dark:text-slate-400">Add your first recurring cleaning plan to get started.</p>
+                <p className="text-xs mt-1 text-slate-500 dark:text-slate-400">Add your first cleaning checklist schedule to get started.</p>
               </div>
             </PortalCard>
           ) : (
@@ -225,7 +241,7 @@ export default function CleaningSchedulesPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>New cleaning schedule</DialogTitle>
-            <DialogDescription>Add a recurring or one-off cleaning task</DialogDescription>
+            <DialogDescription>Add a dated cleaning checklist task</DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
             <div>
@@ -238,7 +254,7 @@ export default function CleaningSchedulesPage() {
             </div>
             <div className="grid grid-cols-3 gap-3">
               <div>
-                <Label htmlFor="freq">Frequency</Label>
+                <Label htmlFor="freq">Cadence</Label>
                 <Select value={frequency} onValueChange={setFrequency}>
                   <SelectTrigger id="freq"><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -269,5 +285,13 @@ export default function CleaningSchedulesPage() {
         </DialogContent>
       </Dialog>
     </>
+  );
+}
+
+export default function CleaningSchedulesPage() {
+  return (
+    <ProtectedRoute allowedRoles={[UserRole.CLEANING_MANAGER, UserRole.CLEANING_STAFF, UserRole.ADMIN]}>
+      <CleaningSchedulesPageInner />
+    </ProtectedRoute>
   );
 }

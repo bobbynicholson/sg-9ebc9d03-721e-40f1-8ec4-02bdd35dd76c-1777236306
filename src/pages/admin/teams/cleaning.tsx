@@ -118,6 +118,19 @@ const initialStats: CleaningStats = {
   topStaffHours: [],
 };
 
+const CLEANING_SUPPLY_KEYWORDS = [
+  "detergent", "cleaner", "soap", "bleach", "sanitiser", "sanitizer",
+  "cloth", "glove", "wipe", "mop", "broom", "spray", "polish", "degreaser",
+  "cleaning", "disinfect", "scrubb", "rubber", "bin liner", "paper towel",
+];
+
+function isCleaningSupply(row: { item_name?: string | null; category?: string | null }): boolean {
+  const category = (row.category || "").toLowerCase();
+  const name = (row.item_name || "").toLowerCase();
+  if (category.includes("clean") || category.includes("consumable")) return true;
+  return CLEANING_SUPPLY_KEYWORDS.some((keyword) => name.includes(keyword));
+}
+
 function CleaningTeamPage() {
   const { user, profile } = useAuth();
   const { withSlug } = useTenantHref();
@@ -265,12 +278,11 @@ function CleaningTeamPage() {
           .eq("company_id", companyId)
           .gte("created_at", weekAgoISO);
 
-        // Supplies below par. Same loose filter as the existing
-        // page (no category constraint - cleaning supplies are
-        // sometimes mis-tagged and we don't want to silently miss
-        // a low-stock signal).
+        // Supplies below par. Keep this aligned with the cleaning
+        // supplies portal so the manager page does not count kitchen
+        // food stock as a cleaning shortage.
         const suppliesQ = supabase.from("inventory_items")
-          .select("current_stock, minimum_stock")
+          .select("item_name, category, current_stock, minimum_stock")
           .eq("company_id", companyId)
           .is("deleted_at", null);
 
@@ -422,7 +434,8 @@ function CleaningTeamPage() {
 
         // Supplies rollup.
         let suppliesBelowPar = 0, suppliesOutOfStock = 0;
-        for (const i of ((suppliesRes.data || []) as Array<{ current_stock: number | null; minimum_stock: number | null }>)) {
+        for (const i of ((suppliesRes.data || []) as Array<{ item_name: string | null; category: string | null; current_stock: number | null; minimum_stock: number | null }>)) {
+          if (!isCleaningSupply(i)) continue;
           const s = Number(i.current_stock || 0);
           const m = Number(i.minimum_stock || 0);
           if (m > 0 && s <= m) suppliesBelowPar += 1;

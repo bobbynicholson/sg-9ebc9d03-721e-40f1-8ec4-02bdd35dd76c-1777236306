@@ -1,410 +1,353 @@
-import { useState, useEffect, useMemo } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
-import { AdminNav } from "@/components/admin/AdminNav";
-import { PortalShell, PortalHeader,
-  PageWorkbench,
-} from "@/components/portal/ui";
-import {
-  Settings,
-  Bell,
-  Mail,
-  Banknote,
-  Truck,
-  ChefHat,
-  Save,
-  CheckCircle,
-  Globe,
-  Building2,
-  ArrowRight,
-  Palette,
-  Sparkles
-} from "lucide-react";
-import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 import Head from "next/head";
-import { NoIndexMeta } from "@/components/NoIndexMeta";
-import { GetServerSideProps } from "next";
-import { InfoTooltip } from "@/components/ui/info-tooltip";
-import { ProtectedRoute } from "@/components/ProtectedRoute";
-import {  UserRole  } from "@/types/app";
-import { InventorySettingsTab } from "@/components/admin/inventory/InventorySettingsTab";
+import Link from "next/link";
+import {
+  ArrowRight,
+  Bell,
+  Building2,
+  CheckCircle,
+  Code2,
+  CookingPot,
+  Loader2,
+  Mail,
+  MessageSquare,
+  Palette,
+  Save,
+  Settings,
+  Shield,
+  SlidersHorizontal,
+  Zap,
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+
+import { AdminNav } from "@/components/admin/AdminNav";
 import { DispatchSettingsTab } from "@/components/admin/dispatch/DispatchSettingsTab";
+import { InventorySettingsTab } from "@/components/admin/inventory/InventorySettingsTab";
 import { CancellationPolicyTab } from "@/components/admin/policy/CancellationPolicyTab";
-import { NotificationsSettingsTab } from "@/components/admin/settings/NotificationsSettingsTab";
 import { AutomationSettingsTab } from "@/components/admin/settings/AutomationSettingsTab";
-import { PricingSettingsTab } from "@/components/admin/settings/PricingSettingsTab";
-import { OperationsSettingsTab } from "@/components/admin/settings/OperationsSettingsTab";
-import { CompanySettingsTab } from "@/components/admin/settings/CompanySettingsTab";
-import { EmailAutomationSettingsTab } from "@/components/admin/settings/EmailAutomationSettingsTab";
 import { FinancialSettingsTab } from "@/components/admin/settings/FinancialSettingsTab";
+import { OperationsSettingsTab } from "@/components/admin/settings/OperationsSettingsTab";
+import { PricingSettingsTab } from "@/components/admin/settings/PricingSettingsTab";
 import type { AdminSettings } from "@/components/admin/settings/types";
-import { useTenantHref } from "@/lib/tenantUrl";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
+import { NoIndexMeta } from "@/components/NoIndexMeta";
+import { PortalHeader, PageWorkbench, PortalShell } from "@/components/portal/ui";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { useTenantHref } from "@/lib/tenantUrl";
+import { UserRole } from "@/types/app";
+
+const DEFAULT_SETTINGS: AdminSettings = {
+  automation: {
+    autoFollowUpDays: 3,
+    secondFollowUpDays: 7,
+    reminderDays: [14, 7, 3, 1],
+    autoDiscountPercent: 10,
+    reviewRequestDays: 1,
+    complaintResponseHours: 24,
+  },
+  pricing: {
+    weekendPremium: 15,
+    lastMinuteSurcharge: 25,
+    earlyBirdDiscount: 10,
+    bulkDiscountThreshold: 100,
+    bulkDiscountPercent: 15,
+    minimumOrderValue: 5000,
+  },
+  operations: {
+    equipmentCleaningHours: 4,
+    kitchenPrepHours: 48,
+    deliveryBufferMinutes: 30,
+    maxConcurrentEvents: 5,
+    maxGuestsPerEvent: 0,
+    maxKitchenLoadPerDay: 0,
+    driverRadius: 50,
+    deliveryCostPerKm: 8.5,
+  },
+  financial: {
+    currency: "ZAR",
+    taxRate: 15,
+    depositPercent: 30,
+    balanceDueDays: 7,
+    finalOrderChangeDays: 7,
+    cancellationFeePercent: 25,
+    refundProcessDays: 7,
+  },
+};
+
+interface SettingsShortcut {
+  title: string;
+  description: string;
+  href: string;
+  icon: LucideIcon;
+  source: string;
+}
+
+const SETTINGS_SHORTCUTS: SettingsShortcut[] = [
+  {
+    title: "Company profile",
+    description: "Business identity, contact details, VAT, bank details, HQ pin, and document numbering.",
+    href: "/admin/company-profile",
+    icon: Building2,
+    source: "companies",
+  },
+  {
+    title: "Branding",
+    description: "Logo, colours, accent palette, and tenant fonts used across admin, client, and team portals.",
+    href: "/admin/white-label",
+    icon: Palette,
+    source: "companies",
+  },
+  {
+    title: "Kitchen rules",
+    description: "Prep timing, dietary flags, stock handling, and kitchen policy shared with the team landing.",
+    href: "/admin/kitchen-settings",
+    icon: CookingPot,
+    source: "companies.kitchen_settings",
+  },
+  {
+    title: "Email delivery",
+    description: "Sender identity, verified domain, provider settings, test send, and client email automation.",
+    href: "/admin/email-settings",
+    icon: Mail,
+    source: "email_provider_settings",
+  },
+  {
+    title: "Integrations",
+    description: "API keys, Zapier webhooks, accounting defaults, and outbound event wiring.",
+    href: "/admin/integrations",
+    icon: Zap,
+    source: "api_keys + webhooks",
+  },
+  {
+    title: "Lead forms",
+    description: "Embeddable enquiry forms, field mapping, live previews, snippets, and conversion metrics.",
+    href: "/admin/integrations/embed",
+    icon: Code2,
+    source: "embed_form_configs",
+  },
+  {
+    title: "Messages",
+    description: "Email and WhatsApp templates, sent log, automation overview, and per-tenant wording.",
+    href: "/admin/email-templates",
+    icon: MessageSquare,
+    source: "email_templates",
+  },
+  {
+    title: "Notifications",
+    description: "Per-user email, push, WhatsApp, and SMS preferences. Tenant mute rules are enforced by the notification service.",
+    href: "/admin/notification-settings",
+    icon: Bell,
+    source: "email_notification_preferences",
+  },
+  {
+    title: "Audit logs",
+    description: "Company-scoped compliance trail with filters, saved views, row links, and CSV export.",
+    href: "/admin/audit-logs",
+    icon: Shield,
+    source: "audit_logs",
+  },
+];
 
 export default function ProtectedSettingsPage() {
   return (
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.COMPANY_ADMIN]}>
+    <ProtectedRoute
+      allowedRoles={[
+        UserRole.SUPER_ADMIN,
+        UserRole.OWNER,
+        UserRole.COMPANY_ADMIN,
+        UserRole.ADMIN,
+      ]}
+    >
       <SettingsPage />
     </ProtectedRoute>
   );
 }
 
 function SettingsPage() {
+  const { profile, user } = useAuth() as any;
+  const companyId = profile?.company_id || user?.company_id;
   const { withSlug } = useTenantHref();
   const { toast } = useToast();
-  const [saved, setSaved] = useState(false);
+
+  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  // Snapshot of the last persisted settings, used to derive a clean
-  // 'unsaved changes' state. Updated after a successful save.
-  const [savedSnapshot, setSavedSnapshot] = useState<string>("");
-  const [settings, setSettings] = useState<AdminSettings>({
-    company: {
-      name: "Your Catering Company",
-      email: "info@yourcatering.com",
-      phone: "+27 12 345 6789",
-      address: "123 Main Street, Johannesburg",
-      logo: "",
-      kitchenAddress: "123 Main Street, Johannesburg",
-      kitchenLat: -26.2041,
-      kitchenLng: 28.0473,
-    },
-    notifications: {
-      emailNewLead: true,
-      emailQuoteAccepted: true,
-      emailPaymentReceived: true,
-      smsDriverAssigned: true,
-      smsDeliveryUpdate: true,
-      emailComplaint: true,
-      emailDailyReport: true,
-    },
-    automation: {
-      autoFollowUpDays: 3,
-      secondFollowUpDays: 7,
-      reminderDays: [14, 7, 3, 1],
-      autoDiscountPercent: 10,
-      reviewRequestDays: 1,
-      complaintResponseHours: 24,
-    },
-    pricing: {
-      weekendPremium: 15,
-      lastMinuteSurcharge: 25,
-      earlyBirdDiscount: 10,
-      bulkDiscountThreshold: 100,
-      bulkDiscountPercent: 15,
-      minimumOrderValue: 5000,
-    },
-    operations: {
-      equipmentCleaningHours: 4,
-      kitchenPrepHours: 48,
-      deliveryBufferMinutes: 30,
-      maxConcurrentEvents: 5,
-      maxGuestsPerEvent: 0,
-      maxKitchenLoadPerDay: 0,
-      driverRadius: 50,
-      deliveryCostPerKm: 8.50,
-    },
-    financial: {
-      currency: "ZAR",
-      taxRate: 15,
-      depositPercent: 30,
-      balanceDueDays: 7,
-      finalOrderChangeDays: 7,
-      cancellationFeePercent: 25,
-      refundProcessDays: 7,
-    },
-  });
+  const [saved, setSaved] = useState(false);
+  const [savedSnapshot, setSavedSnapshot] = useState("");
+  const [settings, setSettings] = useState<AdminSettings>(DEFAULT_SETTINGS);
 
   useEffect(() => {
+    if (!companyId) {
+      setLoading(false);
+      return;
+    }
+
     let cancelled = false;
     (async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-
-      // Load non-company settings from user_metadata or localStorage first.
-      const stored = (user?.user_metadata as any)?.admin_settings;
-      if (stored && !cancelled) {
-        setSettings((prev) => ({ ...prev, ...stored }));
-      } else {
-        const local = localStorage.getItem("admin_settings");
-        if (local && !cancelled) {
-          try { setSettings((prev) => ({ ...prev, ...JSON.parse(local) })); } catch {}
-        }
-      }
-
-      // Load real company data from the companies table.
-      if (!user) return;
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("company_id")
-        .eq("id", user.id)
-        .maybeSingle();
-      if (!profile?.company_id || cancelled) return;
-
-      // Cast to any so the new financial columns (added in
-      // migration companies_financial_settings_columns) compile
-      // without regenerating Supabase types - the type file is
-      // 370k+ chars and rebuilding it for three new columns
-      // would balloon every diff in the project.
-      const { data: company } = await (supabase as any)
-        .from("companies")
-        .select("company_name, email, phone, address_line1, logo_url, headquarters_lat, headquarters_lng, deposit_percent, balance_due_days, amendment_cutoff_days, cancellation_fee_percent, refund_process_days, currency, vat_rate, dispatch_settings, kitchen_settings")
-        .eq("id", profile.company_id)
-        .maybeSingle();
-      if (!company || cancelled) return;
-
-      setSettings((prev) => {
-        const dispatchSettings = ((company as any).dispatch_settings || {}) as Record<string, any>;
-        const kitchenSettings = ((company as any).kitchen_settings || {}) as Record<string, any>;
-        const next = {
-          ...prev,
-          company: {
-            ...prev.company,
-            name: company.company_name ?? prev.company.name,
-            email: company.email ?? prev.company.email,
-            phone: company.phone ?? prev.company.phone,
-            address: company.address_line1 ?? prev.company.address,
-            logo: company.logo_url ?? prev.company.logo,
-            kitchenAddress: company.address_line1 ?? prev.company.kitchenAddress,
-            kitchenLat: company.headquarters_lat ?? prev.company.kitchenLat,
-            kitchenLng: company.headquarters_lng ?? prev.company.kitchenLng,
-          },
-          financial: {
-            ...prev.financial,
-            // companies columns are the canonical source - override
-            // the localStorage / user_metadata copy so a colleague
-            // who set values on another machine doesn't get stale
-            // local state. finalOrderChangeDays maps onto the
-            // existing amendment_cutoff_days column already used by
-            // the is_order_amendable RPC; the rest landed via the
-            // companies_financial_settings_columns migration.
-            depositPercent: company.deposit_percent != null
-              ? Number(company.deposit_percent)
-              : prev.financial.depositPercent,
-            balanceDueDays: company.balance_due_days != null
-              ? Number(company.balance_due_days)
-              : prev.financial.balanceDueDays,
-            finalOrderChangeDays: (company as any).amendment_cutoff_days != null
-              ? Number((company as any).amendment_cutoff_days)
-              : prev.financial.finalOrderChangeDays,
-            cancellationFeePercent: (company as any).cancellation_fee_percent != null
-              ? Number((company as any).cancellation_fee_percent)
-              : prev.financial.cancellationFeePercent,
-            refundProcessDays: (company as any).refund_process_days != null
-              ? Number((company as any).refund_process_days)
-              : prev.financial.refundProcessDays,
-            currency: (company as any).currency || prev.financial.currency,
-            taxRate: (company as any).vat_rate != null
-              ? Number((company as any).vat_rate)
-              : prev.financial.taxRate,
-          },
-          operations: {
-            ...prev.operations,
-            deliveryBufferMinutes: dispatchSettings.deliveryBufferMinutes != null
-              ? Number(dispatchSettings.deliveryBufferMinutes)
-              : prev.operations.deliveryBufferMinutes,
-            maxConcurrentEvents: dispatchSettings.maxConcurrentEvents != null
-              ? Number(dispatchSettings.maxConcurrentEvents)
-              : prev.operations.maxConcurrentEvents,
-            maxGuestsPerEvent: dispatchSettings.maxGuestsPerEvent != null
-              ? Number(dispatchSettings.maxGuestsPerEvent)
-              : prev.operations.maxGuestsPerEvent,
-            maxKitchenLoadPerDay: dispatchSettings.maxKitchenLoadPerDay != null
-              ? Number(dispatchSettings.maxKitchenLoadPerDay)
-              : prev.operations.maxKitchenLoadPerDay,
-            driverRadius: dispatchSettings.driverRadius != null
-              ? Number(dispatchSettings.driverRadius)
-              : prev.operations.driverRadius,
-            deliveryCostPerKm: dispatchSettings.deliveryCostPerKm != null
-              ? Number(dispatchSettings.deliveryCostPerKm)
-              : prev.operations.deliveryCostPerKm,
-            equipmentCleaningHours: dispatchSettings.equipmentCleaningHours != null
-              ? Number(dispatchSettings.equipmentCleaningHours)
-              : prev.operations.equipmentCleaningHours,
-            kitchenPrepHours: kitchenSettings.kitchenPrepHours != null
-              ? Number(kitchenSettings.kitchenPrepHours)
-              : prev.operations.kitchenPrepHours,
-          },
-        };
-        // Take the snapshot AFTER the company fields land so the
-        // dirty-tracker doesn't flag them as user edits.
-        setSavedSnapshot(JSON.stringify(next));
-        return next;
-      });
-    })();
-    return () => { cancelled = true; };
-  }, []);
-
-  // Derive whether the user has any unsaved edits. Cheap JSON compare,
-  // settings is a small object.
-  const hasUnsavedChanges = useMemo(() => {
-    if (!savedSnapshot) return false;
-    return savedSnapshot !== JSON.stringify(settings);
-  }, [savedSnapshot, settings]);
-
-  const handleSave = async () => {
-    setSaving(true);
-    let dbWriteOk = true;
-    let dbErrorMessage: string | null = null;
-    localStorage.setItem("admin_settings", JSON.stringify(settings));
-    try {
-      const { error: authUpdateErr } = await supabase.auth.updateUser({ data: { admin_settings: settings } });
-      if (authUpdateErr) throw authUpdateErr;
-    } catch (e) {
-      console.error("Failed to persist settings to auth metadata:", e);
-    }
-
-    // Write company fields back to the companies table.
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data: profile, error: profileErr } = await supabase
-          .from("profiles")
-          .select("company_id")
-          .eq("id", user.id)
+      setLoading(true);
+      try {
+        const local = readLocalSettings(companyId);
+        const { data: company, error } = await (supabase as any)
+          .from("companies")
+          .select([
+            "currency",
+            "vat_rate",
+            "deposit_percent",
+            "balance_due_days",
+            "amendment_cutoff_days",
+            "cancellation_fee_percent",
+            "refund_process_days",
+            "dispatch_settings",
+            "kitchen_settings",
+          ].join(", "))
+          .eq("id", companyId)
           .maybeSingle();
-        if (profileErr) throw profileErr;
-        if (!profile?.company_id) {
-          throw new Error("Could not resolve the current company for this settings save.");
-        }
-        {
-          // Read the current JSONB so we merge instead of clobber.
-          // Audit (May 2026, Wave 8): dispatch_settings is shared with
-          // other writers (DispatchSettingsTab, branch overrides);
-          // overwriting the whole blob would wipe sibling keys.
-          const { data: existing, error: existingErr } = await (supabase as any)
-            .from("companies")
-            .select("dispatch_settings, kitchen_settings")
-            .eq("id", profile.company_id)
-            .maybeSingle();
-          if (existingErr) throw existingErr;
-          const priorDispatch = ((existing as any)?.dispatch_settings || {}) as Record<string, any>;
-          const priorKitchen = ((existing as any)?.kitchen_settings || {}) as Record<string, any>;
 
-          const { error: updateErr } = await (supabase as any)
-            .from("companies")
-            .update({
-              company_name: settings.company.name,
-              email: settings.company.email,
-              phone: settings.company.phone || null,
-              address_line1: settings.company.address || null,
-              logo_url: settings.company.logo || null,
-              headquarters_lat: settings.company.kitchenLat || null,
-              headquarters_lng: settings.company.kitchenLng || null,
-              // Financial: deposit / balance-due / amendment cutoff /
-              // cancellation fee / refund SLA. depositPercent feeds
-              // resolveBranchSettings + the quote builder.
-              deposit_percent: Number(settings.financial.depositPercent) || 30,
-              balance_due_days: Number(settings.financial.balanceDueDays) || 7,
-              amendment_cutoff_days: Number(settings.financial.finalOrderChangeDays) || 7,
-              cancellation_fee_percent: Number(settings.financial.cancellationFeePercent) || 25,
-              refund_process_days: Number(settings.financial.refundProcessDays) || 7,
-              // Audit (May 2026, Wave 8): the previous save only
-              // persisted seven fields. currency, VAT rate, every
-              // operations and pricing key, and notification toggles
-              // all silently fell into user_metadata + localStorage,
-              // so a second admin on the same tenant saw stale or
-              // default values. Now persisted to canonical company
-              // columns / JSONB so every admin shares one source of
-              // truth.
-              currency: settings.financial.currency || "ZAR",
-              vat_rate: Number(settings.financial.taxRate) || 0,
-              // Dispatch settings: merge into the existing JSONB so
-              // sibling keys (set by DispatchSettingsTab, region
-              // overrides, etc) are preserved.
-              dispatch_settings: {
-                ...priorDispatch,
-                deliveryCostPerKm: Number(settings.operations.deliveryCostPerKm) || 0,
-                minDeliveryFee: priorDispatch.minDeliveryFee ?? 0,
-                deliveryBufferMinutes: Number(settings.operations.deliveryBufferMinutes) || 30,
-                driverRadius: Number(settings.operations.driverRadius) || 50,
-                maxConcurrentEvents: Number(settings.operations.maxConcurrentEvents) || 5,
-                maxGuestsPerEvent: Number(settings.operations.maxGuestsPerEvent) || 0,
-                maxKitchenLoadPerDay: Number(settings.operations.maxKitchenLoadPerDay) || 0,
-                equipmentCleaningHours: Number(settings.operations.equipmentCleaningHours) || 4,
-                pricing: {
-                  ...((priorDispatch as any).pricing || {}),
-                  weekendPremium: Number(settings.pricing?.weekendPremium) || 0,
-                  lastMinuteSurcharge: Number(settings.pricing?.lastMinuteSurcharge) || 0,
-                  earlyBirdDiscount: Number(settings.pricing?.earlyBirdDiscount) || 0,
-                  bulkDiscountThreshold: Number(settings.pricing?.bulkDiscountThreshold) || 0,
-                  bulkDiscountPercent: Number(settings.pricing?.bulkDiscountPercent) || 0,
-                  minimumOrderValue: Number(settings.pricing?.minimumOrderValue) || 0,
-                },
-                notifications: {
-                  ...((priorDispatch as any).notifications || {}),
-                  emailNewLead: !!settings.notifications?.emailNewLead,
-                  emailQuoteAccepted: !!settings.notifications?.emailQuoteAccepted,
-                  emailPaymentReceived: !!settings.notifications?.emailPaymentReceived,
-                  emailComplaint: !!settings.notifications?.emailComplaint,
-                  emailDailyReport: !!settings.notifications?.emailDailyReport,
-                  smsDriverAssigned: !!settings.notifications?.smsDriverAssigned,
-                },
-              },
-              // Kitchen prep lead time merges into kitchen_settings.
-              kitchen_settings: {
-                ...priorKitchen,
-                kitchenPrepHours: Number(settings.operations.kitchenPrepHours) || 48,
-              },
-            })
-            .eq("id", profile.company_id);
-          if (updateErr) throw updateErr;
+        if (error) throw error;
+        if (cancelled) return;
+
+        const next = companyToSettings(company || {}, local);
+        setSettings(next);
+        setSavedSnapshot(JSON.stringify(next));
+      } catch (error: any) {
+        if (!cancelled) {
+          const fallback = readLocalSettings(companyId);
+          setSettings(fallback);
+          setSavedSnapshot(JSON.stringify(fallback));
+          toast({
+            title: "Settings loaded from local cache",
+            description: error?.message || "Could not read company settings from the database.",
+            variant: "destructive",
+          });
         }
-      } else {
-        throw new Error("No authenticated user found for this settings save.");
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-    } catch (e: any) {
-      console.error("Failed to persist company settings to DB:", e);
-      dbWriteOk = false;
-      dbErrorMessage = e?.message || "DB save failed.";
-    }
+    })();
 
-    // Update the snapshot so the dirty-tracker shows clean again,
-    // but only when the DB write actually succeeded. Audit (May 2026,
-    // Wave 8): previous code fired the green "Settings saved" toast
-    // unconditionally, even when the companies update was rejected
-    // (permissions, validation, etc), so the operator thought
-    // financial settings persisted when they hadn't.
-    if (dbWriteOk) {
-      setSavedSnapshot(JSON.stringify(settings));
-      setSaved(true);
-      setTimeout(() => setSaved(false), 3000);
-    } else {
-      toast({
-        title: "Settings not saved",
-        description: `${dbErrorMessage} Try again or contact support.`,
-        variant: "destructive",
-      });
-    }
-    setSaving(false);
-  };
+    return () => {
+      cancelled = true;
+    };
+  }, [companyId, toast]);
 
-  // Beforeunload guard: warn the operator if they try to leave the page
-  // while there are unsaved edits. Standard browser confirm dialog;
-  // text is browser-controlled, the actual prompt just relies on us
-  // calling preventDefault.
+  const hasUnsavedChanges = useMemo(
+    () => !!savedSnapshot && savedSnapshot !== JSON.stringify(settings),
+    [savedSnapshot, settings],
+  );
+
   useEffect(() => {
-    const onBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (!hasUnsavedChanges) return;
-      e.preventDefault();
-      e.returnValue = "";
+    if (!hasUnsavedChanges) return;
+    const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
     };
     window.addEventListener("beforeunload", onBeforeUnload);
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
   }, [hasUnsavedChanges]);
 
-  const updateSetting = (category: string, key: string, value: any) => {
-    setSettings({
-      ...settings,
+  const updateSetting = <Category extends keyof AdminSettings>(
+    category: Category,
+    key: keyof AdminSettings[Category],
+    value: AdminSettings[Category][keyof AdminSettings[Category]],
+  ) => {
+    setSettings((prev) => ({
+      ...prev,
       [category]: {
-        ...settings[category as keyof typeof settings],
+        ...prev[category],
         [key]: value,
       },
-    });
+    }));
+  };
+
+  const handleSave = async () => {
+    if (!companyId) {
+      toast({
+        title: "No company resolved",
+        description: "Sign out and back in before saving settings.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const { data: existing, error: existingError } = await (supabase as any)
+        .from("companies")
+        .select("dispatch_settings, kitchen_settings")
+        .eq("id", companyId)
+        .maybeSingle();
+      if (existingError) throw existingError;
+
+      const priorDispatch = ((existing as any)?.dispatch_settings || {}) as Record<string, any>;
+      const priorKitchen = ((existing as any)?.kitchen_settings || {}) as Record<string, any>;
+
+      const { error: updateError } = await (supabase as any)
+        .from("companies")
+        .update({
+          currency: settings.financial.currency || "ZAR",
+          vat_rate: Number(settings.financial.taxRate) || 0,
+          deposit_percent: Number(settings.financial.depositPercent) || 30,
+          balance_due_days: Number(settings.financial.balanceDueDays) || 7,
+          amendment_cutoff_days: Number(settings.financial.finalOrderChangeDays) || 7,
+          cancellation_fee_percent: Number(settings.financial.cancellationFeePercent) || 25,
+          refund_process_days: Number(settings.financial.refundProcessDays) || 7,
+          dispatch_settings: {
+            ...priorDispatch,
+            deliveryCostPerKm: Number(settings.operations.deliveryCostPerKm) || 0,
+            deliveryBufferMinutes: Number(settings.operations.deliveryBufferMinutes) || 30,
+            driverRadius: Number(settings.operations.driverRadius) || 50,
+            maxConcurrentEvents: Number(settings.operations.maxConcurrentEvents) || 5,
+            maxGuestsPerEvent: Number(settings.operations.maxGuestsPerEvent) || 0,
+            maxKitchenLoadPerDay: Number(settings.operations.maxKitchenLoadPerDay) || 0,
+            equipmentCleaningHours: Number(settings.operations.equipmentCleaningHours) || 4,
+            pricing: {
+              ...((priorDispatch as any).pricing || {}),
+              weekendPremium: Number(settings.pricing.weekendPremium) || 0,
+              lastMinuteSurcharge: Number(settings.pricing.lastMinuteSurcharge) || 0,
+              earlyBirdDiscount: Number(settings.pricing.earlyBirdDiscount) || 0,
+              bulkDiscountThreshold: Number(settings.pricing.bulkDiscountThreshold) || 0,
+              bulkDiscountPercent: Number(settings.pricing.bulkDiscountPercent) || 0,
+              minimumOrderValue: Number(settings.pricing.minimumOrderValue) || 0,
+            },
+            automation: {
+              ...((priorDispatch as any).automation || {}),
+              autoFollowUpDays: Number(settings.automation.autoFollowUpDays) || 0,
+              secondFollowUpDays: Number(settings.automation.secondFollowUpDays) || 0,
+              reminderDays: settings.automation.reminderDays,
+              autoDiscountPercent: Number(settings.automation.autoDiscountPercent) || 0,
+              reviewRequestDays: Number(settings.automation.reviewRequestDays) || 0,
+              complaintResponseHours: Number(settings.automation.complaintResponseHours) || 0,
+            },
+          },
+          kitchen_settings: {
+            ...priorKitchen,
+            kitchenPrepHours: Number(settings.operations.kitchenPrepHours) || 48,
+          },
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", companyId);
+
+      if (updateError) throw updateError;
+
+      mirrorSettingsCache(companyId, settings);
+      setSavedSnapshot(JSON.stringify(settings));
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+      toast({ title: "Settings saved", description: "Operational defaults are now saved for this company." });
+    } catch (error: any) {
+      toast({
+        title: "Settings not saved",
+        description: error?.message || "Database save failed. Try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -412,300 +355,162 @@ function SettingsPage() {
       <NoIndexMeta />
       <Head>
         <meta name="robots" content="noindex, nofollow" />
-        <title>System settings - CateringMS</title>
+        <title>Settings - CateringMS</title>
       </Head>
-      
+
       <AdminNav />
-      
+
       <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <PortalHeader
-            title={<span className="flex items-center gap-2">Settings <InfoTooltip content={"Every operational setting in one place: company info, notifications, automation, pricing, operations, finance, and email.\n\nWork through the tabs and hit Save All when you are done."} /></span>}
-            icon={Settings}
-            subtitle="Operational defaults that drive the rest of the system. Quote minimums, kitchen prep lead times, delivery radius, VAT, refund SLA, follow-up cadences. Saved against your company and applied everywhere immediately."
-            actions={
-              <>
-                {hasUnsavedChanges && (
-                  <span className="hidden sm:inline-flex items-center gap-1.5 text-[11px] font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-2.5 py-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-                    Unsaved changes
-                  </span>
-                )}
+            title={
+              <span className="flex items-center gap-2">
+                Settings
                 <InfoTooltip
-                  content={"Saves changes across every tab in one go.\n\nYour preferences apply straight away. The bar at the bottom of the page mirrors this button so you can save without scrolling back up."}
-                  side="left"
+                  content={
+                    "Use the setup cards for specialist areas such as company profile, branding, email, integrations, forms, templates, notifications, and audit logs.\n\nUse Operational defaults for pricing, finance, kitchen capacity, dispatch, inventory, and cancellation policy values that drive the system."
+                  }
                 />
-                <Button
-                  onClick={handleSave}
-                  disabled={!hasUnsavedChanges || saving}
-                  className={hasUnsavedChanges
-                    ? "bg-amber-600 hover:bg-amber-700 w-full sm:w-auto"
-                    : "bg-slate-600 hover:bg-slate-700 w-full sm:w-auto"}
-                  size="sm"
-                >
-                  <Save className="w-4 h-4 mr-2" />
-                  {saving ? "Saving..." : (hasUnsavedChanges ? "Save changes" : "Saved")}
-                </Button>
-              </>
+              </span>
+            }
+            icon={Settings}
+            subtitle="A clean hub for admin setup plus the shared operational defaults that affect quotes, finance, kitchen capacity, dispatch, and cancellation rules."
+            actions={
+              <Button
+                onClick={handleSave}
+                disabled={!hasUnsavedChanges || saving || loading}
+                className={hasUnsavedChanges ? "gap-2 bg-amber-600 hover:bg-amber-700" : "gap-2"}
+                size="sm"
+              >
+                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                {saving ? "Saving..." : hasUnsavedChanges ? "Save defaults" : "Saved"}
+              </Button>
             }
           />
           <PageWorkbench />
 
-          <div className="space-y-4 md:space-y-6">
           {saved && (
-            <Card className="border-0 shadow-lg bg-gradient-to-r from-brand-primary/10 to-brand-secondary/10 border-l-4 border-l-brand-primary">
-              <CardContent className="py-3 md:py-4 px-4 md:px-6">
-                <div className="flex items-center gap-2">
-                  <CheckCircle className="w-4 h-4 md:w-5 md:h-5 text-brand-primary" />
-                  <p className="font-semibold text-sm md:text-base text-brand-primary">Settings saved successfully!</p>
-                </div>
+            <Card className="mb-6 border-0 bg-brand-primary/10 shadow">
+              <CardContent className="flex items-center gap-2 px-4 py-3 text-sm font-medium text-brand-primary">
+                <CheckCircle className="h-4 w-4" />
+                Settings saved successfully.
               </CardContent>
             </Card>
           )}
 
-          {/* Call-to-Action Cards - Mobile Optimized Stack */}
-          <div className="space-y-4">
-            <Card className="border-0 shadow-xl bg-gradient-to-br from-brand-primary to-brand-secondary text-white">
-              <CardContent className="pt-4 md:pt-6 pb-4 md:pb-6 px-4 md:px-6">
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                  <div className="flex items-start gap-3 md:gap-4">
-                    <div className="w-12 h-12 md:w-16 md:h-16 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center flex-shrink-0">
-                      <Palette className="w-6 h-6 md:w-8 md:h-8 text-white" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-lg md:text-2xl font-bold mb-1">White Label Branding</h3>
-                      <p className="text-sm md:text-base text-white/80 mb-2 md:mb-0">
-                        Customize your platform with your own logo and color palette. Create a seamless branded experience for your clients.
-                      </p>
-                      <div className="flex flex-wrap items-center gap-2 md:gap-4 mt-2 md:mt-3">
-                        <div className="flex items-center gap-1 md:gap-2 text-xs md:text-sm">
-                          <Sparkles className="w-3 h-3 md:w-4 md:h-4" />
-                          <span>Custom Logo</span>
-                        </div>
-                        <div className="flex items-center gap-1 md:gap-2 text-xs md:text-sm">
-                          <Palette className="w-3 h-3 md:w-4 md:h-4" />
-                          <span>Brand Colors</span>
-                        </div>
-                        <div className="flex items-center gap-1 md:gap-2 text-xs md:text-sm">
-                          <Globe className="w-3 h-3 md:w-4 md:h-4" />
-                          <span>CateringMS Powered</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <InfoTooltip 
-                      content={"Set your logo, colour palette, and visual identity so client-facing pages match your brand."}
-                      side="left"
-                      className="text-white hover:text-white/80"
-                    />
-                    <Link href={withSlug("/admin/white-label")} className="w-full md:w-auto">
-                      <Button size="sm" className="bg-white text-brand-primary hover:bg-slate-100 w-full">
-                        Customize Branding
-                        <ArrowRight className="w-4 h-4 ml-2" />
-                      </Button>
-                    </Link>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+          <section className="mb-8">
+            <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <h2 className="text-base font-semibold text-slate-900">Setup areas</h2>
+                <p className="text-sm text-slate-600">
+                  Each card opens the canonical page for that part of the admin system.
+                </p>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {SETTINGS_SHORTCUTS.map((item) => (
+                <SettingsShortcutCard key={item.href} item={item} href={withSlug(item.href)} />
+              ))}
+            </div>
+          </section>
 
-            <Card className="border-0 shadow-xl bg-gradient-to-br from-brand-primary to-brand-secondary text-white">
-              <CardContent className="pt-4 md:pt-6 pb-4 md:pb-6 px-4 md:px-6">
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                  <div className="flex items-start gap-3 md:gap-4">
-                    <div className="w-12 h-12 md:w-16 md:h-16 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center flex-shrink-0">
-                      <Globe className="w-6 h-6 md:w-8 md:h-8 text-white" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-lg md:text-2xl font-bold mb-1">Scale Across Regions</h3>
-                      <p className="text-sm md:text-base text-white/80 mb-2 md:mb-0">
-                        Launch franchises and regional operations in new provinces. Head office manages sales while regions handle fulfillment.
-                      </p>
-                      <div className="flex flex-wrap items-center gap-2 md:gap-4 mt-2 md:mt-3">
-                        <div className="flex items-center gap-1 md:gap-2 text-xs md:text-sm">
-                          <Building2 className="w-3 h-3 md:w-4 md:h-4" />
-                          <span>Independent Kitchens</span>
-                        </div>
-                        <div className="flex items-center gap-1 md:gap-2 text-xs md:text-sm">
-                          <Truck className="w-3 h-3 md:w-4 md:h-4" />
-                          <span>Regional Drivers</span>
-                        </div>
-                        <div className="flex items-center gap-1 md:gap-2 text-xs md:text-sm">
-                          <ChefHat className="w-3 h-3 md:w-4 md:h-4" />
-                          <span>Local Teams</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex flex-col gap-2 md:gap-3">
-                    <div className="flex items-center gap-2">
-                      <InfoTooltip 
-                        content={"Run multiple regions with their own teams, kitchens, and drivers, all under one head office."}
-                        side="left"
-                        className="text-white hover:text-white/80"
-                      />
-                      <Link href={withSlug("/admin/regions")} className="w-full">
-                        <Button size="sm" className="bg-white text-brand-primary hover:bg-slate-100 w-full">
-                          Manage Regions
-                          <ArrowRight className="w-4 h-4 ml-2" />
-                        </Button>
-                      </Link>
-                    </div>
-                    <Link href={withSlug("/admin/order-assignments")} className="w-full">
-                      <Button size="sm" variant="outline" className="bg-white/80 hover:bg-white w-full border-white">
-                        Assign Orders
-                        <ArrowRight className="w-4 h-4 ml-2" />
-                      </Button>
-                    </Link>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+          <section>
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div>
+                <h2 className="flex items-center gap-2 text-base font-semibold text-slate-900">
+                  <SlidersHorizontal className="h-4 w-4 text-slate-500" />
+                  Operational defaults
+                </h2>
+                <p className="text-sm text-slate-600">
+                  These tabs save to company-backed settings and are shared by every admin on the tenant.
+                </p>
+              </div>
+              {hasUnsavedChanges && (
+                <span className="hidden rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700 sm:inline-flex">
+                  Unsaved changes
+                </span>
+              )}
+            </div>
 
-            <Card className="border-0 shadow-xl bg-gradient-to-br from-brand-primary to-brand-secondary text-white">
-              <CardContent className="pt-4 md:pt-6 pb-4 md:pb-6 px-4 md:px-6">
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                  <div className="flex items-start gap-3 md:gap-4">
-                    <div className="w-12 h-12 md:w-16 md:h-16 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center flex-shrink-0">
-                      <Banknote className="w-6 h-6 md:w-8 md:h-8 text-white" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-lg md:text-2xl font-bold mb-1">Payment Processing</h3>
-                      <p className="text-sm md:text-base text-white/90 mb-2 md:mb-0">
-                        Connect multiple payment gateways for South African and international transactions.
-                      </p>
-                      <div className="flex flex-wrap items-center gap-2 md:gap-4 mt-2 md:mt-3">
-                        <div className="flex items-center gap-1 md:gap-2 text-xs md:text-sm">
-                          <CheckCircle className="w-3 h-3 md:w-4 md:h-4" />
-                          <span>PayFast, Yoco, Peach</span>
-                        </div>
-                        <div className="flex items-center gap-1 md:gap-2 text-xs md:text-sm">
-                          <Globe className="w-3 h-3 md:w-4 md:h-4" />
-                          <span>Stripe, PayPal, Square</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <InfoTooltip 
-                      content={"Connect a payment gateway so clients can pay online, local and international options supported."}
-                      side="left"
-                      className="text-white hover:text-white/80"
-                    />
-                    <Link href={withSlug("/admin/payment-gateways")}>
-                      <Button size="sm" className="bg-white text-brand-primary hover:bg-brand-primary/10 w-full md:w-auto">
-                        Configure
-                        <ArrowRight className="w-4 h-4 ml-2" />
-                      </Button>
-                    </Link>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+            {loading ? (
+              <Card className="border-0 shadow-lg">
+                <CardContent className="flex items-center justify-center gap-2 py-12 text-sm text-slate-500">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Loading settings...
+                </CardContent>
+              </Card>
+            ) : (
+              <Tabs defaultValue="financial" className="space-y-4 md:space-y-6">
+                <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1">
+                  <TabsTrigger value="financial" className="whitespace-nowrap text-xs md:text-sm">Financial</TabsTrigger>
+                  <TabsTrigger value="pricing" className="whitespace-nowrap text-xs md:text-sm">Pricing</TabsTrigger>
+                  <TabsTrigger value="operations" className="whitespace-nowrap text-xs md:text-sm">Operations</TabsTrigger>
+                  <TabsTrigger value="automation" className="whitespace-nowrap text-xs md:text-sm">Automation</TabsTrigger>
+                  <TabsTrigger value="inventory" className="whitespace-nowrap text-xs md:text-sm">Inventory</TabsTrigger>
+                  <TabsTrigger value="dispatch" className="whitespace-nowrap text-xs md:text-sm">Dispatch</TabsTrigger>
+                  <TabsTrigger value="cancellation" className="whitespace-nowrap text-xs md:text-sm">Cancellation</TabsTrigger>
+                </TabsList>
 
-          {/* Tabs - wrap onto multiple rows instead of cramming 10
-              into a single grid-cols-10 row (which squashed/overflowed
-              on laptops). flex-wrap + h-auto lets them flow naturally
-              at every width. */}
-          <Tabs defaultValue="company" className="space-y-4 md:space-y-6">
-            <TabsList className="flex flex-wrap w-full h-auto gap-1 justify-start">
-                <TabsTrigger value="company" className="text-xs md:text-sm whitespace-nowrap">Company</TabsTrigger>
-                <TabsTrigger value="notifications" className="text-xs md:text-sm whitespace-nowrap">Notifications</TabsTrigger>
-                <TabsTrigger value="automation" className="text-xs md:text-sm whitespace-nowrap">Automation</TabsTrigger>
-                <TabsTrigger value="pricing" className="text-xs md:text-sm whitespace-nowrap">Pricing</TabsTrigger>
-                <TabsTrigger value="operations" className="text-xs md:text-sm whitespace-nowrap">Operations</TabsTrigger>
-                <TabsTrigger value="inventory" className="text-xs md:text-sm whitespace-nowrap">Inventory</TabsTrigger>
-                <TabsTrigger value="dispatch" className="text-xs md:text-sm whitespace-nowrap">Dispatch</TabsTrigger>
-                <TabsTrigger value="financial" className="text-xs md:text-sm whitespace-nowrap">Financial</TabsTrigger>
-                <TabsTrigger value="cancellation" className="text-xs md:text-sm whitespace-nowrap">Cancellation</TabsTrigger>
-                <TabsTrigger value="email-automation" className="text-xs md:text-sm whitespace-nowrap">Email Auto</TabsTrigger>
-              </TabsList>
+                <TabsContent value="financial">
+                  <FinancialSettingsTab
+                    settings={settings.financial}
+                    onUpdate={(key, value) => updateSetting("financial", key, value)}
+                  />
+                </TabsContent>
 
-            <TabsContent value="company">
-              <CompanySettingsTab
-                settings={settings.company}
-                onUpdate={(key, value) => updateSetting("company", key, value)}
-              />
-            </TabsContent>
+                <TabsContent value="pricing">
+                  <PricingSettingsTab
+                    settings={settings.pricing}
+                    onUpdate={(key, value) => updateSetting("pricing", key, value)}
+                  />
+                </TabsContent>
 
-            <TabsContent value="notifications">
-              <NotificationsSettingsTab
-                settings={settings.notifications}
-                onUpdate={(key, value) => updateSetting("notifications", key, value)}
-              />
-            </TabsContent>
+                <TabsContent value="operations">
+                  <OperationsSettingsTab
+                    settings={settings.operations}
+                    onUpdate={(key, value) => updateSetting("operations", key, value)}
+                  />
+                </TabsContent>
 
-            <TabsContent value="automation">
-              <AutomationSettingsTab
-                settings={settings.automation}
-                onUpdate={(key, value) => updateSetting("automation", key, value)}
-              />
-            </TabsContent>
+                <TabsContent value="automation">
+                  <AutomationSettingsTab
+                    settings={settings.automation}
+                    onUpdate={(key, value) => updateSetting("automation", key, value)}
+                  />
+                </TabsContent>
 
-            <TabsContent value="pricing">
-              <PricingSettingsTab
-                settings={settings.pricing}
-                onUpdate={(key, value) => updateSetting("pricing", key, value)}
-              />
-            </TabsContent>
+                <TabsContent value="inventory">
+                  <InventorySettingsTab />
+                </TabsContent>
 
-            <TabsContent value="operations">
-              <OperationsSettingsTab
-                settings={settings.operations}
-                onUpdate={(key, value) => updateSetting("operations", key, value)}
-              />
-            </TabsContent>
+                <TabsContent value="dispatch">
+                  <DispatchSettingsTab />
+                </TabsContent>
 
-            <TabsContent value="inventory">
-              <InventorySettingsTab />
-            </TabsContent>
-
-            <TabsContent value="dispatch">
-              <DispatchSettingsTab />
-            </TabsContent>
-
-            <TabsContent value="cancellation">
-              <CancellationPolicyTab />
-            </TabsContent>
-
-            <TabsContent value="financial">
-              <FinancialSettingsTab
-                settings={settings.financial}
-                onUpdate={(key, value) => updateSetting("financial", key, value)}
-              />
-            </TabsContent>
-
-            <TabsContent value="email-automation">
-              <EmailAutomationSettingsTab
-                templatesHref={withSlug("/admin/after-sales-emails")}
-              />
-            </TabsContent>
-          </Tabs>
-          </div>
+                <TabsContent value="cancellation">
+                  <CancellationPolicyTab />
+                </TabsContent>
+              </Tabs>
+            )}
+          </section>
         </PortalShell>
       </div>
 
-      {/* Sticky save bar - always visible at the bottom of the page so
-          the operator never has to scroll back up to save what they
-          changed in a tab. Slides into view only when there are unsaved
-          edits, and hides itself again on save. */}
       {hasUnsavedChanges && (
-        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 lg:left-[calc(50%+9rem)] xl:left-[calc(50%+10rem)]">
-          <div className="flex items-center gap-3 rounded-full bg-slate-900 text-white shadow-2xl px-4 py-2.5 border border-amber-400/40">
+        <div className="fixed bottom-4 left-1/2 z-40 -translate-x-1/2 lg:left-[calc(50%+9rem)] xl:left-[calc(50%+10rem)]">
+          <div className="flex items-center gap-3 rounded-full border border-amber-400/40 bg-slate-900 px-4 py-2.5 text-white shadow-2xl">
             <span className="inline-flex items-center gap-2 text-xs font-medium">
-              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-400" />
               Unsaved changes
             </span>
             <Button
               onClick={handleSave}
               disabled={saving}
               size="sm"
-              className="h-8 bg-amber-500 hover:bg-amber-400 text-slate-900 gap-1.5"
+              className="h-8 gap-1.5 bg-amber-500 text-slate-900 hover:bg-amber-400"
             >
-              <Save className="w-3.5 h-3.5" />
-              {saving ? "Saving..." : "Save changes"}
+              <Save className="h-3.5 w-3.5" />
+              {saving ? "Saving..." : "Save"}
             </Button>
           </div>
         </div>
@@ -714,8 +519,119 @@ function SettingsPage() {
   );
 }
 
-export const getServerSideProps: GetServerSideProps = async (context) => {
+function SettingsShortcutCard({ item, href }: { item: SettingsShortcut; href: string }) {
+  const Icon = item.icon;
+  return (
+    <Card className="border-0 shadow-lg transition-shadow hover:shadow-xl">
+      <CardContent className="flex h-full flex-col gap-4 p-4">
+        <div className="flex items-start gap-3">
+          <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-brand-primary/10 text-brand-primary">
+            <Icon className="h-5 w-5" />
+          </span>
+          <div className="min-w-0">
+            <h3 className="font-semibold text-slate-900">{item.title}</h3>
+            <p className="mt-1 text-sm leading-relaxed text-slate-600">{item.description}</p>
+          </div>
+        </div>
+        <div className="mt-auto flex items-center justify-between gap-3 border-t border-slate-100 pt-3">
+          <span className="rounded-full bg-slate-100 px-2 py-1 text-[11px] font-medium text-slate-600">
+            {item.source}
+          </span>
+          <Button asChild variant="ghost" size="sm" className="gap-1.5">
+            <Link href={href}>
+              Open
+              <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function companyToSettings(company: Record<string, any>, fallback: AdminSettings): AdminSettings {
+  const dispatch = (company.dispatch_settings || {}) as Record<string, any>;
+  const kitchen = (company.kitchen_settings || {}) as Record<string, any>;
+  const pricing = (dispatch.pricing || {}) as Record<string, any>;
+  const automation = (dispatch.automation || {}) as Record<string, any>;
+
   return {
-    props: {},
+    automation: {
+      autoFollowUpDays: numberOr(automation.autoFollowUpDays, fallback.automation.autoFollowUpDays),
+      secondFollowUpDays: numberOr(automation.secondFollowUpDays, fallback.automation.secondFollowUpDays),
+      reminderDays: Array.isArray(automation.reminderDays)
+        ? automation.reminderDays.map(Number).filter((n: number) => Number.isFinite(n) && n > 0)
+        : fallback.automation.reminderDays,
+      autoDiscountPercent: numberOr(automation.autoDiscountPercent, fallback.automation.autoDiscountPercent),
+      reviewRequestDays: numberOr(automation.reviewRequestDays, fallback.automation.reviewRequestDays),
+      complaintResponseHours: numberOr(automation.complaintResponseHours, fallback.automation.complaintResponseHours),
+    },
+    pricing: {
+      weekendPremium: numberOr(pricing.weekendPremium, fallback.pricing.weekendPremium),
+      lastMinuteSurcharge: numberOr(pricing.lastMinuteSurcharge, fallback.pricing.lastMinuteSurcharge),
+      earlyBirdDiscount: numberOr(pricing.earlyBirdDiscount, fallback.pricing.earlyBirdDiscount),
+      bulkDiscountThreshold: numberOr(pricing.bulkDiscountThreshold, fallback.pricing.bulkDiscountThreshold),
+      bulkDiscountPercent: numberOr(pricing.bulkDiscountPercent, fallback.pricing.bulkDiscountPercent),
+      minimumOrderValue: numberOr(pricing.minimumOrderValue, fallback.pricing.minimumOrderValue),
+    },
+    operations: {
+      equipmentCleaningHours: numberOr(dispatch.equipmentCleaningHours, fallback.operations.equipmentCleaningHours),
+      kitchenPrepHours: numberOr(kitchen.kitchenPrepHours, fallback.operations.kitchenPrepHours),
+      deliveryBufferMinutes: numberOr(dispatch.deliveryBufferMinutes, fallback.operations.deliveryBufferMinutes),
+      maxConcurrentEvents: numberOr(dispatch.maxConcurrentEvents, fallback.operations.maxConcurrentEvents),
+      maxGuestsPerEvent: numberOr(dispatch.maxGuestsPerEvent, fallback.operations.maxGuestsPerEvent),
+      maxKitchenLoadPerDay: numberOr(dispatch.maxKitchenLoadPerDay, fallback.operations.maxKitchenLoadPerDay),
+      driverRadius: numberOr(dispatch.driverRadius, fallback.operations.driverRadius),
+      deliveryCostPerKm: numberOr(dispatch.deliveryCostPerKm, fallback.operations.deliveryCostPerKm),
+    },
+    financial: {
+      currency: company.currency || fallback.financial.currency,
+      taxRate: numberOr(company.vat_rate, fallback.financial.taxRate),
+      depositPercent: numberOr(company.deposit_percent, fallback.financial.depositPercent),
+      balanceDueDays: numberOr(company.balance_due_days, fallback.financial.balanceDueDays),
+      finalOrderChangeDays: numberOr(company.amendment_cutoff_days, fallback.financial.finalOrderChangeDays),
+      cancellationFeePercent: numberOr(company.cancellation_fee_percent, fallback.financial.cancellationFeePercent),
+      refundProcessDays: numberOr(company.refund_process_days, fallback.financial.refundProcessDays),
+    },
   };
-};
+}
+
+function readLocalSettings(companyId: string): AdminSettings {
+  if (typeof window === "undefined") return DEFAULT_SETTINGS;
+  const keys = [`admin_settings.${companyId}`, "admin_settings"];
+  for (const key of keys) {
+    try {
+      const raw = window.localStorage.getItem(key);
+      if (!raw) continue;
+      return mergeSettings(DEFAULT_SETTINGS, JSON.parse(raw));
+    } catch {
+      // Try the next cache key.
+    }
+  }
+  return DEFAULT_SETTINGS;
+}
+
+function mergeSettings(base: AdminSettings, patch: any): AdminSettings {
+  return {
+    automation: { ...base.automation, ...(patch?.automation || {}) },
+    pricing: { ...base.pricing, ...(patch?.pricing || {}) },
+    operations: { ...base.operations, ...(patch?.operations || {}) },
+    financial: { ...base.financial, ...(patch?.financial || {}) },
+  };
+}
+
+function mirrorSettingsCache(companyId: string, settings: AdminSettings) {
+  if (typeof window === "undefined") return;
+  try {
+    const json = JSON.stringify(settings);
+    window.localStorage.setItem(`admin_settings.${companyId}`, json);
+    window.localStorage.setItem("admin_settings", json);
+  } catch {
+    // Local cache is only a compatibility mirror. The DB save already succeeded.
+  }
+}
+
+function numberOr(value: unknown, fallback: number): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
