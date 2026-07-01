@@ -63,6 +63,11 @@ import { useSortable, type ColumnDef } from "@/lib/useSortable";
 import { SortHeader } from "@/components/ui/sort-header";
 import { toLocalISO } from "@/lib/localDate";
 import { useTenantHref } from "@/lib/tenantUrl";
+import {
+  hasAutomatedTestMarker,
+  isAutomatedTestClient,
+  isAutomatedTestQuote,
+} from "@/lib/testDataDetection";
 
 interface Contact {
   key: string;          // canonical de-dupe key (lower-cased email or name)
@@ -198,6 +203,7 @@ function ClientsCRM() {
   const { withSlug } = useTenantHref();
   const [loading, setLoading] = useState(true);
   const [contacts, setContacts] = useState<Contact[]>([]);
+  const [hiddenAutomatedTestRows, setHiddenAutomatedTestRows] = useState(0);
   const [search, setSearch] = useState("");
   // Wave 70.75: debounced mirror of search. The filter useMemo
   // reads from this so a fast typist doesn't re-run the fuzzy
@@ -567,8 +573,35 @@ function ClientsCRM() {
         return `unknown-${unknownCounter}`;
       };
 
+      const clientRows = (clientsRes.data || []) as any[];
+      const leadRows = (leadsRes.data || []) as any[];
+      const orderRollupRows = (ordersRes.data || []) as any[];
+      const quoteRows = (quotesRes.data || []) as any[];
+
+      const realClients = clientRows.filter((c) => !isAutomatedTestClient(c));
+      const realLeads = leadRows.filter((l) => !hasAutomatedTestMarker(
+        l.contact_name,
+        l.email,
+        l.phone,
+        l.mobile_number,
+        l.landline_number,
+        l.imported_filename,
+      ));
+      const realOrderRollups = orderRollupRows.filter((r) => !hasAutomatedTestMarker(
+        r.email_key,
+        r.sample_client_name,
+        r.sample_client_phone,
+      ));
+      const realQuotes = quoteRows.filter((q) => !isAutomatedTestQuote(q));
+      setHiddenAutomatedTestRows(
+        (clientRows.length - realClients.length)
+        + (leadRows.length - realLeads.length)
+        + (orderRollupRows.length - realOrderRollups.length)
+        + (quoteRows.length - realQuotes.length),
+      );
+
       // Seed from clients
-      (clientsRes.data || []).forEach((c: any) => {
+      realClients.forEach((c: any) => {
         const k = keyOf(c.email, c.client_name);
         clientIdToKey.set(c.id, k);
         map.set(k, {
@@ -602,7 +635,7 @@ function ClientsCRM() {
       });
 
       // Merge leads
-      (leadsRes.data || []).forEach((l: any) => {
+      realLeads.forEach((l: any) => {
         const k = keyOf(l.email, l.contact_name);
         const existing = map.get(k);
         if (existing) {
@@ -671,7 +704,7 @@ function ClientsCRM() {
       //     rollup carries.
       //   - Map every order_id to this email_key so the invoices
       //     merge can still resolve invoice.order_id -> contact.
-      (ordersRes.data || []).forEach((r: any) => {
+      realOrderRollups.forEach((r: any) => {
         const emailKey = String(r.email_key || "").trim();
         if (!emailKey) return;
         let c = map.get(emailKey);
@@ -729,7 +762,7 @@ function ClientsCRM() {
       // Merge quotes. Resolve which contact each quote belongs to:
       // (1) client_id mapping if the quote was promoted from a client
       // (2) email/name fallback for legacy quotes where client_id is null
-      (quotesRes.data || []).forEach((q: any) => {
+      realQuotes.forEach((q: any) => {
         let k: string | null = null;
         if (q.client_id && clientIdToKey.has(q.client_id)) {
           k = clientIdToKey.get(q.client_id)!;
@@ -1104,18 +1137,18 @@ function ClientsCRM() {
             title="Contacts"
             icon={Users}
             subtitle="Your CRM inbox. Everyone you've touched so far, leads and clients combined, sorted by suggested next action."
+            className="lg:grid-cols-1 lg:items-start 2xl:grid-cols-[minmax(0,1fr)_auto] 2xl:items-end"
             actions={
             <>
-              <div className="relative">
+              <div className="relative w-full sm:w-80">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <Input
                   ref={searchRef}
                   placeholder="Search name, email, phone... (press /)"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="pl-9 pr-9 w-64 sm:w-80"
+                  className="pl-9 pr-9 w-full"
                 />
-          <PageWorkbench />
                 {/* Phase 24 #9: clear-search affordance, matching
                     /admin/orders + /admin/quotes. */}
                 {search && (
@@ -1229,6 +1262,19 @@ function ClientsCRM() {
             </>
             }
           />
+          <PageWorkbench />
+
+          {hiddenAutomatedTestRows > 0 && (
+            <div className="mb-4 flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
+              <div>
+                <p className="font-semibold">Automated test contacts hidden</p>
+                <p className="mt-0.5 text-xs leading-5 text-amber-900">
+                  {hiddenAutomatedTestRows} E2E source row{hiddenAutomatedTestRows === 1 ? "" : "s"} were excluded from this CRM view so live client counts, totals and suggested actions stay clean.
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* Wave 70.57: top clients by spend relocated here from
               /admin/dashboard per owner brief 2026-05-22. Retention

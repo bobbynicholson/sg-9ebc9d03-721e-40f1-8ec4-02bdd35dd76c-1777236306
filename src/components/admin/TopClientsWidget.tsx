@@ -25,6 +25,7 @@ import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { useReportWidgetError } from "@/components/dashboard/WidgetErrorBoundary";
 import { daysAgoDateOnly } from "@/lib/dashboardWindows";
+import { isAutomatedTestOrder } from "@/lib/testDataDetection";
 
 interface TopClient {
   client_name: string;
@@ -52,12 +53,13 @@ export function TopClientsWidget({ companyId }: { companyId: string | null }) {
         // excluded them. Top Clients and dashboard now agree.
         const { data, error } = await (supabase as any)
           .from("orders")
-          .select("client_name, total_amount, status, payment_status, deposit_paid, confirmed_at, cancelled_at, event_date")
+          .select("order_number, event_name, internal_notes, client_name, total_amount, status, payment_status, deposit_paid, confirmed_at, cancelled_at, event_date")
           .eq("company_id", companyId)
           .gte("event_date", since);
         if (error) throw error;
         const byClient = new Map<string, TopClient>();
         for (const o of (data || []) as any[]) {
+          if (isAutomatedTestOrder(o)) continue;
           if (!isBookedRevenue(o)) continue;
           const name = (o.client_name || "").trim();
           if (!name) continue;
