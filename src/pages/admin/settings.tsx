@@ -252,7 +252,8 @@ function SettingsPage() {
     let dbErrorMessage: string | null = null;
     localStorage.setItem("admin_settings", JSON.stringify(settings));
     try {
-      await supabase.auth.updateUser({ data: { admin_settings: settings } });
+      const { error: authUpdateErr } = await supabase.auth.updateUser({ data: { admin_settings: settings } });
+      if (authUpdateErr) throw authUpdateErr;
     } catch (e) {
       console.error("Failed to persist settings to auth metadata:", e);
     }
@@ -261,25 +262,30 @@ function SettingsPage() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        const { data: profile } = await supabase
+        const { data: profile, error: profileErr } = await supabase
           .from("profiles")
           .select("company_id")
           .eq("id", user.id)
           .maybeSingle();
-        if (profile?.company_id) {
+        if (profileErr) throw profileErr;
+        if (!profile?.company_id) {
+          throw new Error("Could not resolve the current company for this settings save.");
+        }
+        {
           // Read the current JSONB so we merge instead of clobber.
           // Audit (May 2026, Wave 8): dispatch_settings is shared with
           // other writers (DispatchSettingsTab, branch overrides);
           // overwriting the whole blob would wipe sibling keys.
-          const { data: existing } = await (supabase as any)
+          const { data: existing, error: existingErr } = await (supabase as any)
             .from("companies")
             .select("dispatch_settings, kitchen_settings")
             .eq("id", profile.company_id)
             .maybeSingle();
+          if (existingErr) throw existingErr;
           const priorDispatch = ((existing as any)?.dispatch_settings || {}) as Record<string, any>;
           const priorKitchen = ((existing as any)?.kitchen_settings || {}) as Record<string, any>;
 
-          await (supabase as any)
+          const { error: updateErr } = await (supabase as any)
             .from("companies")
             .update({
               company_name: settings.company.name,
@@ -346,7 +352,10 @@ function SettingsPage() {
               },
             })
             .eq("id", profile.company_id);
+          if (updateErr) throw updateErr;
         }
+      } else {
+        throw new Error("No authenticated user found for this settings save.");
       }
     } catch (e: any) {
       console.error("Failed to persist company settings to DB:", e);
