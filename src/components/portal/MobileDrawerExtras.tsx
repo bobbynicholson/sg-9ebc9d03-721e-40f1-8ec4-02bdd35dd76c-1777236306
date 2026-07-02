@@ -30,7 +30,7 @@ export function MobileSearchTrigger({
     >
       <Search className="w-4 h-4 flex-shrink-0" />
       <span className="flex-1 text-left">{hint}</span>
-      <kbd className="hidden sm:inline-flex items-center gap-1 rounded border border-slate-300 bg-white px-1.5 py-0.5 text-[10px] font-mono text-slate-600">
+      <kbd className="hidden sm:inline-flex items-center gap-1 rounded border border-slate-300 bg-white px-1.5 py-0.5 text-[10px] font-mono text-slate-600 dark:border-white/20 dark:bg-white/10 dark:text-white/70">
         Cmd K
       </kbd>
     </button>
@@ -58,7 +58,7 @@ export function MobileQuickActions({
   if (!actions.length) return null;
   return (
     <div className="mb-2">
-      <p className="px-1 mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-500 flex items-center gap-1">
+      <p className="px-1 mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-white/70 flex items-center gap-1">
         <Sparkles className="w-3 h-3" />
         Quick actions
       </p>
@@ -70,7 +70,7 @@ export function MobileQuickActions({
               key={a.href + a.label}
               href={a.href}
               onClick={() => { a.onClick?.(); onNavigate?.(); }}
-              className="flex flex-col items-start gap-1.5 rounded-xl border border-slate-200 dark:border-slate-700 p-3 hover:border-slate-300 hover:shadow-sm transition-all"
+              className="flex flex-col items-start gap-1.5 rounded-xl border border-slate-200 dark:border-white/20 dark:bg-white/5 p-3 hover:border-slate-300 hover:shadow-sm dark:hover:border-white/30 dark:hover:bg-white/10 transition-all"
             >
               <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${a.accent || "from-slate-500 to-slate-600"} flex items-center justify-center shadow-sm`}>
                 <Icon className="w-4 h-4 text-white" />
@@ -78,7 +78,7 @@ export function MobileQuickActions({
               <div className="min-w-0 w-full">
                 <div className="text-xs font-semibold text-slate-900 dark:text-slate-100 truncate">{a.label}</div>
                 {a.sub && (
-                  <div className="text-[10px] text-slate-500 truncate">{a.sub}</div>
+                  <div className="text-[10px] text-slate-500 dark:text-white/60 truncate">{a.sub}</div>
                 )}
               </div>
             </Link>

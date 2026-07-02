@@ -109,24 +109,25 @@ function AdminTopSlot({ companySlug }: { companySlug: string }) {
     <div className="space-y-3">
       <CommandPaletteHint className="w-full justify-center" />
 
-      {/* Company identity */}
-      <div className="flex items-center gap-2.5 rounded-xl border border-slate-200/80 bg-white px-3 py-2.5 dark:border-slate-800 dark:bg-slate-900">
-        <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full border-2 border-brand-primary/30 bg-brand-primary/10">
-          <span className="text-[11px] font-bold text-brand-primary">{initials}</span>
+      {/* Company identity - white-glass card so it sits on the
+          brand-painted rail instead of reading as a generic dark tile. */}
+      <div className="flex items-center gap-2.5 rounded-xl border border-white/15 bg-white/10 px-3 py-2.5">
+        <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full border-2 border-white/30 bg-white/15">
+          <span className="text-[11px] font-bold text-white">{initials}</span>
         </div>
         <div className="min-w-0 flex-1 overflow-hidden">
           <div className="flex items-center gap-1.5">
-            <span className="truncate text-sm font-semibold text-slate-900 dark:text-white">
+            <span className="truncate text-sm font-semibold text-white">
               {companyName}
             </span>
             <Badge
               variant="outline"
-              className="h-4 flex-shrink-0 border-brand-primary/20 bg-brand-primary/10 px-1 text-[9px] text-brand-primary"
+              className="h-4 flex-shrink-0 border-white/25 bg-white/10 px-1 text-[9px] text-white"
             >
               Admin
             </Badge>
           </div>
-          <div className="truncate text-[11px] leading-tight text-slate-400">
+          <div className="truncate text-[11px] leading-tight text-white/65">
             {profile?.full_name || profile?.email || ""}
           </div>
         </div>
@@ -382,7 +383,11 @@ export function AdminNav(_: AdminNavProps = {}) {
     title: "Admin",
     mobileSubtitle: "Operations & admin",
     brandIcon: LayoutDashboard,
-    appearance: "dark",
+    // The rail wears the TENANT'S own colours (primary→secondary gradient
+    // with white-glass rows) - the same command-centre structure as the
+    // super-admin rail, but never its fixed dark slate. Repaints live when
+    // the admin changes the white-label palette.
+    appearance: "brand",
     // Tenant brand accent - resolves to THIS company's colours via the
     // brand-* CSS vars (set by TenantBrandingApplier), falling back to
     // the CateringMS default for non-white-label tenants.

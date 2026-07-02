@@ -320,6 +320,7 @@ function PaymentGatewaysPage() {
           {isSuperAdmin ? (
             <PortalHeader
               variant="hero"
+              appearance="dark"
               title="Payment Gateways"
               icon={CreditCard}
               subtitle="Online card and EFT processing per tenant. Pick a catering company, then connect a South African gateway like PayFast or Yoco so their clients can pay quotes and invoices through the public link instead of manual EFT."

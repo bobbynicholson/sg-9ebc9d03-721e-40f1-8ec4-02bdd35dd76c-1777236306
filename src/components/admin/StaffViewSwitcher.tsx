@@ -147,7 +147,7 @@ export function StaffViewSwitcher({ companySlug }: ViewSwitcherProps) {
           size="icon"
           disabled={loading}
           title={`Switch view (currently ${getViewLabel()})`}
-          className="relative h-9 w-9 shrink-0 rounded-lg border-slate-300 bg-white text-slate-700 hover:bg-slate-100 hover:text-slate-950 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+          className="relative h-9 w-9 shrink-0 rounded-lg border-slate-300 bg-white text-slate-700 hover:bg-slate-100 hover:text-slate-950 dark:border-white/20 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
         >
           <Eye className="h-4 w-4" />
           <span

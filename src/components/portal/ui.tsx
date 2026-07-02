@@ -77,9 +77,10 @@ export function PortalShell({
  *   legible on any brand hue. No fixed dark slate anywhere.
  * - `"dark"` (default on /admin/platform): the slate-950 command band that
  *   pairs with the super-admin forced-dark rail.
- * When `appearance` is omitted it resolves from the route: admin/account
- * pages use the same dark command band as platform pages, while team and
- * client portals carry the tenant brand band. Actions render inside a scoped `dark` class so shadcn
+ * When `appearance` is omitted it resolves from the route: only the
+ * super-admin platform pages get the dark slate band; every tenant surface
+ * (company admin, account, team and client portals) carries the tenant
+ * brand band. Actions render inside a scoped `dark` class so shadcn
  * outline/ghost controls pick dark styling on the band automatically.
  * `meta` is an optional chip row under the subtitle (live counts, badges). */
 export function PortalHeader({
@@ -107,8 +108,7 @@ export function PortalHeader({
   if (variant === "hero") {
     const pathname = router.pathname || "";
     const resolvedAppearance =
-      appearance ??
-      (pathname.includes("/admin") || pathname.includes("/account/") ? "dark" : "brand");
+      appearance ?? (pathname.includes("/admin/platform") ? "dark" : "brand");
     const isBrand = resolvedAppearance === "brand";
     return (
       <header

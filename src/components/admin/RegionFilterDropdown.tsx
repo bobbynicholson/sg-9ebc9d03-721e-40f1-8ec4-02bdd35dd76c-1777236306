@@ -31,7 +31,7 @@ export function RegionFilterDropdown() {
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-2.5 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-200 hover:border-blue-400 hover:text-blue-700 dark:hover:text-blue-400 transition-colors"
+          className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 dark:border-white/20 bg-white dark:bg-white/10 px-2.5 py-1.5 text-xs font-medium text-slate-700 dark:text-white/85 hover:border-blue-400 hover:text-blue-700 dark:hover:border-white/30 dark:hover:bg-white/15 dark:hover:text-white transition-colors"
           aria-label="Filter by branch"
         >
           <Building2 className="w-3.5 h-3.5" />
