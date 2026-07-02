@@ -43,6 +43,7 @@ import {
 } from "@/services/supplierService";
 import { PageWorkbench, PortalHeader, PortalShell } from "@/components/portal/ui";
 import { formatZAR } from "@/lib/formatters";
+import { orderDisplayName } from "@/lib/orderDisplayName";
 import { captureException } from "@/lib/observability";
 
 // Money display goes through formatZAR so this page renders the same
@@ -420,7 +421,7 @@ function SupplierDetail() {
                                   className="text-brand-primary hover:opacity-80 font-medium inline-flex items-center gap-1"
                                 >
                                   {o.order_number}
-                                  {o.event_name ? ` - ${o.event_name}` : ""}
+                                  {orderDisplayName({ event_name: o.event_name }) !== "Order" ? ` - ${orderDisplayName({ event_name: o.event_name })}` : ""}
                                   <ExternalLink className="w-3 h-3" />
                                 </Link>
                               </td>

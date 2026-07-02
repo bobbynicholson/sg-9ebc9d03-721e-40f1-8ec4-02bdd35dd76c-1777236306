@@ -19,6 +19,7 @@ import { PortalShell, PortalHeader, PortalCard, PortalOverview,
 import { BookingHeader } from "@/components/booking/BookingHeader";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenantHref } from "@/lib/tenantUrl";
+import { orderDisplayName } from "@/lib/orderDisplayName";
 
 const ClientTrackingMap = dynamic(
   () => import("@/components/tracking/ClientTrackingMap").then((mod) => mod.ClientTrackingMap),
@@ -565,7 +566,7 @@ function ClientTrackingInner() {
 
           <PortalOverview
             eyebrow="Live tracking"
-            title={selectedOrder ? `${selectedOrder.event_name || selectedOrder.order_number || "Live trip"} is active` : "Live tracking is active"}
+            title={selectedOrder ? `${orderDisplayName(selectedOrder) || "Live trip"} is active` : "Live tracking is active"}
             description="Use this page only while a driver is moving. For upcoming and completed bookings, open Bookings for the full status and documents."
             items={[
               { label: "Live trips", value: orders.length, helper: "Driver on road", icon: Navigation, tone: "brand" },
@@ -755,7 +756,7 @@ function ClientTrackingInner() {
                       <div className="flex items-start justify-between gap-2 mb-2">
                         <div className="min-w-0">
                           <p className="font-semibold text-slate-900 dark:text-white truncate">
-                            {order.event_name || order.order_number || order.venue_name || "Live trip"}
+                            {orderDisplayName(order) || order.venue_name || "Live trip"}
                           </p>
                           <p className="text-sm text-slate-600 dark:text-slate-400">{order.venue_address}</p>
                         </div>

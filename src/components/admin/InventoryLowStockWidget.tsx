@@ -37,6 +37,7 @@ import {
   AlertTriangle, ArrowRight, ChevronDown, ChevronRight, Package, ShoppingCart, CalendarDays, Info, ExternalLink,
 } from "lucide-react";
 import { useTenantHref } from "@/lib/tenantUrl";
+import { orderDisplayName } from "@/lib/orderDisplayName";
 import { useReportWidgetError } from "@/components/dashboard/WidgetErrorBoundary";
 
 /* ------------------------------------------------------------------ */
@@ -417,7 +418,7 @@ export function InventoryLowStockWidget({ companyId }: Props) {
                                   <div className="flex items-center gap-1.5 flex-wrap">
                                     <span className="font-mono text-[10px] text-slate-500">{d.order_number}</span>
                                     <span className="truncate text-slate-900 font-medium">
-                                      {d.event_name || "(no event name)"}
+                                      {orderDisplayName({ event_name: d.event_name }) !== "Order" ? orderDisplayName({ event_name: d.event_name }) : "(no event name)"}
                                     </span>
                                     <Badge variant="outline" className="text-[9px] uppercase tracking-wide">
                                       {d.order_status}

@@ -46,6 +46,7 @@ import { useTenantHref } from "@/lib/tenantUrl";
 import { staffOrderHref } from "@/lib/orderUrls";
 import { captureException } from "@/lib/observability";
 import { canAccessFinance } from "@/lib/authGuards";
+import { orderDisplayName } from "@/lib/orderDisplayName";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { whatsappIntegrationService } from "@/services/whatsappIntegrationService";
 import { countTeamBuckets, teamBucketsForUser, type TeamRoleBucket } from "@/lib/teamRoleBuckets";
@@ -673,7 +674,7 @@ function TeamsIndexPage() {
             ? `${kitchenMissingClockOut} missing clock-out`
             : "All clocked",
           nextLabel: nextKitchenRow
-            ? `${nextKitchenRow.event_name || nextKitchenRow.order_number || "Event"}`
+            ? orderDisplayName({ event_name: nextKitchenRow.event_name, order_number: nextKitchenRow.order_number })
             : null,
           nextTimeISO: nextKitchenRow?.event_time ? `${todayISO}T${nextKitchenRow.event_time}` : null,
           burnTodayZar: kitchenBurnToday,
@@ -694,7 +695,7 @@ function TeamsIndexPage() {
           anomalies: driverAnomalies,
           anomalyHint: driverAnomalies > 0 ? `${driverAnomalies} declined / no-show` : "All accepted",
           nextLabel: nextDriverRow
-            ? `${nextDriverRow.orders?.event_name || nextDriverRow.orders?.order_number || "Delivery"}`
+            ? orderDisplayName({ event_name: nextDriverRow.orders?.event_name, order_number: nextDriverRow.orders?.order_number })
             : null,
           nextTimeISO: nextDriverRow?.orders?.event_time
             ? `${todayISO}T${nextDriverRow.orders.event_time}`

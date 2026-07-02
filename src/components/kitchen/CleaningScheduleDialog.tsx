@@ -29,6 +29,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { equipmentTrackingService } from "@/services/equipmentTrackingService";
 import { listActiveJobs, type CleaningJobWithEquipment } from "@/services/cleaningJobsService";
 import { useTenantHref } from "@/lib/tenantUrl";
+import { orderDisplayName } from "@/lib/orderDisplayName";
 
 interface Props {
   open: boolean;
@@ -237,10 +238,10 @@ export function CleaningScheduleDialog({
                     >
                       <div className="min-w-0">
                         <p className="font-medium text-slate-900 truncate">
-                          {c.order?.event_name || c.order?.client_name || "Event"}
+                          {orderDisplayName({ event_name: c.order?.event_name, client_name: c.order?.client_name })}
                         </p>
                         <p className="text-xs text-slate-500 truncate">
-                          {c.order?.client_name || ""}
+                          {c.order?.client_name && orderDisplayName({ event_name: c.order?.event_name, client_name: c.order?.client_name }) !== c.order?.client_name ? c.order.client_name : ""}
                           {c.order?.event_date ? ` - ${c.order.event_date}` : ""}
                         </p>
                       </div>

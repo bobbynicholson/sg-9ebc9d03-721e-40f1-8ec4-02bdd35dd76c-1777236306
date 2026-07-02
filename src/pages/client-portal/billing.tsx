@@ -115,7 +115,7 @@ function ClientBillingPageInner() {
     if (!user || !company?.id) return;
     const tenantCompanyId = company.id;
     const channel = supabase
-      .channel(`client-billing-${user.id}-${tenantCompanyId}`)
+      .channel(`client-billing-${user.id}-${tenantCompanyId}-${Math.random().toString(36).slice(2)}`)
       .on(
         "postgres_changes",
         {

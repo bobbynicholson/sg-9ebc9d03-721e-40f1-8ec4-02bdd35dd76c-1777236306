@@ -39,6 +39,7 @@ import { Calendar as CalendarIcon, Clock, MapPin, Users, Hash, ChefHat, Truck, S
 import { useBrandingRow } from "@/lib/branding/useBranding";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { cn } from "@/lib/utils";
+import { orderDisplayName } from "@/lib/orderDisplayName";
 
 export type BookingHeaderVariant = "admin" | "client" | "kitchen" | "driver" | "cleaning" | "shopping";
 
@@ -222,7 +223,7 @@ export function BookingHeader({
               "font-bold text-slate-900 truncate",
               compact ? "text-base" : "text-lg sm:text-xl",
             )}>
-              {booking.event_name || booking.client_name || "Event"}
+              {orderDisplayName(booking)}
             </h2>
 
             {/* Facts row - date / time / guests / venue. Each fact is
@@ -252,7 +253,7 @@ export function BookingHeader({
                   cares about the contact person at the venue, not the
                   billing client name). Hidden for client (it's THEM). */}
               {(variant === "admin" || variant === "kitchen" || variant === "cleaning" || variant === "shopping")
-                && booking.client_name && booking.event_name && booking.client_name !== booking.event_name && (
+                && booking.client_name && booking.client_name !== orderDisplayName(booking) && (
                 <span className="inline-flex items-center gap-1">
                   <User className="w-3.5 h-3.5 text-slate-400" />
                   {booking.client_name}

@@ -22,6 +22,7 @@ import {
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { Footer } from "@/components/Footer";
 import { toLocalISO } from "@/lib/localDate";
+import { orderDisplayName } from "@/lib/orderDisplayName";
 
 type AccountView = {
   ok: true;
@@ -248,7 +249,7 @@ function OrderRow({ order, primary, fmtMoney, muted }: any) {
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 flex-wrap mb-1">
-                <h3 className="font-semibold text-slate-900 truncate">{order.event_name || order.order_number}</h3>
+                <h3 className="font-semibold text-slate-900 truncate">{orderDisplayName(order)}</h3>
                 <Badge variant="outline" className={`${tone} border text-[10px] capitalize`}>
                   {String(order.status).replace("_", " ")}
                 </Badge>

@@ -61,6 +61,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { onOrderUpdated } from "@/lib/events/orderEvents";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
+import { orderDisplayName } from "@/lib/orderDisplayName";
 
 // Leaflet (used for live tracking) is SSR-hostile. Lazy-load on demand so
 // the bundle stays small and SSR doesn't crash.
@@ -738,7 +739,7 @@ function ClientPortalDashboardInner() {
     // All four tables are company-scoped via filter so RLS + the
     // server-side filter together stop cross-tenant leakage.
     const channel = supabase
-      .channel(`client-orders-${user.id}-${tenantCompanyId}`)
+      .channel(`client-orders-${user.id}-${tenantCompanyId}-${Math.random().toString(36).slice(2)}`)
       .on(
         "postgres_changes",
         {
@@ -866,7 +867,7 @@ function ClientPortalDashboardInner() {
     };
 
     const channel = supabase
-      .channel(`client-order-chat-${user.id}-${tenantCompanyId}`)
+      .channel(`client-order-chat-${user.id}-${tenantCompanyId}-${Math.random().toString(36).slice(2)}`)
       .on(
         "postgres_changes",
         {
@@ -1078,7 +1079,7 @@ function ClientPortalDashboardInner() {
 
           <PortalOverview
             eyebrow="Client overview"
-            title={headline ? `Next up: ${headline.event_name || "your booking"}` : "Your quotes, bookings, invoices, and tracking in one place"}
+            title={headline ? `Next up: ${orderDisplayName(headline) || "your booking"}` : "Your quotes, bookings, invoices, and tracking in one place"}
             description={headline ? smartStatusCopy(headline).sub : `When ${companyName} confirms a booking, the date, live tracking, invoice, messages, and rebook actions stay together here.`}
             items={[
               { label: "Active bookings", value: activeOrders.length, helper: headline ? new Date(headline.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short" }) : "None live", icon: Calendar, tone: activeOrders.length > 0 ? "brand" : "neutral" },
@@ -1260,7 +1261,7 @@ function ClientPortalDashboardInner() {
                       </h3>
                       <p className="text-xs text-slate-600 dark:text-slate-300 mt-1">
                         We'll prefill from{" "}
-                        {lastCompleted.event_name || "your last booking"}
+                        {orderDisplayName(lastCompleted) || "your last booking"}
                         {lastCompleted.event_date
                           ? ` on ${new Date(lastCompleted.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}`
                           : ""}
@@ -1342,7 +1343,7 @@ function ClientPortalDashboardInner() {
                     How was it?
                   </p>
                   <p className="text-sm sm:text-base font-semibold text-slate-900 dark:text-white mt-0.5">
-                    Your {justDelivered.event_name || "event"} on
+                    Your {orderDisplayName(justDelivered) || "event"} on
                     {" "}
                     {new Date(justDelivered.event_date).toLocaleDateString("en-ZA", { weekday: "short", day: "numeric", month: "short" })}
                     {" "}was delivered.
@@ -1759,7 +1760,7 @@ function HeroCard({
           />
         </div>
         <div className="px-5 sm:px-6 py-4 grid grid-cols-3 gap-3 border-t border-slate-100 dark:border-slate-800">
-          <Stat label="Event" value={order.event_name || "Your event"} />
+          <Stat label="Event" value={orderDisplayName(order) || "Your event"} />
           <Stat label="Guests" value={`${order.guest_count || 0}`} />
           <Stat label="Total" value={fmtMoney.format(Number(order.total_amount || 0))} />
         </div>
@@ -1791,7 +1792,7 @@ function HeroCard({
               Your next event
             </p>
             <h2 className="text-xl sm:text-2xl font-semibold mt-0.5 truncate text-slate-900 dark:text-white">
-              {order.event_name || "Your event"}
+              {orderDisplayName(order) || "Your event"}
             </h2>
             <p className="text-sm text-slate-600 dark:text-slate-300 mt-1">
               {new Date(order.event_date).toLocaleDateString("en-ZA", {
@@ -2043,7 +2044,7 @@ function PastEventTile({
           <div className="min-w-0">
             <p className="text-xs text-slate-500 dark:text-slate-400">{date}</p>
             <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">
-              {order.event_name || "Event"}
+              {orderDisplayName(order) || "Event"}
             </p>
           </div>
           <Badge variant="outline" className="text-[10px] capitalize flex-shrink-0">

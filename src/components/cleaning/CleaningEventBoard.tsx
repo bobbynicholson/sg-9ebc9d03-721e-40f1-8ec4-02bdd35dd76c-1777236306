@@ -29,6 +29,7 @@ import { Button } from "@/components/ui/button";
 import { Sparkles, Calendar, Clock, MapPin, Package, CheckCircle2, Loader2, ChevronRight, ArrowRight } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTenantHref } from "@/lib/tenantUrl";
+import { orderDisplayName } from "@/lib/orderDisplayName";
 import { supabase } from "@/integrations/supabase/client";
 import {
   listHandoversForCompany,
@@ -57,7 +58,7 @@ function fmtDateDay(iso: string | null): string {
 
 function HandoverCard({ h }: { h: HandoverWithOrderMeta }) {
   const { withSlug } = useTenantHref();
-  const eventLabel = h.event_name || h.client_name || "Event";
+  const eventLabel = orderDisplayName(h);
   const venueShort = h.venue_address ? String(h.venue_address).split(",")[0] : null;
   const expectedTime = h.expected_at
     ? fmtTime(h.expected_at)
@@ -75,7 +76,7 @@ function HandoverCard({ h }: { h: HandoverWithOrderMeta }) {
           <p className="font-semibold text-sm text-slate-900 truncate">
             {eventLabel}
           </p>
-          {h.event_name && h.client_name && (
+          {h.client_name && eventLabel !== h.client_name && (
             <p className="text-[11px] text-slate-500 truncate">
               for {h.client_name}
             </p>

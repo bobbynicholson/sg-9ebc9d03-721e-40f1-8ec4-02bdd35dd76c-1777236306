@@ -37,6 +37,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Loader2, Printer, Receipt as ReceiptIcon, AlertCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { orderDisplayName } from "@/lib/orderDisplayName";
 
 // ── Types ─────────────────────────────────────────────────────────────
 
@@ -447,9 +448,9 @@ export function ReceiptDialog({
                   <p className="text-[11px] uppercase tracking-wide text-slate-500 mb-1">
                     Event
                   </p>
-                  {order?.event_name && (
+                  {orderDisplayName({ event_name: order?.event_name }) !== "Order" && (
                     <p className="text-sm font-semibold text-slate-900">
-                      {order.event_name}
+                      {orderDisplayName({ event_name: order?.event_name })}
                     </p>
                   )}
                   <p className="text-xs text-slate-600">

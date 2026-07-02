@@ -9,6 +9,7 @@ import { ShoppingCart, Loader2, Plus, Check, ListChecks, Calendar, Clock, Users 
 import Link from "next/link";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { staffOrderHref } from "@/lib/orderUrls";
+import { orderDisplayName } from "@/lib/orderDisplayName";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { ShoppingPageShell, SHOPPING_HERO_CHIP } from "@/components/shopping/ShoppingPageShell";
 import { PortalCard, StatTile } from "@/components/portal/ui";
@@ -541,10 +542,10 @@ function ShoppingOrdersPageInner() {
                           href={withSlug(staffOrderHref(o.id, "shopping_staff"))}
                           className="font-semibold text-slate-900 dark:text-white truncate hover:text-brand-primary dark:hover:text-brand-primary hover:underline inline-flex items-center gap-1 transition-colors duration-150"
                         >
-                          {o.event_name ?? o.order_number ?? "Event"}
+                          {orderDisplayName(o)}
                           <ExternalLink className="w-3 h-3 flex-shrink-0" />
                         </Link>
-                        {o.client_name && (
+                        {o.client_name && orderDisplayName(o) !== o.client_name && (
                           <div className="text-xs text-slate-600 dark:text-slate-400 truncate">{o.client_name}</div>
                         )}
                         <div className="text-xs text-slate-600 dark:text-slate-400 mt-1 flex flex-wrap gap-x-3 gap-y-1 tabular-nums">

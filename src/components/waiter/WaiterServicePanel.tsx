@@ -36,6 +36,7 @@ import { captureException } from "@/lib/observability";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { toLocalISO } from "@/lib/localDate";
 import { staffOrderHref } from "@/lib/orderUrls";
+import { orderDisplayName } from "@/lib/orderDisplayName";
 
 const ROUTE = "/team-portal/waiter/dashboard";
 
@@ -315,7 +316,7 @@ export function WaiterServicePanel() {
                       href={withSlug(staffOrderHref(o.id, "waiter"))}
                       className="text-sm font-semibold text-slate-900 truncate hover:text-brand-primary hover:underline inline-flex items-center gap-1"
                     >
-                      {o.event_name || o.client_name || "Event"}
+                      {orderDisplayName(o)}
                       <ExternalLink className="w-3 h-3 flex-shrink-0" />
                     </Link>
                     <div className="text-xs text-slate-600 mt-0.5 space-y-0.5">

@@ -34,6 +34,7 @@ import { useRegionFilter } from "@/contexts/RegionFilterContext";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { captureException } from "@/lib/observability";
+import { orderDisplayName } from "@/lib/orderDisplayName";
 import { formatDistanceToNow } from "date-fns";
 
 const ROUTE = "/admin/reviews";
@@ -416,7 +417,7 @@ function AdminReviewsInner() {
                               )}
                             </div>
                             <div className="text-xs text-slate-500 mt-1">
-                              {r.order?.event_name && <span>{r.order.event_name}</span>}
+                              {orderDisplayName({ event_name: r.order?.event_name }) !== "Order" && <span>{orderDisplayName({ event_name: r.order?.event_name })}</span>}
                               {r.order?.event_date && <span> · {new Date(r.order.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}</span>}
                               {r.created_at && <span> · rated {formatDistanceToNow(new Date(r.created_at), { addSuffix: true })}</span>}
                             </div>

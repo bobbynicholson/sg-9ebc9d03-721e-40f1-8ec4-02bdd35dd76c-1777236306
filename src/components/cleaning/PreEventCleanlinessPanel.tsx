@@ -29,6 +29,7 @@ import {
   type ChecklistRow,
 } from "@/services/cleaningChecklistService";
 import { onCleaningReady } from "@/lib/events/cleaningEvents";
+import { orderDisplayName } from "@/lib/orderDisplayName";
 
 interface TomorrowOrder {
   id: string;
@@ -67,7 +68,7 @@ function EventStrip({
   onExpandToggle: () => void;
 }) {
   const tone = statusTone(checklist?.status ?? "pending");
-  const eventLabel = order.event_name || order.client_name || "Event";
+  const eventLabel = orderDisplayName(order);
   const checkedCount = checklist ? checklist.items.filter((i) => i.checked).length : 0;
   const totalCount = checklist ? checklist.items.length : 0;
 
@@ -90,7 +91,7 @@ function EventStrip({
             )}
           </div>
           <div className="text-xs text-slate-600 mt-0.5 flex items-center gap-2">
-            {order.client_name && order.event_name ? <span className="truncate">{order.client_name}</span> : null}
+            {order.client_name && eventLabel !== order.client_name ? <span className="truncate">{order.client_name}</span> : null}
             {order.event_time && (
               <span className="inline-flex items-center gap-1">
                 <Clock className="w-3 h-3" />

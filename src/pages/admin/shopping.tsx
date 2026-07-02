@@ -60,6 +60,7 @@ import { useTenantHref } from "@/lib/tenantUrl";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { inventoryService } from "@/services/inventoryService";
 import { captureException } from "@/lib/observability";
+import { orderDisplayName } from "@/lib/orderDisplayName";
 
 interface OutlookRow {
   inventory_item_id: string;
@@ -2515,7 +2516,7 @@ function ItemTable({
                               ) : (
                                 <Badge variant="outline" className="text-[10px]">{l.order_number}</Badge>
                               )}
-                              <span className="text-slate-700 truncate">{l.event_name}</span>
+                              <span className="text-slate-700 truncate">{orderDisplayName({ event_name: l.event_name }) === "Order" ? "" : orderDisplayName({ event_name: l.event_name })}</span>
                               <span className="text-slate-500 hidden sm:inline">via {l.menu_item_name}</span>
                             </div>
                             <div className="flex items-center gap-3 text-slate-600">
@@ -2696,7 +2697,7 @@ function ItemTable({
                         ) : (
                           <Badge variant="outline" className="text-[10px]">{l.order_number}</Badge>
                         )}
-                        <span className="text-slate-700 truncate">{l.event_name}</span>
+                        <span className="text-slate-700 truncate">{orderDisplayName({ event_name: l.event_name }) === "Order" ? "" : orderDisplayName({ event_name: l.event_name })}</span>
                       </div>
                       <div className="text-[11px] text-slate-500 mt-0.5">
                         {Number(l.quantity_required).toLocaleString()} {l.unit} · {new Date(l.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })} · via {l.menu_item_name}

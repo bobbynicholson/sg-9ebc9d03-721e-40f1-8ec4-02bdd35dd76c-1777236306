@@ -951,7 +951,7 @@ function KitchenDashboardInner() {
       if (!earliest || minutesAway < earliest.minutesAway) {
         earliest = {
           id: o.id,
-          eventName: o.event_name || "Event",
+          eventName: orderDisplayName(o),
           client: o.client_name || "",
           minutesAway,
           eventDate: dt,
@@ -1897,7 +1897,7 @@ function KitchenDashboardInner() {
                     </p>
                     <p className="text-sm text-slate-600 dark:text-slate-300 mt-2 truncate">
                       <span className="font-medium text-slate-700 dark:text-slate-200">{nextPickup.eventName}</span>
-                      {nextPickup.client && <span className="text-slate-500 dark:text-slate-400">, {nextPickup.client}</span>}
+                      {nextPickup.client && nextPickup.client !== nextPickup.eventName && <span className="text-slate-500 dark:text-slate-400">, {nextPickup.client}</span>}
                     </p>
                     <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">{away}</p>
                   </div>
@@ -2517,8 +2517,8 @@ function KitchenDashboardInner() {
                   return (
                     <tr key={o.id} style={{ borderBottom: "0.5pt solid #cbd5e1", pageBreakInside: "avoid" }}>
                       <td style={{ padding: "5pt 4pt" }}>
-                        <strong>{o.event_name || o.client_name || "Order"}</strong>
-                        {o.event_name && o.client_name ? <span style={{ color: "#64748b" }}> ({o.client_name})</span> : null}
+                        <strong>{orderDisplayName(o)}</strong>
+                        {o.client_name && orderDisplayName(o) !== o.client_name ? <span style={{ color: "#64748b" }}> ({o.client_name})</span> : null}
                       </td>
                       <td style={{ padding: "5pt 4pt", whiteSpace: "nowrap" }}>
                         {o.event_date}
@@ -2593,8 +2593,8 @@ function KitchenDashboardInner() {
                         <li key={item.id} style={{ marginBottom: "2pt" }}>
                           <strong>{item.event_time || "TBD"}</strong>
                           {" - "}
-                          {item.event_name}
-                          {item.client_name ? <span style={{ color: "#64748b" }}> ({item.client_name})</span> : null}
+                          {orderDisplayName(item)}
+                          {item.client_name && orderDisplayName(item) !== item.client_name ? <span style={{ color: "#64748b" }}> ({item.client_name})</span> : null}
                           {item.guest_count ? <span style={{ color: "#64748b" }}> · {item.guest_count} guests</span> : null}
                           {chipLabel ? (
                             <span style={{ color: chipColor, marginLeft: "6pt", fontWeight: 600 }}>

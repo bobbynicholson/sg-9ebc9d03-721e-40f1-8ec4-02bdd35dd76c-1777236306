@@ -41,6 +41,7 @@ import { CancellationWizard } from "@/components/cancellation/CancellationWizard
 // the whole edit as one proposed_changes payload; the caterer approves it
 // and the existing amendment cascade does the money / quote / notify work.
 import { OrderEditDialog } from "@/components/order/OrderEditDialog";
+import { orderDisplayName } from "@/lib/orderDisplayName";
 
 type OrderView = {
   ok: true;
@@ -278,7 +279,7 @@ export default function ClientOrderPage() {
       {/* TIGHTEN I.113: page header reads "Your order" not "Your
           booking" - matches Bobby's "client portal should label this
           as Order once a quote is converted" requirement. */}
-      <Head><title>{`${order.event_name || "Your order"} - ${company.company_name}`}</title></Head>
+      <Head><title>{`${orderDisplayName(order) || "Your order"} - ${company.company_name}`}</title></Head>
 
       <div
         className="min-h-screen"
@@ -368,7 +369,7 @@ export default function ClientOrderPage() {
                     {status.replace("_", " ")}
                   </Badge>
                   <h2 className="text-2xl font-bold text-slate-900">
-                    {order.event_name || "Your event"}
+                    {orderDisplayName(order) || "Your event"}
                   </h2>
                   <p className="text-sm text-slate-600 mt-1">Order #{order.order_number}</p>
                 </div>

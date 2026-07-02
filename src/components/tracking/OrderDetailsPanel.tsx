@@ -53,6 +53,7 @@ import { Camera, FileSignature } from "lucide-react";
 import { toLocalISO } from "@/lib/localDate";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { staffOrderHref } from "@/lib/orderUrls";
+import { orderDisplayName } from "@/lib/orderDisplayName";
 
 const fmtMoney = new Intl.NumberFormat("en-ZA", { style: "currency", currency: "ZAR", maximumFractionDigits: 0 });
 
@@ -281,7 +282,7 @@ export function OrderDetailsPanel({ order, fromName, companyName, onClose }: Pro
             )}
           </div>
           <h2 className="text-lg font-semibold text-slate-900 leading-tight mt-1">
-            {order.event_name || order.client_name || "Order"}
+            {orderDisplayName(order)}
           </h2>
           <div className="flex items-center gap-2 mt-1 flex-wrap">
             <Badge className={STATUS_TONE[order.status || ""] || "bg-slate-100 text-slate-800"}>
@@ -821,10 +822,16 @@ function ComposeDrawer({
   const initial = useMemo(() => {
     const first = (order.client_name || "there").split(" ")[0];
     const sig = `\n\nBest,\n${fromName || companyName || "the team"}`;
-    const eventLine = order.event_name
+    // Treat a blank / literal "Untitled" event name as no event name (the
+    // helper handles that), but keep the client-name fallback OUT of this
+    // sentence so we never render "your Jane Smith on ..." - grammar stays
+    // right by only using a real event name, else the generic wording.
+    const realEventName = orderDisplayName({ event_name: order.event_name });
+    const hasEventName = realEventName !== "Order";
+    const eventLine = hasEventName
       ? order.event_date
-        ? `your ${order.event_name} on ${new Date(order.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "long", year: "numeric" })}`
-        : `your ${order.event_name}`
+        ? `your ${realEventName} on ${new Date(order.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "long", year: "numeric" })}`
+        : `your ${realEventName}`
       : order.event_date
         ? `your event on ${new Date(order.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "long", year: "numeric" })}`
         : `your upcoming event`;
