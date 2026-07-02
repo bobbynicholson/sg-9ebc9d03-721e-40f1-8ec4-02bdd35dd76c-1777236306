@@ -42,7 +42,7 @@ import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { useSortable, type ColumnDef } from "@/lib/useSortable";
 import { SortHeader } from "@/components/ui/sort-header";
 import { VehiclePickerDialog } from "@/components/admin/dispatch/VehiclePickerDialog";
-import { toLocalISO } from "@/lib/localDate";
+import { toLocalISO, tenantToday } from "@/lib/localDate";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { staffOrderHref } from "@/lib/orderUrls";
 import { emitOrderUpdated } from "@/lib/events/orderEvents";
@@ -133,7 +133,34 @@ function DispatchQueuePage() {
 
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [loading, setLoading] = useState(true);
+  // Audit fix (2026-07-02): a failed load only fired a transient
+  // toast; the queue then rendered its "No upcoming orders" empty
+  // state, which reads as "nothing to dispatch". Persist the error
+  // so the table area shows a Retry panel instead.
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [settings, setSettings] = useState<DispatchSettings | null>(null);
+  // Audit fix (2026-07-02): the queue window's "today" lower bound
+  // was anchored to the browser clock. An operator in a different
+  // timezone from the tenant saw today's events drop off (or
+  // yesterday's linger). Anchor to companies.timezone like
+  // /admin/orders does; tenantToday falls back sensibly while null.
+  const [tenantTimezone, setTenantTimezone] = useState<string | null>(null);
+  useEffect(() => {
+    if (!companyId) return;
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await (supabase as any)
+        .from("companies")
+        .select("timezone")
+        .eq("id", companyId)
+        .maybeSingle();
+      if (error) {
+        console.error("[admin/order-assignments] companies.timezone fetch failed:", error);
+      }
+      if (!cancelled) setTenantTimezone((data as any)?.timezone || null);
+    })();
+    return () => { cancelled = true; };
+  }, [companyId]);
   const [kpis, setKpis] = useState<{
     unassignedAtRisk: number;
     unassignedTotal: number;
@@ -199,6 +226,7 @@ function DispatchQueuePage() {
   const loadAll = useCallback(async () => {
     if (!companyId) { setLoading(false); return; }
     setLoading(true);
+    setLoadError(null);
     try {
       const [s, k] = await Promise.all([
         dispatchService.getDispatchSettings(companyId),
@@ -209,14 +237,17 @@ function DispatchQueuePage() {
       setSettings(s);
       setKpis(k);
 
-      const todayISO = toLocalISO(new Date());
+      // Window bounds anchored to the tenant wall clock (see the
+      // tenantTimezone state above).
+      const todayLocal = tenantToday(tenantTimezone);
+      const todayISO = toLocalISO(todayLocal);
       // DI-E: server-side upper bound. Previously the query was
       // .gte today onwards with no ceiling - a tenant with 500
       // confirmed events booked months ahead would haul all 500
       // back to the client even though dispatch only acts on the
       // next few weeks. The selectable horizon (14 / 30 / 90)
       // keeps the wire payload predictable.
-      const horizon = new Date();
+      const horizon = new Date(todayLocal);
       horizon.setDate(horizon.getDate() + daysAhead);
       const horizonISO = toLocalISO(horizon);
       const { data: rows, error, count } = await supabase
@@ -265,15 +296,12 @@ function DispatchQueuePage() {
         setInterestByOrder({});
         setTotalCount(0);
         // Silent-failure audit: an empty queue after a failed load
-        // read as "nothing to dispatch". Tell the dispatcher.
-        toast({
-          title: "Could not load the dispatch queue",
-          description: dbErrorMessage(error, {
-            entity: "order",
-            fallback: "The order list couldn't be fetched. Refresh to try again.",
-          }),
-          variant: "destructive",
-        });
+        // read as "nothing to dispatch". Tell the dispatcher, and
+        // keep a persistent error panel (the toast disappears).
+        setLoadError(dbErrorMessage(error, {
+          entity: "order",
+          fallback: "The order list couldn't be fetched. Refresh to try again.",
+        }));
         return;
       }
       const mapped: OrderRow[] = (rows || []).map((r: any) => ({
@@ -319,10 +347,16 @@ function DispatchQueuePage() {
       // the truncation banner so the dispatcher can see when
       // narrowing search or date range is recommended.
       setTotalCount(typeof count === "number" ? count : mapped.length);
+    } catch (e: any) {
+      // Settings / KPI / interest fetch threw. Without this catch the
+      // rejection escaped the callback and the page silently showed a
+      // stale (or empty) queue.
+      console.error("[admin/order-assignments] loadAll failed:", e);
+      setLoadError(e?.message || "The dispatch queue couldn't be loaded.");
     } finally {
       setLoading(false);
     }
-  }, [companyId, daysAhead]);
+  }, [companyId, daysAhead, tenantTimezone]);
 
   useEffect(() => { loadAll(); }, [loadAll, refreshSignal]);
 
@@ -777,20 +811,41 @@ function DispatchQueuePage() {
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
 
           <PortalHeader
+            variant="hero"
             title="Dispatch queue"
             icon={Truck}
             subtitle="Confirmed orders waiting on a driver. Auto-suggest a driver per order with capacity, vehicle, and shift checks, or override manually. Bulk-assign by date when prep is locked in."
+            meta={
+              kpis && !loading ? (
+                <>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    {kpis.unassignedTotal} awaiting a driver
+                  </span>
+                  {kpis.unassignedAtRisk > 0 && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-rose-400/30 bg-rose-400/15 px-2.5 py-1 text-[11px] font-semibold text-rose-200">
+                      <AlertTriangle className="h-3 w-3" />
+                      {kpis.unassignedAtRisk} at SLA risk
+                    </span>
+                  )}
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                    {kpis.onShiftDrivers} driver{kpis.onShiftDrivers === 1 ? "" : "s"} on shift
+                  </span>
+                </>
+              ) : null
+            }
             actions={
             <>
               {/* DI-E: server-side date window selector. Default 30
                   days covers the dispatcher's planning horizon. 90
                   is for the "look ahead a quarter" planning view;
                   14 trims to a tight today + fortnight on busy
-                  tenants. */}
+                  tenants. Glass styling for the dark hero band;
+                  options keep dark text for the native popup. */}
               <select
                 value={daysAhead}
                 onChange={(e) => setDaysAhead(Number(e.target.value) as 14 | 30 | 90)}
-                className="h-9 rounded-md border border-slate-200 bg-white px-2 text-sm text-slate-700 hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200"
+                className="h-9 rounded-md border border-white/15 bg-white/10 px-2 text-sm text-white hover:border-white/30 focus:outline-none focus:ring-2 focus:ring-white/30 [&>option]:text-slate-900"
                 title="Date window"
               >
                 <option value={14}>Next 14 days</option>
@@ -800,7 +855,7 @@ function DispatchQueuePage() {
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-9 w-9 p-0 text-slate-500 hover:text-slate-900"
+                className="h-9 w-9 p-0 text-slate-300 hover:text-white"
                 onClick={loadAll}
                 title="Refresh"
               >
@@ -1014,7 +1069,7 @@ function DispatchQueuePage() {
                   placeholder="Search client, order, venue, region, driver"
                   value={searchTerm}
                   onChange={e => setSearchTerm(e.target.value)}
-                  className="w-full pl-9 pr-12 py-2 text-sm border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                  className="w-full pl-9 pr-12 py-2 text-sm border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-primary/40 focus:border-brand-primary"
                 />
                 <kbd className="hidden sm:inline-block absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-mono font-semibold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">/</kbd>
               </div>
@@ -1076,7 +1131,7 @@ function DispatchQueuePage() {
               <div className="flex justify-center">
                 <input
                   type="checkbox"
-                  className="accent-orange-600 cursor-pointer"
+                  className="accent-brand-primary cursor-pointer"
                   checked={filtered.length > 0 && filtered.every(o => selected.has(o.id))}
                   ref={cb => {
                     if (cb) {
@@ -1119,8 +1174,17 @@ function DispatchQueuePage() {
 
             {loading ? (
               <div className="text-center py-12">
-                <div className="animate-spin w-6 h-6 border-2 border-orange-600 border-t-transparent rounded-full mx-auto mb-3" />
+                <div className="animate-spin w-6 h-6 border-2 border-brand-primary border-t-transparent rounded-full mx-auto mb-3" />
                 <p className="text-sm text-slate-500">Loading queue...</p>
+              </div>
+            ) : loadError ? (
+              <div className="text-center py-12 px-4">
+                <AlertTriangle className="w-8 h-8 text-rose-600 mx-auto mb-3" />
+                <p className="text-sm font-semibold text-rose-900">Couldn't load the dispatch queue</p>
+                <p className="text-xs text-slate-600 mt-1 mb-4">{loadError}</p>
+                <Button size="sm" onClick={loadAll} className="bg-brand-primary hover:bg-brand-primary/90">
+                  <RefreshCw className="w-4 h-4 mr-2" /> Retry
+                </Button>
               </div>
             ) : filtered.length === 0 ? (
               <div className="text-center py-12 px-4">
@@ -1170,8 +1234,8 @@ function DispatchQueuePage() {
                       tabIndex={0}
                       aria-expanded={isExpanded}
                       aria-controls={`dispatch-row-${order.id}-detail`}
-                      className={`hidden md:grid grid-cols-[28px_28px_minmax(0,2fr)_140px_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_120px] gap-3 px-4 py-3 items-center transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-1 ${
-                        selected.has(order.id) ? "bg-orange-50 hover:bg-orange-100" :
+                      className={`hidden md:grid grid-cols-[28px_28px_minmax(0,2fr)_140px_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_120px] gap-3 px-4 py-3 items-center transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/60 focus-visible:ring-offset-1 ${
+                        selected.has(order.id) ? "bg-brand-primary/10 hover:bg-brand-primary/15" :
                         isAtRisk ? "hover:bg-rose-50/40" :
                         "hover:bg-slate-50"
                       }`}
@@ -1186,7 +1250,7 @@ function DispatchQueuePage() {
                       <div className="flex justify-center" onClick={e => e.stopPropagation()}>
                         <input
                           type="checkbox"
-                          className="accent-orange-600 cursor-pointer"
+                          className="accent-brand-primary cursor-pointer"
                           checked={selected.has(order.id)}
                           onChange={() => toggleSelected(order.id)}
                         />
@@ -1364,7 +1428,7 @@ function DispatchQueuePage() {
                         whole card stays a tap-to-expand target. */}
                     <div
                       className={`md:hidden p-3 cursor-pointer ${
-                        selected.has(order.id) ? "bg-orange-50" :
+                        selected.has(order.id) ? "bg-brand-primary/10" :
                         isAtRisk ? "bg-rose-50/40" :
                         "hover:bg-slate-50"
                       }`}
@@ -1378,7 +1442,7 @@ function DispatchQueuePage() {
                           <input
                             type="checkbox"
                             aria-label={`Select ${order.client_name}`}
-                            className="w-5 h-5 accent-orange-600 cursor-pointer"
+                            className="w-5 h-5 accent-brand-primary cursor-pointer"
                             checked={selected.has(order.id)}
                             onChange={() => toggleSelected(order.id)}
                           />
@@ -1759,7 +1823,7 @@ function DispatchQueuePage() {
                 id="bulk_driver"
                 value={bulkDriverId}
                 onChange={e => setBulkDriverId(e.target.value)}
-                className="mt-1 w-full border border-slate-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                className="mt-1 w-full border border-slate-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/40"
               >
                 <option value="">Pick a driver...</option>
                 {bulkDrivers.map(d => (

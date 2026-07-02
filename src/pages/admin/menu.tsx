@@ -153,6 +153,10 @@ function MenuPage() {
     role === "owner" || role === "company_admin" || role === "admin" || role === "super_admin";
 
   const [loading, setLoading] = useState(true);
+  // Audit 2026-07-02: load failures were toast-only. A toast vanishes
+  // and the page then reads as an empty catalogue; keep a persistent
+  // error state so the operator sees what broke and can retry.
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [items, setItems] = useState<MenuItemWithRecipeSummary[]>([]);
   const [showArchived, setShowArchived] = useState(false);

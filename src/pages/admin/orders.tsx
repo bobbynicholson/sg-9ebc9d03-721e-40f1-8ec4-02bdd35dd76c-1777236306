@@ -134,6 +134,10 @@ function OrderProcessDashboard() {
   // duplicate the fetch.
   const [readinessById, setReadinessById] = useState<Map<string, OrderReadiness>>(new Map());
   const [loading, setLoading] = useState(true);
+  // Audit fix (2026-07-02): the main orders fetch failure was only
+  // console.error'd - the operator saw an empty kanban that read as
+  // "no orders" instead of "the load broke". Surface it with a Retry.
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   // Phase 26 #1: "/" or Cmd-F focuses the search box. Matches the
   // pattern already shipped on /admin/contacts and /admin/inventory.
@@ -704,6 +708,7 @@ function OrderProcessDashboard() {
   const loadOrders = async () => {
     if (!user?.company_id) return;
     setLoading(true);
+    setLoadError(null);
     try {
       const allOrders = await orderService.getAllOrders(user.company_id);
       setOrders(allOrders as unknown as AppOrder[]);
@@ -1084,8 +1089,9 @@ function OrderProcessDashboard() {
         // by falling back to the legacy WORKFLOW_STAGES rendering.
         console.warn("[orders] timeline batch fetch failed", err);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error loading orders:", error);
+      setLoadError(error?.message || "Failed to load orders.");
     } finally {
       setLoading(false);
     }
@@ -1267,6 +1273,11 @@ function OrderProcessDashboard() {
     searchTerm,
     [
       { key: "client_name" as any, weight: 3 },
+      // Audit fix (2026-07-02): order_number was missing, so the
+      // dashboard's "Review test orders" deep-link (?q=E2E-ORD) and
+      // any operator typing an ORD- number found nothing. The uuid
+      // `id` key stays for pasted ids.
+      { key: "order_number" as any, weight: 3 },
       { key: "id" as any, weight: 2 },
       { key: "venue_address" as any, weight: 1 },
       { key: "event_name" as any, weight: 2 },
@@ -1489,11 +1500,23 @@ function OrderProcessDashboard() {
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <div className="space-y-6">
             <PortalHeader
+              variant="hero"
               title="Orders"
               icon={ShoppingCart}
-              subtitle={
+              subtitle="Every booked job from accepted quote through to delivery, with kitchen prep, dispatch, and post-event status all in one place."
+              meta={
                 <>
-                  Confirmed events. Every booked job from accepted quote through to delivery, with kitchen prep, dispatch, and post-event status all in one place.
+                  {!loading && !loadError && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                      {stats.total} order{stats.total === 1 ? "" : "s"} in view
+                    </span>
+                  )}
+                  {!loading && !loadError && stats.upcoming > 0 && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                      {stats.upcoming} upcoming
+                    </span>
+                  )}
                   {/* Phase 13 #9: tenant timezone hint chip. The
                       date filters interpret event_date in the
                       company's configured timezone, but multi-
@@ -1501,39 +1524,37 @@ function OrderProcessDashboard() {
                       driving the math. Self-hides when no tz is
                       set on companies.timezone. */}
                   {tenantTimezone && (
-                    <span className="mt-2 inline-flex items-center gap-1.5 text-[11px] text-slate-500 align-middle">
-                      <Clock className="w-3 h-3" />
-                      Times shown in <span className="font-medium text-slate-700">{tenantTimezone}</span>
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white/90">
+                      <Clock className="h-3 w-3" />
+                      <span className="font-mono">{tenantTimezone}</span>
                     </span>
                   )}
                   {/* Phase 11 #8: pending amendment + cancellation
                       request badges. Hidden when both counts are
                       zero so a quiet day stays clean. Each badge
                       deep-links to the relevant URL filter that
-                      opens the AmendmentReviewDrawer pre-scoped. */}
-                  {(pendingAmendmentCount > 0 || pendingCancellationCount > 0) && (
-                    <span className="mt-2 flex flex-wrap items-center gap-2">
-                      {pendingAmendmentCount > 0 && (
-                        <Link
-                          href={withSlug("/admin/orders?status=pending-amendments")}
-                          className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-800 bg-amber-100 border border-amber-200 rounded-full px-2.5 py-0.5"
-                          title="Client-requested order amendments awaiting review"
-                        >
-                          <AlertCircle className="w-3 h-3" />
-                          {pendingAmendmentCount} pending amendment{pendingAmendmentCount === 1 ? "" : "s"}
-                        </Link>
-                      )}
-                      {pendingCancellationCount > 0 && (
-                        <Link
-                          href={withSlug("/admin/orders?status=pending-cancellations")}
-                          className="inline-flex items-center gap-1.5 text-xs font-medium text-rose-800 bg-rose-100 border border-rose-200 rounded-full px-2.5 py-0.5"
-                          title="Client-requested cancellations awaiting decision"
-                        >
-                          <AlertCircle className="w-3 h-3" />
-                          {pendingCancellationCount} pending cancellation{pendingCancellationCount === 1 ? "" : "s"}
-                        </Link>
-                      )}
-                    </span>
+                      opens the AmendmentReviewDrawer pre-scoped.
+                      Semantic tints (amber = review, rose = risk)
+                      restyled for the dark hero band. */}
+                  {pendingAmendmentCount > 0 && (
+                    <Link
+                      href={withSlug("/admin/orders?status=pending-amendments")}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-amber-400/30 bg-amber-400/15 px-2.5 py-1 text-[11px] font-semibold text-amber-200 hover:bg-amber-400/25"
+                      title="Client-requested order amendments awaiting review"
+                    >
+                      <AlertCircle className="h-3 w-3" />
+                      {pendingAmendmentCount} pending amendment{pendingAmendmentCount === 1 ? "" : "s"}
+                    </Link>
+                  )}
+                  {pendingCancellationCount > 0 && (
+                    <Link
+                      href={withSlug("/admin/orders?status=pending-cancellations")}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-rose-400/30 bg-rose-400/15 px-2.5 py-1 text-[11px] font-semibold text-rose-200 hover:bg-rose-400/25"
+                      title="Client-requested cancellations awaiting decision"
+                    >
+                      <AlertCircle className="h-3 w-3" />
+                      {pendingCancellationCount} pending cancellation{pendingCancellationCount === 1 ? "" : "s"}
+                    </Link>
                   )}
                 </>
               }
@@ -1553,10 +1574,10 @@ function OrderProcessDashboard() {
                   whole cluster to the right edge without wrapping at
                   the awkward in-between widths. */
               <>
-                {/* Segmented view toggle - subtle "inactive on a card
-                    background" pattern so the active state reads as
-                    a single elevated chip, not a dark button. */}
-                <div className="inline-flex items-center rounded-lg bg-slate-100 p-0.5">
+                {/* Segmented view toggle - glass track on the hero
+                    band, active state reads as a single elevated
+                    white chip against the dark panel. */}
+                <div className="inline-flex items-center rounded-lg border border-white/15 bg-white/10 p-0.5">
                   <button
                     type="button"
                     onClick={() => setViewMode("kanban")}
@@ -1564,7 +1585,7 @@ function OrderProcessDashboard() {
                     className={`inline-flex items-center gap-1.5 px-3 h-8 rounded-md text-xs font-medium transition-all ${
                       viewMode === "kanban"
                         ? "bg-white text-slate-900 shadow-sm"
-                        : "text-slate-600 hover:text-slate-900"
+                        : "text-slate-300 hover:text-white"
                     }`}
                   >
                     <LayoutGrid className="w-3.5 h-3.5" />
@@ -1577,7 +1598,7 @@ function OrderProcessDashboard() {
                     className={`inline-flex items-center gap-1.5 px-3 h-8 rounded-md text-xs font-medium transition-all ${
                       viewMode === "timeline"
                         ? "bg-white text-slate-900 shadow-sm"
-                        : "text-slate-600 hover:text-slate-900"
+                        : "text-slate-300 hover:text-white"
                     }`}
                   >
                     <List className="w-3.5 h-3.5" />
@@ -1728,6 +1749,19 @@ function OrderProcessDashboard() {
                   <div className="text-center">
                     <div className="animate-spin w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full mx-auto mb-4" />
                     <p className="text-slate-600">Loading orders...</p>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : loadError ? (
+              <Card className="border-rose-200">
+                <CardContent className="py-12">
+                  <div className="text-center">
+                    <AlertCircle className="mx-auto mb-3 h-8 w-8 text-rose-600" />
+                    <h2 className="text-base font-bold text-rose-900 mb-1">Couldn't load orders</h2>
+                    <p className="text-sm text-slate-600 mb-4">{loadError}</p>
+                    <Button onClick={loadOrders} size="sm" className="bg-brand-primary hover:bg-brand-primary/90">
+                      <RefreshCw className="w-4 h-4 mr-2" /> Retry
+                    </Button>
                   </div>
                 </CardContent>
               </Card>

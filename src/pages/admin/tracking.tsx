@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
-import { toLocalISO } from "@/lib/localDate";
+import { toLocalISO, tenantToday } from "@/lib/localDate";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -69,16 +69,18 @@ function parseEventDateTime(eventDate: string, eventTime: string): Date | null {
   return dt;
 }
 
-function getTodayISO(): string {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  return toLocalISO(today);
+// Audit fix (2026-07-02): "today" buckets (query lower bound + the
+// Today / Tomorrow badges) were anchored to the browser clock. An
+// operator viewing from a different timezone than the tenant saw
+// today's events drop off or tomorrow's arrive early. Anchor to
+// companies.timezone; tenantToday falls back while the tz is null.
+function getTodayISO(timezone: string | null): string {
+  return toLocalISO(tenantToday(timezone));
 }
 
-function getTomorrowISO(): string {
-  const tomorrow = new Date();
+function getTomorrowISO(timezone: string | null): string {
+  const tomorrow = tenantToday(timezone);
   tomorrow.setDate(tomorrow.getDate() + 1);
-  tomorrow.setHours(0, 0, 0, 0);
   return toLocalISO(tomorrow);
 }
 
@@ -122,6 +124,8 @@ function AdminTrackingInner() {
   const [driverLocations, setDriverLocations] = useState<any[]>([]);
   const [drivers, setDrivers] = useState<any[]>([]);
   const [companyName, setCompanyName] = useState<string | undefined>(undefined);
+  // Tenant wall clock for the "today" scope + badges (see getTodayISO).
+  const [tenantTimezone, setTenantTimezone] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   // Silent-failure audit: this page auto-refreshes, so an inline
   // banner (not a toast per failed poll) flags when the live data
@@ -192,7 +196,7 @@ function AdminTrackingInner() {
       // ~30. The query now applies both filters server-side. Null
       // event_dates are kept (legacy rows) via the .or clause so
       // staff can still find them.
-      const todayISO = getTodayISO();
+      const todayISO = getTodayISO(tenantTimezone);
 
       const { data: rawOrders, error: ordersErr } = await supabase
         .from("orders")
@@ -357,7 +361,7 @@ function AdminTrackingInner() {
     } finally {
       setLoading(false);
     }
-  }, [user?.company_id]);
+  }, [user?.company_id, tenantTimezone]);
 
   useEffect(() => {
     loadTrackingData();
@@ -497,7 +501,8 @@ function AdminTrackingInner() {
     };
   }, [autoRefresh, loadTrackingData]);
 
-  // Pull company name once for the compose drawer signature
+  // Pull company name once for the compose drawer signature, plus
+  // the tenant timezone for the "today" anchoring in one round trip.
   useEffect(() => {
     if (companyName || !user?.company_id) return;
     (async () => {
@@ -505,10 +510,11 @@ function AdminTrackingInner() {
         const { supabase } = await import("@/integrations/supabase/client");
         const { data } = await supabase
           .from("companies")
-          .select("company_name")
+          .select("company_name, timezone")
           .eq("id", user.company_id)
           .maybeSingle();
         if (data?.company_name) setCompanyName(data.company_name);
+        if ((data as any)?.timezone) setTenantTimezone((data as any).timezone);
       } catch {
         /* fall back to undefined - compose drawer handles it */
       }
@@ -519,8 +525,8 @@ function AdminTrackingInner() {
     setDriverLocations(updatedLocations);
   };
 
-  const todayISO = getTodayISO();
-  const tomorrowISO = getTomorrowISO();
+  const todayISO = getTodayISO(tenantTimezone);
+  const tomorrowISO = getTomorrowISO(tenantTimezone);
   const isTodayOrder = useCallback((order: any) => {
     return String(order?.event_date || "").slice(0, 10) === todayISO;
   }, [todayISO]);
@@ -627,11 +633,31 @@ function AdminTrackingInner() {
       <div className="admin-page-shell admin-page-shell--deep-footer">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <PortalHeader
+            variant="hero"
             title="Live operations"
             icon={Navigation}
             subtitle={operationsScope === "today"
               ? "Today's confirmed-and-onwards orders, with live driver pins, prep status, and at-risk flags surfaced first."
               : "All active and upcoming confirmed-and-onwards orders from today forward. Use Today when the floor is running service."}
+            meta={
+              !loading && !loadError ? (
+                <>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                    {stats.today} event{stats.today === 1 ? "" : "s"} today
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    {stats.active} in transit
+                  </span>
+                  {stats.atRisk > 0 && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-rose-400/30 bg-rose-400/15 px-2.5 py-1 text-[11px] font-semibold text-rose-200">
+                      <AlertCircle className="h-3 w-3" />
+                      {stats.atRisk} at risk
+                    </span>
+                  )}
+                </>
+              ) : null
+            }
             actions={
               <Link href={withSlug("/admin/orders")}>
                 <Button variant="outline" className="gap-1.5">

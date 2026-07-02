@@ -119,6 +119,14 @@ export interface GetQuotesOpts {
    * each - "light" typically cuts payload by 80%+.
    */
   mode?: "full" | "light";
+  /**
+   * Command-centre audit (2026-07-02): when true, a PostgREST error
+   * THROWS instead of silently returning []. Pages that render an
+   * explicit error state + Retry (e.g. /admin/quotes) opt in so a DB
+   * failure can never masquerade as "no quotes yet". Default stays
+   * false so existing callers keep their fail-soft behaviour.
+   */
+  throwOnError?: boolean;
 }
 
 // SHAPE-A: explicit light-mode select. Lists every base column
@@ -162,6 +170,7 @@ export const quoteService = {
 
       if (error) {
         console.error("Error fetching quotes:", error);
+        if (opts.throwOnError) throw error;
         return [];
       }
       return (data || []) as Quote[];
@@ -177,13 +186,14 @@ export const quoteService = {
 
     if (error) {
       console.error("Error fetching quotes:", error);
+      if (opts.throwOnError) throw error;
       return [];
     }
 
     return (data || []) as Quote[];
   },
 
-  async getQuote(quoteId: string): Promise<Quote | null> {
+  async getQuote(quoteId: string, opts: { throwOnError?: boolean } = {}): Promise<Quote | null> {
     // maybeSingle: a deleted or unknown id is an expected miss (callers
     // render their own not-found state), not a PostgREST 406.
     const { data, error } = await supabase
@@ -195,6 +205,10 @@ export const quoteService = {
 
     if (error) {
       console.error("Error fetching quote:", error);
+      // throwOnError lets detail pages distinguish "row missing"
+      // (null, render not-found) from "query failed" (throw, render
+      // an error state + Retry) - see /admin/quotes/[id].
+      if (opts.throwOnError) throw error;
       return null;
     }
 

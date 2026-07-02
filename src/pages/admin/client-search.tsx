@@ -75,15 +75,41 @@ function ClientSearchPage() {
       // hundreds of imported contacts that never sign up, so they
       // don't get a profiles row. clients holds the canonical record
       // regardless of auth state. Soft-deleted rows excluded.
-      const { data, error } = await (supabase as any)
-        .from("clients")
-        .select(
-          "id, client_name, client_type, email, phone, is_active, created_at, region_id, regions:region_id(name)",
-        )
-        .eq("company_id", user.company_id)
-        .is("deleted_at", null)
-        .order("created_at", { ascending: false });
-      if (error) throw error;
+      //
+      // Command-centre audit: page through in 1000-row chunks.
+      // PostgREST silently caps a single response at 1000 rows, so a
+      // tenant with a 7,500-contact import only ever saw the newest
+      // 1000 here and "Showing X of 1000" quietly lied. Same fix
+      // shape as /admin/contacts (first page with exact count, then
+      // the remaining pages in parallel, 50k hard cap).
+      const PAGE = 1000;
+      const HARD_CAP = 50000;
+      const pageQuery = (from: number, to: number) =>
+        (supabase as any)
+          .from("clients")
+          .select(
+            "id, client_name, client_type, email, phone, is_active, created_at, region_id, regions:region_id(name)",
+            { count: "exact" },
+          )
+          .eq("company_id", user.company_id)
+          .is("deleted_at", null)
+          .order("created_at", { ascending: false })
+          .range(from, to);
+      const first = await pageQuery(0, PAGE - 1);
+      if (first.error) throw first.error;
+      const data: any[] = [...(first.data || [])];
+      const total = Math.min(first.count ?? data.length, HARD_CAP);
+      if (total > PAGE) {
+        const requests: any[] = [];
+        for (let from = PAGE; from < total; from += PAGE) {
+          requests.push(pageQuery(from, Math.min(from + PAGE - 1, total - 1)));
+        }
+        const pages = await Promise.all(requests);
+        for (const p of pages) {
+          if (p.error) throw p.error;
+          data.push(...(p.data || []));
+        }
+      }
       const mapped: ClientView[] = ((data as any[]) || []).map((c) => ({
         id: c.id,
         full_name: c.client_name,
@@ -139,6 +165,19 @@ function ClientSearchPage() {
     { limit: 0 },
   );
 
+  // Render cap. The fetch above now pages past PostgREST's 1000-row
+  // limit, so a big imported book could hand this page 7,500+ cards
+  // to paint in one pass. Cap the unfiltered view; search or a
+  // region filter bypasses the cap because those sets are narrow.
+  const DISPLAY_CAP = 200;
+  const [showAll, setShowAll] = useState(false);
+  useEffect(() => { setShowAll(false); }, [searchTerm, selectedRegion]);
+  const filtersActive = searchTerm.trim().length > 0 || selectedRegion !== "all";
+  const visibleClients = (filtersActive || showAll)
+    ? filteredClients
+    : filteredClients.slice(0, DISPLAY_CAP);
+  const cappedCount = filteredClients.length - visibleClients.length;
+
   const handleSearch = async (value: string) => {
     setSearchTerm(value);
   };
@@ -188,15 +227,32 @@ function ClientSearchPage() {
       <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <PortalHeader
-            title="Client Search"
+            variant="hero"
+            title="Client search"
             icon={Search}
             subtitle="Searchable directory of every registered client. Filter by name, email, phone, company, or region. For the merged inbox view including leads and prospects, use Contacts instead."
+            meta={
+              <>
+                {!loading && !loadError && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                    {clients.length} client{clients.length === 1 ? "" : "s"} on file
+                  </span>
+                )}
+                {!loading && !loadError && getUniqueRegions().length > 1 && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    <MapPin className="h-3 w-3 text-white/80" />
+                    {getUniqueRegions().length} regions
+                  </span>
+                )}
+              </>
+            }
             actions={
             <>
               <Link href={withSlug("/admin/dashboard")}>
                 <Button variant="ghost" size="sm">
                   <ArrowLeft className="w-4 h-4 mr-2" />
-                  Back to Dashboard
+                  Back to dashboard
                 </Button>
               </Link>
             </>
@@ -284,22 +340,48 @@ function ClientSearchPage() {
                 <p className="text-xl font-semibold text-slate-700 mb-2">
                   {searchTerm ? "No clients found" : "No clients yet"}
                 </p>
+                {/* Copy fix: the clients table also holds imported and
+                    manually-captured clients, not just self-registered
+                    ones, so don't tell the operator to wait. */}
                 <p className="text-slate-600">
-                  {searchTerm 
+                  {searchTerm
                     ? "Try adjusting your search terms or filters"
-                    : "Clients will appear here once they register"}
+                    : "Add clients from the Contacts page, or import a client list to get going."}
                 </p>
+                {!searchTerm && (
+                  <Link href={withSlug("/admin/contacts")} className="mt-4 inline-block">
+                    <Button size="sm" className="bg-brand-primary text-white hover:opacity-90">
+                      Open Contacts
+                    </Button>
+                  </Link>
+                )}
               </CardContent>
             </Card>
           ) : (
             <div className="grid gap-4">
-              {filteredClients.map((client) => (
+              {cappedCount > 0 && (
+                <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm">
+                  <span className="text-amber-900">
+                    Showing the first <strong className="tabular-nums">{visibleClients.length}</strong> of <strong className="tabular-nums">{filteredClients.length}</strong> clients.
+                    Use search or a region filter to find someone specific, or load them all.
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setShowAll(true)}
+                    className="text-xs font-semibold text-amber-800 hover:text-amber-900 underline"
+                  >
+                    Show all {filteredClients.length}
+                  </button>
+                </div>
+              )}
+              {visibleClients.map((client) => (
                 <Card key={client.id} className="hover:shadow-lg transition-all duration-300">
                   <CardContent className="p-6">
                     <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                       {/* Client Info */}
                       <div className="flex items-start gap-4 flex-1 min-w-0">
-                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-slate-400 to-rose-400 flex items-center justify-center text-white font-bold text-lg flex-shrink-0">
+                        {/* Chrome accent: brand tokens, not a hard-coded palette. */}
+                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-brand-primary to-brand-secondary flex items-center justify-center text-white font-bold text-lg flex-shrink-0">
                           {client.full_name?.[0]?.toUpperCase() || "?"}
                         </div>
                         <div className="flex-1 min-w-0">

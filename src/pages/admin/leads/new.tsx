@@ -270,11 +270,14 @@ export default function NewLead() {
       });
 
       router.push(withSlug("/admin/leads"));
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error creating lead:", error);
+      // Surface the real failure reason (RLS refusal, missing
+      // column, network) instead of a blanket string, so the
+      // operator knows whether to retry or call support.
       toast({
-        title: "Error",
-        description: "Failed to create lead",
+        title: "Couldn't create the lead",
+        description: error?.message || "Something went wrong. Please try again.",
         variant: "destructive",
       });
     }
@@ -293,14 +296,15 @@ export default function NewLead() {
       <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <PortalHeader
-            title="Create New Lead"
-            subtitle="Add a potential customer to your pipeline"
+            variant="hero"
+            title="New lead"
+            subtitle="Capture a potential customer's enquiry so nothing gets lost before you quote. Only a name and email are required."
             icon={UserPlus}
             actions={
               <Button asChild variant="outline" className="gap-2">
                 <Link href={withSlug("/admin/leads")}>
                   <ArrowLeft className="w-4 h-4" />
-                  Back to Leads
+                  Back to leads
                 </Link>
               </Button>
             }

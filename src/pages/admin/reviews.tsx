@@ -61,6 +61,10 @@ export default function AdminReviewsPage() {
 
   const [reviews, setReviews] = useState<ReviewRow[]>([]);
   const [loading, setLoading] = useState(true);
+  // Command-centre audit: a failed load used to fall through to the
+  // "No reviews yet" empty state once the toast faded. Persist the
+  // error so the page shows a recovery card with a Retry instead.
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [follow, setFollow] = useState<"all" | "open" | "done">("all");
   const [lastLoadedAt, setLastLoadedAt] = useState<Date | null>(null);
@@ -69,6 +73,7 @@ export default function AdminReviewsPage() {
   const load = useCallback(async () => {
     if (!user?.company_id) return;
     setLoading(true);
+    setLoadError(null);
     try {
       // RVW-A: join the client (name + email) and the order (order_number,
       // event_name, event_date, region_id) so the row can be scanned at
@@ -96,6 +101,7 @@ export default function AdminReviewsPage() {
       setLastLoadedAt(new Date());
     } catch (e: any) {
       captureException(e, { tags: { route: ROUTE, step: "loadReviews", companyId: user.company_id } });
+      setLoadError(e?.message ?? "Unknown error");
       toast({ title: "Could not load reviews", description: e?.message ?? "Unknown error", variant: "destructive" });
     } finally {
       setLoading(false);
@@ -162,14 +168,24 @@ export default function AdminReviewsPage() {
     if (!user?.id) return;
     setAcking(id);
     try {
+      const followedUpAt = new Date().toISOString();
       const { error } = await (supabase as any)
         .from("delivery_feedback")
         .update({
-          followed_up_at: new Date().toISOString(),
+          followed_up_at: followedUpAt,
           followed_up_by: user.id,
         })
-        .eq("id", id);
+        .eq("id", id)
+        // Belt-and-braces tenant scoping alongside RLS.
+        .eq("company_id", user.company_id);
       if (error) throw error;
+      // Update local state immediately - the realtime sub usually
+      // refreshes within ~400ms, but if the channel drops the row
+      // used to keep its "Needs follow-up" badge until a manual
+      // reload even though the write had landed.
+      setReviews((prev) => prev.map((r) =>
+        r.id === id ? { ...r, followed_up_at: followedUpAt, followed_up_by: user.id } : r,
+      ));
       toast({ title: "Marked followed-up" });
     } catch (e: any) {
       captureException(e, { tags: { route: ROUTE, step: "markFollowedUp", companyId: user.company_id, reviewId: id } });
@@ -201,13 +217,37 @@ export default function AdminReviewsPage() {
       <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <PortalHeader
+            variant="hero"
             title="Reviews"
             icon={Star}
-            subtitle="Client ratings + comments from the post-event prompt"
+            subtitle="What clients said after their events. Ratings and comments from the post-delivery prompt, with follow-ups flagged for the office."
+            meta={
+              <>
+                {!loading && !loadError && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                    {stats.total} review{stats.total === 1 ? "" : "s"}
+                  </span>
+                )}
+                {!loading && !loadError && stats.total > 0 && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    <Star className="h-3 w-3 text-white/80" />
+                    {stats.avg || "-"} / 5 average
+                  </span>
+                )}
+                {!loading && !loadError && stats.openFollowUps > 0 && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    <span className="h-1.5 w-1.5 rounded-full bg-rose-400" />
+                    {stats.openFollowUps} open follow-up{stats.openFollowUps === 1 ? "" : "s"}
+                  </span>
+                )}
+              </>
+            }
             actions={
             <>
               {lastLoadedAt && (
-                <span className="text-[11px] text-slate-500 tabular-nums hidden sm:inline" title={lastLoadedAt.toLocaleString("en-ZA")}>
+                // Hero band: muted copy must stay light-on-dark.
+                <span className="text-[11px] text-white/70 tabular-nums hidden sm:inline" title={lastLoadedAt.toLocaleString("en-ZA")}>
                   As of {lastLoadedAt.toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" })}
                 </span>
               )}
@@ -218,6 +258,18 @@ export default function AdminReviewsPage() {
             }
           />
           <PageWorkbench />
+
+          {/* Persistent fetch-failure card with Retry - a failed load
+              must not read as "No reviews yet". */}
+          {loadError && !loading && (
+            <div className="mb-6 rounded-lg border border-rose-200 bg-white p-4 shadow-sm">
+              <p className="text-sm font-bold text-rose-900">Couldn't load reviews</p>
+              <p className="mt-0.5 text-xs text-slate-600">{loadError}</p>
+              <Button size="sm" variant="outline" className="mt-2" onClick={() => load()}>
+                <RefreshCw className="w-3.5 h-3.5 mr-1.5" /> Retry
+              </Button>
+            </div>
+          )}
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-6">
             <Card><CardContent className="p-4">
@@ -280,9 +332,11 @@ export default function AdminReviewsPage() {
                 <div className="text-center py-16 text-slate-500">
                   <MessageSquareText className="h-10 w-10 mx-auto mb-3 text-slate-300" />
                   <p className="font-medium text-slate-700">
-                    {reviews.length === 0 ? "No reviews yet" : "No reviews match the current filter"}
+                    {reviews.length === 0
+                      ? (loadError ? "Reviews unavailable right now" : "No reviews yet")
+                      : "No reviews match the current filter"}
                   </p>
-                  {reviews.length === 0 && (
+                  {reviews.length === 0 && !loadError && (
                     <p className="text-xs mt-1">Clients rate orders from their portal or via the 24h post-delivery email prompt.</p>
                   )}
                 </div>

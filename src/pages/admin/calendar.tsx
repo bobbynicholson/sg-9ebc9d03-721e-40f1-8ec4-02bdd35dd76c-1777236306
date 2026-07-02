@@ -28,7 +28,7 @@ import { UserRole } from "@/types/app";
 import { cn } from "@/lib/utils";
 import { ClientLinkButton } from "@/components/admin/ClientLinkButton";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
-import { toLocalISO } from "@/lib/localDate";
+import { toLocalISO, parseLocalDay, tenantToday } from "@/lib/localDate";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { staffOrderHref } from "@/lib/orderUrls";
 import { useToast } from "@/hooks/use-toast";
@@ -151,6 +151,11 @@ function AdminCalendar() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [loading, setLoading] = useState(true);
+  // Audit fix (2026-07-02): a failed events load only fired a
+  // transient toast, then the grid rendered empty and read as "no
+  // events this month". Persist the failure so a visible panel with
+  // a Retry button sits above the grid until a load succeeds.
+  const [loadError, setLoadError] = useState<string | null>(null);
   const focusedRef = useRef<HTMLButtonElement | null>(null);
   const [focusedISO, setFocusedISO] = useState<string | null>(null);
 
@@ -213,7 +218,9 @@ function AdminCalendar() {
     return () => {
       window.removeEventListener("focus", onFocus);
       offOrderUpdated();
-      sub.unsubscribe();
+      // removeChannel (not unsubscribe) releases the topic from the
+      // client registry so a remount on the same name can't collide.
+      supabase.removeChannel(sub);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.company_id]);
@@ -271,15 +278,13 @@ function AdminCalendar() {
 
       if (error) throw error;
       setOrders(((data || []) as unknown as AppOrder[]).filter((order: any) => !isAutomatedTestOrder(order)));
+      setLoadError(null);
     } catch (e: any) {
       console.error("Calendar load failed:", e);
       // Silent-failure audit: a failed load left an empty grid that
-      // read as "no events this month". Tell the operator.
-      toast({
-        title: "Couldn't load calendar events",
-        description: e?.message || "The events for this month couldn't be fetched. Refresh to try again.",
-        variant: "destructive",
-      });
+      // read as "no events this month". Persist a visible error
+      // panel (the previous toast disappeared after seconds).
+      setLoadError(e?.message || "The events for this month couldn't be fetched.");
     } finally {
       setLoading(false);
     }
@@ -523,6 +528,11 @@ function AdminCalendar() {
     } catch { return DEFAULT_MAX_CONCURRENT_EVENTS; }
   }, [user]);
   const [maxConcurrent, setMaxConcurrent] = useState(fallbackMaxConcurrent);
+  // Audit fix (2026-07-02): "today" (highlight ring, upcoming counts,
+  // 30-day horizon) was anchored to the browser clock. Pull the
+  // tenant timezone alongside dispatch_settings (one round trip) and
+  // anchor via tenantToday, matching /admin/orders.
+  const [tenantTimezone, setTenantTimezone] = useState<string | null>(null);
 
   useEffect(() => {
     setMaxConcurrent(fallbackMaxConcurrent);
@@ -532,12 +542,13 @@ function AdminCalendar() {
       try {
         const { data, error } = await (supabase as any)
           .from("companies")
-          .select("dispatch_settings")
+          .select("dispatch_settings, timezone")
           .eq("id", user.company_id)
           .maybeSingle();
         if (error) throw error;
         if (!cancelled) {
           setMaxConcurrent(resolveMaxConcurrentEvents((data as any)?.dispatch_settings));
+          setTenantTimezone((data as any)?.timezone || null);
         }
       } catch (e) {
         console.warn("[calendar] maxConcurrentEvents load failed:", e);
@@ -547,7 +558,7 @@ function AdminCalendar() {
     return () => { cancelled = true; };
   }, [fallbackMaxConcurrent, user?.company_id]);
 
-  const todayISO = useMemo(() => toLocalISO(new Date()), []);
+  const todayISO = useMemo(() => toLocalISO(tenantToday(tenantTimezone)), [tenantTimezone]);
   const monthNames = [
     "January","February","March","April","May","June",
     "July","August","September","October","November","December",
@@ -557,7 +568,9 @@ function AdminCalendar() {
   const previousMonth = () => setCurrentDate(new Date(year, month - 1, 1));
   const nextMonth     = () => setCurrentDate(new Date(year, month + 1, 1));
   const jumpToday     = () => {
-    const t = new Date();
+    // Tenant wall clock, so "Today" near midnight doesn't jump to the
+    // browser's calendar day.
+    const t = tenantToday(tenantTimezone);
     setCurrentDate(new Date(t.getFullYear(), t.getMonth(), 1));
     setSelectedDate(t);
   };
@@ -675,7 +688,10 @@ function AdminCalendar() {
    *  empty in the working horizon. */
   const horizonStats = useMemo(() => {
     const horizon = 30;
-    const today = new Date(todayISO);
+    // parseLocalDay pins to local midnight; `new Date("YYYY-MM-DD")`
+    // parses UTC midnight, which is the previous local day for
+    // operators west of UTC and skewed the whole 30-day window.
+    const today = parseLocalDay(todayISO) ?? new Date();
     let booked = 0;
     let winnable = 0;
     let empty = 0;
@@ -740,7 +756,8 @@ function AdminCalendar() {
   const dayIntel = useMemo(() => {
     if (!selectedDate) return null;
     const now = Date.now();
-    const isPastDay = selectedDate.getTime() < new Date(toLocalISO(new Date())).getTime();
+    // Local-midnight compare (UTC parse shifted a day west of UTC).
+    const isPastDay = selectedDate.getTime() < (parseLocalDay(todayISO) ?? new Date()).getTime();
 
     let totalGuests = 0;
     let totalRevenue = 0;
@@ -814,7 +831,7 @@ function AdminCalendar() {
       times,
       perEventIssues,
     };
-  }, [selectedDate, dayEvents]);
+  }, [selectedDate, dayEvents, todayISO]);
 
   // Mode metadata - mirrors the portal nav mode badge pattern from
   // Waves 70.28 / 70.29 / 70.31 for visual consistency.
@@ -836,9 +853,28 @@ function AdminCalendar() {
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
 
           <PortalHeader
+            variant="hero"
             title="Calendar"
             icon={CalendarIcon}
             subtitle="Every confirmed event on a calendar grid. Click a day to see its events; arrow keys move you through the calendar."
+            meta={
+              !loading && !loadError ? (
+                <>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                    {upcomingAll.length} upcoming event{upcomingAll.length === 1 ? "" : "s"}
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    {horizonStats.booked} booked day{horizonStats.booked === 1 ? "" : "s"} in the next 30
+                  </span>
+                  {horizonStats.winnable > 0 && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-400/30 bg-amber-400/15 px-2.5 py-1 text-[11px] font-semibold text-amber-200">
+                      {horizonStats.winnable} winnable day{horizonStats.winnable === 1 ? "" : "s"}
+                    </span>
+                  )}
+                </>
+              ) : null
+            }
             actions={
             <>
               <Button variant="outline" size="sm" onClick={jumpToday} className="gap-1.5">
@@ -1055,6 +1091,31 @@ function AdminCalendar() {
             }
           />
           <PageWorkbench />
+
+          {/* Load-failure panel: without it a failed fetch rendered an
+              empty grid that read as "no events this month". */}
+          {loadError && (
+            <div className="mb-4 flex items-start gap-3 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3">
+              <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-rose-600" />
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-rose-900">Couldn't load calendar events</p>
+                <p className="text-xs text-rose-800 mt-0.5">{loadError}</p>
+              </div>
+              <Button variant="outline" size="sm" onClick={loadOrders} disabled={loading}>
+                Retry
+              </Button>
+            </div>
+          )}
+
+          {/* First-load hint: the month grid renders its empty cells
+              immediately, which reads as "no events" while the fetch
+              is still in flight. */}
+          {loading && orders.length === 0 && !loadError && (
+            <div className="mb-4 flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm text-slate-500">
+              <RefreshCw className="w-4 h-4 animate-spin" />
+              Loading events...
+            </div>
+          )}
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2">
@@ -1484,7 +1545,11 @@ function AdminCalendar() {
                     <p className="text-center text-slate-500 py-8 text-sm">Nothing booked yet.</p>
                   ) : (
                     <div className="divide-y divide-slate-100">
-                      {upcoming.map((e: any) => (
+                      {upcoming.map((e: any) => {
+                        // Local-midnight parse so the date tile doesn't
+                        // show the previous day west of UTC.
+                        const eventDay = parseLocalDay(e.event_date) ?? new Date(`${e.event_date}T12:00:00`);
+                        return (
                         <Link
                           key={e.id}
                           href={withSlug(staffOrderHref(e.id, "admin"))}
@@ -1492,10 +1557,10 @@ function AdminCalendar() {
                         >
                           <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-slate-100 to-rose-100 flex flex-col items-center justify-center flex-shrink-0">
                             <span className="text-[10px] font-bold from-slate-100 leading-none">
-                              {new Date(e.event_date).toLocaleDateString("en-ZA", { month: "short" }).toUpperCase()}
+                              {eventDay.toLocaleDateString("en-ZA", { month: "short" }).toUpperCase()}
                             </span>
                             <span className="text-sm font-bold text-slate-700 leading-none">
-                              {new Date(e.event_date).getDate()}
+                              {eventDay.getDate()}
                             </span>
                           </div>
                           <div className="flex-1 min-w-0">
@@ -1506,7 +1571,8 @@ function AdminCalendar() {
                           </div>
                           <ArrowRight className="w-4 h-4 text-slate-400" />
                         </Link>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </CardContent>
@@ -1650,8 +1716,11 @@ function AdminCalendar() {
                   ) : (
                     <div className="divide-y divide-slate-100 max-h-96 overflow-y-auto">
                       {horizonStats.winnableDays.slice(0, 8).map(({ iso, quotes }) => {
-                        const d = new Date(iso);
-                        const daysOut = Math.floor((d.getTime() - new Date(todayISO).getTime()) / 86400000);
+                        // Local-midnight parses so the weekday label and
+                        // days-out count don't shift a day west of UTC.
+                        const d = parseLocalDay(iso) ?? new Date(`${iso}T12:00:00`);
+                        const todayLocal = parseLocalDay(todayISO) ?? new Date();
+                        const daysOut = Math.floor((d.getTime() - todayLocal.getTime()) / 86400000);
                         return (
                           <div key={iso} className="px-4 py-3">
                             <div className="flex items-center justify-between gap-2 mb-1">
@@ -1695,8 +1764,11 @@ function AdminCalendar() {
                     <span className="text-sm text-slate-600 flex items-center gap-1.5">{monthNames[month]} <InfoTooltip content={"Confirmed-and-onwards events with an event date in the month you are currently viewing."} /></span>
                     <span className="text-2xl font-bold text-blue-900 tabular-nums">
                       {orders.filter((o: any) => {
-                        const d = new Date(o.event_date);
-                        return d.getMonth() === month && d.getFullYear() === year;
+                        // parseLocalDay avoids the UTC-midnight parse
+                        // pushing month-boundary events into the wrong
+                        // month bucket west of UTC.
+                        const d = parseLocalDay(o.event_date);
+                        return d && d.getMonth() === month && d.getFullYear() === year;
                       }).length}
                     </span>
                   </div>

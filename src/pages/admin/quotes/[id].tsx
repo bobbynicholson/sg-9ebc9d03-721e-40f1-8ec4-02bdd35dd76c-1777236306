@@ -79,6 +79,15 @@ interface MenuItemRow {
   dietary_tags: string[] | null;
   quantity: number;
   unit_price: number;
+  /** Per-line discount % carried through from the quote builder's
+   *  jsonb. This editor doesn't offer a discount input, but dropping
+   *  the value on save silently re-inflated the price of builder-made
+   *  drafts opened here. */
+  discount_pct: number;
+  /** The original jsonb row. buildPayload merges edits OVER this so
+   *  builder-only fields (pricing_mode, description, pricePerPerson,
+   *  allergen stamps) survive a save from this simpler editor. */
+  raw?: any;
 }
 
 function safeNum(n: any): number {
@@ -95,6 +104,12 @@ function AdminQuoteDetailInner() {
   const { withSlug } = useTenantHref();
   const [quote, setQuote] = useState<Quote | null>(null);
   const [loading, setLoading] = useState(true);
+  // Command-centre audit (2026-07-02): a failed quote fetch used to
+  // fall through to the "Quote not found" card (getQuote fails soft
+  // with null), telling the operator the quote was deleted when the
+  // query just errored. Distinguish the two and offer a Retry.
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loadRetryTick, setLoadRetryTick] = useState(0);
   const [saving, setSaving] = useState(false);
   const [sending, setSending] = useState(false);
   // "Convert to order" used to Link to /admin/orders/new?quoteId=...,
@@ -163,6 +178,10 @@ function AdminQuoteDetailInner() {
   // sticky panel component so we share one shape between page + panel.
   const [changeRequests, setChangeRequests] = useState<ChangeReq[]>([]);
   const [changeReqUpdatingId, setChangeReqUpdatingId] = useState<string | null>(null);
+  // Surfaced fetch failure for the change-request panel - previously
+  // the error was dropped and the panel just rendered empty, hiding
+  // real client requests from the operator.
+  const [changeReqError, setChangeReqError] = useState<string | null>(null);
 
   // Deep-link state. The bell-notification href looks like
   // `/admin/quotes/{id}#change-requests` and may also carry a
@@ -180,7 +199,17 @@ function AdminQuoteDetailInner() {
     let cancelled = false;
     (async () => {
       setLoading(true);
-      const data = await quoteService.getQuote(id);
+      setLoadError(null);
+      let data: Quote | null = null;
+      try {
+        data = await quoteService.getQuote(id, { throwOnError: true });
+      } catch (err: any) {
+        if (cancelled) return;
+        console.error("[quotes/[id]] quote fetch failed:", err);
+        setLoadError(err?.message || "Could not load this quote.");
+        setLoading(false);
+        return;
+      }
       if (cancelled) return;
       setQuote(data);
       // Seed the pricing editor from the stored menu_items jsonb.
@@ -195,6 +224,8 @@ function AdminQuoteDetailInner() {
           dietary_tags: Array.isArray(m.dietary_tags) ? m.dietary_tags : null,
           quantity: safeNum(m.quantity),
           unit_price: safeNum(m.unit_price),
+          discount_pct: safeNum(m.discount_pct ?? m.discountPct),
+          raw: m,
         })),
       );
       setDeliveryFee(safeNum((data as any)?.delivery_fee));
@@ -203,7 +234,7 @@ function AdminQuoteDetailInner() {
       setLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [id]);
+  }, [id, loadRetryTick]);
 
   // Lazy-load tenant company name for the send dialog so the resolved
   // email body says "Spit Braai Delivery" rather than the generic
@@ -227,11 +258,17 @@ function AdminQuoteDetailInner() {
   // history visible. Tiny query, no pagination needed.
   const loadChangeRequests = useCallback(async () => {
     if (!id || typeof id !== "string") return;
-    const { data } = await (supabase as any)
+    const { data, error } = await (supabase as any)
       .from("quote_change_requests")
       .select("id, message, requested_changes, status, submitter_name, addressed_at, created_at")
       .eq("quote_id", id)
       .order("created_at", { ascending: false });
+    if (error) {
+      console.warn("[quotes/[id]] change-request fetch failed:", error);
+      setChangeReqError(error.message || "Could not load client change requests.");
+      return;
+    }
+    setChangeReqError(null);
     setChangeRequests((data as ChangeReq[]) || []);
   }, [id]);
 
@@ -360,21 +397,43 @@ function AdminQuoteDetailInner() {
   // both get arithmetic that matches the rest of the system
   // (invoice generation already honours the flag).
   const pricingMode = usePricingMode();
+  // Charges stored on the quote that this simpler editor doesn't edit
+  // but MUST stay in the totals: equipment lines and the collection
+  // fee, both set by the full builder (/admin/quotes/new). Excluding
+  // them meant every save from this page silently re-priced a quote
+  // with equipment or a collection trip DOWNWARD - the client-facing
+  // /q view then showed a total the operator never agreed to.
+  const equipmentRows = useMemo<any[]>(() => {
+    const arr = (quote as any)?.equipment_items;
+    return Array.isArray(arr) ? arr : [];
+  }, [quote]);
+  const equipmentSubtotal = useMemo(
+    () => equipmentRows.reduce(
+      (s, e) => s + (safeNum(e.line_total) || safeNum(e.unit_price ?? e.rentalPrice) * safeNum(e.quantity)),
+      0,
+    ),
+    [equipmentRows],
+  );
+  const collectionFee = safeNum((quote as any)?.collection_fee);
   const computed = useMemo(() => {
+    // Per-line discount honoured: builder-made lines carry
+    // discount_pct in the jsonb; ignoring it inflated the recompute.
     const itemsSubtotal = items.reduce(
-      (s, it) => s + it.quantity * it.unit_price,
+      (s, it) => s + it.quantity * it.unit_price * (1 - (it.discount_pct || 0) / 100),
       0,
     );
-    const lineSum = itemsSubtotal + deliveryFee - discount;
+    const lineSum = itemsSubtotal + equipmentSubtotal + deliveryFee + collectionFee - discount;
     const br = breakdownFromLineSum(lineSum, taxRate, pricingMode.mode);
     return {
       itemsSubtotal,
+      equipmentSubtotal,
+      collectionFee,
       // subtotal here is the ex-VAT figure, matching the invoice math.
       subtotal: br.net,
       tax: br.vat,
       total: br.gross,
     };
-  }, [items, deliveryFee, discount, taxRate, pricingMode.mode]);
+  }, [items, equipmentSubtotal, collectionFee, deliveryFee, discount, taxRate, pricingMode.mode]);
 
   const updateItem = (key: string, patch: Partial<MenuItemRow>) =>
     setItems((prev) => prev.map((it) => (it.key === key ? { ...it, ...patch } : it)));
@@ -387,15 +446,26 @@ function AdminQuoteDetailInner() {
     // Re-emit menu_items in the same shape the rest of the app reads
     // (admin/quotes/new template re-applier, client portal forecast,
     // etc.). Recomputed line_total per row keeps reports accurate.
-    const menuItemsJson = items.map((it) => ({
-      menu_item_id: it.menu_item_id,
-      item_name: it.item_name,
-      category: it.category,
-      dietary_tags: it.dietary_tags,
-      quantity: it.quantity,
-      unit_price: it.unit_price,
-      line_total: it.quantity * it.unit_price,
-    }));
+    // Edits merge OVER the original jsonb row so builder-only fields
+    // (pricing_mode, description, allergen stamps) survive a save
+    // from this simpler editor instead of being dropped.
+    const menuItemsJson = items.map((it) => {
+      const net = it.quantity * it.unit_price * (1 - (it.discount_pct || 0) / 100);
+      const base = it.raw && typeof it.raw === "object" ? { ...it.raw } : {};
+      if ((base as any).pricePerPerson !== undefined) (base as any).pricePerPerson = it.unit_price;
+      if ((base as any).name !== undefined) (base as any).name = it.item_name;
+      return {
+        ...base,
+        menu_item_id: it.menu_item_id,
+        item_name: it.item_name,
+        category: it.category,
+        dietary_tags: it.dietary_tags,
+        quantity: it.quantity,
+        unit_price: it.unit_price,
+        discount_pct: it.discount_pct || 0,
+        line_total: net,
+      };
+    });
     return {
       menu_items: menuItemsJson,
       subtotal: computed.subtotal,
@@ -479,6 +549,15 @@ function AdminQuoteDetailInner() {
   // a confirmed successful delivery. Old behaviour fired the email
   // the moment the operator clicked Save & Send, with no preview and
   // no chance to fix a typo.
+  // Total the send gate + dialog should use. Live recompute for a
+  // draft under edit; the PERSISTED figure for read-only quotes. The
+  // previous code recomputed non-draft quotes too, which dropped the
+  // builder's surge uplift (not representable here) and blocked
+  // re-sending equipment-only quotes whose menu recompute was zero.
+  const sendTotal = isDraft
+    ? computed.total
+    : safeNum((quote as any)?.total ?? (quote as any)?.total_amount);
+
   const _doSend = async () => {
     if (!quote || !id || typeof id !== "string") return;
     if (!quote.client_email) {
@@ -489,7 +568,7 @@ function AdminQuoteDetailInner() {
       });
       return;
     }
-    if (computed.total <= 0) {
+    if (sendTotal <= 0) {
       toast({
         title: "Nothing to send",
         description: "Set unit prices on at least one line before sending.",
@@ -501,16 +580,23 @@ function AdminQuoteDetailInner() {
     try {
       // Save the latest pricing as a draft. NO status change - the
       // dialog flips status='sent' after the email actually goes out.
-      const updated = await quoteService.updateQuote(id, buildPayload() as Partial<Quote>);
-      if (!updated) throw new Error("Quote update returned no row");
-      const refreshed = await quoteService.getQuote(id);
-      setQuote(refreshed);
-      // Wave 51 - propagation receipt surfaced before the dialog opens
-      // so the operator sees what changed on the order in the same flash.
-      const propReceipt = (updated as any)?._propagationReceipt;
-      const propLine = _formatPropagationLine(propReceipt);
-      if (propLine) {
-        toast({ title: "Saved", description: propLine });
+      // DRAFTS ONLY: the editor is read-only for every other status,
+      // so there is nothing to persist - and rewriting the stored
+      // totals from this page's simpler math corrupted quotes built
+      // with surge / quote-level percentage discounts on every
+      // "Re-send by email" click.
+      if (isDraft) {
+        const updated = await quoteService.updateQuote(id, buildPayload() as Partial<Quote>);
+        if (!updated) throw new Error("Quote update returned no row");
+        const refreshed = await quoteService.getQuote(id);
+        setQuote(refreshed);
+        // Wave 51 - propagation receipt surfaced before the dialog opens
+        // so the operator sees what changed on the order in the same flash.
+        const propReceipt = (updated as any)?._propagationReceipt;
+        const propLine = _formatPropagationLine(propReceipt);
+        if (propLine) {
+          toast({ title: "Saved", description: propLine });
+        }
       }
       // Hand off to the review-before-send composer.
       setSendDialogOpen(true);
@@ -525,7 +611,9 @@ function AdminQuoteDetailInner() {
     }
   };
 
-  const handleSend = () => _runPreflightThenSave("send");
+  // Non-draft sends skip the propagation preflight too - nothing was
+  // edited on a read-only quote, so there is no impact to confirm.
+  const handleSend = () => (isDraft ? _runPreflightThenSave("send") : _doSend());
 
   // Convert an accepted quote into a live order. Same cascade as the
   // list page's "Mark accepted" (order + deposit invoice + emails +
@@ -609,10 +697,33 @@ function AdminQuoteDetailInner() {
       <AdminNav />
       <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+          {/* Command-centre hero band, washed in the tenant's brand
+              colours. Chips show the loaded quote's live reference,
+              total and open client change requests. */}
           <PortalHeader
+            variant="hero"
             title="Quote details"
             icon={FileText}
             subtitle="Price the request line by line, respond to client change requests, then save or send. Quotes that already went out stay read-only to preserve history."
+            meta={
+              !loading && !loadError && quote ? (
+                <>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    <span className="font-mono">{(quote as any).quote_number || `#${quote.id?.slice(0, 8)}`}</span>
+                    <span className="capitalize text-white/70">· {quote.status}</span>
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    {fmtMoney(isDraft ? computed.total : safeNum((quote as any).total ?? (quote as any).total_amount))} total
+                  </span>
+                  {changeRequests.filter((r) => r.status === "pending").length > 0 && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                      <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+                      {changeRequests.filter((r) => r.status === "pending").length} open change request{changeRequests.filter((r) => r.status === "pending").length === 1 ? "" : "s"}
+                    </span>
+                  )}
+                </>
+              ) : undefined
+            }
             actions={
               <Link href={withSlug("/admin/quotes")}>
                 <Button variant="outline">
@@ -630,6 +741,17 @@ function AdminQuoteDetailInner() {
               <CardContent className="p-12 text-center text-slate-500">
                 <Loader2 className="w-6 h-6 mx-auto mb-2 animate-spin" />
                 Loading quote...
+              </CardContent>
+            </Card>
+          ) : loadError ? (
+            <Card className="border-rose-200">
+              <CardContent className="p-12 text-center">
+                <AlertTriangle className="w-12 h-12 text-rose-400 mx-auto mb-4" />
+                <h2 className="text-xl font-semibold text-slate-900 mb-2">Couldn't load this quote</h2>
+                <p className="text-slate-600 mb-6">{loadError}</p>
+                <Button onClick={() => setLoadRetryTick((n) => n + 1)} className="bg-brand-primary hover:bg-brand-primary/90">
+                  Retry
+                </Button>
               </CardContent>
             </Card>
           ) : !quote ? (
@@ -829,8 +951,11 @@ function AdminQuoteDetailInner() {
                               <td className="py-3 px-3 w-[150px]">
                                 {isDraft ? (
                                   <div className="relative">
+                                    {/* Tenant currency symbol, not a
+                                        hard-coded R (mirrors the
+                                        delivery fee input below). */}
                                     <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-slate-500">
-                                      R
+                                      {tenantCurrency.symbol}
                                     </span>
                                     <Input
                                       type="number"
@@ -849,7 +974,13 @@ function AdminQuoteDetailInner() {
                                 )}
                               </td>
                               <td className="py-3 px-3 text-right font-medium text-slate-900 w-[140px]">
-                                {fmtMoney(it.quantity * it.unit_price)}
+                                {/* Net of the builder's per-line
+                                    discount so the column sums to the
+                                    totals below. */}
+                                {fmtMoney(it.quantity * it.unit_price * (1 - (it.discount_pct || 0) / 100))}
+                                {it.discount_pct > 0 && (
+                                  <span className="block text-[10px] font-normal text-rose-600">-{it.discount_pct}% line discount</span>
+                                )}
                               </td>
                               {isDraft && (
                                 <td className="py-3 pl-3 w-[64px] text-right">
@@ -870,6 +1001,33 @@ function AdminQuoteDetailInner() {
                   )}
                 </CardContent>
               </Card>
+
+              {/* Equipment on the quote, read-only here (edit via the
+                  full builder). Rendered so the operator sees the
+                  whole priced scope and the totals below reconcile
+                  with what the client sees on /q. */}
+              {equipmentRows.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Equipment</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <ul className="space-y-1.5 text-sm">
+                      {equipmentRows.map((e: any, i: number) => (
+                        <li key={i} className="flex justify-between gap-2">
+                          <span className="text-slate-700">{e.name || "Equipment"} × {safeNum(e.quantity)}</span>
+                          <span className="font-medium text-slate-900 flex-shrink-0">
+                            {fmtMoney(safeNum(e.line_total) || safeNum(e.unit_price ?? e.rentalPrice) * safeNum(e.quantity))}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                    <p className="mt-3 text-[11px] text-slate-500">
+                      Equipment is edited in the full builder (Edit quote / Revise &amp; resend). Its value is included in the totals below.
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
 
               {/* Adjustments + totals */}
               <Card>
@@ -938,10 +1096,26 @@ function AdminQuoteDetailInner() {
                           <span className="text-slate-600">Items{incVat ? " (incl VAT)" : ""}</span>
                           <span className="font-medium">{fmtMoney(computed.itemsSubtotal)}</span>
                         </div>
+                        {/* Equipment + collection are builder-managed
+                            charges; shown here so the breakdown sums
+                            to the Total instead of silently skipping
+                            money the client is being charged. */}
+                        {computed.equipmentSubtotal > 0 && (
+                          <div className="flex justify-between text-sm">
+                            <span className="text-slate-600">Equipment hire{incVat ? " (incl VAT)" : ""}</span>
+                            <span className="font-medium">{fmtMoney(computed.equipmentSubtotal)}</span>
+                          </div>
+                        )}
                         {liveDelivery > 0 && (
                           <div className="flex justify-between text-sm">
                             <span className="text-slate-600">Delivery fee</span>
                             <span className="font-medium">{fmtMoney(liveDelivery)}</span>
+                          </div>
+                        )}
+                        {computed.collectionFee > 0 && (
+                          <div className="flex justify-between text-sm">
+                            <span className="text-slate-600">Collection fee</span>
+                            <span className="font-medium">{fmtMoney(computed.collectionFee)}</span>
                           </div>
                         )}
                         {liveDiscount > 0 && (
@@ -1216,6 +1390,21 @@ function AdminQuoteDetailInner() {
                   away). With the column stretched, the panel stays
                   docked while the quote scrolls. */}
               <div className="lg:col-start-2 lg:self-stretch">
+                {/* Fetch-failure strip for the change-request panel;
+                    without it a query error looked identical to "no
+                    requests" and client asks went unseen. */}
+                {changeReqError && (
+                  <div className="mb-3 flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800">
+                    <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                    <div className="flex-1">
+                      <p className="font-medium">Couldn't load client change requests.</p>
+                      <p className="mt-0.5">{changeReqError}</p>
+                    </div>
+                    <Button size="sm" variant="outline" onClick={() => loadChangeRequests()}>
+                      Retry
+                    </Button>
+                  </div>
+                )}
                 <ChangeRequestPanel
                   requests={changeRequests}
                   clientNameFallback={(quote as any).client_name ?? null}
@@ -1248,8 +1437,10 @@ function AdminQuoteDetailInner() {
             quote_number: (quote as any).quote_number ?? null,
             client_name: quote.client_name ?? null,
             client_email: quote.client_email ?? null,
-            total: computed.total,
-            total_amount: computed.total,
+            // sendTotal: live recompute for drafts, persisted figure
+            // for read-only quotes (see the const above _doSend).
+            total: sendTotal,
+            total_amount: sendTotal,
             currency: (quote as any).currency ?? "ZAR",
             event_name: (quote as any).event_name ?? null,
             quote_name: (quote as any).quote_name ?? null,

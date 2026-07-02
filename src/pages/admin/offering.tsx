@@ -43,6 +43,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { toLocalISO } from "@/lib/localDate";
+import { formatZAR } from "@/lib/formatters";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { captureException } from "@/lib/observability";
 import {
@@ -112,8 +113,8 @@ const dateFmt = (iso: string | null) => {
   } catch { return "Unknown"; }
 };
 
-const fmtR = (n: number) =>
-  `R ${Math.round(n).toLocaleString("en-ZA")}`;
+// formatZAR is the display source of truth for money on every surface.
+const fmtR = (n: number) => formatZAR(n, { decimals: 0 });
 
 function OfferingPage() {
   // OFR-B: drop the `as any` cast - useAuth is typed in @/contexts/AuthContext.
@@ -190,6 +191,12 @@ function OfferingPage() {
 
       if (menuRes.error) throw menuRes.error;
       if (equipRes.error) throw equipRes.error;
+      // Audit 2026-07-02: these two used to be silently ignored. A
+      // failed order_items query zeroed the Top 3 / Recent strips AND
+      // marked the whole catalogue as "never quoted" - actively wrong,
+      // not just empty. Throw so the error banner + Retry show up.
+      if (oiRes.error) throw oiRes.error;
+      if (equipBookingsRes.error) throw equipBookingsRes.error;
 
       const menuRows = (menuRes.data || []) as Array<{
         id: string; item_name: string; image_url: string | null; base_price: number | null;
@@ -443,16 +450,37 @@ function OfferingPage() {
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
 
           <PortalHeader
+            variant="hero"
             title="Offering"
             icon={Sparkles}
             subtitle="Snapshot of what you sell. Menu items and equipment for hire in one view so you can spot gaps in pricing or photos before they hit a quote."
+            meta={
+              !loading && !error ? (
+                <>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                    {menuTile.active} menu item{menuTile.active === 1 ? "" : "s"}
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    {equipTile.total} equipment item{equipTile.total === 1 ? "" : "s"}
+                  </span>
+                  {(menuTile.missingPrice + menuTile.missingPhoto + equipTile.missingPrice + equipTile.missingPhoto) > 0 && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                      <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+                      {menuTile.missingPrice + menuTile.missingPhoto + equipTile.missingPrice + equipTile.missingPhoto} catalogue gap{(menuTile.missingPrice + menuTile.missingPhoto + equipTile.missingPrice + equipTile.missingPhoto) === 1 ? "" : "s"}
+                    </span>
+                  )}
+                </>
+              ) : undefined
+            }
             actions={
             <>
               {/* OFR-B: period selector. Drives Top 3 + Recent strip
                   + Never-quoted callout so the operator can flex the
                   window between 30 / 60 / 90 days without leaving
-                  the page. */}
-              <div className="flex gap-1 rounded-lg border border-slate-200 bg-white p-1 text-xs">
+                  the page. Restyled for the dark hero band; active
+                  state uses the tenant brand colour, not amber. */}
+              <div className="flex gap-1 rounded-lg border border-white/15 bg-white/10 p-1 text-xs">
                 {([30, 60, 90] as const).map((p) => (
                   <button
                     key={p}
@@ -460,8 +488,8 @@ function OfferingPage() {
                     onClick={() => setPeriod(p)}
                     className={`px-2.5 py-1 rounded-md ${
                       period === p
-                        ? "bg-amber-600 text-white font-medium"
-                        : "text-slate-600 hover:bg-slate-50"
+                        ? "bg-brand-primary text-white font-medium"
+                        : "text-slate-300 hover:bg-white/10"
                     }`}
                   >
                     {p}d
@@ -537,7 +565,7 @@ function OfferingPage() {
                         active items" is always to go look at them. */}
                     <Link href={withSlug("/admin/menu")} className="block group">
                       <div className="flex items-baseline gap-3 mb-2">
-                        <span className="text-4xl font-bold text-slate-900 group-hover:text-amber-700 transition-colors">
+                        <span className="text-4xl font-bold text-slate-900 group-hover:text-brand-primary transition-colors">
                           {loading ? "-" : menuTile.active}
                         </span>
                         <span className="text-sm text-slate-600">active item{menuTile.active === 1 ? "" : "s"}</span>
@@ -796,14 +824,14 @@ function OfferingPage() {
                       </div>
                       <Link
                         href={withSlug(`/admin/menu?item=${p.a.id}`)}
-                        className="text-sm text-slate-900 font-semibold hover:text-amber-700 hover:underline block truncate"
+                        className="text-sm text-slate-900 font-semibold hover:text-brand-primary hover:underline block truncate"
                       >
                         {p.a.name}
                       </Link>
                       <p className="text-xs text-slate-400 my-0.5">with</p>
                       <Link
                         href={withSlug(`/admin/menu?item=${p.b.id}`)}
-                        className="text-sm text-slate-900 font-semibold hover:text-amber-700 hover:underline block truncate"
+                        className="text-sm text-slate-900 font-semibold hover:text-brand-primary hover:underline block truncate"
                       >
                         {p.b.name}
                       </Link>

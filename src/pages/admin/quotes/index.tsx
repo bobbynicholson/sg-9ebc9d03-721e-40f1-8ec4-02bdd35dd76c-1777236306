@@ -305,6 +305,11 @@ function AdminQuotesInner() {
   const [autoEmailRows, setAutoEmailRows] = useState<any[]>([]);
   const [followupLogs, setFollowupLogs] = useState<Record<string, FollowupLogRow[]>>({});
   const [loading, setLoading] = useState(true);
+  // Command-centre audit (2026-07-02): the main quotes fetch used to
+  // fail soft (service returned [] on error), so a DB failure rendered
+  // the "No quotes yet" empty state - the operator had no idea their
+  // pipeline just didn't load. Surface it with a Retry instead.
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [sendingId, setSendingId] = useState<string | null>(null);
   const [composeQuote, setComposeQuote] = useState<Quote | null>(null);
   // Phase 18 #1: record opened quote in the recently-viewed list
@@ -674,6 +679,7 @@ function AdminQuotesInner() {
     let cancelled = false;
     (async () => {
       setLoading(true);
+      setLoadError(null);
       // Wave 70.91: auto-expire mutation throttled. Pre-fix this
       // .update() fired on every page load - every operator
       // opening /admin/quotes wrote to every other tenant's
@@ -712,7 +718,16 @@ function AdminQuotesInner() {
           /* non-blocking - the derive helper still tags the row */
         }
       }
-      const fetched = await quoteService.getQuotes(user.company_id!);
+      let fetched: Quote[];
+      try {
+        fetched = await quoteService.getQuotes(user.company_id!, { throwOnError: true });
+      } catch (err: any) {
+        if (cancelled) return;
+        console.error("[quotes] list fetch failed:", err);
+        setLoadError(dbErrorMessage(err, { entity: "quote", fallback: "Could not load your quotes." }));
+        setLoading(false);
+        return;
+      }
       if (cancelled) return;
       setQuotes(fetched);
 
@@ -1455,10 +1470,36 @@ function AdminQuotesInner() {
 
       <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+          {/* Command-centre hero band: dark slate washed in the
+              tenant's brand colours (PortalHeader reads the
+              --brand-*-rgb vars). Chips carry live pipeline numbers
+              from the same regionFilteredRows the list renders. */}
           <PortalHeader
+            variant="hero"
             title="Quotes"
             icon={Banknote}
-            subtitle="Priced proposals. Build a quote from a lead or directly off a client, send the public link, then chase with reminders until accepted or declined. Accepted quotes convert to orders."
+            subtitle="Build and price quotes, send the public link, then chase with reminders until the client accepts or declines. Accepted quotes convert to orders."
+            meta={
+              !loading && !loadError ? (
+                <>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                    {openCount} open quote{openCount === 1 ? "" : "s"}
+                  </span>
+                  {openRevenue > 0 && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                      {C}{fmtCompact(openRevenue)} in open pipeline
+                    </span>
+                  )}
+                  {counts.action_needed > 0 && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                      <span className="h-1.5 w-1.5 rounded-full bg-rose-400" />
+                      {counts.action_needed} need{counts.action_needed === 1 ? "s" : ""} action
+                    </span>
+                  )}
+                </>
+              ) : undefined
+            }
             actions={
               <>
                 {/* Phase 27 #8: manual refresh bumps refreshTick which
@@ -1542,6 +1583,24 @@ function AdminQuotesInner() {
           />
 
           <PageWorkbench />
+
+          {/* Load-failure recovery card. Sits directly under the
+              header so it cannot be missed; Retry re-runs the main
+              load effect via refreshTick. */}
+          {loadError && (
+            <div className="mb-6 rounded-lg border border-rose-200 bg-white p-5 shadow-sm">
+              <h2 className="text-base font-bold text-rose-900 mb-1">Couldn't load quotes</h2>
+              <p className="text-sm text-slate-600 mb-3">{loadError}</p>
+              <Button
+                size="sm"
+                onClick={() => setRefreshTick((n) => n + 1)}
+                disabled={loading}
+                className="bg-brand-primary hover:bg-brand-primary/90"
+              >
+                <RefreshCw className="w-4 h-4 mr-2" /> Retry
+              </Button>
+            </div>
+          )}
 
           {/* Wave 70.92: date range selector that scopes the KPI
               tiles. Bobby asked "Won THIS PERIOD - which period?"
@@ -1870,7 +1929,24 @@ function AdminQuotesInner() {
             </Card>
           )}
           <div className={`space-y-4 ${viewMode === "pipeline" ? "hidden" : ""}`}>
-            {quotes.length === 0 ? (
+            {loading ? (
+              // Skeleton rows while the pipeline loads - the previous
+              // behaviour dropped straight into the "No quotes yet"
+              // empty state, which read as data before data arrived.
+              <>
+                {[0, 1, 2].map((i) => (
+                  <Card key={i}>
+                    <CardContent className="p-6">
+                      <div className="animate-pulse space-y-3">
+                        <div className="h-5 w-48 rounded bg-slate-200" />
+                        <div className="h-3 w-72 max-w-full rounded bg-slate-100" />
+                        <div className="h-3 w-56 max-w-full rounded bg-slate-100" />
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </>
+            ) : loadError ? null : quotes.length === 0 ? (
               <Card className="border-2 border-dashed">
                 <CardContent className="p-12 text-center">
                   <FileText className="w-16 h-16 text-slate-300 mx-auto mb-4" />
@@ -2217,11 +2293,17 @@ function AdminQuotesInner() {
 
                           <div className="space-y-2 mt-4">
                             <div className="flex justify-between text-sm">
+                              {/* Null-guard: legacy rows can carry a null
+                                  subtotal; .toFixed on null crashed the
+                                  whole list render. Label says just
+                                  "VAT" - the rate is per-tenant, the old
+                                  hard-coded "(15%)" lied on non-15%
+                                  tenants. */}
                               <span className="text-slate-600">Subtotal</span>
-                              <span className="font-medium">{C}{quote.subtotal.toFixed(2)}</span>
+                              <span className="font-medium">{C}{(quote.subtotal ?? 0).toFixed(2)}</span>
                             </div>
                             <div className="flex justify-between text-sm">
-                              <span className="text-slate-600">VAT (15%)</span>
+                              <span className="text-slate-600">VAT</span>
                               <span className="font-medium">{C}{(quote.tax ?? 0).toFixed(2)}</span>
                             </div>
                             <div className="h-px bg-slate-200" />
@@ -2229,6 +2311,19 @@ function AdminQuotesInner() {
                               <span>Total</span>
                               <span className="text-brand-primary">{C}{(quote.total ?? 0).toFixed(2)}</span>
                             </div>
+                            {/* Money-consistency guard: the headline
+                                figure above uses the linked order's
+                                total when the order drifted (postponed,
+                                guests revised) while this breakdown is
+                                the quote's own record. When they
+                                disagree, say so explicitly so the two
+                                numbers on the same card reconcile. */}
+                            {resolved?.totalAmount != null
+                              && Math.abs(Number(resolved.totalAmount) - Number(quote.total ?? 0)) > 0.009 && (
+                              <p className="text-[11px] text-slate-500">
+                                Linked order total is now {C}{Number(resolved.totalAmount).toFixed(2)} (quote shows its original figures).
+                              </p>
+                            )}
                           </div>
                         </div>
 

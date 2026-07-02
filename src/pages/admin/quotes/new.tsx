@@ -406,7 +406,7 @@ function NewQuotePage() {
   /** True once the operator has manually overridden the auto-fee.
    *  Stops subsequent auto-recalcs from clobbering their override. */
   const [deliveryFeeOverridden, setDeliveryFeeOverridden] = useState(false);
-  // Collection fee — mirrors the delivery block exactly (distance × 2 ×
+  // Collection fee - mirrors the delivery block exactly (distance × 2 ×
   // per-km), for jobs where the caterer collects (equipment / dropback)
   // or the client collects. Adds to the quote total alongside delivery.
   const [collectionDistance, setCollectionDistance] = useState(0);
@@ -473,6 +473,12 @@ function NewQuotePage() {
   /** The id of the row in `quotes` once it's been saved. Null until then. */
   const [quoteId, setQuoteId] = useState<string | null>(null);
   const [quoteNumber, setQuoteNumber] = useState<string | null>(null);
+  // Command-centre audit (2026-07-02): a failed ?fromQuoteId hydrate
+  // used to bail silently, leaving the operator staring at a BLANK
+  // "Create Quote" form for a quote that exists - one autosave away
+  // from a duplicate. Surface it with a Retry instead.
+  const [hydrateError, setHydrateError] = useState<string | null>(null);
+  const [hydrateRetryTick, setHydrateRetryTick] = useState(0);
   const [eventCapacity, setEventCapacity] = useState<EventCapacityCheck | null>(null);
   const [eventCapacityChecking, setEventCapacityChecking] = useState(false);
   useEffect(() => {
@@ -757,12 +763,21 @@ function NewQuotePage() {
     if (!fromQuoteId || typeof fromQuoteId !== "string") return;
     let cancelled = false;
     (async () => {
+      setHydrateError(null);
       const { data, error } = await supabase
         .from("quotes")
         .select("*")
         .eq("id", fromQuoteId)
         .maybeSingle();
-      if (cancelled || error || !data) return;
+      if (cancelled) return;
+      if (error || !data) {
+        console.error("[quotes/new] fromQuoteId hydrate failed:", error);
+        setHydrateError(
+          error?.message
+            || "Could not load the quote you are editing. Do not retype it - retry the load.",
+        );
+        return;
+      }
 
       // Fetch the latest PENDING change request BEFORE hydrating, so the
       // quote-load and the request-overlay happen in ONE synchronous pass
@@ -866,7 +881,7 @@ function NewQuotePage() {
     })();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fromQuoteId]);
+  }, [fromQuoteId, hydrateRetryTick]);
 
   function hydrateFromQuote(q: any) {
     setClientId(q.client_id || null);
@@ -890,6 +905,16 @@ function NewQuotePage() {
     if (q.venue_lng) setVenueLng(safeNum(q.venue_lng));
     if (q.valid_until) setValidUntil(q.valid_until);
     if (q.notes) setInternalNotes(q.notes);
+    // Restore the saved quote-level discount. It persists as a single
+    // discount_amount (percent + flat combined at save time), so it
+    // reloads into the flat-discount field. Without this, reopening a
+    // discounted quote recomputed WITHOUT the discount - the stale-
+    // totals banner fired and the next save silently repriced the
+    // quote upward. (The surge % has no column and still can't be
+    // restored; see the audit note in the report.)
+    if (typeof q.discount_amount === "number" && q.discount_amount > 0) {
+      setDiscountFlat(safeNum(q.discount_amount));
+    }
     // Restore the delivery fee state. We keep three pieces of state
     // (distance, rate, fee) and a flag for "operator has manually
     // overridden the auto-calc". On reopen we trust the saved fee
@@ -1096,7 +1121,7 @@ function NewQuotePage() {
   }, [deliveryDistance, deliveryCostPerKm, minDeliveryFee, deliveryFeeOverridden]);
 
   // Same auto-fee math for collection (distance × 2 × per-km). No min
-  // floor — collection is optional and the operator can type a flat fee.
+  // floor - collection is optional and the operator can type a flat fee.
   useEffect(() => {
     if (collectionFeeOverridden) return;
     const calc = collectionDistance * 2 * collectionCostPerKm;
@@ -1487,6 +1512,10 @@ function NewQuotePage() {
     collectionDistance, collectionCostPerKm, collectionFee, collectionNextDay,
     computed.subtotal, computed.pctDiscount, computed.flatDiscount, computed.tax, computed.total,
     validUntil, internalNotes,
+    // The equipment split reads the live availability snapshot; without
+    // this dep a stale closure could persist yesterday's from-stock /
+    // hire-in split.
+    availability,
   ]);
 
   const quoteContentHasChanged = useCallback(() => {
@@ -2058,8 +2087,11 @@ function NewQuotePage() {
   // ── UI helpers ────────────────────────────────────────────────────
   const validityDays = useMemo(() => {
     if (!validUntil) return null;
-    const ms = new Date(validUntil).getTime() - new Date().getTime();
-    return Math.ceil(ms / (1000 * 60 * 60 * 24));
+    // Whole-day diff anchored on the tenant-local calendar date
+    // (todayISO -> toLocalISO). The previous now-vs-UTC-midnight math
+    // could be a day off around midnight in non-UTC timezones.
+    const ms = new Date(validUntil).getTime() - new Date(todayISO()).getTime();
+    return Math.round(ms / (1000 * 60 * 60 * 24));
   }, [validUntil]);
 
   const dirty = !savedAt || dirtyRef.current;
@@ -2095,7 +2127,7 @@ function NewQuotePage() {
           label={
             deliveryFeeOverridden || deliveryDistance === 0
               ? "Delivery"
-              : `Delivery (${deliveryDistance.toFixed(1)}km × 2 @ R${deliveryCostPerKm}/km)`
+              : `Delivery (${deliveryDistance.toFixed(1)}km × 2 @ ${tenantCurrency.symbol}${deliveryCostPerKm}/km)`
           }
           value={fmtR(deliveryFee)}
           muted
@@ -2105,7 +2137,7 @@ function NewQuotePage() {
             label={
               collectionFeeOverridden || collectionDistance === 0
                 ? "Collection"
-                : `Collection (${collectionDistance.toFixed(1)}km × 2 @ R${collectionCostPerKm}/km)`
+                : `Collection (${collectionDistance.toFixed(1)}km × 2 @ ${tenantCurrency.symbol}${collectionCostPerKm}/km)`
             }
             value={fmtR(computed.collectionFee)}
             muted
@@ -2220,32 +2252,57 @@ function NewQuotePage() {
             </div>
           </div>
 
+          {/* Command-centre hero band: dark slate washed in the
+              tenant's brand colours. Subtitle carries the live save
+              state; chips show the live total, guests and validity
+              from the form state itself (no extra queries). */}
           <PortalHeader
+            variant="hero"
             title={quoteId ? "Edit Quote" : "Create Quote"}
             icon={Banknote}
             subtitle={
               <span className="flex items-center gap-2 flex-wrap">
                 {quoteNumber && (
-                  <span className="font-mono text-slate-700">{quoteNumber}</span>
+                  <span className="font-mono text-white">{quoteNumber}</span>
                 )}
                 {status !== "draft" && (
-                  <Badge className="bg-brand-primary/10 text-brand-primary border-brand-primary/20">{status}</Badge>
+                  <Badge className="bg-white/10 text-white border-white/20 capitalize">{status}</Badge>
                 )}
                 {savedAt && (
-                  <span className="inline-flex items-center gap-1 text-brand-primary text-xs">
+                  <span className="inline-flex items-center gap-1 text-emerald-300 text-xs">
                     <CheckCircle2 className="w-3.5 h-3.5" />
                     Saved {savedAt.toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" })}
                   </span>
                 )}
                 {saving && (
-                  <span className="inline-flex items-center gap-1 text-slate-500 text-xs">
+                  <span className="inline-flex items-center gap-1 text-slate-300 text-xs">
                     <Loader2 className="w-3.5 h-3.5 animate-spin" /> Saving...
                   </span>
                 )}
                 {dirty && !saving && status === "draft" && (
-                  <span className="text-xs text-amber-600">Unsaved changes</span>
+                  <span className="text-xs text-amber-300">Unsaved changes</span>
                 )}
               </span>
+            }
+            meta={
+              <>
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                  {fmtR(computed.total)} total
+                </span>
+                {guestCount > 0 && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    {guestCount} guest{guestCount === 1 ? "" : "s"}
+                  </span>
+                )}
+                {validityDays !== null && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    {validityDays < 0
+                      ? `Expired ${Math.abs(validityDays)}d ago`
+                      : `Expires in ${validityDays}d`}
+                  </span>
+                )}
+              </>
             }
             actions={
               <>
@@ -2325,6 +2382,21 @@ function NewQuotePage() {
               same conditions + copy. empty:hidden collapses the wrapper
               (and its margin) when no banner is active. */}
           <div className="mb-6 space-y-2 empty:hidden">
+                {/* Hydrate-failure banner: the quote being edited did
+                    NOT load. Everything below is a blank form, so stop
+                    the operator before they retype (and duplicate) it. */}
+                {hydrateError && (
+                  <div className="p-3 rounded-md border border-rose-200 bg-rose-50 text-xs text-rose-900 max-w-xl flex items-start gap-2">
+                    <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                    <div className="flex-1">
+                      <strong className="font-semibold block">Couldn't load the quote you're editing.</strong>
+                      <span>{hydrateError}</span>
+                    </div>
+                    <Button size="sm" variant="outline" onClick={() => setHydrateRetryTick((n) => n + 1)}>
+                      Retry
+                    </Button>
+                  </div>
+                )}
                 {/* Wave 14 audit + TIGHTEN I.120: banner copy reflects
                     what actually happens. Pre-acceptance revisions
                     reset the public lifecycle and email the client.
@@ -2642,7 +2714,7 @@ function NewQuotePage() {
                     </div>
                   )}
 
-                  {/* Collection fees — mirrors the delivery block above,
+                  {/* Collection fees - mirrors the delivery block above,
                       for jobs where the caterer collects (equipment /
                       drop-back) or the client collects from the kitchen.
                       Same distance × 2 × per-km auto-calc; adds to total. */}
@@ -3231,9 +3303,16 @@ function NewQuotePage() {
                           <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 mb-1">Dishes</p>
                           <ul className="space-y-1">
                             {menuItems.filter((l) => l.name).map((l, i) => {
+                              // Same qty resolution as `computed` +
+                              // buildPayload: a per-person line with an
+                              // operator override ("vegetarian for 5 of
+                              // 100") keeps its own quantity. This card
+                              // previously used the raw guest count, so
+                              // its line money disagreed with the total.
                               const q =
-                                l.pricingMode === "per_person" ? guestCount :
-                                l.pricingMode === "flat" ? 1 : l.quantity;
+                                l.pricingMode === "per_person"
+                                  ? (typeof l.quantity === "number" && l.quantity > 0 ? l.quantity : guestCount)
+                                  : l.pricingMode === "flat" ? 1 : l.quantity;
                               const net = l.unitPrice * q * (1 - l.discountPct / 100);
                               return (
                                 <li key={i} className="flex justify-between text-xs gap-2">
@@ -3306,9 +3385,13 @@ function NewQuotePage() {
                         </p>
                         <ul className="space-y-1 mb-3">
                           {menuItems.filter((l) => l.name).map((l, i) => {
+                            // Same qty resolution as `computed` so the
+                            // preview's line money matches the total
+                            // (per-person override honoured).
                             const q =
-                              l.pricingMode === "per_person" ? guestCount :
-                              l.pricingMode === "flat" ? 1 : l.quantity;
+                              l.pricingMode === "per_person"
+                                ? (typeof l.quantity === "number" && l.quantity > 0 ? l.quantity : guestCount)
+                                : l.pricingMode === "flat" ? 1 : l.quantity;
                             const net = l.unitPrice * q * (1 - l.discountPct / 100);
                             return (
                               <li key={i} className="flex justify-between text-xs">

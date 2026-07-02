@@ -23,6 +23,7 @@ import {
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 import { formatLocalDate } from "@/lib/localFormat";
+import { formatZAR } from "@/lib/formatters";
 import { toLocalISO } from "@/lib/localDate";
 import { resolveTemplateSync } from "@/services/messageTemplateService";
 import { ComposeDrawerHost } from "@/components/messaging/ComposeDrawerHost";
@@ -76,8 +77,9 @@ interface LeadQuoteSummary {
  */
 function formatQuoteLabel(q: LeadQuoteSummary): string {
   const head = q.number || q.name || "Quote";
+  // formatZAR is the display source of truth for money strings.
   const total = typeof q.total === "number" && q.total > 0
-    ? `R${Math.round(q.total).toLocaleString()}`
+    ? formatZAR(q.total, { decimals: 0 })
     : null;
   const status = q.status ? q.status.replace(/_/g, " ") : null;
   return [head, status, total].filter(Boolean).join(" · ");
@@ -448,6 +450,11 @@ function AdminLeadsInner() {
   const [leads, setLeads] = useState<any[]>([]);
   const [linksByLeadId, setLinksByLeadId] = useState<Map<string, LeadLinks>>(new Map());
   const [loading, setLoading] = useState(true);
+  // Command-centre audit: loadLeads used to swallow failures in a
+  // bare catch, so a fetch error rendered as "Your active pipeline
+  // is empty" - indistinguishable from a genuinely empty funnel.
+  // This drives an inline banner with a Retry button instead.
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   // Phase 26 #4: "/" or Cmd-F focuses the search input.
   // Phase 29 #3: "n" jumps to /admin/leads/new.
@@ -668,6 +675,7 @@ function AdminLeadsInner() {
       return;
     }
     setLoading(true);
+    setLoadError(null);
     try {
       const data = await leadService.getLeads(user.company_id);
       setLeads(data);
@@ -922,9 +930,12 @@ function AdminLeadsInner() {
         }
       }
       setLinksByLeadId(map);
-    } catch {
-      // Wave 70.83: dropped production console.error. Failures
-      // bubble through the empty-state / toast paths below.
+    } catch (err: any) {
+      // Wave 70.83 dropped the console.error; the audit pass then
+      // found nothing surfaced the failure at all - the page just
+      // showed the "pipeline is empty" state. Persist the message
+      // for the inline banner + Retry.
+      setLoadError(err?.message || "Couldn't load your leads. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -1041,15 +1052,37 @@ function AdminLeadsInner() {
       <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <PortalHeader
+            variant="hero"
             title="Leads"
             icon={TrendingUp}
             subtitle={
               <>
                 Structured enquiry capture. When someone asks for catering through an embed form, email, or phone call, create a lead to track event details before quoting. Leads also appear in your{" "}
-                <Link href={withSlug("/admin/contacts")} className="font-medium text-brand-primary hover:underline">
+                {/* Hero band is dark; the link must read white, not brand-primary. */}
+                <Link href={withSlug("/admin/contacts")} className="font-semibold text-white underline decoration-white/40 underline-offset-2 hover:decoration-white">
                   Contacts inbox
                 </Link>
                 {" "}automatically.
+              </>
+            }
+            meta={
+              <>
+                {!loading && !loadError && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                    {statusCounts.active} in pipeline
+                  </span>
+                )}
+                {!loading && !loadError && statusCounts.new > 0 && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    {statusCounts.new} new
+                  </span>
+                )}
+                {!loading && !loadError && statusCounts.won > 0 && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    {statusCounts.won} won
+                  </span>
+                )}
               </>
             }
             actions={
@@ -1148,6 +1181,18 @@ function AdminLeadsInner() {
           />
           <PageWorkbench />
 
+          {/* Persistent fetch-failure banner with Retry - a failed
+              load must never read as an empty pipeline. */}
+          {loadError && !loading && (
+            <div className="mb-6 rounded-lg border border-rose-200 bg-white p-4 shadow-sm">
+              <p className="text-sm font-bold text-rose-900">Couldn't load leads</p>
+              <p className="mt-0.5 text-xs text-slate-600">{loadError}</p>
+              <Button size="sm" variant="outline" className="mt-2" onClick={() => loadLeads()}>
+                <RefreshCw className="w-3.5 h-3.5 mr-1.5" /> Retry
+              </Button>
+            </div>
+          )}
+
           {/* Email-settings warning banner. Renders only when we've
               resolved the email_settings row AND it's not configured.
               The auditors flagged that without a provider configured,
@@ -1220,7 +1265,9 @@ function AdminLeadsInner() {
                     </p>
                   </div>
                   <div className="w-12 h-12 rounded-lg bg-slate-100 flex items-center justify-center">
-                    <Banknote className="w-6 h-6 bg-slate-100" />
+                    {/* Was bg-slate-100 on the icon itself, which left
+                        it invisible against the tile. */}
+                    <Banknote className="w-6 h-6 text-slate-600" />
                   </div>
                 </div>
               </CardContent>
@@ -1316,7 +1363,10 @@ function AdminLeadsInner() {
               ) : filteredLeads.length === 0 ? (
                 <div className="text-center py-12 text-slate-600">
                   <TrendingUp className="w-16 h-16 mx-auto mb-4 text-slate-300" />
-                  {statusFilter === "active" ? (
+                  {loadError ? (
+                    // Load failed - don't pretend the funnel is empty.
+                    <p className="font-medium">Leads unavailable right now. Use Retry above.</p>
+                  ) : statusFilter === "active" ? (
                     <>
                       <p className="font-medium">Your active pipeline is empty.</p>
                       <p className="text-sm text-slate-500 mt-1">
@@ -1748,7 +1798,7 @@ function AdminLeadsInner() {
                             <p className="text-slate-500 text-xs mb-1">Estimated Value</p>
                             <p className="text-slate-900 font-medium">
                               {typeof links.resolved.estimatedValue === "number" && links.resolved.estimatedValue > 0
-                                ? `R${Math.round(links.resolved.estimatedValue).toLocaleString()}`
+                                ? formatZAR(links.resolved.estimatedValue, { decimals: 0 })
                                 : "TBD"}
                             </p>
                           </div>
