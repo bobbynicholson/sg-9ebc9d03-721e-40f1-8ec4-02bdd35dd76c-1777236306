@@ -21,6 +21,7 @@ import { paymentProcessingService } from "@/services/paymentProcessingService";
 import type Stripe from "stripe";
 import { withApiLogging } from "@/lib/withApiLogging";
 import { paymentExistsByGatewayId } from "@/lib/paymentDedup";
+import { reconcileInvoiceForOrderPayment } from "@/lib/invoiceReconcile";
 
 
 export const config = { api: { bodyParser: false } };
@@ -160,6 +161,17 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         order.user_id,
       );
     }
+
+    // Reconcile the linked invoice. recordPayment above only settles the
+    // ORDER; without this the invoice behind the pay link stays 'sent'
+    // with the full balance_due and the client can be charged twice.
+    // Mirrors the PayFast IPN handler. Best-effort + non-blocking.
+    await reconcileInvoiceForOrderPayment(sb, {
+      orderId: order.id,
+      invoiceId: metadata.invoiceId,
+      amount: amountInRands,
+      gatewayTransactionId: stripeTxId,
+    });
 
     return res.status(200).json({ ok: true });
   } catch (e: any) {
