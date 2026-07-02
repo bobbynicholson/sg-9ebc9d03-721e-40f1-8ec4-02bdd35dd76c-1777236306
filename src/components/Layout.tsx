@@ -12,6 +12,7 @@ interface LayoutProps {
   showHeader?: boolean;
   showFooter?: boolean;
   maxWidth?: "full" | "7xl" | "6xl" | "5xl" | "4xl";
+  showWorkbench?: boolean;
 }
 
 export function Layout({
@@ -20,6 +21,7 @@ export function Layout({
   showHeader = true,
   showFooter = false,
   maxWidth = "7xl",
+  showWorkbench = true,
 }: LayoutProps) {
   const { user, loading } = useAuth();
 
@@ -85,7 +87,7 @@ export function Layout({
       {/* Main Content */}
       <main className="relative z-0 flex-1">
         <div className={`${innerAlignment} px-4 sm:px-6 lg:px-8 py-8 ${innerMaxWidth}`}>
-          {isPortal && <PageWorkbench />}
+          {isPortal && showWorkbench && <PageWorkbench />}
           {children}
         </div>
       </main>
@@ -110,9 +112,17 @@ export function PublicLayout({ children }: { children: ReactNode }) {
 /**
  * Layout variant for authenticated portal pages
  */
-export function PortalLayout({ children, maxWidth = "7xl" }: { children: ReactNode; maxWidth?: LayoutProps["maxWidth"] }) {
+export function PortalLayout({
+  children,
+  maxWidth = "7xl",
+  showWorkbench = true,
+}: {
+  children: ReactNode;
+  maxWidth?: LayoutProps["maxWidth"];
+  showWorkbench?: boolean;
+}) {
   return (
-    <Layout showNav={true} showHeader={false} showFooter={false} maxWidth={maxWidth}>
+    <Layout showNav={true} showHeader={false} showFooter={false} maxWidth={maxWidth} showWorkbench={showWorkbench}>
       {children}
     </Layout>
   );

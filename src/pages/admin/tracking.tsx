@@ -1,13 +1,13 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import { toLocalISO, tenantToday } from "@/lib/localDate";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { MapPin, Clock, Package, User, Phone, Navigation, TrendingUp, AlertCircle, Download, Printer, ExternalLink } from "lucide-react";
+import { MapPin, Clock, Package, User, Phone, Navigation, TrendingUp, AlertCircle, Download, Printer, ExternalLink, Search, RefreshCw } from "lucide-react";
 import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
@@ -792,132 +792,141 @@ function AdminTrackingInner() {
           </div>
 
           {/* Filters */}
-          <Card className="mb-6">
-            <CardContent className="p-4">
-              <div className="flex flex-col md:flex-row gap-4">
-                <div className="flex-1">
-                  <Input
-                    placeholder="Search by client, venue, or driver..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full"
-                  />
+          <Card className="mb-6 border-slate-200/90 shadow-sm">
+            <CardContent className="p-4 sm:p-5">
+              <div className="grid gap-4">
+                <div className="min-w-0">
+                  <div className="mb-2 flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-950">Find an operation</p>
+                      <p className="text-xs text-slate-500">{filteredOrders.length} shown after filters</p>
+                    </div>
+                    {searchTerm && (
+                      <Button variant="ghost" size="sm" onClick={() => setSearchTerm("")} className="h-8 px-2 text-xs">
+                        Clear
+                      </Button>
+                    )}
+                  </div>
+                  <div className="relative">
+                    <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+                    <Input
+                      placeholder="Search client, venue, order number, driver..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="h-12 w-full rounded-lg border-slate-300 bg-white pl-12 pr-4 text-[15px] shadow-sm focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20"
+                    />
+                  </div>
                 </div>
 
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-full md:w-48">
-                    <SelectValue placeholder="Filter by status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Statuses</SelectItem>
-                    <SelectItem value="confirmed">Confirmed</SelectItem>
-                    <SelectItem value="preparing">Preparing</SelectItem>
-                    <SelectItem value="ready">Ready</SelectItem>
-                    <SelectItem value="in_transit">On the way</SelectItem>
-                    <SelectItem value="delivered">Delivered</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-[180px_180px_repeat(4,minmax(0,1fr))]">
+                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger className="h-10 w-full">
+                      <SelectValue placeholder="Filter by status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All statuses</SelectItem>
+                      <SelectItem value="confirmed">Confirmed</SelectItem>
+                      <SelectItem value="preparing">Preparing</SelectItem>
+                      <SelectItem value="ready">Ready</SelectItem>
+                      <SelectItem value="in_transit">On the way</SelectItem>
+                      <SelectItem value="delivered">Delivered</SelectItem>
+                    </SelectContent>
+                  </Select>
 
-                <Select value={driverFilter} onValueChange={setDriverFilter}>
-                  <SelectTrigger className="w-full md:w-48">
-                    <SelectValue placeholder="Filter by driver" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Drivers</SelectItem>
-                    {drivers.map((driver) => (
-                      <SelectItem key={driver.id} value={driver.id}>
-                        {driver.full_name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  <Select value={driverFilter} onValueChange={setDriverFilter}>
+                    <SelectTrigger className="h-10 w-full">
+                      <SelectValue placeholder="Filter by driver" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All drivers</SelectItem>
+                      {drivers.map((driver) => (
+                        <SelectItem key={driver.id} value={driver.id}>
+                          {driver.full_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
 
-                <Button
-                  variant={autoRefresh ? "default" : "outline"}
-                  onClick={() => setAutoRefresh(!autoRefresh)}
-                  className="w-full md:w-auto"
-                >
-                  {autoRefresh ? "Auto-Refresh: ON" : "Auto-Refresh: OFF"}
-                </Button>
+                  <Button
+                    variant={autoRefresh ? "default" : "outline"}
+                    onClick={() => setAutoRefresh(!autoRefresh)}
+                    className="h-10 justify-center whitespace-nowrap"
+                  >
+                    {autoRefresh ? "Auto on" : "Auto off"}
+                  </Button>
 
-                <Button
-                  variant="outline"
-                  onClick={loadTrackingData}
-                  className="w-full md:w-auto"
-                >
-                  Refresh Now
-                </Button>
+                  <Button
+                    variant="outline"
+                    onClick={loadTrackingData}
+                    className="h-10 justify-center gap-1.5 whitespace-nowrap"
+                  >
+                    <RefreshCw className="h-4 w-4" />
+                    Refresh
+                  </Button>
 
-                {/* Phase 21 #3: tracking snapshot CSV. End-of-day
-                    reviews and post-mortems regularly need a flat
-                    list of what was in flight, who carried it, and
-                    the risk tier. Walks filteredOrders so the
-                    driver + status + search filters all flow
-                    through. */}
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    if (filteredOrders.length === 0) {
-                      toast({ title: "Nothing to export", description: "Adjust filters until at least one order is visible." });
-                      return;
-                    }
-                    const esc = (v: any) => {
-                      if (v == null) return "";
-                      const s = String(v).replace(/"/g, '""');
-                      return /[",\n]/.test(s) ? `"${s}"` : s;
-                    };
-                    const headers = [
-                      "Order", "Client", "Status", "Delivery status",
-                      "Risk tier", "Event date", "Event time",
-                      "Driver", "Venue", "Total",
-                    ];
-                    const lines = [headers.join(",")];
-                    for (const o of filteredOrders as any[]) {
-                      lines.push([
-                        esc(o.order_number || ""),
-                        esc(o.client_name || ""),
-                        esc(o.status || ""),
-                        esc(o.delivery_status || ""),
-                        esc(o.risk_tier || ""),
-                        esc(o.event_date || ""),
-                        esc(o.event_time || ""),
-                        esc(o.driver_name || ""),
-                        esc(o.venue || o.venue_name || ""),
-                        esc(Number(o.total_amount || 0).toFixed(2)),
-                      ].join(","));
-                    }
-                    const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement("a");
-                    a.href = url;
-                    a.download = `tracking-${toLocalISO(new Date())}.csv`;
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                    URL.revokeObjectURL(url);
-                  }}
-                  className="w-full md:w-auto gap-1.5"
-                >
-                  <Download className="w-4 h-4" /> Export CSV
-                </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      if (filteredOrders.length === 0) {
+                        toast({ title: "Nothing to export", description: "Adjust filters until at least one order is visible." });
+                        return;
+                      }
+                      const esc = (v: any) => {
+                        if (v == null) return "";
+                        const s = String(v).replace(/"/g, '""');
+                        return /[",\n]/.test(s) ? `"${s}"` : s;
+                      };
+                      const headers = [
+                        "Order", "Client", "Status", "Delivery status",
+                        "Risk tier", "Event date", "Event time",
+                        "Driver", "Venue", "Total",
+                      ];
+                      const lines = [headers.join(",")];
+                      for (const o of filteredOrders as any[]) {
+                        lines.push([
+                          esc(o.order_number || ""),
+                          esc(o.client_name || ""),
+                          esc(o.status || ""),
+                          esc(o.delivery_status || ""),
+                          esc(o.risk_tier || ""),
+                          esc(o.event_date || ""),
+                          esc(o.event_time || ""),
+                          esc(o.driver_name || ""),
+                          esc(o.venue || o.venue_name || ""),
+                          esc(Number(o.total_amount || 0).toFixed(2)),
+                        ].join(","));
+                      }
+                      const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement("a");
+                      a.href = url;
+                      a.download = `tracking-${toLocalISO(new Date())}.csv`;
+                      document.body.appendChild(a);
+                      a.click();
+                      document.body.removeChild(a);
+                      URL.revokeObjectURL(url);
+                    }}
+                    className="h-10 justify-center gap-1.5 whitespace-nowrap"
+                  >
+                    <Download className="h-4 w-4" />
+                    Export
+                  </Button>
 
-                {/* LO-B: print-friendly run-status sheet. Morning
-                    standup wants paper. Walks 'filteredOrders' so
-                    status / driver / search filters all flow into
-                    the printed sheet. */}
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    if (filteredOrders.length === 0) {
-                      toast({ title: "Nothing to print", description: "Adjust filters until at least one order is visible." });
-                      return;
-                    }
-                    setTimeout(() => window.print(), 100);
-                  }}
-                  className="w-full md:w-auto gap-1.5"
-                >
-                  <Printer className="w-4 h-4" /> Print status sheet
-                </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      if (filteredOrders.length === 0) {
+                        toast({ title: "Nothing to print", description: "Adjust filters until at least one order is visible." });
+                        return;
+                      }
+                      setTimeout(() => window.print(), 100);
+                    }}
+                    className="h-10 justify-center gap-1.5 whitespace-nowrap"
+                  >
+                    <Printer className="h-4 w-4" />
+                    Print
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>

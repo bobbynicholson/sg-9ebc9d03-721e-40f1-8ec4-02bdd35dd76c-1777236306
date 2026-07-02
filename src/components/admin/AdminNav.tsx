@@ -342,7 +342,9 @@ export function AdminNav(_: AdminNavProps = {}) {
         { title: "Messages",              href: "/admin/email-templates",       icon: MessageSquare, description: "Email and WhatsApp templates" },
         { title: "Notifications",         href: "/admin/notification-settings", icon: Bell,          description: "Routing and opt-ins" },
         { title: "Audit log",             href: "/admin/audit-logs",            icon: Shield,        description: "Compliance trail - who did what" },
-        { title: "Subscription",          href: "/admin/subscription",          icon: CreditCard,    description: "Your CateringMS plan and billing" },
+        ...(profile && canAccessFinance(profile.role as UserRole)
+          ? [{ title: "Subscription", href: "/admin/subscription", icon: CreditCard, description: "Your CateringMS plan and billing" }]
+          : []),
         { title: "System",                href: "/admin/settings",              icon: Settings,      description: "General settings" },
       ],
     } as PortalSidebarSection] : []),
@@ -380,7 +382,7 @@ export function AdminNav(_: AdminNavProps = {}) {
     title: "Admin",
     mobileSubtitle: "Operations & admin",
     brandIcon: LayoutDashboard,
-    appearance: "brand",
+    appearance: "dark",
     // Tenant brand accent - resolves to THIS company's colours via the
     // brand-* CSS vars (set by TenantBrandingApplier), falling back to
     // the CateringMS default for non-white-label tenants.

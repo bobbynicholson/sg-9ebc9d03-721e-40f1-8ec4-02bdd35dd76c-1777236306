@@ -77,9 +77,9 @@ export function PortalShell({
  *   legible on any brand hue. No fixed dark slate anywhere.
  * - `"dark"` (default on /admin/platform): the slate-950 command band that
  *   pairs with the super-admin forced-dark rail.
- * When `appearance` is omitted it resolves from the route, so tenant admin
- * pages automatically carry the brand band while the platform keeps its
- * dark identity. Actions render inside a scoped `dark` class so shadcn
+ * When `appearance` is omitted it resolves from the route: admin/account
+ * pages use the same dark command band as platform pages, while team and
+ * client portals carry the tenant brand band. Actions render inside a scoped `dark` class so shadcn
  * outline/ghost controls pick dark styling on the band automatically.
  * `meta` is an optional chip row under the subtitle (live counts, badges). */
 export function PortalHeader({
@@ -105,9 +105,10 @@ export function PortalHeader({
 }) {
   const router = useRouter();
   if (variant === "hero") {
+    const pathname = router.pathname || "";
     const resolvedAppearance =
       appearance ??
-      ((router.pathname || "").includes("/admin/platform") ? "dark" : "brand");
+      (pathname.includes("/admin") || pathname.includes("/account/") ? "dark" : "brand");
     const isBrand = resolvedAppearance === "brand";
     return (
       <header
@@ -143,7 +144,7 @@ export function PortalHeader({
           aria-hidden="true"
           className="pointer-events-none absolute inset-x-0 top-0 h-px bg-white/20"
         />
-        <div className="relative grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+        <div className="relative space-y-5">
           <div className="flex min-w-0 items-start gap-4">
             {Icon && (
               <span className="mt-0.5 flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-white/15 bg-white/10 text-white shadow-sm backdrop-blur-sm">
@@ -170,7 +171,7 @@ export function PortalHeader({
             </div>
           </div>
           {actions && (
-            <div className="dark flex w-full max-w-full flex-wrap items-center justify-start gap-2 lg:w-auto lg:justify-end">
+            <div className="dark flex w-full max-w-full flex-wrap items-center justify-start gap-2 border-t border-white/10 pt-4 lg:justify-end">
               {actions}
             </div>
           )}

@@ -25,7 +25,6 @@ import { PortalShell, PortalHeader,
 } from "@/components/portal/ui";
 import {
   Users,
-  ArrowLeft,
   Search,
   Shield,
   ChefHat,
@@ -764,13 +763,6 @@ function AdminUsersPage() {
       
       <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
-          <Link href={withSlug("/admin/dashboard")}>
-            <Button variant="ghost" className="mb-4" size="sm">
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Admin Dashboard
-            </Button>
-          </Link>
-
           {/* USR-A (task #207, 2026-05-24): copy fix. Pre-fix
               the subtitle claimed clients were listed too, but
               the loadUsers call passes excludeRoles=["client"]
@@ -780,7 +772,7 @@ function AdminUsersPage() {
               (deferred to #208). Honest framing now. */}
           <PortalHeader
             variant="hero"
-            title="Full team"
+            title="User management"
             icon={Users}
             subtitle="Everyone with a staff login: owners, admins, kitchen, drivers, waiters, shopping, cleaning. Assign departments here; client portal accounts are managed under /admin/contacts."
             meta={

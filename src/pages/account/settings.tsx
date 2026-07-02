@@ -4,7 +4,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { PortalLayout } from "@/components/Layout";
-import { PortalHeader } from "@/components/portal/ui";
+import { PageWorkbench, PortalHeader } from "@/components/portal/ui";
 import Head from "next/head";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { User, CheckCircle } from "lucide-react";
@@ -392,13 +392,15 @@ function ProfileSettingsPage() {
         <title>Account settings - CateringMS</title>
       </Head>
 
-      <PortalLayout maxWidth="full">
+      <PortalLayout maxWidth="full" showWorkbench={false}>
         <div className="space-y-6">
           <PortalHeader
+            variant="hero"
             title="Account settings"
             subtitle="Manage your personal information and preferences."
             icon={User}
           />
+          <PageWorkbench />
 
           {saved && (
             <div
