@@ -372,12 +372,21 @@ export const routeOptimizationService = {
   /**
    * Get all pending orders for a driver
    */
-  async getDriverPendingOrders(driverId: string): Promise<DeliveryStop[]> {
+  async getDriverPendingOrders(driverId: string, companyId: string): Promise<DeliveryStop[]> {
+    // Tenant scoping (driver portal restructure audit): every other
+    // driver query filters on company_id; this one previously matched
+    // only on the driver columns + status, so it leaned entirely on
+    // RLS for isolation. Filter explicitly and refuse to run without
+    // a tenant - defence in depth, and it keeps a driver profile that
+    // somehow spans tenants from pulling another company's orders
+    // onto the route board.
+    if (!driverId || !companyId) return [];
     // Orders may have either `driver_id` (legacy) or `assigned_driver_id`
     // (current dispatch flow) populated, so we OR across both columns.
     const { data, error } = await supabase
       .from("orders")
       .select("*")
+      .eq("company_id", companyId)
       .or(`assigned_driver_id.eq.${driverId},driver_id.eq.${driverId}`)
       .in("status", ["confirmed", "preparing", "ready", "in_transit"])
       .not("venue_lat", "is", null)
@@ -729,11 +738,15 @@ export const routeOptimizationService = {
   },
 
   /**
-   * Get optimized route for a specific driver
+   * Get optimized route for a specific driver.
+   * companyId is required - the pending-orders read is tenant scoped
+   * (see getDriverPendingOrders). Returns null when either id is
+   * missing rather than running an unscoped query.
    */
-  async getDriverOptimizedRoute(driverId: string): Promise<OptimizedRoute | null> {
-    const stops = await this.getDriverPendingOrders(driverId);
-    
+  async getDriverOptimizedRoute(driverId: string, companyId: string): Promise<OptimizedRoute | null> {
+    if (!driverId || !companyId) return null;
+    const stops = await this.getDriverPendingOrders(driverId, companyId);
+
     if (stops.length === 0) {
       return null;
     }

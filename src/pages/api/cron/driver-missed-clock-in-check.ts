@@ -8,13 +8,22 @@
  *   - status = 'scheduled' (still expected to land)
  *   - planned_start was 15+ minutes ago
  *   - actual_start IS NULL (driver hasn't clocked in yet)
- *   - shift_date = today
+ *   - shift_date = today (in the TENANT's timezone)
  *
  * For each, broadcasts a high-priority in-app notification to
  * dispatch / company_admin / owner roles.
  *
  * Also auto-promotes shifts >4h late to status='missed' so the
  * alert loop stops + the schedule grid surfaces the no-show.
+ *
+ * Timezone note (fixed 2026-07-02): the original pass compared a UTC
+ * calendar date (toISOString().slice(0,10)) against a server-local
+ * HH:MM (cutoff.getHours()). On Vercel (UTC servers) that meant an
+ * SA tenant's 07:00 shift only alerted from 07:00 UTC = 09:00 SAST,
+ * two hours late, and shifts after 22:00 SAST were checked against
+ * the wrong calendar day entirely. Both sides of the comparison now
+ * live in the tenant's own timezone (companies.timezone, same recipe
+ * as /api/cron/recurring-invoices.ts).
  *
  * Vercel cron: every 15 minutes (configured in vercel.json).
  */
@@ -23,10 +32,39 @@ import { getServiceSupabase } from "@/lib/supabase/service";
 import { requireCronAuth } from "@/lib/cronAuth";
 import { recordCronHeartbeat } from "@/lib/cronHeartbeat";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { toZonedISO, DEFAULT_TENANT_TIMEZONE } from "@/lib/localDate";
 
 
 const CRON_NAME = "driver-missed-clock-in-check";
 const ALERT_TYPE = "driver_missed_clock_in";
+const LATE_ALERT_MINUTES = 15;
+const AUTO_MISS_MINUTES = 4 * 60;
+
+/** Wall-clock minutes-since-midnight for `d` in an IANA timezone.
+ *  Falls back to the server-local clock on a bad timezone string. */
+function zonedMinutesOfDay(d: Date, timezone: string): number {
+  try {
+    const hm = new Intl.DateTimeFormat("en-GB", {
+      timeZone: timezone,
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+    }).format(d);
+    const [h, m] = hm.split(":").map(Number);
+    if (Number.isFinite(h) && Number.isFinite(m)) return h * 60 + m;
+  } catch {
+    // fall through to server-local
+  }
+  return d.getHours() * 60 + d.getMinutes();
+}
+
+/** "HH:MM[:SS]" -> minutes since midnight, or null if unparseable. */
+function parseHM(value: string | null | undefined): number | null {
+  const m = /^(\d{1,2}):(\d{2})/.exec(String(value || "").trim());
+  if (!m) return null;
+  const mins = Number(m[1]) * 60 + Number(m[2]);
+  return Number.isFinite(mins) ? mins : null;
+}
 
 async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "GET" && req.method !== "POST") {
@@ -38,17 +76,21 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
   const supabase: any = getServiceSupabase();
   const now = new Date();
-  const todayIso = now.toISOString().slice(0, 10);
   const dayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
-  const cutoff = new Date(now.getTime() - 15 * 60 * 1000);
-  const cutoffHM = `${String(cutoff.getHours()).padStart(2, "0")}:${String(cutoff.getMinutes()).padStart(2, "0")}`;
-  const farCutoff = new Date(now.getTime() - 4 * 60 * 60 * 1000);
-  const farCutoffHM = `${String(farCutoff.getHours()).padStart(2, "0")}:${String(farCutoff.getMinutes()).padStart(2, "0")}`;
+
+  // Loose UTC pre-filter: "today" differs per tenant timezone, so
+  // pull shift_date in [UTC today - 1, UTC today + 1] and re-check
+  // each row against ITS tenant's local calendar day below. The
+  // one-day pad covers every timezone offset in either direction.
+  const utcTodayMs = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  const dateWindowFrom = new Date(utcTodayMs - 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const dateWindowTo = new Date(utcTodayMs + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
   const { data: rows, error } = await supabase
     .from("driver_shifts")
     .select("id, company_id, driver_id, shift_date, planned_start, actual_start, status")
-    .eq("shift_date", todayIso)
+    .gte("shift_date", dateWindowFrom)
+    .lte("shift_date", dateWindowTo)
     .eq("status", "scheduled")
     .is("actual_start", null)
     .is("deleted_at", null)
@@ -79,15 +121,51 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     }
   }
 
+  // Tenant timezones in one batch so each shift is judged on its own
+  // company's wall clock.
+  const companyIds = Array.from(new Set((rows || []).map((r: any) => r.company_id))).filter(Boolean);
+  const timezoneByCompany = new Map<string, string>();
+  if (companyIds.length > 0) {
+    const { data: companies, error: companiesError } = await supabase
+      .from("companies")
+      .select("id, timezone")
+      .in("id", companyIds);
+    if (companiesError) {
+      // Not fatal: rows fall back to the platform default timezone.
+      errors.push(`companies timezone fetch failed: ${companiesError.message}`);
+    }
+    for (const c of (companies || []) as Array<{ id: string; timezone: string | null }>) {
+      timezoneByCompany.set(c.id, c.timezone || DEFAULT_TENANT_TIMEZONE);
+    }
+  }
+
   for (const shift of rows || []) {
     try {
-      if (!shift.planned_start || shift.planned_start > cutoffHM) {
+      const tenantTz = timezoneByCompany.get(shift.company_id) || DEFAULT_TENANT_TIMEZONE;
+      const tenantTodayIso = toZonedISO(now, tenantTz);
+
+      // Only today's roster, on THIS tenant's calendar.
+      if (String(shift.shift_date) !== tenantTodayIso) {
+        continue;
+      }
+
+      const plannedMinutes = parseHM(shift.planned_start);
+      if (plannedMinutes === null) {
+        continue;
+      }
+
+      // Both sides in tenant wall-clock minutes. shift_date equals
+      // tenant-today, so planned_start is today's tenant wall time.
+      const nowMinutes = zonedMinutesOfDay(now, tenantTz);
+      const minutesLate = nowMinutes - plannedMinutes;
+
+      if (minutesLate < LATE_ALERT_MINUTES) {
         continue;
       }
 
       // Auto-promote shifts >4h late to status='missed' (mirrors
       // the kitchen logic).
-      if (shift.planned_start <= farCutoffHM) {
+      if (minutesLate >= AUTO_MISS_MINUTES) {
         try {
           await supabase
             .from("driver_shifts")
@@ -118,9 +196,6 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
       const driverProfile = profileMap.get(shift.driver_id);
       const driverLabel = driverProfile?.full_name || driverProfile?.email || "A rostered driver";
-      const minutesLate = Math.floor(
-        (now.getTime() - new Date(`${shift.shift_date}T${shift.planned_start}`).getTime()) / 60000,
-      );
 
       try {
         const { notificationService } = await import("@/services/notificationService");

@@ -514,6 +514,32 @@ export const notificationService = {
     return true;
   },
 
+  /**
+   * Bulk hard-delete by id - one round trip instead of N sequential
+   * deletes (the "Clear stale" actions previously awaited one delete
+   * per row). Same scoping model as deleteNotification: RLS restricts
+   * the delete to rows the caller owns, and rows it blocks are simply
+   * not deleted (no error). Returns the number ACTUALLY deleted (via
+   * `.select("id")` on the delete) so callers can report
+   * "X cleared, Y failed" honestly. Throws on query failure.
+   */
+  async deleteNotifications(notificationIds: string[]): Promise<number> {
+    if (notificationIds.length === 0) return 0;
+
+    const { data, error } = await supabase
+      .from("notifications")
+      .delete()
+      .in("id", notificationIds)
+      .select("id");
+
+    if (error) {
+      console.error("Error bulk-deleting notifications:", error);
+      throw error;
+    }
+
+    return data?.length || 0;
+  },
+
   async getUnreadCount(userId: string, activeRole?: string): Promise<number> {
     let query = supabase
       .from("notifications")

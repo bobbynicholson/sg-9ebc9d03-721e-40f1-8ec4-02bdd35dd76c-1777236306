@@ -70,6 +70,11 @@ export interface DriverShift {
 
 export interface ShiftPayLine {
   shift_id: string;
+  /** Driver-portal restructure: calendar date of the shift so pay
+   *  surfaces (earnings table, CSV payslip export) can label the
+   *  line with a human date instead of an opaque shift id. Optional
+   *  so existing callers of calculateShiftPay stay compatible. */
+  shift_date?: string | null;
   hours: number;
   multiplier: number;
   hourly_rate: number;
@@ -88,6 +93,14 @@ export interface ShiftPayLine {
 
 export interface DeliveryPayLine {
   order_id: string;
+  /** Driver-portal restructure: human order number (ORD-xxxxxx) so
+   *  the earnings page can render something a driver recognises
+   *  instead of a UUID fragment. Optional - the bulk-totals path
+   *  and legacy callers don't populate it. */
+  order_number?: string | null;
+  /** Event name off the order when set. May be the literal
+   *  "Untitled" placeholder; render-side should filter that. */
+  event_name?: string | null;
   distance_km: number;
   distance_rate: number;
   distance_pay: number;
@@ -644,7 +657,8 @@ export const driverPayService = {
     const shiftLines = shifts
       .filter((s) => s.status === "completed" && s.hours_worked != null)
       .map((s) => {
-        const base = calculateShiftPay(s, rates);
+        // Carry the calendar date so pay surfaces can label the line.
+        const base = { ...calculateShiftPay(s, rates), shift_date: s.shift_date };
         // When we have both timestamps, recompute the BCEA breakdown
         // so the admin pay UI can show per-day buckets (cross-
         // midnight Sunday + overtime are most useful to surface).
@@ -666,10 +680,12 @@ export const driverPayService = {
     // Prefer the rate-locked snapshot when present (stamped on
     // delivery completion via autoClockOut). Falls back to a live
     // calc for legacy orders that closed before snapshotting shipped.
-    const deliveryLines = orders.map((o) => {
+    const deliveryLines: DeliveryPayLine[] = orders.map((o) => {
+      const label = { order_number: o.order_number ?? null, event_name: o.event_name ?? null };
       if (o.locked_total != null) {
         return {
           order_id: o.id,
+          ...label,
           distance_km: Number(o.delivery_distance_km || 0),
           // Snapshot doesn't keep the per-km rate; synthesise it
           // from the stored values so the UI can still show /km.
@@ -681,7 +697,7 @@ export const driverPayService = {
           total: +Number(o.locked_total || 0).toFixed(2),
         };
       }
-      return calculateDeliveryPay(o, rates);
+      return { ...calculateDeliveryPay(o, rates), ...label };
     });
 
     const hoursTotal = +shiftLines.reduce((sum, s) => sum + s.hours, 0).toFixed(2);
@@ -1109,6 +1125,8 @@ export const driverPayService = {
     client: Sb = defaultClient,
   ): Promise<Array<{
     id: string;
+    order_number: string | null;
+    event_name: string | null;
     delivery_distance_km: number | null;
     locked_distance_fee?: number | null;
     locked_base_fee?: number | null;
@@ -1120,7 +1138,7 @@ export const driverPayService = {
     // re-assigned to another driver later.
     const { data: orderRows, error: orderErr } = await (client as any)
       .from("orders")
-      .select("id, delivery_distance_km")
+      .select("id, order_number, event_name, delivery_distance_km")
       .eq("company_id", opts.companyId)
       .eq("assigned_driver_id", opts.driverId)
       .is("deleted_at", null)
@@ -1132,7 +1150,7 @@ export const driverPayService = {
       console.warn("[driverPayService._listCompletedDeliveries]", orderErr);
       return [];
     }
-    const orders = (orderRows || []) as Array<{ id: string; delivery_distance_km: number | null }>;
+    const orders = (orderRows || []) as Array<{ id: string; order_number: string | null; event_name: string | null; delivery_distance_km: number | null }>;
     if (orders.length === 0) return [];
 
     const orderIds = orders.map((o) => o.id);
@@ -1167,6 +1185,8 @@ export const driverPayService = {
       const locked = lockedByOrder.get(o.id);
       return {
         id: o.id,
+        order_number: o.order_number ?? null,
+        event_name: o.event_name ?? null,
         delivery_distance_km: o.delivery_distance_km,
         locked_distance_fee: locked?.distance ?? null,
         locked_base_fee: locked?.base ?? null,

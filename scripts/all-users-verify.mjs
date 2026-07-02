@@ -56,7 +56,7 @@ const USERS = [
     prefix: `/${SLUG}`,
     routes: [
       "/team-portal/driver/dashboard", "/team-portal/driver/deliveries", "/team-portal/driver/routes",
-      "/team-portal/driver/schedule", "/team-portal/driver/calendar", "/team-portal/driver/tracking",
+      "/team-portal/driver/calendar",
       "/team-portal/driver/earnings", "/team-portal/driver/notifications",
     ],
   },

@@ -14,6 +14,7 @@ import {
   Camera,
   X,
   Printer,
+  RefreshCw,
   Route as RouteIcon,
   ExternalLink,
 } from "lucide-react";
@@ -34,17 +35,14 @@ import { UserRole } from "@/types/app";
 import { PWAInstallPrompt } from "@/components/driver/PWAInstallPrompt";
 import { DriverClockButton } from "@/components/driver/DriverClockButton";
 import { DriverShiftHistory } from "@/components/driver/DriverShiftHistory";
-import { Footer } from "@/components/Footer";
-import { NoIndexMeta } from "@/components/NoIndexMeta";
-import Head from "next/head";
+import { DriverPageShell } from "@/components/driver/DriverPageShell";
 import { useAuth } from "@/contexts/AuthContext";
 import { useOrderRefreshSignal } from "@/hooks/useOrderRefreshSignal";
-import { PageWorkbench, PortalOverview, PortalShell, PortalCard, PortalCardHeader, StatTile } from "@/components/portal/ui";
+import { PortalOverview, PortalCard, PortalCardHeader, StatTile } from "@/components/portal/ui";
 import { ChatBot } from "@/components/ChatBot";
 import Link from "next/link";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { staffOrderHref } from "@/lib/orderUrls";
-import { DriverNav } from "@/components/navigation/DriverNav";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { supabase } from "@/integrations/supabase/client";
 import { notificationService, Notification } from "@/services/notificationService";
@@ -98,8 +96,15 @@ function DriverDashboardInner() {
   const tenantCurrency = useTenantCurrency(user?.company_id ?? null);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
+  // Command-centre restructure (2026-07-02): every data load on this
+  // page now surfaces failures with a Retry card instead of silently
+  // console.error-ing into an empty dashboard.
+  const [jobsError, setJobsError] = useState<string | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
   const [totalEarnings, setTotalEarnings] = useState(0);
+  const [earningsError, setEarningsError] = useState<string | null>(null);
+  const [earningsLoaded, setEarningsLoaded] = useState(false);
+  const [earningsTick, setEarningsTick] = useState(0);
   // DRV-C (driver deep audit, DRV-9): payRates resolution lifted to
   // a shared hook so /routes and /dashboard read from the same
   // source. The hook handles per-driver override falling back to
@@ -113,6 +118,9 @@ function DriverDashboardInner() {
   // get paid for showing up even when no jobs land, so a clocked
   // 0.2h shift should not display as R0 earnings.
   const [hoursWorkedToday, setHoursWorkedToday] = useState(0);
+  const [hoursError, setHoursError] = useState<string | null>(null);
+  const [hoursLoaded, setHoursLoaded] = useState(false);
+  const [hoursTick, setHoursTick] = useState(0);
   useEffect(() => {
     if (!user?.id) return;
     let cancelled = false;
@@ -124,7 +132,14 @@ function DriverDashboardInner() {
         .eq("driver_id", user.id)
         .eq("shift_date", todayIso)
         .is("deleted_at", null);
-      if (error || cancelled) return;
+      if (cancelled) return;
+      if (error) {
+        // Pre-restructure this swallowed the failure and the hourly
+        // portion silently rendered as zero. Surface it with Retry.
+        console.error("Error loading today's clocked hours:", error);
+        setHoursError(error.message || "We couldn't load your clocked hours for today.");
+        return;
+      }
       const now = new Date();
       let totalMs = 0;
       for (const s of (data || []) as Array<{ actual_start: string | null; actual_end: string | null; status: string }>) {
@@ -135,6 +150,8 @@ function DriverDashboardInner() {
           totalMs += (end - start);
         }
       }
+      setHoursError(null);
+      setHoursLoaded(true);
       setHoursWorkedToday(totalMs / 3_600_000);
     };
     void fetchHours();
@@ -142,7 +159,7 @@ function DriverDashboardInner() {
     // without a page refresh.
     const t = setInterval(fetchHours, 60_000);
     return () => { cancelled = true; clearInterval(t); };
-  }, [user?.id]);
+  }, [user?.id, hoursTick]);
 
   // Phase 5: POD capture + decline dialogs
   const [podJob, setPodJob] = useState<Job | null>(null);
@@ -178,6 +195,7 @@ function DriverDashboardInner() {
 
     try {
       setLoading(true);
+      setJobsError(null);
 
       // DRV-B (driver deep audit, DRV-5 / DRV-13 / DRV-46):
       //
@@ -238,7 +256,8 @@ function DriverDashboardInner() {
             status,
             pickup_time,
             delivery_distance_km,
-            special_instructions
+            special_instructions,
+            driver_acknowledged_at
           )
         `)
         .eq("driver_id", user.id)
@@ -253,7 +272,11 @@ function DriverDashboardInner() {
         .order("assigned_at", { ascending: false });
 
       if (assignmentsError) {
+        // Pre-restructure this early-returned after a console.error,
+        // leaving the driver staring at an empty "No deliveries"
+        // dashboard. Surface it with a Retry card instead.
         console.error("Error loading assignments:", assignmentsError);
+        setJobsError(assignmentsError.message || "We couldn't load your assigned jobs.");
         return;
       }
 
@@ -273,6 +296,7 @@ function DriverDashboardInner() {
 
       if (ordersError) {
         console.error("Error loading orders:", ordersError);
+        setJobsError(ordersError.message || "We couldn't load your assigned deliveries.");
         return;
       }
 
@@ -335,12 +359,23 @@ function DriverDashboardInner() {
       // proof they saw it. Fire-and-forget per order; the API
       // endpoint is idempotent so re-firing on already-acked orders
       // is a cheap no-op.
-      const unackedIds = (directOrders || [])
-        .filter((o: any) => !o.driver_acknowledged_at)
-        .map((o: any) => o.id);
-      if (unackedIds.length > 0) {
+      //
+      // Restructure fix (2026-07-02): pre-fix only directOrders fed
+      // this, so an order that surfaced purely through a
+      // driver_assignments row (dispatch flow, no
+      // orders.assigned_driver_id) was never acked and admin kept
+      // chasing a driver who had already seen it. Both sources now
+      // feed a deduped set.
+      const unackedIds = new Set<string>();
+      for (const o of (directOrders || []) as any[]) {
+        if (o?.id && !o.driver_acknowledged_at) unackedIds.add(o.id);
+      }
+      for (const a of (assignments || []) as any[]) {
+        if (a?.orders?.id && !a.orders.driver_acknowledged_at) unackedIds.add(a.orders.id);
+      }
+      if (unackedIds.size > 0) {
         void Promise.allSettled(
-          unackedIds.map((id) =>
+          Array.from(unackedIds).map((id) =>
             fetch(`/api/orders/${id}/driver-ack`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -349,8 +384,9 @@ function DriverDashboardInner() {
           ),
         ).catch((e) => console.warn("[driver dashboard] auto-ack fire failed:", e));
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error in loadDriverJobs:", error);
+      setJobsError(error?.message || "Something went wrong while loading your jobs.");
     } finally {
       setLoading(false);
     }
@@ -432,16 +468,23 @@ function DriverDashboardInner() {
           range: { from: fromIso, to: toIso },
         });
         if (!cancelled) {
+          setEarningsError(null);
+          setEarningsLoaded(true);
           setTotalEarnings(summary.totals.grand_total || 0);
         }
-      } catch (e) {
+      } catch (e: any) {
+        // Pre-restructure this swallowed the failure and the tile
+        // showed R0 month-to-date. Surface it with a Retry card.
         console.error("Error loading driver earnings:", e);
+        if (!cancelled) {
+          setEarningsError(e?.message || "We couldn't load your month-to-date earnings.");
+        }
       }
     };
 
     loadEarnings();
     return () => { cancelled = true; };
-  }, [user?.id, user?.company_id, jobs.length, refreshSignal]);
+  }, [user?.id, user?.company_id, jobs.length, refreshSignal, earningsTick]);
 
   // Subscribe to order updates (when status changes)
   useEffect(() => {
@@ -563,81 +606,105 @@ function DriverDashboardInner() {
     }
   };
 
+  // Hero band context: tenant-brand PortalHeader painted by
+  // DriverPageShell. Chips only render once their data source has
+  // loaded without error (command-centre standard).
+  const todayLabel = new Date().toLocaleDateString("en-ZA", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
+  const heroChip =
+    "inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white";
+
   return (
     <>
-      <Head>
-        <title>Driver today - CateringMS</title>
-      </Head>
-      <NoIndexMeta />
-
-      <DriverNav />
-
-      {/* Neutral slate ground inside the DriverNav sidebar gutter -
-          same offset pattern the shopping portal uses. The dashboard
-          keeps a bespoke "Welcome back, {name}" greeting (warmer than
-          the icon+title PortalHeader the other driver pages use) but
-          rides on the shared neutral ground + container. */}
-      <div id="today" className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
-        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
-          <PageWorkbench className="mb-5" />
-          {/* Header */}
-          <div className="mb-4 sm:mb-6 md:mb-8">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 mb-4 sm:mb-6">
-              <div>
-                <h1 className="text-xl sm:text-2xl md:text-3xl font-semibold tracking-tight text-slate-900 dark:text-white mb-1">
-                  Welcome back, {driverName.split(" ")[0]}
-                </h1>
-                <p className="text-xs sm:text-sm md:text-base text-slate-600 dark:text-slate-400">
-                  {loading ? "Loading your deliveries..." : `${jobs.length} assigned ${jobs.length === 1 ? "job" : "jobs"} in your work window`}
-                </p>
-                {/* Bobby's brief: after a claim, the driver should
-                    see an unmistakable path to the route page where
-                    the new job lives. The active deliveries text
-                    above is informational; this chip is the action. */}
-                {!loading && jobs.length > 0 && (
-                  <Link
-                    href={withSlug("/team-portal/driver/routes")}
-                    className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-brand-primary/20 bg-brand-primary/10 text-sm font-medium text-brand-primary hover:bg-brand-primary/20 transition-colors duration-150 dark:border-brand-primary/20 dark:bg-brand-primary/20 dark:text-brand-primary dark:hover:bg-brand-primary/30"
-                  >
-                    <RouteIcon className="w-3.5 h-3.5" />
-                    View route board
-                    <Badge variant="outline" className="ml-1 tabular-nums bg-white dark:bg-slate-900 dark:border-slate-700">
-                      {jobs.length}
-                    </Badge>
-                  </Link>
-                )}
-              </div>
-              <div className="flex gap-2">
-                {unreadCount > 0 && (
-                  <div className="flex items-center gap-2 px-4 py-2 bg-rose-50 border border-rose-200 rounded-xl dark:bg-rose-950/40 dark:border-rose-900">
-                    <Bell className="w-4 h-4 text-rose-600 dark:text-rose-400" />
-                    <span className="text-sm font-semibold text-rose-700 dark:text-rose-300 tabular-nums">
-                      {unreadCount} new {unreadCount === 1 ? "alert" : "alerts"}
-                    </span>
-                  </div>
-                )}
-                {/* DRV-J (driver deep audit, DRV-32 / DRV-60):
-                    paper backup. A driver in a cab at 6am with a
-                    flat phone battery still needs to know who's
-                    where today. Print walks the current jobs list
-                    (already date-windowed by DRV-B). */}
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    if (jobs.length === 0) {
-                      toast({ title: "Nothing to print", description: "No assigned jobs in your work window." });
-                      return;
-                    }
-                    setTimeout(() => window.print(), 100);
-                  }}
-                  className="h-10 sm:h-12 px-4 sm:px-6 text-sm sm:text-base gap-1.5"
-                >
-                  <Printer className="w-4 h-4" />
-                  Print run sheet
-                </Button>
-              </div>
-            </div>
-
+      <DriverPageShell
+        pageTitle="Driver today - CateringMS"
+        heading={<>Welcome back, {driverName.split(" ")[0]}</>}
+        subheading={
+          jobsError
+            ? todayLabel
+            : loading
+              ? `${todayLabel}. Loading your deliveries...`
+              : `${todayLabel}. ${jobs.length} assigned ${jobs.length === 1 ? "job" : "jobs"} in your work window.`
+        }
+        icon={Truck}
+        width="full"
+        headerAction={
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              onClick={() => void loadDriverJobs()}
+              disabled={loading}
+              className="gap-1.5"
+            >
+              <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+              Refresh
+            </Button>
+            {/* DRV-J (driver deep audit, DRV-32 / DRV-60):
+                paper backup. A driver in a cab at 6am with a
+                flat phone battery still needs to know who's
+                where today. Print walks the current jobs list
+                (already date-windowed by DRV-B). */}
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (jobs.length === 0) {
+                  toast({ title: "Nothing to print", description: "No assigned jobs in your work window." });
+                  return;
+                }
+                setTimeout(() => window.print(), 100);
+              }}
+              className="gap-1.5"
+            >
+              <Printer className="w-4 h-4" />
+              Print run sheet
+            </Button>
+          </div>
+        }
+        meta={
+          <>
+            {!loading && !jobsError && (
+              <span className={heroChip}>
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                {todaysJobs.length} {todaysJobs.length === 1 ? "job" : "jobs"} today
+              </span>
+            )}
+            {hoursLoaded && !hoursError && (
+              <span className={heroChip}>
+                <Clock className="h-3 w-3" />
+                {hoursWorkedToday.toFixed(1)}h clocked today
+              </span>
+            )}
+            {earningsLoaded && !earningsError && (
+              <span className={heroChip}>
+                <Banknote className="h-3 w-3" />
+                {tenantCurrency.format(totalEarnings, 0)} month to date
+              </span>
+            )}
+            {unreadCount > 0 && (
+              <span className={heroChip}>
+                <span className="h-1.5 w-1.5 rounded-full bg-rose-400" />
+                {unreadCount} new {unreadCount === 1 ? "alert" : "alerts"}
+              </span>
+            )}
+            {/* Bobby's brief: after a claim, the driver should see an
+                unmistakable path to the route page where the new job
+                lives. */}
+            {!loading && !jobsError && jobs.length > 0 && (
+              <Link
+                href={withSlug("/team-portal/driver/routes")}
+                className={`${heroChip} hover:bg-white/20 transition-colors duration-150`}
+              >
+                <RouteIcon className="h-3 w-3" />
+                Route board ({jobs.length})
+              </Link>
+            )}
+          </>
+        }
+        overview={
+          jobsError ? undefined : (
             <PortalOverview
               eyebrow="Driver workspace"
               title={
@@ -665,6 +732,30 @@ function DriverDashboardInner() {
                 </>
               }
             />
+          )
+        }
+      >
+        {/* #today anchor kept for the DriverNav deep-link. */}
+          <div id="today" className="scroll-mt-24">
+
+            {/* Recovery card: the assignments/orders load failed.
+                Pre-restructure this state rendered as a silently
+                empty dashboard. */}
+            {jobsError && (
+              <div className="mb-4 sm:mb-6 rounded-lg border border-rose-200 bg-white p-5 shadow-sm dark:border-rose-900 dark:bg-slate-900">
+                <h2 className="text-base font-bold text-rose-900 dark:text-rose-200 mb-1">Couldn&apos;t load your deliveries</h2>
+                <p className="text-sm text-slate-600 dark:text-slate-400 mb-3">{jobsError}</p>
+                <Button
+                  size="sm"
+                  onClick={() => void loadDriverJobs()}
+                  disabled={loading}
+                  className="bg-brand-primary hover:opacity-90 text-white"
+                >
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Retry
+                </Button>
+              </div>
+            )}
 
             {/* DRV-F (driver deep audit, DRV-38): "Next pickup at HH:MM
                 @ {venue}" as the largest glanceable element. Most-asked
@@ -720,6 +811,36 @@ function DriverDashboardInner() {
                 stuff that pays the rent (earnings) and tells them what
                 to do today (stats + deliveries) sits at the top of the
                 page where the first scroll lives. */}
+
+            {/* Recovery card: clocked-hours / month-to-date earnings
+                loads failed. Pre-restructure both fetches swallowed
+                errors and quietly rendered zeros, which reads as
+                "you earned nothing" to a driver. */}
+            {(hoursError || earningsError) && (
+              <div className="mb-4 sm:mb-6 rounded-lg border border-rose-200 bg-white p-5 shadow-sm dark:border-rose-900 dark:bg-slate-900">
+                <h2 className="text-base font-bold text-rose-900 dark:text-rose-200 mb-1">Some earnings figures didn&apos;t load</h2>
+                {hoursError && (
+                  <p className="text-sm text-slate-600 dark:text-slate-400 mb-1">Clocked hours: {hoursError}</p>
+                )}
+                {earningsError && (
+                  <p className="text-sm text-slate-600 dark:text-slate-400 mb-1">Month to date: {earningsError}</p>
+                )}
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {hoursError && (
+                    <Button size="sm" onClick={() => setHoursTick((n) => n + 1)} className="bg-brand-primary hover:opacity-90 text-white">
+                      <RefreshCw className="w-4 h-4 mr-2" />
+                      Retry hours
+                    </Button>
+                  )}
+                  {earningsError && (
+                    <Button size="sm" onClick={() => setEarningsTick((n) => n + 1)} className="bg-brand-primary hover:opacity-90 text-white">
+                      <RefreshCw className="w-4 h-4 mr-2" />
+                      Retry earnings
+                    </Button>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Today's Earnings Summary */}
             <PortalCard className="mb-4 sm:mb-6">
@@ -807,15 +928,24 @@ function DriverDashboardInner() {
                       ))}
                     </div>
                   ) : jobs.length === 0 ? (
-                    <div className="text-center py-10 px-4">
-                      <div className="w-12 h-12 mx-auto mb-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 flex items-center justify-center">
-                        <Truck className="w-6 h-6 text-slate-400 dark:text-slate-500" />
-                      </div>
-                      <p className="text-sm sm:text-base font-semibold text-slate-900 dark:text-white">No deliveries scheduled</p>
-                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 max-w-md mx-auto">
-                        Once dispatch assigns you to an event, it'll show up here with the route, ETA and pickup details.
+                    jobsError ? (
+                      // Don't claim "no deliveries scheduled" when the
+                      // load actually failed; the Retry card above owns
+                      // the recovery action.
+                      <p className="text-sm text-slate-500 dark:text-slate-400 py-8 text-center">
+                        Your deliveries are unavailable right now. Use Retry above to reload them.
                       </p>
-                    </div>
+                    ) : (
+                      <div className="text-center py-10 px-4">
+                        <div className="w-12 h-12 mx-auto mb-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 flex items-center justify-center">
+                          <Truck className="w-6 h-6 text-slate-400 dark:text-slate-500" />
+                        </div>
+                        <p className="text-sm sm:text-base font-semibold text-slate-900 dark:text-white">No deliveries scheduled</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 max-w-md mx-auto">
+                          Once dispatch assigns you to an event, it'll show up here with the route, ETA and pickup details.
+                        </p>
+                      </div>
+                    )
                   ) : (
                     jobs.map((job) => (
                       <div
@@ -1010,10 +1140,7 @@ function DriverDashboardInner() {
             )}
 
           </div>
-        </PortalShell>
-
-        <Footer />
-      </div>
+      </DriverPageShell>
 
       {/* Phase 5: POD capture */}
       {podJob && (

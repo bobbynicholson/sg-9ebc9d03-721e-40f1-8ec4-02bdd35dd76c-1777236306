@@ -1,15 +1,15 @@
 /**
  * DriverPageShell - the canonical outer layout for every driver-portal
- * page (except the welcome dashboard which has its own treatment).
+ * page.
  *
- * Minimal + premium portal standard: this shell now renders the shared
- * PortalShell + PortalHeader primitives (slate ground, amber accent,
- * soft shadow + hairline, full dark mode) inside the DriverNav
- * sidebar-offset gutter (lg:pl-72 xl:pl-80) - the same pattern the
- * shopping portal uses. One restrained background and header chip
- * style across every driver page; pages pass
- * `width="narrow" | "wide" | "full"` to opt into the right inner
- * max-width.
+ * Command-centre restructure: the shell now renders the same premium
+ * stack the company-admin pages use - PortalShell ground (brand wash +
+ * layered gradient), a hero PortalHeader painted in the tenant's own
+ * colours (icon tile, meta chip row, actions band) and the
+ * PageWorkbench context strip - inside the DriverNav sidebar-offset
+ * gutter (lg:pl-72 xl:pl-80). Pages supply `meta` chips for live
+ * counts and `headerAction` buttons; everything else is identical
+ * across the portal so no driver page can drift off-standard again.
  */
 import { ReactNode } from "react";
 import { DriverNav } from "@/components/navigation/DriverNav";
@@ -17,30 +17,34 @@ import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import Head from "next/head";
 import { LucideIcon } from "lucide-react";
-import { PageWorkbench, PortalHeader } from "@/components/portal/ui";
+import { PageWorkbench, PortalHeader, PortalShell } from "@/components/portal/ui";
 
 type ShellWidth = "narrow" | "wide" | "full";
 
 interface DriverPageShellProps {
   /** Browser tab title. */
   pageTitle: string;
-  /** Big H1. */
-  heading: string;
+  /** Big H1 inside the hero band. */
+  heading: ReactNode;
   /** One-line caption under the H1. */
-  subheading?: string;
-  /** Lucide icon component for the gradient chip next to the H1. */
+  subheading?: ReactNode;
+  /** Lucide icon component for the white-glass chip next to the H1. */
   icon: LucideIcon;
   /**
    * Container max-width:
-   *   narrow (4xl) - detail / settings / focused single-task pages
-   *     (tracking, profile, notifications)
-   *   wide (screen-2xl) - grids and dashboards (calendar, today)
-   *   full - left/right layouts that want the full lg+ width
-   *     (routes with its map)
+   *   narrow (centred max-w-3xl) - focused single-task pages
+   *   wide / full - full desktop width (dashboards, lists, maps).
+   *     Kept as two accepted values for call-site compatibility; both
+   *     resolve to the full-width shell per the portal-width decision
+   *     (centred wide layouts left a dead rail next to the sidebar).
    */
   width?: ShellWidth;
-  /** Optional content on the top-right of the header (action button). */
+  /** Optional actions rendered on the hero band (buttons pick dark styling automatically). */
   headerAction?: ReactNode;
+  /** Optional chip row under the hero subtitle - live counts, status pills.
+   *  Use the white-glass chip recipe:
+   *  `inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white` */
+  meta?: ReactNode;
   /** Optional first-screen summary band. */
   overview?: ReactNode;
   /** Page body. */
@@ -49,12 +53,6 @@ interface DriverPageShellProps {
   hideFooter?: boolean;
 }
 
-const WIDTH_CLASSES: Record<ShellWidth, string> = {
-  narrow: "max-w-4xl",
-  wide: "max-w-screen-2xl",
-  full: "max-w-full",
-};
-
 export function DriverPageShell({
   pageTitle,
   heading,
@@ -62,6 +60,7 @@ export function DriverPageShell({
   icon: Icon,
   width = "wide",
   headerAction,
+  meta,
   overview,
   children,
   hideFooter = false,
@@ -75,31 +74,30 @@ export function DriverPageShell({
 
       <DriverNav />
 
-      {/* Neutral slate ground inside the DriverNav sidebar gutter -
-          same offset pattern the shopping portal uses. PortalShell
-          rides on bg-transparent so this wrapper owns the ground and
-          the inner container keeps the per-page width ladder. */}
-      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
-        <div className={`mx-auto w-full px-4 py-6 sm:px-6 sm:py-8 ${WIDTH_CLASSES[width]}`}>
-          {/* Shared portal header: amber-glyph neutral icon tile,
-              semibold slate title, dark-mode aware. */}
+      {/* PortalShell owns the ground (layered gradient + tenant brand
+          wash) inside the DriverNav sidebar gutter - identical to the
+          company-admin page treatment. */}
+      <div className="min-h-screen overflow-x-hidden lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <PortalShell width={width === "narrow" ? "narrow" : "default"}>
           <PortalHeader
+            variant="hero"
             title={heading}
             subtitle={subheading}
             icon={Icon}
             actions={headerAction}
+            meta={meta}
           />
           <PageWorkbench />
           {overview}
 
-          {children}
+          <div id="main-content">{children}</div>
 
           {!hideFooter && (
             <div className="mt-12">
               <Footer />
             </div>
           )}
-        </div>
+        </PortalShell>
       </div>
     </>
   );

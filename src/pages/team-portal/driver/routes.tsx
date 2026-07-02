@@ -20,7 +20,13 @@ import {
   Flag,
   X,
   ExternalLink,
+  Package,
+  UtensilsCrossed,
+  RefreshCw,
 } from "lucide-react";
+import {
+  Accordion, AccordionItem, AccordionTrigger, AccordionContent,
+} from "@/components/ui/accordion";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { staffOrderHref } from "@/lib/orderUrls";
 import {
@@ -42,19 +48,62 @@ import { useKitchenOrigin } from "@/hooks/useKitchenOrigin";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { useDriverTripTimer } from "@/hooks/useDriverTripTimer";
 import { updateDeliveryStatus as updateDeliveryStatusRaw } from "@/services/driver/deliveryManagement";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { UserRole } from "@/types/app";
+import { supabase } from "@/integrations/supabase/client";
+import { emitOrderUpdated } from "@/lib/events/orderEvents";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 
 const RouteMap = dynamic(
   () => import("@/components/tracking/RouteOptimizationMap"),
   { ssr: false }
 );
 
-export default function DriverRoutes() {
+/** One food line the driver loads off the kitchen bench. Merged in
+ *  from the old /tracking page (single "driving" page restructure). */
+interface MenuLine {
+  id: string;
+  name: string;
+  quantity: number;
+  description: string | null;
+  special_instructions: string | null;
+}
+
+interface EquipmentLine {
+  id: string;
+  name: string;
+  quantity: number;
+}
+
+interface StopManifest {
+  menuItems: MenuLine[];
+  equipment: EquipmentLine[];
+}
+
+/** driver_assignments slice for the current stop - carries the
+ *  at_venue arrival state, which lives on the assignment row, not
+ *  on orders.status. */
+interface StopAssignment {
+  id: string;
+  status: string;
+}
+
+function DriverRoutesInner() {
   const { user } = useAuth();
   const { toast } = useToast();
   const { withSlug } = useTenantHref();
   const [route, setRoute] = useState<OptimizedRoute | null>(null);
   const [loading, setLoading] = useState(true);
+  // Recovery-card state: a failed route load must surface a Retry
+  // action, not just a toast that decays into an empty board.
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [currentStopIndex, setCurrentStopIndex] = useState(0);
+  // Merged from /tracking: manifest + assignment state for the
+  // current stop. Best-effort loads - a failed read collapses the
+  // manifest section rather than blocking the route board.
+  const [manifest, setManifest] = useState<StopManifest | null>(null);
+  const [assignment, setAssignment] = useState<StopAssignment | null>(null);
+  const [markingArrived, setMarkingArrived] = useState(false);
   const [tripStarted, setTripStarted] = useState(false);
   const [tripCompleted, setTripCompleted] = useState(false);
   const [statusModalOpen, setStatusModalOpen] = useState(false);
@@ -81,17 +130,20 @@ export default function DriverRoutes() {
   const [cancelling, setCancelling] = useState(false);
 
   useEffect(() => {
-    if (user?.id) {
+    if (user?.id && user?.company_id) {
       loadOptimizedRoute();
     }
   }, [user]);
 
   const loadOptimizedRoute = async () => {
-    if (!user?.id) return;
-    
+    if (!user?.id || !user?.company_id) return;
+
     setLoading(true);
+    setLoadError(null);
     try {
-      const optimizedRoute = await routeOptimizationService.getDriverOptimizedRoute(user.id);
+      // Tenant-scoped: the service now requires company_id so a
+      // driver can only ever see their own company's stops.
+      const optimizedRoute = await routeOptimizationService.getDriverOptimizedRoute(user.id, user.company_id);
       setRoute(optimizedRoute);
       
       if (optimizedRoute) {
@@ -115,6 +167,11 @@ export default function DriverRoutes() {
       }
     } catch (error) {
       console.error("Error loading route:", error);
+      setLoadError(
+        error instanceof Error && error.message
+          ? error.message
+          : "Failed to load your route. Check your connection and try again.",
+      );
       toast({
         title: "Error",
         description: "Failed to load your route. Please try again.",
@@ -123,6 +180,99 @@ export default function DriverRoutes() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Manifest + assignment for the CURRENT stop, merged in from the
+  // old /tracking page. Reloads whenever the driver advances to the
+  // next stop. order_items + equipment_bookings are what the driver
+  // physically loads; driver_assignments carries the at_venue state
+  // that "Mark as arrived" writes.
+  const currentOrderId = route?.stops?.[currentStopIndex]?.order_id ?? null;
+  useEffect(() => {
+    let cancelled = false;
+    if (!currentOrderId || !user?.id) {
+      setManifest(null);
+      setAssignment(null);
+      return;
+    }
+    (async () => {
+      const [itemsRes, equipRes, assignRes] = await Promise.all([
+        supabase
+          .from("order_items")
+          .select("id, item_name, quantity, description, special_instructions")
+          .eq("order_id", currentOrderId)
+          .order("created_at", { ascending: true }),
+        supabase
+          .from("equipment_bookings")
+          .select("id, quantity, equipment:equipment_id(id, name)")
+          .eq("order_id", currentOrderId),
+        supabase
+          .from("driver_assignments")
+          .select("id, status")
+          .eq("order_id", currentOrderId)
+          .eq("driver_id", user.id)
+          .order("assigned_at", { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+      ]);
+      if (cancelled) return;
+
+      const menuItems: MenuLine[] = ((itemsRes.data as any[]) || []).map((r) => ({
+        id: r.id,
+        name: r.item_name || "Item",
+        quantity: Number(r.quantity) || 0,
+        description: r.description || null,
+        special_instructions: r.special_instructions || null,
+      }));
+      const equipment: EquipmentLine[] = ((equipRes.data as any[]) || [])
+        .map((r) => ({
+          id: r.id,
+          name: r.equipment?.name || "Equipment",
+          quantity: Number(r.quantity) || 0,
+        }))
+        .filter((r) => r.quantity > 0);
+
+      setManifest({ menuItems, equipment });
+      setAssignment(
+        assignRes.data ? { id: (assignRes.data as any).id, status: (assignRes.data as any).status } : null,
+      );
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [currentOrderId, user?.id]);
+
+  /** Merged from /tracking: record arrival at the venue.
+   *  `at_venue` is the canonical "driver has reached the delivery
+   *  venue" state on driver_assignments (NOT picked_up, which is the
+   *  earlier collected-from-kitchen moment). Broadcasts on the
+   *  cross-tab order bus - same recipe the dashboard uses for POD /
+   *  decline - so dispatch and client surfaces refresh immediately. */
+  const markArrived = async () => {
+    if (!assignment || markingArrived) return;
+    const stop = route?.stops[currentStopIndex];
+    if (!stop) return;
+    setMarkingArrived(true);
+    const { error } = await supabase
+      .from("driver_assignments")
+      .update({
+        status: "at_venue",
+        arrived_at_venue_at: new Date().toISOString(),
+      })
+      .eq("id", assignment.id);
+    setMarkingArrived(false);
+    if (error) {
+      toast({
+        title: "Could not update",
+        description: dbErrorMessage(error, { entity: "delivery" }),
+        variant: "destructive",
+      });
+      return;
+    }
+    setAssignment({ ...assignment, status: "at_venue" });
+    toast({ title: "Marked as arrived", description: "Status updated to at venue." });
+    emitOrderUpdated(stop.order_id, "driver/routes:arrived", ["status"]);
+    await loadOptimizedRoute();
   };
 
   // Bobby's separation-of-concerns brief:
@@ -278,9 +428,12 @@ export default function DriverRoutes() {
     if (!route) return;
     
     try {
-      // Mark all assignments as completed
+      // Mark all assignments as completed. Skip stops already
+      // "delivered" as well as "completed" - previously a delivered
+      // stop got completeJob called a second time, re-firing the
+      // completion cascade for an order that was already done.
       for (const stop of route.stops) {
-        if (stop.status !== "completed") {
+        if (stop.status !== "completed" && stop.status !== "delivered") {
           await driverService.completeJob(stop.order_id);
         }
       }
@@ -325,7 +478,7 @@ export default function DriverRoutes() {
       <DriverPageShell
         pageTitle="My Routes - Driver Portal"
         heading="Today's Routes"
-        subheading="AI-optimized delivery sequence for maximum efficiency"
+        subheading="Optimised delivery sequence with the current stop, manifest and trip clock"
         icon={RouteIcon}
         width="full"
       >
@@ -342,12 +495,42 @@ export default function DriverRoutes() {
     );
   }
 
+  // Recovery card (error-handling standard): a failed load renders a
+  // rose-bordered card with the message and a Retry button instead of
+  // silently presenting the "no route assigned" empty state.
+  if (loadError) {
+    return (
+      <DriverPageShell
+        pageTitle="My Routes - Driver Portal"
+        heading="Today's Routes"
+        subheading="Optimised delivery sequence with the current stop, manifest and trip clock"
+        icon={RouteIcon}
+        width="full"
+        hideFooter
+      >
+        <PortalCard className="border-rose-200 dark:border-rose-900">
+          <h2 className="text-base font-bold text-rose-900 dark:text-rose-200 mb-1">Couldn&apos;t load your route</h2>
+          <p className="text-sm text-slate-600 dark:text-slate-400 mb-3">{loadError}</p>
+          <Button
+            onClick={() => loadOptimizedRoute()}
+            size="sm"
+            disabled={loading}
+            className="bg-brand-primary hover:opacity-90 text-white"
+          >
+            <RefreshCw className="w-4 h-4 mr-2" /> Retry
+          </Button>
+        </PortalCard>
+        <ChatBot userRole="driver" companyId={user?.company_id} />
+      </DriverPageShell>
+    );
+  }
+
   if (!route || route.stops.length === 0) {
     return (
       <DriverPageShell
         pageTitle="My Routes - Driver Portal"
         heading="Today's Routes"
-        subheading="AI-optimized delivery sequence for maximum efficiency"
+        subheading="Optimised delivery sequence with the current stop, manifest and trip clock"
         icon={RouteIcon}
         width="full"
         hideFooter
@@ -383,15 +566,38 @@ export default function DriverRoutes() {
 
   const stats = routeOptimizationService.calculateRouteStats(route);
   const completedStops = route.stops.filter(s => s.status === "completed" || s.status === "delivered").length;
+  const remainingStops = route.stops.length - completedStops;
   const currentStop = route.stops[currentStopIndex];
   // Estimated earnings = callout per stop + per-km on the optimised
   // route's total_distance (the actual driven path including legs
   // between stops). Shows 0 until rates load so we don't flash R250.
+  // Distance is DOUBLED to match actual pay: calculateDeliveryPay in
+  // driverPayService pays the round trip (out + back), so quoting the
+  // one-way figure here under-stated the estimate vs the earnings
+  // page. Still an estimate - the settlement run is the truth.
   const calloutFee = payRates?.base_callout_fee ?? 0;
   const distanceRate = payRates?.distance_rate_per_km ?? 0;
   const estimatedEarnings = payRates
-    ? Math.round(route.stops.length * calloutFee + route.total_distance * distanceRate)
+    ? Math.round(route.stops.length * calloutFee + route.total_distance * 2 * distanceRate)
     : 0;
+
+  // Hero meta chips - only rendered here, i.e. once the route has
+  // loaded without error (loading / error / empty branches above
+  // return early and pass no meta).
+  const chipClass =
+    "inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white";
+  const metaChips = (
+    <>
+      <span className={chipClass}>
+        <span className={`h-1.5 w-1.5 rounded-full ${remainingStops === 0 ? "bg-emerald-400" : "bg-amber-300"}`} />
+        {remainingStops === 0
+          ? "All stops done"
+          : `${remainingStops} ${remainingStops === 1 ? "stop" : "stops"} remaining`}
+      </span>
+      <span className={chipClass}>{route.total_distance.toFixed(1)} km route</span>
+      <span className={chipClass}>{tenantCurrency.format(estimatedEarnings, 0)} estimated</span>
+    </>
+  );
 
   // Trip-control cluster lives on the right side of the shell header.
   // Extracted from the inline JSX so the populated render is just
@@ -470,10 +676,11 @@ export default function DriverRoutes() {
     <DriverPageShell
       pageTitle="My Routes - Driver Portal"
       heading="Today's Routes"
-      subheading="AI-optimized delivery sequence for maximum efficiency"
+      subheading="Optimised delivery sequence with the current stop, manifest and trip clock"
       icon={RouteIcon}
       width="full"
       headerAction={tripControls}
+      meta={metaChips}
       hideFooter
       overview={
         <PortalOverview
@@ -484,11 +691,13 @@ export default function DriverRoutes() {
             { label: "Stops done", value: `${completedStops}/${route.stops.length}`, helper: `${Math.round((completedStops / route.stops.length) * 100)}% complete`, icon: CheckCircle, tone: completedStops === route.stops.length ? "success" : "brand" },
             { label: "Current stop", value: currentStop ? currentStop.client_name : "None", helper: currentStop?.pickup_time ? `Collect ${currentStop.pickup_time.slice(0, 5)}` : "Pickup time not set", icon: Navigation, tone: "brand" },
             { label: "Distance", value: `${route.total_distance.toFixed(1)} km`, helper: `${route.total_duration} min estimated`, icon: RouteIcon, tone: "neutral" },
-            { label: "Potential", value: tenantCurrency.format(estimatedEarnings, 0), helper: "Callout + distance", icon: Banknote, tone: "neutral" },
+            { label: "Estimated", value: tenantCurrency.format(estimatedEarnings, 0), helper: "Callout + round-trip km", icon: Banknote, tone: "neutral" },
           ]}
           actions={
             <Button asChild size="sm" variant="outline">
-              <Link href={withSlug("/team-portal/driver/tracking")}>Open current delivery</Link>
+              {/* /tracking merged into this page - the current-stop
+                  card carries the manifest + arrival action now. */}
+              <a href="#current">Jump to current stop</a>
             </Button>
           }
         />
@@ -521,7 +730,7 @@ export default function DriverRoutes() {
                     <div className="text-2xl lg:text-3xl font-semibold tabular-nums text-slate-900 dark:text-white">
                       {tenantCurrency.format(estimatedEarnings, 0)}
                     </div>
-                    <div className="text-xs lg:text-sm text-slate-500 dark:text-slate-400">Potential earnings</div>
+                    <div className="text-xs lg:text-sm text-slate-500 dark:text-slate-400">Estimated earnings (round trip)</div>
                   </div>
                 </div>
 
@@ -570,9 +779,12 @@ export default function DriverRoutes() {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Current Stop Highlight */}
+            {/* Current Stop Highlight. id="current" is the anchor the
+                DriverNav "Current Stop" deep-link and the old /tracking
+                redirect land on; scroll-mt keeps it clear of the fixed
+                mobile header. */}
             <div className="lg:col-span-1 space-y-4">
-              <PortalCard>
+              <PortalCard id="current" className="scroll-mt-24">
                 <PortalCardHeader
                   title={
                     <span className="flex items-center gap-2">
@@ -618,6 +830,92 @@ export default function DriverRoutes() {
                         </div>
                       </div>
 
+                      {/* Load manifest - merged from the old /tracking
+                          page. Collapsed by default: the driver opens
+                          it while loading the bakkie, then closes it
+                          and drives. Food + equipment, each with a
+                          quantity total in the trigger. */}
+                      {manifest && (manifest.menuItems.length > 0 || manifest.equipment.length > 0) && (
+                        <div className="rounded-lg border border-slate-200 dark:border-slate-800 px-1">
+                          <Accordion type="multiple" className="w-full">
+                            {manifest.menuItems.length > 0 && (
+                              <AccordionItem value="food" className="border-0">
+                                <AccordionTrigger className="hover:no-underline py-3 px-2">
+                                  <span className="flex items-center gap-2 text-left">
+                                    <UtensilsCrossed className="w-4 h-4 text-slate-400 dark:text-slate-500 shrink-0" />
+                                    <span className="text-sm font-semibold text-slate-900 dark:text-white">
+                                      Food to load
+                                      <span className="ml-2 font-normal text-slate-500 dark:text-slate-400 tabular-nums">
+                                        {manifest.menuItems.length} {manifest.menuItems.length === 1 ? "item" : "items"}
+                                        {" · "}
+                                        {manifest.menuItems.reduce((s, i) => s + i.quantity, 0)} portions
+                                      </span>
+                                    </span>
+                                  </span>
+                                </AccordionTrigger>
+                                <AccordionContent className="px-2 pb-3">
+                                  <ul className="space-y-2">
+                                    {manifest.menuItems.map((m) => (
+                                      <li
+                                        key={m.id}
+                                        className="flex items-start justify-between gap-3 p-2.5 rounded-md border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900"
+                                      >
+                                        <div className="min-w-0 flex-1">
+                                          <p className="text-sm font-medium text-slate-900 dark:text-white">{m.name}</p>
+                                          {m.description && (
+                                            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{m.description}</p>
+                                          )}
+                                          {m.special_instructions && (
+                                            <p className="text-xs text-rose-700 dark:text-rose-300 italic mt-1">
+                                              Note: {m.special_instructions}
+                                            </p>
+                                          )}
+                                        </div>
+                                        <Badge variant="outline" className="tabular-nums shrink-0">
+                                          x{m.quantity}
+                                        </Badge>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </AccordionContent>
+                              </AccordionItem>
+                            )}
+                            {manifest.equipment.length > 0 && (
+                              <AccordionItem value="equipment" className="border-0">
+                                <AccordionTrigger className="hover:no-underline py-3 px-2">
+                                  <span className="flex items-center gap-2 text-left">
+                                    <Package className="w-4 h-4 text-slate-400 dark:text-slate-500 shrink-0" />
+                                    <span className="text-sm font-semibold text-slate-900 dark:text-white">
+                                      Equipment to load
+                                      <span className="ml-2 font-normal text-slate-500 dark:text-slate-400 tabular-nums">
+                                        {manifest.equipment.length} {manifest.equipment.length === 1 ? "type" : "types"}
+                                        {" · "}
+                                        {manifest.equipment.reduce((s, e) => s + e.quantity, 0)} units
+                                      </span>
+                                    </span>
+                                  </span>
+                                </AccordionTrigger>
+                                <AccordionContent className="px-2 pb-3">
+                                  <ul className="space-y-2">
+                                    {manifest.equipment.map((e) => (
+                                      <li
+                                        key={e.id}
+                                        className="flex items-center justify-between gap-3 p-2.5 rounded-md border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900"
+                                      >
+                                        <p className="text-sm font-medium text-slate-900 dark:text-white">{e.name}</p>
+                                        <Badge variant="outline" className="tabular-nums shrink-0">
+                                          x{e.quantity}
+                                        </Badge>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </AccordionContent>
+                              </AccordionItem>
+                            )}
+                          </Accordion>
+                        </div>
+                      )}
+
                       {(() => {
                         // Per-stop gate (Bobby's brief): the page-level
                         // "Start shift" is for the driver's clock. The
@@ -660,6 +958,28 @@ export default function DriverRoutes() {
                                 <Navigation className="w-4 h-4 mr-2" />
                                 Navigate now
                               </Button>
+                              {/* Arrival step (merged from /tracking):
+                                  writes driver_assignments.status =
+                                  at_venue. Only offered while rolling
+                                  and before arrival is recorded; hidden
+                                  when no assignment row exists. */}
+                              {stopIsRolling && assignment && assignment.status !== "at_venue" && (
+                                <Button
+                                  onClick={() => void markArrived()}
+                                  disabled={markingArrived}
+                                  variant="outline"
+                                  className="w-full"
+                                  size="lg"
+                                >
+                                  <MapPin className="w-4 h-4 mr-2" />
+                                  {markingArrived ? "Updating..." : "Mark as arrived"}
+                                </Button>
+                              )}
+                              {stopIsRolling && assignment?.status === "at_venue" && (
+                                <div className="rounded-lg p-2.5 text-sm text-center bg-brand-primary/10 text-brand-primary border border-brand-primary/20 font-medium">
+                                  At venue. Hand over, then mark complete.
+                                </div>
+                              )}
                               <Button
                                 onClick={() => markStopComplete(currentStopIndex)}
                                 disabled={!stopIsRolling}
@@ -699,7 +1019,7 @@ export default function DriverRoutes() {
                       <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">Great work on finishing your route.</p>
                       <div className="rounded-lg p-4 bg-slate-50 border border-slate-200 dark:bg-slate-800 dark:border-slate-700">
                         <p className="text-2xl font-semibold tabular-nums mb-1 text-slate-900 dark:text-white">{tenantCurrency.format(estimatedEarnings, 0)}</p>
-                        <p className="text-sm text-slate-500 dark:text-slate-400">Total earnings</p>
+                        <p className="text-sm text-slate-500 dark:text-slate-400">Estimated earnings (see Earnings for the recorded amount)</p>
                       </div>
                     </div>
                   ) : (
@@ -719,8 +1039,9 @@ export default function DriverRoutes() {
                     Route efficiency
                   </h4>
                   <p className="text-sm text-slate-600 dark:text-slate-400">
-                    This optimised route cuts your drive distance by roughly <span className="font-semibold text-slate-900 dark:text-white">30%</span>,
-                    saving time and fuel while reducing carbon emissions.
+                    Stops are sequenced to reduce driving between deliveries and
+                    to hit each delivery window, saving time and fuel and cutting
+                    emissions.
                   </p>
                 </PortalCard>
               )}
@@ -976,5 +1297,18 @@ export default function DriverRoutes() {
         </AlertDialogContent>
       </AlertDialog>
     </DriverPageShell>
+  );
+}
+
+// Defence-in-depth: same guard recipe as the driver dashboard. The
+// page previously relied purely on useAuth().user for fetching, so a
+// logged-in non-driver hitting the URL rendered an empty board rather
+// than being bounced. Admin roles are admitted for support /
+// cross-tenant troubleshooting.
+export default function DriverRoutes() {
+  return (
+    <ProtectedRoute allowedRoles={[UserRole.DRIVER, UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN]}>
+      <DriverRoutesInner />
+    </ProtectedRoute>
   );
 }
