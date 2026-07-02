@@ -858,7 +858,7 @@ function AdminUsersPage() {
           <PageWorkbench />
 
           <div className="grid gap-5 xl:grid-cols-[320px_minmax(0,1fr)]">
-            <aside className="space-y-4 xl:sticky xl:top-6 xl:self-start">
+            <aside className="order-2 space-y-4 xl:order-1 xl:sticky xl:top-6 xl:self-start">
               <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
                 <div className="flex items-start justify-between gap-3">
                   <div>
@@ -924,7 +924,7 @@ function AdminUsersPage() {
               </section>
             </aside>
 
-            <main className="space-y-4">
+            <main className="order-1 space-y-4 xl:order-2">
               <section className="rounded-lg border border-slate-200 bg-white shadow-sm">
                 <div className="flex flex-col gap-3 border-b border-slate-200 p-4 lg:flex-row lg:items-center lg:justify-between">
                   <div>
@@ -1037,9 +1037,12 @@ function AdminUsersPage() {
                                     const Icon = config?.icon || UserCircle;
                                     const isPrimary = dept === normalizeRoleValue(targetUser.primary_department, primaryFallbackRole);
                                     return (
-                                      <Badge key={dept} className={`text-xs ${config?.color} ${isPrimary ? "ring-2 ring-offset-1 ring-slate-500" : ""}`}>
-                                        <Icon className="mr-1 h-3 w-3" />
-                                        {config?.label || dept}
+                                      <Badge
+                                        key={dept}
+                                        className={`max-w-full justify-start whitespace-normal text-left text-xs leading-4 ${config?.color} ${isPrimary ? "ring-2 ring-offset-1 ring-slate-500" : ""}`}
+                                      >
+                                        <Icon className="h-3 w-3 shrink-0" />
+                                        <span className="min-w-0">{config?.label || dept}</span>
                                       </Badge>
                                     );
                                   })
@@ -1084,12 +1087,12 @@ function AdminUsersPage() {
                             </div>
 
                             {editingUser !== targetUser.id && (
-                              <div className="flex flex-wrap justify-start gap-2 xl:justify-end">
+                              <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:justify-start xl:justify-end">
                                 <Button
                                   variant="outline"
                                   size="sm"
                                   onClick={() => handleEditUser(targetUser.id)}
-                                  className="h-9 text-sm"
+                                  className="h-9 w-full justify-center text-sm sm:w-auto"
                                 >
                                   <Edit className="mr-2 h-4 w-4" />
                                   Edit access
@@ -1101,7 +1104,7 @@ function AdminUsersPage() {
                                     onClick={() => setConfirmDeactivate(targetUser)}
                                     disabled={statusBusy === targetUser.id || targetUser.id === user?.id}
                                     title={targetUser.id === user?.id ? "You can't deactivate yourself" : "Stop this user from signing in"}
-                                    className="h-9 border-rose-300 text-sm text-rose-700 hover:bg-rose-50"
+                                    className="h-9 w-full justify-center border-rose-300 text-sm text-rose-700 hover:bg-rose-50 sm:w-auto"
                                   >
                                     <UserX className="mr-2 h-4 w-4" />
                                     Deactivate
@@ -1112,7 +1115,7 @@ function AdminUsersPage() {
                                     size="sm"
                                     onClick={() => handleStatusToggle(targetUser, true)}
                                     disabled={statusBusy === targetUser.id}
-                                    className="h-9 border-brand-primary/30 text-sm text-brand-primary hover:bg-brand-primary/10"
+                                    className="h-9 w-full justify-center border-brand-primary/30 text-sm text-brand-primary hover:bg-brand-primary/10 sm:w-auto"
                                   >
                                     <UserCheck className="mr-2 h-4 w-4" />
                                     {statusBusy === targetUser.id ? "Saving..." : "Reactivate"}

@@ -278,9 +278,9 @@ export default function StaffManagementPage() {
     const Icon = roleConfig.icon;
     
     return (
-      <Badge className={roleConfig.color}>
-        <Icon className="w-3 h-3 mr-1" />
-        {roleConfig.label}
+      <Badge className={`${roleConfig.color} max-w-full justify-start whitespace-normal text-left leading-4`}>
+        <Icon className="w-3 h-3 shrink-0" />
+        <span className="min-w-0">{roleConfig.label}</span>
       </Badge>
     );
   };
@@ -302,7 +302,7 @@ export default function StaffManagementPage() {
         actions={
           <Dialog open={isDialogOpen} onOpenChange={closeStaffDialog}>
             <DialogTrigger asChild>
-              <Button className="bg-slate-950 text-white hover:bg-slate-800">
+              <Button className="w-full bg-slate-950 text-white hover:bg-slate-800 sm:w-auto">
                 <UserPlus className="w-4 h-4 mr-2" />
                 Add staff
               </Button>
@@ -325,9 +325,9 @@ export default function StaffManagementPage() {
                   </DialogHeader>
                   <div className="space-y-3">
                     <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm space-y-1.5">
-                      <div><span className="text-slate-500">Email:</span> <strong>{createResult.email}</strong></div>
+                      <div className="break-all"><span className="text-slate-500">Email:</span> <strong>{createResult.email}</strong></div>
                       {createResult.tempPassword && (
-                        <div>
+                        <div className="break-all">
                           <span className="text-slate-500">Temporary password:</span>{" "}
                           <strong className="font-mono">{createResult.tempPassword}</strong>
                         </div>
@@ -347,11 +347,11 @@ export default function StaffManagementPage() {
                         Set up an email sender under <strong>Email settings</strong> so future invites send automatically.
                       </p>
                     )}
-                    <div className="flex justify-between gap-2 pt-2">
-                      <Button type="button" variant="outline" onClick={copyCreateResult} className="gap-1.5">
+                    <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-between">
+                      <Button type="button" variant="outline" onClick={copyCreateResult} className="w-full gap-1.5 sm:w-auto">
                         <Copy className="w-4 h-4" /> Copy details
                       </Button>
-                      <Button type="button" onClick={() => closeStaffDialog(false)}>
+                      <Button type="button" onClick={() => closeStaffDialog(false)} className="w-full sm:w-auto">
                         Done
                       </Button>
                     </div>
@@ -439,7 +439,7 @@ export default function StaffManagementPage() {
                           return (
                             <label
                               key={k.id}
-                              className="flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm cursor-pointer hover:border-blue-300"
+                              className="flex min-w-0 items-start gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm cursor-pointer hover:border-blue-300"
                             >
                               <input
                                 type="checkbox"
@@ -451,14 +451,16 @@ export default function StaffManagementPage() {
                                       : prev.filter((id) => id !== k.id),
                                   )
                                 }
-                                className="h-4 w-4"
+                                className="mt-0.5 h-4 w-4 shrink-0"
                               />
-                              <span className="font-medium">{k.name}</span>
-                              {k.address && (
-                                <span className="text-xs text-slate-500 truncate">
-                                  - {k.address}
-                                </span>
-                              )}
+                              <span className="min-w-0 flex-1">
+                                <span className="block font-medium leading-5">{k.name}</span>
+                                {k.address && (
+                                  <span className="block truncate text-xs text-slate-500">
+                                    {k.address}
+                                  </span>
+                                )}
+                              </span>
                             </label>
                           );
                         })}
@@ -473,11 +475,11 @@ export default function StaffManagementPage() {
                   </AlertDescription>
                 </Alert>
 
-                <div className="flex gap-3 pt-4">
+                <div className="flex flex-col-reverse gap-2 pt-4 sm:flex-row sm:gap-3">
                   <Button
                     type="submit"
                     disabled={saving}
-                    className="flex-1 bg-slate-950 text-white hover:bg-slate-800"
+                    className="w-full flex-1 bg-slate-950 text-white hover:bg-slate-800"
                   >
                     {saving ? (
                       <>
@@ -496,6 +498,7 @@ export default function StaffManagementPage() {
                     variant="outline"
                     onClick={() => closeStaffDialog(false)}
                     disabled={saving}
+                    className="w-full sm:w-auto"
                   >
                     Cancel
                   </Button>
@@ -566,15 +569,15 @@ export default function StaffManagementPage() {
                   return (
                     <div
                       key={member.id}
-                      className="flex items-center justify-between p-4 border rounded-lg hover:bg-slate-50 transition-colors gap-3"
+                      className="flex flex-col gap-4 rounded-xl border p-3 transition-colors hover:bg-slate-50 sm:flex-row sm:items-center sm:justify-between sm:p-4"
                     >
-                      <div className="flex items-center gap-4 min-w-0">
-                        <div className="w-11 h-11 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-center flex-shrink-0">
+                      <div className="flex w-full min-w-0 items-start gap-3 sm:items-center sm:gap-4">
+                        <div className="w-10 h-10 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-center flex-shrink-0 sm:h-11 sm:w-11">
                           <User className="w-5 h-5 text-slate-600" />
                         </div>
-                        <div className="min-w-0">
-                          <h3 className="font-semibold text-slate-900 truncate">{member.full_name}</h3>
-                          <p className="text-sm text-slate-600 truncate">{member.email}</p>
+                        <div className="min-w-0 flex-1">
+                          <h3 className="break-words font-semibold leading-5 text-slate-900 sm:truncate">{member.full_name}</h3>
+                          <p className="break-all text-sm leading-5 text-slate-600 sm:truncate">{member.email}</p>
                           <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
                             <span
                               className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[11px] font-medium ${activity.tone}`}
@@ -591,8 +594,10 @@ export default function StaffManagementPage() {
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-3 flex-shrink-0">
-                        {getRoleBadge(member.active_role)}
+                      <div className="flex w-full min-w-0 flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:justify-end sm:gap-3 sm:flex-shrink-0">
+                        <div className="min-w-0 sm:max-w-[190px]">
+                          {getRoleBadge(member.active_role)}
+                        </div>
 
                         {/* Pending = never signed in (invite not yet
                             accepted). Offer a resend; hidden once they've
@@ -603,7 +608,7 @@ export default function StaffManagementPage() {
                             size="sm"
                             disabled={resendingId === member.id}
                             onClick={() => handleResendInvite(member.id, member.full_name)}
-                            className="gap-1.5 border-amber-200 text-amber-800 hover:bg-amber-50"
+                            className="w-full justify-center gap-1.5 border-amber-200 text-amber-800 hover:bg-amber-50 sm:w-auto"
                           >
                             {resendingId === member.id ? (
                               <Loader2 className="w-4 h-4 animate-spin" />
@@ -619,9 +624,11 @@ export default function StaffManagementPage() {
                             variant="outline"
                             size="sm"
                             onClick={() => handleDeleteStaff(member.id, member.full_name)}
-                            className="text-rose-600 hover:text-rose-700 hover:bg-rose-50"
+                            aria-label={`Remove ${member.full_name || member.email}`}
+                            className="w-full justify-center gap-1.5 text-rose-600 hover:text-rose-700 hover:bg-rose-50 sm:w-auto"
                           >
                             <Trash2 className="w-4 h-4" />
+                            <span className="sm:hidden">Remove</span>
                           </Button>
                         )}
                       </div>
@@ -646,7 +653,7 @@ export default function StaffManagementPage() {
             </div>
             <div className="flex items-start gap-2">
               <CheckCircle2 className="w-5 h-5 text-amber-700 mt-0.5 flex-shrink-0" />
-              <p><strong>Send the login:</strong> use <code className="rounded bg-amber-100 px-1.5 py-0.5">/{company_slug}/login</code> and ask them to change the password after first sign-in.</p>
+              <p><strong>Send the login:</strong> use <code className="break-all rounded bg-amber-100 px-1.5 py-0.5">/{company_slug}/login</code> and ask them to change the password after first sign-in.</p>
             </div>
           </div>
         </PortalCard>
