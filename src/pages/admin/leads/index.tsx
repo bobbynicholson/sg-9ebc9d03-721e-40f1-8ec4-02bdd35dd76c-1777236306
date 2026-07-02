@@ -1,6 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -41,13 +40,12 @@ import { useRegionFilter } from "@/contexts/RegionFilterContext";
 import { RegionBadge } from "@/components/admin/RegionBadge";
 import { ChatBot } from "@/components/ChatBot";
 import { leadService } from "@/services/leadService";
-import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { supabase } from "@/integrations/supabase/client";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { staffOrderHref } from "@/lib/orderUrls";
-import { PageWorkbench, PortalHeader, PortalShell } from "@/components/portal/ui";
+import { PageWorkbench, PortalCard, PortalCardHeader, PortalHeader, PortalShell, StatTile } from "@/components/portal/ui";
 
 // Per-lead provenance summary - which quotes/orders/clients have
 // been spawned from this lead. Surfaced on the row so the catering
@@ -101,12 +99,14 @@ function orderStatusBadge(status: string | null | undefined): { label: string; c
   if (s === "cancelled" || s === "declined" || s === "rejected") {
     return { label: "Cancelled", classes: "text-rose-700 border-rose-200 bg-rose-50" };
   }
-  if (s === "confirmed") return { label: "Booked",    classes: "text-brand-primary border-brand-primary/20 bg-brand-primary/10" };
+  // Command-centre colour rule (2026-07-02): status pills carry
+  // SEMANTIC colours, never brand paint. Success states = emerald.
+  if (s === "confirmed") return { label: "Booked",    classes: "text-emerald-700 border-emerald-200 bg-emerald-50" };
   if (s === "preparing") return { label: "In prep",   classes: "text-slate-700 border-slate-200 bg-slate-50" };
-  if (s === "ready")     return { label: "Ready",     classes: "text-brand-primary border-brand-primary/20 bg-brand-primary/10" };
-  if (s === "in_transit") return { label: "Driving",  classes: "text-brand-primary border-brand-primary/20 bg-brand-primary/10" };
-  if (s === "delivered") return { label: "Delivered", classes: "text-brand-primary border-brand-primary/20 bg-brand-primary/10" };
-  if (s === "completed" || s === "paid") return { label: "Completed", classes: "text-brand-primary border-brand-primary/20 bg-brand-primary/10" };
+  if (s === "ready")     return { label: "Ready",     classes: "text-emerald-700 border-emerald-200 bg-emerald-50" };
+  if (s === "in_transit") return { label: "Driving",  classes: "text-emerald-700 border-emerald-200 bg-emerald-50" };
+  if (s === "delivered") return { label: "Delivered", classes: "text-emerald-700 border-emerald-200 bg-emerald-50" };
+  if (s === "completed" || s === "paid") return { label: "Completed", classes: "text-emerald-700 border-emerald-200 bg-emerald-50" };
   return { label: status[0].toUpperCase() + status.slice(1).replace(/_/g, " "), classes: "text-slate-700 border-slate-200 bg-slate-50" };
 }
 
@@ -1030,11 +1030,16 @@ function AdminLeadsInner() {
   );
 
   const getStatusColor = (status: string) => {
+    // Semantic status colours: success = emerald, pending-ish = amber,
+    // neutral = slate. "new" keeps the brand-active tint (it marks the
+    // active work state, not an outcome).
     const colors = {
       new: "bg-brand-primary/10 text-brand-primary",
-      contacted: "bg-yellow-100 text-yellow-800",
+      contacted: "bg-amber-100 text-amber-800",
       qualified: "bg-slate-100 text-slate-800",
-      converted: "bg-brand-primary/15 text-brand-primary",
+      quoted: "bg-slate-100 text-slate-800",
+      won: "bg-emerald-50 text-emerald-700",
+      converted: "bg-emerald-50 text-emerald-700",
       lost: "bg-slate-100 text-slate-800"
     };
     return colors[status as keyof typeof colors] || colors.new;
@@ -1224,74 +1229,41 @@ function AdminLeadsInner() {
               chip math does (a lead whose ONLY linked order is
               cancelled is archived). Total Leads also respects
               the region filter. */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-            <Card>
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-slate-600 flex items-center gap-1.5">Total Leads <InfoTooltip content={"Every lead on file for your company (or this branch if you've filtered), across every status."} /></p>
-                    <p className="text-2xl font-bold text-slate-900">{statusCounts.all}</p>
-                  </div>
-                  <div className="w-12 h-12 rounded-lg bg-brand-primary/10 flex items-center justify-center">
-                    <TrendingUp className="w-6 h-6 text-brand-primary" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-slate-600 flex items-center gap-1.5">New <InfoTooltip content={"Fresh leads that have just come in and have not been worked yet. Leads whose only linked order was cancelled are excluded - those land in Lost (archive)."} /></p>
-                    <p className="text-2xl font-bold text-brand-primary">
-                      {statusCounts.new}
-                    </p>
-                  </div>
-                  <div className="w-12 h-12 rounded-lg bg-brand-primary/10 flex items-center justify-center">
-                    <Plus className="w-6 h-6 text-brand-primary" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-slate-600 flex items-center gap-1.5">Qualified <InfoTooltip content={"Real opportunities that have been worked but not yet quoted."} /></p>
-                    <p className="text-2xl font-bold text-slate-600">
-                      {statusCounts.qualified}
-                    </p>
-                  </div>
-                  <div className="w-12 h-12 rounded-lg bg-slate-100 flex items-center justify-center">
-                    {/* Was bg-slate-100 on the icon itself, which left
-                        it invisible against the tile. */}
-                    <Banknote className="w-6 h-6 text-slate-600" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-slate-600 flex items-center gap-1.5">Won / Converted <InfoTooltip content={"Leads that turned into a confirmed booking."} /></p>
-                    <p className="text-2xl font-bold text-brand-primary">
-                      {statusCounts.won}
-                    </p>
-                  </div>
-                  <div className="w-12 h-12 rounded-lg bg-brand-primary/15 flex items-center justify-center">
-                    <Banknote className="w-6 h-6 text-brand-primary" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+          {/* Command-centre restructure (2026-07-02): the four KPI
+              cards moved onto the shared StatTile primitive so this
+              page matches the financial-dashboard exemplar. Same live
+              statusCounts source as the chip strip below, so tiles and
+              chips can never disagree. */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <StatTile
+              label="Total leads"
+              value={statusCounts.all}
+              icon={TrendingUp}
+              hint="Every status, current branch scope"
+            />
+            <StatTile
+              label="New"
+              value={statusCounts.new}
+              icon={Plus}
+              hint="Not worked yet; cancelled-order leads excluded"
+            />
+            <StatTile
+              label="Qualified"
+              value={statusCounts.qualified}
+              icon={UserCheck}
+              hint="Worked but not yet quoted"
+            />
+            <StatTile
+              label="Won / converted"
+              value={statusCounts.won}
+              icon={Banknote}
+              hint="Turned into a confirmed booking"
+            />
           </div>
 
-          <Card>
-            <CardHeader className="space-y-4">
+          {/* Toolbar: search + status chips grouped into ONE card per
+              the command-centre standard (was the list card's header). */}
+          <PortalCard className="mb-6 space-y-4">
               <div className="flex items-center gap-4">
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -1356,10 +1328,24 @@ function AdminLeadsInner() {
                   );
                 })}
               </div>
-            </CardHeader>
-            <CardContent>
+          </PortalCard>
+
+          <PortalCard className="mb-6">
+            <PortalCardHeader
+              title={loading ? "Leads" : `Leads (${filteredLeads.length})`}
+            />
               {loading ? (
-                <div className="text-center py-12 text-slate-600">Loading leads...</div>
+                // Skeleton rows INSIDE the shell so the nav + rail never
+                // disappear while the pipeline loads.
+                <div className="space-y-3">
+                  {[0, 1, 2].map((i) => (
+                    <div key={i} className="animate-pulse rounded-lg bg-slate-50 p-4 space-y-3">
+                      <div className="h-5 w-48 rounded bg-slate-200" />
+                      <div className="h-3 w-72 max-w-full rounded bg-slate-100" />
+                      <div className="h-3 w-56 max-w-full rounded bg-slate-100" />
+                    </div>
+                  ))}
+                </div>
               ) : filteredLeads.length === 0 ? (
                 <div className="text-center py-12 text-slate-600">
                   <TrendingUp className="w-16 h-16 mx-auto mb-4 text-slate-300" />
@@ -1372,6 +1358,12 @@ function AdminLeadsInner() {
                       <p className="text-sm text-slate-500 mt-1">
                         New enquiries land here automatically. Use the chips above to view archived leads.
                       </p>
+                      <Link href={withSlug("/admin/leads/new")} className="mt-4 inline-block">
+                        <Button>
+                          <Plus className="w-4 h-4 mr-2" />
+                          Add your first lead
+                        </Button>
+                      </Link>
                     </>
                   ) : (
                     <p>No leads match this filter.</p>
@@ -1523,11 +1515,11 @@ function AdminLeadsInner() {
                               const label = meta?.label ?? "Linked";
                               const classes = meta?.classes ?? "text-slate-700 border-slate-200 bg-slate-50 hover:bg-slate-100";
                               const hoverClasses = meta?.label === "Booked" || meta?.label === "Delivered" || meta?.label === "Completed"
-                                ? "hover:bg-brand-primary/15"
+                                ? "hover:bg-emerald-100"
                                 : meta?.label === "Pending"   ? "hover:bg-amber-100"
                                 : meta?.label === "Cancelled" ? "hover:bg-rose-100"
                                 : meta?.label === "In prep"   ? "hover:bg-slate-100"
-                                : meta?.label === "Ready" || meta?.label === "Driving" ? "hover:bg-brand-primary/10"
+                                : meta?.label === "Ready" || meta?.label === "Driving" ? "hover:bg-emerald-100"
                                 : "hover:bg-slate-100";
                               return (
                                 <Link
@@ -1881,8 +1873,7 @@ function AdminLeadsInner() {
                   })}
                 </div>
               )}
-            </CardContent>
-          </Card>
+          </PortalCard>
         </PortalShell>
 
         <Footer />
@@ -1977,7 +1968,11 @@ function AdminLeadsInner() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <ChatBot userRole="admin" companyId={user?.user_metadata?.company_id} />
+      {/* Audit fix (2026-07-02): user_metadata.company_id is only set
+          for accounts whose auth metadata was stamped at signup; the
+          canonical id lives on the profile-backed user.company_id.
+          The old prop left ChatBot company-less for most staff. */}
+      <ChatBot userRole="admin" companyId={user?.company_id} />
 
       {/* Bulk-import modal removed - imports live on /admin/contacts now. */}
 
@@ -2014,7 +2009,7 @@ function AdminLeadsInner() {
 // level rule. Region admin reads via RLS narrowing.
 export default function AdminLeads() {
   return (
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.SALES_ADMIN, UserRole.REGION_ADMIN]}>
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.OWNER, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.SALES_ADMIN, UserRole.REGION_ADMIN]}>
       <AdminLeadsInner />
     </ProtectedRoute>
   );

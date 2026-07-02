@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/ban-ts-comment */
-// @ts-nocheck
 /**
  * Recurring invoices - Wave 68.
  *
@@ -19,7 +17,7 @@ import Head from "next/head";
 import Link from "next/link";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { PortalShell, PortalHeader,
-  PageWorkbench,
+  PageWorkbench, StatTile,
 } from "@/components/portal/ui";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { toLocalISO } from "@/lib/localDate";
@@ -43,7 +41,7 @@ import {
 } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Pause, Play, Trash2, RefreshCw, Repeat, ArrowLeft, X, AlertCircle } from "lucide-react";
+import { Plus, Pause, Play, Trash2, RefreshCw, Repeat, ArrowLeft, X, AlertCircle, Banknote, CalendarClock } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
@@ -67,7 +65,7 @@ function emptyLine(): LineItem {
 // Money maths in integer cents: qty * price per line, summed, and only
 // divided back to rands at the display / insert boundary. Keeps the
 // stored total_amount free of float drift (e.g. 3 x 19.99).
-const toCents = (v) => Math.round(Number(v || 0) * 100);
+const toCents = (v: unknown) => Math.round(Number(v || 0) * 100);
 const lineTotalCents = (l: LineItem) => (Number(l.quantity) || 0) * toCents(l.unit_price);
 
 type Template = {
@@ -175,6 +173,15 @@ function RecurringInvoicesPageInner() {
       });
       return;
     }
+    // Positive confirmation too: pausing a billing schedule is a
+    // money-affecting action and deserves explicit feedback, not just
+    // a row that quietly fades.
+    toast({
+      title: t.active ? "Template paused" : "Template resumed",
+      description: t.active
+        ? `${t.template_name} will not generate invoices until you resume it.`
+        : `${t.template_name} resumes on its next scheduled run.`,
+    });
     load();
   };
 
@@ -360,6 +367,42 @@ function RecurringInvoicesPageInner() {
             </Card>
           )}
 
+          {/* Stat band (command-centre standard): live aggregates off
+              the loaded templates. Values recompute in integer cents;
+              display via the tenant money formatter. */}
+          {!loading && !loadError && rows.length > 0 && (() => {
+            const active = rows.filter((t) => t.active);
+            const paused = rows.length - active.length;
+            const perCycleCents = active.reduce((s, t) => s + toCents(t.total_amount), 0);
+            const nextRun = active
+              .map((t) => t.next_run_at)
+              .filter(Boolean)
+              .sort()[0] || null;
+            return (
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                <StatTile label="Templates" value={rows.length} icon={Repeat} />
+                <StatTile
+                  label="Active"
+                  value={active.length}
+                  hint={paused > 0 ? `${paused} paused` : "All templates running"}
+                  icon={Play}
+                />
+                <StatTile
+                  label="Billed per cycle"
+                  value={tenantMoney.format(perCycleCents / 100)}
+                  hint="Active templates only."
+                  icon={Banknote}
+                />
+                <StatTile
+                  label="Next run"
+                  value={nextRun ? formatLocalDate(nextRun, "-") : "-"}
+                  hint={nextRun ? "Earliest scheduled generation." : "No active schedule."}
+                  icon={CalendarClock}
+                />
+              </div>
+            );
+          })()}
+
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Your templates ({rows.length})</CardTitle>
@@ -383,7 +426,7 @@ function RecurringInvoicesPageInner() {
               )}
               <div className="space-y-2">
                 {rows.map((t) => (
-                  <div key={t.id} className={`flex items-center justify-between gap-3 p-3 rounded-lg border ${t.active ? "border-slate-200 bg-white" : "border-slate-200 bg-slate-50 opacity-70"}`}>
+                  <div key={t.id} className={`flex items-center justify-between gap-3 p-3 rounded-lg border transition-colors hover:bg-slate-50/70 dark:hover:bg-slate-800/40 ${t.active ? "border-slate-200 bg-white" : "border-slate-200 bg-slate-50 opacity-70"}`}>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-semibold text-slate-900 truncate">{t.template_name}</span>
@@ -496,7 +539,7 @@ function RecurringInvoicesPageInner() {
               </div>
               <div className="border border-slate-200 rounded-md overflow-x-auto">
                 <table className="w-full min-w-[420px] text-sm">
-                  <thead className="bg-slate-50 text-xs uppercase tracking-wider text-slate-500">
+                  <thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-500">
                     <tr>
                       <th className="text-left px-2 py-1.5">Item</th>
                       <th className="text-right px-2 py-1.5 w-20">Qty</th>

@@ -14,19 +14,23 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { PortalShell, PortalHeader,
-  PageWorkbench,
+  PageWorkbench, PortalCard, PortalCardHeader, StatTile,
 } from "@/components/portal/ui";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { formatZAR } from "@/lib/formatters";
-import { Activity, AlertTriangle, CheckCircle2, Loader2, Mail, RefreshCw, Send, Banknote } from "lucide-react";
+import { useTenantHref } from "@/lib/tenantUrl";
+import { Activity, AlertTriangle, CheckCircle2, ClipboardCheck, Loader2, Mail, MailX, RefreshCw, Send, Banknote } from "lucide-react";
 
 function MoneyHealthPage() {
   const { toast } = useToast();
+  // Tenant-slug wrapper so the per-issue "open order" links keep the
+  // company slug in the URL (a bare /admin/orders link drops it).
+  const { withSlug } = useTenantHref();
   const [loading, setLoading] = useState(true);
   const [draining, setDraining] = useState(false);
   const [money, setMoney] = useState<any | null>(null);
@@ -144,14 +148,62 @@ function MoneyHealthPage() {
           />
           <PageWorkbench />
 
+          {/* Live health aggregates. Tiles read straight off the two
+              feeds; while the first load is in flight we render
+              skeleton blocks INSIDE the shell so the rail never
+              disappears. A failed feed renders a dash, never a
+              healthy-looking 0. */}
+          {loading && !money && !email ? (
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6" aria-hidden="true">
+              {[0, 1, 2, 3].map((i) => (
+                <div key={i} className="h-28 animate-pulse rounded-xl border border-slate-200/90 bg-white/70 dark:border-slate-800 dark:bg-slate-900/60" />
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+              <StatTile
+                label="Orders scanned"
+                value={money ? money.scanned : "-"}
+                hint={money ? "Order, invoice and payment figures compared" : "Scan did not run"}
+                icon={ClipboardCheck}
+              />
+              <StatTile
+                label="Drift issues"
+                value={money ? issues.length : "-"}
+                hint={
+                  money
+                    ? issues.length === 0
+                      ? "Everything reconciles"
+                      : `${errorCount} error${errorCount === 1 ? "" : "s"}, ${issues.length - errorCount} warning${issues.length - errorCount === 1 ? "" : "s"}`
+                    : "Scan did not run"
+                }
+                icon={AlertTriangle}
+              />
+              <StatTile
+                label="Emails queued"
+                value={email ? email.queued : "-"}
+                hint={
+                  email
+                    ? email.oldestQueuedMinutes != null
+                      ? `Oldest waiting ${email.oldestQueuedMinutes}m`
+                      : "Nothing waiting"
+                    : "Health check failed"
+                }
+                icon={Mail}
+              />
+              <StatTile
+                label="Failed emails"
+                value={email ? email.failed : "-"}
+                hint={email ? `${email.sentLast24h} sent in the last 24 hours` : "Health check failed"}
+                icon={MailX}
+              />
+            </div>
+          )}
+
           {/* Email queue health */}
-          <Card className="mb-6">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Mail className="w-4 h-4" /> Email queue
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
+          <PortalCard className="mb-6">
+            <PortalCardHeader title={<><Mail className="w-4 h-4" /> Email queue</>} />
+            <div>
               {loading && !email ? (
                 <div className="py-4 text-sm text-slate-500 flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Loading...</div>
               ) : email ? (
@@ -170,7 +222,7 @@ function MoneyHealthPage() {
                       </Button>
                     )}
                     {email.queued === 0 && email.failed === 0 && (
-                      <span className="text-sm text-brand-primary inline-flex items-center gap-1"><CheckCircle2 className="w-4 h-4" /> All clear</span>
+                      <span className="text-sm text-emerald-600 inline-flex items-center gap-1"><CheckCircle2 className="w-4 h-4" /> All clear</span>
                     )}
                   </div>
                 </div>
@@ -181,22 +233,20 @@ function MoneyHealthPage() {
                   <Button variant="outline" size="sm" onClick={load} disabled={loading}>Retry</Button>
                 </div>
               )}
-            </CardContent>
-          </Card>
+            </div>
+          </PortalCard>
 
           {/* Money reconciliation */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Banknote className="w-4 h-4" /> Money reconciliation
-                {money && (
-                  issues.length === 0
-                    ? <Badge variant="outline" className="bg-brand-primary/10 text-brand-primary border-brand-primary/20 gap-1"><CheckCircle2 className="w-3 h-3" /> {money.scanned} orders reconcile</Badge>
-                    : <Badge variant="outline" className="bg-rose-50 text-rose-700 border-rose-200 gap-1"><AlertTriangle className="w-3 h-3" /> {money.affectedOrders} order{money.affectedOrders === 1 ? "" : "s"} need a look</Badge>
-                )}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
+          <PortalCard className="mb-6">
+            <PortalCardHeader
+              title={<><Banknote className="w-4 h-4" /> Money reconciliation</>}
+              action={money ? (
+                issues.length === 0
+                  ? <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 gap-1"><CheckCircle2 className="w-3 h-3" /> {money.scanned} orders reconcile</Badge>
+                  : <Badge variant="outline" className="bg-rose-50 text-rose-700 border-rose-200 gap-1"><AlertTriangle className="w-3 h-3" /> {money.affectedOrders} order{money.affectedOrders === 1 ? "" : "s"} need a look</Badge>
+              ) : undefined}
+            />
+            <div>
               {loading && !money ? (
                 <div className="py-4 text-sm text-slate-500 flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Scanning {/* */}orders...</div>
               ) : !money ? (
@@ -210,17 +260,17 @@ function MoneyHealthPage() {
                 </div>
               ) : issues.length === 0 ? (
                 <div className="py-8 text-center text-slate-500">
-                  <CheckCircle2 className="w-10 h-10 mx-auto mb-2 text-brand-primary" />
+                  <CheckCircle2 className="w-10 h-10 mx-auto mb-2 text-emerald-500" />
                   <p className="text-sm">Every order's order / invoice / payment figures agree. {errorCount === 0 ? "No drift." : ""}</p>
                 </div>
               ) : (
                 <div className="space-y-2">
                   {issues.map((i, idx) => (
-                    <div key={idx} className="flex items-start justify-between gap-3 p-3 rounded-lg border border-slate-200 dark:border-slate-800">
+                    <div key={idx} className="flex items-start justify-between gap-3 p-3 rounded-lg border border-slate-200 hover:bg-slate-50/70 dark:border-slate-800 dark:hover:bg-slate-800/40">
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <a href={`/admin/orders?orderId=${i.orderId}`} className="font-semibold text-slate-900 dark:text-white hover:underline">{i.orderNumber || i.orderId.slice(0, 8)}</a>
-                          {i.clientName && <span className="text-xs text-slate-500">{i.clientName}</span>}
+                          <Link href={withSlug(`/admin/orders?orderId=${i.orderId}`)} className="font-semibold text-slate-900 dark:text-white hover:underline">{i.orderNumber || i.orderId.slice(0, 8)}</Link>
+                          {i.clientName && <span className="max-w-[16rem] truncate text-xs text-slate-500">{i.clientName}</span>}
                           <Badge variant="outline" className={`text-[10px] ${i.severity === "error" ? "bg-rose-50 text-rose-700 border-rose-200" : "bg-amber-50 text-amber-800 border-amber-200"}`}>{i.kind.replace(/_/g, " ")}</Badge>
                         </div>
                         <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">{i.detail}</p>
@@ -233,8 +283,8 @@ function MoneyHealthPage() {
                   ))}
                 </div>
               )}
-            </CardContent>
-          </Card>
+            </div>
+          </PortalCard>
         </PortalShell>
         <Footer />
       </div>

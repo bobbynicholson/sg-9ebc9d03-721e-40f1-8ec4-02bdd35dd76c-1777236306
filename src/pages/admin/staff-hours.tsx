@@ -22,6 +22,7 @@ import { timeClockService } from "@/services/timeClockService";
 import { formatLocalDate } from "@/lib/localFormat";
 import { toLocalISO } from "@/lib/localDate";
 import { paymentLedgerService } from "@/services/paymentLedgerService";
+import { notificationService } from "@/services/notificationService";
 import { useToast } from "@/hooks/use-toast";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
@@ -163,11 +164,20 @@ function StaffHoursPage() {
     if (!user?.company_id) return;
     let cancelled = false;
     (async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("profiles")
         .select("id, full_name")
         .eq("company_id", user.company_id)
         .order("full_name", { ascending: true });
+      // A failed roster pull would render an empty staff Select in the
+      // manual-shift dialog with no explanation - log it so the gap is
+      // diagnosable instead of silently swallowed.
+      if (error) {
+        captureException(error, {
+          level: "warning",
+          tags: { companyId: user?.company_id, route: "/admin/staff-hours", step: "load_roster" },
+        });
+      }
       if (!cancelled) setRoster((data || []) as Array<{ id: string; full_name: string | null }>);
     })();
     return () => { cancelled = true; };
@@ -292,14 +302,41 @@ function StaffHoursPage() {
   const handleProcessPayment = async (staffId: string, sessionIds: string[]) => {
     setLoading(true);
     try {
-      await paymentLedgerService.processStaffPayment(
+      const ledgerEntry = await paymentLedgerService.processStaffPayment(
         staffId,
         sessionIds,
         paymentData.method,
         paymentData.reference,
         paymentData.notes
       );
-      
+
+      // Notify the staff member their wages were paid out. Best-effort
+      // (a notification failure must never roll back a recorded
+      // payment) and deduped on the ledger row so a double-fire can't
+      // spam the recipient. staff_work_sessions.staff_id references
+      // profiles.id, so it is a valid recipient_id.
+      try {
+        const entry = ledgerEntry as { id?: string; total_amount?: number | null; total_hours?: number | null } | null;
+        const amountCents = centsOf(entry?.total_amount);
+        const hours = Number(entry?.total_hours || 0);
+        await notificationService.createNotification({
+          company_id: user?.company_id,
+          recipient_id: staffId,
+          notification_type: "staff_wage_paid",
+          title: "Wages paid",
+          message: `A wage payment of ${fmtMoney(amountCents)} covering ${hours.toFixed(1)} hours was recorded for you (${paymentData.method.replace("_", " ")}).`,
+          priority: "normal",
+          related_entity_type: "staff_payment_ledger",
+          related_entity_id: entry?.id,
+          dedup: true,
+        });
+      } catch (notifyErr) {
+        captureException(notifyErr, {
+          level: "warning",
+          tags: { companyId: user?.company_id, route: "/admin/staff-hours", step: "notify_wage_paid" },
+        });
+      }
+
       setPaymentDialog(false);
       setPaymentData({ method: "cash", reference: "", notes: "" });
       await loadData();
@@ -347,6 +384,13 @@ function StaffHoursPage() {
       (sum, staff) => sum + sumEarningsCents(staff.unpaidSessions), 0),
     totalPaidCents: ledger.reduce((sum, payment) => sum + centsOf(payment.total_amount), 0),
   };
+
+  // Honest period copy on the tiles. Pre-fix the sub-lines read
+  // "Active this week" even when a custom range was applied, because
+  // `period` only tracks the week / month presets.
+  const periodLabel = rangeMode === "custom"
+    ? "in the selected range"
+    : period === "week" ? "in the last 7 days" : "in the last 30 days";
 
   // STH-B intel: open-shift anomalies. Any session with no
   // clock_out that started more than 14 hours ago is almost
@@ -455,7 +499,9 @@ function StaffHoursPage() {
                 const a = document.createElement("a");
                 a.href = url;
                 const stamp = toLocalISO(new Date());
-                a.download = `staff-hours_${period}_${stamp}.csv`;
+                // Filename tags the ACTIVE range mode; `period` lags
+                // behind when a custom window is applied.
+                a.download = `staff-hours_${rangeMode === "custom" ? `${customFrom}_to_${customTo}` : rangeMode}_${stamp}.csv`;
                 a.click();
                 URL.revokeObjectURL(url);
               }}
@@ -524,7 +570,7 @@ function StaffHoursPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{summary.totalStaff}</div>
-                <p className="text-xs text-muted-foreground">Active this {period}</p>
+                <p className="text-xs text-muted-foreground">Active {periodLabel}</p>
               </CardContent>
             </Card>
 
@@ -535,7 +581,7 @@ function StaffHoursPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{Number(summary.totalHours || 0).toFixed(1)}h</div>
-                <p className="text-xs text-muted-foreground">Worked this {period}</p>
+                <p className="text-xs text-muted-foreground">Worked {periodLabel}</p>
               </CardContent>
             </Card>
 
@@ -557,12 +603,15 @@ function StaffHoursPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-brand-primary">{fmtMoney(summary.totalPaidCents)}</div>
-                <p className="text-xs text-muted-foreground">This {period}</p>
+                <p className="text-xs text-muted-foreground">Paid {periodLabel}</p>
               </CardContent>
             </Card>
           </div>
 
-          <div className="flex items-center justify-between mb-6 gap-3 flex-wrap">
+          {/* Toolbar: range + sort + actions grouped into one card
+              (command-centre standard) instead of a floating strip. */}
+          <Card className="mb-6">
+            <CardContent className="p-4 flex items-center justify-between gap-3 flex-wrap">
             <div className="flex items-center gap-2 flex-wrap">
               {/* STH-C: range mode now includes Custom. Pre-STH-C
                   the period was locked to 7 or 30 days; payroll
@@ -641,7 +690,8 @@ function StaffHoursPage() {
                 {loading ? "Loading..." : "Refresh"}
               </Button>
             </div>
-          </div>
+            </CardContent>
+          </Card>
 
           {/* STH-C: clocked-vs-scheduled reconciliation tile.
               Surfaces the divergent-source-of-truth problem to the

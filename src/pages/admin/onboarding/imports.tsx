@@ -15,6 +15,7 @@
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { useEffect, useMemo, useState } from "react";
+import { useTenantHref } from "@/lib/tenantUrl";
 import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
@@ -32,7 +33,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { ChatBot } from "@/components/ChatBot";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
-import { PortalShell, PortalHeader, PageWorkbench } from "@/components/portal/ui";
+import { PortalShell, PortalHeader, PageWorkbench, StatTile } from "@/components/portal/ui";
 
 interface ImportJobRow {
   id: string;
@@ -66,8 +67,12 @@ const STATUS_META: Record<string, { label: string; tone: string }> = {
 const ROLLBACK_HOURS = 24;
 
 export default function ProtectedImportsHistory() {
+  // OWNER admitted alongside the admin tier: every /api/imports/*
+  // endpoint already allowlists owner, and the setup wizard (owner's
+  // first page) links here via "I have data to import first". Pre-fix
+  // the founder 403'd off the imports hub on day one.
   return (
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN]}>
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.OWNER, UserRole.COMPANY_ADMIN, UserRole.ADMIN]}>
       <ImportsHistoryPage />
     </ProtectedRoute>
   );
@@ -75,7 +80,13 @@ export default function ProtectedImportsHistory() {
 
 function ImportsHistoryPage() {
   const { user } = useAuth() as any;
-  const companyId = (user?.user_metadata?.company_id as string | undefined) || null;
+  // AuthContext puts company_id on the top-level user object; the
+  // user_metadata copy is only present when the auth payload carried
+  // it. Check both so the ChatBot never loses its tenant scope.
+  const companyId =
+    (user?.company_id as string | undefined) ||
+    (user?.user_metadata?.company_id as string | undefined) ||
+    null;
   const { toast } = useToast();
   const router = useRouter();
 
@@ -87,17 +98,18 @@ function ImportsHistoryPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
-  const slugPrefix = useMemo(() => {
-    if (typeof window === "undefined") return "";
-    const m = window.location.pathname.match(/^\/([^/]+)\/admin\//);
-    return m ? `/${m[1]}` : "";
-  }, []);
+  // Canonical tenant-slug prefixing (SSR-safe) instead of sniffing
+  // window.location, which rendered "" on the server pass.
+  const { withSlug } = useTenantHref();
 
   const load = async () => {
     setLoading(true);
     setLoadError(null);
     try {
-      const res = await fetch("/api/imports");
+      // The API defaults to 25 rows; ask for its max (100) so the
+      // "Total imports" stat tile doesn't quietly under-count once a
+      // tenant has run more than 25 jobs.
+      const res = await fetch("/api/imports?limit=100");
       const json = await res.json();
       if (!res.ok) throw new Error(json?.error || "Could not load imports");
       setJobs(json.jobs || []);
@@ -152,7 +164,9 @@ function ImportsHistoryPage() {
       if (!res.ok) throw new Error(json?.error || "Rollback failed");
       toast({
         title: "Rolled back",
-        description: `Removed ${json.clientsDeleted} clients + ${json.ordersDeleted} orders.`,
+        description: `Removed ${json.clientsDeleted} clients + ${json.ordersDeleted} orders`
+          + (json.leadsDeleted ? ` + ${json.leadsDeleted} leads` : "")
+          + ".",
       });
       load();
     } catch (e: any) {
@@ -245,7 +259,7 @@ function ImportsHistoryPage() {
               ) : undefined
             }
             actions={
-              <Link href={`${slugPrefix}/admin/onboarding/import`}>
+              <Link href={withSlug("/admin/onboarding/import")}>
                 <Button className="bg-brand-primary">
                   <Upload className="w-4 h-4 mr-1.5" /> New import
                 </Button>
@@ -254,30 +268,33 @@ function ImportsHistoryPage() {
           />
           <PageWorkbench />
 
-          {/* Stats */}
+          {/* Stats - shared StatTile primitives, real aggregates from
+              the loaded job list. Outcome values keep their SEMANTIC
+              colours (emerald good / amber in-progress / rose failed). */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            <Stat
+            <StatTile
               label="Total imports"
               value={stats.total}
-              tip={"Every import job ever started for this company, regardless of whether it finished."}
+              icon={FileSpreadsheet}
+              hint="Every import job started for this company"
             />
-            <Stat
+            <StatTile
               label="Completed"
-              value={stats.completed}
-              tone="emerald"
-              tip={"Imports that finished cleanly. The data is now live in your clients / orders pages."}
+              value={<span className="text-emerald-600 dark:text-emerald-400">{stats.completed}</span>}
+              icon={CheckCircle2}
+              hint="Finished cleanly, data is live"
             />
-            <Stat
+            <StatTile
               label="In flight"
-              value={stats.inFlight}
-              tone="amber"
-              tip={"Jobs you started but didn't finish. Click 'Resume' on a row below to pick up where you left off."}
+              value={<span className={stats.inFlight > 0 ? "text-amber-600 dark:text-amber-400" : undefined}>{stats.inFlight}</span>}
+              icon={Clock}
+              hint="Started but not committed, resume below"
             />
-            <Stat
+            <StatTile
               label="Failed"
-              value={stats.failed}
-              tone="rose"
-              tip={"Imports that hit an error. The summary on each row tells you what went wrong; you can re-run after fixing the file."}
+              value={<span className={stats.failed > 0 ? "text-rose-600 dark:text-rose-400" : undefined}>{stats.failed}</span>}
+              icon={AlertTriangle}
+              hint="Hit an error, each row says what went wrong"
             />
           </div>
 
@@ -292,7 +309,7 @@ function ImportsHistoryPage() {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
             <Link
-              href={`${slugPrefix}/admin/onboarding/clients`}
+              href={withSlug("/admin/onboarding/clients")}
               className="group rounded-xl border border-brand-primary/20 bg-gradient-to-br from-brand-primary/10 to-white p-4 hover:shadow-md transition-shadow flex flex-col"
             >
               <div className="flex items-center gap-2 mb-2">
@@ -314,7 +331,7 @@ function ImportsHistoryPage() {
               </p>
             </Link>
             <Link
-              href={`${slugPrefix}/admin/onboarding/import`}
+              href={withSlug("/admin/onboarding/import")}
               className="group rounded-xl border border-slate-200 bg-gradient-to-br from-slate-50 to-white p-4 hover:shadow-md transition-shadow flex flex-col"
             >
               <div className="flex items-center gap-2 mb-2">
@@ -336,7 +353,7 @@ function ImportsHistoryPage() {
               </p>
             </Link>
             <Link
-              href={`${slugPrefix}/admin/onboarding/receipts`}
+              href={withSlug("/admin/onboarding/receipts")}
               className="group rounded-xl border border-amber-200 bg-gradient-to-br from-amber-50 to-white p-4 hover:shadow-md transition-shadow flex flex-col"
             >
               <div className="flex items-center gap-2 mb-2">
@@ -388,7 +405,7 @@ function ImportsHistoryPage() {
                     Drop a spreadsheet of your existing clients + orders to get rolling.
                   </p>
                 </div>
-                <Link href={`${slugPrefix}/admin/onboarding/import`}>
+                <Link href={withSlug("/admin/onboarding/import")}>
                   <Button className="bg-brand-primary">
                     <Upload className="w-4 h-4 mr-1.5" /> Run your first import
                   </Button>
@@ -413,12 +430,18 @@ function ImportsHistoryPage() {
                     : 0;
                 const canRollback = j.status === "completed" && ageHours <= ROLLBACK_HOURS;
                 const commit = j.summary?.commit;
-                const inserted =
-                  (commit?.clients?.inserted || 0) + (commit?.orders?.inserted || 0);
-                const skipped =
-                  (commit?.clients?.skipped || 0) + (commit?.orders?.skipped || 0);
-                const errored =
-                  (commit?.clients?.errored || 0) + (commit?.orders?.errored || 0);
+                // Commit summaries carry a triad per entity (clients,
+                // orders, leads, quotes, invoices, payments). The old
+                // clients+orders-only sum under-reported every job that
+                // imported leads / quotes / invoices / payments, so the
+                // row's counts contradicted the commit screen's.
+                const sumAcross = (key: "inserted" | "updated" | "skipped" | "errored") =>
+                  ["clients", "orders", "leads", "quotes", "invoices", "payments"]
+                    .reduce((sum, entity) => sum + (Number(commit?.[entity]?.[key]) || 0), 0);
+                const inserted = sumAcross("inserted");
+                const updated = sumAcross("updated");
+                const skipped = sumAcross("skipped");
+                const errored = sumAcross("errored");
                 return (
                   <Card key={j.id} className="hover:shadow-md transition-shadow">
                     <CardContent className="p-4 flex flex-wrap items-center gap-4">
@@ -461,6 +484,9 @@ function ImportsHistoryPage() {
                           {commit && (
                             <>
                               <span className="text-emerald-600">{inserted} inserted</span>
+                              {updated > 0 && (
+                                <span className="text-emerald-600">{updated} updated</span>
+                              )}
                               {skipped > 0 && (
                                 <span className="text-slate-500">{skipped} skipped</span>
                               )}
@@ -517,7 +543,7 @@ function ImportsHistoryPage() {
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => router.push(`${slugPrefix}/admin/onboarding/import?jobId=${j.id}`)}
+                            onClick={() => router.push(withSlug(`/admin/onboarding/import?jobId=${j.id}`))}
                           >
                             Resume
                             <ArrowRight className="w-3.5 h-3.5 ml-1" />
@@ -568,24 +594,3 @@ function ImportsHistoryPage() {
   );
 }
 
-function Stat({
-  label, value, tone, tip,
-}: { label: string; value: number; tone?: "emerald" | "amber" | "rose"; tip?: string }) {
-  // Outcome tones stay semantic (emerald good / amber warn / rose bad),
-  // never rebranded to the tenant palette.
-  const valueClass =
-    tone === "emerald" ? "text-emerald-600" :
-    tone === "amber"   ? "text-amber-600"   :
-    tone === "rose"    ? "text-rose-600"    : "text-slate-900";
-  return (
-    <Card>
-      <CardContent className="p-4">
-        <p className="text-xs text-slate-600 mb-1 flex items-center gap-1.5">
-          {label}
-          {tip && <InfoTooltip content={tip} />}
-        </p>
-        <p className={`text-2xl font-bold ${valueClass}`}>{value}</p>
-      </CardContent>
-    </Card>
-  );
-}

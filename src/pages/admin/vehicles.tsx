@@ -23,6 +23,8 @@ import { UserRole } from "@/types/app";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { PortalShell, PortalHeader,
   PageWorkbench,
+  PortalCard,
+  StatTile,
 } from "@/components/portal/ui";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -37,7 +39,6 @@ import {
 import {
   Truck, Plus, Snowflake, Edit, Trash2, AlertCircle, Search, Flame,
   User, Building2, Users, AlertTriangle, X, RefreshCw,
-  type LucideIcon,
 } from "lucide-react";
 import Head from "next/head";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
@@ -658,30 +659,33 @@ function VehiclesPage() {
             </div>
           )}
 
-          <div className="mb-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
-            <VehicleMetricTile
-              label="Total fleet"
-              value={stats.total}
+          {/* Command-centre restructure: shared StatTile row. Company +
+              driver-owned are the visible breakdown of the fleet total,
+              so the strip always sums. */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <StatTile
+              label={<span className="inline-flex items-center gap-1">Total fleet <InfoTooltip content="Every active vehicle, company-owned and driver-owned together." /></span>}
+              value={loading ? "-" : stats.total}
+              hint="Company + driver-owned"
               icon={Truck}
-              tooltip="Every active vehicle, company-owned and driver-owned together."
             />
-            <VehicleMetricTile
+            <StatTile
               label="Company"
-              value={stats.company}
+              value={loading ? "-" : stats.company}
+              hint="Any driver can take these"
               icon={Building2}
-              tone="brand"
             />
-            <VehicleMetricTile
+            <StatTile
               label="Driver-owned"
-              value={stats.driverOwned}
+              value={loading ? "-" : stats.driverOwned}
+              hint="Only available with their driver"
               icon={User}
-              tone="amber"
             />
-            <VehicleMetricTile
+            <StatTile
               label="Refrigerated"
-              value={stats.refrigerated}
+              value={loading ? "-" : stats.refrigerated}
+              hint="Unlock cold-chain orders"
               icon={Snowflake}
-              tone="sky"
             />
           </div>
 
@@ -751,8 +755,8 @@ function VehiclesPage() {
             />
           ) : (
             <>
-          {/* Filter pills + search */}
-          <div className="rounded-lg border border-slate-200 bg-white shadow-sm mb-4 p-3 flex flex-col sm:flex-row gap-3">
+          {/* Filter pills + search - one toolbar card */}
+          <PortalCard className="mb-4 flex flex-col sm:flex-row gap-3 p-3" padded={false}>
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <input
@@ -798,7 +802,7 @@ function VehiclesPage() {
                 </button>
               ))}
             </div>
-          </div>
+          </PortalCard>
 
           {/* List */}
           <div className="rounded-lg border border-slate-200 bg-white shadow-sm overflow-hidden">
@@ -828,7 +832,7 @@ function VehiclesPage() {
             ) : (
               <div className="divide-y divide-slate-100">
                 {filtered.map(v => (
-                  <div key={v.id} className="px-4 py-3 flex items-center justify-between hover:bg-slate-50">
+                  <div key={v.id} className="px-4 py-3 flex items-center justify-between hover:bg-slate-50/70 dark:hover:bg-slate-800/40">
                     <div className="flex items-center gap-3 min-w-0 flex-1">
                       <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${
                         v.refrigerated ? "bg-blue-100" : v.has_warmer ? "bg-orange-100" : "bg-slate-100"
@@ -963,8 +967,8 @@ function VehiclesPage() {
                     onClick={() => setForm({ ...form, owner_kind: "company", driver_owner_id: "" })}
                     className={`px-3 py-2 rounded-md border text-sm flex items-center gap-2 ${
                       form.owner_kind === "company"
-                        ? "bg-blue-600 text-white border-blue-600"
-                        : "bg-white text-slate-700 border-slate-200 hover:border-blue-300"
+                        ? "bg-brand-primary text-white border-brand-primary"
+                        : "bg-white text-slate-700 border-slate-200 hover:border-brand-primary/40"
                     }`}
                   >
                     <Building2 className="w-4 h-4" /> Company-owned
@@ -974,8 +978,8 @@ function VehiclesPage() {
                     onClick={() => setForm({ ...form, owner_kind: "driver" })}
                     className={`px-3 py-2 rounded-md border text-sm flex items-center gap-2 ${
                       form.owner_kind === "driver"
-                        ? "bg-amber-500 text-white border-amber-500"
-                        : "bg-white text-slate-700 border-slate-200 hover:border-amber-300"
+                        ? "bg-brand-primary text-white border-brand-primary"
+                        : "bg-white text-slate-700 border-slate-200 hover:border-brand-primary/40"
                     }`}
                   >
                     <User className="w-4 h-4" /> Driver-owned
@@ -1354,43 +1358,9 @@ function VehiclesPage() {
   );
 }
 
-function VehicleMetricTile({
-  label,
-  value,
-  icon: Icon,
-  tooltip,
-  tone = "slate",
-}: {
-  label: string;
-  value: number;
-  icon: LucideIcon;
-  tooltip?: string;
-  tone?: "slate" | "brand" | "amber" | "sky";
-}) {
-  const toneClass = {
-    slate: "bg-slate-100 text-slate-600",
-    brand: "bg-brand-primary/10 text-brand-primary",
-    amber: "bg-amber-50 text-amber-700",
-    sky: "bg-sky-50 text-sky-700",
-  }[tone];
-
-  return (
-    <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-sm">
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <p className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-normal text-slate-500">
-            {label}
-            {tooltip && <InfoTooltip content={tooltip} />}
-          </p>
-          <p className="mt-1 text-lg font-semibold tabular-nums text-slate-950">{value}</p>
-        </div>
-        <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md ${toneClass}`}>
-          <Icon className="h-4 w-4" />
-        </span>
-      </div>
-    </div>
-  );
-}
+// VehicleMetricTile removed in the command-centre restructure; the
+// stat strip now uses the shared StatTile primitive from
+// @/components/portal/ui.
 
 /**
  * Utilisation rollup. Helps the dispatcher spot the truck nobody's
@@ -1475,7 +1445,7 @@ function UtilisationView({
                 const share = (r.plannedHours / totalsHours) * 100;
                 const isQuiet = r.runs === 0;
                 return (
-                  <tr key={r.vehicle.id} className={isQuiet ? "bg-amber-50/30" : ""}>
+                  <tr key={r.vehicle.id} className={`hover:bg-slate-50/70 dark:hover:bg-slate-800/40 ${isQuiet ? "bg-amber-50/30" : ""}`}>
                     <td className="px-4 py-2.5">
                       <div className="flex items-center gap-2 flex-wrap">
                         {r.vehicle.refrigerated
@@ -1539,7 +1509,9 @@ export default function ProtectedVehiclesPage() {
   return (
     // VEH-B (VEH-2): admit sales_admin (capability matrix for client
     // advisory) + region_admin (regional fleet via RLS narrowing).
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.SALES_ADMIN, UserRole.REGION_ADMIN]}>
+    // Command-centre audit: OWNER added, it was missing from the
+    // baseline admin tier with no documented reason.
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.OWNER, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.SALES_ADMIN, UserRole.REGION_ADMIN]}>
       <VehiclesPage />
     </ProtectedRoute>
   );

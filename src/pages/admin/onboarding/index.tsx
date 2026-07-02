@@ -145,7 +145,14 @@ function OnboardingWizard() {
   const { toast } = useToast();
 
   const companyId = profile?.company_id || user?.company_id;
-  const slug = (user as any)?.company_slug || (profile as any)?.companies?.slug || "";
+  // profile.companies is an object on single joins but an array on
+  // some fetch shapes (matches the handling in tenantUrl.ts). Take
+  // both so the finish redirect never silently drops the slug prefix.
+  const profileCompanies = (profile as any)?.companies;
+  const slug =
+    (user as any)?.company_slug
+    || (Array.isArray(profileCompanies) ? profileCompanies?.[0]?.slug : profileCompanies?.slug)
+    || "";
 
   const [step, setStep] = useState<StepId>("welcome");
   const [form, setForm] = useState<CompanyForm>(EMPTY_FORM);
@@ -339,11 +346,31 @@ function OnboardingWizard() {
   };
 
   if (loading) {
+    // Skeleton renders INSIDE the normal chrome (nav + shell + hero)
+    // so the rail never disappears while the companies row loads.
     return (
-      <div className="admin-page-shell admin-page-shell--center">
+      <>
+        <NoIndexMeta />
+        <Head><title>Set up your business - CateringMS</title></Head>
         <AdminNav />
-        <Loader2 className="w-8 h-8 animate-spin text-slate-400" />
-      </div>
+        <div className="admin-page-shell">
+          <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+            <PortalHeader
+              variant="hero"
+              title="Set up your business"
+              subtitle="Walk through the essentials so your quotes, invoices and client portal look right from day one. Every step saves as you go."
+              icon={Sparkles}
+            />
+            <PageWorkbench />
+            <Card>
+              <CardContent className="p-10 flex items-center justify-center gap-3 text-sm text-slate-500">
+                <Loader2 className="w-5 h-5 animate-spin text-slate-400" />
+                Loading your saved setup...
+              </CardContent>
+            </Card>
+          </PortalShell>
+        </div>
+      </>
     );
   }
 

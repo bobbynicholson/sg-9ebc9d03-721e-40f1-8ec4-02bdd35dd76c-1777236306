@@ -35,6 +35,8 @@ import { ChatBot } from "@/components/ChatBot";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCompanyKitchens } from "@/hooks/useCompanyKitchens";
+import { useTenantHref } from "@/lib/tenantUrl";
+import Link from "next/link";
 import { Building2 } from "lucide-react";
 import { PortalShell, PortalHeader, PageWorkbench } from "@/components/portal/ui";
 
@@ -67,8 +69,12 @@ interface RowShape {
 }
 
 export default function ProtectedImportPage() {
+  // OWNER admitted alongside the admin tier: every /api/imports/*
+  // endpoint already allowlists owner, and the owner-facing setup
+  // wizard funnels here through the imports hub. Pre-fix the founder
+  // 403'd off the AI importer on day one.
   return (
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN]}>
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.OWNER, UserRole.COMPANY_ADMIN, UserRole.ADMIN]}>
       <ImportPage />
     </ProtectedRoute>
   );
@@ -76,9 +82,16 @@ export default function ProtectedImportPage() {
 
 function ImportPage() {
   const { user } = useAuth() as any;
-  const companyId = (user?.user_metadata?.company_id as string | undefined) || null;
+  // AuthContext puts company_id on the top-level user object; the
+  // user_metadata copy is only present when the auth payload carried
+  // it. Check both so the ChatBot never loses its tenant scope.
+  const companyId =
+    (user?.company_id as string | undefined) ||
+    (user?.user_metadata?.company_id as string | undefined) ||
+    null;
   const { toast } = useToast();
   const router = useRouter();
+  const { withSlug } = useTenantHref();
 
   const [step, setStep] = useState<Step>("upload");
   const [jobId, setJobId] = useState<string | null>(null);
@@ -395,7 +408,9 @@ function ImportPage() {
       await refreshJob(jobId);
       toast({
         title: "Rolled back",
-        description: `Removed ${json.clientsDeleted} clients + ${json.ordersDeleted} orders.`,
+        description: `Removed ${json.clientsDeleted} clients + ${json.ordersDeleted} orders`
+          + (json.leadsDeleted ? ` + ${json.leadsDeleted} leads` : "")
+          + ".",
       });
     } catch (e: any) {
       toast({ title: "Rollback failed", description: e?.message || "", variant: "destructive" });
@@ -530,23 +545,32 @@ function ImportPage() {
                       and skips the AI mapping step entirely - the
                       wizard jumps straight to Preview. */}
                   <div className="flex flex-wrap gap-2 mb-2">
+                    {/* All six templates the API serves, not just two.
+                        The hero tooltip has promised "six templates +
+                        the combined workbook" since the templates
+                        shipped; the buttons now match the promise.
+                        Template files auto-map on upload and skip the
+                        AI mapping step entirely. */}
+                    {(["clients", "leads", "orders", "quotes", "invoices", "payments"] as const).map((t) => (
+                      <Button
+                        key={t}
+                        variant="outline"
+                        size="sm"
+                        onClick={() => { window.location.href = `/api/imports/templates/${t}`; }}
+                        className="gap-1.5 capitalize"
+                      >
+                        <FileSpreadsheet className="w-4 h-4" />
+                        {t} template
+                      </Button>
+                    ))}
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => { window.location.href = "/api/imports/templates/clients"; }}
+                      onClick={() => { window.location.href = "/api/imports/templates/onboarding-workbook"; }}
                       className="gap-1.5"
                     >
                       <FileSpreadsheet className="w-4 h-4" />
-                      Download clients template
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => { window.location.href = "/api/imports/templates/leads"; }}
-                      className="gap-1.5"
-                    >
-                      <FileSpreadsheet className="w-4 h-4" />
-                      Download leads template
+                      Combined workbook (all six tabs)
                     </Button>
                   </div>
                   <Input
@@ -623,11 +647,13 @@ function ImportPage() {
                                 }
                                 className="w-44 h-8 text-xs"
                               />
+                              {/* Confidence pill stays SEMANTIC: emerald
+                                  = confident, amber = eyeball this one. */}
                               <span
                                 className={`text-[10px] px-1.5 py-0.5 rounded ${
                                   lowConfidence
                                     ? "bg-amber-50 text-amber-800 border border-amber-200"
-                                    : "bg-brand-primary/10 text-brand-primary border border-brand-primary/20"
+                                    : "bg-emerald-50 text-emerald-700 border border-emerald-200"
                                 }`}
                               >
                                 {Math.round((dec.confidence || 0) * 100)}%
@@ -886,7 +912,7 @@ function ImportPage() {
                                             r.status === "skipped" ? "bg-slate-100 text-slate-700 border border-slate-200" :
                                             (r.preview_warnings?.length || 0) > 0
                                               ? "bg-amber-100 text-amber-800 border border-amber-200"
-                                              : "bg-brand-primary/15 text-brand-primary border border-brand-primary/20"
+                                              : "bg-emerald-100 text-emerald-700 border border-emerald-200"
                                           }`}
                                         >
                                           {r.status === "error" ? "error" :
@@ -1030,14 +1056,38 @@ function ImportPage() {
                 </CardTitle>
                 <CardDescription>
                   {(() => {
+                    // The commit summary carries a triad per entity
+                    // (clients, orders, leads, quotes, invoices,
+                    // payments). The old clients+orders-only line
+                    // under-reported every richer workbook import.
                     const c = job?.summary?.commit;
                     if (!c) return null;
-                    return `${c.clients?.inserted || 0} clients + ${c.orders?.inserted || 0} orders inserted · ${(c.clients?.skipped || 0) + (c.orders?.skipped || 0)} skipped (already on file).`;
+                    const entities = ["clients", "orders", "leads", "quotes", "invoices", "payments"] as const;
+                    const insertedParts = entities
+                      .map((e) => ({ e, n: Number((c as any)[e]?.inserted) || 0 }))
+                      .filter((p) => p.n > 0)
+                      .map((p) => `${p.n} ${p.e}`);
+                    const updated = entities.reduce((s, e) => s + (Number((c as any)[e]?.updated) || 0), 0);
+                    const skipped = entities.reduce((s, e) => s + (Number((c as any)[e]?.skipped) || 0), 0);
+                    const errored = entities.reduce((s, e) => s + (Number((c as any)[e]?.errored) || 0), 0);
+                    const parts = [
+                      insertedParts.length > 0 ? `${insertedParts.join(" + ")} inserted` : "Nothing inserted",
+                      updated > 0 ? `${updated} updated` : "",
+                      skipped > 0 ? `${skipped} skipped (already on file)` : "",
+                      errored > 0 ? `${errored} errored` : "",
+                    ].filter(Boolean);
+                    return `${parts.join(" · ")}.`;
                   })()}
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button asChild className="bg-brand-primary hover:bg-brand-primary/90">
+                    <Link href={withSlug("/admin/contacts")}>Open contacts</Link>
+                  </Button>
+                  <Button asChild variant="outline">
+                    <Link href={withSlug("/admin/orders")}>View orders</Link>
+                  </Button>
                   <Button variant="outline" onClick={runRollback} disabled={busy}>
                     <RotateCcw className="w-4 h-4 mr-2" /> Roll back this import
                   </Button>
@@ -1047,6 +1097,13 @@ function ImportPage() {
                 </div>
                 <p className="text-[11px] text-slate-500 mt-3">
                   Rollback removes only the rows this import created. Existing records and any edits since then are untouched.
+                </p>
+                <p className="text-[11px] text-slate-500 mt-1">
+                  Automated emails are paused on this batch. Green-light them from{" "}
+                  <Link href={withSlug("/admin/onboarding/imports")} className="font-medium underline underline-offset-2">
+                    Imports History
+                  </Link>{" "}
+                  when you are happy with the data.
                 </p>
               </CardContent>
             </Card>

@@ -9,7 +9,6 @@
  * layout untouched; only the form plumbing changed.
  */
 import { useEffect, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -31,7 +30,9 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useTenantHref } from "@/lib/tenantUrl";
-import { PageWorkbench, PortalHeader, PortalShell } from "@/components/portal/ui";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { UserRole } from "@/types/app";
+import { PageWorkbench, PortalCard, PortalCardHeader, PortalHeader, PortalShell } from "@/components/portal/ui";
 import { supabase } from "@/integrations/supabase/client";
 import { toLocalISO } from "@/lib/localDate";
 import { getEventCapacityForDate, type EventCapacityCheck, type EventCapacityStatus } from "@/lib/eventCapacity";
@@ -107,7 +108,19 @@ const EVENT_TYPE_SUGGESTIONS = [
   "Year-end function", "Conference", "Funeral", "Other private event",
 ];
 
+// Audit fix (2026-07-02): this page previously had NO ProtectedRoute
+// at all - middleware was the only gate. Component-level guard added
+// for defence-in-depth, matching /admin/leads (index) plus OWNER per
+// the baseline admin tier.
 export default function NewLead() {
+  return (
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.OWNER, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.SALES_ADMIN, UserRole.REGION_ADMIN]}>
+      <NewLeadInner />
+    </ProtectedRoute>
+  );
+}
+
+function NewLeadInner() {
   const router = useRouter();
   // Wave 27.3: tenant-slug wrapper for internal navigations.
   const { withSlug } = useTenantHref();
@@ -287,7 +300,6 @@ export default function NewLead() {
     <>
       <NoIndexMeta />
       <Head>
-        <meta name="robots" content="noindex, nofollow" />
         <title>New lead - CateringMS</title>
       </Head>
 
@@ -300,6 +312,39 @@ export default function NewLead() {
             title="New lead"
             subtitle="Capture a potential customer's enquiry so nothing gets lost before you quote. Only a name and email are required."
             icon={UserPlus}
+            meta={
+              <>
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                  {kitchens.length > 1
+                    ? `${kitchens.length} branches available`
+                    : "Single branch"}
+                </span>
+                {eventDate && dateLoad && !dateLoad.checking && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    <span
+                      className={`h-1.5 w-1.5 rounded-full ${
+                        dateLoad.status === "over_capacity"
+                          ? "bg-rose-400"
+                          : dateLoad.status === "at_capacity"
+                            ? "bg-amber-400"
+                            : "bg-emerald-400"
+                      }`}
+                    />
+                    {dateLoad.status === "over_capacity"
+                      ? "Date over capacity"
+                      : dateLoad.status === "at_capacity"
+                        ? "Date at capacity"
+                        : `${dateLoad.remaining} slot${dateLoad.remaining === 1 ? "" : "s"} left on this date`}
+                  </span>
+                )}
+                {watchedGuestCount && /^\d+$/.test(watchedGuestCount) && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    {watchedGuestCount} guests
+                  </span>
+                )}
+              </>
+            }
             actions={
               <Button asChild variant="outline" className="gap-2">
                 <Link href={withSlug("/admin/leads")}>
@@ -311,14 +356,12 @@ export default function NewLead() {
           />
           <PageWorkbench />
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Lead information</CardTitle>
-              <p className="text-sm text-slate-500 mt-1">
-                Only contact name and email are required. Fill in what you know. The rest can be added later when you build the quote.
-              </p>
-            </CardHeader>
-            <CardContent>
+          <PortalCard className="mb-6">
+            <PortalCardHeader title="Lead information" />
+            <p className="text-sm text-slate-500 -mt-2 mb-4">
+              Only contact name and email are required. Fill in what you know. The rest can be added later when you build the quote.
+            </p>
+            <div>
               <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
 
                 {/* ── Contact ───────────────────────────────────── */}
@@ -570,14 +613,16 @@ export default function NewLead() {
                   </Link>
                 </div>
               </form>
-            </CardContent>
-          </Card>
+            </div>
+          </PortalCard>
         </PortalShell>
 
         <Footer />
       </div>
 
-      <ChatBot userRole="admin" companyId={(user as any)?.user_metadata?.company_id} />
+      {/* Audit fix (2026-07-02): user.company_id is the canonical
+          tenant id; auth user_metadata is not reliably stamped. */}
+      <ChatBot userRole="admin" companyId={user?.company_id} />
     </>
   );
 }

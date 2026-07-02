@@ -14,15 +14,16 @@
  * Read-only. Mutations belong on the per-entity pages.
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Head from "next/head";
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toLocalISO } from "@/lib/localDate";
+import { useTenantHref } from "@/lib/tenantUrl";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { PortalShell, PortalHeader,
-  PageWorkbench,
+  PageWorkbench, StatTile,
 } from "@/components/portal/ui";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -36,7 +37,7 @@ import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { Footer } from "@/components/Footer";
-import { ScrollText, RefreshCw, ExternalLink, ChevronLeft, ChevronRight, Search, Download, Copy } from "lucide-react";
+import { ScrollText, RefreshCw, ExternalLink, ChevronLeft, ChevronRight, Search, Download, Copy, CalendarClock, Users, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface AuditRow {
@@ -98,6 +99,10 @@ const toneFor = (action: string): string => {
 function CompanyAuditLogsViewer() {
   const { user, loading: authLoading } = useAuth() as any;
   const { toast } = useToast();
+  // Restructure audit 2026-07-02: entity links must carry the tenant
+  // slug. Raw /admin/... hrefs dropped the ?company_slug context and
+  // landed the operator on the slugless route.
+  const { withSlug } = useTenantHref();
   const companyId = user?.company_id || null;
 
   const [rows, setRows] = useState<AuditRow[]>([]);
@@ -163,6 +168,36 @@ function CompanyAuditLogsViewer() {
   const [detailsSearch, setDetailsSearch] = useState<string>("");
   const [page, setPage] = useState<number>(0);
 
+  // Restructure audit 2026-07-02: debounce the three free-text filters.
+  // Every keystroke used to fire a fresh count+select against
+  // audit_logs; typing "refund" issued six queries and the out-of-order
+  // responses could leave a stale page on screen.
+  const [debounced, setDebounced] = useState({ action: "", entityId: "", details: "" });
+  useEffect(() => {
+    const t = setTimeout(
+      () =>
+        // Identity-preserving update: if nothing actually changed
+        // (mount tick, or typing then deleting back), keep the same
+        // object so the load effect does not refire for no reason.
+        setDebounced((prev) =>
+          prev.action === actionFilter && prev.entityId === entityIdFilter && prev.details === detailsSearch
+            ? prev
+            : { action: actionFilter, entityId: entityIdFilter, details: detailsSearch },
+        ),
+      400,
+    );
+    return () => clearTimeout(t);
+  }, [actionFilter, entityIdFilter, detailsSearch]);
+
+  // Details-search fallback state: PostgREST cannot ilike a jsonb
+  // column (the old `details::text` cast filter always failed with
+  // 42883 "operator does not exist: jsonb ~~*", so the "Details
+  // contain" box has never returned a row). We now scan the newest
+  // DETAILS_SCAN_CAP rows matching the other filters and match the
+  // JSON client-side. This flag tells the operator when the scan
+  // window was clipped.
+  const [detailsScanCapped, setDetailsScanCapped] = useState(false);
+
   // Phase 18 #6: retention hint. Compliance asks "how far back can
   // we actually go" all the time, and the answer is whatever the
   // earliest row in audit_logs for this company says. One cheap
@@ -200,31 +235,55 @@ function CompanyAuditLogsViewer() {
     }
   };
 
+  // Client-side scan window for the details search (see the
+  // detailsScanCapped comment above for why this is not server-side).
+  const DETAILS_SCAN_CAP = 2000;
+
+  const detailsMatches = (details: any, needle: string): boolean => {
+    if (details == null) return false;
+    try {
+      return JSON.stringify(details).toLowerCase().includes(needle);
+    } catch {
+      return false;
+    }
+  };
+
   const load = async () => {
     if (!companyId) return;
     setLoading(true);
     setLoadError(null);
     try {
+      const detailsNeedle = debounced.details.trim().toLowerCase();
       let q = supabase
         .from("audit_logs")
         .select("id, created_at, user_id, company_id, action, entity_type, entity_id, ip_address, details", { count: "exact" })
         .eq("company_id", companyId)
-        .order("created_at", { ascending: false })
-        .range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1);
+        .order("created_at", { ascending: false });
       if (entityTypeFilter !== "all") q = q.eq("entity_type", entityTypeFilter);
-      if (actionFilter.trim()) q = q.ilike("action", `%${actionFilter.trim()}%`);
-      if (entityIdFilter.trim()) q = q.eq("entity_id", entityIdFilter.trim());
-      if (detailsSearch.trim()) {
-        q = q.filter("details::text", "ilike", `%${detailsSearch.trim()}%`);
-      }
+      if (debounced.action.trim()) q = q.ilike("action", `%${debounced.action.trim()}%`);
+      if (debounced.entityId.trim()) q = q.eq("entity_id", debounced.entityId.trim());
       const since = sinceTimestamp();
       if (since) q = q.gte("created_at", since);
 
-      const { data, error, count } = await q;
-      if (error) throw error;
-      const list = (data || []) as AuditRow[];
+      let list: AuditRow[];
+      if (detailsNeedle) {
+        // Fetch the newest scan window matching the other filters,
+        // match the details JSON client-side, paginate the matches.
+        const { data, error } = await q.limit(DETAILS_SCAN_CAP);
+        if (error) throw error;
+        const scanned = (data || []) as AuditRow[];
+        const matched = scanned.filter((r) => detailsMatches(r.details, detailsNeedle));
+        setDetailsScanCapped(scanned.length >= DETAILS_SCAN_CAP);
+        setTotalCount(matched.length);
+        list = matched.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
+      } else {
+        const { data, error, count } = await q.range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1);
+        if (error) throw error;
+        setDetailsScanCapped(false);
+        setTotalCount(typeof count === "number" ? count : null);
+        list = (data || []) as AuditRow[];
+      }
       setRows(list);
-      setTotalCount(typeof count === "number" ? count : null);
 
       // Hydrate user labels for the rows we just pulled. Single IN
       // query so the operator sees a name instead of a UUID.
@@ -236,9 +295,13 @@ function CompanyAuditLogsViewer() {
           .select("id, full_name, email")
           .in("id", missing);
         if (profiles) {
-          const next = { ...profileMap };
-          for (const p of profiles as any[]) next[p.id] = p as ProfileOption;
-          setProfileMap(next);
+          // Functional update: two in-flight loads no longer drop each
+          // other's hydrated names (the old spread read a stale map).
+          setProfileMap((prev) => {
+            const next = { ...prev };
+            for (const p of profiles as any[]) next[p.id] = p as ProfileOption;
+            return next;
+          });
         }
       }
     } catch (e: any) {
@@ -258,10 +321,19 @@ function CompanyAuditLogsViewer() {
   };
 
   useEffect(() => {
-    if (authLoading || !companyId) return;
+    if (authLoading) return;
+    if (!companyId) {
+      // Edge case: an authenticated account with no company resolved
+      // (mid-onboarding, or a super admin without tenant context) used
+      // to sit on the "Loading..." card forever because load() bailed
+      // silently. Surface it as a real error state instead.
+      setLoading(false);
+      setLoadError("No company is linked to your account, so there is no audit trail to show. Sign out and back in, or contact support.");
+      return;
+    }
     void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authLoading, companyId, actionFilter, entityTypeFilter, entityIdFilter, sinceFilter, detailsSearch, page]);
+  }, [authLoading, companyId, debounced, entityTypeFilter, sinceFilter, page]);
 
   // Distinct entity_type values we know we write today, so the
   // dropdown surfaces real options without a round-trip to discover
@@ -272,6 +344,21 @@ function CompanyAuditLogsViewer() {
   ];
 
   const totalPages = totalCount != null ? Math.max(1, Math.ceil(totalCount / PAGE_SIZE)) : 1;
+
+  // Live aggregates for the StatTile band. Computed from the loaded
+  // page plus the exact server count - never hardcoded.
+  const pageStats = useMemo(() => {
+    const actors = new Set<string>();
+    let flagged = 0;
+    for (const r of rows) {
+      actors.add(r.user_id || "system");
+      if (/fail|error|refund|cancel|delete|removed/.test(r.action)) flagged += 1;
+    }
+    return { actors: actors.size, flagged };
+  }, [rows]);
+  const historyDays = oldestEntryAt
+    ? Math.max(0, Math.floor((Date.now() - new Date(oldestEntryAt).getTime()) / (24 * 60 * 60 * 1000)))
+    : null;
 
   // Phase 9 #9: CSV export of the currently filtered audit set.
   // Re-runs the same query without the page range so the export
@@ -294,15 +381,19 @@ function CompanyAuditLogsViewer() {
       if (entityTypeFilter !== "all") q = q.eq("entity_type", entityTypeFilter);
       if (actionFilter.trim()) q = q.ilike("action", `%${actionFilter.trim()}%`);
       if (entityIdFilter.trim()) q = q.eq("entity_id", entityIdFilter.trim());
-      if (detailsSearch.trim()) {
-        q = q.filter("details::text", "ilike", `%${detailsSearch.trim()}%`);
-      }
       const since = sinceTimestamp();
       if (since) q = q.gte("created_at", since);
       const { data, error } = await q;
       if (error) throw error;
-      const rows = (data || []) as AuditRow[];
+      let rows = (data || []) as AuditRow[];
+      // Details search matches client-side (PostgREST cannot ilike a
+      // jsonb column - the old cast filter made every detail-filtered
+      // export fail outright).
+      const needle = detailsSearch.trim().toLowerCase();
+      if (needle) rows = rows.filter((r) => detailsMatches(r.details, needle));
       if (rows.length === 0) {
+        // The button used to stop spinning with no file and no reason.
+        toast({ title: "Nothing to export", description: "No rows match the current filters." });
         return;
       }
       // The heads-up the HARD_CAP comment promised: tell the operator
@@ -335,7 +426,9 @@ function CompanyAuditLogsViewer() {
           esc(r.details),
         ].join(","));
       }
-      const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+      // UTF-8 BOM so Excel-ZA opens the file as UTF-8 instead of
+      // Latin-1 (same fix as the financial snapshot / calendar exports).
+      const blob = new Blob(["﻿" + lines.join("\n")], { type: "text/csv;charset=utf-8" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
@@ -396,13 +489,55 @@ function CompanyAuditLogsViewer() {
                 <Download className="w-4 h-4 mr-2" />
                 {exporting ? "Exporting..." : "Export CSV"}
               </Button>
-              <Button onClick={() => { setPage(0); void load(); }} variant="outline" size="sm">
-                <RefreshCw className="w-4 h-4 mr-2" /> Refresh
+              <Button
+                onClick={() => {
+                  // If we're already on page 1 the effect won't refire,
+                  // so call load() directly. When paging back, setPage
+                  // alone triggers the reload - calling load() as well
+                  // used to race a stale-page query against the fresh one.
+                  if (page === 0) void load();
+                  else setPage(0);
+                }}
+                variant="outline"
+                size="sm"
+                disabled={loading}
+              >
+                <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} /> Refresh
               </Button>
             </>
             }
           />
           <PageWorkbench />
+
+          {/* Command-centre stat band: exact filtered count from the
+              server plus page-level aggregates. */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <StatTile
+              label="Matching rows"
+              icon={ScrollText}
+              value={loading ? "..." : (totalCount != null ? totalCount.toLocaleString() : "0")}
+              hint="Rows matching the current filters"
+            />
+            <StatTile
+              label="History retained"
+              icon={CalendarClock}
+              value={historyDays != null ? `${historyDays}d` : "..."}
+              hint={oldestEntryAt ? `Earliest entry ${fmtTs(oldestEntryAt)}` : "No entries on file yet"}
+            />
+            <StatTile
+              label="Actors on page"
+              icon={Users}
+              value={loading ? "..." : pageStats.actors}
+              hint="Distinct users behind the rows shown"
+            />
+            <StatTile
+              label="Flagged on page"
+              icon={AlertTriangle}
+              value={loading ? "..." : pageStats.flagged}
+              hint="Failures, refunds, cancellations, deletions"
+            />
+          </div>
+
           <div className="space-y-6">
             {loadError && (
               <div className="rounded-lg border border-rose-200 bg-white p-5 shadow-sm">
@@ -413,17 +548,16 @@ function CompanyAuditLogsViewer() {
                 </Button>
               </div>
             )}
-            {oldestEntryAt && (() => {
-              const days = Math.max(
-                0,
-                Math.floor((Date.now() - new Date(oldestEntryAt).getTime()) / (24 * 60 * 60 * 1000)),
-              );
-              return (
-                <p className="text-xs text-slate-500">
-                  Earliest entry on file: {fmtTs(oldestEntryAt)} ({days} day{days === 1 ? "" : "s"} of history retained).
+            {detailsScanCapped && !loading && !loadError && (
+              <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+                <AlertTriangle className="w-4 h-4 shrink-0 text-amber-700" />
+                <p>
+                  Details search scanned the newest {DETAILS_SCAN_CAP.toLocaleString()} rows matching your
+                  other filters. Older matches may be missing - narrow the time window or add an action or
+                  entity filter for full coverage.
                 </p>
-              );
-            })()}
+              </div>
+            )}
 
             <Card>
               <CardHeader className="pb-3">
@@ -624,7 +758,15 @@ function CompanyAuditLogsViewer() {
               </CardHeader>
               <CardContent>
                 {loading ? (
-                  <div className="text-center py-16 text-slate-500 text-sm">Loading audit rows...</div>
+                  // Skeleton keeps the shell + rail in place while rows load.
+                  <div className="space-y-2 py-2" aria-busy="true" aria-label="Loading audit rows">
+                    {Array.from({ length: 6 }).map((_, i) => (
+                      <div
+                        key={i}
+                        className="h-16 animate-pulse rounded-md border border-slate-200 bg-slate-100/80 dark:border-slate-800 dark:bg-slate-800/50"
+                      />
+                    ))}
+                  </div>
                 ) : loadError ? (
                   <div className="text-center py-16 text-slate-500 text-sm">
                     The audit trail could not be fetched. Use Retry above.
@@ -681,7 +823,7 @@ function CompanyAuditLogsViewer() {
                               </button>
                             )}
                             {href && (
-                              <Link href={href} className="text-blue-600 hover:underline inline-flex items-center gap-1">
+                              <Link href={withSlug(href)} className="text-brand-primary hover:underline inline-flex items-center gap-1">
                                 Open <ExternalLink className="w-3 h-3" />
                               </Link>
                             )}

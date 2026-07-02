@@ -401,6 +401,22 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       dry_run: dryRun,
     };
 
+    // Quarantine stamp (mirrors /api/onboarding/clients/bulk). Every
+    // freshly INSERTED record carries imported_at + a 7-day
+    // comms_paused_until so automated sequences (welcome, lead
+    // auto-reply, after-sales, SLA/event reminders) don't fire on
+    // historical data the moment it lands. The owner green-lights the
+    // batch early from /admin/onboarding/imports, which calls
+    // enable_comms_for_import_job to clear the pause on
+    // clients/leads/orders/quotes for this job. Updates of existing
+    // records deliberately do NOT get re-paused - they were already
+    // live in the CRM.
+    const COMMS_PAUSE_DAYS = 7;
+    const importedAtIso = new Date().toISOString();
+    const commsPausedUntilIso = new Date(
+      Date.now() + COMMS_PAUSE_DAYS * 24 * 3600 * 1000,
+    ).toISOString();
+
     // Four passes in dependency order: clients first so orders +
     // quotes can resolve client_id; leads runs independently (no FK
     // to clients/orders). Within a single commit batch the passes
@@ -541,6 +557,10 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           return;
         }
 
+        // Fresh insert only: quarantine automated comms for 7 days.
+        payload.imported_at = importedAtIso;
+        payload.comms_paused_until = commsPausedUntilIso;
+
         const { data: inserted, error } = await supabase
           .from("clients")
           .insert(payload)
@@ -609,6 +629,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
               is_active: true,
               import_job_id: jobId,
               imported_filename: importedFilename,
+              imported_at: importedAtIso,
+              comms_paused_until: commsPausedUntilIso,
               notes: "Auto-created from order import - no matching client row in the sheet.",
             })
             .select("id")
@@ -659,6 +681,11 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
               : "confirmed"),
           import_job_id: jobId,
           imported_filename: importedFilename,
+          // Quarantine: imported (historical) orders must not trigger
+          // SLA monitors / event-approaching reminders / after-sales
+          // sequences until the batch is green-lit.
+          imported_at: importedAtIso,
+          comms_paused_until: commsPausedUntilIso,
         };
 
         if (dryRun) {
@@ -769,6 +796,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
               is_active: true,
               import_job_id: jobId,
               imported_filename: importedFilename,
+              imported_at: importedAtIso,
+              comms_paused_until: commsPausedUntilIso,
               notes: "Auto-created from invoice import - no matching client row in the sheet.",
             })
             .select("id")
@@ -1097,6 +1126,10 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           notes: mapped.notes || null,
           import_job_id: jobId,
           imported_filename: importedFilename,
+          // Quarantine: enable_comms_for_import_job clears this once
+          // the operator green-lights the batch.
+          imported_at: importedAtIso,
+          comms_paused_until: commsPausedUntilIso,
           external_source: "import",
         };
 
@@ -1200,6 +1233,11 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           summary.leads.inserted += 1;
           return;
         }
+
+        // Fresh insert only: quarantine automated comms for 7 days
+        // (lead auto-reply / nurture sequences check these columns).
+        payload.imported_at = importedAtIso;
+        payload.comms_paused_until = commsPausedUntilIso;
 
         const { data: inserted, error } = await supabase
           .from("leads")
@@ -1324,6 +1362,14 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       }
     }
 
+    // Mirror /api/onboarding/clients/bulk: surface the quarantine
+    // window so the result screen's "automated emails are paused"
+    // copy is backed by the response, not just assumed. Only counts
+    // fresh inserts - updates/skips of existing records aren't paused.
+    const pausedInserts =
+      summary.clients.inserted + summary.leads.inserted +
+      summary.orders.inserted + summary.quotes.inserted;
+
     return res.status(200).json({
       ok: true,
       summary,
@@ -1331,6 +1377,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       remaining: remainingPending,
       more: !isLastBatch,
       erroredRows,
+      comms_paused_for_days: (!dryRun && pausedInserts > 0) ? COMMS_PAUSE_DAYS : 0,
+      comms_paused_until: (!dryRun && pausedInserts > 0) ? commsPausedUntilIso : null,
     });
   } catch (outer: any) {
     console.error("imports/[id]/commit handler crashed:", outer);

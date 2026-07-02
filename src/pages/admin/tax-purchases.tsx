@@ -428,7 +428,81 @@ function TaxPurchasesPage() {
               </Card>
             )}
 
+            {/* WINDOW PICKER - stays mounted through reloads (it is
+                what triggers them), so it lives above the loading
+                gate. */}
             {!loadError && (
+            <Card className="mb-4">
+              <CardContent className="py-3 px-4 flex flex-wrap items-center gap-3">
+                <span className="text-xs uppercase tracking-wide text-slate-500 font-semibold">Window</span>
+                <div className="flex flex-wrap gap-1 rounded-lg border border-slate-200 bg-white p-1 text-xs">
+                  {([
+                    { id: "this_month",   label: "This month" },
+                    { id: "this_quarter", label: "This quarter" },
+                    { id: "this_year",    label: "Calendar year" },
+                    // TAX-B: SA tax year (1 Mar - 28 Feb). What
+                    // accountants actually file against.
+                    { id: "tax_year",     label: "SA tax year" },
+                    { id: "all",          label: "All time" },
+                  ] as const).map((t) => (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => setWindowKind(t.id)}
+                      className={`px-3 py-1.5 rounded-md ${
+                        windowKind === t.id
+                          ? "bg-brand-primary text-white font-medium"
+                          : "text-slate-600 hover:bg-slate-50"
+                      }`}
+                    >
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
+                {categoryFilter && (
+                  <button
+                    type="button"
+                    onClick={() => setCategoryFilter(null)}
+                    className="ml-auto text-xs text-blue-700 hover:underline"
+                  >
+                    Clear category filter: {categoryFilter}
+                  </button>
+                )}
+              </CardContent>
+            </Card>
+            )}
+
+            {/* Loading skeleton INSIDE the shell: pre-fix the summary
+                strip and SARS card rendered live off an empty receipts
+                array during the fetch, so the page flashed a wall of
+                confident zeros ("0 slips", "R0 deductible", "No slips
+                in this window yet") before the real figures landed. */}
+            {!loadError && loading && (
+              <div aria-hidden="true">
+                <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3 mb-4">
+                  {[0, 1, 2, 3, 4].map((i) => (
+                    <Card key={i}>
+                      <CardContent className="py-4 px-4">
+                        <div className="h-3 w-20 rounded bg-slate-200 animate-pulse dark:bg-slate-700" />
+                        <div className="mt-2 h-7 w-24 rounded bg-slate-200 animate-pulse dark:bg-slate-700" />
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-4">
+                  {[0, 1].map((i) => (
+                    <Card key={i} className={i === 1 ? "lg:col-span-2" : undefined}>
+                      <CardContent className="py-4 px-4">
+                        <div className="h-3 w-28 rounded bg-slate-200 animate-pulse dark:bg-slate-700" />
+                        <div className="mt-3 h-16 w-full rounded bg-slate-100 animate-pulse dark:bg-slate-800" />
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {!loadError && !loading && (
             <>
             {/* TAX-B: page-level mismatch + override banner. Promotes
                 the per-slip rose chip to a louder warning so the
@@ -647,46 +721,6 @@ function TaxPurchasesPage() {
               </Card>
             </div>
 
-            {/* WINDOW PICKER */}
-            <Card className="mb-4">
-              <CardContent className="py-3 px-4 flex flex-wrap items-center gap-3">
-                <span className="text-xs uppercase tracking-wide text-slate-500 font-semibold">Window</span>
-                <div className="flex flex-wrap gap-1 rounded-lg border border-slate-200 bg-white p-1 text-xs">
-                  {([
-                    { id: "this_month",   label: "This month" },
-                    { id: "this_quarter", label: "This quarter" },
-                    { id: "this_year",    label: "Calendar year" },
-                    // TAX-B: SA tax year (1 Mar - 28 Feb). What
-                    // accountants actually file against.
-                    { id: "tax_year",     label: "SA tax year" },
-                    { id: "all",          label: "All time" },
-                  ] as const).map((t) => (
-                    <button
-                      key={t.id}
-                      type="button"
-                      onClick={() => setWindowKind(t.id)}
-                      className={`px-3 py-1.5 rounded-md ${
-                        windowKind === t.id
-                          ? "bg-brand-primary text-white font-medium"
-                          : "text-slate-600 hover:bg-slate-50"
-                      }`}
-                    >
-                      {t.label}
-                    </button>
-                  ))}
-                </div>
-                {categoryFilter && (
-                  <button
-                    type="button"
-                    onClick={() => setCategoryFilter(null)}
-                    className="ml-auto text-xs text-blue-700 hover:underline"
-                  >
-                    Clear category filter: {categoryFilter}
-                  </button>
-                )}
-              </CardContent>
-            </Card>
-
             {/* DEDUCTIBLE BREAKDOWN BY CATEGORY */}
             <Card className="mb-4">
               <CardContent className="py-4 px-4">
@@ -704,7 +738,7 @@ function TaxPurchasesPage() {
                 ) : (
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
-                      <thead className="text-xs uppercase tracking-wide text-slate-500 border-b border-slate-200">
+                      <thead className="text-[10px] uppercase tracking-wide text-slate-500 border-b border-slate-200">
                         <tr>
                           <th className="text-left py-2 pr-3">Category</th>
                           <th className="text-right py-2 px-3">Lines</th>
@@ -1002,6 +1036,10 @@ function LineRow({
 
 export default function ProtectedTaxPurchasesPage() {
   return (
+    // Deliberately finance-gated: UserRole.ADMIN covers region_admin +
+    // sales_admin, who must not see company-wide deductible spend and
+    // VAT claim figures. Follows the canAccessFinance convention used
+    // by /admin/wages and /admin/staff-hours.
     <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.OWNER, UserRole.COMPANY_ADMIN]}>
       <TaxPurchasesPage />
     </ProtectedRoute>

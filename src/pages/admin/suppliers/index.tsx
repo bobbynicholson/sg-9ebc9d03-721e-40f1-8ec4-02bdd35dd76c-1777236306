@@ -19,7 +19,7 @@ import { useEffect, useMemo, useState } from "react";
 import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { Card, CardContent } from "@/components/ui/card";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -48,10 +48,16 @@ import { supplierService, type SupplierWithStats } from "@/services/supplierServ
 import { useTenantHref } from "@/lib/tenantUrl";
 import { supabase } from "@/integrations/supabase/client";
 import { captureException } from "@/lib/observability";
-import { PageWorkbench, PortalHeader, PortalShell } from "@/components/portal/ui";
+import { formatZAR } from "@/lib/formatters";
+import {
+  PageWorkbench, PortalCard, PortalHeader, PortalShell, StatTile,
+} from "@/components/portal/ui";
 
+// Money display goes through formatZAR (the canonical ZAR formatter)
+// so this page renders the same "R 15 453" shape as every other
+// admin surface. List figures stay whole rand for scanability.
 const fmtR = (v: number | null | undefined) =>
-  v == null ? "-" : `R ${Number(v).toLocaleString("en-ZA", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+  v == null ? "-" : formatZAR(v, { decimals: 0 });
 
 const relativeTime = (iso: string | null) => {
   if (!iso) return "never";
@@ -257,7 +263,10 @@ function SuppliersList() {
                   </span>
                   {totals.stale > 0 && (
                     <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
-                      <span className="h-1.5 w-1.5 rounded-full bg-rose-400" />
+                      {/* Stale is a warning (no buy in 90d), not a
+                          critical state - amber per the semantic
+                          colour rule. */}
+                      <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
                       {totals.stale} stale
                     </span>
                   )}
@@ -293,40 +302,49 @@ function SuppliersList() {
           {/* Surfaced load failure with a retry path - never a silent
               empty list. */}
           {loadError && (
-            <div className="mb-5 rounded-lg border border-rose-200 bg-white p-5 shadow-sm">
-              <h2 className="text-base font-bold text-rose-900 mb-1">Couldn't load suppliers</h2>
-              <p className="text-sm text-slate-600 mb-3">{loadError}</p>
-              <Button onClick={reload} size="sm" disabled={loading} className="bg-brand-primary text-white hover:bg-brand-primary/90">
-                Retry
-              </Button>
-            </div>
+            <Alert variant="destructive" className="mb-6 bg-white dark:bg-slate-900/95">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertTitle>Couldn't load suppliers</AlertTitle>
+              <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
+                <span>{loadError}</span>
+                <Button onClick={reload} size="sm" variant="outline" disabled={loading}>
+                  Retry
+                </Button>
+              </AlertDescription>
+            </Alert>
           )}
 
-          {/* Top stat tiles. Rand tiles are gated behind finance-vis. */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
-            <StatTile label="Active suppliers" value={`${totals.active} / ${totals.all}`} icon={Building2} />
+          {/* Top stat tiles: real aggregates from the loaded list.
+              Rand tiles are gated behind finance-vis. */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             <StatTile
-              label="Stale (no buy in 90d)"
+              label="Active suppliers"
+              value={`${totals.active} / ${totals.all}`}
+              hint="Active of all on file"
+              icon={Building2}
+            />
+            <StatTile
+              label="Stale suppliers"
               value={`${totals.stale}`}
+              hint="No purchase in the last 90 days"
               icon={AlertTriangle}
-              accent={totals.stale > 0 ? "rose" : "slate"}
             />
             {canSeeFinance ? (
               <>
-                <StatTile label="Spend last 90d" value={fmtR(totals.total90)} icon={TrendingUp} accent="emerald" />
-                <StatTile label="Spend last 365d" value={fmtR(totals.total365)} icon={Calendar} />
+                <StatTile label="Spend last 90d" value={fmtR(totals.total90)} hint="Receipts + stock-in, all suppliers" icon={TrendingUp} />
+                <StatTile label="Spend last 365d" value={fmtR(totals.total365)} hint="Rolling year" icon={Calendar} />
               </>
             ) : (
               <>
-                <StatTile label="Last 90d" value="hidden" icon={TrendingUp} muted />
-                <StatTile label="Last 365d" value="hidden" icon={Calendar} muted />
+                <StatTile label="Spend last 90d" value="Hidden" hint="Visible to finance roles only" icon={TrendingUp} />
+                <StatTile label="Spend last 365d" value="Hidden" hint="Visible to finance roles only" icon={Calendar} />
               </>
             )}
           </div>
 
-          {/* Filters */}
-          <Card className="mb-4">
-            <CardContent className="py-3 flex flex-wrap items-center gap-3">
+          {/* Toolbar: search + filters in one card */}
+          <PortalCard className="mb-6" padded={false}>
+            <div className="p-3 flex flex-wrap items-center gap-3 sm:p-4">
               <div className="relative flex-1 min-w-[260px]">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <Input
@@ -341,6 +359,7 @@ function SuppliersList() {
                   type="checkbox"
                   checked={activeOnly}
                   onChange={(e) => setActiveOnly(e.target.checked)}
+                  className="accent-brand-primary"
                 />
                 Active only
               </label>
@@ -348,16 +367,23 @@ function SuppliersList() {
                 <Filter className="w-3 h-3" />
                 {visible.length} of {suppliers.length}
               </span>
-            </CardContent>
-          </Card>
+            </div>
+          </PortalCard>
 
           {/* Suppliers table (desktop) + card list (mobile) */}
-          <Card>
-            <CardContent className="p-0">
+          <PortalCard className="mb-6" padded={false}>
+            <div className="p-0">
               {loading ? (
-                <div className="py-16 text-center text-slate-500">
-                  <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" />
-                  Loading suppliers...
+                // Skeleton keeps the shell + nav mounted while the
+                // list loads - the rail never disappears.
+                <div className="p-4 space-y-3" aria-busy="true" aria-label="Loading suppliers">
+                  {[0, 1, 2, 3, 4].map((i) => (
+                    <div key={i} className="flex items-center gap-4 animate-pulse">
+                      <div className="h-4 w-40 rounded bg-slate-200 dark:bg-slate-800" />
+                      <div className="h-4 flex-1 rounded bg-slate-100 dark:bg-slate-800/60" />
+                      <div className="h-4 w-24 rounded bg-slate-100 dark:bg-slate-800/60" />
+                    </div>
+                  ))}
                 </div>
               ) : visible.length === 0 ? (
                 // When the load failed the list being empty is a symptom,
@@ -389,7 +415,7 @@ function SuppliersList() {
                   {/* Desktop table */}
                   <div className="hidden sm:block overflow-x-auto">
                     <table className="w-full text-sm">
-                      <thead className="text-[11px] uppercase tracking-wide text-slate-500 border-b border-slate-200 bg-slate-50">
+                      <thead className="text-[10px] uppercase tracking-wide text-slate-500 border-b border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-900/60">
                         <tr>
                           <th className="text-left py-3 pl-4 pr-2">Supplier</th>
                           <th className="text-left py-3 px-2">Contact</th>
@@ -405,19 +431,22 @@ function SuppliersList() {
                           const flags = rowFlags(s);
                           const wa = waLink(s.phone);
                           return (
-                            <tr key={s.id} className={`border-b border-slate-100 hover:bg-slate-50 ${s.is_active === false ? "opacity-60" : ""}`}>
+                            <tr key={s.id} className={`border-b border-slate-100 hover:bg-slate-50/70 dark:border-slate-800 dark:hover:bg-slate-800/40 ${s.is_active === false ? "opacity-60" : ""}`}>
                               <td className="py-3 pl-4 pr-2">
                                 <Link href={withSlug(`/admin/suppliers/${s.id}`)} className="block group">
                                   <div className="font-semibold text-slate-900 group-hover:text-brand-primary inline-flex items-center gap-1.5 flex-wrap">
                                     {s.supplier_name}
                                     <ArrowRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
                                     {flags.reliance >= 3 && (
-                                      <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-200 inline-flex items-center gap-1">
+                                      // Reliance is informational chrome, not a
+                                      // warning - brand tint, amber stays
+                                      // reserved for warnings.
+                                      <Badge variant="outline" className="text-[10px] bg-brand-primary/10 text-brand-primary border-brand-primary/20 inline-flex items-center gap-1">
                                         <Star className="w-2.5 h-2.5" /> {flags.reliance} items
                                       </Badge>
                                     )}
                                     {flags.stale && (
-                                      <Badge variant="outline" className="text-[10px] bg-rose-50 text-rose-700 border-rose-200">
+                                      <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-200">
                                         Stale{flags.daysSinceBuy != null ? ` ${flags.daysSinceBuy}d` : ""}
                                       </Badge>
                                     )}
@@ -448,7 +477,9 @@ function SuppliersList() {
                                     </div>
                                   )}
                                   {s.is_active === false && (
-                                    <Badge variant="outline" className="mt-1 text-[10px] bg-rose-50 text-rose-700 border-rose-200">Inactive</Badge>
+                                    // Inactive is a neutral archived state, not a
+                                    // critical one - slate, not rose.
+                                    <Badge variant="outline" className="mt-1 text-[10px] bg-slate-100 text-slate-600 border-slate-200">Inactive</Badge>
                                   )}
                                 </Link>
                               </td>
@@ -547,12 +578,12 @@ function SuppliersList() {
                               <div className="font-semibold text-slate-900 flex flex-wrap items-center gap-1.5">
                                 {s.supplier_name}
                                 {flags.reliance >= 3 && (
-                                  <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-200 inline-flex items-center gap-1">
+                                  <Badge variant="outline" className="text-[10px] bg-brand-primary/10 text-brand-primary border-brand-primary/20 inline-flex items-center gap-1">
                                     <Star className="w-2.5 h-2.5" /> {flags.reliance}
                                   </Badge>
                                 )}
                                 {flags.stale && (
-                                  <Badge variant="outline" className="text-[10px] bg-rose-50 text-rose-700 border-rose-200">
+                                  <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-200">
                                     Stale
                                   </Badge>
                                 )}
@@ -569,7 +600,7 @@ function SuppliersList() {
                                   </Badge>
                                 )}
                                 {s.is_active === false && (
-                                  <Badge variant="outline" className="text-[10px] bg-rose-50 text-rose-700 border-rose-200">Inactive</Badge>
+                                  <Badge variant="outline" className="text-[10px] bg-slate-100 text-slate-600 border-slate-200">Inactive</Badge>
                                 )}
                               </div>
                               {s.contact_person && <div className="text-xs text-slate-900 mt-0.5">{s.contact_person}</div>}
@@ -602,6 +633,12 @@ function SuppliersList() {
                               <Button variant="outline" size="sm" className="h-9 w-9 p-0" onClick={() => setEditing(s)} aria-label="Edit">
                                 <Pencil className="w-4 h-4" />
                               </Button>
+                              {/* Merge was desktop-only before; a phone
+                                  operator cleaning up duplicates had no
+                                  path to it. */}
+                              <Button variant="outline" size="sm" className="h-9 w-9 p-0" onClick={() => setMergeOpen(s)} aria-label="Merge into another supplier">
+                                <Merge className="w-4 h-4" />
+                              </Button>
                               <Button variant="outline" size="sm" className="h-9 w-9 p-0 text-rose-600" onClick={() => setConfirmDelete(s)} aria-label="Delete">
                                 <Trash2 className="w-4 h-4" />
                               </Button>
@@ -613,8 +650,8 @@ function SuppliersList() {
                   </div>
                 </>
               )}
-            </CardContent>
-          </Card>
+            </div>
+          </PortalCard>
 
           {/* OUT-D: reciprocal cross-link to outsource providers. The
               outsource page links here in its footer; this is the
@@ -722,27 +759,6 @@ function SuppliersList() {
         </AlertDialogContent>
       </AlertDialog>
     </>
-  );
-}
-
-function StatTile({
-  label, value, icon: Icon, accent = "slate", muted = false,
-}: { label: string; value: string; icon: typeof TrendingUp; accent?: "slate" | "emerald" | "rose"; muted?: boolean }) {
-  const accentClass = muted
-    ? "text-slate-400"
-    : accent === "emerald" ? "text-brand-primary"
-    : accent === "rose"    ? "text-rose-600"
-    : "text-slate-700";
-  return (
-    <Card>
-      <CardContent className="py-4">
-        <div className="flex items-center justify-between mb-1">
-          <p className="text-xs uppercase tracking-wide text-slate-500">{label}</p>
-          <Icon className={`w-4 h-4 ${accentClass}`} />
-        </div>
-        <p className={`text-xl font-bold ${accentClass}`}>{value}</p>
-      </CardContent>
-    </Card>
   );
 }
 

@@ -62,7 +62,7 @@ import {
   Settings as SettingsIcon, ChevronDown, ChevronUp,
 } from "lucide-react";
 import { KitchenRulesPanel } from "@/components/admin/KitchenRulesPanel";
-import { PageWorkbench, PortalHeader, PortalShell } from "@/components/portal/ui";
+import { PageWorkbench, PortalHeader, PortalShell, StatTile } from "@/components/portal/ui";
 import { damageReporterName, type DamageReporterProfile } from "@/lib/damageReporter";
 import { teamBucketsForUser } from "@/lib/teamRoleBuckets";
 
@@ -629,27 +629,53 @@ function KitchenTeamPage() {
             </Card>
           )}
 
-          {/* KIT-A: linkified quick-stat badges. The hub already lets
-              the operator drill in; the landing page should too. */}
+          {/* Command-centre restructure (2026-07-02): loading skeleton
+              INSIDE the shell. Pre-fix the intel cards rendered their
+              zero-state copy ("No prep tasks today") while the first
+              load was still running, which reads as real data. */}
+          {loading && (
+            <div aria-hidden="true" className="no-print">
+              <div className="grid grid-cols-2 gap-4 mb-6 lg:grid-cols-4">
+                {[0, 1, 2, 3].map((i) => (
+                  <div key={i} className="h-28 animate-pulse rounded-xl border border-slate-200/90 bg-white dark:border-slate-800 dark:bg-slate-900/95" />
+                ))}
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-4">
+                {[0, 1, 2, 3].map((i) => (
+                  <div key={i} className="h-24 animate-pulse rounded-lg border border-slate-200 bg-white shadow-sm" />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Command-centre restructure (2026-07-02): the three roster
+              quick-stat badges became the standard StatTile row (real
+              aggregates, same drilldown links). Semantic chips (clocked,
+              burn, handovers) stay as the strip below. */}
+          {!loading && !error && (
+            <div className="grid grid-cols-2 gap-4 mb-6 lg:grid-cols-4 no-print">
+              <Link href={withSlug("/admin/kitchen-staff")} className="block">
+                <StatTile label="Active team" value={stats.active} icon={Users} hint="Roster, rates, departments." />
+              </Link>
+              <Link href={withSlug("/admin/staff-hours")} className="block">
+                <StatTile label="Hours this week" value={`${stats.hoursWeek}h`} icon={Clock} hint="Kitchen shifts, Monday to now." />
+              </Link>
+              <Link href={withSlug(`/admin/calendar?date=${toLocalISO(new Date())}`)} className="block">
+                <StatTile label="Jobs today" value={stats.jobsToday} icon={ClipboardList} hint="Events on today's calendar." />
+              </Link>
+              <Link href={withSlug("/admin/kitchen-schedule")} className="block">
+                <StatTile
+                  label="Prep tasks done"
+                  value={`${stats.prepDone}/${totalPrep}`}
+                  icon={Flame}
+                  hint={stats.prepOverdue > 0 ? `${stats.prepOverdue} overdue right now.` : "Today's prep pipeline."}
+                />
+              </Link>
+            </div>
+          )}
+
+          {/* KIT-A: semantic quick chips. */}
           <div className="flex flex-wrap gap-2 mb-4 no-print">
-            <Link href={withSlug("/admin/kitchen-staff")}>
-              <Badge variant="secondary" className="px-3 py-1.5 text-sm cursor-pointer hover:bg-slate-200">
-                {loading ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Users className="w-3 h-3 mr-1" />}
-                {stats.active} active
-              </Badge>
-            </Link>
-            <Link href={withSlug("/admin/staff-hours")}>
-              <Badge variant="secondary" className="px-3 py-1.5 text-sm cursor-pointer hover:bg-slate-200">
-                <Clock className="w-3 h-3 mr-1" />
-                {stats.hoursWeek}h this week
-              </Badge>
-            </Link>
-            <Link href={withSlug(`/admin/calendar?date=${toLocalISO(new Date())}`)}>
-              <Badge variant="secondary" className="px-3 py-1.5 text-sm cursor-pointer hover:bg-slate-200">
-                <ClipboardList className="w-3 h-3 mr-1" />
-                {stats.jobsToday} job{stats.jobsToday === 1 ? "" : "s"} today
-              </Badge>
-            </Link>
             {/* KIT-A: clocked-now chip. Reads is_active off the duty
                 board; "X of Y in" if both numbers are known. Tinted by
                 gap so the manager spots understaffing fast. */}
@@ -729,8 +755,9 @@ function KitchenTeamPage() {
 
           {/* KIT-A: intel grid - 4 cards above the 3 tile shortcuts.
               Mirrors the cleaning landing's pattern (damages + supplies)
-              but kitchen-shaped. */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-4 no-print">
+              but kitchen-shaped. Hidden while loading (the skeleton
+              above stands in). */}
+          <div className={`grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-4 no-print ${loading ? "hidden" : ""}`}>
             {/* Today's prep pipeline. Bar + status counts + overdue
                 chip. Done-percent caption frames where the kitchen
                 actually is right now. */}
@@ -1042,12 +1069,17 @@ function PrepBroadcastDialog({
   const [body, setBody] = useState("");
   const [recipients, setRecipients] = useState<Array<{ id: string; name: string | null; phone: string }>>([]);
   const [loadingRoster, setLoadingRoster] = useState(false);
+  // Command-centre audit (2026-07-02): a failed roster query used to be
+  // swallowed and rendered as "No kitchen staff with a phone on file",
+  // which reads as a data problem, not a fetch failure.
+  const [rosterError, setRosterError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
 
   useEffect(() => {
     if (!open || !companyId) { setRecipients([]); return; }
     let cancelled = false;
     setLoadingRoster(true);
+    setRosterError(null);
 
     // Default body: a summary of today's prep so the recipient
     // sees what's expected of them. Operator can edit before send.
@@ -1069,8 +1101,13 @@ function PrepBroadcastDialog({
         .is("deleted_at", null)
         .not("phone", "is", null);
       if (regionFilterId) q = q.eq("region_id", regionFilterId);
-      const { data } = await q;
+      const { data, error: rosterErr } = await q;
       if (cancelled) return;
+      if (rosterErr) {
+        setRosterError(rosterErr.message || "Couldn't load the roster.");
+        setLoadingRoster(false);
+        return;
+      }
       const rcpts = ((data || []) as Array<{ id: string; full_name: string | null; phone: string | null }>)
         .filter((m) => !!m.phone)
         .map((m) => ({ id: m.id, name: m.full_name, phone: m.phone as string }));
@@ -1144,6 +1181,8 @@ function PrepBroadcastDialog({
           <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
             {loadingRoster ? (
               <span className="inline-flex items-center gap-1.5"><Loader2 className="w-3 h-3 animate-spin" /> Loading roster...</span>
+            ) : rosterError ? (
+              <span className="text-rose-700">Couldn't load the roster: {rosterError}. Close and reopen to retry.</span>
             ) : recipients.length === 0 ? (
               <span className="text-amber-700">No kitchen staff with a phone on file. Add phone numbers on /admin/kitchen-staff.</span>
             ) : (

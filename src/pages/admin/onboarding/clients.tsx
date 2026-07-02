@@ -56,7 +56,7 @@ function rowIssues(r: RawRow): string[] {
   const fullName = [(r.name || "").trim(), (r.surname || "").trim()].filter(Boolean).join(" ").trim();
   if (!fullName) out.push("Name is missing");
   if (!r.email || !looksLikeEmail(r.email)) out.push("Email is missing or invalid");
-  if (!r.phone || !looksLikePhone(r.phone)) out.push("Phone is missing");
+  if (!r.phone || !looksLikePhone(r.phone)) out.push("Phone is missing or too short");
   return out;
 }
 
@@ -162,8 +162,12 @@ function parseDelimited(text: string): { headers: string[]; rows: string[][] } {
 }
 
 function ProtectedClientImport() {
+  // OWNER admitted alongside the admin tier: the API allowlist in
+  // /api/onboarding/clients/bulk already includes owner and the
+  // owner-facing setup wizard links here, so gating them out of the
+  // page was a 403 on a flow they are supposed to run on day one.
   return (
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN]}>
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.OWNER, UserRole.COMPANY_ADMIN, UserRole.ADMIN]}>
       <ClientImportPage />
     </ProtectedRoute>
   );
@@ -183,7 +187,11 @@ function ClientImportPage() {
   const [importError, setImportError] = useState<string | null>(null);
   const [result, setResult] = useState<null | {
     imported: number; skipped: number; rejected: number; total: number;
+    commsPausedDays: number;
   }>(null);
+  // Where the staged rows came from - sent as `filename` so the row
+  // in Imports History reads "clients.xlsx" instead of "(unnamed file)".
+  const [sourceName, setSourceName] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const ingest = (raw: RawRow[]) => {
@@ -200,6 +208,7 @@ function ClientImportPage() {
     if (!file) return;
     const ext = file.name.split(".").pop()?.toLowerCase();
     try {
+      setSourceName(file.name);
       if (ext === "csv" || ext === "tsv" || ext === "txt") {
         const text = await file.text();
         const { headers, rows: body } = parseDelimited(text);
@@ -232,6 +241,7 @@ function ClientImportPage() {
     }
     const { headers, rows: body } = parseDelimited(pasted);
     ingest(rowsFromTable(headers, body));
+    setSourceName((prev) => prev || "Pasted rows");
     setPasted("");
   };
 
@@ -244,7 +254,7 @@ function ClientImportPage() {
     }));
   };
   const removeRow = (key: string) => setRows((prev) => prev.filter((r) => r._key !== key));
-  const clearAll = () => { setRows([]); setResult(null); };
+  const clearAll = () => { setRows([]); setResult(null); setSourceName(null); };
 
   const counts = useMemo(() => {
     const ok = rows.filter((r) => r.issues.length === 0).length;
@@ -267,6 +277,9 @@ function ClientImportPage() {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
+          // The API stores `filename` as the import job's source name;
+          // without it every batch shows "(unnamed file)" in history.
+          filename: sourceName,
           rows: valid.map((v) => ({
             name: v.name, surname: v.surname, email: v.email, phone: v.phone, notes: v.notes,
           })),
@@ -276,6 +289,7 @@ function ClientImportPage() {
       if (!r.ok) throw new Error(j?.error || "Upload failed");
       setResult({
         imported: j.imported, skipped: j.skipped, rejected: j.rejected, total: j.total,
+        commsPausedDays: Number(j.comms_paused_for_days) || 0,
       });
       toast({
         title: `${j.imported} client${j.imported === 1 ? "" : "s"} imported`,
@@ -284,6 +298,7 @@ function ClientImportPage() {
           : "All clean, straight in.",
       });
       setRows([]);
+      setSourceName(null);
     } catch (e: any) {
       setImportError(e?.message || "The import did not go through. Your rows are still staged below.");
       toast({ title: "Import failed", description: e?.message || "", variant: "destructive" });
@@ -440,7 +455,7 @@ function ClientImportPage() {
                   <div>
                     <h3 className="font-semibold text-slate-900">Preview ({rows.length} rows)</h3>
                     <p className="text-xs text-slate-500 mt-0.5">
-                      <span className="text-brand-primary font-medium">{counts.ok}</span> ready to import,
+                      <span className="text-emerald-600 font-medium">{counts.ok}</span> ready to import,
                       {" "}<span className="text-rose-700 font-medium">{counts.bad}</span> need a fix.
                     </p>
                   </div>
@@ -464,7 +479,7 @@ function ClientImportPage() {
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="text-[11px] uppercase tracking-wide text-slate-500 border-b border-slate-200">
+                      <tr className="text-[10px] uppercase tracking-wide text-slate-500 border-b border-slate-200">
                         <th className="text-left py-2 pr-3 w-8">#</th>
                         <th className="text-left py-2 px-2">Name</th>
                         <th className="text-left py-2 px-2">Surname</th>
@@ -479,7 +494,7 @@ function ClientImportPage() {
                       {rows.map((r, i) => {
                         const ok = r.issues.length === 0;
                         return (
-                          <tr key={r._key} className={`border-b border-slate-100 ${ok ? "" : "bg-rose-50/50"}`}>
+                          <tr key={r._key} className={`border-b border-slate-100 hover:bg-slate-50/70 dark:hover:bg-slate-800/40 ${ok ? "" : "bg-rose-50/50"}`}>
                             <td className="py-1.5 pr-3 text-slate-400 text-xs">{i + 1}</td>
                             <td className="py-1.5 px-1">
                               <Input
@@ -518,8 +533,11 @@ function ClientImportPage() {
                               />
                             </td>
                             <td className="py-1.5 px-2">
+                              {/* Status pills stay SEMANTIC: emerald =
+                                  good to go, rose = needs fixing. Brand
+                                  colours are for chrome and CTAs only. */}
                               {ok ? (
-                                <Badge className="bg-brand-primary/15 text-brand-primary border-brand-primary/20 border">
+                                <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 border">
                                   <CheckCircle2 className="w-3 h-3 mr-1" /> Ready
                                 </Badge>
                               ) : (
@@ -551,24 +569,37 @@ function ClientImportPage() {
             </Card>
           )}
 
-          {/* Result summary */}
+          {/* Result summary. Semantic success (emerald), and it spells
+              out the auto-email quarantine: the bulk API pauses the
+              system's email sequences on every fresh batch, and the
+              green-light button lives on the Imports History page. */}
           {result && (
-            <Card className="border-brand-primary/20 bg-brand-primary/10">
+            <Card className="border-emerald-200 bg-emerald-50">
               <CardContent className="p-4 flex flex-wrap items-center gap-3 justify-between">
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="w-5 h-5 text-brand-primary" />
+                <div className="flex items-start gap-2">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-600 mt-0.5" />
                   <div className="text-sm">
-                    <p className="font-medium text-brand-primary">
+                    <p className="font-medium text-emerald-900">
                       Imported {result.imported} of {result.total}.
                     </p>
-                    <p className="text-xs text-brand-primary">
+                    <p className="text-xs text-emerald-800">
                       {result.skipped > 0 && <>Skipped {result.skipped} already on file. </>}
                       {result.rejected > 0 && <>Rejected {result.rejected} with missing fields.</>}
                     </p>
+                    {result.imported > 0 && result.commsPausedDays > 0 && (
+                      <p className="text-xs text-emerald-800 mt-1">
+                        Automated emails are paused on this batch for {result.commsPausedDays} days.
+                        You can allow them sooner from{" "}
+                        <Link href={withSlug("/admin/onboarding/imports")} className="font-semibold underline underline-offset-2">
+                          Imports History
+                        </Link>
+                        .
+                      </p>
+                    )}
                   </div>
                 </div>
                 <Link href={withSlug("/admin/contacts")}>
-                  <Button variant="outline" className="border-brand-primary/30 bg-white">
+                  <Button variant="outline" className="border-emerald-300 bg-white">
                     Open contacts
                   </Button>
                 </Link>

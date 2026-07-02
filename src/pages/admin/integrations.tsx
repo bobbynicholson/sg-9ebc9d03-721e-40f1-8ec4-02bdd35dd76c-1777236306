@@ -38,7 +38,7 @@ import { captureException } from "@/lib/observability";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
-import { PortalShell, PortalHeader,
+import { PortalShell, PortalHeader, StatTile,
   PageWorkbench,
 } from "@/components/portal/ui";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
@@ -293,6 +293,7 @@ function IntegrationsPage() {
     }
     setNewKeyResult({ rawKey, prefix: keyPrefix });
     setNewKey({ label: "" });
+    toast({ title: "API key created", description: "Copy it now, we only show it once." });
     reload();
   };
 
@@ -303,17 +304,30 @@ function IntegrationsPage() {
       toast({ title: "Couldn't revoke key", description: dbErrorMessage(error, { entity: "API key" }), variant: "destructive" });
       return;
     }
+    toast({ title: "Key revoked", description: "Anything still using it will stop working now." });
     reload();
   };
 
   const createSub = async () => {
     if (!companyId || !newSub.target_url.trim() || !newSub.event_type) return;
+    // Edge case: a pasted URL missing its scheme (or a non-URL string)
+    // would be accepted, stored, and then fail on every dispatch with a
+    // confusing pg_net error. Catch it here with a clear message.
+    const targetUrl = newSub.target_url.trim();
+    if (!/^https?:\/\/.+\..+/i.test(targetUrl)) {
+      toast({
+        title: "Check the target URL",
+        description: "It must be a full URL starting with https:// (for example a Zapier catch-hook URL).",
+        variant: "destructive",
+      });
+      return;
+    }
     const secret = generateWebhookSecret();
     const { error } = await supabase.from("webhook_subscriptions").insert({
       company_id: companyId,
       label: newSub.label || null,
       event_type: newSub.event_type,
-      target_url: newSub.target_url.trim(),
+      target_url: targetUrl,
       signing_secret: secret,
     });
     if (error) {
@@ -324,6 +338,7 @@ function IntegrationsPage() {
       return;
     }
     setNewSub({ label: "", event_type: "lead.created", target_url: "" });
+    toast({ title: "Webhook added", description: "Fire a test from the table to confirm your endpoint accepts it." });
     reload();
   };
 
@@ -333,6 +348,7 @@ function IntegrationsPage() {
       toast({ title: "Couldn't update webhook", description: dbErrorMessage(error, { entity: "webhook" }), variant: "destructive" });
       return;
     }
+    toast({ title: is_active ? "Webhook resumed" : "Webhook paused" });
     reload();
   };
 
@@ -343,6 +359,7 @@ function IntegrationsPage() {
       toast({ title: "Couldn't delete webhook", description: dbErrorMessage(error, { entity: "webhook" }), variant: "destructive" });
       return;
     }
+    toast({ title: "Webhook deleted" });
     reload();
   };
 
@@ -427,6 +444,57 @@ function IntegrationsPage() {
               </Button>
             </div>
           )}
+
+          {/* Command-centre stat row: live aggregates off the same
+              keys + subs state the tables below render, so the
+              figures always agree with the detail. Skeleton while
+              loading so the tiles never flash zeros. */}
+          {loading && !loadError ? (
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="h-28 animate-pulse rounded-xl border border-slate-200 bg-slate-100 dark:border-slate-800 dark:bg-slate-800/50" />
+              ))}
+            </div>
+          ) : !loadError ? (
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+              <StatTile
+                label="Active API keys"
+                value={keys.filter((k) => k.is_active).length}
+                hint={keys.length > keys.filter((k) => k.is_active).length ? `${keys.length - keys.filter((k) => k.is_active).length} revoked` : "Inbound data access"}
+                icon={Key}
+              />
+              <StatTile
+                label="Live webhooks"
+                value={subs.filter((s) => s.is_active).length}
+                hint={subs.some((s) => !s.is_active) ? `${subs.filter((s) => !s.is_active).length} paused` : "Outbound events"}
+                icon={Webhook}
+              />
+              <StatTile
+                label="Failing webhooks"
+                value={
+                  subs.filter((s) => s.failure_count > 0).length > 0 ? (
+                    <span className="text-rose-600 dark:text-rose-400">{subs.filter((s) => s.failure_count > 0).length}</span>
+                  ) : (
+                    0
+                  )
+                }
+                hint={subs.some((s) => s.failure_count > 0) ? "Check the endpoint and fire a test" : "All deliveries healthy"}
+                icon={AlertTriangle}
+              />
+              <StatTile
+                label="Last delivery"
+                value={(() => {
+                  const fired = subs
+                    .map((s) => (s.last_fired_at ? new Date(s.last_fired_at).getTime() : 0))
+                    .filter((t) => t > 0);
+                  if (fired.length === 0) return <span className="text-slate-400 dark:text-slate-500">Never</span>;
+                  return new Date(Math.max(...fired)).toLocaleDateString("en-ZA", { day: "numeric", month: "short" });
+                })()}
+                hint="Most recent webhook fire"
+                icon={Activity}
+              />
+            </div>
+          ) : null}
 
           {/* Quickstart */}
           <Card className="mb-6 bg-gradient-to-r from-brand-primary/10 to-brand-secondary/10">
@@ -621,7 +689,7 @@ function IntegrationsPage() {
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
-                    <thead className="text-xs uppercase tracking-wide text-slate-500 border-b border-slate-200">
+                    <thead className="text-[10px] uppercase tracking-wide text-slate-500 border-b border-slate-200">
                       <tr>
                         <th className="text-left py-2">Label</th>
                         <th className="text-left py-2">Event</th>
@@ -632,7 +700,7 @@ function IntegrationsPage() {
                     </thead>
                     <tbody>
                       {subs.map((s) => (
-                        <tr key={s.id} className="border-b border-slate-100 align-top">
+                        <tr key={s.id} className="border-b border-slate-100 align-top hover:bg-slate-50/70 dark:hover:bg-slate-800/40">
                           <td className="py-3">
                             <div className="font-medium text-slate-900">{s.label || "Untitled"}</div>
                             {!s.is_active && <Badge variant="outline" className="text-[10px] mt-1">Paused</Badge>}
@@ -649,7 +717,16 @@ function IntegrationsPage() {
                             {s.last_fired_at ? (
                               <>
                                 {new Date(s.last_fired_at).toLocaleString("en-ZA", { day: "numeric", month: "short", hour: "numeric", minute: "numeric" })}
-                                {s.last_status && <span className="ml-1 text-brand-primary">[{s.last_status}]</span>}
+                                {/* Status code is a SEMANTIC signal, not chrome:
+                                    2xx = healthy (emerald), anything else = the
+                                    endpoint rejected the payload (rose). It used
+                                    to render in brand colour, so a 500 looked
+                                    exactly as healthy as a 200. */}
+                                {s.last_status && (
+                                  <span className={`ml-1 ${s.last_status >= 200 && s.last_status < 300 ? "text-emerald-600" : "text-rose-600"}`}>
+                                    [{s.last_status}]
+                                  </span>
+                                )}
                                 {s.failure_count > 0 && <span className="ml-1 text-rose-600">{s.failure_count} fails</span>}
                               </>
                             ) : "Never"}
@@ -749,12 +826,17 @@ function IntegrationsPage() {
                 </div>
               )}
 
-              {keys.length === 0 ? (
+              {loading ? (
+                /* Loading fix: this section used to show "No keys yet"
+                   while the query was still in flight, which reads as
+                   an empty account to anyone glancing at it. */
+                <div className="py-8 text-center text-slate-500"><Loader2 className="w-5 h-5 animate-spin mx-auto" /></div>
+              ) : keys.length === 0 ? (
                 <p className="text-sm text-slate-500 text-center py-4">No keys yet. Generate one above.</p>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
-                    <thead className="text-xs uppercase tracking-wide text-slate-500 border-b border-slate-200">
+                    <thead className="text-[10px] uppercase tracking-wide text-slate-500 border-b border-slate-200">
                       <tr>
                         <th className="text-left py-2">Label</th>
                         <th className="text-left py-2">Prefix</th>
@@ -765,7 +847,7 @@ function IntegrationsPage() {
                     </thead>
                     <tbody>
                       {keys.map((k) => (
-                        <tr key={k.id} className="border-b border-slate-100">
+                        <tr key={k.id} className="border-b border-slate-100 hover:bg-slate-50/70 dark:hover:bg-slate-800/40">
                           <td className="py-3 font-medium text-slate-900">{k.label}</td>
                           <td className="py-3 font-mono text-xs">{k.key_prefix}***</td>
                           <td className="py-3 text-xs text-slate-500">

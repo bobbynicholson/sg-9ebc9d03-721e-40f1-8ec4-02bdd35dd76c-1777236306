@@ -22,6 +22,7 @@ import {
 import { AdminNav } from "@/components/admin/AdminNav";
 import { PortalShell, PortalHeader,
   PageWorkbench,
+  StatTile,
 } from "@/components/portal/ui";
 import {
   Users,
@@ -53,6 +54,7 @@ import Head from "next/head";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { useAuth } from "@/contexts/AuthContext";
 import { userManagementService, UserWithDepartments } from "@/services/userManagementService";
+import { notificationService } from "@/services/notificationService";
 import { useToast } from "@/hooks/use-toast";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
@@ -344,7 +346,34 @@ function AdminUsersPage() {
         .eq("status", "pending")
         .order("created_at", { ascending: false });
       if (error) throw error;
-      setInvitations((data || []) as PendingInvitation[]);
+      // Command-centre audit (2026-07-02): staff_invitations carries no
+      // email / full_name columns, so every row rendered as "Invitee /
+      // (no email captured)". The table DOES carry user_id (create-user
+      // provisions the profile up front) - resolve identity through
+      // profiles so the operator can tell pending invites apart.
+      const rows = (data || []) as Array<PendingInvitation & { user_id?: string | null }>;
+      const inviteeIds = Array.from(new Set(rows.map((r) => r.user_id).filter((id): id is string => Boolean(id))));
+      if (inviteeIds.length > 0) {
+        const { data: inviteeProfiles, error: profErr } = await supabase
+          .from("profiles")
+          .select("id, full_name, email")
+          .in("id", inviteeIds);
+        // Best-effort enrichment: a failed lookup keeps the plain rows.
+        if (!profErr && inviteeProfiles) {
+          const byId = new Map(
+            (inviteeProfiles as Array<{ id: string; full_name: string | null; email: string | null }>)
+              .map((p) => [p.id, p]),
+          );
+          for (const r of rows) {
+            const p = r.user_id ? byId.get(r.user_id) : undefined;
+            if (p) {
+              r.full_name = r.full_name || p.full_name;
+              r.email = r.email || p.email;
+            }
+          }
+        }
+      }
+      setInvitations(rows);
     } catch (err) {
       console.error("Error loading invitations:", err);
       setInvitationsError(err instanceof Error ? err.message : "Couldn't load pending invitations.");
@@ -518,6 +547,24 @@ function AdminUsersPage() {
     setStatusBusy(targetUser.id);
     try {
       await userManagementService.updateUserStatus(targetUser.id, nextActive, user.id);
+      // Command-centre audit (2026-07-02): tell the person their access
+      // is back. Best-effort + dedup - a failed notification never blocks
+      // the status change. Deactivation skips the notify (they cannot
+      // sign in to read it; the row would only confuse them later).
+      if (nextActive) {
+        try {
+          await notificationService.createNotification({
+            company_id: user.company_id,
+            recipient_id: targetUser.id,
+            notification_type: "account_reactivated",
+            title: "Your account was reactivated",
+            message: "An administrator restored your access. You can sign in again.",
+            dedup: true,
+          });
+        } catch {
+          // best-effort only
+        }
+      }
       toast({
         title: nextActive ? "User reactivated" : "User deactivated",
         description: nextActive
@@ -614,6 +661,26 @@ function AdminUsersPage() {
       }));
 
       await userManagementService.assignDepartments(userId, assignments, user!.id);
+
+      // Command-centre audit (2026-07-02): the affected user should hear
+      // about an access change without waiting to trip over a missing
+      // (or new) portal. Best-effort + dedup; never blocks the save.
+      try {
+        const primaryLabel = roleMetaFor(normalizedPrimary)?.label || String(normalizedPrimary);
+        // Skip self-edits: no point notifying yourself about your own change.
+        if (userId !== user?.id) await notificationService.createNotification({
+          company_id: user?.company_id,
+          recipient_id: userId,
+          notification_type: "access_updated",
+          title: "Your access was updated",
+          message: `An administrator updated your portal access. Your primary role is now ${primaryLabel}.`,
+          dedup: true,
+          dedupWindowMinutes: 10,
+        });
+      } catch {
+        // best-effort only
+      }
+
       await loadUsers();
 
       setEditingUser(null);
@@ -705,16 +772,34 @@ function AdminUsersPage() {
         </Head>
         
         <AdminNav />
-        
+
+        {/* Command-centre audit (2026-07-02): the loading state now
+            renders INSIDE the shell (hero + workbench + skeleton) so the
+            page chrome never disappears while the roster loads. */}
         <div className="admin-page-shell">
-          <div className="px-4 py-8">
-            <div className="flex items-center justify-center h-64">
-              <div className="text-center">
-                <Loader2 className="w-12 h-12 animate-spin text-slate-600 mx-auto mb-4" />
-                <p className="text-gray-600">Loading users...</p>
-              </div>
+          <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+            <PortalHeader
+              variant="hero"
+              title="User management"
+              icon={Users}
+              subtitle="Everyone with a staff login: owners, admins, kitchen, drivers, waiters, shopping, cleaning."
+            />
+            <PageWorkbench />
+            <div className="grid grid-cols-2 gap-4 mb-6 lg:grid-cols-4" aria-hidden="true">
+              {[0, 1, 2, 3].map((i) => (
+                <div key={i} className="h-28 animate-pulse rounded-xl border border-slate-200/90 bg-white dark:border-slate-800 dark:bg-slate-900/95" />
+              ))}
             </div>
-          </div>
+            <div className="space-y-4">
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="h-24 animate-pulse rounded-lg border border-slate-200 bg-white shadow-sm" />
+              ))}
+            </div>
+            <p className="mt-6 text-center text-sm text-slate-500">
+              <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
+              Loading users...
+            </p>
+          </PortalShell>
         </div>
       </>
     );
@@ -826,7 +911,10 @@ function AdminUsersPage() {
                       lines.push([
                         esc(u.full_name || ""),
                         esc(u.email || ""),
-                        esc(u.phone || ""),
+                        // Command-centre audit (2026-07-02): profiles has
+                        // phone_number / mobile_number, not `phone` - the
+                        // CSV Phone column exported empty for every row.
+                        esc(u.phone_number || u.mobile_number || ""),
                         esc(u.primary_department || ""),
                         esc((u.departments || []).join("; ")),
                         esc(u.created_at ? toLocalISO(new Date(u.created_at)) : ""),
@@ -892,35 +980,30 @@ function AdminUsersPage() {
             </div>
           )}
 
+          {/* Command-centre restructure (2026-07-02): the roster
+              aggregates moved out of the sticky aside into the standard
+              StatTile row directly under the workbench, matching the
+              financial-dashboard composition. All four values are real
+              aggregates off the loaded roster + invitations. */}
+          <div className="grid grid-cols-2 gap-4 mb-6 lg:grid-cols-4">
+            <StatTile
+              label="Staff logins"
+              value={users.length}
+              icon={Users}
+              hint="Client portal users live under Contacts."
+            />
+            <StatTile label="Active" value={activeUserCount} icon={UserCheck} hint="Can sign in right now." />
+            <StatTile label="Inactive" value={inactiveUserCount} icon={UserX} hint="Deactivated. Reactivate below." />
+            <StatTile
+              label="Pending invites"
+              value={pendingInviteCount}
+              icon={Mail}
+              hint="Waiting to accept or expire."
+            />
+          </div>
+
           <div className="grid gap-5 xl:grid-cols-[320px_minmax(0,1fr)]">
             <aside className="order-2 space-y-4 xl:order-1 xl:sticky xl:top-6 xl:self-start">
-              <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-semibold text-slate-950">Access control</p>
-                    <p className="mt-1 text-xs leading-5 text-slate-600">
-                      Staff logins only. Client portal users stay with Contacts.
-                    </p>
-                  </div>
-                  <span className="rounded-full border border-brand-primary/20 bg-brand-primary/10 px-2 py-1 text-[11px] font-medium text-brand-primary">
-                    Live roster
-                  </span>
-                </div>
-                <div className="mt-4 grid grid-cols-2 gap-2">
-                  {[
-                    { label: "Staff", value: users.length },
-                    { label: "Active", value: activeUserCount },
-                    { label: "Inactive", value: inactiveUserCount },
-                    { label: "Pending", value: pendingInviteCount },
-                  ].map((item) => (
-                    <div key={item.label} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                      <p className="text-[11px] font-medium text-slate-500">{item.label}</p>
-                      <p className="mt-1 text-2xl font-semibold tabular-nums text-slate-950">{item.value}</p>
-                    </div>
-                  ))}
-                </div>
-              </section>
-
               <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
                 <div className="mb-3 flex items-center justify-between gap-2">
                   <h2 className="text-sm font-semibold text-slate-950">Role map</h2>

@@ -5,9 +5,8 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { PortalShell, PortalHeader,
-  PageWorkbench,
+  PageWorkbench, PortalCard,
 } from "@/components/portal/ui";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -914,7 +913,9 @@ function DispatchQueuePage() {
                       esc(o.assigned_at ? new Date(o.assigned_at).toISOString() : ""),
                     ].join(","));
                   }
-                  const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+                  // UTF-8 BOM so Excel-ZA opens the export as UTF-8
+                  // (same fix as calendar / financial exports).
+                  const blob = new Blob(["﻿" + lines.join("\n")], { type: "text/csv;charset=utf-8" });
                   const url = URL.createObjectURL(blob);
                   const a = document.createElement("a");
                   a.href = url;
@@ -952,8 +953,10 @@ function DispatchQueuePage() {
           />
           <PageWorkbench />
 
-          {/* KPIs */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+          {/* KPIs. Kept as custom tiles (not StatTile) because the
+              first two are click-to-filter buttons; grid recipe
+              matches the command-centre standard. */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             <div
               role="button"
               tabIndex={0}
@@ -1058,8 +1061,9 @@ function DispatchQueuePage() {
             </div>
           )}
 
-          {/* Search + filters */}
-          <div className="rounded-lg border border-slate-200 bg-white shadow-sm mb-4 p-3">
+          {/* Search + filters: one toolbar card. */}
+          <PortalCard className="mb-4" padded={false}>
+            <div className="p-3">
             <div className="flex flex-col sm:flex-row gap-3">
               <div className="flex-1 relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -1096,7 +1100,8 @@ function DispatchQueuePage() {
                 </button>
               ))}
             </div>
-          </div>
+            </div>
+          </PortalCard>
 
           {/* Bulk actions bar */}
           {selected.size > 0 && (
@@ -1125,7 +1130,7 @@ function DispatchQueuePage() {
           )}
 
           {/* Queue table */}
-          <div className="rounded-lg border border-slate-200 bg-white shadow-sm overflow-hidden">
+          <PortalCard padded={false} className="overflow-hidden mb-6">
             {/* Header */}
             <div className="hidden md:grid grid-cols-[28px_28px_minmax(0,2fr)_140px_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_120px] gap-3 px-4 py-2.5 bg-slate-50 border-b border-slate-200 text-[11px] font-semibold text-slate-500 uppercase tracking-wider items-center">
               <div className="flex justify-center">
@@ -1192,11 +1197,26 @@ function DispatchQueuePage() {
                 <p className="text-sm font-medium text-slate-700">
                   {orders.length === 0 ? "No upcoming orders" : "Nothing matches this filter"}
                 </p>
-                <p className="text-xs text-slate-500 mt-1">
+                <p className="text-xs text-slate-500 mt-1 mb-4">
                   {orders.length === 0
                     ? "Confirmed orders land here the moment they come in."
                     : "Try a different filter or clear the search."}
                 </p>
+                <div className="inline-flex flex-wrap justify-center gap-2">
+                  {orders.length === 0 ? (
+                    <Link href={withSlug("/admin/orders")}>
+                      <Button variant="outline" size="sm">Open the order book</Button>
+                    </Link>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => { setStatusFilter("all"); setSearchTerm(""); }}
+                    >
+                      Clear filter and search
+                    </Button>
+                  )}
+                </div>
               </div>
             ) : (
               filtered.map(order => {
@@ -1622,7 +1642,7 @@ function DispatchQueuePage() {
                 );
               })
             )}
-          </div>
+          </PortalCard>
         </PortalShell>
       </div>
 
@@ -1965,8 +1985,11 @@ function DispatchQueuePage() {
 }
 
 export default function ProtectedDispatchQueuePage() {
+  // Restructure audit (2026-07-02): OWNER added - the baseline admin
+  // tier is SUPER_ADMIN / OWNER / COMPANY_ADMIN / ADMIN and dispatch
+  // is not finance-gated, so owner was missing for no reason.
   return (
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN]}>
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.OWNER, UserRole.COMPANY_ADMIN, UserRole.ADMIN]}>
       <DispatchQueuePage />
     </ProtectedRoute>
   );

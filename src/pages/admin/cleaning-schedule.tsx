@@ -29,12 +29,13 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { DynamicNav } from "@/components/DynamicNav";
 import { PortalShell, PortalHeader,
   PageWorkbench,
+  StatTile,
 } from "@/components/portal/ui";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { Sparkles, ChevronLeft, ChevronRight, Plus, Loader2, Download, RefreshCw, AlertTriangle, Users } from "lucide-react";
+import { Sparkles, ChevronLeft, ChevronRight, Plus, Loader2, Download, RefreshCw, AlertTriangle, Users, CalendarClock, Clock } from "lucide-react";
 import { DEFAULT_TENANT_TIMEZONE, tenantToday, toLocalISO } from "@/lib/localDate";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { LogKitchenShiftModal } from "@/components/admin/LogKitchenShiftModal";
@@ -289,6 +290,20 @@ function CleaningScheduleGrid() {
   // "Today" follows the tenant's wall clock, not the browser's.
   const todayIso = toLocalISO(tenantToday(tenantTimezone || DEFAULT_TENANT_TIMEZONE));
 
+  // Command-centre stat row: real aggregates for the week in view.
+  const stats = useMemo(() => {
+    let plannedH = 0;
+    let missed = 0;
+    let clockedIn = 0;
+    for (const s of shifts) {
+      plannedH += plannedHours(s.planned_start, s.planned_end);
+      if (s.actual_start) clockedIn += 1;
+      const isPast = s.shift_date < todayIso;
+      if (s.status === "missed" || (isPast && !s.actual_start && s.status === "scheduled")) missed += 1;
+    }
+    return { plannedH, missed, clockedIn };
+  }, [shifts, todayIso]);
+
   return (
     <>
       <Head><title>Cleaning shift roster - CateringMS</title></Head>
@@ -385,6 +400,34 @@ function CleaningScheduleGrid() {
           />
           <PageWorkbench />
 
+            {/* Stat row: live aggregates for the week in view. */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+              <StatTile
+                label="Cleaning staff"
+                value={loading ? "…" : staff.length}
+                icon={Users}
+                hint="Cleaning-eligible team"
+              />
+              <StatTile
+                label="Shifts this week"
+                value={loading ? "…" : shifts.length}
+                icon={CalendarClock}
+                hint={stats.clockedIn > 0 ? `${stats.clockedIn} clocked in` : "None clocked in yet"}
+              />
+              <StatTile
+                label="Planned hours"
+                value={loading ? "…" : `${stats.plannedH.toFixed(1)}h`}
+                icon={Clock}
+                hint="Sum of rostered time"
+              />
+              <StatTile
+                label="Missed shifts"
+                value={loading ? "…" : stats.missed}
+                icon={AlertTriangle}
+                hint={stats.missed > 0 ? "Past shifts never clocked in" : "All accounted for"}
+              />
+            </div>
+
             {loadError && (
               <Alert variant="destructive" className="mb-4">
                 <AlertDescription className="flex flex-wrap items-center gap-3">
@@ -426,14 +469,14 @@ function CleaningScheduleGrid() {
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="text-left">
-                          <th className="px-3 py-2 text-xs uppercase tracking-wider text-slate-500 font-semibold sticky left-0 bg-white">
+                          <th className="px-3 py-2 text-[10px] uppercase tracking-wider text-slate-500 font-semibold sticky left-0 bg-white">
                             Staff
                           </th>
                           {weekDays.map((d, i) => {
                             const iso = toLocalISO(d);
                             const isToday = iso === todayIso;
                             return (
-                              <th key={i} className={`px-2 py-2 text-xs uppercase tracking-wider font-semibold text-center min-w-[110px] ${isToday ? "text-brand-primary" : "text-slate-500"}`}>
+                              <th key={i} className={`px-2 py-2 text-[10px] uppercase tracking-wider font-semibold text-center min-w-[110px] ${isToday ? "text-brand-primary" : "text-slate-500"}`}>
                                 <div>{DAY_LABELS[i]}</div>
                                 <div className={`text-[10px] tabular-nums ${isToday ? "text-brand-primary" : "text-slate-400"}`}>
                                   {d.toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}
@@ -441,14 +484,14 @@ function CleaningScheduleGrid() {
                               </th>
                             );
                           })}
-                          <th className="px-3 py-2 text-xs uppercase tracking-wider text-slate-500 font-semibold text-right">Total</th>
+                          <th className="px-3 py-2 text-[10px] uppercase tracking-wider text-slate-500 font-semibold text-right">Total</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
                         {staff.map((p) => {
                           let staffTotal = 0;
                           return (
-                            <tr key={p.id} className="hover:bg-slate-50">
+                            <tr key={p.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40">
                               <td className="px-3 py-2 sticky left-0 bg-white">
                                 <div className="font-medium text-slate-900 truncate">{p.full_name || p.email}</div>
                                 <div className="text-[11px] text-slate-500 truncate capitalize">{displayRosterRole(p)}</div>
@@ -541,7 +584,7 @@ function CleaningScheduleGrid() {
                       </tbody>
                       <tfoot>
                         <tr className="border-t-2 border-slate-200">
-                          <td className="px-3 py-2 text-xs uppercase tracking-wider text-slate-500 font-semibold sticky left-0 bg-white">
+                          <td className="px-3 py-2 text-[10px] uppercase tracking-wider text-slate-500 font-semibold sticky left-0 bg-white">
                             Day total
                           </td>
                           {dayTotals.map((h, i) => (
@@ -598,7 +641,7 @@ function CleaningScheduleGrid() {
 
 export default function ProtectedCleaningSchedulePage() {
   return (
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.CLEANING_MANAGER]}>
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.OWNER, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.CLEANING_MANAGER]}>
       <CleaningScheduleGrid />
     </ProtectedRoute>
   );

@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { UserRole } from "@/types/app";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, type ComponentType } from "react";
 import Head from "next/head";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toLocalISO } from "@/lib/localDate";
@@ -27,7 +27,7 @@ import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { PortalShell, PortalHeader,
-  PageWorkbench,
+  PageWorkbench, StatTile as PortalStatTile,
 } from "@/components/portal/ui";
 import { AddressAutocomplete } from "@/components/admin/AddressAutocomplete";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
@@ -155,7 +155,10 @@ export default function ProtectedRegionsPage() {
     // + sales_admin (read-only delivery_radius + operating_hours
     // for quote feasibility). RLS narrows region_admin to their
     // regions_covered rows.
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.SALES_ADMIN, UserRole.REGION_ADMIN]}>
+    // Command-centre audit (2026-07-02): OWNER admitted. The owner
+    // persona was bounced off their own branches page while every
+    // other admin role got in.
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.OWNER, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.SALES_ADMIN, UserRole.REGION_ADMIN]}>
       <RegionsPage />
     </ProtectedRoute>
   );
@@ -175,6 +178,11 @@ function RegionsPage() {
   // parallel count queries fails the branch cards silently read 0.
   // Track it and surface an amber "some stats failed" banner.
   const [statsWarning, setStatsWarning] = useState<string | null>(null);
+  // Command-centre audit (2026-07-02): the staff roster drives the
+  // unlinked-staff banner, the manager picker and the assign dialog.
+  // A failed load used to be a console.warn only - all three surfaces
+  // then quietly rendered as if the company had no staff.
+  const [staffWarning, setStaffWarning] = useState<string | null>(null);
   const [staff, setStaff] = useState<Array<{ id: string; full_name: string; email: string; active_role: string; role: string; region_id: string | null }>>([]);
   // Phase 12 #10: company default tz + currency for the divergence
   // chip on each region card. A region with a different tz / code
@@ -285,8 +293,17 @@ function RegionsPage() {
           mtdRevenueRes,
           openQuoteRes,
         ] = await Promise.all([
-          supabase.from("profiles").select("id", { count: "exact", head: true }).eq("region_id", r.id),
-          supabase.from("orders").select("id", { count: "exact", head: true }).eq("region_id", r.id),
+          // Command-centre audit (2026-07-02): exclude client profiles
+          // from the per-branch staff count. Client portal profiles can
+          // carry a region_id too, and counting them inflated "Staff"
+          // against the unlinked-staff banner (which already excludes
+          // clients).
+          supabase.from("profiles").select("id", { count: "exact", head: true }).eq("region_id", r.id).neq("role", "client"),
+          // Command-centre audit (2026-07-02): soft-deleted orders were
+          // counted in every branch KPI (all-time, events this month,
+          // revenue this month). Every other admin surface filters
+          // deleted_at; these four queries now do too.
+          supabase.from("orders").select("id", { count: "exact", head: true }).eq("region_id", r.id).is("deleted_at", null),
           // REG-B (regions audit, REG-2): exclude cancelled orders from
           // the MTD counts + revenue. The pre-REG-B tooltip even admitted
           // this was wrong ("Cancelled orders are excluded only if you've
@@ -306,12 +323,14 @@ function RegionsPage() {
             .from("orders")
             .select("id", { count: "exact", head: true })
             .eq("region_id", r.id)
+            .is("deleted_at", null)
             .gte("event_date", mtdStartIso)
             .neq("status", "cancelled"),
           (supabase as any)
             .from("orders")
             .select("total_amount")
             .eq("region_id", r.id)
+            .is("deleted_at", null)
             .gte("event_date", mtdStartIso)
             .neq("status", "cancelled"),
           // REG-E: same silent-failure pattern - "revised" is NOT in
@@ -319,10 +338,13 @@ function RegionsPage() {
           // / expired). The .in() with the bogus literal made Postgres
           // refuse the whole query, the client read count=null, and
           // every branch's Open quotes KPI displayed 0.
+          // Command-centre audit (2026-07-02): quotes carry deleted_at
+          // too; soft-deleted drafts were still counted as "open".
           (supabase as any)
             .from("quotes")
             .select("id", { count: "exact", head: true })
             .eq("region_id", r.id)
+            .is("deleted_at", null)
             .in("status", ["draft", "sent"]),
         ]);
         for (const res of [staffRes, orderRes, mtdOrderRes, mtdRevenueRes, openQuoteRes]) {
@@ -357,6 +379,7 @@ function RegionsPage() {
               .from("orders")
               .select("venue_lat,venue_lng,event_time")
               .eq("region_id", r.id)
+              .is("deleted_at", null)
               .gte("event_date", mtdStartIso)
               .neq("status", "cancelled");
             const earthR = 6371; // km
@@ -425,8 +448,12 @@ function RegionsPage() {
       .order("full_name");
     if (error) {
       // Staff drives the unlinked banner + the assign dialog roster;
-      // a silent failure hides both, so at least log it.
+      // a silent failure hid both. Keep the log, but also surface a
+      // visible warning with a retry path.
       console.warn("[regions] staff roster load failed:", error);
+      setStaffWarning(dbErrorMessage(error, { entity: "staff roster" }));
+    } else {
+      setStaffWarning(null);
     }
     setStaff((data || []) as any);
   };
@@ -871,6 +898,20 @@ function RegionsPage() {
             </div>
           )}
 
+          {/* Staff roster failed: unlinked banner + manager picker +
+              assign dialog are all incomplete until it reloads. */}
+          {staffWarning && (
+            <div className="mb-4 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
+              <span className="flex-1 text-xs text-amber-900">
+                Staff roster failed to load ({staffWarning}). The manager picker and staff assignment are incomplete.
+              </span>
+              <Button size="sm" variant="outline" onClick={() => void loadStaff()} className="shrink-0 border-amber-300 bg-white">
+                Retry
+              </Button>
+            </div>
+          )}
+
           {/* Partial-failure banner: branch cards render but one or more
               count queries silently zeroed (the REG-E failure mode). */}
           {!loadError && statsWarning && (
@@ -910,30 +951,45 @@ function RegionsPage() {
             </div>
           )}
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-            <StatTile label="Active branches" value={stats.active} accent="text-brand-primary" tooltip={"Branches that are currently switched on and accepting work."} />
-            <StatTile label="Open quotes" value={stats.openQuotes} accent="text-slate-600" tooltip={"Quotes in draft or sent state across every branch."} />
-            {/* REG-B (regions audit, REG-3): label clarification. The
-                pre-REG-B labels said "MTD orders / MTD revenue", which
-                operators read as "booked this month". The underlying
-                query is `event_date >= 1st of this month`, so the
-                values are events HAPPENING this month - very different
-                for an events caterer who books months ahead. Renamed
-                to match the query so the financial dashboard and this
-                page can both be right at the same time. */}
-            <StatTile label="Events this month" value={stats.mtdOrders} accent="text-blue-600" tooltip={"Orders with an event_date in the current calendar month, summed across branches. Cancelled orders excluded."} />
-            <StatTile
-              label="Revenue this month"
-              value={currencyFmt.format(stats.mtdRevenue)}
-              accent="text-amber-600"
-              tooltip={"Sum of total_amount on orders with an event_date in the current calendar month. Cancelled orders excluded. For 'booked this month' see /admin/financial."}
-            />
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
-            <StatTile label="Total regions" value={stats.total} tooltip={"How many regions you have set up for your business."} />
-            <StatTile label="Countries" value={stats.countries} accent="text-slate-600" tooltip={"How many different countries you operate in across your regions."} />
-            <StatTile label="Linked staff" value={stats.totalStaff} accent="text-blue-600" tooltip={"Total staff members linked to any region."} />
-          </div>
+          {/* Command-centre restructure (2026-07-02): stat rows now
+              use the shared StatTile (tooltips preserved through the
+              local wrapper below) on the standard grid. A loading
+              skeleton renders inside the shell so the tiles never
+              show zeros while the enrichment queries are in flight. */}
+          {loading ? (
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6" aria-hidden="true">
+              {[0, 1, 2, 3].map((i) => (
+                <div key={i} className="h-28 animate-pulse rounded-xl border border-slate-200/90 bg-white/70 dark:border-slate-800 dark:bg-slate-900/60" />
+              ))}
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                <StatTile label="Active branches" icon={Globe} value={stats.active} tooltip={"Branches that are currently switched on and accepting work."} />
+                <StatTile label="Open quotes" icon={ChefHat} value={stats.openQuotes} tooltip={"Quotes in draft or sent state across every branch."} />
+                {/* REG-B (regions audit, REG-3): label clarification. The
+                    pre-REG-B labels said "MTD orders / MTD revenue", which
+                    operators read as "booked this month". The underlying
+                    query is `event_date >= 1st of this month`, so the
+                    values are events HAPPENING this month - very different
+                    for an events caterer who books months ahead. Renamed
+                    to match the query so the financial dashboard and this
+                    page can both be right at the same time. */}
+                <StatTile label="Events this month" icon={Truck} value={stats.mtdOrders} tooltip={"Orders with an event_date in the current calendar month, summed across branches. Cancelled orders excluded."} />
+                <StatTile
+                  label="Revenue this month"
+                  icon={MapPin}
+                  value={currencyFmt.format(stats.mtdRevenue)}
+                  tooltip={"Sum of total_amount on orders with an event_date in the current calendar month. Cancelled orders excluded. For 'booked this month' see /admin/financial."}
+                />
+              </div>
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                <StatTile label="Total regions" value={stats.total} tooltip={"How many regions you have set up for your business."} />
+                <StatTile label="Countries" value={stats.countries} tooltip={"How many different countries you operate in across your regions."} />
+                <StatTile label="Linked staff" icon={Users} value={stats.totalStaff} tooltip={"Total staff members linked to any region. Client profiles are excluded."} />
+              </div>
+            </>
+          )}
 
           {loading ? (
             <Card>
@@ -1502,14 +1558,21 @@ function RegionsPage() {
   );
 }
 
-function StatTile({ label, value, accent = "text-slate-900", tooltip }: { label: string; value: number | string; accent?: string; tooltip?: string }) {
+/** Command-centre restructure (2026-07-02): thin wrapper over the
+ *  shared portal StatTile so the page keeps its InfoTooltips while
+ *  matching the standard tile chrome everywhere else uses. */
+function StatTile({ label, value, tooltip, icon }: { label: string; value: number | string; tooltip?: string; icon?: ComponentType<{ className?: string }> }) {
   return (
-    <Card>
-      <CardContent className="p-4">
-        <p className="text-xs uppercase tracking-wide text-slate-500 mb-1 flex items-center gap-1">{label}{tooltip && <InfoTooltip content={tooltip} />}</p>
-        <p className={`text-2xl font-bold ${accent}`}>{value}</p>
-      </CardContent>
-    </Card>
+    <PortalStatTile
+      label={
+        <span className="inline-flex items-center gap-1">
+          {label}
+          {tooltip && <InfoTooltip content={tooltip} />}
+        </span>
+      }
+      value={value}
+      icon={icon}
+    />
   );
 }
 

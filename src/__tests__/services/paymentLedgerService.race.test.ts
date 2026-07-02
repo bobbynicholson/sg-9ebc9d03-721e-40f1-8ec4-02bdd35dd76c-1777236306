@@ -32,14 +32,16 @@ jest.mock("@/integrations/supabase/client", () => ({
 const STAFF_ID = "staff-1";
 const SESSION_IDS = ["sess-a", "sess-b", "sess-c"];
 
+// Fixture matches the REAL staff_work_sessions schema: the column is
+// clock_in (not clock_in_time) and there is no hourly_rate column -
+// the service derives the effective rate from earnings / hours.
 const UNPAID_SESSIONS = SESSION_IDS.map((id, i) => ({
   id,
   staff_id: STAFF_ID,
   payment_status: "unpaid",
   total_hours: 4,
   total_earnings: 200,
-  hourly_rate: 50,
-  clock_in_time: new Date(Date.UTC(2026, 0, 1 + i, 8, 0)).toISOString(),
+  clock_in: new Date(Date.UTC(2026, 0, 1 + i, 8, 0)).toISOString(),
 }));
 
 /**

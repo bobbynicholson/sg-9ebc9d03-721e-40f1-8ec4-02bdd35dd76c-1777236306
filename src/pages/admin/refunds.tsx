@@ -37,7 +37,7 @@ import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { PortalShell, PortalHeader,
-  PageWorkbench,
+  PageWorkbench, StatTile,
 } from "@/components/portal/ui";
 import { UserRole } from "@/types/app";
 import {
@@ -831,7 +831,7 @@ function RefundsPage() {
       type="button"
       onClick={() => setFilter(k)}
       aria-pressed={filter === k}
-      className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colours ${
+      className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
         filter === k
           ? "bg-slate-900 text-white border-slate-900"
           : "bg-white text-slate-700 border-slate-300 hover:bg-slate-100"
@@ -853,10 +853,14 @@ function RefundsPage() {
 
   return (
     <>
+      {/* Audit fix: NoIndexMeta renders its own next/head block, so it
+          must sit as a SIBLING of <Head>. Nested inside, next/head
+          dropped the robots/noindex tags entirely and this finance page
+          was indexable. */}
       <Head>
         <title>Refunds & Credits - CateringMS</title>
-        <NoIndexMeta />
       </Head>
+      <NoIndexMeta />
       <AdminNav />
       <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
@@ -991,47 +995,47 @@ function RefundsPage() {
 
           {!loadError && (
           <>
-          {/* REF-A intel: summary tile strip. Three numbers the
-              finance persona actually wants at a glance: YTD
-              refunded, outstanding credit liability, average time
-              to settle a refund. Hidden when there's no refund
-              activity at all - the empty-state block below explains
-              the page instead. */}
-          {intel.hasRefundActivity && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <Card className="border-2">
-                <CardContent className="pt-4 pb-3">
-                  <p className="text-xs font-medium text-slate-600">Refunded year to date</p>
-                  <p className="text-2xl font-bold tabular-nums text-rose-700 mt-1">
-                    {fmtAmount(intel.refundedYTDCents / 100)}
-                  </p>
-                  <p className="text-[11px] text-slate-500 mt-0.5">Completed refunds since 1 Jan.</p>
-                </CardContent>
-              </Card>
-              <Card className="border-2">
-                <CardContent className="pt-4 pb-3">
-                  <p className="text-xs font-medium text-slate-600">Credit liability outstanding</p>
-                  <p className="text-2xl font-bold tabular-nums text-brand-primary mt-1">
-                    {fmtAmount(intel.creditLiabilityCents / 100)}
-                  </p>
-                  <p className="text-[11px] text-slate-500 mt-0.5">Issued minus redeemed across all time. Money you owe clients in unspent credit.</p>
-                </CardContent>
-              </Card>
-              <Card className="border-2">
-                <CardContent className="pt-4 pb-3">
-                  <p className="text-xs font-medium text-slate-600 flex items-center gap-1.5">
-                    <TrendingUp className="w-3.5 h-3.5" />
-                    Avg time to refund
-                  </p>
-                  <p className="text-2xl font-bold tabular-nums text-slate-900 mt-1">
-                    {intel.avgDays > 0 ? `${intel.avgDays.toFixed(1)} days` : <span className="text-slate-400">-</span>}
-                  </p>
-                  <p className="text-[11px] text-slate-500 mt-0.5">Raised to processed, rolling 90 days. Anything &gt; 5 days is a manual-EFT queue backlog.</p>
-                </CardContent>
-              </Card>
+          {/* REF-A intel, restructured onto the shared StatTile
+              primitive (command-centre standard 2026-07-02). Four
+              numbers the finance persona wants at a glance: YTD
+              refunded, pending exposure, credit liability, average
+              time to settle. Hidden when there's no data at all -
+              the empty-state block below explains the page instead.
+              Gate widened from hasRefundActivity to rows.length so a
+              credit-only tenant still sees their liability figure. */}
+          {rows.length > 0 && (
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+              <StatTile
+                label="Refunded year to date"
+                value={<span className="text-rose-700 dark:text-rose-400">{fmtAmount(intel.refundedYTDCents / 100)}</span>}
+                hint="Completed refunds since 1 Jan."
+                icon={Receipt}
+              />
+              <StatTile
+                label="Pending refunds"
+                value={<span className={totals.pending > 0 ? "text-amber-700 dark:text-amber-400" : undefined}>{fmtAmount(totals.pending / 100)}</span>}
+                hint={`${counts.pending} still owed to clients.`}
+                icon={Clock}
+              />
+              <StatTile
+                label="Credit liability outstanding"
+                value={fmtAmount(intel.creditLiabilityCents / 100)}
+                hint="Issued minus redeemed across all time. Money you owe clients in unspent credit."
+                icon={Wallet}
+              />
+              <StatTile
+                label="Avg time to refund"
+                value={intel.avgDays > 0 ? `${intel.avgDays.toFixed(1)} days` : <span className="text-slate-400">-</span>}
+                hint="Raised to processed, rolling 90 days. Anything over 5 days is a manual-EFT queue backlog."
+                icon={TrendingUp}
+              />
             </div>
           )}
 
+          {/* Toolbar: filter chips + saved views grouped in ONE card
+              (command-centre standard) instead of two loose strips. */}
+          <Card className="mb-6">
+            <CardContent className="pt-4 pb-4 space-y-3">
           <div className="flex items-center gap-2 flex-wrap" role="tablist" aria-label="Refund filters">
             <FilterChip k="all" label="All" count={counts.all} total={totals.all} />
             <FilterChip k="auto" label="Auto-processed (PayFast)" count={counts.auto} total={totals.auto} />
@@ -1077,6 +1081,8 @@ function RefundsPage() {
               + Save view
             </button>
           </div>
+            </CardContent>
+          </Card>
 
           <Card>
             <CardHeader>

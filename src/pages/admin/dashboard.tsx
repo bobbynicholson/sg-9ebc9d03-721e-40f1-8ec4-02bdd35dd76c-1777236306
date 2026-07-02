@@ -619,7 +619,10 @@ function AdminDashboardPage() {
         () => loadMetrics(),
       )
       .subscribe();
-    return () => { sub.unsubscribe(); };
+    // removeChannel (not unsubscribe) so the channel is released from
+    // the client registry - unsubscribe leaves the topic behind and a
+    // remount on the same name can collide (same fix as /admin/tracking).
+    return () => { supabase.removeChannel(sub); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [companyId, range.from.getTime(), range.to.getTime()]);
 
@@ -1420,8 +1423,12 @@ function PriorityRow({
 }
 
 export default function AdminDashboard() {
+  // Restructure audit (2026-07-02): OWNER added - the baseline admin
+  // tier is SUPER_ADMIN / OWNER / COMPANY_ADMIN / ADMIN. Finance
+  // widgets inside the page stay gated via canAccessFinance, which
+  // already admits owner.
   return (
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN]}>
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.OWNER, UserRole.COMPANY_ADMIN, UserRole.ADMIN]}>
       <AdminDashboardPage />
     </ProtectedRoute>
   );

@@ -2,8 +2,9 @@
  * /admin/fixed-costs - recurring tenant costs (rent, software,
  * vehicles).
  *
- * Owner / company_admin / admin / super_admin only per the Skylight
- * finance-visibility rule. Gated upstream via ProtectedRoute.
+ * Owner / company_admin / super_admin only per the Skylight
+ * finance-visibility rule (canAccessFinance; plain admin is
+ * deliberately excluded). Gated via ProtectedRoute below.
  *
  * FXC-A (fixed costs audit, 2026-05-23): intelligence pass.
  * Pre-FXC-A this page was a two-tile + flat-list CRUD: Active count,
@@ -58,7 +59,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { captureException } from "@/lib/observability";
 import { formatZAR } from "@/lib/formatters";
-import { DEFAULT_TENANT_TIMEZONE, tenantToday } from "@/lib/localDate";
+import { DEFAULT_TENANT_TIMEZONE, parseLocalDay, tenantToday, toLocalISO } from "@/lib/localDate";
 import { useTenantHref } from "@/lib/tenantUrl";
 
 const CADENCE_MULTIPLIER: Record<Cadence, number> = {
@@ -74,16 +75,22 @@ function toMonthlyCents(amount_cents: number, cadence: Cadence): number {
 
 /**
  * Walk next_due_date forward by cadence until it's >= today. The
- * cron that was meant to do this server-side never shipped (see
- * fixedCostsService.ts header comment from 2026-05-18). Rather than
- * lying with a stale date in the past, we compute the next live
- * occurrence on every render. Cheap - max ~52 iterations on a year-
- * old weekly row. `today` is the TENANT's calendar day (audit: was
- * the browser's clock, which drifted a day for travelling operators).
+ * daily cron at /api/cron/advance-fixed-cost-next-due does this
+ * server-side (shipped FXC-B, 2026-05-23); this client-side walk is
+ * the backstop so the operator never sees a stale date even if the
+ * cron misses a run. Cheap - max ~52 iterations on a year-old weekly
+ * row. `today` is the TENANT's calendar day.
+ *
+ * Audit fix (2026-07-02): parse next_due_date via parseLocalDay so
+ * the compare lives in the same local-midnight space as the
+ * tenantToday anchor. `new Date("YYYY-MM-DD")` parses as UTC
+ * midnight, which for a browser west of UTC sits BEFORE today's
+ * local midnight - a cost due today was walked one cadence forward
+ * and its "Due in Nd" badge lied by a month.
  */
 function nextFutureOccurrence(row: FixedCost, today: Date): Date | null {
-  const cur = new Date(row.next_due_date);
-  if (isNaN(cur.getTime())) return null;
+  const cur = parseLocalDay(row.next_due_date);
+  if (!cur) return null;
   let safety = 0;
   while (cur < today && safety < 200) {
     if (row.cadence === "weekly") cur.setDate(cur.getDate() + 7);
@@ -141,6 +148,9 @@ interface BulkRow {
   category: FixedCostCategory | null;
   notes: string | null;
   error: string | null;
+  /** Non-blocking caution (e.g. an active cost with the same label
+   *  already exists). The row still imports; the operator is told. */
+  warning: string | null;
 }
 
 function splitCsvLine(line: string): string[] {
@@ -178,17 +188,28 @@ function parseDate(raw: string): string | null {
     if (a.length === 4) return `${a}-${b.padStart(2, "0")}-${c.padStart(2, "0")}`;
     if (c.length === 4) return `${c}-${b.padStart(2, "0")}-${a.padStart(2, "0")}`;
   }
+  // Audit fix (2026-07-02): format from LOCAL components, not
+  // toISOString() - the UTC conversion imported rows a day early for
+  // any browser east of UTC (SA is UTC+2). Same fix as Payables.
   const d = new Date(s);
-  if (!Number.isNaN(d.getTime())) return d.toISOString().slice(0, 10);
+  if (!Number.isNaN(d.getTime())) return toLocalISO(d);
   return null;
 }
 
 const VALID_CADENCES: Cadence[] = ["weekly", "monthly", "quarterly", "annual"];
 const VALID_CATEGORIES = new Set(FIXED_COST_CATEGORIES.map((c) => c.value));
 
-function parseBulkCsv(csv: string): BulkRow[] {
+function parseBulkCsv(csv: string, existing: FixedCost[]): BulkRow[] {
   const lines = csv.split(/\r?\n/).map((l) => l.trim()).filter((l) => l.length > 0);
   if (lines.length === 0) return [];
+  // Audit fix (2026-07-02): duplicate detection. Re-pasting the same
+  // CSV used to silently double every recurring cost (and double the
+  // forecast outflow). Warn (non-blocking) when an ACTIVE cost with
+  // the same label already exists, or the label repeats in the paste.
+  const existingLabels = new Set(
+    existing.filter((r) => r.active).map((r) => r.label.trim().toLowerCase()),
+  );
+  const seenInPaste = new Set<string>();
   const out: BulkRow[] = [];
   const startsWithHeader = /label|amount/i.test(lines[0]);
   for (let i = 0; i < lines.length; i++) {
@@ -212,6 +233,13 @@ function parseBulkCsv(csv: string): BulkRow[] {
       ? (categoryRaw as FixedCostCategory)
       : null;
     if (categoryRaw && !category) errs.push(`unknown category "${categoryRaw}"`);
+    const warns: string[] = [];
+    if (errs.length === 0 && label) {
+      const key = label.trim().toLowerCase();
+      if (existingLabels.has(key)) warns.push(`an active cost named "${label}" already exists`);
+      if (seenInPaste.has(key)) warns.push("repeated inside this paste");
+      seenInPaste.add(key);
+    }
     out.push({
       line: i + 1,
       label,
@@ -221,6 +249,7 @@ function parseBulkCsv(csv: string): BulkRow[] {
       category,
       notes,
       error: errs.length ? errs.join("; ") : null,
+      warning: warns.length ? warns.join("; ") : null,
     });
   }
   return out;
@@ -426,7 +455,7 @@ function FixedCostsPage() {
   };
 
   const handleBulkPreview = () => {
-    setBulkPreview(parseBulkCsv(bulkCsv));
+    setBulkPreview(parseBulkCsv(bulkCsv, rows));
     setBulkResult(null);
   };
 
@@ -507,7 +536,13 @@ function FixedCostsPage() {
     const today = todayAnchor;
     const b: { d30: number; d60: number; d90: number } = { d30: 0, d60: 0, d90: 0 };
     for (const o of occ) {
-      const days = daysBetween(today, new Date(o.date));
+      // parseLocalDay pins the bare occurrence date to local midnight
+      // so the day-diff against the local todayAnchor is exact; the
+      // UTC-midnight parse pushed boundary occurrences into the wrong
+      // bucket for timezones far from UTC.
+      const occDay = parseLocalDay(o.date);
+      if (!occDay) continue;
+      const days = daysBetween(today, occDay);
       if (days < 0 || days > 90) continue;
       if (days <= 30) b.d30 += o.amount_cents;
       else if (days <= 60) b.d60 += o.amount_cents;
@@ -1001,7 +1036,7 @@ function FixedCostsPage() {
                   {bulkPreview.map((r) => (
                     <div
                       key={r.line}
-                      className={`px-3 py-2 grid grid-cols-12 gap-2 ${r.error ? "bg-rose-50" : "bg-white"}`}
+                      className={`px-3 py-2 grid grid-cols-12 gap-2 ${r.error ? "bg-rose-50" : r.warning ? "bg-amber-50" : "bg-white"}`}
                     >
                       <div className="col-span-1 text-slate-500">{r.line}</div>
                       <div className="col-span-3 truncate" title={r.label}>{r.label || <span className="text-slate-400">-</span>}</div>
@@ -1013,6 +1048,12 @@ function FixedCostsPage() {
                         <div className="col-span-12 text-rose-700 mt-1">
                           <AlertCircle className="w-3 h-3 inline mr-1" />
                           {r.error}
+                        </div>
+                      )}
+                      {!r.error && r.warning && (
+                        <div className="col-span-12 text-amber-700 mt-1">
+                          <AlertCircle className="w-3 h-3 inline mr-1" />
+                          Imports anyway, but {r.warning}
                         </div>
                       )}
                     </div>
@@ -1062,8 +1103,11 @@ interface CostRowProps {
 function CostRow({ row, currency, fmt, today, isLargest, onEdit, onToggle, onDelete }: CostRowProps) {
   const nextOcc = nextFutureOccurrence(row, today);
   const daysToNext = nextOcc ? daysBetween(today, nextOcc) : null;
-  const wasStored = new Date(row.next_due_date);
-  const storedIsPast = !isNaN(wasStored.getTime()) && wasStored < today;
+  // Audit fix (2026-07-02): local-midnight parse, same class as
+  // nextFutureOccurrence - the UTC-midnight parse flagged "Date
+  // drifted" a day early or late depending on the browser timezone.
+  const wasStored = parseLocalDay(row.next_due_date);
+  const storedIsPast = !!wasStored && wasStored < today;
   const annualised = (row.amount_cents / 100) * 12 * CADENCE_MULTIPLIER[row.cadence];
   // FXC-A intel: annual cadence + due in <=14d = big lumpy hit
   // incoming. Worth a chip so the operator can pre-fund.
@@ -1146,7 +1190,10 @@ function CostRow({ row, currency, fmt, today, isLargest, onEdit, onToggle, onDel
           )}
         </div>
         <div className="text-xs text-slate-500 mt-0.5">
-          Next due {nextOcc ? nextOcc.toISOString().slice(0, 10) : row.next_due_date}
+          {/* toLocalISO, not toISOString: nextOcc is a local-midnight
+              Date, and the UTC slice shifted the shown date back a day
+              for any timezone east of UTC (including SA). */}
+          Next due {nextOcc ? toLocalISO(nextOcc) : row.next_due_date}
           {nextOcc && daysToNext != null && (
             <span className="text-slate-400">
               {" "}

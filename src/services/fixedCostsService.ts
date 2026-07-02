@@ -11,6 +11,7 @@
  * never sees a stale date even if the cron misses a run.
  */
 import { supabase } from "@/integrations/supabase/client";
+import { parseLocalDay, toLocalISO } from "@/lib/localDate";
 
 export type Cadence = "weekly" | "monthly" | "quarterly" | "annual";
 
@@ -144,23 +145,33 @@ function expandOccurrences(
   horizonDays: number,
 ): Array<{ id: string; label: string; date: string; amount_cents: number }> {
   const out: Array<{ id: string; label: string; date: string; amount_cents: number }> = [];
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const horizon = new Date(today.getTime() + horizonDays * 24 * 60 * 60 * 1000);
+  // Audit fix (2026-07-02): all day maths in LOCAL components, no UTC
+  // round-trips. `new Date("YYYY-MM-DD")` parses as UTC midnight and
+  // toISOString().slice(0,10) converts back through UTC, so for any
+  // browser away from UTC (SA is UTC+2) occurrences on the window
+  // boundary shifted a day: fixedCostsNext30 on the financial and
+  // cashflow dashboards dropped or double-counted a due date. Same
+  // parseLocalDay / toLocalISO pattern as /admin/fixed-costs.
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  // Local-component addition (not ms maths) so a DST jump inside the
+  // window can't land the horizon at 23:00 the previous day.
+  const horizon = new Date(today.getFullYear(), today.getMonth(), today.getDate() + horizonDays);
   for (const r of rows) {
     if (!r.active) continue;
-    const cur = new Date(r.next_due_date);
-    if (isNaN(cur.getTime())) continue;
+    const cur = parseLocalDay(r.next_due_date);
+    if (!cur) continue;
     while (cur <= horizon) {
       if (cur >= today) {
+        const day = toLocalISO(cur);
         out.push({
-          id: `${r.id}-${cur.toISOString().slice(0, 10)}`,
+          id: `${r.id}-${day}`,
           label: r.label,
-          date: cur.toISOString().slice(0, 10),
+          date: day,
           amount_cents: r.amount_cents,
         });
       }
-      // Advance by cadence in-place. UTC math is fine for date-only.
+      // Advance by cadence in-place, in local components.
       if (r.cadence === "weekly") cur.setDate(cur.getDate() + 7);
       else if (r.cadence === "monthly") cur.setMonth(cur.getMonth() + 1);
       else if (r.cadence === "quarterly") cur.setMonth(cur.getMonth() + 3);

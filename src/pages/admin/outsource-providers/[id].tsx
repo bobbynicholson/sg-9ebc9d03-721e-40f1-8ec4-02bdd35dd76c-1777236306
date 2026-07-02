@@ -16,6 +16,7 @@ import { useRouter } from "next/router";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { Card, CardContent } from "@/components/ui/card";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
@@ -26,6 +27,7 @@ import { useTenantHref } from "@/lib/tenantUrl";
 import { staffOrderHref } from "@/lib/orderUrls";
 import { supabase } from "@/integrations/supabase/client";
 import {
+  AlertTriangle,
   ArrowLeft,
   Mail,
   MessageCircle,
@@ -196,13 +198,20 @@ function ProviderDetail() {
       }, 0);
       return Math.round(totalMs / responded.length / 60_000);
     })();
+    // Billed = engaged work only. The previous filter (everything
+    // except cancelled/declined) counted `requested` assignments the
+    // provider hadn't even answered yet, inflating Total billed and
+    // Outstanding with quotes that may never be accepted.
+    const ENGAGED = ["accepted", "en_route", "on_site", "completed"];
     const totalBilled = assignments
-      .filter((a) => a.status !== "cancelled" && a.status !== "declined")
+      .filter((a) => ENGAGED.includes(a.status))
       .reduce((sum, a) => sum + Number(a.actual_cost ?? a.quoted_cost ?? 0), 0);
     const totalPaid = assignments
       .filter((a) => a.invoice_paid)
       .reduce((sum, a) => sum + Number(a.actual_cost ?? a.quoted_cost ?? 0), 0);
-    const outstanding = totalBilled - totalPaid;
+    // Clamp: a paid invoice on a job that later moved to cancelled
+    // would otherwise push outstanding negative.
+    const outstanding = Math.max(0, totalBilled - totalPaid);
     return { total, accepted, declined, cancelled, completed, acceptRate, avgResponseMinutes, totalBilled, totalPaid, outstanding, respondedCount, manualAccepts };
   }, [assignments]);
 
@@ -266,19 +275,30 @@ function ProviderDetail() {
           <PageWorkbench />
 
           {loadError && !loading && (
-            <div className="mb-5 rounded-lg border border-rose-200 bg-white p-5 shadow-sm">
-              <h2 className="text-base font-bold text-rose-900 mb-1">Couldn't load this provider</h2>
-              <p className="text-sm text-slate-600 mb-3">{loadError}</p>
-              <Button onClick={() => setReloadNonce((n) => n + 1)} size="sm" className="bg-brand-primary text-white hover:bg-brand-primary/90">
-                Retry
-              </Button>
-            </div>
+            <Alert variant="destructive" className="mb-6 bg-white dark:bg-slate-900/95">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertTitle>Couldn't load this provider</AlertTitle>
+              <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
+                <span>{loadError}</span>
+                <Button onClick={() => setReloadNonce((n) => n + 1)} size="sm" variant="outline">
+                  Retry
+                </Button>
+              </AlertDescription>
+            </Alert>
           )}
 
           {loading ? (
-            <Card><CardContent className="p-12 text-center text-slate-500">
-              <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2" /> Loading...
-            </CardContent></Card>
+            // Skeleton inside the shell - nav + hero stay mounted.
+            <Card>
+              <CardContent className="py-6 space-y-3" aria-busy="true" aria-label="Loading provider">
+                {[0, 1, 2, 3].map((i) => (
+                  <div key={i} className="flex items-center gap-4 animate-pulse">
+                    <div className="h-4 w-40 rounded bg-slate-200 dark:bg-slate-800" />
+                    <div className="h-4 flex-1 rounded bg-slate-100 dark:bg-slate-800/60" />
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
           ) : loadError ? null : !provider ? (
             <Card><CardContent className="p-12 text-center text-slate-500">
               Provider not found. It may have been removed or belongs to another workspace.
@@ -300,8 +320,10 @@ function ProviderDetail() {
                         {Number(provider.rating).toFixed(1)} / 5
                       </span>
                     )}
+                    {/* Role chips are decorative category chrome -
+                        brand tint, not the off-palette blue. */}
                     {(provider.provider_roles || []).map((r) => (
-                      <Badge key={r} variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
+                      <Badge key={r} variant="outline" className="text-xs bg-brand-primary/10 text-brand-primary border-brand-primary/20">
                         {roleLabel(r)}
                       </Badge>
                     ))}
@@ -620,8 +642,10 @@ function ProviderDetail() {
 
 export default function ProtectedProviderDetailPage() {
   return (
-    // OUT-A (OUT-2): match index role set.
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.SALES_ADMIN, UserRole.REGION_ADMIN]}>
+    // OUT-A (OUT-2): match index role set. OWNER was missing here
+    // while the index admits it - the business owner could browse the
+    // list but 403'd on every provider link. Fixed 2026-07-02.
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.OWNER, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.SALES_ADMIN, UserRole.REGION_ADMIN]}>
       <ProviderDetail />
     </ProtectedRoute>
   );

@@ -8,7 +8,10 @@ import { useAuth } from "@/contexts/AuthContext";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { PortalShell, PortalHeader,
   PageWorkbench,
+  StatTile,
 } from "@/components/portal/ui";
+import Link from "next/link";
+import { useTenantHref } from "@/lib/tenantUrl";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { toLocalISO } from "@/lib/localDate";
@@ -66,6 +69,7 @@ interface DriverProfile {
 function RoutePlanningInner() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { withSlug } = useTenantHref();
   const [loading, setLoading] = useState(false);
   // Command-centre audit: keep the toast for transient feedback but also
   // persist the failure so the page renders a Retry card instead of a
@@ -537,57 +541,40 @@ function RoutePlanningInner() {
             </div>
           )}
 
-          {/* Stats Overview */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            <Card>
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-slate-600 flex items-center gap-1">Unassigned Orders <InfoTooltip content={"Confirmed orders that still need a driver assigned. Pulled live from the orders table for your company."} /></p>
-                    <p className="text-2xl font-bold text-slate-900">{unassignedOrders.length}</p>
-                  </div>
-                  <AlertCircle className="h-8 w-8 text-orange-500" />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-slate-600 flex items-center gap-1">Active Drivers <InfoTooltip content={"Drivers with role=driver on your team. Drivers without an explicit is_active flag count as active."} /></p>
-                    <p className="text-2xl font-bold text-slate-900">{drivers.length}</p>
-                  </div>
-                  <Truck className="h-8 w-8 text-brand-primary" />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-slate-600 flex items-center gap-1">Optimised Routes <InfoTooltip content={"How many routes the optimiser has built so far in this session."} /></p>
-                    <p className="text-2xl font-bold text-slate-900">{optimizedRoutes.length}</p>
-                  </div>
-                  <Route className="h-8 w-8 text-blue-500" />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-slate-600 flex items-center gap-1">Total Distance <InfoTooltip content={"Total kilometres across every route built in this session."} /></p>
-                    <p className="text-2xl font-bold text-slate-900">
-                      {optimizedRoutes.reduce((sum, r) => sum + r.total_distance, 0).toFixed(1)} km
-                    </p>
-                  </div>
-                  <TrendingUp className="h-8 w-8 text-brand-primary" />
-                </div>
-              </CardContent>
-            </Card>
+          {/* Stats Overview - command-centre StatTile row, live values
+              from loaded state. Unassigned count stays semantic amber
+              while orders wait on a driver. */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <StatTile
+              label={<span className="inline-flex items-center gap-1">Unassigned orders <InfoTooltip content={"Confirmed orders that still need a driver assigned. Pulled live from the orders table for your company."} /></span>}
+              value={
+                loading ? "-" : (
+                  <span className={unassignedOrders.length > 0 ? "text-amber-600 dark:text-amber-400" : undefined}>
+                    {unassignedOrders.length}
+                  </span>
+                )
+              }
+              hint={unassignedOrders.length > 0 ? "Waiting on a driver" : "Queue is clear"}
+              icon={AlertCircle}
+            />
+            <StatTile
+              label={<span className="inline-flex items-center gap-1">Active drivers <InfoTooltip content={"Drivers with role=driver on your team. Drivers without an explicit is_active flag count as active."} /></span>}
+              value={loading ? "-" : drivers.length}
+              hint="Eligible for assignment"
+              icon={Truck}
+            />
+            <StatTile
+              label={<span className="inline-flex items-center gap-1">Optimised routes <InfoTooltip content={"How many routes the optimiser has built so far in this session."} /></span>}
+              value={optimizedRoutes.length}
+              hint="Built this session"
+              icon={Route}
+            />
+            <StatTile
+              label={<span className="inline-flex items-center gap-1">Total distance <InfoTooltip content={"Total kilometres across every route built in this session."} /></span>}
+              value={`${optimizedRoutes.reduce((sum, r) => sum + r.total_distance, 0).toFixed(1)} km`}
+              hint="Across every built route"
+              icon={TrendingUp}
+            />
           </div>
 
           {/* Empty state (suppressed while a load failure is showing,
@@ -600,6 +587,9 @@ function RoutePlanningInner() {
                 <p className="text-sm text-slate-600 mt-1 max-w-md mx-auto">
                   No confirmed orders need a driver right now. Once a quote is converted and confirmed, the order will land here for routing.
                 </p>
+                <Button asChild size="sm" variant="outline" className="mt-4">
+                  <Link href={withSlug("/admin/orders")}>View orders</Link>
+                </Button>
               </CardContent>
             </Card>
           )}
@@ -728,7 +718,15 @@ function RoutePlanningInner() {
                     </SelectContent>
                   </Select>
 
-                  {filteredOrders.length === 0 ? (
+                  {loading ? (
+                    /* Skeleton renders inside the shell so the nav +
+                       hero never disappear during a load. */
+                    <div className="space-y-2 py-1" aria-hidden="true">
+                      {[0, 1, 2].map((i) => (
+                        <div key={i} className="h-16 rounded-md border border-slate-200 bg-slate-100/70 animate-pulse" />
+                      ))}
+                    </div>
+                  ) : filteredOrders.length === 0 ? (
                     <p className="text-xs text-slate-500 text-center py-6">
                       Queue is empty. Confirmed orders without a driver appear here.
                     </p>
@@ -828,15 +826,15 @@ function RoutePlanningInner() {
                           key={route.driver_id}
                           className={`cursor-pointer transition-all ${
                             selectedRoute?.driver_id === route.driver_id
-                              ? "ring-2 ring-blue-500 bg-blue-50"
-                              : "hover:bg-slate-50"
+                              ? "ring-2 ring-brand-primary/60 bg-brand-primary/5"
+                              : "hover:bg-slate-50/70 dark:hover:bg-slate-800/40"
                           }`}
                           onClick={() => setSelectedRoute(route)}
                         >
                           <CardContent className="p-4">
                             <div className="flex items-start justify-between mb-3">
                               <div className="flex items-center gap-2 min-w-0">
-                                <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-semibold flex-shrink-0">
+                                <div className="w-8 h-8 rounded-full bg-brand-primary text-white flex items-center justify-center font-semibold flex-shrink-0">
                                   {index + 1}
                                 </div>
                                 <div className="min-w-0">
@@ -959,7 +957,7 @@ function RoutePlanningInner() {
                         >
                           <div className="flex-shrink-0">
                             <div className={`w-8 h-8 rounded-full text-white flex items-center justify-center font-semibold text-sm ${
-                              stop.time_window_breach ? "bg-rose-600" : "bg-blue-600"
+                              stop.time_window_breach ? "bg-rose-600" : "bg-brand-primary"
                             }`}>
                               {index + 1}
                             </div>
@@ -1038,10 +1036,11 @@ function RoutePlanningInner() {
 
 // RTE-A (route-planning audit, RTE-1 + RTE-2): defense-in-depth +
 // admit sales_admin (visibility for client calls) and region_admin
-// (RLS-narrowed regional queue).
+// (RLS-narrowed regional queue). Command-centre audit: OWNER added,
+// it was missing from the baseline admin tier with no documented reason.
 export default function RoutePlanning() {
   return (
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.SALES_ADMIN, UserRole.REGION_ADMIN]}>
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.OWNER, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.SALES_ADMIN, UserRole.REGION_ADMIN]}>
       <RoutePlanningInner />
     </ProtectedRoute>
   );

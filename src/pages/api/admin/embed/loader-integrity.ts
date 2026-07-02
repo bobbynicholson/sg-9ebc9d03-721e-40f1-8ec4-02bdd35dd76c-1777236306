@@ -27,7 +27,10 @@ import { withApiLogging } from "@/lib/withApiLogging";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 
 
-const ALLOWED = new Set(["super_admin", "company_admin", "admin"]);
+// Restructure audit 2026-07-02: "owner" added - the enum gained it in
+// migration 20260521150000 and the page gate admits OWNER; without it
+// here an owner hit 403s across the lead-capture area.
+const ALLOWED = new Set(["super_admin", "owner", "company_admin", "admin"]);
 
 let cached: { integrity: string; sha384: string } | null = null;
 

@@ -129,11 +129,6 @@ interface CompanyRow {
    *  default. Capped at 720h (30 days). A daily-reconciliation
    *  kitchen sets ~36; a once-a-week back-office sets ~144. */
   cash_on_hand_stale_after_hours: number | null;
-  /** CP-B (task #218, 2026-05-25): added to the interface so the
-   *  field stops being read via `(row as any).pricing_includes_vat`.
-   *  Drives whether the menu / equipment / inventory price fields
-   *  are treated as gross (customer-facing) or net (ex-VAT). */
-  pricing_includes_vat: boolean | null;
   /** CP-B: surfaced so the "Last saved Nh ago" chip beside the
    *  Save button has a real timestamp to read. */
   updated_at: string | null;
@@ -256,8 +251,8 @@ function CompanyProfilePage() {
       email: row.email,
       phone: row.phone,
       website: row.website,
-      primary_color: row.primary_color,
-      secondary_color: row.secondary_color,
+      // primary_color / secondary_color intentionally not validated or
+      // saved here - White Label owns them (see payload note below).
       vat_rate: row.vat_rate,
       headquarters_lat: row.headquarters_lat,
       headquarters_lng: row.headquarters_lng,
@@ -290,8 +285,14 @@ function CompanyProfilePage() {
         headquarters_lat: row.headquarters_lat,
         headquarters_lng: row.headquarters_lng,
         logo_url: row.logo_url,
-        primary_color: row.primary_color,
-        secondary_color: row.secondary_color,
+        // Audit fix (concurrent edits): primary_color / secondary_color
+        // are NOT editable on this page (the Brand colours card is a
+        // read-only preview that links to /admin/white-label), yet the
+        // save used to write them back from the row loaded at page
+        // open. Sequence that lost data: admin A opens Company profile,
+        // admin B saves a new palette on White Label, admin A saves the
+        // profile - branding silently reverted to the stale colours.
+        // Dropped from the payload; White Label is the single writer.
         registration_number: row.registration_number,
         tax_number: row.tax_number,
         vat_registered: row.vat_registered ?? false,
@@ -1151,6 +1152,12 @@ function previewNumber(s: NumberingSettingRow, offset: number): string {
 function DocumentNumberingCard({ companyId }: { companyId: string }) {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
+  // Audit fix: a failed load used to toast once and leave three dead
+  // accordion rows behind (rows stay null, so opening one rendered
+  // nothing and there was no way to retry short of a full reload).
+  // Surface the failure in the card with a Retry button instead.
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
   const [rows, setRows] = useState<Record<DocType, NumberingSettingRow | null>>({
     invoice: null, quote: null, order: null,
   });
@@ -1167,6 +1174,7 @@ function DocumentNumberingCard({ companyId }: { companyId: string }) {
     let cancelled = false;
     (async () => {
       setLoading(true);
+      setLoadError(null);
       try {
         const r = await fetch("/api/admin/numbering-settings", { method: "GET" });
         const j = await r.json();
@@ -1185,14 +1193,14 @@ function DocumentNumberingCard({ companyId }: { companyId: string }) {
           order: { highest: 0, sample: null },
         });
       } catch (e: any) {
-        toast({ title: "Couldn't load numbering settings", description: dbErrorMessage(e, { entity: "numbering settings" }), variant: "destructive" });
+        if (!cancelled) setLoadError(dbErrorMessage(e, { entity: "numbering settings" }));
       } finally {
         if (!cancelled) setLoading(false);
       }
     })();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [companyId]);
+  }, [companyId, reloadKey]);
 
   const updateRow = (t: DocType, patch: Partial<NumberingSettingRow>) => {
     setRows((prev) => {
@@ -1252,6 +1260,14 @@ function DocumentNumberingCard({ companyId }: { companyId: string }) {
         {loading ? (
           <div className="flex items-center gap-2 text-sm text-slate-500">
             <Loader2 className="w-4 h-4 animate-spin" /> Loading numbering settings...
+          </div>
+        ) : loadError ? (
+          <div className="flex flex-wrap items-center gap-3 rounded-md border border-rose-200 bg-rose-50 p-3">
+            <AlertTriangle className="h-4 w-4 shrink-0 text-rose-600" />
+            <p className="flex-1 text-sm text-rose-900">Couldn&apos;t load numbering settings: {loadError}</p>
+            <Button variant="outline" size="sm" onClick={() => setReloadKey((k) => k + 1)}>
+              Retry
+            </Button>
           </div>
         ) : (
           (Object.keys(DOC_TYPE_META) as DocType[]).map((t) => {

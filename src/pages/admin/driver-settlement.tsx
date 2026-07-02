@@ -28,6 +28,7 @@ import { Badge } from "@/components/ui/badge";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { PortalShell, PortalHeader,
   PageWorkbench,
+  StatTile,
 } from "@/components/portal/ui";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
@@ -223,6 +224,13 @@ function DriverSettlementPage() {
     else if (preset === "month_to_date") { setFrom(startOfMonthIso()); setTo(todayIso()); }
     else if (preset === "last_month") { const r = lastMonthRange(); setFrom(r.from); setTo(r.to); }
   }, [preset]);
+
+  // Command-centre audit: a custom range with From after To returns
+  // all-zero totals from the pay service, which reads exactly like
+  // "nobody worked". ISO date strings compare lexicographically, so
+  // a plain string compare is safe here. Surfaced as an inline
+  // warning on the toolbar rather than silently showing zeros.
+  const rangeInvalid = !!from && !!to && from > to;
 
   // Load the driver list for the company on mount.
   //
@@ -485,10 +493,14 @@ function DriverSettlementPage() {
         s.hourly_pay.toFixed(2),
         s.distance_total_km.toFixed(2),
         s.distance_pay.toFixed(2),
-        // Per-driver deliveries count is only known after the row
-        // is expanded (bulk path drops the per-delivery array to
-        // stay cheap). Use 0 as the conservative fallback.
-        r.summary?.deliveries.length ?? 0,
+        // Data-honesty fix: the bulk path drops the per-delivery array
+        // (always []), so a hard 0 here contradicted a non-zero callout
+        // pay column in the same row. Emit the real count only when the
+        // drilldown loaded it; otherwise blank = unknown, and 0 only
+        // when callout pay is genuinely zero.
+        (r.summary?.deliveries.length || 0) > 0
+          ? r.summary!.deliveries.length
+          : (s.callout_pay === 0 ? 0 : ""),
         s.callout_pay.toFixed(2),
         s.grand_total.toFixed(2),
         payout?.status ?? "unsettled",
@@ -732,6 +744,39 @@ function DriverSettlementPage() {
                 </>
               ) : undefined
             }
+            actions={
+              <>
+                {/* Phase 28 #9: manual refresh. Bumps refreshTick which
+                    the per-driver compute effect already listens for. */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setRefreshTick((n) => n + 1)}
+                >
+                  <RefreshCw className="w-4 h-4 mr-2" /> Refresh
+                </Button>
+                {/* DRV-C: bulk Mark all paid. Walks every unsettled row
+                    with a positive total, drafts + flips each to paid
+                    via EFT in sequence. window.confirm is the hurdle. */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={bulkMarkAllPaid}
+                  disabled={bulkPayBusy || rows.length === 0}
+                  title="Draft + mark all unsettled drivers as paid via EFT. Reversible per row."
+                >
+                  {bulkPayBusy ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <CheckCheck className="w-4 h-4 mr-2" />
+                  )}
+                  Mark all paid
+                </Button>
+                <Button variant="outline" size="sm" onClick={exportCsv} disabled={rows.length === 0}>
+                  <Download className="w-4 h-4 mr-2" /> Export CSV
+                </Button>
+              </>
+            }
           />
           <PageWorkbench />
 
@@ -801,40 +846,15 @@ function DriverSettlementPage() {
                   <option value="settled">Settled only</option>
                 </select>
               </div>
-              <div className="ml-auto flex gap-2">
-                {/* Phase 28 #9: manual refresh. Bumps refreshTick
-                    which the inner per-driver compute effect
-                    already listens for; picks up shifts logged
-                    or edited in another tab without changing
-                    the period chips. */}
-                <Button
-                  variant="outline"
-                  onClick={() => setRefreshTick((n) => n + 1)}
-                >
-                  <RefreshCw className="w-4 h-4 mr-2" /> Refresh
-                </Button>
-                {/* DRV-C: bulk Mark all paid. Walks every unsettled
-                    row with a positive total, drafts + flips each
-                    to paid via EFT in sequence. window.confirm is
-                    the hurdle - one click, then confirm. */}
-                <Button
-                  variant="outline"
-                  onClick={bulkMarkAllPaid}
-                  disabled={bulkPayBusy || rows.length === 0}
-                  title="Draft + mark all unsettled drivers as paid via EFT. Reversible per row."
-                  className="border-brand-primary/30 text-brand-primary hover:bg-brand-primary/10"
-                >
-                  {bulkPayBusy ? (
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  ) : (
-                    <CheckCheck className="w-4 h-4 mr-2" />
-                  )}
-                  Mark all paid
-                </Button>
-                <Button variant="outline" onClick={exportCsv} disabled={rows.length === 0}>
-                  <Download className="w-4 h-4 mr-2" /> Export CSV
-                </Button>
-              </div>
+              {/* Command-centre restructure: Refresh / Mark all paid /
+                  Export CSV moved to the hero actions band. This card
+                  is now purely the period + sort + settlement toolbar. */}
+              {rangeInvalid && (
+                <div className="w-full flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                  <AlertTriangle className="w-4 h-4 shrink-0 text-amber-700" />
+                  The From date is after the To date, so no pay can be calculated. Fix the range to see totals.
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -895,6 +915,20 @@ function DriverSettlementPage() {
                 </Badge>
               );
             };
+            // Command-centre restructure: utilisation + settled progress
+            // moved here from the old 7-tile strip so the StatTile row
+            // below can stay a clean money breakdown that sums.
+            const days = Math.max(
+              1,
+              Math.ceil((new Date(to).getTime() - new Date(from).getTime()) / 86_400_000) + 1,
+            );
+            const capacity = totals.active * days * 8;
+            const utilPct = capacity > 0 ? Math.round((totals.hours / capacity) * 100) : null;
+            const settledCount = rows.filter((r) => {
+              const t = r.summary?.totals;
+              if (!t || t.grand_total <= 0) return false;
+              return payoutsByDriver.get(r.driver.id)?.status === "paid";
+            }).length;
             return (
               <div className="flex flex-wrap gap-2 mb-4">
                 {owed > 0 && (
@@ -932,76 +966,61 @@ function DriverSettlementPage() {
                     {dormant} dormant
                   </Badge>
                 )}
+                {utilPct != null && (
+                  <Badge
+                    variant="outline"
+                    className="px-3 py-1.5 text-sm border-slate-200 text-slate-600 bg-slate-50 tabular-nums"
+                    title="Hours worked as a share of active drivers x days x 8h."
+                  >
+                    Utilisation {utilPct}%
+                  </Badge>
+                )}
+                {totals.active > 0 && (
+                  <Badge
+                    variant="outline"
+                    className="px-3 py-1.5 text-sm border-slate-200 text-slate-600 bg-slate-50 tabular-nums"
+                    title="Drivers already marked paid this period, out of every driver with pay."
+                  >
+                    Settled {settledCount} / {totals.active}
+                  </Badge>
+                )}
                 {renderDelta("Hours", hoursDelta)}
                 {renderDelta("Total", grandDelta)}
               </div>
             );
           })()}
 
-          {/* DRV-B: KPI strip.
-              - "Active drivers" reads `active / roster` instead of
-                the misleading "DRIVERS PAID = roster" pre-DRV-B.
-              - Utilisation denominator is now `activeDrivers *
-                days * 8` so a 5-driver tenant with one active
-                driver doesn't drown the percentage to zero.
-              - "Settled" tile shows progress through the cycle:
-                drivers already marked paid this period vs. total
-                drivers with non-zero totals.
-              - Distance pay tile muted when zero so the eye stops
-                being drawn to a flat R 0 number. */}
-          {(() => {
-            const days = Math.max(
-              1,
-              Math.ceil((new Date(to).getTime() - new Date(from).getTime()) / 86_400_000) + 1,
-            );
-            const capacity = totals.active * days * 8;
-            const pct = capacity > 0 ? Math.round((totals.hours / capacity) * 100) : 0;
-            const utilTone =
-              pct >= 70 ? "text-rose-600"
-              : pct >= 50 ? "text-amber-600"
-              : pct >= 25 ? "text-brand-primary"
-              : "text-slate-500";
-            const settledCount = rows.filter((r) => {
-              const t = r.summary?.totals;
-              if (!t || t.grand_total <= 0) return false;
-              return payoutsByDriver.get(r.driver.id)?.status === "paid";
-            }).length;
-            const distanceMuted = totals.distancePay === 0;
-            return (
-              <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-3 mb-6">
-                <TotalCard
-                  label="Active drivers"
-                  value={`${totals.active} / ${totals.roster}`}
-                />
-                <TotalCard label="Hours" value={`${totals.hours.toFixed(1)}h`} icon={Clock} accent="text-blue-600" />
-                <TotalCard
-                  label="Utilisation"
-                  value={capacity > 0 ? `${pct}%` : "-"}
-                  icon={Clock}
-                  accent={utilTone}
-                />
-                <TotalCard label="Hourly pay" value={formatR(totals.hourlyPay)} icon={Clock} accent="text-blue-600" />
-                <TotalCard
-                  label="Distance pay"
-                  value={formatR(totals.distancePay)}
-                  icon={Route}
-                  accent={distanceMuted ? "text-slate-400" : "text-amber-600"}
-                />
-                <TotalCard
-                  label="Settled this period"
-                  value={`${settledCount} / ${totals.active}`}
-                  icon={BadgeCheck}
-                  accent={settledCount === totals.active && totals.active > 0 ? "text-brand-primary" : "text-slate-600"}
-                />
-                <TotalCard
-                  label="Grand total"
-                  value={formatR(totals.grand)}
-                  accent="text-brand-primary"
-                  emphasize
-                />
-              </div>
-            );
-          })()}
+          {/* Command-centre restructure: StatTile row. The three pay
+              components are the visible breakdown of the grand total,
+              so the strip always sums (hourly + distance + callout =
+              grand). Utilisation + settled progress live in the intel
+              chip row above; active/roster is a hero chip. */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <StatTile
+              label="Grand total"
+              value={formatR(totals.grand)}
+              hint="Hourly + distance + callout pay"
+              icon={Wallet}
+            />
+            <StatTile
+              label="Hourly pay"
+              value={formatR(totals.hourlyPay)}
+              hint={`${totals.hours.toFixed(1)}h worked this period`}
+              icon={Clock}
+            />
+            <StatTile
+              label="Distance pay"
+              value={formatR(totals.distancePay)}
+              hint={`${totals.distanceKm.toFixed(1)} km driven, round trip`}
+              icon={Route}
+            />
+            <StatTile
+              label="Callout pay"
+              value={formatR(totals.callout)}
+              hint="Flat fee per completed delivery"
+              icon={MapPin}
+            />
+          </div>
 
           {loadingDrivers ? (
             <Card>
@@ -1013,7 +1032,14 @@ function DriverSettlementPage() {
             driversError ? null : (
             <Card>
               <CardContent className="py-16 text-center text-slate-500">
-                No drivers configured yet. Add some on /admin/driver-management.
+                <Wallet className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                <p className="text-sm font-medium text-slate-700 mb-1">No drivers configured yet</p>
+                <p className="text-xs text-slate-500 mb-4">
+                  Once drivers log shifts and complete deliveries, their pay lands here for settlement.
+                </p>
+                <Button asChild size="sm" className="bg-brand-primary hover:bg-brand-primary/90">
+                  <Link href={withSlug("/admin/driver-management")}>Add a driver</Link>
+                </Button>
               </CardContent>
             </Card>
             )
@@ -1074,22 +1100,22 @@ function DriverSettlementPage() {
                       {/* DRV-B desktop table (md+) */}
                       <div className="hidden md:block overflow-x-auto">
                         <table className="w-full text-sm">
-                          <thead className="bg-slate-50 text-slate-500">
+                          <thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-500 dark:bg-slate-800/60">
                             <tr>
-                              <th className="text-left px-4 py-2 font-medium">Driver</th>
-                              <th className="text-right px-4 py-2 font-medium">Hours</th>
-                              <th className="text-right px-4 py-2 font-medium">Hourly pay</th>
+                              <th className="text-left px-4 py-2 font-semibold">Driver</th>
+                              <th className="text-right px-4 py-2 font-semibold">Hours</th>
+                              <th className="text-right px-4 py-2 font-semibold">Hourly pay</th>
                               <th
-                                className="text-right px-4 py-2 font-medium"
+                                className="text-right px-4 py-2 font-semibold"
                                 title="Round-trip kilometres (kitchen to venue and back). Matches the round-trip math used to bill the client for delivery."
                               >
                                 Distance
                               </th>
-                              <th className="text-right px-4 py-2 font-medium">Distance pay</th>
-                              <th className="text-right px-4 py-2 font-medium">Callouts</th>
-                              <th className="text-right px-4 py-2 font-medium">Callout pay</th>
-                              <th className="text-right px-4 py-2 font-medium">Total</th>
-                              <th className="text-center px-2 py-2 font-medium">Status</th>
+                              <th className="text-right px-4 py-2 font-semibold">Distance pay</th>
+                              <th className="text-right px-4 py-2 font-semibold">Callouts</th>
+                              <th className="text-right px-4 py-2 font-semibold">Callout pay</th>
+                              <th className="text-right px-4 py-2 font-semibold">Total</th>
+                              <th className="text-center px-2 py-2 font-semibold">Status</th>
                               <th className="w-8"></th>
                             </tr>
                           </thead>
@@ -1465,7 +1491,7 @@ function FragmentRows({
   const isPaid = payout?.status === "paid";
   return (
     <>
-      <tr id={`driver-row-${row.driver.id}`} className="border-t border-slate-100 hover:bg-slate-50">
+      <tr id={`driver-row-${row.driver.id}`} className="border-t border-slate-100 hover:bg-slate-50/70 dark:hover:bg-slate-800/40">
         <td className="px-4 py-3">
           <div className="flex items-center gap-2">
             <button onClick={onToggle} className="text-slate-400 hover:text-slate-700">
@@ -1496,7 +1522,22 @@ function FragmentRows({
             <td className="px-4 py-3 text-right tabular-nums">{formatR(t.hourly_pay)}</td>
             <td className="px-4 py-3 text-right tabular-nums">{t.distance_total_km.toFixed(1)} km</td>
             <td className="px-4 py-3 text-right tabular-nums">{formatR(t.distance_pay)}</td>
-            <td className="px-4 py-3 text-right tabular-nums">{detailSummary?.deliveries.length ?? "-"}</td>
+            {/* Data-honesty fix: the bulk totals path drops the per-
+                delivery array (deliveries always []), so this cell used
+                to read 0 next to a non-zero Callout pay - a visible
+                contradiction. Until the drilldown loads the real list,
+                show a dash when callout pay exists but the count is
+                unknown. */}
+            <td
+              className="px-4 py-3 text-right tabular-nums"
+              title={!detail && t.callout_pay > 0 ? "Expand the row to load the delivery list" : undefined}
+            >
+              {detail
+                ? detail.deliveries.length
+                : t.callout_pay === 0
+                  ? 0
+                  : "-"}
+            </td>
             <td className="px-4 py-3 text-right tabular-nums">{formatR(t.callout_pay)}</td>
             <td className="px-4 py-3 text-right tabular-nums font-semibold text-brand-primary">{formatR(t.grand_total)}</td>
           </>
@@ -1934,24 +1975,5 @@ function DriverSettlementCard({
   );
 }
 
-function TotalCard({
-  label, value, icon: Icon, accent, emphasize,
-}: {
-  label: string;
-  value: string;
-  icon?: React.ComponentType<{ className?: string }>;
-  accent?: string;
-  emphasize?: boolean;
-}) {
-  return (
-    <Card className={`${emphasize ? "ring-2 ring-brand-primary/20" : ""}`}>
-      <CardContent className="p-4">
-        <p className="text-[10px] uppercase tracking-wide font-semibold text-slate-500">{label}</p>
-        <div className="flex items-center gap-2 mt-1">
-          {Icon && <Icon className={`w-4 h-4 ${accent || "text-slate-500"}`} />}
-          <p className={`text-xl font-bold tabular-nums ${accent || "text-slate-900"}`}>{value}</p>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
+// TotalCard removed in the command-centre restructure; the KPI strip
+// now uses the shared StatTile primitive from @/components/portal/ui.

@@ -8,8 +8,9 @@
  * analysis story; this page owns the projected balance chart and
  * everything that feeds it (payables, fixed costs, wages owed).
  *
- * Owner / company_admin / admin / super_admin only per the
- * finance-visibility rule. Gated upstream via ProtectedRoute.
+ * Owner / company_admin / super_admin only per the finance-visibility
+ * rule (canAccessFinance; plain admin is deliberately excluded).
+ * Gated via ProtectedRoute below.
  */
 import { useCallback, useEffect, useState } from "react";
 import Head from "next/head";
@@ -32,7 +33,7 @@ import { fixedCostsService } from "@/services/fixedCostsService";
 import { orderService } from "@/services/orderService";
 import { paymentLedgerService } from "@/services/paymentLedgerService";
 import { aiFinancialService } from "@/services/aiFinancialService";
-import * as currencyUtils from "@/lib/currencyUtils";
+import { formatZAR } from "@/lib/formatters";
 import type { Order } from "@/types";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
@@ -133,7 +134,10 @@ function CashflowDashboardInner() {
   const [invoicesOutstanding, setInvoicesOutstanding] = useState<number | null>(null);
 
   const currency = (user as any)?.currency || "ZAR";
-  const fmt = currencyUtils.formatCurrency as (a: number, c: string) => string;
+  // Audit 2026-07-02: display goes through formatZAR (thousand
+  // separators, "R 12 500.00") so this page matches Payables / Fixed
+  // costs / the financial dashboard instead of the old "R12500.00".
+  const fmt = (a: number, c: string) => formatZAR(a, { currency: c });
 
   const load = useCallback(async () => {
     if (!user?.company_id) return;
@@ -168,7 +172,12 @@ function CashflowDashboardInner() {
       // order columns + region_id only. No nested data is touched.
       // Drop to light mode to skip the joins that this tenant's
       // 1000+ orders would otherwise stream uselessly.
-      const ordersData = await orderService.getAllOrders(companyId, { mode: "light" });
+      // Audit fix (2026-07-02): explicit limit. The service default
+      // is the 500 most recent rows, which silently truncated the
+      // received / outstanding totals once a tenant passed 500
+      // orders. 2000 is the service ceiling; past that this page
+      // needs a server-side aggregate (flagged, not yet built).
+      const ordersData = await orderService.getAllOrders(companyId, { mode: "light", limit: 2000 });
       // CASH-A: filter the orders array by the active region filter
       // BEFORE every downstream calc. Staff / fixed costs / supplier
       // payables totals stay company-wide because none of those tables
@@ -437,8 +446,12 @@ function CashflowDashboardInner() {
   }).net;
 
   if (loading && !metrics) {
+    // Audit fix (2026-07-02): the first-load branch was missing the
+    // page title + noindex meta the other three states carry.
     return (
       <>
+        <Head><title>Cashflow dashboard - CateringMS</title></Head>
+        <NoIndexMeta />
         <AdminNav />
         <div className="admin-page-shell admin-page-shell--center">
           <div className="text-center">

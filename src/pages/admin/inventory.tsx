@@ -303,9 +303,13 @@ function AdminInventory() {
 
   useEffect(() => {
     if (!user?.id) return;
-    loadInventory();
-    loadOutlook();
-    loadLastActivity();
+    // Audit 2026-07-02: go through refreshAll so suppliers + wastage
+    // load on mount too. Pre-fix the mount effect skipped both:
+    // the Add/Edit dialog's supplier dropdown opened EMPTY (with a
+    // misleading "No suppliers yet" hint) until some later mutation
+    // happened to call refreshAll, and the 30-day wastage roll-up
+    // never populated on first paint.
+    refreshAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [(user as any)?.company_id, refreshSignal]);
 
@@ -838,6 +842,11 @@ function AdminInventory() {
         description: result.errors.length > 0 ? `Errors: ${result.errors.join("; ")}` : "Stock history is kept.",
       });
       refreshAll();
+    } catch (err: any) {
+      // Audit 2026-07-02: a thrown service failure used to escape as
+      // an unhandled rejection - the dialog just sat there with no
+      // feedback. Now: destructive toast, dialog stays open to retry.
+      toast({ title: "Bulk delete failed", description: err?.message ?? "Try again.", variant: "destructive" });
     } finally {
       setBulkDeleteLoading(false);
     }
@@ -1105,7 +1114,7 @@ function AdminInventory() {
           <RecentReceiptsPanel companyId={companyId} />
 
           {/* Stat cards (4 new ones, ordered by what to act on first) */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             <button
               type="button"
               onClick={() => setActiveTab("below_reorder")}
@@ -1347,7 +1356,7 @@ function AdminInventory() {
                 onClick={() => setActiveTab("all")}
                 className={`px-3 py-1 text-xs font-medium rounded-full border transition-colors ${
                   activeTab === "all"
-                    ? "bg-slate-900 text-white border-slate-900"
+                    ? "bg-brand-primary text-white border-brand-primary"
                     : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
                 }`}
               >
@@ -1369,8 +1378,8 @@ function AdminInventory() {
                 onClick={() => setActiveTab("out")}
                 className={`px-3 py-1 text-xs font-medium rounded-full border transition-colors ${
                   activeTab === "out"
-                    ? "bg-slate-900 text-white border-slate-900"
-                    : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+                    ? "bg-rose-600 text-white border-rose-600"
+                    : "bg-white text-rose-700 border-rose-200 hover:bg-rose-50"
                 }`}
               >
                 Out ({outOfStockItems.length})
@@ -1509,6 +1518,19 @@ function AdminInventory() {
                         >
                           {scopeLabel}
                         </Badge>
+                        {/* Audit 2026-07-02: the INV-B per-row wastage
+                            hint was loaded into state but never
+                            rendered - dead feature. Restored: amber
+                            chip when the item has waste in 30 days. */}
+                        {(wastageByItem.get(item.id) || 0) > 0 && (
+                          <Badge
+                            variant="outline"
+                            className="mt-1 ml-1 text-[10px] font-normal border-amber-200 bg-amber-50 text-amber-700"
+                            title={`${wastageByItem.get(item.id)} ${item.unit} written off as waste in the last 30 days`}
+                          >
+                            waste {wastageByItem.get(item.id)} {item.unit} / 30d
+                          </Badge>
+                        )}
                       </div>
                       <div className="min-w-0">
                         <Badge variant="outline" className="text-xs font-normal text-slate-600 border-slate-200 bg-slate-50">

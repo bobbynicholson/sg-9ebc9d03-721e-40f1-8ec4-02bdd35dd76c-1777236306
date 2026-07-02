@@ -34,6 +34,8 @@ import { AdminNav } from "@/components/admin/AdminNav";
 import { CatalogueOperationsStrip } from "@/components/admin/CatalogueOperationsStrip";
 import { PortalShell, PortalHeader,
   PageWorkbench,
+  PortalCard,
+  StatTile,
 } from "@/components/portal/ui";
 import { AllergenReviewBadge } from "@/components/admin/AllergenReviewBadge";
 import { MenuTopSellersWidget } from "@/components/admin/MenuTopSellersWidget";
@@ -178,6 +180,11 @@ function MenuPage() {
         searchRef.current?.focus();
       }
       if (e.key === "n" && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        // Audit 2026-07-02: don't fire while a dialog is open.
+        // Pre-fix pressing "n" with the edit dialog focused on a
+        // non-input control silently wiped the draft back to a
+        // blank Add form, losing the operator's edits.
+        if (document.querySelector('[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]')) return;
         e.preventDefault();
         openAdd();
       }
@@ -700,15 +707,30 @@ function MenuPage() {
       outsource_lead_hours: (it as any).outsource_lead_hours != null ? String((it as any).outsource_lead_hours) : "",
     });
     setRecipeDraft({ ...EMPTY_RECIPE, ingredients: [] });
-    const full = await menuService.getFull(it.id);
-    if (full?.recipe) {
-      setRecipeDraft({
-        enabled: true,
-        base_servings: String(full.recipe.base_servings),
-        prep_time_minutes: full.recipe.prep_time_minutes != null ? String(full.recipe.prep_time_minutes) : "",
-        cook_time_minutes: full.recipe.cook_time_minutes != null ? String(full.recipe.cook_time_minutes) : "",
-        instructions: full.recipe.instructions || "",
-        ingredients: full.ingredients.map(r => ({ ...r, _key: newKey() })),
+    // Audit 2026-07-02: guard the recipe fetch. Pre-fix a failed
+    // getFull left the dialog open with the recipe toggle OFF, and
+    // saving from that state calls saveRecipe(recipe: null) which
+    // silently DELETES the item's existing recipe + ingredients.
+    // On failure close the dialog so no destructive save can happen.
+    try {
+      const full = await menuService.getFull(it.id);
+      if (full?.recipe) {
+        setRecipeDraft({
+          enabled: true,
+          base_servings: String(full.recipe.base_servings),
+          prep_time_minutes: full.recipe.prep_time_minutes != null ? String(full.recipe.prep_time_minutes) : "",
+          cook_time_minutes: full.recipe.cook_time_minutes != null ? String(full.recipe.cook_time_minutes) : "",
+          instructions: full.recipe.instructions || "",
+          ingredients: full.ingredients.map(r => ({ ...r, _key: newKey() })),
+        });
+      }
+    } catch (e: any) {
+      captureException(e, { tags: { route: "/admin/menu", step: "open-edit-recipe", companyId } });
+      closeDialog();
+      toast({
+        title: "Couldn't load the item's recipe",
+        description: "Editing was cancelled so the saved recipe stays intact. Check your connection and try again.",
+        variant: "destructive",
       });
     }
   };
@@ -1165,8 +1187,15 @@ function MenuPage() {
                   const lines = [headers.join(",")];
                   for (const it of visible) {
                     const price = Number(it.base_price || 0);
-                    const cost = Number((it.cost as any)?.cost_per_serving || 0);
-                    const margin = price > 0 ? (((price - cost) / price) * 100).toFixed(1) : "";
+                    // Audit 2026-07-02: only emit cost + margin when
+                    // the item actually has contributing cost data.
+                    // Pre-fix every uncosted item exported cost 0.00
+                    // and a fabricated 100.0% margin, which poisons
+                    // the pricing review the CSV exists for.
+                    const hasCost = !!(it.cost && it.cost.contributing > 0);
+                    const cost = hasCost ? Number((it.cost as any)?.cost_per_serving || 0) : null;
+                    const margin = hasCost && cost != null && price > 0
+                      ? (((price - cost) / price) * 100).toFixed(1) : "";
                     // MNU-B: base_price is stored in whichever mode the
                     // tenant operates in. Compute the other view at
                     // 15% so the CSV has both columns.
@@ -1178,7 +1207,7 @@ function MenuPage() {
                       esc(it.category || ""),
                       esc(exVat.toFixed(2)),
                       esc(incVat.toFixed(2)),
-                      esc(cost.toFixed(2)),
+                      esc(cost != null ? cost.toFixed(2) : ""),
                       esc(margin),
                       esc(it.recipe_id ? "yes" : "no"),
                       esc((it as any).allergens_reviewed_at ? "yes" : "no"),
@@ -1227,23 +1256,24 @@ function MenuPage() {
             </Card>
           )}
 
-          {/* Stat strip - MNU-B widened to 6 tiles. */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-5">
-            <Card>
-              <CardContent className="p-4">
-                <p className="text-xs uppercase tracking-wider text-slate-500 mb-1">Active items</p>
-                <p className="text-2xl font-bold text-slate-900 tabular-nums">{stats.total}</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4">
-                <p className="text-xs uppercase tracking-wider text-slate-500 mb-1">With recipe</p>
-                <p className="text-2xl font-bold text-brand-primary tabular-nums">{stats.withRecipe}</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4">
-                <p className="text-xs uppercase tracking-wider text-slate-500 mb-1 inline-flex items-center gap-1">
+          {/* Stat strip. Command-centre standard (2026-07-02): the
+              six bespoke Cards collapsed into the shared StatTile row
+              on the standard 4-up grid. No data lost - "With recipe"
+              rides the Active-items hint, and "Cost incomplete" +
+              "Missing recipe" merge into one Recipe-gaps tile whose
+              headline equals the sum of its hint breakdown. Semantic
+              colours (amber = attention, rose = critical) kept on the
+              values only. */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <StatTile
+              label="Active items"
+              icon={BookOpen}
+              value={stats.total}
+              hint={`${stats.withRecipe} with a recipe attached`}
+            />
+            <StatTile
+              label={
+                <span className="inline-flex items-center gap-1">
                   Median margin
                   <InfoTooltip content={(() => {
                     const lines: string[] = [];
@@ -1267,72 +1297,56 @@ function MenuPage() {
                     lines.push("Owner-only, the kitchen surface never sees these numbers.");
                     return lines.join("\n");
                   })()} />
-                </p>
-                <p className={`text-2xl font-bold tabular-nums ${
+                </span>
+              }
+              icon={TrendingUp}
+              value={
+                <span className={
                   stats.medianMarginPct == null ? "text-slate-400" :
-                  stats.medianMarginPct < 30 ? "text-rose-700" :
-                  stats.medianMarginPct < 50 ? "text-amber-700" :
-                                               "text-brand-primary"
-                }`}>
+                  stats.medianMarginPct < 30 ? "text-rose-700 dark:text-rose-400" :
+                  stats.medianMarginPct < 50 ? "text-amber-700 dark:text-amber-400" :
+                  undefined
+                }>
                   {stats.medianMarginPct == null ? "-" : `${stats.medianMarginPct.toFixed(0)}%`}
-                </p>
-                {stats.medianMarginPct == null && <p className="text-[11px] text-slate-500 mt-1">Need recipes + costs</p>}
-                {stats.highMarginCount > 0 && (
-                  <p className="text-[10px] text-amber-700 mt-1">
-                    {stats.highMarginCount} item{stats.highMarginCount === 1 ? "" : "s"} {">"} 85% - check pricing
-                  </p>
-                )}
-              </CardContent>
-            </Card>
+                </span>
+              }
+              hint={stats.medianMarginPct == null
+                ? "Need recipes + costs"
+                : stats.highMarginCount > 0
+                  ? <span className="text-amber-700 dark:text-amber-400">{stats.highMarginCount} item{stats.highMarginCount === 1 ? "" : "s"} over 85%, check pricing</span>
+                  : "Across costed, priced items"}
+            />
             {/* MNU-B: photo coverage tile. Matches the equivalent
                 surface on /admin/offering and tells the operator
                 where to focus the next photoshoot. */}
-            <Card className={`${stats.missingPhoto > 0 ? "bg-amber-50" : ""}`}>
-              <CardContent className="p-4">
-                <p className="text-xs uppercase tracking-wider text-slate-500 mb-1 inline-flex items-center gap-1">
-                  Photo coverage
-                  {stats.missingPhoto > 0 && <Camera className="w-3 h-3 text-amber-600" />}
-                </p>
-                <p className={`text-2xl font-bold tabular-nums ${
-                  stats.photoCoveragePct >= 90 ? "text-brand-primary" :
-                  stats.photoCoveragePct >= 60 ? "text-amber-700" :
-                  "text-rose-700"
-                }`}>
+            <StatTile
+              label="Photo coverage"
+              icon={Camera}
+              value={
+                <span className={
+                  stats.photoCoveragePct >= 90 ? undefined :
+                  stats.photoCoveragePct >= 60 ? "text-amber-700 dark:text-amber-400" :
+                  "text-rose-700 dark:text-rose-400"
+                }>
                   {stats.photoCoveragePct}%
-                </p>
-                {stats.missingPhoto > 0 && (
-                  <p className="text-[10px] text-amber-700 mt-1 tabular-nums">{stats.missingPhoto} missing</p>
-                )}
-              </CardContent>
-            </Card>
-            <Card className={`${stats.incompleteCost > 0 ? "bg-amber-50" : ""}`}>
-              <CardContent className="p-4">
-                <p className="text-xs uppercase tracking-wider text-slate-500 mb-1 inline-flex items-center gap-1">
-                  Cost incomplete
-                  {stats.incompleteCost > 0 && <AlertTriangle className="w-3 h-3 text-amber-600" />}
-                </p>
-                <p className={`text-2xl font-bold tabular-nums ${stats.incompleteCost > 0 ? "text-amber-700" : "text-slate-900"}`}>
-                  {stats.incompleteCost}
-                </p>
-                {stats.incompleteCost > 0 && (
-                  <p className="text-[11px] text-amber-700 mt-1">Free-text or rate-less ingredients</p>
-                )}
-              </CardContent>
-            </Card>
-            <Card className={`${stats.missingRecipe > 0 ? "bg-amber-50" : ""}`}>
-              <CardContent className="p-4">
-                <p className="text-xs uppercase tracking-wider text-slate-500 mb-1 inline-flex items-center gap-1">
-                  Missing recipe
-                  {stats.missingRecipe > 0 && <AlertTriangle className="w-3 h-3 text-amber-600" />}
-                </p>
-                <p className={`text-2xl font-bold tabular-nums ${stats.missingRecipe > 0 ? "text-amber-700" : "text-slate-900"}`}>
-                  {stats.missingRecipe}
-                </p>
-                {stats.missingRecipe > 0 && (
-                  <p className="text-[11px] text-amber-700 mt-1">No ingredient list, prep flywheel can't project demand</p>
-                )}
-              </CardContent>
-            </Card>
+                </span>
+              }
+              hint={stats.missingPhoto > 0
+                ? <span className="text-amber-700 dark:text-amber-400">{stats.missingPhoto} missing a photo</span>
+                : "Every active item has a photo"}
+            />
+            <StatTile
+              label="Recipe gaps"
+              icon={AlertTriangle}
+              value={
+                <span className={(stats.missingRecipe + stats.incompleteCost) > 0 ? "text-amber-700 dark:text-amber-400" : undefined}>
+                  {stats.missingRecipe + stats.incompleteCost}
+                </span>
+              }
+              hint={(stats.missingRecipe + stats.incompleteCost) > 0
+                ? `${stats.missingRecipe} no recipe, ${stats.incompleteCost} cost incomplete`
+                : "Recipes and costs all in place"}
+            />
           </div>
 
           {/* MNU-B: bulk action toolbar. Surfaces when N rows are
@@ -1363,8 +1377,10 @@ function MenuPage() {
             </div>
           )}
 
-          {/* Filter bar */}
-          <div className="flex flex-col sm:flex-row gap-3 mb-4">
+          {/* Filter bar. Command-centre standard: search + filters
+              grouped into one toolbar card. */}
+          <PortalCard padded={false} className="p-3 mb-6">
+          <div className="flex flex-col sm:flex-row gap-3">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <Input
@@ -1415,6 +1431,7 @@ function MenuPage() {
               ]}
             />
           </div>
+          </PortalCard>
 
           {/* List */}
           {loading ? (

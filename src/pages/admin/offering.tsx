@@ -32,6 +32,7 @@ import { AdminNav } from "@/components/admin/AdminNav";
 import { CatalogueOperationsStrip } from "@/components/admin/CatalogueOperationsStrip";
 import { PortalShell, PortalHeader,
   PageWorkbench,
+  StatTile,
 } from "@/components/portal/ui";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -524,6 +525,47 @@ function OfferingPage() {
             </Card>
           )}
 
+          {/* Command-centre standard (2026-07-02): StatTile row with
+              live aggregates. Same numbers the hero chips carry, plus
+              the dead-stock count, so the first screen reads like the
+              rest of the admin surface. */}
+          {(() => {
+            const gapsTotal = menuTile.missingPrice + menuTile.missingPhoto
+              + equipTile.missingPrice + equipTile.missingPhoto;
+            return (
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                <StatTile
+                  label="Active menu items"
+                  icon={UtensilsCrossed}
+                  value={loading ? "-" : menuTile.active}
+                  hint={loading ? undefined : `${menuTile.total} on the books, ${menuPhotoPct}% with a photo`}
+                />
+                <StatTile
+                  label="Equipment items"
+                  icon={Package}
+                  value={loading ? "-" : equipTile.total}
+                  hint={loading ? undefined : `${equipPhotoPct}% with a photo`}
+                />
+                <StatTile
+                  label="Catalogue gaps"
+                  icon={AlertTriangle}
+                  value={loading ? "-" : (
+                    <span className={gapsTotal > 0 ? "text-amber-700 dark:text-amber-400" : undefined}>{gapsTotal}</span>
+                  )}
+                  hint={loading ? undefined : (gapsTotal > 0
+                    ? `${menuTile.missingPrice + menuTile.missingPhoto} menu, ${equipTile.missingPrice + equipTile.missingPhoto} equipment`
+                    : "Every item has a price and photo")}
+                />
+                <StatTile
+                  label={`Not quoted (${period}d)`}
+                  icon={Tag}
+                  value={loading ? "-" : neverQuoted.length}
+                  hint={loading ? undefined : (neverQuoted.length > 0 ? "Review, reprice or retire" : "Everything moved in the window")}
+                />
+              </div>
+            );
+          })()}
+
           {/* OFR-B: Menu + Equipment. Snapshot
               framing - every chip + big number deep-links to the
               action surface. */}
@@ -693,13 +735,15 @@ function OfferingPage() {
               </CardContent>
             </Card>
 
-            {/* Equipment tile */}
+            {/* Equipment tile. Colour rule (2026-07-02): decorative
+                chrome carries the tenant brand utilities, not a fixed
+                sky palette. */}
             <Card className="overflow-hidden">
-              <CardHeader className="bg-gradient-to-r from-sky-50 to-blue-50 border-b">
+              <CardHeader className="bg-gradient-to-r from-brand-secondary/10 to-brand-primary/5 border-b">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-sky-500/10 flex items-center justify-center">
-                      <Package className="w-5 h-5 text-sky-700" />
+                    <div className="w-10 h-10 rounded-lg bg-brand-secondary/10 flex items-center justify-center">
+                      <Package className="w-5 h-5 text-brand-secondary" />
                     </div>
                     <div>
                       <CardTitle className="text-lg sm:text-xl">Equipment</CardTitle>
@@ -727,7 +771,7 @@ function OfferingPage() {
                   <>
                     <Link href={withSlug("/admin/equipment")} className="block group">
                       <div className="flex items-baseline gap-3 mb-2">
-                        <span className="text-4xl font-bold text-slate-900 group-hover:text-sky-700 transition-colors">
+                        <span className="text-4xl font-bold text-slate-900 group-hover:text-brand-secondary transition-colors">
                           {loading ? "-" : equipTile.total}
                         </span>
                         <span className="text-sm text-slate-600">item{equipTile.total === 1 ? "" : "s"} on the books</span>
@@ -869,8 +913,8 @@ function OfferingPage() {
                       >
                         <div className="flex items-center gap-1.5 mb-1.5">
                           {r.kind === "menu"
-                            ? <UtensilsCrossed className="w-3.5 h-3.5 text-amber-600" />
-                            : <Package className="w-3.5 h-3.5 text-sky-600" />}
+                            ? <UtensilsCrossed className="w-3.5 h-3.5 text-brand-primary" />
+                            : <Package className="w-3.5 h-3.5 text-brand-secondary" />}
                           <span className="text-[10px] uppercase tracking-wide font-semibold text-slate-500">
                             {r.kind === "menu" ? "Menu" : "Equipment"}
                           </span>
@@ -911,8 +955,8 @@ function OfferingPage() {
                     >
                       <Badge variant="outline" className="bg-white hover:bg-slate-50 cursor-pointer gap-1">
                         {d.kind === "menu"
-                          ? <UtensilsCrossed className="w-3 h-3 text-amber-600" />
-                          : <Package className="w-3 h-3 text-sky-600" />}
+                          ? <UtensilsCrossed className="w-3 h-3 text-brand-primary" />
+                          : <Package className="w-3 h-3 text-brand-secondary" />}
                         {d.name}
                       </Badge>
                     </Link>

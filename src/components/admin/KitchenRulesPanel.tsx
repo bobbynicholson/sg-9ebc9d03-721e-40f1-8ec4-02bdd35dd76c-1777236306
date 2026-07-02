@@ -95,6 +95,14 @@ export function KitchenRulesPanel({ contextNote }: Props) {
 
   const [settings, setSettings] = useState<KitchenSettings>(KITCHEN_RULES_DEFAULTS);
   const [loading, setLoading] = useState(true);
+  // Surfaced load failure. Pre-fix a failed kitchen_settings read only
+  // toasted, then rendered the form seeded with the platform defaults
+  // and dirty=false. One Save from that state clobbered the tenant's
+  // real saved rules with defaults. While loadError is set the form is
+  // replaced by an error card with Retry, same gate pattern as
+  // /admin/white-label and /admin/email-settings.
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
@@ -104,6 +112,7 @@ export function KitchenRulesPanel({ contextNote }: Props) {
     let cancelled = false;
     (async () => {
       setLoading(true);
+      setLoadError(null);
       const { data, error } = await (supabase as any)
         .from("companies")
         .select("kitchen_settings")
@@ -114,7 +123,14 @@ export function KitchenRulesPanel({ contextNote }: Props) {
         captureException(error, {
           tags: { component: "KitchenRulesPanel", step: "load", companyId },
         });
-        toast({ title: "Couldn't load settings", description: dbErrorMessage(error, { entity: "kitchen rule" }), variant: "destructive" });
+        const msg = dbErrorMessage(error, { entity: "kitchen rule" });
+        toast({ title: "Couldn't load settings", description: msg, variant: "destructive" });
+        // Do NOT seed the form with defaults here. Keep the panel in
+        // the error state so a Save can't overwrite the tenant's real
+        // saved kitchen_settings with platform defaults.
+        setLoadError(msg || "Could not load kitchen rules.");
+        setLoading(false);
+        return;
       }
       const raw = (data as any)?.kitchen_settings || {};
       setSettings({
@@ -134,7 +150,7 @@ export function KitchenRulesPanel({ contextNote }: Props) {
       setDirty(false);
     })();
     return () => { cancelled = true; };
-  }, [companyId, toast]);
+  }, [companyId, toast, reloadKey]);
 
   // Beforeunload guard while dirty.
   useEffect(() => {
@@ -160,6 +176,10 @@ export function KitchenRulesPanel({ contextNote }: Props) {
 
   const handleSave = async () => {
     if (!companyId) return;
+    // Belt and braces: the form is unmounted while loadError is set,
+    // but never allow a save when the last load failed. Saving from
+    // that state would write the default seed over the real settings.
+    if (loadError) return;
     setSaving(true);
     try {
       const { error } = await (supabase as any)
@@ -212,7 +232,7 @@ export function KitchenRulesPanel({ contextNote }: Props) {
             only - kitchen staff see the effects but can&apos;t change the values.
           </p>
         </div>
-        {!loading && (dirty ? (
+        {!loading && !loadError && (dirty ? (
           <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-800 border border-amber-200 self-start">
             <AlertTriangle className="w-3 h-3" /> Unsaved changes
           </span>
@@ -234,6 +254,22 @@ export function KitchenRulesPanel({ contextNote }: Props) {
         <Card className="border-0 shadow"><CardContent className="py-16 text-center text-slate-500">
           <Loader2 className="w-6 h-6 mx-auto animate-spin mb-2" />Loading kitchen rules...
         </CardContent></Card>
+      ) : loadError ? (
+        <Card className="border-rose-200 bg-rose-50/60">
+          <CardContent className="py-16 text-center">
+            <AlertTriangle className="w-8 h-8 mx-auto text-rose-500" />
+            <p className="font-medium text-slate-900 mt-3">Couldn&apos;t load your kitchen rules</p>
+            <p className="text-sm text-slate-600 mt-1">{loadError}</p>
+            <p className="text-xs text-slate-500 mt-2">
+              Editing is blocked until the saved values load, so a save can&apos;t
+              overwrite your real rules with platform defaults.
+            </p>
+            <Button variant="outline" className="mt-4 bg-white" onClick={() => setReloadKey((k) => k + 1)}>
+              <RotateCcw className="w-4 h-4 mr-1.5" />
+              Retry
+            </Button>
+          </CardContent>
+        </Card>
       ) : (
         <div className="space-y-4">
 

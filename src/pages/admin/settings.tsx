@@ -293,47 +293,54 @@ function SettingsPage() {
       const priorDispatch = ((existing as any)?.dispatch_settings || {}) as Record<string, any>;
       const priorKitchen = ((existing as any)?.kitchen_settings || {}) as Record<string, any>;
 
+      // Bug fix (restructure audit 2026-07-02): the previous
+      // `Number(x) || fallback` pattern clobbered legitimate zeros on
+      // save. A tenant that set deposit to 0% (no-deposit business),
+      // cancellation fee to 0%, or balance due to 0 days saw the value
+      // silently rewritten to 30 / 25 / 7 in the database, then the
+      // edit form loaded the wrong value back. numberOr keeps 0 and
+      // only falls back on NaN / null / empty input.
       const { error: updateError } = await (supabase as any)
         .from("companies")
         .update({
           currency: settings.financial.currency || "ZAR",
-          vat_rate: Number(settings.financial.taxRate) || 0,
-          deposit_percent: Number(settings.financial.depositPercent) || 30,
-          balance_due_days: Number(settings.financial.balanceDueDays) || 7,
-          amendment_cutoff_days: Number(settings.financial.finalOrderChangeDays) || 7,
-          cancellation_fee_percent: Number(settings.financial.cancellationFeePercent) || 25,
-          refund_process_days: Number(settings.financial.refundProcessDays) || 7,
+          vat_rate: numberOr(settings.financial.taxRate, 0),
+          deposit_percent: numberOr(settings.financial.depositPercent, 30),
+          balance_due_days: numberOr(settings.financial.balanceDueDays, 7),
+          amendment_cutoff_days: numberOr(settings.financial.finalOrderChangeDays, 7),
+          cancellation_fee_percent: numberOr(settings.financial.cancellationFeePercent, 25),
+          refund_process_days: numberOr(settings.financial.refundProcessDays, 7),
           dispatch_settings: {
             ...priorDispatch,
-            deliveryCostPerKm: Number(settings.operations.deliveryCostPerKm) || 0,
-            deliveryBufferMinutes: Number(settings.operations.deliveryBufferMinutes) || 30,
-            driverRadius: Number(settings.operations.driverRadius) || 50,
-            maxConcurrentEvents: Number(settings.operations.maxConcurrentEvents) || 5,
-            maxGuestsPerEvent: Number(settings.operations.maxGuestsPerEvent) || 0,
-            maxKitchenLoadPerDay: Number(settings.operations.maxKitchenLoadPerDay) || 0,
-            equipmentCleaningHours: Number(settings.operations.equipmentCleaningHours) || 4,
+            deliveryCostPerKm: numberOr(settings.operations.deliveryCostPerKm, 0),
+            deliveryBufferMinutes: numberOr(settings.operations.deliveryBufferMinutes, 30),
+            driverRadius: numberOr(settings.operations.driverRadius, 50),
+            maxConcurrentEvents: numberOr(settings.operations.maxConcurrentEvents, 5),
+            maxGuestsPerEvent: numberOr(settings.operations.maxGuestsPerEvent, 0),
+            maxKitchenLoadPerDay: numberOr(settings.operations.maxKitchenLoadPerDay, 0),
+            equipmentCleaningHours: numberOr(settings.operations.equipmentCleaningHours, 4),
             pricing: {
               ...((priorDispatch as any).pricing || {}),
-              weekendPremium: Number(settings.pricing.weekendPremium) || 0,
-              lastMinuteSurcharge: Number(settings.pricing.lastMinuteSurcharge) || 0,
-              earlyBirdDiscount: Number(settings.pricing.earlyBirdDiscount) || 0,
-              bulkDiscountThreshold: Number(settings.pricing.bulkDiscountThreshold) || 0,
-              bulkDiscountPercent: Number(settings.pricing.bulkDiscountPercent) || 0,
-              minimumOrderValue: Number(settings.pricing.minimumOrderValue) || 0,
+              weekendPremium: numberOr(settings.pricing.weekendPremium, 0),
+              lastMinuteSurcharge: numberOr(settings.pricing.lastMinuteSurcharge, 0),
+              earlyBirdDiscount: numberOr(settings.pricing.earlyBirdDiscount, 0),
+              bulkDiscountThreshold: numberOr(settings.pricing.bulkDiscountThreshold, 0),
+              bulkDiscountPercent: numberOr(settings.pricing.bulkDiscountPercent, 0),
+              minimumOrderValue: numberOr(settings.pricing.minimumOrderValue, 0),
             },
             automation: {
               ...((priorDispatch as any).automation || {}),
-              autoFollowUpDays: Number(settings.automation.autoFollowUpDays) || 0,
-              secondFollowUpDays: Number(settings.automation.secondFollowUpDays) || 0,
+              autoFollowUpDays: numberOr(settings.automation.autoFollowUpDays, 0),
+              secondFollowUpDays: numberOr(settings.automation.secondFollowUpDays, 0),
               reminderDays: settings.automation.reminderDays,
-              autoDiscountPercent: Number(settings.automation.autoDiscountPercent) || 0,
-              reviewRequestDays: Number(settings.automation.reviewRequestDays) || 0,
-              complaintResponseHours: Number(settings.automation.complaintResponseHours) || 0,
+              autoDiscountPercent: numberOr(settings.automation.autoDiscountPercent, 0),
+              reviewRequestDays: numberOr(settings.automation.reviewRequestDays, 0),
+              complaintResponseHours: numberOr(settings.automation.complaintResponseHours, 0),
             },
           },
           kitchen_settings: {
             ...priorKitchen,
-            kitchenPrepHours: Number(settings.operations.kitchenPrepHours) || 48,
+            kitchenPrepHours: numberOr(settings.operations.kitchenPrepHours, 48),
           },
           updated_at: new Date().toISOString(),
         })

@@ -100,6 +100,9 @@ function EmailSettingsPage() {
   // numbers can't be trusted. Shown as a small note instead of 0s.
   const [countsUnavailable, setCountsUnavailable] = useState(false);
   const [saving, setSaving] = useState(false);
+  // Audit fix: the Mailchimp save had no in-flight state, so a
+  // double-click fired two upserts and the button gave no feedback.
+  const [savingMailchimp, setSavingMailchimp] = useState(false);
   const [testing, setTesting] = useState(false);
   const [todayCount, setTodayCount] = useState(0);
   // Dirty-state tracking so the test-email button can tell the user
@@ -149,7 +152,16 @@ function EmailSettingsPage() {
       setLoading(true);
       setLoadError(null);
       setCountsUnavailable(false);
-      const todayISO = toLocalISO(new Date());
+      // Audit fix (timezone edge): sent_at is timestamptz, and the old
+      // filter compared it against a naive `${localDate}T00:00:00`
+      // string, which PostgREST reads as UTC midnight. For an SA
+      // operator (UTC+2) that shifted the window 2 hours late: sends
+      // between 00:00 and 02:00 local vanished from "today" while the
+      // 7-day sparkline (which buckets on local days) still counted
+      // them, so the two figures disagreed. Anchor on the real local-
+      // midnight instant instead.
+      const startOfToday = new Date();
+      startOfToday.setHours(0, 0, 0, 0);
       const [
         { data, error: providerErr },
         { count, error: countErr },
@@ -176,7 +188,7 @@ function EmailSettingsPage() {
           .from("outgoing_email_log")
           .select("id", { count: "exact", head: true })
           .eq("company_id", companyId)
-          .gte("sent_at", `${todayISO}T00:00:00`),
+          .gte("sent_at", startOfToday.toISOString()),
         supabase
           .from("outgoing_email_queue")
           .select("id", { count: "exact", head: true })
@@ -461,6 +473,15 @@ function EmailSettingsPage() {
         });
         return;
       }
+      // Audit fix: reflect the successful test locally. Pre-fix the
+      // rose "Last test failed" box kept showing the previous failure
+      // and "Last test:" kept the old timestamp until a full reload,
+      // so the page contradicted the "Test sent" toast. The snapshot
+      // is patched in tandem (the form was just saved if it was
+      // dirty), so this bookkeeping never flips hasUnsavedChanges.
+      const testedRow = { ...row, last_test_sent_at: new Date().toISOString(), last_test_error: null };
+      setRow(testedRow);
+      setSavedSnapshot((snap) => (snap === JSON.stringify(row) ? JSON.stringify(testedRow) : snap));
       toast({
         title: "Test sent",
         description: `Inbox: ${targetTo}. Check spam if it doesn't appear in 30 seconds.`,
@@ -481,6 +502,7 @@ function EmailSettingsPage() {
 
   const saveMailchimp = async () => {
     if (!companyId) return;
+    setSavingMailchimp(true);
     try {
       const { error } = await supabase
         .from("email_provider_settings")
@@ -499,6 +521,8 @@ function EmailSettingsPage() {
         tags: { route: "/admin/email-settings", step: "save-mailchimp", companyId },
       });
       toast({ title: "Save failed", description: e?.message || "Try again", variant: "destructive" });
+    } finally {
+      setSavingMailchimp(false);
     }
   };
 
@@ -553,6 +577,14 @@ function EmailSettingsPage() {
                     </span>
                   )}
                 </>
+              ) : undefined
+            }
+            actions={
+              !loading && !loadError ? (
+                <Button size="sm" onClick={save} disabled={saving || !companyId} className="gap-2">
+                  {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Shield className="w-4 h-4" />}
+                  {hasUnsavedChanges ? "Save settings" : "Saved"}
+                </Button>
               ) : undefined
             }
           />
@@ -1116,9 +1148,9 @@ function EmailSettingsPage() {
                 <Link href="https://us1.admin.mailchimp.com/account/api/" target="_blank" rel="noopener" className="text-xs text-slate-600 hover:underline flex items-center gap-1">
                   Get your API key from Mailchimp <ExternalLink className="w-3 h-3" />
                 </Link>
-                <Button variant="outline" onClick={saveMailchimp} className="gap-2">
-                  <Sparkles className="w-4 h-4" />
-                  Save Mailchimp link
+                <Button variant="outline" onClick={saveMailchimp} disabled={savingMailchimp} className="gap-2">
+                  {savingMailchimp ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                  {savingMailchimp ? "Saving..." : "Save Mailchimp link"}
                 </Button>
               </div>
             </CardContent>

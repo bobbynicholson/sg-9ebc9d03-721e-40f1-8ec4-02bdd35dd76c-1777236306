@@ -694,11 +694,15 @@ function WageDashboardPage() {
   // ── CSV export ─────────────────────────────────────────────────
   const handleExportCsv = () => {
     const tag = `${toDateInput(range.fromISO)}_to_${toDateInput(range.toISO)}`;
+    // Tenant-aware currency tag in the headers - "(R)" was hardcoded
+    // even for non-ZAR tenants while the on-page figures already
+    // format in the tenant currency.
+    const cur = tenantCurrency.code || "ZAR";
     if (department === "drivers") {
       if (driverRows.length === 0) return;
       const header = [
-        "Driver", "Hours", "Hourly pay (R)", "Distance km", "Distance pay (R)",
-        "Callout pay (R)", "Total (R)",
+        "Driver", "Hours", `Hourly pay (${cur})`, "Distance km", `Distance pay (${cur})`,
+        `Callout pay (${cur})`, `Total (${cur})`,
       ];
       const lines = [header.join(",")];
       for (const r of driverRows) {
@@ -722,8 +726,8 @@ function WageDashboardPage() {
     const header = [
       "Staff", "Role", "Departments", "Shifts",
       "Standard hours", "Overtime hours", "Public-holiday hours",
-      "Hourly rate (R)", "Effective rate (R)",
-      "Standard wage (R)", "Overtime wage (R)", "Holiday wage (R)", "Total wage (R)",
+      `Hourly rate (${cur})`, `Effective rate (${cur})`,
+      `Standard wage (${cur})`, `Overtime wage (${cur})`, `Holiday wage (${cur})`, `Total wage (${cur})`,
     ];
     const lines = [header.join(",")];
     for (const r of sortedByPerson) {
@@ -763,7 +767,14 @@ function WageDashboardPage() {
 
   // ── Render ─────────────────────────────────────────────────────
   const isDriversTab = department === "drivers";
-  const isLoading = isDriversTab ? loadingDrivers : loadingKitchen;
+  // "All" waits for BOTH legs - pre-fix it only tracked the kitchen
+  // load, so the hero total chip rendered kitchen-only for a beat
+  // while driver pay was still in flight.
+  const isLoading = isDriversTab
+    ? loadingDrivers
+    : department === "all"
+      ? loadingKitchen || loadingDrivers
+      : loadingKitchen;
   // Failed loads must never fall through to the "No shifts in this
   // range" empty state - that reads as a zero wage bill.
   const activeLoadError = isDriversTab
@@ -771,9 +782,14 @@ function WageDashboardPage() {
     : department === "all"
       ? kitchenError || driverError
       : kitchenError;
+  // "All" is only empty when BOTH ledgers are empty. Pre-fix a tenant
+  // with driver pay but no clocked shifts saw "No shifts in this
+  // range" under a Period total tile that included the driver rand.
   const hasNoData = isDriversTab
     ? driverRows.length === 0 && !loadingDrivers
-    : staffRows.length === 0 && !loadingKitchen;
+    : department === "all"
+      ? staffRows.length === 0 && driverRows.length === 0 && !isLoading
+      : staffRows.length === 0 && !loadingKitchen;
 
   const overtimePct = kitchenTotals.total_min > 0
     ? Math.round((kitchenTotals.overtime_min / kitchenTotals.total_min) * 100)
@@ -806,7 +822,7 @@ function WageDashboardPage() {
               </span>
             }
             icon={Banknote}
-            subtitle="Hours and wages, owner-only. The kitchen and dispatch tablets never see rates."
+            subtitle="Hours and wages for the office only. The kitchen and dispatch tablets never see rates."
             meta={
               !isLoading && (
                 <>
@@ -1200,7 +1216,7 @@ function WageDashboardPage() {
               ) : hasNoData ? (
                 <EmptyState department={department} />
               ) : isDriversTab ? (
-                <DriverByPersonTable rows={driverRows} fmtZAR={fmtZAR} />
+                <DriverByPersonTable rows={driverRows} fmtZAR={fmtZAR} withSlug={withSlug} />
               ) : (
                 <KitchenByPersonTable rows={sortedByPerson} totals={kitchenTotals} weeklyByStaff={weeklyByStaff} fmtZAR={fmtZAR} fmtZARDetailed={fmtZARDetailed} />
               )}
@@ -1237,10 +1253,11 @@ function WageLoadError({ message, onRetry }: { message: string; onRetry: () => v
 }
 
 function EmptyState({ department }: { department: DepartmentKey }) {
+  const Icon = department === "drivers" ? Truck : ChefHat;
   return (
     <Card className="border-2 border-dashed">
       <CardContent className="py-16 text-center">
-        <ChefHat className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+        <Icon className="w-12 h-12 text-slate-300 mx-auto mb-3" />
         <p className="text-slate-700 font-medium">No shifts in this range</p>
         <p className="text-sm text-slate-500 mt-1">
           {department === "drivers"
@@ -1596,10 +1613,13 @@ function KitchenByPersonTable({
   );
 }
 
-function DriverByPersonTable({ rows, fmtZAR = fmtZARDefault }: {
+function DriverByPersonTable({ rows, fmtZAR = fmtZARDefault, withSlug = (p: string) => p }: {
   rows: DriverPayRow[];
   // TIGHTEN I.91: tenant-aware formatter from the parent.
   fmtZAR?: (n: number | null | undefined) => string;
+  /** Tenant-slug wrapper from useTenantHref. The raw hrefs here used
+   *  to drop the ?company_slug context on every deep-link. */
+  withSlug?: (path: string) => string;
 }) {
   // DRV-B (driver-settlement deferred, 2026-05-24): this tab is the
   // roll-up view. The action surface (drill-down, payslip PDF +
@@ -1613,9 +1633,9 @@ function DriverByPersonTable({ rows, fmtZAR = fmtZARDefault }: {
           <Truck className="w-3.5 h-3.5 text-blue-600" />
           <span>
             Driver wages roll-up. Full drill-down, payslip PDF + email, and mark-as-paid live on{" "}
-            <a href="/admin/driver-settlement" className="text-blue-700 hover:underline font-medium">
+            <Link href={withSlug("/admin/driver-settlement")} className="text-blue-700 hover:underline font-medium">
               /admin/driver-settlement
-            </a>
+            </Link>
             .
           </span>
         </div>
@@ -1654,13 +1674,15 @@ function DriverByPersonTable({ rows, fmtZAR = fmtZARDefault }: {
                   <td className="px-2 py-2.5 text-right">
                     {/* DRV-B: deep-link. driver-settlement.tsx reads
                         ?driver=<id> and auto-expands the matching
-                        row + scrolls it into view. */}
-                    <a
-                      href={`/admin/driver-settlement?driver=${r.driver_id}`}
+                        row + scrolls it into view. Link + withSlug so
+                        the tenant slug context survives (the old raw
+                        <a> dropped it and forced a full reload). */}
+                    <Link
+                      href={withSlug(`/admin/driver-settlement?driver=${r.driver_id}`)}
                       className="text-[11px] text-blue-700 hover:underline whitespace-nowrap"
                     >
                       Open &rarr;
-                    </a>
+                    </Link>
                   </td>
                 </tr>
               ))}

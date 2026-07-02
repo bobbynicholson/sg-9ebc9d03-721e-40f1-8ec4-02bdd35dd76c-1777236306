@@ -59,7 +59,7 @@ import {
   Loader2, ArrowRight, MapPin, TrendingUp, Calendar, Clock,
   MessageCircle, FileText, Banknote,
 } from "lucide-react";
-import { PageWorkbench, PortalHeader, PortalShell } from "@/components/portal/ui";
+import { PageWorkbench, PortalHeader, PortalShell, StatTile } from "@/components/portal/ui";
 
 interface TeamRow {
   key: "kitchen" | "drivers" | "shopping" | "cleaning" | "sales" | "outsource";
@@ -286,10 +286,16 @@ function TeamsIndexPage() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       for (const s of (activeDuty.data || []) as any[]) {
         const start = s.shift_start ? new Date(s.shift_start).getTime() : 0;
-        if (start && start < stale) kitchenMissingClockOut += 1;
-        // Counts as "currently clocked in" if is_active = true and
-        // the shift_start is within today's window.
-        kitchenClockedNow += 1;
+        if (start && start < stale) {
+          // Command-centre audit (2026-07-02): a stale is_active session
+          // (>16h old, i.e. a missing clock-out) counted toward
+          // "Clocked: X / Y" too, so a forgotten Tuesday clock-out
+          // inflated Friday's on-duty number while ALSO being flagged
+          // as an anomaly. Stale sessions now only feed the anomaly count.
+          kitchenMissingClockOut += 1;
+        } else {
+          kitchenClockedNow += 1;
+        }
       }
 
       let kitchenHours = 0;
@@ -862,6 +868,10 @@ function TeamsIndexPage() {
   // Command-centre hero chips: live totals off the loaded rows.
   const totalActiveStaff = rows.reduce((sum, r) => sum + r.headCount, 0);
   const totalJobsToday = rows.reduce((sum, r) => sum + r.jobsToday, 0);
+  // Hours only sum across teams that actually track shifts (kitchen +
+  // drivers); shopping / cleaning / sales report null and stay out so
+  // the total agrees with the per-team column below it.
+  const totalHoursWeek = rows.reduce((sum, r) => sum + (r.hoursThisWeek ?? 0), 0);
 
   return (
     <>
@@ -981,6 +991,43 @@ function TeamsIndexPage() {
                 </div>
               </CardContent>
             </Card>
+          )}
+
+          {/* Command-centre restructure (2026-07-02): standard StatTile
+              row with real aggregates over the loaded team rows, matching
+              the financial-dashboard composition. */}
+          {!loading && !error && rows.length > 0 && (
+            <div className="grid grid-cols-2 gap-4 mb-6 lg:grid-cols-4">
+              <StatTile label="Active staff" value={totalActiveStaff} icon={Users} hint="Across every team bucket." />
+              <StatTile label="Jobs today" value={totalJobsToday} icon={Calendar} hint="Events, deliveries, runs and slots." />
+              <StatTile
+                label="Hours this week"
+                value={`${totalHoursWeek}h`}
+                icon={Clock}
+                hint="Kitchen and driver shifts only."
+              />
+              <StatTile
+                label="Anomalies"
+                value={totalAnomalies}
+                icon={AlertTriangle}
+                hint={totalAnomalies > 0 ? "Missing clock-outs, declines, overdue slots." : "Nothing needs chasing."}
+              />
+            </div>
+          )}
+
+          {/* Loading skeleton INSIDE the shell - previously the body
+              rendered blank while the first load ran. */}
+          {loading && (
+            <div className="space-y-3" aria-hidden="true">
+              <div className="grid grid-cols-2 gap-4 mb-6 lg:grid-cols-4">
+                {[0, 1, 2, 3].map((i) => (
+                  <div key={i} className="h-28 animate-pulse rounded-xl border border-slate-200/90 bg-white dark:border-slate-800 dark:bg-slate-900/95" />
+                ))}
+              </div>
+              {[0, 1, 2, 3].map((i) => (
+                <div key={i} className="h-24 animate-pulse rounded-lg border border-slate-200 bg-white shadow-sm" />
+              ))}
+            </div>
           )}
 
           <div className="space-y-3">
@@ -1218,6 +1265,10 @@ function BroadcastDialog({
   const [body, setBody] = useState("");
   const [recipients, setRecipients] = useState<Array<{ id: string; name: string | null; phone: string }>>([]);
   const [loadingRecipients, setLoadingRecipients] = useState(false);
+  // Command-centre audit (2026-07-02): a failed roster query used to be
+  // swallowed and rendered as "No-one with a phone + opt-in", which reads
+  // as a data problem, not a fetch failure.
+  const [rosterError, setRosterError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
 
   // Load roster every time the dialog opens for a new team.
@@ -1225,15 +1276,23 @@ function BroadcastDialog({
     if (!team || !companyId) { setRecipients([]); return; }
     let cancelled = false;
     setLoadingRecipients(true);
+    setRosterError(null);
     setBody(""); // fresh dialog state per team
     (async () => {
       const teamBucket = team.key as TeamRoleBucket;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data } = await (supabase as any)
+      const { data, error: rosterErr } = await (supabase as any)
         .from("profiles")
         .select("id, full_name, phone_number, whatsapp_opt_in, role, active_role, is_active")
         .eq("company_id", companyId)
         .not("phone_number", "is", null);
+      if (rosterErr) {
+        if (!cancelled) {
+          setRosterError(rosterErr.message || "Couldn't load the roster.");
+          setLoadingRecipients(false);
+        }
+        return;
+      }
       const profileRows = (data || []) as Array<{
         id: string;
         full_name: string | null;
@@ -1244,13 +1303,20 @@ function BroadcastDialog({
         is_active?: boolean | null;
       }>;
       const profileIds = profileRows.map((p) => p.id).filter(Boolean);
-      const { data: departmentRows } = profileIds.length > 0
+      const { data: departmentRows, error: deptErr } = profileIds.length > 0
         ? await supabase
             .from("user_departments")
             .select("user_id, department, is_primary")
             .in("user_id", profileIds)
-        : { data: [] as Array<{ user_id: string | null; department: string | null; is_primary: boolean | null }> };
+        : { data: [] as Array<{ user_id: string | null; department: string | null; is_primary: boolean | null }>, error: null };
       if (cancelled) return;
+      if (deptErr) {
+        // Same silent-failure trap: without departments, cross-trained
+        // staff drop out of the roster and the fan-out under-sends.
+        setRosterError(deptErr.message || "Couldn't load department assignments.");
+        setLoadingRecipients(false);
+        return;
+      }
       const rcpts = profileRows
         .filter((p) =>
           p.is_active !== false
@@ -1333,6 +1399,8 @@ function BroadcastDialog({
           <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
             {loadingRecipients ? (
               <span className="inline-flex items-center gap-1.5"><Loader2 className="w-3 h-3 animate-spin" /> Loading roster...</span>
+            ) : rosterError ? (
+              <span className="text-rose-700">Couldn't load the roster: {rosterError}. Close and reopen to retry.</span>
             ) : recipients.length === 0 ? (
               <span className="text-amber-700">No-one with a phone + opt-in. Add phone numbers on /admin/staff and flag whatsapp_opt_in.</span>
             ) : (

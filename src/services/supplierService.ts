@@ -259,11 +259,18 @@ export const supplierService = {
     return data || [];
   },
 
-  async getById(supplierId: string): Promise<Supplier | null> {
+  /**
+   * Fetch one supplier, explicitly scoped to the tenant. companyId is
+   * required so cross-tenant reads are refused in the query itself
+   * rather than relying on RLS alone (defence in depth, same contract
+   * as listForCompany / getPurchaseSummary / listReceipts).
+   */
+  async getById(supplierId: string, companyId: string): Promise<Supplier | null> {
     const { data, error } = await supabase
       .from("suppliers")
       .select("*")
       .eq("id", supplierId)
+      .eq("company_id", companyId)
       .maybeSingle();
     if (error) { console.error("supplierService.getById:", error); return null; }
     return data as Supplier | null;

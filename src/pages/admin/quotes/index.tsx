@@ -44,7 +44,7 @@ import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { PortalShell, PortalHeader,
-  PageWorkbench,
+  PageWorkbench, PortalCard, StatTile,
 } from "@/components/portal/ui";
 import { RowPrimaryAction } from "@/components/admin/RowPrimaryAction";
 import {
@@ -65,7 +65,6 @@ import { ChatBot } from "@/components/ChatBot";
 import { quoteService } from "@/services/quoteService";
 import { trackRecentlyViewed } from "@/components/admin/RecentlyViewedWidget";
 import { QuoteSendDialog, type QuoteSendDialogQuote } from "@/components/billing/QuoteSendDialog";
-import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { DashboardDateRange, resolvePreset, type DateRange } from "@/components/dashboard/DashboardDateRange";
 import { useToast } from "@/hooks/use-toast";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
@@ -134,13 +133,15 @@ function orderStatusBadge(status: string | null | undefined): { label: string; c
   if (s === "cancelled" || s === "declined" || s === "rejected") {
     return { label: "Cancelled", classes: "text-rose-700 border-rose-200 bg-rose-50" };
   }
-  // Active production states.
-  if (s === "confirmed") return { label: "Booked",    classes: "text-brand-primary border-brand-primary/20 bg-brand-primary/10" };
+  // Active production states. Command-centre colour rule (2026-07-02):
+  // status pills carry SEMANTIC colours - success = emerald, never
+  // brand paint.
+  if (s === "confirmed") return { label: "Booked",    classes: "text-emerald-700 border-emerald-200 bg-emerald-50" };
   if (s === "preparing") return { label: "In prep",   classes: "text-slate-700 border-slate-200 bg-slate-50" };
-  if (s === "ready")     return { label: "Ready",     classes: "text-brand-primary border-brand-primary/20 bg-brand-primary/10" };
-  if (s === "in_transit") return { label: "Driving",  classes: "text-brand-primary border-brand-primary/20 bg-brand-primary/10" };
-  if (s === "delivered") return { label: "Delivered", classes: "text-brand-primary border-brand-primary/20 bg-brand-primary/10" };
-  if (s === "completed" || s === "paid") return { label: "Completed", classes: "text-brand-primary border-brand-primary/20 bg-brand-primary/10" };
+  if (s === "ready")     return { label: "Ready",     classes: "text-emerald-700 border-emerald-200 bg-emerald-50" };
+  if (s === "in_transit") return { label: "Driving",  classes: "text-emerald-700 border-emerald-200 bg-emerald-50" };
+  if (s === "delivered") return { label: "Delivered", classes: "text-emerald-700 border-emerald-200 bg-emerald-50" };
+  if (s === "completed" || s === "paid") return { label: "Completed", classes: "text-emerald-700 border-emerald-200 bg-emerald-50" };
   // Unknown - show the raw status capitalised so we never invent a meaning.
   return { label: status[0].toUpperCase() + status.slice(1).replace(/_/g, " "), classes: "text-slate-700 border-slate-200 bg-slate-50" };
 }
@@ -1451,8 +1452,11 @@ function AdminQuotesInner() {
   const getStatusColor = (status: Quote["status"]) => {
     switch (status) {
       case "draft": return "bg-gray-100 text-gray-700 border-gray-200";
+      // "sent" keeps the brand-active tint (active selling state);
+      // "accepted" is a SUCCESS outcome so it reads emerald per the
+      // semantic colour rule (2026-07-02).
       case "sent": return "bg-brand-primary/10 text-brand-primary border-brand-primary/20";
-      case "accepted": return "bg-brand-primary/15 text-brand-primary border-brand-primary/20";
+      case "accepted": return "bg-emerald-50 text-emerald-700 border-emerald-200";
       case "rejected": return "bg-rose-100 text-rose-700 border-rose-200";
       case "expired": return "bg-amber-100 text-amber-700 border-amber-200";
       default: return "bg-gray-100 text-gray-700";
@@ -1618,44 +1622,73 @@ function AdminQuotesInner() {
             </p>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-6">
-            <Card>
-              <CardContent className="p-4">
-                <p className="text-sm text-slate-600 mb-1 flex items-center gap-1.5">Total Quotes <InfoTooltip content={`Every quote created within the selected range (${tileRange.label}). Branch + mine-only filters still apply.`} /></p>
-                <p className="text-2xl font-bold text-slate-900">{tileRows.length}</p>
-                <p className="text-[11px] text-slate-500 mt-0.5">{tileRange.label}</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4">
-                <p className="text-sm text-slate-600 mb-1 flex items-center gap-1.5">Action needed <InfoTooltip content={"Drafts to price and send (including new client portal requests), and quotes whose validity is running out. Scoped to the selected range."} /></p>
-                <p className="text-2xl font-bold text-rose-600">{tileCounts.action_needed}</p>
-                <p className="text-[11px] text-slate-500 mt-0.5">{tileRange.label}</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4">
-                <p className="text-sm text-slate-600 mb-1 flex items-center gap-1.5">Won {tileRange.label.toLowerCase()} <InfoTooltip content={`Quotes the client has accepted within ${tileRange.label}. Convert these to orders if not already done. Won quotes whose linked order was later cancelled drop out of this count.`} /></p>
-                <p className="text-2xl font-bold text-brand-primary">{tileCounts.won}</p>
-                <p className="text-[11px] text-slate-500 mt-0.5">{tileRange.label}</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4">
-                <p className="text-sm text-slate-600 mb-1 flex items-center gap-1.5">Total Value <InfoTooltip content={`Sum of quote totals created within ${tileRange.label}.`} /></p>
-                <p className="text-2xl font-bold text-brand-primary">
-                  {C}{tileRows.reduce((sum, q) => sum + ((q.quote as any).total ?? 0), 0).toLocaleString()}
-                </p>
-                <p className="text-[11px] text-slate-500 mt-0.5">{tileRange.label}</p>
-              </CardContent>
-            </Card>
+          {/* Command-centre restructure (2026-07-02): KPI cards moved
+              onto the shared StatTile primitive (financial-dashboard
+              exemplar). Same tileRows / tileCounts source as before so
+              the range picker still scopes all four. */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <StatTile
+              label="Total quotes"
+              value={tileRows.length}
+              icon={FileText}
+              hint={`Created within ${tileRange.label.toLowerCase()}`}
+            />
+            <StatTile
+              label="Action needed"
+              value={tileCounts.action_needed}
+              icon={Flame}
+              hint={`Drafts to price + expiring quotes, ${tileRange.label.toLowerCase()}`}
+            />
+            <StatTile
+              label={`Won ${tileRange.label.toLowerCase()}`}
+              value={tileCounts.won}
+              icon={Crown}
+              hint="Accepted; cancelled-order wins drop out"
+            />
+            <StatTile
+              label="Total value"
+              value={`${C}${tileRows.reduce((sum, q) => sum + ((q.quote as any).total ?? 0), 0).toLocaleString("en-ZA", { maximumFractionDigits: 0 })}`}
+              icon={Banknote}
+              hint={`Sum of quote totals, ${tileRange.label.toLowerCase()}`}
+            />
           </div>
 
-          {/* Phase 8 #8: list / pipeline view toggle. Pipeline groups
-              every quote in scope by intelligence bucket so the sales
-              lead can see the funnel at a glance without flipping
-              through pill filters one by one. */}
-          <div className="mb-3 flex justify-end">
+          {/* Command-centre restructure (2026-07-02): search, view
+              toggle, bucket pills and saved views were four scattered
+              sibling strips - now grouped into ONE toolbar card per
+              the page standard. Behaviour unchanged. */}
+          <PortalCard className="mb-6 space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            {/* Smart search across client, event, ref + total. */}
+            {quotes.length > 0 ? (
+              <div className="relative flex-1 min-w-[220px] max-w-md">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <Input
+                  ref={searchRef}
+                  placeholder="Search by client, event, venue, quote ref or total... (press /)"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="pl-9 pr-9"
+                />
+                {/* Phase 24 #8: clear-search affordance to match
+                    Phase 24 #7 on /admin/orders. */}
+                {search && (
+                  <button
+                    type="button"
+                    onClick={() => setSearch("")}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
+                    title="Clear search"
+                    aria-label="Clear search"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+            ) : <span />}
+            {/* Phase 8 #8: list / pipeline view toggle. Pipeline groups
+                every quote in scope by intelligence bucket so the sales
+                lead can see the funnel at a glance without flipping
+                through pill filters one by one. */}
             <div className="inline-flex border rounded-lg overflow-hidden">
               <button
                 type="button"
@@ -1675,13 +1708,18 @@ function AdminQuotesInner() {
               </button>
             </div>
           </div>
+          {quotes.length > 0 && (search.trim() || bucket !== "all") && (
+            <p className="text-xs text-slate-500 -mt-1">
+              Showing {filteredRows.length} of {rowStates.length} quotes.
+            </p>
+          )}
 
           {/*
             Smart filter pills, mirrors the Clients CRM pattern. Each
             pill shows a live count so the team sees at a glance how
             many quotes need their attention. Click to narrow the list.
           */}
-          <div className="mb-4 flex gap-2 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible sm:pb-0 scrollbar-hide">
+          <div className="flex gap-2 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible sm:pb-0 scrollbar-hide">
             {([
               { id: "all",            label: "Open",          icon: Inbox,          tone: "bg-slate-100 text-slate-700 border-slate-200" },
               { id: "action_needed",  label: "Action needed", icon: Flame,          tone: "bg-rose-100 text-rose-700 border-rose-200" },
@@ -1736,7 +1774,7 @@ function AdminQuotesInner() {
               'Mine only' toggle. Saved views snap back to named
               filter snapshots; mine-only restricts to quotes the
               current user prepared. */}
-          <div className="mb-4 flex flex-wrap items-center gap-1.5">
+          <div className="flex flex-wrap items-center gap-1.5">
             <button
               type="button"
               onClick={() => setMyQuotesOnly((v) => !v)}
@@ -1778,6 +1816,7 @@ function AdminQuotesInner() {
               + Save view
             </button>
           </div>
+          </PortalCard>
 
           {/*
             Bulk nudge bar. Only shown when a follow-up-eligible bucket
@@ -1859,39 +1898,7 @@ function AdminQuotesInner() {
             </div>
           </div>
 
-          {/* Smart search across client, event, ref + total. Debounced. */}
-          {quotes.length > 0 && (
-            <div className="mb-4">
-              <div className="relative max-w-md">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <Input
-                  ref={searchRef}
-                  placeholder="Search by client, event, venue, quote ref or total... (press /)"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="pl-9 pr-9"
-                />
-                {/* Phase 24 #8: clear-search affordance to match
-                    Phase 24 #7 on /admin/orders. */}
-                {search && (
-                  <button
-                    type="button"
-                    onClick={() => setSearch("")}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
-                    title="Clear search"
-                    aria-label="Clear search"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                )}
-              </div>
-              {(search.trim() || bucket !== "all") && (
-                <p className="text-xs text-slate-500 mt-1.5">
-                  Showing {filteredRows.length} of {rowStates.length} quotes.
-                </p>
-              )}
-            </div>
-          )}
+          {/* (Search moved into the toolbar card above.) */}
 
           {viewMode === "pipeline" && quotes.length > 0 && filteredRows.length > 0 && (
             <PipelineBoard
@@ -2228,7 +2235,7 @@ function AdminQuotesInner() {
                               : meta.label === "Delivered"  ? `${orderRef} has been delivered`
                               : meta.label === "Completed"  ? `${orderRef} is completed`
                               : `${orderRef} - ${meta.label.toLowerCase()}`;
-                            const tone = meta?.label === "Booked" || meta?.label === "Delivered" || meta?.label === "Completed" ? "text-brand-primary"
+                            const tone = meta?.label === "Booked" || meta?.label === "Delivered" || meta?.label === "Completed" ? "text-emerald-700"
                                        : meta?.label === "Cancelled"  ? "text-rose-700"
                                        : meta?.label === "Pending"    ? "text-amber-700"
                                        : "text-slate-600";
@@ -2923,7 +2930,7 @@ function AdminQuotesInner() {
                     <div className="space-y-2 pt-1">
                       <div className="grid grid-cols-2 gap-2">
                         <div>
-                          <label className="text-[11px] font-semibold text-slate-700 uppercase tracking-wide">Amount paid (R)</label>
+                          <label className="text-[11px] font-semibold text-slate-700 uppercase tracking-wide">Amount paid ({C})</label>
                           <Input
                             type="number"
                             step="0.01"
@@ -2957,7 +2964,7 @@ function AdminQuotesInner() {
                         />
                       </div>
                       <p className="text-[11px] text-brand-primary">
-                        Order + deposit invoice will be marked paid for {depositAmount ? fmtMoney.format(Number(depositAmount)) : "R 0"}
+                        Order + deposit invoice will be marked paid for {fmtMoney.format(Number(depositAmount) || 0)}
                         {Number(depositAmount) > 0 && acceptPreflight?.total && Number(depositAmount) < Number(acceptPreflight.total)
                           ? `. Balance ${fmtMoney.format(Number(acceptPreflight.total) - Number(depositAmount))} stays open.`
                           : "."}
@@ -3023,7 +3030,9 @@ function AdminQuotesInner() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <ChatBot userRole="admin" companyId={user?.user_metadata?.company_id} />
+      {/* Audit fix (2026-07-02): user.company_id is the canonical
+          tenant id; auth user_metadata is not reliably stamped. */}
+      <ChatBot userRole="admin" companyId={user?.company_id} />
 
       {/* Review-before-send composer for the draft Send button. The
           dialog handles the /api/send-email POST itself; we only react
@@ -3035,7 +3044,11 @@ function AdminQuotesInner() {
           if (!o) setSendDialogQuote(null);
         }}
         companyId={(user as any)?.company_id || ""}
-        tenantName={(user as any)?.user_metadata?.company_name || null}
+        // Audit fix (2026-07-02): pass the resolved company display
+        // name (profile-backed) instead of auth user_metadata, which
+        // is rarely stamped - the dialog fell back to a self-fetch on
+        // every open. Null still triggers the dialog's own lookup.
+        tenantName={companyName || null}
         quote={sendDialogQuote as QuoteSendDialogQuote | null}
         availableQuotes={
           sendDialogQuote
@@ -3119,7 +3132,7 @@ function AdminQuotesInner() {
 // extending to sales_admin + region_admin.
 export default function AdminQuotes() {
   return (
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.SALES_ADMIN, UserRole.REGION_ADMIN]}>
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.OWNER, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.SALES_ADMIN, UserRole.REGION_ADMIN]}>
       <AdminQuotesInner />
     </ProtectedRoute>
   );

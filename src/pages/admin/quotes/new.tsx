@@ -307,7 +307,7 @@ function newQuoteNumber(): string {
 // index + [id] wrappers. sales_admin is the page's primary user.
 export default function ProtectedNewQuotePage() {
   return (
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.SALES_ADMIN, UserRole.REGION_ADMIN]}>
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.OWNER, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.SALES_ADMIN, UserRole.REGION_ADMIN]}>
       <NewQuotePage />
     </ProtectedRoute>
   );
@@ -466,8 +466,11 @@ function NewQuotePage() {
   const [discountFlat, setDiscountFlat] = useState(0);
 
   const [validUntil, setValidUntil] = useState(futureISO(DEFAULT_VALIDITY_DAYS));
+  // Maps to quotes.notes - CLIENT-VISIBLE on /q/[token] ("A note from
+  // us") and copied to the order's internal_notes at conversion. The
+  // separate never-persisted clientNotes field was removed 2026-07-02
+  // (see the Notes card comment below).
   const [internalNotes, setInternalNotes] = useState("");
-  const [clientNotes, setClientNotes] = useState("");
 
   // ── Persistence state ─────────────────────────────────────────────
   /** The id of the row in `quotes` once it's been saved. Null until then. */
@@ -1942,7 +1945,11 @@ function NewQuotePage() {
   // "no deal without email" rule here so we never persist a row the
   // pipeline can't process.
   const dirtyRef = useRef(false);
-  useEffect(() => { dirtyRef.current = true; }, [menuItems, equipment, guestCount, surgePct, discountPct, discountFlat, deliveryFee, collectionFee, validUntil, eventName, eventDate, venueAddress, clientName, email]);
+  // Audit fix (2026-07-02): internalNotes (the client-visible note,
+  // quotes.notes) was missing from the dirty deps, so a note-only edit
+  // never marked the form dirty and never autosaved - the note was
+  // silently lost unless the operator clicked Save explicitly.
+  useEffect(() => { dirtyRef.current = true; }, [menuItems, equipment, guestCount, surgePct, discountPct, discountFlat, deliveryFee, collectionFee, validUntil, eventName, eventDate, venueAddress, clientName, email, internalNotes]);
   useEffect(() => {
     if (status !== "draft") return;
     if (!clientName) return;
@@ -1956,7 +1963,7 @@ function NewQuotePage() {
       persistQuote();
     }, AUTOSAVE_DELAY_MS);
     return () => clearTimeout(handle);
-  }, [status, clientName, menuItems, equipment, guestCount, surgePct, discountPct, discountFlat, deliveryFee, collectionFee, validUntil, eventName, eventDate, venueAddress, email, persistQuote, setupTimeError]);
+  }, [status, clientName, menuItems, equipment, guestCount, surgePct, discountPct, discountFlat, deliveryFee, collectionFee, validUntil, eventName, eventDate, venueAddress, email, internalNotes, persistQuote, setupTimeError]);
 
   const handleSaveDraft = async () => {
     // No deal without email - the follow-up engine, invoice flow,
@@ -2671,7 +2678,7 @@ function NewQuotePage() {
                           />
                         </div>
                         <div>
-                          <Label className="text-[11px] text-brand-primary">R per km</Label>
+                          <Label className="text-[11px] text-brand-primary">{tenantCurrency.symbol} per km</Label>
                           <Input
                             type="number"
                             min={0}
@@ -2686,7 +2693,7 @@ function NewQuotePage() {
                         </div>
                         <div>
                           <Label className="text-[11px] text-brand-primary flex items-center gap-1">
-                            Fee (R)
+                            Fee ({tenantCurrency.symbol})
                             {deliveryFeeOverridden && (
                               <span className="text-[10px] text-rose-700 font-normal">(flat fee)</span>
                             )}
@@ -2706,9 +2713,9 @@ function NewQuotePage() {
                       </div>
                       <p className="text-[11px] text-brand-primary/80">
                         {deliveryFeeOverridden
-                          ? `Flat fee active. Fee = R${deliveryFee.toFixed(2)}. Clear the box and re-enter distance to switch back to auto.`
+                          ? `Flat fee active. Fee = ${fmtR(deliveryFee)}. Clear the box and re-enter distance to switch back to auto.`
                           : deliveryDistance > 0
-                            ? `Auto: ${deliveryDistance.toFixed(1)}km × 2 (round-trip) × R${deliveryCostPerKm}/km${minDeliveryFee > 0 ? `, floor R${minDeliveryFee}` : ""} = R${deliveryFee.toFixed(2)}`
+                            ? `Auto: ${deliveryDistance.toFixed(1)}km × 2 (round-trip) × ${tenantCurrency.symbol}${deliveryCostPerKm}/km${minDeliveryFee > 0 ? `, floor ${tenantCurrency.symbol}${minDeliveryFee}` : ""} = ${fmtR(deliveryFee)}`
                             : `Pick a venue or type a distance to auto-calculate; or type a flat fee directly into the Fee box.`}
                       </p>
                     </div>
@@ -2744,7 +2751,7 @@ function NewQuotePage() {
                           />
                         </div>
                         <div>
-                          <Label className="text-[11px] text-brand-primary">R per km</Label>
+                          <Label className="text-[11px] text-brand-primary">{tenantCurrency.symbol} per km</Label>
                           <Input
                             type="number"
                             min={0}
@@ -2759,7 +2766,7 @@ function NewQuotePage() {
                         </div>
                         <div>
                           <Label className="text-[11px] text-brand-primary flex items-center gap-1">
-                            Fee (R)
+                            Fee ({tenantCurrency.symbol})
                             {collectionFeeOverridden && (
                               <span className="text-[10px] text-rose-700 font-normal">(flat fee)</span>
                             )}
@@ -2779,9 +2786,9 @@ function NewQuotePage() {
                       </div>
                       <p className="text-[11px] text-brand-primary/80">
                         {collectionFeeOverridden
-                          ? `Flat fee active. Fee = R${collectionFee.toFixed(2)}. Clear the box and re-enter distance to switch back to auto.`
+                          ? `Flat fee active. Fee = ${fmtR(collectionFee)}. Clear the box and re-enter distance to switch back to auto.`
                           : collectionDistance > 0
-                            ? `Auto: ${collectionDistance.toFixed(1)}km × 2 (round-trip) × R${collectionCostPerKm}/km = R${collectionFee.toFixed(2)}`
+                            ? `Auto: ${collectionDistance.toFixed(1)}km × 2 (round-trip) × ${tenantCurrency.symbol}${collectionCostPerKm}/km = ${fmtR(collectionFee)}`
                             : `Type a distance to auto-calculate, or type a flat fee directly into the Fee box.`}
                       </p>
                       {/* Next-day collection. When on, the collection trip
@@ -2915,7 +2922,7 @@ function NewQuotePage() {
                               </select>
                             </div>
                             <div className="sm:col-span-2">
-                              <Label className="text-xs">Unit price (R)</Label>
+                              <Label className="text-xs">Unit price ({tenantCurrency.symbol})</Label>
                               <Input
                                 type="number"
                                 min={0}
@@ -3088,7 +3095,7 @@ function NewQuotePage() {
                               />
                             </div>
                             <div className="sm:col-span-4">
-                              <Label className="text-xs">Unit price client pays (R)</Label>
+                              <Label className="text-xs">Unit price client pays ({tenantCurrency.symbol})</Label>
                               <Input
                                 type="number"
                                 min={0}
@@ -3160,7 +3167,7 @@ function NewQuotePage() {
                                           {split.fromHire > 0 && (e.hireInCost ?? 0) > 0 && (
                                             <span className="text-[11px] text-amber-700">
                                               Extra cost to you: {fmtR(hireCost)}
-                                              <span className="text-slate-400 ml-1">(R{(e.hireInCost ?? 0).toFixed(2)} × {split.fromHire})</span>
+                                              <span className="text-slate-400 ml-1">({fmtR(e.hireInCost ?? 0)} × {split.fromHire})</span>
                                             </span>
                                           )}
                                           {split.fromHire > 0 && (e.hireInCost ?? 0) === 0 && (
@@ -3226,7 +3233,7 @@ function NewQuotePage() {
                     />
                   </div>
                   <div>
-                    <Label className="text-xs">Discount (R)</Label>
+                    <Label className="text-xs">Discount ({tenantCurrency.symbol})</Label>
                     <Input
                       type="number"
                       min={0}
@@ -3239,30 +3246,39 @@ function NewQuotePage() {
                 </CardContent>
               </Card>
 
-              {/* Notes */}
+              {/* Notes.
+                  Audit fix (2026-07-02, data-leak): this card used to
+                  show TWO textareas with swapped semantics. The one
+                  labelled "Internal note ... never go to the client"
+                  persisted into quotes.notes, which the public quote
+                  page /q/[token] renders to the CLIENT as "A note from
+                  us" - so kitchen/account context leaked straight onto
+                  the client-facing quote. Meanwhile the "Note for
+                  client" textarea was never persisted anywhere (no
+                  column, no email path) and silently vanished on
+                  reload. Fixed by collapsing to ONE honestly-labelled
+                  client-visible note (bound to quotes.notes, hydrates
+                  on edit) and pointing operators at the audit-logged
+                  notes thread below for genuinely internal notes. */}
               <Card>
                 <CardHeader>
                   <CardTitle className="text-base">Notes</CardTitle>
-                  <CardDescription>Internal notes never go to the client.</CardDescription>
+                  <CardDescription>
+                    The note below is client-visible. Keep internal-only context in the team thread underneath.
+                  </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <div>
-                    <Label className="text-xs">Internal note</Label>
+                    <Label className="text-xs">Note to the client (shown on their quote page as "A note from us")</Label>
                     <Textarea
                       rows={3}
                       value={internalNotes}
                       onChange={(e) => setInternalNotes(e.target.value)}
-                      placeholder="Kitchen prep, allergens, account context..."
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-xs">Note for client (shown on the quote email)</Label>
-                    <Textarea
-                      rows={3}
-                      value={clientNotes}
-                      onChange={(e) => setClientNotes(e.target.value)}
                       placeholder="Optional message that goes out with the quote."
                     />
+                    <p className="text-[11px] text-slate-500 mt-1">
+                      Also copied into the order's internal notes when the quote converts. Do not put private kitchen or account context here.
+                    </p>
                   </div>
                   {/* Phase 16 #1: chronological notes thread for the
                       quote - only renders once the quote has been
@@ -3433,8 +3449,8 @@ function NewQuotePage() {
                           <span>Total (incl. VAT)</span>
                           <span className="text-brand-primary">{fmtR(computed.total)}</span>
                         </div>
-                        {clientNotes && (
-                          <p className="mt-3 text-xs text-slate-600 italic whitespace-pre-wrap border-t pt-2">{clientNotes}</p>
+                        {internalNotes && (
+                          <p className="mt-3 text-xs text-slate-600 italic whitespace-pre-wrap border-t pt-2">{internalNotes}</p>
                         )}
                       </div>
                       {validityDays !== null && validityDays >= 0 && (

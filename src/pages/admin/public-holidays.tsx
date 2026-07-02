@@ -165,8 +165,11 @@ function PublicHolidaysAdmin() {
   // company-scope; gazetted (company_id IS NULL) changes are rare.
   useEffect(() => {
     if (!companyId) return;
+    // Random suffix so two open tabs never collide on the channel
+    // name (recurring realtime bug class).
+    const channelSuffix = Math.random().toString(36).slice(2, 10);
     const sub = supabase
-      .channel(`public-holidays-${companyId}`)
+      .channel(`public-holidays-${companyId}-${channelSuffix}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "public_holidays", filter: `company_id=eq.${companyId}` }, () => { reload(); })
       .subscribe();
     return () => { sub.unsubscribe(); };
@@ -451,7 +454,7 @@ function PublicHolidaysAdmin() {
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full min-w-[720px] text-sm">
-                    <thead className="text-[11px] uppercase tracking-normal text-slate-500 border-b border-slate-200 bg-slate-50">
+                    <thead className="text-[10px] uppercase tracking-normal text-slate-500 border-b border-slate-200 bg-slate-50">
                       <tr>
                         <th className="text-left py-2 pl-4">Date</th>
                         <th className="text-left py-2 px-2">Holiday</th>
@@ -464,7 +467,7 @@ function PublicHolidaysAdmin() {
                       {filtered.map((h) => {
                         const isCustom = h.company_id != null;
                         return (
-                          <tr key={`${h.id}-${h.display_date}`} className="border-b border-slate-100 hover:bg-slate-50">
+                          <tr key={`${h.id}-${h.display_date}`} className="border-b border-slate-100 hover:bg-slate-50/70 dark:hover:bg-slate-800/40">
                             <td className="py-2 pl-4 text-slate-700 tabular-nums">
                               {dateLabel(h.display_date)}
                             </td>
@@ -532,7 +535,12 @@ function PublicHolidaysAdmin() {
             <AlertDialogTitle>Delete this company holiday?</AlertDialogTitle>
             <AlertDialogDescription>
               {confirmDelete?.name} on {confirmDelete && dateLabel(("display_date" in confirmDelete ? confirmDelete.display_date : confirmDelete.date))}.
-              Future shifts on this date will no longer be paid at 2x.
+              {/* Edge case: a recurring row shows one occurrence per
+                  year, but the delete removes the single underlying
+                  row, so EVERY year's occurrence goes with it. Say so. */}
+              {confirmDelete?.is_recurring
+                ? " This holiday repeats yearly; deleting removes it for every year, not just the one shown."
+                : " Future shifts on this date will no longer be paid at 2x."}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

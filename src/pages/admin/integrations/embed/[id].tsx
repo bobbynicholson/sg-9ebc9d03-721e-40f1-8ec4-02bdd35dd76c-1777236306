@@ -54,6 +54,8 @@ import { getSetupChecklist, summariseReadiness, type SetupCheck, TEMPLATE_INTENT
 import { CheckCircle2, AlertTriangle, Info } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { PageWorkbench, PortalHeader, PortalShell } from "@/components/portal/ui";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { UserRole } from "@/types/app";
 
 const FIELD_TYPES: { value: EmbedFieldType; label: string }[] = [
   { value: "text",       label: "Text" },
@@ -87,15 +89,12 @@ const MAPPINGS: { value: typeof MAP_NONE | EmbedFieldMapping; label: string }[] 
   { value: "notes",       label: "Notes (appended)" },
 ];
 
-// LCF-F (task #227, 2026-05-25): rolled back the ProtectedRoute
-// wrap added in LCF-B. Wrapping caused the page to flicker
-// between "Verifying your credentials" and the loaded shell -
-// ProtectedRoute kept remounting in a loop. Middleware ROUTE_
-// GUARDS["/admin"] already enforces admin-role access, and the
-// API endpoints all do their own session check. The page-level
-// wrap was defence-in-depth, not the only gate. Removing it
-// stops the loop without weakening security.
-export default function EmbedFormCustomiser() {
+// Restructure audit 2026-07-02: ProtectedRoute wrap restored (see
+// the matching note on /admin/integrations/embed). The LCF-F
+// flicker loop that prompted its removal has settled; every other
+// /admin page carries the wrap. Middleware stays the route gate,
+// the wrap is defence-in-depth with a proper unauthorized screen.
+function EmbedFormCustomiser() {
   const router = useRouter();
   // Wave 27.3: tenant-slug wrapper for internal navigations.
   const { withSlug } = useTenantHref();
@@ -112,6 +111,8 @@ export default function EmbedFormCustomiser() {
   const [dirty, setDirty] = useState(false);
   const [snippetOpen, setSnippetOpen] = useState(false);
   const [pricingTiers, setPricingTiers] = useState<EmbedPricingTier[]>([]);
+  // Double-submit guard for the tenant-wide tier save.
+  const [savingTiers, setSavingTiers] = useState(false);
   const [companyData, setCompanyData] = useState<any>(null);
 
   const previewIframeRef = useRef<HTMLIFrameElement | null>(null);
@@ -259,6 +260,21 @@ export default function EmbedFormCustomiser() {
   }
 
   async function savePricingTiers() {
+    // Data-consistency guard: a tier where min > max renders a
+    // backwards estimate range on the public form (for example
+    // "R450 to R250 per person"). Catch it before it ships.
+    const backwards = pricingTiers.find(
+      (t) => Number(t.price_per_person_min) > Number(t.price_per_person_max) && Number(t.price_per_person_max) > 0,
+    );
+    if (backwards) {
+      toast({
+        title: "Check the tier prices",
+        description: `"${backwards.name || "Unnamed tier"}" has a minimum above its maximum. Swap the values before saving.`,
+        variant: "destructive",
+      });
+      return;
+    }
+    setSavingTiers(true);
     try {
       const resp = await fetch("/api/admin/embed/company", {
         method: "PATCH",
@@ -273,6 +289,8 @@ export default function EmbedFormCustomiser() {
         tags: { route: "/admin/integrations/embed/[id]", step: "save-pricing-tiers", companyId: user?.company_id || "" },
       });
       toast({ title: "Couldn't save tiers", description: dbErrorMessage(err, { entity: "pricing tier" }), variant: "destructive" });
+    } finally {
+      setSavingTiers(false);
     }
   }
 
@@ -831,8 +849,8 @@ export default function EmbedFormCustomiser() {
                       >
                         <Plus className="w-3.5 h-3.5" /> Add tier
                       </Button>
-                      <Button size="sm" onClick={savePricingTiers} className="flex-1 h-8 bg-brand-primary hover:bg-brand-primary/90">
-                        Save tiers
+                      <Button size="sm" onClick={savePricingTiers} disabled={savingTiers} className="flex-1 h-8 bg-brand-primary hover:bg-brand-primary/90">
+                        {savingTiers ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Save tiers"}
                       </Button>
                     </div>
                   </CardContent>
@@ -1074,5 +1092,20 @@ function ColorRow({
         />
       </div>
     </div>
+  );
+}
+
+export default function ProtectedEmbedFormCustomiser() {
+  // Baseline admin tier. OWNER included alongside COMPANY_ADMIN and
+  // ADMIN, matching the /api/admin/embed/* role gates.
+  return (
+    <ProtectedRoute allowedRoles={[
+      UserRole.SUPER_ADMIN,
+      UserRole.OWNER,
+      UserRole.COMPANY_ADMIN,
+      UserRole.ADMIN,
+    ]}>
+      <EmbedFormCustomiser />
+    </ProtectedRoute>
   );
 }

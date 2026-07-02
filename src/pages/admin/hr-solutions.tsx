@@ -47,7 +47,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { PortalShell, PortalHeader,
-  PageWorkbench,
+  PageWorkbench, StatTile,
 } from "@/components/portal/ui";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
@@ -492,6 +492,51 @@ function AdminHRSolutions() {
               </Button>
             </div>
           )}
+
+          {/* Command-centre restructure (2026-07-02): standard
+              StatTile row with the page's live aggregates. Loading
+              renders a skeleton inside the shell so the nav rail
+              never disappears and zeros never read as real counts. */}
+          {loading && !loadError ? (
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6" aria-hidden="true">
+              {[0, 1, 2, 3].map((i) => (
+                <div key={i} className="h-28 animate-pulse rounded-xl border border-slate-200/90 bg-white/70 dark:border-slate-800 dark:bg-slate-900/60" />
+              ))}
+            </div>
+          ) : !loadError ? (
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+              <StatTile
+                label="Active staff"
+                value={stats.staffTotal}
+                icon={Users}
+                hint="Every department, active accounts"
+              />
+              <StatTile
+                label="Hours this week"
+                value={`${stats.hoursWeek}h`}
+                icon={Clock}
+                hint={canSeeFinance && stats.wageBurnWeekZar > 0
+                  ? `${formatZAR(stats.wageBurnWeekZar, { currency: tenantCurrency.code })} wage burn`
+                  : "Kitchen, cleaning and driver shifts"}
+              />
+              <StatTile
+                label="Clocked now"
+                value={stats.clockedNow}
+                icon={Flame}
+                hint={stats.staffTotal > 0 && stats.clockedNow === 0
+                  ? "Nobody on duty right now"
+                  : "On duty across departments"}
+              />
+              <StatTile
+                label="Pending invites"
+                value={stats.pendingInvites > 0
+                  ? <span className="text-amber-700">{stats.pendingInvites}</span>
+                  : stats.pendingInvites}
+                icon={MailPlus}
+                hint={stats.pendingInvites > 0 ? "Waiting on acceptance" : "No outstanding invitations"}
+              />
+            </div>
+          ) : null}
 
           {/* HRS-B: intel grid - department breakdown + hours + invites. */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4 mb-6">

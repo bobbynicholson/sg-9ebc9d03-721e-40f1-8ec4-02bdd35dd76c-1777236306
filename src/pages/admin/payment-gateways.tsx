@@ -426,7 +426,7 @@ function PaymentGatewaysPage() {
               below (configs from /api/payment-gateways), so the figures
               always agree. */}
           {activeCompanyId && (
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               <StatTile
                 label="Gateways configured"
                 value={loading ? "-" : `${configs.length} of ${catalogue.length}`}
@@ -452,6 +452,19 @@ function PaymentGatewaysPage() {
                 }
                 hint={activeConfig ? (activeConfig.is_test ? "Sandbox, no real money moves" : "Real payments are processing") : "No active gateway"}
                 icon={Activity}
+              />
+              <StatTile
+                label="Last verified"
+                value={(() => {
+                  if (loading) return "-";
+                  const verified = configs
+                    .map((c) => (c.last_verified_at ? new Date(c.last_verified_at).getTime() : 0))
+                    .filter((t) => t > 0);
+                  if (verified.length === 0) return <span className="text-slate-500 dark:text-slate-400">Never</span>;
+                  return new Date(Math.max(...verified)).toLocaleDateString("en-ZA", { day: "numeric", month: "short" });
+                })()}
+                hint="Most recent successful connection test"
+                icon={Check}
               />
             </div>
           )}
@@ -792,8 +805,18 @@ function PaymentGatewaysPage() {
 }
 
 export default function ProtectedPaymentGatewaysPage() {
+  // Restructure audit 2026-07-02: OWNER + ADMIN admitted. Every
+  // /api/payment-gateways endpoint already allows super_admin /
+  // owner / company_admin / admin (ADMIN_ROLES in the handlers), so
+  // the old [SUPER_ADMIN, COMPANY_ADMIN] page gate 403'd the OWNER
+  // off their own gateway setup while the API would have served them.
   return (
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN]}>
+    <ProtectedRoute allowedRoles={[
+      UserRole.SUPER_ADMIN,
+      UserRole.OWNER,
+      UserRole.COMPANY_ADMIN,
+      UserRole.ADMIN,
+    ]}>
       <PaymentGatewaysPage />
     </ProtectedRoute>
   );

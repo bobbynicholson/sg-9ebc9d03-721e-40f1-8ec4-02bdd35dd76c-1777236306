@@ -177,18 +177,25 @@ function NotificationSettingsPage() {
     defaultValues: DEFAULTS,
   });
 
-  // Live count of enabled toggles for the hero chip. useWatch keeps
-  // it in sync without re-rendering every Switch through useForm.
+  // Live counts of enabled toggles for the hero chips. useWatch keeps
+  // them in sync without re-rendering every Switch through useForm.
   const watched = useWatch({ control });
-  let enabledCount = 0;
-  let totalCount = 0;
-  for (const group of [watched?.email, watched?.push, watched?.sms, watched?.whatsapp]) {
-    if (!group) continue;
+  const countGroup = (group: Record<string, unknown> | undefined) => {
+    if (!group) return { on: 0, total: 0 };
+    let on = 0;
+    let total = 0;
     for (const v of Object.values(group)) {
-      totalCount += 1;
-      if (v) enabledCount += 1;
+      total += 1;
+      if (v) on += 1;
     }
-  }
+    return { on, total };
+  };
+  const emailCount = countGroup(watched?.email as Record<string, unknown> | undefined);
+  const pushCount = countGroup(watched?.push as Record<string, unknown> | undefined);
+  const smsCount = countGroup(watched?.sms as Record<string, unknown> | undefined);
+  const waCount = countGroup(watched?.whatsapp as Record<string, unknown> | undefined);
+  const enabledCount = emailCount.on + pushCount.on + smsCount.on + waCount.on;
+  const totalCount = emailCount.total + pushCount.total + smsCount.total + waCount.total;
 
   // Hydrate from the DB on mount. If the row is missing (first-time
   // visitor), fall back to localStorage and then to DEFAULTS. zod
@@ -315,7 +322,6 @@ function NotificationSettingsPage() {
     <>
       <NoIndexMeta />
       <Head>
-        <meta name="robots" content="noindex, nofollow" />
         <title>Notification settings - CateringMS</title>
       </Head>
 
@@ -332,10 +338,18 @@ function NotificationSettingsPage() {
             subtitle="Per-user channels and triggers. Decide which events ping you by email, in-app banner, WhatsApp, push, or SMS. Owners get everything by default. Tune the noise from here."
             meta={
               !loading && !loadError ? (
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
-                  {enabledCount > 0 && <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />}
-                  {enabledCount} of {totalCount} alerts on
-                </span>
+                <>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    {enabledCount > 0 && <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />}
+                    {enabledCount} of {totalCount} alerts on
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    Email {emailCount.on}/{emailCount.total}
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    WhatsApp {waCount.on}/{waCount.total}
+                  </span>
+                </>
               ) : undefined
             }
           />
@@ -365,7 +379,7 @@ function NotificationSettingsPage() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Mail className="w-5 h-5 text-blue-600" />
+                  <Mail className="w-5 h-5 text-brand-primary" />
                   Email Notifications
                   <InfoTooltip content={"Choose which email alerts you want for orders, payments and daily summaries.\n\nSaved to your account and mirrored into legacy columns for older email notification workers."} />
                 </CardTitle>
@@ -427,12 +441,13 @@ function NotificationSettingsPage() {
               </CardContent>
             </Card>
 
-            {/* Save Button */}
-            <Card className="bg-gradient-to-r from-blue-50 to-slate-50">
+            {/* Save Button. Decorative chrome carries the brand tint
+                (colour rule): semantic ambers/roses stay for warnings. */}
+            <Card className="border-brand-primary/20 bg-gradient-to-r from-brand-primary/5 to-slate-50 dark:to-slate-900/40">
               <CardContent className="pt-6">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div className="flex items-center gap-3 min-w-0">
-                    <AlertCircle className="w-5 h-5 text-blue-600 shrink-0" />
+                    <AlertCircle className="w-5 h-5 text-brand-primary shrink-0" />
                     <p className="text-sm text-slate-700">
                       Saved to your account and used by the notification fan-out service.
                     </p>

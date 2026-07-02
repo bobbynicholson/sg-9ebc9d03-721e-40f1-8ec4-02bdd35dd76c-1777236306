@@ -22,7 +22,7 @@
  * subtotal + "Email this supplier" CTA, perishable items pulse amber
  * if their buy-by date is inside 48 hours.
  */
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
@@ -283,6 +283,7 @@ function SmartShoppingPage() {
     let cancelled = false;
     (async () => {
       setLoading(true);
+      try {
       const todayISO = toLocalISO(new Date());
       // SHOP-L: YTD window for the supplier-spend chip.
       const ytdStart = new Date(new Date().getFullYear(), 0, 1);
@@ -382,6 +383,17 @@ function SmartShoppingPage() {
       });
       setSupplierHistory(hist);
       setLoading(false);
+      } catch (e: unknown) {
+        // Audit fix (2026-07-02): the whole load ran with no
+        // try/catch. Supabase returns query errors in-band, but a
+        // network drop REJECTS the awaited promises - the exception
+        // escaped, loading stayed true forever and the operator was
+        // stuck on the spinner with no error and no retry.
+        if (cancelled) return;
+        captureException(e, { tags: { surface: "admin/shopping", area: "load-exception", tenant: companyId } });
+        setLoadError(e instanceof Error ? e.message : "Could not load procurement data.");
+        setLoading(false);
+      }
     })();
     return () => { cancelled = true; };
   }, [companyId, refreshSignal, reloadNonce]);
@@ -1215,7 +1227,7 @@ function SmartShoppingPage() {
                     toast({ title: "Nothing to export", description: "Buy now list is empty - stock looks healthy." });
                     return;
                   }
-                  const esc = (v) => {
+                  const esc = (v: unknown) => {
                     if (v == null) return "";
                     const s = String(v).replace(/"/g, '""');
                     return /[",\n]/.test(s) ? `"${s}"` : s;
@@ -2311,7 +2323,7 @@ function ItemTable({
           scroll off-screen on a phone. */}
       <div className="hidden sm:block overflow-x-auto">
       <table className="w-full text-sm">
-        <thead className="text-xs uppercase tracking-wide text-slate-500 border-b border-slate-200">
+        <thead className="text-[10px] uppercase tracking-wide text-slate-500 border-b border-slate-200">
           <tr>
             <th className="w-8 py-2"></th>
             <th className="text-left py-2 pr-3">Item</th>
@@ -2331,10 +2343,14 @@ function ItemTable({
             const isOpen = expandedItem === r.inventory_item_id;
             const lines = demand.filter((d: any) => d.inventory_item_id === r.inventory_item_id);
             return (
-              <>
+              // Audit fix: the row pair was returned in a bare <>
+              // fragment with the key on the INNER <tr>, so the list
+              // itself was unkeyed - React key warnings plus wrong
+              // row-state reuse when the list resorts after a snooze
+              // or mark-ordered. Key lives on the Fragment now.
+              <Fragment key={r.inventory_item_id}>
                 <tr
-                  key={r.inventory_item_id}
-                  className={`border-b border-slate-100 hover:bg-slate-50 ${r.isUrgent ? "bg-amber-50/40" : ""}`}
+                  className={`border-b border-slate-100 hover:bg-slate-50/70 dark:hover:bg-slate-800/40 ${r.isUrgent ? "bg-amber-50/40" : ""}`}
                 >
                   <td className="py-3 pl-3">
                     <input
@@ -2479,7 +2495,7 @@ function ItemTable({
                   </td>
                 </tr>
                 {isOpen && lines.length > 0 && (
-                  <tr key={`${r.inventory_item_id}-d`} className="bg-slate-50">
+                  <tr className="bg-slate-50">
                     <td colSpan={showBuyBy ? (hideSupplier ? 9 : 10) : (hideSupplier ? 8 : 9)} className="px-4 py-3">
                       <div className="text-[11px] uppercase tracking-wide text-slate-500 mb-2 flex items-center gap-1">
                         <Calendar className="w-3 h-3" /> Pulled by upcoming orders
@@ -2512,7 +2528,7 @@ function ItemTable({
                     </td>
                   </tr>
                 )}
-              </>
+              </Fragment>
             );
           })}
         </tbody>

@@ -17,7 +17,10 @@ import { withApiLogging } from "@/lib/withApiLogging";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 
 
-const ALLOWED = new Set(["super_admin", "company_admin", "admin"]);
+// Restructure audit 2026-07-02: "owner" added - the enum gained it in
+// migration 20260521150000 and the page gate admits OWNER; without it
+// here an owner hit 403s across the lead-capture area.
+const ALLOWED = new Set(["super_admin", "owner", "company_admin", "admin"]);
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 async function handler(req: NextApiRequest, res: NextApiResponse) {

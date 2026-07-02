@@ -37,13 +37,16 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
-import { Search, Mail, Phone, Users, Sparkles, Flame, Clock, AlertTriangle, Snowflake, Crown, Send, Inbox, ShoppingCart, CheckCircle2, RefreshCw, Filter, Plus, Pencil, Trash2, Ban, FileText, Upload, Download, X, Package, Receipt } from "lucide-react";
+import { Search, Mail, Phone, Users, Sparkles, Flame, Clock, AlertTriangle, Snowflake, Crown, Send, Inbox, ShoppingCart, CheckCircle2, RefreshCw, Filter, Plus, Pencil, Trash2, Ban, FileText, Upload, Download, X, Package, Receipt, Banknote } from "lucide-react";
+import { usePromptDialog } from "@/components/ui/confirm-dialog";
 import { ImportRecordsModal } from "@/components/admin/ImportRecordsModal";
 import { Checkbox } from "@/components/ui/checkbox";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { PortalShell, PortalHeader,
   PageWorkbench,
+  PortalCard,
+  StatTile,
 } from "@/components/portal/ui";
 import { TopClientsWidget } from "@/components/admin/TopClientsWidget";
 import { WidgetErrorBoundary } from "@/components/dashboard/WidgetErrorBoundary";
@@ -339,9 +342,19 @@ function ClientsCRM() {
       window.localStorage.setItem(savedViewsKey, JSON.stringify(savedContactViews));
     } catch { /* storage blocked */ }
   }, [savedContactViews, savedViewsKey, user?.id]);
-  const saveCurrentContactView = () => {
+  // In-app prompt for naming a saved view. window.prompt renders as
+  // bare OS chrome and is suppressed in some embedded webviews - the
+  // orders page already uses this dialog; contacts now matches.
+  const { prompt, promptDialog } = usePromptDialog();
+  const saveCurrentContactView = async () => {
     if (typeof window === "undefined") return;
-    const name = window.prompt("Name this view:", "");
+    const name = await prompt({
+      title: "Save this view",
+      description: "Snap the current status, tags and search into a named chip you can snap back to.",
+      label: "View name",
+      placeholder: "e.g. VIPs in JHB",
+      confirmLabel: "Save view",
+    });
     if (!name || !name.trim()) return;
     const id = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
     setSavedContactViews((prev) => [
@@ -1043,6 +1056,19 @@ function ClientsCRM() {
     return n;
   }, [contacts]);
 
+  // Command-centre stat row aggregates. Money figures come straight
+  // off the loaded book (in-system spend + imported history) so the
+  // tiles always agree with the row-level figures below them.
+  const bookTotals = useMemo(() => {
+    let lifetime = 0;
+    let outstanding = 0;
+    for (const c of contacts) {
+      lifetime += c.totalSpent + (c.historicalLifetimeSpend ?? 0);
+      outstanding += c.outstandingBalance || 0;
+    }
+    return { lifetime, outstanding };
+  }, [contacts]);
+
   // All distinct tags currently in use across the loaded book.
   // Powers the tag-filter chip strip so the operator only sees
   // tags that actually exist on at least one contact.
@@ -1187,30 +1213,9 @@ function ClientsCRM() {
             }
             actions={
             <>
-              <div className="relative w-full sm:w-80">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <Input
-                  ref={searchRef}
-                  placeholder="Search name, email, phone... (press /)"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="pl-9 pr-9 w-full"
-                />
-                {/* Phase 24 #9: clear-search affordance, matching
-                    /admin/orders + /admin/quotes. */}
-                {search && (
-                  <button
-                    type="button"
-                    onClick={() => setSearch("")}
-                    // Hero band: hover state must stay light-on-dark.
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200"
-                    title="Clear search"
-                    aria-label="Clear search"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                )}
-              </div>
+              {/* Search moved into the toolbar card below so every
+                  filter control lives in ONE place (command-centre
+                  standard). Hero keeps the primary actions only. */}
               {/* Phase 15 #9: manual refresh. With the page now
                   capped at 500 rows (perf fix) operators sometimes
                   add a contact in another tab and don't see it
@@ -1342,6 +1347,46 @@ function ClientsCRM() {
             </div>
           )}
 
+          {/* Command-centre stat row: live aggregates off the loaded
+              book. Outstanding stays semantically rose when money is
+              owed; the rest are neutral counts. */}
+          {!loading && (
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+              <StatTile
+                label="Contacts"
+                value={contacts.length}
+                icon={Users}
+                hint={`${counts.clients} registered client${counts.clients === 1 ? "" : "s"}`}
+              />
+              <StatTile
+                label="Hot leads"
+                value={
+                  <span className={(counts.hot_lead ?? 0) > 0 ? "text-rose-600" : undefined}>
+                    {counts.hot_lead ?? 0}
+                  </span>
+                }
+                icon={Flame}
+                hint="New enquiries waiting on a reply"
+              />
+              <StatTile
+                label="Lifetime spend"
+                value={fmtMoney.format(bookTotals.lifetime)}
+                icon={Banknote}
+                hint="In-system orders plus imported history"
+              />
+              <StatTile
+                label="Outstanding"
+                value={
+                  <span className={bookTotals.outstanding > 0 ? "text-rose-600" : undefined}>
+                    {fmtMoney.format(bookTotals.outstanding)}
+                  </span>
+                }
+                icon={Receipt}
+                hint="Unpaid balances across the book"
+              />
+            </div>
+          )}
+
           {/* Wave 70.57: top clients by spend relocated here from
               /admin/dashboard per owner brief 2026-05-22. Retention
               surface (thank-yous, loyalty perks, follow-up) lives
@@ -1386,6 +1431,34 @@ function ClientsCRM() {
               </div>
             </div>
           )}
+
+          {/* Command-centre toolbar: search + saved views + tag
+              filter + status chips grouped into ONE card instead of
+              loose strips scattered above the table. */}
+          <PortalCard className="mb-6">
+          <div className="relative mb-3 w-full sm:max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <Input
+              ref={searchRef}
+              placeholder="Search name, email, phone... (press /)"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9 pr-9 w-full"
+            />
+            {/* Phase 24 #9: clear-search affordance, matching
+                /admin/orders + /admin/quotes. */}
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                title="Clear search"
+                aria-label="Clear search"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
 
           {/* Phase 16 #8: saved-view chips. Snapshot status + tag
               + search under a named chip so a sales rep can snap
@@ -1465,7 +1538,7 @@ function ClientsCRM() {
           )}
 
           {/* Smart filter chips with live counts */}
-          <div className="mb-6 flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Filter className="w-4 h-4 text-slate-400" />
             {FILTERS.map((f) => {
               const c = counts[f.id] ?? 0;
@@ -1492,6 +1565,7 @@ function ClientsCRM() {
               );
             })}
           </div>
+          </PortalCard>
 
           {/* Email cap notice, ties to pricing tier */}
           <Card className="mb-6 bg-gradient-to-r from-blue-50 to-blue-50">
@@ -1532,7 +1606,19 @@ function ClientsCRM() {
           <Card>
             <CardContent className="p-0">
               {loading ? (
-                <div className="py-16 text-center text-slate-500">Loading contacts...</div>
+                // Skeleton rows inside the shell so the nav rail never
+                // disappears while the aggregation resolves.
+                <div className="p-4 space-y-3" aria-busy="true" aria-label="Loading contacts">
+                  {[0, 1, 2, 3, 4].map((i) => (
+                    <div key={i} className="animate-pulse flex items-center justify-between gap-4 rounded-lg border border-slate-100 p-4">
+                      <div className="min-w-0 flex-1">
+                        <div className="h-3.5 w-44 rounded bg-slate-200" />
+                        <div className="mt-2 h-3 w-64 max-w-full rounded bg-slate-100" />
+                      </div>
+                      <div className="h-6 w-20 rounded-full bg-slate-100" />
+                    </div>
+                  ))}
+                </div>
               ) : visible.length === 0 ? (
                 <EmptyState
                   inCard
@@ -1621,7 +1707,7 @@ function ClientsCRM() {
                   {/* Tablet + desktop: full 7-col table. */}
                   <div className="hidden sm:block overflow-x-auto">
                   <table className="w-full text-sm">
-                    <thead className="text-xs uppercase tracking-wide text-slate-500 border-b border-slate-200">
+                    <thead className="text-[10px] uppercase tracking-wide text-slate-500 border-b border-slate-200">
                       <tr>
                         <th className="text-left py-3 pl-4 pr-2">
                           <span className="inline-flex items-center gap-1.5">
@@ -1688,7 +1774,7 @@ function ClientsCRM() {
                           <tr
                             key={c.key}
                             id={`contact-row-${c.key}`}
-                            className={`border-b border-slate-100 hover:bg-slate-50 scroll-mt-24 transition-shadow ${
+                            className={`border-b border-slate-100 hover:bg-slate-50/70 dark:hover:bg-slate-800/40 scroll-mt-24 transition-shadow ${
                               focusedContactKey === c.key
                                 ? "ring-2 ring-amber-400 ring-inset bg-amber-50 animate-pulse"
                                 : ""
@@ -1744,7 +1830,8 @@ function ClientsCRM() {
                                     <span className="flex items-center gap-1 text-slate-700" title="Imported event history">
                                       📅
                                       {c.historicalTotalEvents != null ? `${c.historicalTotalEvents} past events` : "Past history"}
-                                      {c.historicalLifetimeSpend != null ? ` · R${Math.round(c.historicalLifetimeSpend).toLocaleString("en-ZA")} LTV` : ""}
+                                      {/* Tenant currency, not a hardcoded R (USD / GBP tenants). */}
+                                      {c.historicalLifetimeSpend != null ? ` · ${fmtMoney.format(c.historicalLifetimeSpend)} LTV` : ""}
                                     </span>
                                   )}
                                   {c.importedFilename && (
@@ -1965,6 +2052,9 @@ function ClientsCRM() {
           </Card>
         </PortalShell>
       </div>
+
+      {/* In-app prompt for the "Save view" name. */}
+      {promptDialog}
 
       {/* Add / Edit client dialog */}
       <ClientFormDialog

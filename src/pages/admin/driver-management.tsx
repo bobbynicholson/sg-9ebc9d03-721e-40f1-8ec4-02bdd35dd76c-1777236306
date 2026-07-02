@@ -20,6 +20,8 @@ import { Switch } from "@/components/ui/switch";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { PortalShell, PortalHeader,
   PageWorkbench,
+  PortalCard,
+  StatTile,
 } from "@/components/portal/ui";
 import { LogDriverShiftModal } from "@/components/admin/LogDriverShiftModal";
 import { DriverLeaderboard } from "@/components/admin/DriverLeaderboard";
@@ -83,7 +85,9 @@ function relativeTime(iso: string): string {
 export default function ProtectedDriverManagementPage() {
   return (
     // Audit note: COMPANY_ADMIN was listed twice here; deduplicated.
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN]}>
+    // Command-centre audit: OWNER added, it was missing from the
+    // baseline admin tier with no documented reason.
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.OWNER, UserRole.COMPANY_ADMIN, UserRole.ADMIN]}>
       <DriverManagementPage />
     </ProtectedRoute>
   );
@@ -680,17 +684,19 @@ function DriverManagementPage() {
       await userManagementService.updateUserStatus(driverId, !currentStatus);
 
       toast({
-        title: "Success",
-        description: `Driver ${currentStatus ? "deactivated" : "activated"} successfully`,
+        title: currentStatus ? "Driver deactivated" : "Driver activated",
+        description: currentStatus
+          ? "They stay on the roster but dispatch stops suggesting them."
+          : "Dispatch can suggest them for deliveries again.",
         duration: 3000,
       });
 
       loadDrivers();
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error toggling driver status:", err);
       toast({
-        title: "Error",
-        description: "Failed to update driver status",
+        title: "Could not update driver status",
+        description: err?.message || "Check your connection and try again.",
         variant: "destructive",
       });
     }
@@ -892,7 +898,7 @@ function DriverManagementPage() {
                       {createResult ? (
                         <><MailWarning className="w-5 h-5 text-amber-500" /> Share these sign-in details</>
                       ) : (
-                        <><UserPlus className="w-5 h-5 text-blue-600" /> Add New Driver</>
+                        <><UserPlus className="w-5 h-5 text-brand-primary" /> Add New Driver</>
                       )}
                     </DialogTitle>
                     <p className="text-sm text-slate-500 mt-1">
@@ -947,7 +953,7 @@ function DriverManagementPage() {
                     <Card className="border-slate-200 shadow-none">
                       <CardContent className="py-4 px-4 space-y-3">
                         <Label className="text-xs font-semibold text-slate-700 uppercase tracking-wide flex items-center gap-1.5">
-                          <UserPlus className="w-3.5 h-3.5 text-blue-600" />
+                          <UserPlus className="w-3.5 h-3.5 text-brand-primary" />
                           Driver basics
                         </Label>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1133,7 +1139,7 @@ function DriverManagementPage() {
                           />
                           <div className="flex-1">
                             <p className="text-sm font-semibold text-slate-900 flex items-center gap-1.5">
-                              <Truck className="w-4 h-4 text-blue-600" />
+                              <Truck className="w-4 h-4 text-brand-primary" />
                               This driver has a vehicle
                             </p>
                             <p className="text-[11px] text-slate-500 mt-0.5">
@@ -1151,8 +1157,8 @@ function DriverManagementPage() {
                                 onClick={() => setNewDriver({ ...newDriver, vehicle_mode: "new_driver_owned" })}
                                 className={`px-3 py-2 rounded-md border text-sm flex items-center gap-2 ${
                                   newDriver.vehicle_mode === "new_driver_owned"
-                                    ? "bg-amber-500 text-white border-amber-500"
-                                    : "bg-white text-slate-700 border-slate-200 hover:border-amber-300"
+                                    ? "bg-brand-primary text-white border-brand-primary"
+                                    : "bg-white text-slate-700 border-slate-200 hover:border-brand-primary/40"
                                 }`}
                               >
                                 <User className="w-4 h-4" /> Driver brings their own
@@ -1162,8 +1168,8 @@ function DriverManagementPage() {
                                 onClick={() => setNewDriver({ ...newDriver, vehicle_mode: "existing_company" })}
                                 className={`px-3 py-2 rounded-md border text-sm flex items-center gap-2 ${
                                   newDriver.vehicle_mode === "existing_company"
-                                    ? "bg-blue-600 text-white border-blue-600"
-                                    : "bg-white text-slate-700 border-slate-200 hover:border-blue-300"
+                                    ? "bg-brand-primary text-white border-brand-primary"
+                                    : "bg-white text-slate-700 border-slate-200 hover:border-brand-primary/40"
                                 }`}
                               >
                                 <Building2 className="w-4 h-4" /> Use a company vehicle
@@ -1340,7 +1346,9 @@ function DriverManagementPage() {
               this month. */}
           <DriverLeaderboard companyId={(user as any)?.company_id ?? null} />
 
-          {/* Stats, live operational signals */}
+          {/* Stats, live operational signals. Command-centre restructure:
+              StatTile row with real aggregates; stale-ping count keeps
+              its semantic amber (warning), never brand. */}
           {(() => {
             const onShift = Object.entries(lastPingByDriver).filter(([, ts]) => {
               const ageMin = (Date.now() - new Date(ts).getTime()) / 60_000;
@@ -1354,47 +1362,37 @@ function DriverManagementPage() {
             }).length;
 
             return (
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <Card className="bg-gradient-to-br from-brand-primary/10 to-brand-secondary/10">
-                  <CardContent className="pt-5 pb-4">
-                    <p className="text-xs uppercase tracking-wide text-brand-primary font-semibold mb-1 flex items-center gap-1.5">
-                      On shift now
-                      <InfoTooltip content={"Drivers with a GPS ping in the last 60 minutes. Best signal for live availability."} />
-                    </p>
-                    <p className="text-3xl font-bold text-brand-primary">{onShift}</p>
-                    <p className="text-xs text-brand-primary mt-0.5">of {activeDrivers} active</p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="pt-5 pb-4">
-                    <p className="text-xs uppercase tracking-wide text-slate-500 font-semibold mb-1 flex items-center gap-1.5">
-                      Total drivers
-                      <InfoTooltip content={"Every driver account on your team."} />
-                    </p>
-                    <p className="text-3xl font-bold text-slate-900">{drivers.length}</p>
-                    <p className="text-xs text-slate-500 mt-0.5">{inactiveDrivers} inactive</p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="pt-5 pb-4">
-                    <p className="text-xs uppercase tracking-wide text-slate-500 font-semibold mb-1 flex items-center gap-1.5">
-                      Jobs today
-                      <InfoTooltip content={"Active deliveries assigned across all drivers today. Avg per driver shows balance."} />
-                    </p>
-                    <p className="text-3xl font-bold text-slate-900">{totalLoad}</p>
-                    <p className="text-xs text-slate-500 mt-0.5">avg {avgLoad.toFixed(1)} per driver</p>
-                  </CardContent>
-                </Card>
-                <Card className="bg-gradient-to-br from-amber-50 to-amber-100">
-                  <CardContent className="pt-5 pb-4">
-                    <p className="text-xs uppercase tracking-wide text-amber-700 font-semibold mb-1 flex items-center gap-1.5">
-                      Stale pings
-                      <InfoTooltip content={"Drivers whose last GPS update was over 60 minutes ago today. Might be off-shift, might need a check-in."} />
-                    </p>
-                    <p className="text-3xl font-bold text-amber-900">{stalePings}</p>
-                    <p className="text-xs text-amber-700 mt-0.5">last 24h, no recent ping</p>
-                  </CardContent>
-                </Card>
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                <StatTile
+                  label={<span className="inline-flex items-center gap-1">On shift now <InfoTooltip content={"Drivers with a GPS ping in the last 60 minutes. Best signal for live availability."} /></span>}
+                  value={loading ? "-" : onShift}
+                  hint={`of ${activeDrivers} active`}
+                  icon={Activity}
+                />
+                <StatTile
+                  label={<span className="inline-flex items-center gap-1">Total drivers <InfoTooltip content={"Every driver account on your team."} /></span>}
+                  value={loading ? "-" : drivers.length}
+                  hint={`${inactiveDrivers} inactive`}
+                  icon={Users}
+                />
+                <StatTile
+                  label={<span className="inline-flex items-center gap-1">Jobs today <InfoTooltip content={"Active deliveries assigned across all drivers today. Avg per driver shows balance."} /></span>}
+                  value={loading ? "-" : totalLoad}
+                  hint={`avg ${avgLoad.toFixed(1)} per driver`}
+                  icon={Truck}
+                />
+                <StatTile
+                  label={<span className="inline-flex items-center gap-1">Stale pings <InfoTooltip content={"Drivers whose last GPS update was over 60 minutes ago today. Might be off-shift, might need a check-in."} /></span>}
+                  value={
+                    loading ? "-" : (
+                      <span className={stalePings > 0 ? "text-amber-600 dark:text-amber-400" : undefined}>
+                        {stalePings}
+                      </span>
+                    )
+                  }
+                  hint="last 24h, no recent ping"
+                  icon={Clock}
+                />
               </div>
             );
           })()}
@@ -1410,8 +1408,9 @@ function DriverManagementPage() {
           onSaved={(next) => setCompanyPayDefaults(next)}
         />
 
-        {/* Search + sort */}
-        <div className="mb-6 flex flex-col sm:flex-row gap-2 sm:items-center">
+        {/* Search + sort - one toolbar card per the command-centre standard */}
+        <PortalCard className="mb-6" padded={false}>
+          <div className="flex w-full flex-col sm:flex-row gap-2 sm:items-center p-3">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
             <Input
@@ -1448,7 +1447,8 @@ function DriverManagementPage() {
               { key: "phone",  dir: "asc",  label: "Phone (A to Z)" },
             ]}
           />
-        </div>
+          </div>
+        </PortalCard>
 
         {/* Drivers List */}
         <Card>
@@ -1460,8 +1460,12 @@ function DriverManagementPage() {
           </CardHeader>
           <CardContent>
             {loading ? (
-              <div className="text-center py-12">
-                <p className="text-slate-500">Loading drivers...</p>
+              /* Skeleton rows keep the shell + rail on screen while
+                 the roster loads. */
+              <div className="space-y-2 py-1" aria-hidden="true">
+                {[0, 1, 2, 3].map((i) => (
+                  <div key={i} className="h-20 rounded-lg border border-slate-200 bg-slate-100/70 animate-pulse" />
+                ))}
               </div>
             ) : loadError ? (
               <div className="text-center py-12 text-sm text-slate-500">
@@ -1743,9 +1747,9 @@ function DriverManagementPage() {
             no tenant branding). Self-signup isn't a route - drivers
             are added by an admin and sign in with the credentials they
             receive by email. */}
-        <Card className="mt-6 bg-gradient-to-br from-blue-50 to-blue-50">
+        <Card className="mt-6 border-brand-primary/20 bg-gradient-to-br from-brand-primary/5 to-brand-secondary/5">
           <CardHeader>
-            <CardTitle className="text-blue-900">Driver Portal Access</CardTitle>
+            <CardTitle className="text-slate-900">Driver portal access</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             {(() => {
@@ -1755,19 +1759,19 @@ function DriverManagementPage() {
               const fullUrl = origin ? `${origin}${loginPath}` : loginPath;
               return (
                 <>
-                  <div className="bg-white rounded-lg p-4 border border-blue-200">
-                    <h4 className="font-semibold text-blue-900 mb-2">Driver login URL</h4>
-                    <p className="text-sm text-blue-700 mb-2">
+                  <div className="bg-white rounded-lg p-4 border border-brand-primary/20">
+                    <h4 className="font-semibold text-slate-900 mb-2">Driver login URL</h4>
+                    <p className="text-sm text-slate-600 mb-2">
                       Share this URL with your drivers so they can bookmark and access their portal:
                     </p>
-                    <code className="block bg-blue-100 text-blue-900 px-3 py-2 rounded text-sm break-all">
+                    <code className="block bg-brand-primary/10 text-slate-900 px-3 py-2 rounded text-sm break-all">
                       {fullUrl}
                     </code>
                   </div>
 
-                  <div className="bg-white rounded-lg p-4 border border-blue-200">
-                    <h4 className="font-semibold text-blue-900 mb-2">Adding new drivers</h4>
-                    <p className="text-sm text-blue-700">
+                  <div className="bg-white rounded-lg p-4 border border-brand-primary/20">
+                    <h4 className="font-semibold text-slate-900 mb-2">Adding new drivers</h4>
+                    <p className="text-sm text-slate-600">
                       Drivers don&apos;t self-register. Tap <strong>Add driver</strong> above to
                       create the account; they&apos;ll receive their sign-in details by email and
                       can use them on the URL above.

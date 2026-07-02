@@ -20,11 +20,15 @@ import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
  * forms (via `?company_id=...`).
  */
 
-// Note: the user_role DB enum has no 'owner' - the actual admin-tier
-// roles are super_admin / company_admin / admin. Keep this list in sync
-// with src/types/app.ts UserRole + the public.user_role enum.
+// Restructure audit 2026-07-02: 'owner' added. The old note claimed
+// the user_role enum had no 'owner', but migration 20260521150000
+// added it and FULL_COMPANY_ACCESS_ROLES has carried it since. The
+// header above always documented owner as allowed; without it here
+// an OWNER got a 403 error wall on the whole lead-capture area.
+// Keep in sync with src/types/app.ts UserRole + public.user_role.
 const CALLER_ROLES_ALLOWED = new Set([
   "super_admin",
+  "owner",
   "company_admin",
   "admin",
 ]);

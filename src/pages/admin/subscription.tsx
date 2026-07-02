@@ -31,6 +31,7 @@ import { formatZAR } from "@/lib/formatters";
 import type { Database } from "@/integrations/supabase/types";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { Footer } from "@/components/Footer";
 import { PortalShell, PortalHeader,
   PageWorkbench,
 } from "@/components/portal/ui";
@@ -44,6 +45,10 @@ type BillingHistory = Database["public"]["Tables"]["billing_history"]["Row"];
 
 export default function ProtectedSubscriptionPage() {
   return (
+    // Deliberately finance-gated: UserRole.ADMIN covers region_admin +
+    // sales_admin, who must not see platform billing amounts or hold
+    // the cancel-subscription / delete-account levers. Same gate as
+    // /admin/wages and /admin/staff-hours.
     <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.OWNER, UserRole.COMPANY_ADMIN]}>
       <SubscriptionPage />
     </ProtectedRoute>
@@ -128,6 +133,12 @@ function SubscriptionPage() {
       );
       setCancelDialogOpen(false);
       await loadSubscriptionData();
+      toast({
+        title: "Cancellation requested",
+        description: cancellationType === "immediate"
+          ? "Your subscription has been cancelled."
+          : "Your subscription will end at the close of the current billing period.",
+      });
     } catch (error) {
       console.error("Error cancelling subscription:", error);
       toast({
@@ -144,6 +155,10 @@ function SubscriptionPage() {
     try {
       await subscriptionService.reactivateSubscription(subscription.id);
       await loadSubscriptionData();
+      toast({
+        title: "Subscription reactivated",
+        description: "Your plan will continue billing as normal.",
+      });
     } catch (error) {
       console.error("Error reactivating subscription:", error);
       toast({
@@ -196,6 +211,10 @@ function SubscriptionPage() {
       await subscriptionService.requestAccountDeletion(user.id, deleteReason, exportData);
       setDeleteDialogOpen(false);
       await loadSubscriptionData();
+      toast({
+        title: "Deletion scheduled",
+        description: "Your account is scheduled for deletion in 30 days. You can cancel the request from this page at any time before then.",
+      });
     } catch (error) {
       console.error("Error requesting account deletion:", error);
       toast({
@@ -210,7 +229,19 @@ function SubscriptionPage() {
     if (!pendingDeletion) return;
 
     try {
-      await subscriptionService.cancelAccountDeletion(pendingDeletion.id);
+      // cancelAccountDeletion returns false on a DB failure instead of
+      // throwing - pre-fix the success toast fired unconditionally and
+      // the operator believed the deletion was cancelled when it was
+      // still pending.
+      const ok = await subscriptionService.cancelAccountDeletion(pendingDeletion.id);
+      if (!ok) {
+        toast({
+          title: "Could not cancel deletion",
+          description: "The deletion request is still active. Please try again.",
+          variant: "destructive",
+        });
+        return;
+      }
       await loadSubscriptionData();
       toast({
         title: "Deletion cancelled",
@@ -271,14 +302,34 @@ function SubscriptionPage() {
   };
 
   if (loading || !user) {
+    // Loading renders INSIDE the admin chrome - the nav rail must
+    // never disappear while the page fetches (pre-fix this was a bare
+    // full-screen spinner with no nav and no shell).
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <>
         <NoIndexMeta />
-        <div className="text-center">
-          <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4 text-slate-600" />
-          <p className="text-slate-600">Loading subscription details...</p>
+        <Head>
+          <title>Subscription - CateringMS</title>
+        </Head>
+        <AdminNav />
+        <div className="admin-page-shell">
+          <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+            <PortalHeader
+              variant="hero"
+              title="Subscription"
+              icon={CreditCard}
+              subtitle="Your CateringMS plan, usage against plan limits, billing history and account controls."
+            />
+            <PageWorkbench />
+            <Card>
+              <CardContent className="py-12 text-center text-slate-500">
+                <RefreshCw className="h-6 w-6 animate-spin mx-auto mb-3 text-slate-400" />
+                Loading subscription details...
+              </CardContent>
+            </Card>
+          </PortalShell>
         </div>
-      </div>
+      </>
     );
   }
 
@@ -397,7 +448,6 @@ function SubscriptionPage() {
     <>
       <NoIndexMeta />
       <Head>
-        <meta name="robots" content="noindex, nofollow" />
         <title>Subscription management - CateringMS</title>
       </Head>
 
@@ -427,6 +477,28 @@ function SubscriptionPage() {
                 )}
               </>
             }
+            actions={
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={loadSubscriptionData}
+                  disabled={loading}
+                  className="gap-1.5"
+                >
+                  <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+                  Refresh
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => router.push("/pricing")}
+                  className="gap-1.5 bg-brand-primary hover:bg-brand-primary/90"
+                >
+                  <ArrowUpCircle className="w-4 h-4" />
+                  Change plan
+                </Button>
+              </>
+            }
           />
           <PageWorkbench />
 
@@ -448,9 +520,9 @@ function SubscriptionPage() {
           )}
 
           {subscription.cancel_at_period_end && (
-            <Alert className="mb-6 border-yellow-200 bg-yellow-50">
-              <AlertTriangle className="h-5 w-5 text-yellow-600" />
-              <AlertDescription className="text-yellow-900">
+            <Alert className="mb-6 border-amber-200 bg-amber-50">
+              <AlertTriangle className="h-5 w-5 text-amber-600" />
+              <AlertDescription className="text-amber-900">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <p className="font-semibold mb-1">Subscription Cancelling</p>
@@ -547,7 +619,7 @@ function SubscriptionPage() {
                     </div>
                     <Progress value={usagePercentageClients} className="h-2" />
                     {usagePercentageClients > 80 && (
-                      <p className="text-xs text-yellow-600 mt-1">Approaching limit - consider upgrading</p>
+                      <p className="text-xs text-amber-600 mt-1">Approaching limit - consider upgrading</p>
                     )}
                   </div>
 
@@ -560,7 +632,7 @@ function SubscriptionPage() {
                     </div>
                     <Progress value={usagePercentageOrders} className="h-2" />
                     {usagePercentageOrders > 80 && (
-                      <p className="text-xs text-yellow-600 mt-1">Approaching limit - consider upgrading</p>
+                      <p className="text-xs text-amber-600 mt-1">Approaching limit - consider upgrading</p>
                     )}
                   </div>
 
@@ -765,6 +837,8 @@ function SubscriptionPage() {
             </CardContent>
           </Card>
         </PortalShell>
+
+        <Footer />
       </div>
     </>
   );

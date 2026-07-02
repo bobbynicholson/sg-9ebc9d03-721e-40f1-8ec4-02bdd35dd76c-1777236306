@@ -1490,7 +1490,8 @@ function OrderProcessDashboard() {
       {isDeeplinkPending && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
           <div className="flex flex-col items-center gap-3 text-slate-600">
-            <RefreshCw className="w-8 h-8 animate-spin text-blue-500" />
+            {/* Chrome spinner carries the tenant brand, not a fixed blue. */}
+            <RefreshCw className="w-8 h-8 animate-spin text-brand-primary" />
             <p className="text-sm">Opening order...</p>
           </div>
         </div>
@@ -1747,7 +1748,7 @@ function OrderProcessDashboard() {
               <Card>
                 <CardContent className="py-24">
                   <div className="text-center">
-                    <div className="animate-spin w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full mx-auto mb-4" />
+                    <div className="animate-spin w-12 h-12 border-4 border-brand-primary border-t-transparent rounded-full mx-auto mb-4" />
                     <p className="text-slate-600">Loading orders...</p>
                   </div>
                 </CardContent>
@@ -1907,8 +1908,16 @@ function OrderProcessDashboard() {
                     }}
                   />
                 ) : (() => {
+                  // Null / unparseable event_date used to produce NaN
+                  // in the comparator (NaN compares are always false,
+                  // so those rows landed in unstable positions). Pin
+                  // them to the end instead.
+                  const eventTime = (o: AppOrder) => {
+                    const t = new Date(o.event_date as any).getTime();
+                    return Number.isFinite(t) ? t : Number.POSITIVE_INFINITY;
+                  };
                   const sorted = getFilteredOrders()
-                    .sort((a, b) => new Date(a.event_date).getTime() - new Date(b.event_date).getTime());
+                    .sort((a, b) => eventTime(a) - eventTime(b));
                   const cappedToRender = timelineShowAll ? sorted : sorted.slice(0, TIMELINE_CAP);
                   const hidden = sorted.length - cappedToRender.length;
                   return (
@@ -2066,8 +2075,10 @@ export default function AdminOrders() {
   return (
     // ORD-A (ORD-6): admit sales_admin + region_admin. sales_admin
     // needs to see their lead -> order conversions; region_admin sees
-    // their region's orders via RLS narrowing.
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.SALES_ADMIN, UserRole.REGION_ADMIN]}>
+    // their region's orders via RLS narrowing. OWNER added per the
+    // 2026-07-02 command-centre baseline (owner rides the
+    // company_admin tier).
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.OWNER, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.SALES_ADMIN, UserRole.REGION_ADMIN]}>
       <OrderProcessDashboard />
     </ProtectedRoute>
   );

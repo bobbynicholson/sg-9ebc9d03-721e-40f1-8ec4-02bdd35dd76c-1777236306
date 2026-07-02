@@ -1,13 +1,14 @@
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { useState, useEffect, useMemo, useRef } from "react";
+import Head from "next/head";
+import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { PortalShell, PortalHeader,
-  PageWorkbench,
+  PageWorkbench, PortalCard, StatTile,
 } from "@/components/portal/ui";
 import { toLocalISO } from "@/lib/localDate";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -86,7 +87,7 @@ function NotificationsPage() {
     if (user?.id) {
       loadNotifications();
     }
-  }, [user, activeRole, tab]);
+  }, [user, activeRole]);
 
   const loadNotifications = async () => {
     if (!user?.id) return;
@@ -94,9 +95,15 @@ function NotificationsPage() {
     setLoading(true);
     setLoadError(null);
     try {
+      // Audit fix (tab-count inconsistency): the unread tab used to
+      // refetch with unreadOnly=true, which replaced the state array
+      // with only unread rows - so the "All (n)" tab label suddenly
+      // showed the UNREAD count while you sat on the Unread tab. One
+      // fetch of the latest rows, both tabs filter client-side, and
+      // every count on the page reads off the same array.
       const data = await notificationService.getNotifications(
         user.id,
-        tab === "unread",
+        false,
         activeRole,
         { limit: 100, throwOnError: true }
       );
@@ -128,6 +135,7 @@ function NotificationsPage() {
     try {
       await notificationService.markAllAsRead(user.id, activeRole);
       setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
+      toast({ title: "All notifications marked as read" });
     } catch (err) {
       console.error("markAllAsRead failed:", err);
       toast({ title: "Could not mark all as read", description: "The change was not saved. Please try again.", variant: "destructive" });
@@ -165,6 +173,8 @@ function NotificationsPage() {
         description: `${failed.length} of ${readNotifications.length} could not be deleted. Please try again.`,
         variant: "destructive",
       });
+    } else if (readNotifications.length > 0) {
+      toast({ title: "Read notifications deleted", description: `${readNotifications.length} removed from your inbox.` });
     }
   };
 
@@ -192,6 +202,8 @@ function NotificationsPage() {
         description: `${failed.size} of ${stale.length} stale notifications could not be deleted. Please try again.`,
         variant: "destructive",
       });
+    } else {
+      toast({ title: "Stale notifications cleared", description: `${stale.length} removed from your inbox.` });
     }
   };
 
@@ -226,11 +238,12 @@ function NotificationsPage() {
     // fetch/realtime path produced.
     const unique = Array.from(new Map(notifications.map((n) => [n.id, n])).values());
     return unique.filter((n) => {
+      const matchesTab = tab === "all" || !n.is_read;
       const matchesPriority = priorityFilter === "all" || n.priority === priorityFilter;
       const matchesType = typeFilter === "all" || n.notification_type === typeFilter;
-      return matchesPriority && matchesType;
+      return matchesTab && matchesPriority && matchesType;
     });
-  }, [notifications, priorityFilter, typeFilter]);
+  }, [notifications, priorityFilter, typeFilter, tab]);
 
   const filteredNotifications = useFuzzyItems(
     preFilteredNotifications,
@@ -243,6 +256,13 @@ function NotificationsPage() {
   );
 
   const unreadCount = notifications.filter((n) => !n.is_read).length;
+  // Live aggregates for the stat tiles. All derived from the same
+  // fetched array the list renders, so the numbers always agree with
+  // what is on screen.
+  const urgentCount = notifications.filter((n) => n.priority === "urgent" || n.priority === "high").length;
+  const staleCount = notifications.filter((n) => isStaleNotification(n.created_at)).length;
+  const readCount = notifications.length - unreadCount;
+  const hasActiveFilters = !!searchTerm || priorityFilter !== "all" || typeFilter !== "all";
 
   // Phase 18 #5: lightweight CSV export of the currently filtered list so admins
   // can keep an audit trail outside the app (forwarding to ops chats, archival, etc.).
@@ -261,7 +281,9 @@ function NotificationsPage() {
       n.is_read ? "yes" : "no",
     ]);
     const csv = [headers, ...rows].map((r) => r.map(esc).join(",")).join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    // UTF-8 BOM so Excel-ZA opens the file as UTF-8 (same fix as the
+    // calendar and financial-dashboard exports).
+    const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -274,6 +296,8 @@ function NotificationsPage() {
 
   return (
     <>
+      <Head><title>Notifications - CateringMS</title></Head>
+      <NoIndexMeta />
       <AdminNav />
       <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
@@ -296,15 +320,76 @@ function NotificationsPage() {
                     {unreadCount > 0 && <span className="h-1.5 w-1.5 rounded-full bg-rose-400" />}
                     {unreadCount} unread
                   </span>
+                  {urgentCount > 0 && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                      <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+                      {urgentCount} urgent or high
+                    </span>
+                  )}
                 </>
               ) : undefined
+            }
+            actions={
+              <>
+                {/* Phase 27 #7: manual refresh. Background
+                    subscriptions miss in-flight system events
+                    occasionally; one-click reload keeps the operator
+                    current. */}
+                <Button variant="outline" size="sm" onClick={loadNotifications} disabled={loading}>
+                  <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+                  Refresh
+                </Button>
+                {unreadCount > 0 && (
+                  <Button variant="outline" size="sm" onClick={handleMarkAllAsRead}>
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                    Mark all read
+                  </Button>
+                )}
+                <Button variant="outline" size="sm" onClick={exportCsv} disabled={filteredNotifications.length === 0}>
+                  <Download className="h-4 w-4 mr-2" />
+                  Export CSV
+                </Button>
+                <Button variant="outline" size="sm" onClick={handleDeleteAll} disabled={readCount === 0}>
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete read
+                </Button>
+                {/* Wave 24: clear stale rows older than 14 days.
+                    Catches the unread-and-old case "Delete read"
+                    misses. */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleClearStale}
+                  disabled={staleCount === 0}
+                  title={`Delete notifications older than ${STALE_NOTIFICATION_DAYS} days, regardless of read status`}
+                >
+                  <Archive className="h-4 w-4 mr-2" />
+                  Clear stale
+                </Button>
+              </>
             }
           />
           <PageWorkbench />
 
-        {/* Header */}
-        <div className="mb-6 sm:mb-8">
-          {/* Actions Bar */}
+          {/* Live inbox aggregates. Derived from the same array the
+              list renders so tiles, chips and tab counts always agree. */}
+          {loading ? (
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6" aria-hidden="true">
+              {[0, 1, 2, 3].map((i) => (
+                <div key={i} className="h-28 animate-pulse rounded-xl border border-slate-200/90 bg-white/70 dark:border-slate-800 dark:bg-slate-900/60" />
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+              <StatTile label="In inbox" value={notifications.length} hint="Latest 100 for your role" icon={Bell} />
+              <StatTile label="Unread" value={unreadCount} hint={unreadCount === 0 ? "You are all caught up" : "Waiting for you"} icon={AlertCircle} />
+              <StatTile label="Urgent or high" value={urgentCount} hint="Priority items across the inbox" icon={AlertTriangle} />
+              <StatTile label="Stale" value={staleCount} hint={`Older than ${STALE_NOTIFICATION_DAYS} days`} icon={Archive} />
+            </div>
+          )}
+
+        {/* Toolbar: search + filters grouped in one card. */}
+        <PortalCard className="mb-6">
           <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
@@ -355,7 +440,7 @@ function NotificationsPage() {
               </SelectContent>
             </Select>
           </div>
-        </div>
+        </PortalCard>
 
         {/* Tabs */}
         <Tabs value={tab} onValueChange={(v) => setTab(v as "all" | "unread")} className="mb-6">
@@ -365,71 +450,17 @@ function NotificationsPage() {
               <TabsTrigger value="unread">Unread ({unreadCount})</TabsTrigger>
               <InfoTooltip content={"All shows every notification for your role. Unread narrows it down to the ones you have not read yet."} className="ml-2" />
             </TabsList>
-            <div className="flex flex-wrap gap-2">
-              {/* Phase 27 #7: manual refresh. Background subscriptions
-                  miss in-flight system events occasionally; one-click
-                  reload keeps the operator current. */}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={loadNotifications}
-                disabled={loading}
-              >
-                <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
-                Refresh
-              </Button>
-              {unreadCount > 0 && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleMarkAllAsRead}
-                >
-                  <CheckCircle className="h-4 w-4 mr-2" />
-                  Mark All Read
-                </Button>
-              )}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={exportCsv}
-                disabled={filteredNotifications.length === 0}
-              >
-                <Download className="h-4 w-4 mr-2" />
-                Export CSV
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleDeleteAll}
-                disabled={notifications.filter(n => n.is_read).length === 0}
-              >
-                <Trash2 className="h-4 w-4 mr-2" />
-                Delete Read
-              </Button>
-              {/* Wave 24: clear stale rows older than 14 days. Catches
-                  the unread-and-old case "Delete Read" misses - e.g.
-                  the spit-braai-delivery 19-day-old "Order Ready for
-                  Pickup!" that was urgent + unread for weeks. */}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleClearStale}
-                disabled={notifications.filter((n) => isStaleNotification(n.created_at)).length === 0}
-                title={`Delete notifications older than ${STALE_NOTIFICATION_DAYS} days, regardless of read status`}
-              >
-                <Archive className="h-4 w-4 mr-2" />
-                Clear Stale
-              </Button>
-            </div>
           </div>
 
           <TabsContent value={tab} className="mt-0">
-            <Card>
-              <CardContent className="p-0">
+            <PortalCard padded={false}>
+              <div>
                 <ScrollArea className="h-[600px]">
                   {loading ? (
-                    <div className="p-8 text-center text-slate-600">
-                      Loading notifications...
+                    <div className="space-y-3 p-6" aria-label="Loading notifications">
+                      {[0, 1, 2, 3, 4].map((i) => (
+                        <div key={i} className="h-20 animate-pulse rounded-lg bg-slate-100 dark:bg-slate-800/60" />
+                      ))}
                     </div>
                   ) : loadError ? (
                     <div className="p-12 text-center">
@@ -445,11 +476,26 @@ function NotificationsPage() {
                     <div className="p-12 text-center">
                       <Bell className="h-16 w-16 mx-auto mb-4 text-slate-300" />
                       <p className="text-slate-600 font-medium mb-2">No notifications found</p>
-                      <p className="text-sm text-slate-500">
-                        {searchTerm || priorityFilter !== "all" || typeFilter !== "all"
-                          ? "Try adjusting your filters"
-                          : "You're all caught up!"}
+                      <p className="text-sm text-slate-500 mb-4">
+                        {hasActiveFilters
+                          ? "Nothing matches the current search and filters."
+                          : tab === "unread"
+                            ? "You have read everything in your inbox."
+                            : "You are all caught up. New alerts will land here as they happen."}
                       </p>
+                      {hasActiveFilters && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setSearchTerm("");
+                            setPriorityFilter("all");
+                            setTypeFilter("all");
+                          }}
+                        >
+                          Clear filters
+                        </Button>
+                      )}
                     </div>
                   ) : (
                     <div className="divide-y divide-slate-200">
@@ -835,8 +881,8 @@ function NotificationsPage() {
                     </div>
                   )}
                 </ScrollArea>
-              </CardContent>
-            </Card>
+              </div>
+            </PortalCard>
           </TabsContent>
         </Tabs>
         </PortalShell>

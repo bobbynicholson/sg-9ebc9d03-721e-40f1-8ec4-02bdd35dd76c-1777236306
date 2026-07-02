@@ -188,6 +188,25 @@ function WhiteLabelPage() {
   });
   const isDirty = savedSnapshot !== "" && currentSnapshot !== savedSnapshot;
 
+  // Audit fix: logo uploads and clears persist to the DB immediately
+  // via persistPatch, but the saved snapshot used to keep the OLD
+  // logoUrl. Result: straight after a successful upload the hero chip
+  // claimed "Unsaved changes" and beforeunload nagged, even though
+  // nothing was pending. Patch just the logoUrl key in place so any
+  // genuinely dirty colour/font edits keep their dirty state.
+  const patchSnapshotLogo = useCallback((url: string) => {
+    setSavedSnapshot((snap) => {
+      if (!snap) return snap;
+      try {
+        const parsed = JSON.parse(snap);
+        parsed.logoUrl = url;
+        return JSON.stringify(parsed);
+      } catch {
+        return snap;
+      }
+    });
+  }, []);
+
   // WL-B: beforeunload guard while dirty. Mirrors the company-
   // profile pattern - browser shows its own "Leave site?" prompt.
   useEffect(() => {
@@ -555,6 +574,7 @@ function WhiteLabelPage() {
       const previousPath = objectPathFromPublicUrl(logoUrl);
       setLogoUrl(publicUrl);
       await persistPatch({ logo_url: publicUrl });
+      patchSnapshotLogo(publicUrl);
 
       if (previousPath && previousPath !== path) {
         supabase.storage.from(LOGO_BUCKET).remove([previousPath]).catch(() => {});
@@ -580,10 +600,12 @@ function WhiteLabelPage() {
 
   const handleClearLogo = async () => {
     const previousPath = objectPathFromPublicUrl(logoUrl);
-    setLogoUrl("");
     try {
       await persistPatch({ logo_url: null });
     } catch (err: any) {
+      captureException(err, {
+        tags: { route: "/admin/white-label", step: "clear-logo", companyId: companyId || "" },
+      });
       toast({
         title: "Could not clear logo",
         description: err?.message || "Try again.",
@@ -591,9 +613,20 @@ function WhiteLabelPage() {
       });
       return;
     }
+    // Audit fix: only clear local state once the DB write landed.
+    // Pre-fix the input emptied optimistically, so a failed clear
+    // left the form claiming "no logo" while clients still saw the
+    // old one - exactly the data inconsistency the standing rule
+    // forbids.
+    setLogoUrl("");
+    patchSnapshotLogo("");
     if (previousPath) {
       supabase.storage.from(LOGO_BUCKET).remove([previousPath]).catch(() => {});
     }
+    toast({
+      title: "Logo removed",
+      description: "Client pages fall back to your organisation name.",
+    });
   };
 
   return (
@@ -648,6 +681,34 @@ function WhiteLabelPage() {
                       <Clock className="w-3 h-3" /> Just saved
                     </span>
                   ) : null}
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    Fonts: {fontBody || "Inter"} / {fontDisplay || "Fraunces"}
+                  </span>
+                </>
+              ) : undefined
+            }
+            actions={
+              !loading && !loadError ? (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleReset}
+                    disabled={saving || !companyId}
+                    className="gap-2"
+                  >
+                    <RotateCcw className="w-4 h-4" />
+                    Reset to default
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={handleSave}
+                    disabled={saving || !companyId}
+                    className="gap-2"
+                  >
+                    {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                    {isDirty ? "Save branding" : "Saved"}
+                  </Button>
                 </>
               ) : undefined
             }

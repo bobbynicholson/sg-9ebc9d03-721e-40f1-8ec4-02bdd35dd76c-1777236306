@@ -164,8 +164,12 @@ export async function listImportJobs(companyId: string, limit = 25): Promise<Imp
     .order("created_at", { ascending: false })
     .limit(limit);
   if (error) {
-    console.warn("listImportJobs failed", error);
-    return [];
+    // Throw instead of swallowing into []. A silent empty return made a
+    // DB failure indistinguishable from "no imports yet" on the history
+    // page. The /api/imports handler catches this, returns 500 with the
+    // message, and the page renders its error card with Retry.
+    console.error("listImportJobs failed", error);
+    throw new Error(`Could not load import jobs: ${error.message || "database error"}`);
   }
   return (data || []) as ImportJob[];
 }

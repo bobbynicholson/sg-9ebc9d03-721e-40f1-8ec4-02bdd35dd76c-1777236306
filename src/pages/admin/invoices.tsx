@@ -11,8 +11,9 @@ import { BulkRemindDialog } from "@/components/admin/financial/BulkRemindDialog"
 import { useRegionFilter } from "@/contexts/RegionFilterContext";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { PortalShell, PortalHeader,
-  PageWorkbench,
+  PageWorkbench, StatTile,
 } from "@/components/portal/ui";
+import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { CashflowContextBanner } from "@/components/admin/financial/CashflowContextBanner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -447,6 +448,9 @@ function InvoicesPageInner() {
         `${dropped} of your selected invoice${dropped === 1 ? " is" : "s are"} hidden by the current filter and will be skipped. Mark the remaining ${visibleSelected.length} paid?`,
       );
       if (!proceed) return;
+      // Sync the visible selection into state for the row highlights;
+      // the submit below reads `visibleSelected` directly because this
+      // setState won't be reflected in the closure this tick.
       setBulkMarkPaidIds(new Set(visibleSelected));
     }
     // Wave 30.4: copy was wrong (and the underlying RPC behaviour
@@ -463,14 +467,18 @@ function InvoicesPageInner() {
     // bundle the operator sees that prep / dispatch / delivery
     // keep running.
     if (typeof window !== "undefined" && !window.confirm(
-      `Mark ${bulkMarkPaidIds.size} invoice${bulkMarkPaidIds.size === 1 ? "" : "s"} as paid in full?\n\n` +
+      `Mark ${visibleSelected.length} invoice${visibleSelected.length === 1 ? "" : "s"} as paid in full?\n\n` +
       `WHAT THIS DOES: records a manual payment for each invoice and settles the outstanding balance. The order's payment_status flips to 'paid'.\n\n` +
       `WHAT THIS DOES NOT DO: this does NOT cancel or close the order. Kitchen prep, dispatch, delivery, and on-site service all continue exactly as before - the event still runs. Only the money side is updated.\n\n` +
       `Continue?`,
     )) return;
     setBulkMarkPaidBusy(true);
     try {
-      const ids = Array.from(bulkMarkPaidIds);
+      // Bug fix (2026-07-02 command-centre audit): submit ONLY the
+      // visible selection. The pre-fix code read the stale
+      // bulkMarkPaidIds closure here, so invoices hidden by the filter
+      // (which the confirm above promised to skip) were still settled.
+      const ids = visibleSelected;
       // Flow audit Leg C P0-1: route through the canonical
       // record_invoice_payment RPC server-side so the payments
       // ledger, orders.payment_status, and invoices.status all stay
@@ -908,10 +916,14 @@ function InvoicesPageInner() {
       // already exists. We filter the uninvoiced list on load but a
       // double-click or stale list still gets through. Surface a clean
       // message instead of the Postgres error.
+      // Audit fix: ignore soft-deleted rows - a deleted invoice does
+      // not satisfy uniq_invoices_active_order_id, and pre-fix it
+      // false-positived this check and blocked regeneration forever.
       const { data: existing } = await supabase
         .from("invoices")
         .select("id, invoice_number, status")
         .eq("order_id", orderId)
+        .is("deleted_at", null)
         .limit(1)
         .maybeSingle();
       if (existing) {
@@ -1194,8 +1206,8 @@ function InvoicesPageInner() {
         .eq("id", invoice.id);
 
       toast({
-        title: "✅ Synced Successfully",
-        description: `Invoice synced to ${provider === "xero" ? "Xero" : "QuickBooks"}`,
+        title: "Synced successfully",
+        description: `Invoice synced to ${provider === "xero" ? "Xero" : "QuickBooks"}.`,
       });
 
       loadInvoices();
@@ -1379,10 +1391,21 @@ function InvoicesPageInner() {
   // emits the authenticated state, they're stuck looking at the
   // denial even though they are an admin.
   if (authLoading) {
+    // Keep the nav rail + shell mounted while auth hydrates so the
+    // operator never sees a bare white screen (page standard: the
+    // rail must never disappear while loading).
     return (
-      <div className="flex items-center justify-center h-screen text-slate-500 text-sm">
-        Loading invoices...
-      </div>
+      <>
+        <Head><title>Invoices - CateringMS</title></Head>
+        <NoIndexMeta />
+        <AdminNav />
+        <div className="admin-page-shell admin-page-shell--center">
+          <div className="text-center">
+            <RefreshCw className="h-8 w-8 mx-auto animate-spin text-slate-400" />
+            <p className="mt-2 text-sm text-slate-500">Loading invoices...</p>
+          </div>
+        </div>
+      </>
     );
   }
 
@@ -1403,6 +1426,7 @@ function InvoicesPageInner() {
   return (
     <>
     <Head><title>Invoices - CateringMS</title></Head>
+    <NoIndexMeta />
     <div className="admin-page-shell admin-page-shell--print">
       {/* Wave 66 - print stylesheet for paper invoices. SA municipal
           + government clients still ask for posted PDFs; bookkeepers
@@ -1572,7 +1596,9 @@ function InvoicesPageInner() {
                   esc(inv.order_id),
                 ].join(","));
               }
-              const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+              // UTF-8 BOM so Excel-ZA opens the file as UTF-8 (same
+              // treatment as the refunds / calendar / regions exports).
+              const blob = new Blob(["﻿" + lines.join("\n")], { type: "text/csv;charset=utf-8" });
               const url = URL.createObjectURL(blob);
               const a = document.createElement("a");
               a.href = url;
@@ -1713,94 +1739,39 @@ function InvoicesPageInner() {
             mostly 90+ days. Self-hides when nothing is outstanding. */}
         <InvoiceAgingCard invoices={invoices as any[]} companyId={(user as any)?.company_id ?? null} />
 
-        {/* Stats Cards. Wave 66.1 - 2-up on mobile so the operator
-            sees Outstanding + Collected side-by-side instead of
-            scrolling through four full-width tiles. */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-8">
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-xs sm:text-sm font-medium text-slate-600 flex items-center gap-1.5">
-                Total invoices <InfoTooltip content={"Every invoice on file for your company, across every status."} />
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-xl sm:text-2xl font-bold">{invoices.length}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-xs sm:text-sm font-medium text-slate-600 flex items-center gap-1.5">
-                Outstanding <InfoTooltip content={"Total rand value of invoices that have been sent but are not yet paid in full. Includes sent / partially paid / overdue."} />
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {/* Wave 61 - shows rand value not count, and uses the
-                  correct enum set. Pre-Wave-61 the filter was
-                  `i.status === "outstanding"` but the enum is
-                  draft|sent|paid|partially_paid|overdue|written_off
-                  - no "outstanding" value. So this tile read 0
-                  forever regardless of how much was actually owed.
-                  Now via moneySummary (cents-summed, shared with the
-                  hero chips so every surface agrees). */}
-              <div className="text-2xl font-bold text-amber-700">
-                {tenantMoney.format(moneySummary.outstandingCents / 100)}
-              </div>
-              <div className="text-[11px] text-slate-500 mt-0.5 tabular-nums">
-                {moneySummary.unpaidCount} unpaid
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-xs sm:text-sm font-medium text-slate-600 flex items-center gap-1.5">
-                Collected <InfoTooltip content={"Money actually received across every issued invoice, including part payments and deposits on invoices that still carry a balance."} />
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {/* Command-centre audit: was sum(total_amount) over fully-
-                  paid rows only, so a R5k deposit on a part-paid invoice
-                  was in the bank but invisible - and Collected +
-                  Outstanding could not reconcile with Total invoiced.
-                  Now sums invoices.amount_paid (the paid-to-date source
-                  of truth) across issued rows, so the identity
-                  Total invoiced = Collected + Outstanding holds. */}
-              <div className="text-2xl font-bold text-brand-primary">
-                {tenantMoney.format(moneySummary.collectedCents / 100)}
-              </div>
-              <div className="text-[11px] text-slate-500 mt-0.5 tabular-nums">
-                {moneySummary.paidCount} paid in full
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-xs sm:text-sm font-medium text-slate-600 flex items-center gap-1.5">
-                Total invoiced <InfoTooltip content={"Sum of every ISSUED invoice (sent, partially paid, paid, overdue).\n\nDrafts and written-off invoices are excluded - a draft has not been billed yet, and a write-off is closed out."} />
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-xl sm:text-2xl font-bold">
-                {/* INV-A: drafts + written-off no longer inflate the
-                    headline. A draft has not been issued; a write-off
-                    is closed out. Pre-INV-A a tenant with R10k of
-                    drafts saw their "Total invoiced" tile read R10k
-                    higher than reality, and the gap between Total /
-                    Collected / Outstanding was unexplainable. */}
-                {tenantMoney.format(moneySummary.totalInvoicedCents / 100)}
-              </div>
-              {/* Wave 67 - VAT collected line. SARS-aware. Sums
-                  tax_amount across PAID invoices only - that's
-                  what the operator actually owes SARS this period.
-                  Pre-Wave-67 the page had no surface for monthly
-                  VAT reconciliation despite the data being on
-                  every invoice row. */}
-              {moneySummary.vatPaidCents > 0 && (
-                <div className="text-[11px] text-slate-500 mt-0.5 tabular-nums">
-                  Output VAT (paid): {tenantMoney.format(moneySummary.vatPaidCents / 100)}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+        {/* Stat tiles. Command-centre restructure (2026-07-02): the
+            ad-hoc Cards moved onto the shared StatTile primitive so
+            this page's KPI band matches every other admin surface.
+            Figures are unchanged: all four read off moneySummary
+            (cents-summed, shared with the hero chips) so the identity
+            Total invoiced = Collected + Outstanding still holds.
+            Semantic colours stay semantic: amber = money owed. */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <StatTile
+            label={<span className="inline-flex items-center gap-1">Total invoices <InfoTooltip content={"Every invoice on file for your company, across every status."} /></span>}
+            value={invoices.length}
+            icon={FileText}
+          />
+          <StatTile
+            label={<span className="inline-flex items-center gap-1">Outstanding <InfoTooltip content={"Total rand value of invoices that have been sent but are not yet paid in full. Includes sent / partially paid / overdue."} /></span>}
+            value={<span className="text-amber-700 dark:text-amber-400">{tenantMoney.format(moneySummary.outstandingCents / 100)}</span>}
+            hint={`${moneySummary.unpaidCount} unpaid`}
+            icon={Clock}
+          />
+          <StatTile
+            label={<span className="inline-flex items-center gap-1">Collected <InfoTooltip content={"Money actually received across every issued invoice, including part payments and deposits on invoices that still carry a balance."} /></span>}
+            value={tenantMoney.format(moneySummary.collectedCents / 100)}
+            hint={`${moneySummary.paidCount} paid in full`}
+            icon={CheckCircle2}
+          />
+          <StatTile
+            label={<span className="inline-flex items-center gap-1">Total invoiced <InfoTooltip content={"Sum of every ISSUED invoice (sent, partially paid, paid, overdue).\n\nDrafts and written-off invoices are excluded - a draft has not been billed yet, and a write-off is closed out."} /></span>}
+            value={tenantMoney.format(moneySummary.totalInvoicedCents / 100)}
+            hint={moneySummary.vatPaidCents > 0
+              ? `Output VAT (paid): ${tenantMoney.format(moneySummary.vatPaidCents / 100)}`
+              : undefined}
+            icon={Send}
+          />
         </div>
 
         {/* Uninvoiced Orders */}
@@ -2093,7 +2064,24 @@ function InvoicesPageInner() {
                   if (amountMin || amountMax) active.push(`amount: ${amountMin || "0"} to ${amountMax || "any"}`);
                   if (clientFilterId) active.push("specific client");
                   if (active.length === 0) {
-                    return <p className="text-sm text-slate-500 mt-1">No invoices in this view yet.</p>;
+                    // True empty ledger: explain what creates a row and
+                    // offer the two paths in (manual invoice, or
+                    // generate off a confirmed order).
+                    return (
+                      <>
+                        <p className="text-sm text-slate-500 mt-1 max-w-md mx-auto">
+                          Invoices appear here when you generate one from a confirmed order, or create a manual invoice for deposits, retainers and ad-hoc charges.
+                        </p>
+                        <Button
+                          size="sm"
+                          className="mt-3 bg-brand-primary hover:opacity-90"
+                          onClick={() => setManualInvoiceOpen(true)}
+                        >
+                          <FileText className="w-4 h-4 mr-2" />
+                          New invoice
+                        </Button>
+                      </>
+                    );
                   }
                   return (
                     <>

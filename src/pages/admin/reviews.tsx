@@ -24,7 +24,11 @@ import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { PortalShell, PortalHeader,
   PageWorkbench,
+  StatTile,
 } from "@/components/portal/ui";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { UserRole } from "@/types/app";
+import { useTenantHref } from "@/lib/tenantUrl";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRegionFilter } from "@/contexts/RegionFilterContext";
 import { useToast } from "@/hooks/use-toast";
@@ -54,10 +58,11 @@ interface ReviewRow {
   order?: { order_number: string | null; event_name: string | null; event_date: string | null; region_id: string | null } | null;
 }
 
-export default function AdminReviewsPage() {
+function AdminReviewsInner() {
   const { user } = useAuth();
   const { toast } = useToast();
   const { regionFilterId } = useRegionFilter();
+  const { withSlug } = useTenantHref();
 
   const [reviews, setReviews] = useState<ReviewRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -271,23 +276,37 @@ export default function AdminReviewsPage() {
             </div>
           )}
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-6">
-            <Card><CardContent className="p-4">
-              <p className="text-xs text-slate-600">Total reviews</p>
-              <p className="text-2xl font-bold tabular-nums">{stats.total}</p>
-            </CardContent></Card>
-            <Card><CardContent className="p-4">
-              <p className="text-xs text-slate-600">Average rating</p>
-              <p className="text-2xl font-bold tabular-nums text-brand-primary">{stats.avg || "-"}<span className="text-sm text-slate-500 ml-1">/5</span></p>
-            </CardContent></Card>
-            <Card><CardContent className="p-4">
-              <p className="text-xs text-slate-600">Promoters (4-5)</p>
-              <p className="text-2xl font-bold tabular-nums text-brand-primary">{stats.promoters}</p>
-            </CardContent></Card>
-            <Card><CardContent className="p-4">
-              <p className="text-xs text-slate-600">Open follow-ups</p>
-              <p className="text-2xl font-bold tabular-nums text-rose-600">{stats.openFollowUps}</p>
-            </CardContent></Card>
+          {/* Command-centre stat row: real aggregates off the loaded
+              set. Open follow-ups stays semantically rose (risk). */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <StatTile
+              label="Total reviews"
+              value={stats.total}
+              icon={MessageSquareText}
+              hint={lastLoadedAt ? `As of ${lastLoadedAt.toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" })}` : undefined}
+            />
+            <StatTile
+              label="Average rating"
+              value={stats.total > 0 ? `${stats.avg || 0}/5` : "-"}
+              icon={Star}
+              hint={stats.total > 0 ? "Across all overall ratings" : "No ratings yet"}
+            />
+            <StatTile
+              label="Promoters (4-5)"
+              value={stats.promoters}
+              icon={CheckCircle2}
+              hint={stats.detractors > 0 ? `${stats.detractors} rated 2 or lower` : "No low ratings"}
+            />
+            <StatTile
+              label="Open follow-ups"
+              value={
+                <span className={stats.openFollowUps > 0 ? "text-rose-600" : undefined}>
+                  {stats.openFollowUps}
+                </span>
+              }
+              icon={AlertTriangle}
+              hint={stats.openFollowUps > 0 ? "Flagged by clients, not yet handled" : "All handled"}
+            />
           </div>
 
           <Card className="mb-6">
@@ -325,8 +344,16 @@ export default function AdminReviewsPage() {
           <Card>
             <CardContent className="p-0">
               {loading ? (
-                <div className="flex items-center justify-center py-16 text-slate-500">
-                  <Loader2 className="h-5 w-5 animate-spin mr-2" /> Loading reviews...
+                // Skeleton inside the shell so the nav rail never
+                // disappears while the list resolves.
+                <div className="p-4 space-y-3" aria-busy="true" aria-label="Loading reviews">
+                  {[0, 1, 2, 3].map((i) => (
+                    <div key={i} className="animate-pulse rounded-lg border border-slate-100 p-4">
+                      <div className="h-3.5 w-48 rounded bg-slate-200" />
+                      <div className="mt-2 h-3 w-72 max-w-full rounded bg-slate-100" />
+                      <div className="mt-3 h-3 w-32 rounded bg-slate-100" />
+                    </div>
+                  ))}
                 </div>
               ) : filtered.length === 0 ? (
                 <div className="text-center py-16 text-slate-500">
@@ -337,7 +364,22 @@ export default function AdminReviewsPage() {
                       : "No reviews match the current filter"}
                   </p>
                   {reviews.length === 0 && !loadError && (
-                    <p className="text-xs mt-1">Clients rate orders from their portal or via the 24h post-delivery email prompt.</p>
+                    <>
+                      <p className="text-xs mt-1">Clients rate orders from their portal or via the 24h post-delivery email prompt.</p>
+                      <Button asChild size="sm" variant="outline" className="mt-4">
+                        <Link href={withSlug("/admin/orders")}>View orders</Link>
+                      </Button>
+                    </>
+                  )}
+                  {reviews.length > 0 && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="mt-4"
+                      onClick={() => { setSearch(""); setFollow("all"); }}
+                    >
+                      Clear filters
+                    </Button>
                   )}
                 </div>
               ) : (
@@ -347,7 +389,7 @@ export default function AdminReviewsPage() {
                     const rating = Number(r.overall_rating || 0);
                     const tone = rating >= 4 ? "bg-brand-primary/10" : rating <= 2 ? "bg-rose-50" : "";
                     return (
-                      <li key={r.id} className={`p-4 ${needsFollow ? "bg-rose-50/60" : tone}`}>
+                      <li key={r.id} className={`p-4 transition-colors hover:bg-slate-50/70 dark:hover:bg-slate-800/40 ${needsFollow ? "bg-rose-50/60" : tone}`}>
                         <div className="flex items-start justify-between gap-3 flex-wrap">
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2 flex-wrap">
@@ -411,5 +453,18 @@ export default function AdminReviewsPage() {
         </PortalShell>
       </div>
     </>
+  );
+}
+
+// Command-centre audit (2026-07-02): this page shipped with NO
+// ProtectedRoute wrapper at all - any authenticated role that guessed
+// the URL could read every client review (names, emails, complaints).
+// Baseline admin tier only; no region/sales admission was ever
+// deliberately granted here.
+export default function AdminReviewsPage() {
+  return (
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.OWNER, UserRole.COMPANY_ADMIN, UserRole.ADMIN]}>
+      <AdminReviewsInner />
+    </ProtectedRoute>
   );
 }

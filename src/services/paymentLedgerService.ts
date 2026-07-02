@@ -228,11 +228,26 @@ export const paymentLedgerService = {
 
     const totalHours = sessions.reduce((sum, s) => sum + Number(s.total_hours || 0), 0);
     const totalAmount = sessions.reduce((sum, s) => sum + Number(s.total_earnings || 0), 0);
-    const hourlyRate = (sessions[0] as any)?.hourly_rate || 0;
+    // Schema audit (2026-07-02): staff_work_sessions has NO hourly_rate
+    // column - the old read (sessions[0].hourly_rate) was always
+    // undefined and wrote 0 onto every ledger row. Derive the effective
+    // rate from the totals we actually have so the ledger line
+    // ("X hours @ R Y/hr") reconciles with its own total.
+    const hourlyRate = totalHours > 0 ? totalAmount / totalHours : 0;
 
-    const dates = sessions.map(s => new Date((s as any).clock_in_time));
-    const minDate = new Date(Math.min(...dates.map(d => d.getTime())));
-    const maxDate = new Date(Math.max(...dates.map(d => d.getTime())));
+    // Schema audit (2026-07-02): the column is clock_in, not
+    // clock_in_time. The old read produced Invalid Date on every row,
+    // so Math.min/max returned NaN and recordPayment's .toISOString()
+    // threw RangeError AFTER the sessions were claimed - every
+    // "Process Payment" attempt failed (then rolled back). Filter out
+    // any unparseable timestamps and fall back to now so the period
+    // stamps can never crash the payment again.
+    const dateMs = sessions
+      .map((s) => new Date((s as any).clock_in).getTime())
+      .filter((t) => Number.isFinite(t));
+    const nowMs = Date.now();
+    const minDate = new Date(dateMs.length > 0 ? Math.min(...dateMs) : nowMs);
+    const maxDate = new Date(dateMs.length > 0 ? Math.max(...dateMs) : nowMs);
 
     // TIGHTEN I.104 (2026-06-02): atomic claim BEFORE inserting the
     // ledger entry. Without this, two concurrent processStaffPayment

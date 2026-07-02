@@ -9,7 +9,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { PortalShell, PortalHeader,
-  PageWorkbench,
+  PageWorkbench, StatTile,
 } from "@/components/portal/ui";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -40,9 +40,12 @@ import { DEFAULT_MAX_CONCURRENT_EVENTS, resolveMaxConcurrentEvents } from "@/lib
 // CAL-C (CAL-4): region_admin + sales_admin need diary access.
 // RLS on orders narrows region_admin to their regions_covered
 // rows; sales_admin reads all to slot quotes into the diary.
+// Restructure audit (2026-07-02): OWNER added - baseline admin tier
+// is SUPER_ADMIN / OWNER / COMPANY_ADMIN / ADMIN and the diary is
+// not finance-gated, so owner was missing for no reason.
 export default function ProtectedCalendarPage() {
   return (
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.REGION_ADMIN, UserRole.SALES_ADMIN]}>
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.OWNER, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.REGION_ADMIN, UserRole.SALES_ADMIN]}>
       <AdminCalendar />
     </ProtectedRoute>
   );
@@ -642,6 +645,17 @@ function AdminCalendar() {
   [orders, todayISO]);
   const upcoming = useMemo(() => upcomingAll.slice(0, 5), [upcomingAll]);
 
+  // Events with an event date in the visible month. Shared by the
+  // StatTile row and the sidebar stats card so the two surfaces can
+  // never disagree. parseLocalDay avoids the UTC-midnight parse
+  // pushing month-boundary events into the wrong bucket west of UTC.
+  const eventsThisMonth = useMemo(() =>
+    orders.filter((o: any) => {
+      const d = parseLocalDay(o.event_date);
+      return d && d.getMonth() === month && d.getFullYear() === year;
+    }).length,
+  [orders, month, year]);
+
   /** Wave 70.69: assignment review. For every day, detect events
    *  that share a driver / vehicle / chef. The same resource may be
    *  intentionally reused on a long day, so the calendar should not
@@ -1117,6 +1131,44 @@ function AdminCalendar() {
             </div>
           )}
 
+          {/* Live diary aggregates. All four read off the same memos
+              the grid, gap-finder and sidebar use, so every surface
+              agrees. Skeletons keep the rail during the first load. */}
+          {loading && orders.length === 0 ? (
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6" aria-hidden="true">
+              {[0, 1, 2, 3].map((i) => (
+                <div key={i} className="h-28 animate-pulse rounded-xl border border-slate-200/90 bg-white/70 dark:border-slate-800 dark:bg-slate-900/60" />
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+              <StatTile
+                label="Upcoming events"
+                value={upcomingAll.length}
+                hint="Dated today or later"
+                icon={CalendarIcon}
+              />
+              <StatTile
+                label={`${monthNames[month]} events`}
+                value={eventsThisMonth}
+                hint="In the month on screen"
+                icon={Clock}
+              />
+              <StatTile
+                label="Booked days"
+                value={horizonStats.booked}
+                hint="Days with an event in the next 30"
+                icon={Users}
+              />
+              <StatTile
+                label="Winnable days"
+                value={<span className={horizonStats.winnable > 0 ? "text-amber-600" : undefined}>{horizonStats.winnable}</span>}
+                hint="Open quotes, nothing booked yet"
+                icon={Sparkles}
+              />
+            </div>
+          )}
+
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2">
               <Card>
@@ -1556,7 +1608,10 @@ function AdminCalendar() {
                           className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50"
                         >
                           <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-slate-100 to-rose-100 flex flex-col items-center justify-center flex-shrink-0">
-                            <span className="text-[10px] font-bold from-slate-100 leading-none">
+                            {/* Audit fix: was `from-slate-100` (a gradient
+                                stop class, no effect on text) - the month
+                                abbreviation rendered in inherited colour. */}
+                            <span className="text-[10px] font-bold text-slate-500 leading-none">
                               {eventDay.toLocaleDateString("en-ZA", { month: "short" }).toUpperCase()}
                             </span>
                             <span className="text-sm font-bold text-slate-700 leading-none">
@@ -1566,7 +1621,9 @@ function AdminCalendar() {
                           <div className="flex-1 min-w-0">
                             <p className="font-semibold text-sm text-slate-900 truncate">{e.client_name || "Event"}</p>
                             <p className="text-xs text-slate-500 truncate">
-                              {e.guest_count} guests - {fmtMoney.format(Number(e.total_amount || 0))}
+                              {/* Null-safe: legacy rows can have no guest
+                                  count; render a dash, not "null guests". */}
+                              {e.guest_count ?? "-"} guests - {fmtMoney.format(Number(e.total_amount || 0))}
                             </p>
                           </div>
                           <ArrowRight className="w-4 h-4 text-slate-400" />
@@ -1763,13 +1820,9 @@ function AdminCalendar() {
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-slate-600 flex items-center gap-1.5">{monthNames[month]} <InfoTooltip content={"Confirmed-and-onwards events with an event date in the month you are currently viewing."} /></span>
                     <span className="text-2xl font-bold text-blue-900 tabular-nums">
-                      {orders.filter((o: any) => {
-                        // parseLocalDay avoids the UTC-midnight parse
-                        // pushing month-boundary events into the wrong
-                        // month bucket west of UTC.
-                        const d = parseLocalDay(o.event_date);
-                        return d && d.getMonth() === month && d.getFullYear() === year;
-                      }).length}
+                      {/* Shared eventsThisMonth memo - same figure as
+                          the StatTile row above, by construction. */}
+                      {eventsThisMonth}
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
@@ -2000,7 +2053,7 @@ function AdminCalendar() {
                               </span>
                               <span className="flex items-center gap-1.5">
                                 <Users className="w-3 h-3 text-slate-400" />
-                                {e.guest_count} guests
+                                {e.guest_count ?? "-"} guests
                               </span>
                               <span className="flex items-center gap-1.5 col-span-2">
                                 <MapPin className="w-3 h-3 text-slate-400 flex-shrink-0" />

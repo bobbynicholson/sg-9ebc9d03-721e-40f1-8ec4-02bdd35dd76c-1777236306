@@ -737,7 +737,11 @@ function StockPage() {
             : `Status: ${statusLabel}`,
           date: g.date,
           severity: isOverdue ? "red" : "amber",
-          href: "/admin/shopping?tab=hire-in",
+          // Audit fix (2026-07-02): pointed at /admin/shopping?tab=
+          // hire-in, but shopping's tabs are buy_now / plan / supplier
+          // / receipts - the unknown value fell back to Buy now
+          // (groceries). The hire-in orders tab lives on Equipment.
+          href: "/admin/equipment?tab=hire-in",
         });
       }
 
@@ -780,8 +784,11 @@ function StockPage() {
       if (timer) clearTimeout(timer);
       timer = setTimeout(() => { void load(); }, 1500);
     };
+    // Random suffix so a second tab on the same page never collides
+    // on the channel name (recurring realtime bug class).
+    const channelSuffix = Math.random().toString(36).slice(2, 10);
     const channel = supabase
-      .channel(`stock:${companyId}`)
+      .channel(`stock:${companyId}:${channelSuffix}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "inventory_items", filter: `company_id=eq.${companyId}` }, bump)
       .on("postgres_changes", { event: "*", schema: "public", table: "equipment_hire_orders", filter: `company_id=eq.${companyId}` }, bump)
       .on("postgres_changes", { event: "*", schema: "public", table: "equipment_bookings", filter: `company_id=eq.${companyId}` }, bump)
@@ -1178,11 +1185,12 @@ function StockPage() {
                 ) : (
                   <p className="text-xs text-slate-600">All caught up</p>
                 )}
-                {/* STK-B: rename "Shopping" -> "Hire-in orders" + route
-                    to /admin/shopping?tab=hire-in (or /admin/equipment
-                    ?tab=hire-in once that lands). "Shopping" reads as
-                    groceries to operators. */}
-                <Link href={withSlug("/admin/shopping?tab=hire-in")}>
+                {/* STK-B: rename "Shopping" -> "Hire-in orders".
+                    Audit fix (2026-07-02): the /admin/equipment
+                    hire-in tab has landed, so route there.
+                    /admin/shopping has no hire-in tab and silently
+                    fell back to the groceries Buy-now view. */}
+                <Link href={withSlug("/admin/equipment?tab=hire-in")}>
                   <Button variant="ghost" size="sm" className="w-full mt-3 text-xs gap-1">
                     Hire-in orders <ArrowRight className="w-3 h-3" />
                   </Button>

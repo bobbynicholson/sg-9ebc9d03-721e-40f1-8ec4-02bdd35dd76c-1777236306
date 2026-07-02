@@ -32,7 +32,7 @@ import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { PortalShell, PortalHeader,
-  PageWorkbench,
+  PageWorkbench, StatTile,
 } from "@/components/portal/ui";
 import { UserRole } from "@/types/app";
 import { toLocalISO, toZonedISO } from "@/lib/localDate";
@@ -68,6 +68,9 @@ interface BalanceRow {
   invoiceDate: string | null;
   orderId: string | null;
   orderNumber: string | null;
+  /** invoices.client_id - the stable identity for "distinct clients
+   *  owing"; name-based dedup merged two different John Smiths. */
+  clientId: string | null;
   clientName: string | null;
   clientEmail: string | null;
   clientPhone: string | null;
@@ -186,6 +189,7 @@ function OutstandingBalancesPage() {
           invoiceDate: i.invoice_date ?? i.created_at ?? null,
           orderId: i.order_id ?? null,
           orderNumber: o?.order_number ?? null,
+          clientId: i.client_id ?? null,
           clientName: o?.client_name ?? null,
           clientEmail: o?.client_email ?? null,
           clientPhone: o?.client_phone ?? null,
@@ -239,7 +243,23 @@ function OutstandingBalancesPage() {
     const totalOwed = filtered.reduce((s, r) => s + toCents(r.balance), 0) / 100;
     const overdue = filtered.filter((r) => r.dueDate && r.dueDate < todayIso);
     const overdueOwed = overdue.reduce((s, r) => s + toCents(r.balance), 0) / 100;
-    return { count: filtered.length, totalOwed, overdueCount: overdue.length, overdueOwed };
+    // Falling due inside the next 7 days (today inclusive, tenant
+    // wall-clock). The chase-next bucket between "fine" and "overdue".
+    // Day maths stays in UTC space: todayIso parses as UTC midnight,
+    // so +7d and toISOString round-trips exactly (toLocalISO would
+    // re-render in the BROWSER timezone and could slip a day).
+    const weekAhead = new Date(Date.parse(todayIso) + 7 * 86_400_000).toISOString().slice(0, 10);
+    const dueSoon = filtered.filter((r) => r.dueDate && r.dueDate >= todayIso && r.dueDate <= weekAhead);
+    const dueSoonOwed = dueSoon.reduce((s, r) => s + toCents(r.balance), 0) / 100;
+    // Distinct clients on the stable invoices.client_id; rows without
+    // one (legacy) fall back to name, then the invoice itself.
+    const clientsOwing = new Set(filtered.map((r) => r.clientId || r.clientName || r.invoiceId)).size;
+    return {
+      count: filtered.length, totalOwed,
+      overdueCount: overdue.length, overdueOwed,
+      dueSoonCount: dueSoon.length, dueSoonOwed,
+      clientsOwing,
+    };
   }, [filtered, todayIso]);
 
   const clearFilters = () => { setSearch(""); setDueFrom(""); setDueTo(""); setOverdueOnly(false); };
@@ -272,10 +292,14 @@ function OutstandingBalancesPage() {
 
   return (
     <>
+      {/* Audit fix: NoIndexMeta renders its own next/head block, so it
+          must sit as a SIBLING of <Head>. Nested inside, next/head
+          dropped the robots/noindex tags and this finance page was
+          indexable. */}
       <Head>
         <title>Outstanding balances - CateringMS</title>
-        <NoIndexMeta />
       </Head>
+      <NoIndexMeta />
       <AdminNav />
       <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
@@ -337,31 +361,35 @@ function OutstandingBalancesPage() {
             </div>
           )}
 
-          {/* Summary cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
-            <Card>
-              <CardContent className="py-4 px-5">
-                <p className="text-[11px] uppercase tracking-wide text-slate-500 font-semibold">Total outstanding</p>
-                <p className="text-2xl font-bold text-slate-900 dark:text-white tabular-nums">{fmt(summary.totalOwed)}</p>
-                <p className="text-xs text-slate-500 mt-0.5">{summary.count} invoice{summary.count === 1 ? "" : "s"}</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="py-4 px-5">
-                <p className="text-[11px] uppercase tracking-wide text-rose-600 font-semibold">Overdue</p>
-                <p className="text-2xl font-bold text-rose-700 tabular-nums">{fmt(summary.overdueOwed)}</p>
-                <p className="text-xs text-slate-500 mt-0.5">{summary.overdueCount} past due date</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="py-4 px-5">
-                <p className="text-[11px] uppercase tracking-wide text-slate-500 font-semibold">Clients owing</p>
-                <p className="text-2xl font-bold text-slate-900 dark:text-white tabular-nums">
-                  {new Set(filtered.map((r) => r.clientName || r.invoiceId)).size}
-                </p>
-                <p className="text-xs text-slate-500 mt-0.5">distinct clients in view</p>
-              </CardContent>
-            </Card>
+          {/* Stat band (command-centre standard 2026-07-02): shared
+              StatTile primitive, live aggregates off the filtered view.
+              Semantic colours stay semantic: rose = overdue, amber =
+              falling due this week. */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <StatTile
+              label="Total outstanding"
+              value={fmt(summary.totalOwed)}
+              hint={`${summary.count} invoice${summary.count === 1 ? "" : "s"} in view.`}
+              icon={Wallet}
+            />
+            <StatTile
+              label="Overdue"
+              value={<span className={summary.overdueOwed > 0 ? "text-rose-700 dark:text-rose-400" : undefined}>{fmt(summary.overdueOwed)}</span>}
+              hint={`${summary.overdueCount} past due date.`}
+              icon={AlertTriangle}
+            />
+            <StatTile
+              label="Due in 7 days"
+              value={<span className={summary.dueSoonOwed > 0 ? "text-amber-700 dark:text-amber-400" : undefined}>{fmt(summary.dueSoonOwed)}</span>}
+              hint={`${summary.dueSoonCount} falling due this week.`}
+              icon={AlertCircle}
+            />
+            <StatTile
+              label="Clients owing"
+              value={summary.clientsOwing}
+              hint="Distinct clients in view."
+              icon={UserIcon}
+            />
           </div>
 
           {/* Filters */}
@@ -426,7 +454,7 @@ function OutstandingBalancesPage() {
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="text-left text-[11px] uppercase tracking-wide text-slate-500 border-b border-slate-200 dark:border-slate-800">
+                      <tr className="text-left text-[10px] uppercase tracking-wide text-slate-500 border-b border-slate-200 dark:border-slate-800">
                         <th className="py-2.5 px-4 font-semibold">Client</th>
                         <th className="py-2.5 px-3 font-semibold">Order / Invoice</th>
                         <th className="py-2.5 px-3 font-semibold">Event</th>
@@ -446,7 +474,7 @@ function OutstandingBalancesPage() {
                         // presenting broken arithmetic as fact.
                         const mismatch = toCents(r.paid) + toCents(r.balance) !== toCents(r.total);
                         return (
-                          <tr key={r.invoiceId} className="border-b border-slate-100 dark:border-slate-800/60 hover:bg-slate-50 dark:hover:bg-slate-900/40">
+                          <tr key={r.invoiceId} className="border-b border-slate-100 dark:border-slate-800/60 hover:bg-slate-50/70 dark:hover:bg-slate-800/40">
                             <td className="py-2.5 px-4">
                               <div className="flex items-center gap-2">
                                 <UserIcon className="w-4 h-4 text-slate-400 shrink-0" />

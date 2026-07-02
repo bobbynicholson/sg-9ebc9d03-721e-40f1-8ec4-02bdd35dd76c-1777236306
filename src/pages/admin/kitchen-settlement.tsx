@@ -24,13 +24,14 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { PortalShell, PortalHeader,
   PageWorkbench,
+  StatTile,
 } from "@/components/portal/ui";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Wallet, Loader2, Download, RefreshCw, Receipt, FileCheck, CheckCircle2, AlertTriangle, UserPlus } from "lucide-react";
+import { Wallet, Loader2, Download, RefreshCw, Receipt, FileCheck, CheckCircle2, AlertTriangle, UserPlus, Users, Clock, TrendingUp, Banknote } from "lucide-react";
 import { toLocalISO } from "@/lib/localDate";
 import { formatZAR } from "@/lib/formatters";
 import { useTenantHref } from "@/lib/tenantUrl";
@@ -272,6 +273,10 @@ function KitchenSettlementPage() {
     try {
       const candidates = Object.values(summaries).filter((s) => s.totalPay > 0);
       let issued = 0;
+      // Audit fix: per-row failures were swallowed entirely, so
+      // "Issued 3 payslips" could silently mean 2 people got skipped.
+      // Collect names and report them.
+      const failed: string[] = [];
       for (const s of candidates) {
         try {
           const r = await persistPayslip(supabase as any, {
@@ -283,10 +288,22 @@ function KitchenSettlementPage() {
           if (r.ok) {
             issued += 1;
             await notifyPayslip(s.staffId, s, "issued", r.payslipId);
+          } else {
+            failed.push(s.staffName || "Unnamed");
           }
-        } catch { /* swallow per-row, continue */ }
+        } catch {
+          failed.push(s.staffName || "Unnamed");
+        }
       }
-      toast({ title: `Issued ${issued} payslip${issued === 1 ? "" : "s"}`, description: `Period ${periodStart} - ${periodEnd}` });
+      if (failed.length > 0) {
+        toast({
+          title: `Issued ${issued} of ${candidates.length} payslips`,
+          description: `Failed for ${failed.join(", ")}. Retry after checking their shifts.`,
+          variant: "destructive",
+        });
+      } else {
+        toast({ title: `Issued ${issued} payslip${issued === 1 ? "" : "s"}`, description: `Period ${periodStart} - ${periodEnd}` });
+      }
       await load();
     } finally {
       setBulkPersisting(false);
@@ -448,8 +465,10 @@ function KitchenSettlementPage() {
               </Alert>
             )}
 
-            {/* Period picker */}
-            <Card>
+            {/* Period picker: the page's one filter toolbar. mb-6 so
+                the stacked sections stop rendering flush against each
+                other (pre-fix there was no vertical rhythm at all). */}
+            <Card className="mb-6">
               <CardContent className="p-4 flex flex-col lg:flex-row gap-3 lg:items-end">
                 <div className="flex-1 grid grid-cols-2 gap-3 max-w-md">
                   <div>
@@ -462,49 +481,55 @@ function KitchenSettlementPage() {
                   </div>
                 </div>
                 <div className="flex gap-1.5 flex-wrap">
-                  <Button variant="outline" size="sm" onClick={setThisWeek}>This week</Button>
+                  {/* Copy honesty: the preset sets today minus 6 days
+                      through today, which is a rolling 7-day window,
+                      not the calendar week. */}
+                  <Button variant="outline" size="sm" onClick={setThisWeek}>Last 7 days</Button>
                   <Button variant="outline" size="sm" onClick={setLastWeek}>Last week</Button>
                   <Button variant="outline" size="sm" onClick={setLastMonth}>Last month</Button>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Headline totals */}
-            <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-              <Card>
-                <CardContent className="p-4">
-                  <div className="text-[10px] uppercase tracking-wider text-slate-500">Chefs with hours</div>
-                  <div className="text-2xl font-bold tabular-nums text-slate-900 mt-1">{totals.chefsWithHours}</div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="p-4">
-                  <div className="text-[10px] uppercase tracking-wider text-slate-500">Total hours</div>
-                  <div className="text-2xl font-bold tabular-nums text-slate-900 mt-1">{totals.hours.toFixed(1)}<span className="text-sm font-normal text-slate-500 ml-0.5">h</span></div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="p-4">
-                  <div className="text-[10px] uppercase tracking-wider text-slate-500">Base pay</div>
-                  <div className="text-2xl font-bold tabular-nums text-slate-900 mt-1">{fmtCurrency(totals.base)}</div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="p-4">
-                  <div className="text-[10px] uppercase tracking-wider text-slate-500">OT + premium</div>
-                  <div className="text-2xl font-bold tabular-nums text-amber-700 mt-1">{fmtCurrency(totals.ot + totals.mult)}</div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="p-4">
-                  <div className="text-[10px] uppercase tracking-wider text-slate-500">Total pay</div>
-                  <div className="text-2xl font-bold tabular-nums text-brand-primary mt-1">{fmtCurrency(totals.total)}</div>
-                </CardContent>
-              </Card>
+            {/* Headline totals: shared StatTile primitives so the
+                figures read identically to the rest of the command
+                centre. Sums are computed in integer cents in `totals`
+                so Base + OT + Premium always equals Total pay. */}
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+              <StatTile
+                label="Staff with hours"
+                value={loading ? "…" : totals.chefsWithHours}
+                icon={Users}
+                hint={`of ${staff.length} on the roster`}
+              />
+              <StatTile
+                label="Total hours"
+                value={loading ? "…" : `${totals.hours.toFixed(1)}h`}
+                icon={Clock}
+                hint="Clocked in this period"
+              />
+              <StatTile
+                label="Base pay"
+                value={loading ? "…" : fmtCurrency(totals.base)}
+                icon={Banknote}
+                hint="Hours x hourly rate"
+              />
+              <StatTile
+                label="OT + premium"
+                value={loading ? "…" : fmtCurrency(totals.ot + totals.mult)}
+                icon={TrendingUp}
+                hint="Overtime and multipliers"
+              />
+              <StatTile
+                label="Total pay"
+                value={loading ? "…" : fmtCurrency(totals.total)}
+                icon={Wallet}
+                hint="Base + OT + premium"
+              />
             </div>
 
             {/* Per-staffer breakdown */}
-            <Card>
+            <Card className="mb-6">
               <CardHeader className="pb-3">
                 <CardTitle className="text-base">Per-chef breakdown</CardTitle>
                 <CardDescription className="text-xs">
@@ -531,15 +556,15 @@ function KitchenSettlementPage() {
                     <table className="w-full text-sm">
                       <thead className="bg-slate-50">
                         <tr>
-                          <th className="text-left px-4 py-2 text-xs uppercase tracking-wider text-slate-500 font-semibold">Chef</th>
-                          <th className="text-right px-3 py-2 text-xs uppercase tracking-wider text-slate-500 font-semibold">Rate</th>
-                          <th className="text-right px-3 py-2 text-xs uppercase tracking-wider text-slate-500 font-semibold">Hours</th>
-                          <th className="text-right px-3 py-2 text-xs uppercase tracking-wider text-slate-500 font-semibold">Base</th>
-                          <th className="text-right px-3 py-2 text-xs uppercase tracking-wider text-slate-500 font-semibold">OT</th>
-                          <th className="text-right px-3 py-2 text-xs uppercase tracking-wider text-slate-500 font-semibold">Premium</th>
-                          <th className="text-right px-3 py-2 text-xs uppercase tracking-wider text-slate-500 font-semibold">Total</th>
-                          <th className="text-right px-3 py-2 text-xs uppercase tracking-wider text-slate-500 font-semibold">Status</th>
-                          <th className="text-right px-3 py-2 text-xs uppercase tracking-wider text-slate-500 font-semibold">Action</th>
+                          <th className="text-left px-4 py-2 text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Chef</th>
+                          <th className="text-right px-3 py-2 text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Rate</th>
+                          <th className="text-right px-3 py-2 text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Hours</th>
+                          <th className="text-right px-3 py-2 text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Base</th>
+                          <th className="text-right px-3 py-2 text-[10px] uppercase tracking-wider text-slate-500 font-semibold">OT</th>
+                          <th className="text-right px-3 py-2 text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Premium</th>
+                          <th className="text-right px-3 py-2 text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Total</th>
+                          <th className="text-right px-3 py-2 text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Status</th>
+                          <th className="text-right px-3 py-2 text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Action</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
@@ -555,7 +580,7 @@ function KitchenSettlementPage() {
                           const payslipStale =
                             !!ps && !!sum && toCents(Number(ps.total_pay)) !== toCents(sum.totalPay);
                           return (
-                            <tr key={s.id} className={hasHours ? "" : "opacity-50"}>
+                            <tr key={s.id} className={`hover:bg-slate-50/70 dark:hover:bg-slate-800/40 ${hasHours ? "" : "opacity-50"}`}>
                               <td className="px-4 py-3">
                                 <div className="font-medium text-slate-900 truncate">{s.full_name || s.email}</div>
                                 <div className="text-[11px] text-slate-500 truncate">{s.email}</div>
@@ -642,7 +667,10 @@ function KitchenSettlementPage() {
 
 export default function ProtectedKitchenSettlementPage() {
   return (
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN]}>
+    // Parity with /admin/driver-settlement: OWNER is in
+    // FULL_COMPANY_ACCESS_ROLES and pays the wages; pre-fix the owner
+    // was locked out of their own settlement page.
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.OWNER, UserRole.COMPANY_ADMIN, UserRole.ADMIN]}>
       <KitchenSettlementPage />
     </ProtectedRoute>
   );

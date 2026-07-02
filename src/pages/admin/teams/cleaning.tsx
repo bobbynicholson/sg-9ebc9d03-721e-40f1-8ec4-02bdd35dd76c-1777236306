@@ -54,11 +54,11 @@ import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { canAccessFinance } from "@/lib/authGuards";
 import { captureException } from "@/lib/observability";
 import {
-  Sparkles, ArrowLeft, Users, Clock, ClipboardList, Loader2,
+  Sparkles, ArrowLeft, Users, Clock, ClipboardList,
   AlertTriangle, Wrench, Banknote, Flame, Droplets,
   CheckCircle2, ArrowRight, Package, CalendarDays,
 } from "lucide-react";
-import { PageWorkbench, PortalHeader, PortalShell } from "@/components/portal/ui";
+import { PageWorkbench, PortalHeader, PortalShell, StatTile } from "@/components/portal/ui";
 import { damageReporterName, type DamageReporterProfile } from "@/lib/damageReporter";
 import { teamBucketsForUser } from "@/lib/teamRoleBuckets";
 
@@ -576,42 +576,63 @@ function CleaningTeamPage() {
             </Card>
           )}
 
-          {/* CLN-A: linkified quick-stat chip row. Same shape as the
-              kitchen + drivers landings. Tints communicate health. */}
-          <div className="flex flex-wrap gap-2 mb-4">
-            <Link href={withSlug("/admin/staff?department=cleaning")}>
-              <Badge variant="secondary" className="px-3 py-1.5 text-sm cursor-pointer hover:bg-slate-200">
-                {loading ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Users className="w-3 h-3 mr-1" />}
-                {stats.active} active
-              </Badge>
-            </Link>
-            <Link href={withSlug("/admin/staff-hours?department=cleaning")}>
-              <Badge variant="secondary" className="px-3 py-1.5 text-sm cursor-pointer hover:bg-slate-200">
-                <Clock className="w-3 h-3 mr-1" />
-                {stats.hoursWeek}h this week
-              </Badge>
-            </Link>
-            <Link href={withSlug(`/admin/calendar?date=${toLocalISO(new Date())}`)}>
-              <Badge variant="secondary" className="px-3 py-1.5 text-sm cursor-pointer hover:bg-slate-200">
-                <ClipboardList className="w-3 h-3 mr-1" />
-                {stats.jobsToday} event{stats.jobsToday === 1 ? "" : "s"} today
-              </Badge>
-            </Link>
-            {stats.active > 0 && (
-              <Badge
-                variant="outline"
-                className={`px-3 py-1.5 text-sm ${
-                  stats.clockedNow >= stats.active
-                    ? "border-brand-primary/30 text-brand-primary bg-brand-primary/10"
+          {/* Command-centre restructure (2026-07-02): the four core
+              aggregates moved from loose Badge chips to a StatTile
+              grid; each tile still deep-links to its drill-down.
+              Loading renders a skeleton inside the shell so the nav
+              never disappears. Conditional alert chips (overdue,
+              supplies out, damages cost) stay as a chip row below. */}
+          {loading ? (
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6" aria-hidden="true">
+              {[0, 1, 2, 3].map((i) => (
+                <div key={i} className="h-28 animate-pulse rounded-xl border border-slate-200/90 bg-white/70 dark:border-slate-800 dark:bg-slate-900/60" />
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+              <Link href={withSlug("/admin/staff?department=cleaning")} className="block">
+                <StatTile
+                  label="Active team"
+                  value={stats.active}
+                  icon={Users}
+                  hint="Cleaning-bucket staff"
+                />
+              </Link>
+              <Link href={withSlug("/admin/staff-hours?department=cleaning")} className="block">
+                <StatTile
+                  label="Hours this week"
+                  value={`${stats.hoursWeek}h`}
+                  icon={Clock}
+                  hint="From duty logs, Monday to now"
+                />
+              </Link>
+              <Link href={withSlug(`/admin/calendar?date=${toLocalISO(new Date())}`)} className="block">
+                <StatTile
+                  label="Events today"
+                  value={stats.jobsToday}
+                  icon={ClipboardList}
+                  hint={stats.tomorrowEvents > 0 ? `${stats.tomorrowEvents} tomorrow` : "Quiet day tomorrow"}
+                />
+              </Link>
+              <StatTile
+                label="Clocked now"
+                value={stats.active > 0 ? `${stats.clockedNow} / ${stats.active}` : stats.clockedNow}
+                icon={Flame}
+                hint={
+                  stats.active === 0
+                    ? "No cleaning staff yet"
                     : stats.clockedNow === 0
-                      ? "border-rose-300 text-rose-700 bg-rose-50"
-                      : "border-amber-300 text-amber-700 bg-amber-50"
-                }`}
-              >
-                <Flame className="w-3 h-3 mr-1" />
-                Clocked {stats.clockedNow} / {stats.active}
-              </Badge>
-            )}
+                      ? <span className="text-rose-600">Nobody on duty</span>
+                      : stats.clockedNow >= stats.active
+                        ? "Full team on duty"
+                        : "Partial team on duty"
+                }
+              />
+            </div>
+          )}
+
+          {(stats.handoversOverdue > 0 || stats.suppliesOutOfStock > 0 || (canSeeFinance && stats.damagesCostZar > 0)) && (
+          <div className="flex flex-wrap gap-2 mb-4">
             {/* CLN-A: overdue handovers chip - high-impact, red when >0. */}
             {stats.handoversOverdue > 0 && (
               <Link href={withSlug("/admin/cleaning-schedule")}>
@@ -638,6 +659,7 @@ function CleaningTeamPage() {
               </Badge>
             )}
           </div>
+          )}
 
           {/* CLN-A: per-cleaner hours-this-week chip strip. Top 6 by
               mins; overtime tint kicks in at 45h. Each chip links to
@@ -664,7 +686,10 @@ function CleaningTeamPage() {
                               : "border-slate-200 text-slate-700 hover:bg-slate-50"
                         }`}
                       >
-                        {m.name} {hrs}h{overtime ? "!" : ""}
+                        {/* No exclamation marks in copy (SA English
+                            style rule): flag overtime with a plain
+                            "OT" suffix instead. */}
+                        {m.name} {hrs}h{overtime ? " OT" : ""}
                       </Badge>
                     </Link>
                   );

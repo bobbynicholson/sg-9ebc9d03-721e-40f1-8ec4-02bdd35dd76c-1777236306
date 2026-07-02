@@ -16,7 +16,7 @@
  */
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Head from "next/head";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -29,13 +29,18 @@ import { useAuth } from "@/contexts/AuthContext";
 import { ChatBot } from "@/components/ChatBot";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { ReceiptScanner } from "@/components/shopping/ReceiptScanner";
+import { useTenantHref } from "@/lib/tenantUrl";
 import { PortalShell, PortalHeader, PageWorkbench } from "@/components/portal/ui";
 
 const MAX_FILES = 20;
 
 export default function ProtectedReceiptsImport() {
+  // OWNER admitted alongside the admin tier: the onboarding wizard is
+  // owner-first (the signup account is OWNER) and links straight here
+  // via the imports hub; the receipts APIs already allow owner. Pre-fix
+  // the founder 403'd off their own day-one receipt import.
   return (
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN]}>
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.OWNER, UserRole.COMPANY_ADMIN, UserRole.ADMIN]}>
       <ReceiptsImportPage />
     </ProtectedRoute>
   );
@@ -43,13 +48,17 @@ export default function ProtectedReceiptsImport() {
 
 function ReceiptsImportPage() {
   const { user } = useAuth() as any;
-  const companyId = (user?.user_metadata?.company_id as string | undefined) || null;
+  // AuthContext puts company_id on the top-level user object; the
+  // user_metadata copy is only present when the auth payload carried
+  // it. Check both so the ChatBot never loses its tenant scope.
+  const companyId =
+    (user?.company_id as string | undefined) ||
+    (user?.user_metadata?.company_id as string | undefined) ||
+    null;
 
-  const slugPrefix = useMemo(() => {
-    if (typeof window === "undefined") return "";
-    const m = window.location.pathname.match(/^\/([^/]+)\/admin\//);
-    return m ? `/${m[1]}` : "";
-  }, []);
+  // Canonical tenant-slug prefixing (SSR-safe) instead of sniffing
+  // window.location, which rendered "" on the server pass.
+  const { withSlug } = useTenantHref();
 
   // Preflight: the scan endpoint 500s outright when the server has no
   // AI key (ANTHROPIC_API_KEY / GROQ_API_KEY), which is the case in
@@ -115,6 +124,9 @@ function ReceiptsImportPage() {
                   )}
                   {scannerHealth.used != null && scannerHealth.limit != null && (
                     <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                      {scannerHealth.used >= scannerHealth.limit && (
+                        <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+                      )}
                       {scannerHealth.used} of {scannerHealth.limit} scans used this month
                     </span>
                   )}
@@ -122,7 +134,7 @@ function ReceiptsImportPage() {
               ) : undefined
             }
             actions={
-              <Link href={`${slugPrefix}/admin/onboarding/imports`}>
+              <Link href={withSlug("/admin/onboarding/imports")}>
                 <Button variant="outline" size="sm">
                   <ArrowLeft className="w-4 h-4 mr-1.5" /> Back to imports
                 </Button>
@@ -147,6 +159,13 @@ function ReceiptsImportPage() {
                       environment variables and redeploy, then check again. Photos you pick are not
                       uploaded until you press Scan, so nothing is lost in the meantime.
                     </p>
+                    <p className="text-xs text-rose-800/90 mt-1.5 leading-relaxed">
+                      In the meantime you can still capture cost prices by hand on the{" "}
+                      <Link href={withSlug("/admin/inventory")} className="font-semibold underline underline-offset-2">
+                        Inventory page
+                      </Link>
+                      , the scanner just automates that typing.
+                    </p>
                   </div>
                 </div>
                 <Button variant="outline" size="sm" onClick={checkScanner} className="bg-white">
@@ -157,7 +176,7 @@ function ReceiptsImportPage() {
           )}
 
           <ReceiptScanner
-            historyHref={`${slugPrefix}/admin/onboarding/imports`}
+            historyHref={withSlug("/admin/onboarding/imports")}
             accent="purple"
           />
         </PortalShell>

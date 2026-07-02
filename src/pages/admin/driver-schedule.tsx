@@ -23,12 +23,15 @@ import { Badge } from "@/components/ui/badge";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { PortalShell, PortalHeader,
   PageWorkbench,
+  StatTile,
 } from "@/components/portal/ui";
+import Link from "next/link";
+import { useTenantHref } from "@/lib/tenantUrl";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { Calendar, ChevronLeft, ChevronRight, Plus, Loader2, Download, RefreshCw, AlertTriangle } from "lucide-react";
+import { Calendar, ChevronLeft, ChevronRight, Plus, Loader2, Download, RefreshCw, AlertTriangle, Users, Clock, UserPlus } from "lucide-react";
 import { toLocalISO } from "@/lib/localDate";
 import { LogDriverShiftModal, type ExistingShiftForEdit } from "@/components/admin/LogDriverShiftModal";
 import { ShiftTasksChips } from "@/components/admin/ShiftTasksChips";
@@ -99,6 +102,7 @@ function fmtHours(start: string | null, end: string | null): { hours: number; la
 function DriverScheduleGrid() {
   const { user } = useAuth() as any;
   const companyId = user?.company_id;
+  const { withSlug } = useTenantHref();
   const [weekStart, setWeekStart] = useState<Date>(startOfWeek(new Date()));
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [shifts, setShifts] = useState<ShiftRow[]>([]);
@@ -233,6 +237,17 @@ function DriverScheduleGrid() {
 
   const weekLabel = `${weekStart.toLocaleDateString("en-ZA", { day: "numeric", month: "short" })} - ${addDays(weekStart, 6).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}`;
 
+  // Command-centre restructure: aggregate strip fed by the loaded week.
+  // Missed = flagged missed, or a past scheduled shift with no clock-in.
+  const missedCount = useMemo(
+    () => shifts.filter(
+      (s) => s.status === "missed"
+        || (s.shift_date < todayIso && !s.actual_start && s.status === "scheduled"),
+    ).length,
+    [shifts, todayIso],
+  );
+  const weekHours = dayTotals.reduce((a, b) => a + b, 0);
+
   return (
     <>
       <Head><title>Driver schedule - CateringMS</title></Head>
@@ -256,7 +271,7 @@ function DriverScheduleGrid() {
                     {shifts.length} shift{shifts.length === 1 ? "" : "s"} this week
                   </span>
                   <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
-                    {dayTotals.reduce((a, b) => a + b, 0).toFixed(1)}h rostered
+                    {weekHours.toFixed(1)}h rostered
                   </span>
                 </>
               ) : undefined
@@ -362,6 +377,43 @@ function DriverScheduleGrid() {
             </div>
           )}
 
+          {/* Command-centre restructure: live weekly aggregates. Missed
+              stays semantic (rose when non-zero, never brand). */}
+          {!loadError && (
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+              <StatTile
+                label="Drivers"
+                value={loading ? "-" : drivers.length}
+                hint="Active driver roster"
+                icon={Users}
+              />
+              <StatTile
+                label="Shifts this week"
+                value={loading ? "-" : shifts.length}
+                hint={`Week of ${weekLabel}`}
+                icon={Calendar}
+              />
+              <StatTile
+                label="Hours rostered"
+                value={loading ? "-" : `${weekHours.toFixed(1)}h`}
+                hint="Planned hours, else actual clocked"
+                icon={Clock}
+              />
+              <StatTile
+                label="Missed shifts"
+                value={
+                  loading ? "-" : (
+                    <span className={missedCount > 0 ? "text-rose-600 dark:text-rose-400" : undefined}>
+                      {missedCount}
+                    </span>
+                  )
+                }
+                hint={missedCount > 0 ? "Scheduled but never clocked in" : "No missed shifts this week"}
+                icon={AlertTriangle}
+              />
+            </div>
+          )}
+
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-base">
@@ -381,33 +433,42 @@ function DriverScheduleGrid() {
                     Schedule unavailable. Use Retry above.
                   </div>
                 ) : drivers.length === 0 ? (
-                  <div className="text-center py-12 text-slate-500 text-sm">
-                    No drivers in this company yet. Add one from /admin/driver-management.
+                  <div className="text-center py-12">
+                    <Users className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                    <p className="text-sm font-medium text-slate-700 mb-1">No drivers yet</p>
+                    <p className="text-xs text-slate-500 mb-4">
+                      Add a driver and their shifts will show up on this weekly grid.
+                    </p>
+                    <Button asChild size="sm" className="bg-brand-primary hover:bg-brand-primary/90">
+                      <Link href={withSlug("/admin/driver-management")}>
+                        <UserPlus className="w-4 h-4 mr-2" /> Add a driver
+                      </Link>
+                    </Button>
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="text-left">
-                          <th className="px-3 py-2 text-xs uppercase tracking-wider text-slate-500 font-semibold sticky left-0 bg-white">
+                          <th className="px-3 py-2 text-[10px] uppercase tracking-wider text-slate-500 font-semibold sticky left-0 bg-white">
                             Driver
                           </th>
                           {weekDays.map((d, i) => (
-                            <th key={i} className="px-2 py-2 text-xs uppercase tracking-wider text-slate-500 font-semibold text-center min-w-[88px]">
+                            <th key={i} className="px-2 py-2 text-[10px] uppercase tracking-wider text-slate-500 font-semibold text-center min-w-[88px]">
                               <div>{DAY_LABELS[i]}</div>
                               <div className="text-[10px] text-slate-400 tabular-nums">
                                 {d.toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}
                               </div>
                             </th>
                           ))}
-                          <th className="px-3 py-2 text-xs uppercase tracking-wider text-slate-500 font-semibold text-right">Total</th>
+                          <th className="px-3 py-2 text-[10px] uppercase tracking-wider text-slate-500 font-semibold text-right">Total</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
                         {drivers.map((d) => {
                           let driverTotal = 0;
                           return (
-                            <tr key={d.id} className="hover:bg-slate-50">
+                            <tr key={d.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40">
                               <td className="px-3 py-2 sticky left-0 bg-white">
                                 <div className="font-medium text-slate-900 truncate">{d.full_name || d.email}</div>
                                 <div className="text-[11px] text-slate-500 truncate">{d.email}</div>
@@ -537,7 +598,7 @@ function DriverScheduleGrid() {
                       </tbody>
                       <tfoot>
                         <tr className="border-t-2 border-slate-200">
-                          <td className="px-3 py-2 text-xs uppercase tracking-wider text-slate-500 font-semibold sticky left-0 bg-white">
+                          <td className="px-3 py-2 text-[10px] uppercase tracking-wider text-slate-500 font-semibold sticky left-0 bg-white">
                             Day total
                           </td>
                           {dayTotals.map((h, i) => (
@@ -608,7 +669,9 @@ function DriverScheduleGrid() {
 
 export default function ProtectedDriverSchedulePage() {
   return (
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN]}>
+    // Command-centre audit: OWNER was missing from the baseline admin
+    // tier with no documented reason; owners run their own dispatch.
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.OWNER, UserRole.COMPANY_ADMIN, UserRole.ADMIN]}>
       <DriverScheduleGrid />
     </ProtectedRoute>
   );

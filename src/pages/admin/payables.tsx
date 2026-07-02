@@ -5,11 +5,12 @@
  * Owner / admin types in each supplier invoice they owe with the
  * supplier, amount and due-date. Marking paid flips the status and
  * writes an audit_logs row. The cashflow forecast on
- * /admin/financial-dashboard reads from this table (PR-E) so every
+ * /admin/cashflow-dashboard reads from this table (PR-E) so every
  * scheduled cash-out appears on the day-by-day chart.
  *
- * Owner / company_admin / admin / super_admin only per the Skylight
- * finance-visibility rule. Gated upstream via ProtectedRoute.
+ * Owner / company_admin / super_admin only per the Skylight
+ * finance-visibility rule (canAccessFinance; plain admin is
+ * deliberately excluded). Gated via ProtectedRoute below.
  */
 import { useEffect, useMemo, useState } from "react";
 import Head from "next/head";
@@ -26,11 +27,15 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Plus, CheckCircle2, AlertTriangle, Trash2, Upload, Wallet } from "lucide-react";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Plus, CheckCircle2, AlertTriangle, Trash2, Upload, Wallet, Search, CalendarClock } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AdminNav } from "@/components/admin/AdminNav";
-import { PortalShell, PortalHeader,
+import { PortalShell, PortalHeader, PortalCard,
   PageWorkbench,
 } from "@/components/portal/ui";
 import { CashflowContextBanner } from "@/components/admin/financial/CashflowContextBanner";
@@ -44,7 +49,7 @@ import {
   type PayableStatus,
 } from "@/services/supplierPayablesService";
 import { formatZAR } from "@/lib/formatters";
-import { DEFAULT_TENANT_TIMEZONE, toZonedISO } from "@/lib/localDate";
+import { DEFAULT_TENANT_TIMEZONE, parseLocalDay, toLocalISO, toZonedISO } from "@/lib/localDate";
 import { useTenantHref } from "@/lib/tenantUrl";
 
 /**
@@ -63,6 +68,9 @@ interface BulkRow {
   invoice_ref: string | null;
   notes: string | null;
   error: string | null;
+  /** Non-blocking caution (e.g. looks like a duplicate of an existing
+   *  payable). The row still imports; the operator just gets told. */
+  warning: string | null;
 }
 
 /**
@@ -120,8 +128,13 @@ function parseDate(raw: string): string | null {
     if (c.length === 4) return `${c}-${b.padStart(2, "0")}-${a.padStart(2, "0")}`;
   }
   // Last-ditch attempt via Date - catches "1 June 2026" etc.
+  // Audit fix (2026-07-02): format from LOCAL date components, not
+  // toISOString(). The native parser returns local midnight for
+  // "1 June 2026", and toISOString() converts to UTC - for any
+  // browser east of UTC (SA is UTC+2) that lands on 22:00 of the
+  // PREVIOUS day, so the slice imported every such row one day early.
   const d = new Date(s);
-  if (!Number.isNaN(d.getTime())) return d.toISOString().slice(0, 10);
+  if (!Number.isNaN(d.getTime())) return toLocalISO(d);
   return null;
 }
 
@@ -134,10 +147,28 @@ function parseDate(raw: string): string | null {
 function parseBulkCsv(
   csv: string,
   suppliers: Array<{ id: string; supplier_name: string }>,
+  existing: SupplierPayable[],
 ): BulkRow[] {
   const lines = csv.split(/\r?\n/).map((l) => l.trim()).filter((l) => l.length > 0);
   if (lines.length === 0) return [];
   const supLookup = new Map(suppliers.map((s) => [s.supplier_name.trim().toLowerCase(), s.id]));
+  // Audit fix (2026-07-02): duplicate detection. Re-pasting last
+  // week's CSV used to silently double every payable (and double the
+  // forecast outflow). Match against existing NON-deleted pending
+  // rows by invoice_ref, or by supplier + amount + due date; also
+  // catch repeats inside the paste itself. Non-blocking - a supplier
+  // can genuinely invoice the same amount twice - but flagged loudly.
+  const existingRefs = new Set(
+    existing
+      .filter((p) => p.status === "pending" && p.invoice_ref)
+      .map((p) => String(p.invoice_ref).trim().toLowerCase()),
+  );
+  const existingKeys = new Set(
+    existing
+      .filter((p) => p.status === "pending")
+      .map((p) => `${p.supplier_id || ""}|${p.amount_cents}|${p.due_date}`),
+  );
+  const seenInPaste = new Set<string>();
   const out: BulkRow[] = [];
   const startsWithHeader = /supplier|amount/i.test(lines[0]);
   for (let i = 0; i < lines.length; i++) {
@@ -156,15 +187,28 @@ function parseBulkCsv(
     if (!Number.isFinite(amt)) errs.push(`bad amount "${amountRaw}"`);
     const due = parseDate(dueRaw);
     if (!due) errs.push(`bad date "${dueRaw}"`);
+    const amountCents = Number.isFinite(amt) ? Math.round(amt * 100) : 0;
+    const warns: string[] = [];
+    if (errs.length === 0) {
+      const key = `${supId || ""}|${amountCents}|${due}`;
+      if (invoiceRef && existingRefs.has(invoiceRef.toLowerCase())) {
+        warns.push(`a pending payable already carries ref "${invoiceRef}"`);
+      } else if (existingKeys.has(key)) {
+        warns.push("a pending payable with the same supplier, amount and due date already exists");
+      }
+      if (seenInPaste.has(key)) warns.push("repeated inside this paste");
+      seenInPaste.add(key);
+    }
     out.push({
       line: i + 1,
       supplier_name: supplierName,
       supplier_id: supId,
-      amount_cents: Number.isFinite(amt) ? Math.round(amt * 100) : 0,
+      amount_cents: amountCents,
       due_date: due || "",
       invoice_ref: invoiceRef,
       notes,
       error: errs.length ? errs.join("; ") : null,
+      warning: warns.length ? warns.join("; ") : null,
     });
   }
   return out;
@@ -217,6 +261,11 @@ function PayablesPage() {
   const todayISO = toZonedISO(new Date(), tenantTimezone || DEFAULT_TENANT_TIMEZONE);
 
   const [dialogOpen, setDialogOpen] = useState(false);
+  // Text search across supplier / ref / notes. Lives in the toolbar
+  // card next to the status filter.
+  const [search, setSearch] = useState("");
+  // AlertDialog-confirmed delete target.
+  const [deleteId, setDeleteId] = useState<string | null>(null);
   const [draft, setDraft] = useState({
     supplier_id: "" as string,
     amount: "",
@@ -273,12 +322,18 @@ function PayablesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [companyId]);
 
-  // Client-side status slice for the list. Tiles + hero chips always
-  // compute off the full set so they stay truthful under any filter.
-  const visibleRows = useMemo(
-    () => (filter === "all" ? rows : rows.filter((r) => r.status === filter)),
-    [rows, filter],
-  );
+  // Client-side status slice + text search for the list. Tiles + hero
+  // chips always compute off the full set so they stay truthful under
+  // any filter.
+  const visibleRows = useMemo(() => {
+    const byStatus = filter === "all" ? rows : rows.filter((r) => r.status === filter);
+    const q = search.trim().toLowerCase();
+    if (!q) return byStatus;
+    return byStatus.filter((r) =>
+      (r.supplier?.supplier_name || "").toLowerCase().includes(q)
+      || (r.invoice_ref || "").toLowerCase().includes(q)
+      || (r.notes || "").toLowerCase().includes(q));
+  }, [rows, filter, search]);
 
   const handleCreate = async () => {
     if (!companyId) return;
@@ -332,8 +387,7 @@ function PayablesPage() {
   };
 
   const handleBulkPreview = () => {
-    const rows = parseBulkCsv(bulkCsv, suppliers);
-    setBulkPreview(rows);
+    setBulkPreview(parseBulkCsv(bulkCsv, suppliers, rows));
     setBulkResult(null);
   };
 
@@ -374,9 +428,14 @@ function PayablesPage() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Remove this payable? Soft-delete - can be restored by support.")) return;
-    const ok = await supplierPayablesService.softDelete(id);
+  // Audit fix (2026-07-02): delete confirm moved from window.confirm
+  // to the same AlertDialog pattern Fixed costs uses - consistent
+  // look, works with keyboard / screen readers, and can't be blocked
+  // by a browser's suppress-dialogs setting.
+  const handleConfirmDelete = async () => {
+    if (!deleteId) return;
+    const ok = await supplierPayablesService.softDelete(deleteId);
+    setDeleteId(null);
     if (ok) {
       toast({ title: "Removed" });
       void load();
@@ -396,6 +455,19 @@ function PayablesPage() {
     () => pendingRows.filter((r) => r.due_date < todayISO).length,
     [pendingRows, todayISO],
   );
+  // Pending amount falling due inside the next 30 days - the exact
+  // slice the cashflow forecast subtracts, so this tile matches the
+  // "Supplier payables (next 30d)" row on the two dashboards.
+  const dueNext30Cents = useMemo(() => {
+    const anchor = parseLocalDay(todayISO);
+    if (!anchor) return 0;
+    const horizon = new Date(anchor);
+    horizon.setDate(horizon.getDate() + 30);
+    const horizonISO = toLocalISO(horizon);
+    return pendingRows
+      .filter((r) => r.due_date >= todayISO && r.due_date <= horizonISO)
+      .reduce((s, r) => s + r.amount_cents, 0);
+  }, [pendingRows, todayISO]);
 
   return (
     <>
@@ -412,12 +484,15 @@ function PayablesPage() {
             icon={Wallet}
             subtitle={
               <>
+                {/* Audit fix (2026-07-02): the forecast moved off the
+                    financial dashboard to the dedicated cashflow page;
+                    the link still pointed at the old home. */}
                 Outstanding supplier invoices. Drives the cashflow forecast on{" "}
                 <Link
-                  href={withSlug("/admin/financial-dashboard")}
+                  href={withSlug("/admin/cashflow-dashboard")}
                   className="font-semibold text-white underline decoration-white/40 underline-offset-2 hover:decoration-white"
                 >
-                  Financial dashboard
+                  Cashflow dashboard
                 </Link>
                 .
               </>
@@ -496,26 +571,54 @@ function PayablesPage() {
                 <p className="text-xs text-slate-500 mt-1">Past their due date</p>
               </CardContent>
             </Card>
+            {/* Restructure (2026-07-02): the third tile used to hold
+                the status filter, which belongs in the toolbar below.
+                It now shows the 30-day due slice - the exact number
+                the cashflow forecast subtracts for payables. */}
             <Card className="border-2">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm text-slate-600">Filter</CardTitle>
+                <CardTitle className="text-sm text-slate-600 flex items-center gap-1">
+                  <CalendarClock className="w-3.5 h-3.5 text-slate-500" />
+                  Due in next 30 days
+                </CardTitle>
               </CardHeader>
               <CardContent>
-                <Select value={filter} onValueChange={(v) => setFilter(v as PayableStatus | "all")}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="pending">Pending</SelectItem>
-                    <SelectItem value="paid">Paid</SelectItem>
-                    <SelectItem value="disputed">Disputed</SelectItem>
-                    <SelectItem value="written_off">Written off</SelectItem>
-                    <SelectItem value="all">All</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div className="text-2xl font-bold tabular-nums text-slate-900">
+                  {fmt(dueNext30Cents / 100, currency)}
+                </div>
+                <p className="text-xs text-slate-500 mt-1">Feeds the cashflow forecast outflow</p>
               </CardContent>
             </Card>
           </div>
+
+          {/* Toolbar: search + status filter in one card, per the
+              command-centre standard. */}
+          <PortalCard className="mb-6 !p-3">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <div className="relative flex-1">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true" />
+                <Input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search supplier, invoice ref or notes..."
+                  className="pl-9"
+                  aria-label="Search payables"
+                />
+              </div>
+              <Select value={filter} onValueChange={(v) => setFilter(v as PayableStatus | "all")}>
+                <SelectTrigger className="w-full sm:w-44" aria-label="Filter by status">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="paid">Paid</SelectItem>
+                  <SelectItem value="disputed">Disputed</SelectItem>
+                  <SelectItem value="written_off">Written off</SelectItem>
+                  <SelectItem value="all">All</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </PortalCard>
 
           <Card>
             <CardContent className="p-0">
@@ -524,8 +627,15 @@ function PayablesPage() {
               ) : visibleRows.length === 0 ? (
                 <div className="p-12 text-center">
                   <p className="text-sm text-slate-500">
-                    No {filter === "all" ? "" : filter.replace("_", " ")} payables{rows.length > 0 && filter !== "all" ? ` (${rows.length} in All)` : ""}.
+                    {search.trim()
+                      ? `No payables match "${search.trim()}".`
+                      : `No ${filter === "all" ? "" : filter.replace("_", " ") + " "}payables${rows.length > 0 && filter !== "all" ? ` (${rows.length} in All)` : ""}.`}
                   </p>
+                  {search.trim() && (
+                    <Button onClick={() => setSearch("")} variant="outline" size="sm" className="mt-3">
+                      Clear search
+                    </Button>
+                  )}
                   {rows.length === 0 && (
                     <Button onClick={() => setDialogOpen(true)} variant="outline" size="sm" className="mt-3">
                       <Plus className="w-3.5 h-3.5 mr-1.5" />
@@ -562,6 +672,14 @@ function PayablesPage() {
                                 Disputed
                               </Badge>
                             )}
+                            {/* Audit fix (2026-07-02): written_off had
+                                no badge, so in the All view those rows
+                                were indistinguishable from pending. */}
+                            {r.status === "written_off" && (
+                              <Badge variant="secondary" className="bg-slate-100 text-slate-600 border border-slate-200">
+                                Written off
+                              </Badge>
+                            )}
                           </div>
                           <div className="text-xs text-slate-500 mt-0.5">
                             Due {r.due_date}{r.notes ? ` - ${r.notes}` : ""}
@@ -586,8 +704,9 @@ function PayablesPage() {
                         <Button
                           size="sm"
                           variant="ghost"
-                          onClick={() => handleDelete(r.id)}
+                          onClick={() => setDeleteId(r.id)}
                           title="Remove this payable"
+                          aria-label={`Remove payable from ${r.supplier?.supplier_name || "unknown supplier"}`}
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </Button>
@@ -622,6 +741,18 @@ function PayablesPage() {
                   ))}
                 </SelectContent>
               </Select>
+              {/* First-day tenant edge: with no suppliers the picker is
+                  an empty dropdown with no explanation. Saving without
+                  one still works, the row just reads "Unknown supplier". */}
+              {suppliers.length === 0 && (
+                <p className="text-xs text-slate-500">
+                  No suppliers on file yet. You can save without one, or{" "}
+                  <Link href={withSlug("/admin/suppliers")} className="font-medium text-brand-primary underline underline-offset-2">
+                    add suppliers
+                  </Link>{" "}
+                  first so payables stay matched.
+                </p>
+              )}
             </div>
             <div className="space-y-1.5">
               <Label>Amount ({currency})</Label>
@@ -667,6 +798,23 @@ function PayablesPage() {
         </DialogContent>
       </Dialog>
 
+      <AlertDialog open={deleteId != null} onOpenChange={(open) => { if (!open) setDeleteId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove this payable?</AlertDialogTitle>
+            <AlertDialogDescription>
+              The row will be soft-deleted and drops out of the cashflow forecast immediately. Support can restore it if needed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmDelete} className="bg-rose-600 hover:bg-rose-700">
+              Remove
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <Dialog open={bulkOpen} onOpenChange={setBulkOpen}>
         <DialogContent className="max-w-3xl">
           <DialogHeader>
@@ -710,7 +858,7 @@ function PayablesPage() {
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {bulkPreview.map((r) => (
-                      <tr key={r.line} className={r.error ? "bg-rose-50" : ""}>
+                      <tr key={r.line} className={r.error ? "bg-rose-50" : r.warning ? "bg-amber-50" : ""}>
                         <td className="px-2 py-1.5 tabular-nums text-slate-400">{r.line}</td>
                         <td className="px-2 py-1.5">
                           <div className="font-medium text-slate-900">{r.supplier_name || <span className="text-slate-400 italic">missing</span>}</div>
@@ -726,7 +874,9 @@ function PayablesPage() {
                         <td className="px-2 py-1.5">
                           {r.error
                             ? <span className="text-rose-700 text-[11px]">{r.error}</span>
-                            : <span className="text-brand-primary text-[11px]">Ready</span>}
+                            : r.warning
+                              ? <span className="text-amber-700 text-[11px]">Ready, but {r.warning}</span>
+                              : <span className="text-brand-primary text-[11px]">Ready</span>}
                         </td>
                       </tr>
                     ))}

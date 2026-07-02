@@ -50,6 +50,7 @@ import { AdminNav } from "@/components/admin/AdminNav";
 import { CatalogueOperationsStrip } from "@/components/admin/CatalogueOperationsStrip";
 import { PortalShell, PortalHeader,
   PageWorkbench,
+  PortalCard,
 } from "@/components/portal/ui";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
@@ -181,6 +182,51 @@ function EquipmentPage() {
     router.replace({ pathname: router.pathname, query }, undefined, { shallow: true });
   };
 
+  // Command-centre standard (2026-07-02): live hero meta chips. The
+  // real data loads per tab, so the hero runs its own light summary
+  // query (works for deep links straight to shortages / hire-in where
+  // CatalogTab never mounts) and refreshes on equipment changes.
+  // Best-effort: on failure the chips just don't render - the tabs
+  // own the loud error surface + Retry.
+  const [heroStats, setHeroStats] = useState<{ items: number; noneFree: number; hidden: number } | null>(null);
+  useEffect(() => {
+    if (!companyId) return;
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const loadSummary = async () => {
+      const { data, error } = await (supabase as any)
+        .from("equipment")
+        .select("id, quantity, available_quantity, is_available")
+        .eq("company_id", companyId);
+      if (error || cancelled) return;
+      const summaryRows = (data || []) as Array<{
+        quantity: number | null; available_quantity: number | null; is_available: boolean | null;
+      }>;
+      setHeroStats({
+        items: summaryRows.length,
+        noneFree: summaryRows.filter((r) => r.is_available !== false && safeNum(r.available_quantity) === 0 && safeNum(r.quantity) > 0).length,
+        hidden: summaryRows.filter((r) => r.is_available === false).length,
+      });
+    };
+    void loadSummary();
+    const channel = supabase
+      .channel(`equipment-hero:${companyId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "equipment", filter: `company_id=eq.${companyId}` }, () => {
+        if (timer) clearTimeout(timer);
+        timer = setTimeout(() => { void loadSummary(); }, 1500);
+      })
+      .subscribe();
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+      supabase.removeChannel(channel);
+    };
+  }, [companyId]);
+
+  // Hero "Add equipment": jump to the catalog tab and signal it to
+  // open the add dialog (the dialog state lives inside CatalogTab).
+  const [addSignal, setAddSignal] = useState(0);
+
   return (
     <>
       <NoIndexMeta />
@@ -197,6 +243,39 @@ function EquipmentPage() {
             title="Equipment"
             subtitle="Catering equipment catalogue. Availability per date, current bookings, shortages, and hire-in cover when you're running short for an event."
             icon={Package}
+            meta={
+              heroStats ? (
+                <>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                    {heroStats.items} catalogue item{heroStats.items === 1 ? "" : "s"}
+                  </span>
+                  {heroStats.noneFree > 0 && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                      <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+                      {heroStats.noneFree} none free
+                    </span>
+                  )}
+                  {heroStats.hidden > 0 && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                      {heroStats.hidden} hidden from quotes
+                    </span>
+                  )}
+                </>
+              ) : undefined
+            }
+            actions={
+              <Button
+                onClick={() => {
+                  handleTabChange("catalog");
+                  setAddSignal((n) => n + 1);
+                }}
+                className="bg-brand-primary text-white hover:opacity-90"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Add equipment
+              </Button>
+            }
           />
           <PageWorkbench />
           <CatalogueOperationsStrip active={tab === "damages" ? "damages" : "equipment"} />
@@ -211,7 +290,7 @@ function EquipmentPage() {
             </TabsList>
 
             <TabsContent value="catalog" className="mt-6">
-              <CatalogTab companyId={companyId} />
+              <CatalogTab companyId={companyId} addSignal={addSignal} />
             </TabsContent>
 
             <TabsContent value="availability" className="mt-6">
@@ -246,7 +325,7 @@ function EquipmentPage() {
 
 // ── Catalog tab (the existing catalog UI, now a tab pane) ──────────
 
-function CatalogTab({ companyId }: { companyId: string | null }) {
+function CatalogTab({ companyId, addSignal = 0 }: { companyId: string | null; addSignal?: number }) {
   const { toast } = useToast();
   const router = useRouter();
   const pricingMode = usePricingMode();
@@ -272,6 +351,10 @@ function CatalogTab({ companyId }: { companyId: string | null }) {
         searchRef.current?.focus();
       }
       if (e.key === "n" && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        // Audit 2026-07-02: don't fire while a dialog is open -
+        // pressing "n" with the edit dialog focused on a non-input
+        // control used to wipe the draft back to a blank Add form.
+        if (document.querySelector('[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]')) return;
         e.preventDefault();
         setEditing({
           id: "",
@@ -308,6 +391,25 @@ function CatalogTab({ companyId }: { companyId: string | null }) {
   const [editing, setEditing] = useState<EquipmentRow | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  // Command-centre hero action: the page-level "Add equipment"
+  // button bumps addSignal; open a fresh add dialog when it does.
+  useEffect(() => {
+    if (!addSignal) return;
+    setEditing({
+      id: "",
+      company_id: companyId,
+      name: "",
+      category: "",
+      description: "",
+      rental_price: 0,
+      quantity: 0,
+      available_quantity: 0,
+      condition: "good",
+      is_available: true,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [addSignal]);
 
   const [reservationsFor, setReservationsFor] = useState<EquipmentRow | null>(null);
   // Phase 5 #1: maintenance log entry dialog state.
@@ -733,7 +835,10 @@ function CatalogTab({ companyId }: { companyId: string | null }) {
         </div>
       )}
 
-      <div className="mb-4 flex flex-col sm:flex-row gap-2 sm:items-center">
+      {/* Command-centre standard: search + filters + sort grouped
+          into one toolbar card. */}
+      <PortalCard padded={false} className="p-3 mb-6">
+      <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <Input
@@ -788,6 +893,7 @@ function CatalogTab({ companyId }: { companyId: string | null }) {
           ]}
         />
       </div>
+      </PortalCard>
 
       {loading ? (
         <Card><CardContent className="p-12 text-center text-slate-500">Loading...</CardContent></Card>
@@ -1135,10 +1241,18 @@ function CatalogTab({ companyId }: { companyId: string | null }) {
                     value={editing.quantity ?? 0}
                     onChange={(e) => {
                       const q = safeNum(e.target.value);
+                      const prevQ = safeNum(editing.quantity);
+                      const prevAvail = safeNum(editing.available_quantity ?? editing.quantity);
+                      // Audit 2026-07-02: keep "Available now" locked
+                      // to the total while the two are equal (the add
+                      // flow starts both at 0). Pre-fix a new item
+                      // created with quantity 20 saved with available
+                      // 0, so it immediately read "0 / 20 free" and
+                      // counted under the "No stock free" tile.
                       setEditing({
                         ...editing,
                         quantity: q,
-                        available_quantity: Math.min(safeNum(editing.available_quantity ?? q), q),
+                        available_quantity: prevAvail === prevQ ? q : Math.min(prevAvail, q),
                       });
                     }}
                   />

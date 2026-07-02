@@ -16,7 +16,6 @@ import Link from "next/link";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
@@ -28,10 +27,10 @@ import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { canAccessFinance } from "@/lib/authGuards";
 import { captureException } from "@/lib/observability";
 import {
-  ShoppingBag, ArrowLeft, Users, ClipboardList, Loader2, AlertTriangle,
-  Receipt, Truck, Banknote, TrendingDown,
+  ShoppingBag, ArrowLeft, Users, ClipboardList, AlertTriangle,
+  Receipt, Truck, TrendingDown,
 } from "lucide-react";
-import { PageWorkbench, PortalHeader, PortalShell } from "@/components/portal/ui";
+import { PageWorkbench, PortalHeader, PortalShell, StatTile } from "@/components/portal/ui";
 import { teamBucketsForUser } from "@/lib/teamRoleBuckets";
 
 interface ShoppingStats {
@@ -88,11 +87,18 @@ function ShoppingTeamPage() {
             .select("id, actual_total, estimated_total")
             .eq("company_id", companyId)
             .eq("list_date", todayISO),
+          // Command-centre audit (2026-07-02): overdue = past date and
+          // NOT finished. The old .in("status",["pending","draft"])
+          // filter missed lists sitting in in_progress / shopping (the
+          // exact states the stale-list cron chases), so the overdue
+          // count under-reported. "draft" is not a status the app ever
+          // writes. Filter now matches CatalogueOperationsStrip +
+          // CashflowForecastCard: anything not completed or cancelled.
           supabase.from("shopping_lists")
             .select("id", { count: "exact", head: true })
             .eq("company_id", companyId)
             .lt("list_date", todayISO)
-            .in("status", ["pending", "draft"]),
+            .not("status", "in", "(completed,cancelled,canceled)"),
           supabase.from("purchase_receipts")
             .select("id", { count: "exact", head: true })
             .eq("company_id", companyId)
@@ -176,23 +182,20 @@ function ShoppingTeamPage() {
       icon: ClipboardList,
       label: "Buy-now list",
       sub: "Items the kitchen needs today",
-      bg: "from-orange-50 to-rose-50",
-      iconColor: "text-orange-600",
+      iconColor: "text-brand-primary",
     },
     {
       href: "/admin/shopping?tab=receipts",
       icon: Receipt,
       label: "Receipts log",
       sub: "Snap a slip, log a spend",
-      bg: "from-amber-50 to-orange-50",
-      iconColor: "text-amber-600",
+      iconColor: "text-brand-primary",
     },
     {
       href: "/admin/suppliers",
       icon: Truck,
       label: "Suppliers",
       sub: "Contacts and price intel",
-      bg: "from-sky-50 to-blue-50",
       iconColor: "text-sky-600",
     },
     {
@@ -200,7 +203,6 @@ function ShoppingTeamPage() {
       icon: Users,
       label: "Shopping staff",
       sub: "Roster and rates",
-      bg: "from-slate-50 to-slate-50",
       iconColor: "text-slate-600",
     },
   ];
@@ -269,32 +271,47 @@ function ShoppingTeamPage() {
             </Card>
           )}
 
-          <div className="flex flex-wrap gap-2 mb-6">
-            <Badge variant="secondary" className="px-3 py-1.5 text-sm">
-              {loading ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Users className="w-3 h-3 mr-1" />}
-              {stats.active} active
-            </Badge>
-            <Badge variant="secondary" className="px-3 py-1.5 text-sm">
-              <ClipboardList className="w-3 h-3 mr-1" />
-              {stats.listsToday} list{stats.listsToday === 1 ? "" : "s"} today
-            </Badge>
-            {stats.overdueLists > 0 && (
-              <Badge variant="destructive" className="px-3 py-1.5 text-sm">
-                <AlertTriangle className="w-3 h-3 mr-1" />
-                {stats.overdueLists} overdue
-              </Badge>
-            )}
-            <Badge variant="secondary" className="px-3 py-1.5 text-sm">
-              <Receipt className="w-3 h-3 mr-1" />
-              {stats.receiptsThisWeek} slip{stats.receiptsThisWeek === 1 ? "" : "s"} this week
-            </Badge>
-            {canSeeFinance && stats.spendToday > 0 && (
-              <Badge variant="outline" className="px-3 py-1.5 text-sm border-brand-primary/30 text-brand-primary bg-brand-primary/10 tabular-nums">
-                <Banknote className="w-3 h-3 mr-1" />
-                {tenantCurrency.format(stats.spendToday)} today
-              </Badge>
-            )}
-          </div>
+          {/* Command-centre restructure (2026-07-02): the loose Badge
+              chip row is now a proper StatTile grid. Loading renders a
+              skeleton inside the shell so the rail never disappears. */}
+          {loading ? (
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6" aria-hidden="true">
+              {[0, 1, 2, 3].map((i) => (
+                <div key={i} className="h-28 animate-pulse rounded-xl border border-slate-200/90 bg-white/70 dark:border-slate-800 dark:bg-slate-900/60" />
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+              <StatTile
+                label="Active staff"
+                value={stats.active}
+                icon={Users}
+                hint="Shopping-bucket team members"
+              />
+              <StatTile
+                label="Lists today"
+                value={stats.listsToday}
+                icon={ClipboardList}
+                hint={canSeeFinance && stats.spendToday > 0
+                  ? `${tenantCurrency.format(stats.spendToday)} spend logged today`
+                  : "Lists dated today"}
+              />
+              <StatTile
+                label="Overdue lists"
+                value={stats.overdueLists > 0
+                  ? <span className="text-rose-600">{stats.overdueLists}</span>
+                  : stats.overdueLists}
+                icon={AlertTriangle}
+                hint={stats.overdueLists > 0 ? "Past their date, not finished" : "Everything on schedule"}
+              />
+              <StatTile
+                label="Slips this week"
+                value={stats.receiptsThisWeek}
+                icon={Receipt}
+                hint="Receipts logged, last 7 days"
+              />
+            </div>
+          )}
 
           {/* TMS-D: top-vendor card + overdue callout. Operator's
               two daily questions: who am I spending most with and
@@ -302,7 +319,7 @@ function ShoppingTeamPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-4">
             {canSeeFinance && stats.topVendorThisMonth && (
               <Link href={withSlug(`/admin/suppliers?q=${encodeURIComponent(stats.topVendorThisMonth.vendor)}`)}>
-                <Card className="hover:shadow-lg transition-shadow bg-gradient-to-br from-brand-primary/10 to-brand-secondary/10">
+                <Card className="border border-brand-primary/20 bg-gradient-to-br from-brand-primary/10 to-brand-secondary/10 shadow-sm transition-colors hover:border-brand-primary/40">
                   <CardContent className="p-5">
                     <div className="flex items-start gap-3">
                       <TrendingDown className="w-6 h-6 text-brand-primary flex-shrink-0" />
@@ -319,8 +336,11 @@ function ShoppingTeamPage() {
                 </Card>
               </Link>
             )}
-            <Link href={withSlug("/admin/shopping?filter=overdue")}>
-              <Card className={`hover:shadow-lg transition-shadow bg-gradient-to-br ${stats.overdueLists > 0 ? "from-rose-50 to-amber-50" : "from-slate-50 to-slate-100"}`}>
+            {/* Shopping LISTS live on the team-portal orders surface;
+                /admin/shopping has no list view and ignored the old
+                ?filter=overdue param, so the CTA landed on groceries. */}
+            <Link href={withSlug("/team-portal/shopping/orders")}>
+              <Card className={`border shadow-sm transition-colors hover:border-slate-300 ${stats.overdueLists > 0 ? "border-rose-200 bg-rose-50" : "border-slate-200 bg-white"}`}>
                 <CardContent className="p-5">
                   <div className="flex items-start gap-3">
                     <AlertTriangle className={`w-6 h-6 ${stats.overdueLists > 0 ? "text-rose-600" : "text-slate-400"} flex-shrink-0`} />
@@ -333,7 +353,7 @@ function ShoppingTeamPage() {
                       <p className="text-xs text-slate-600 mt-0.5">
                         {stats.overdueLists === 0
                           ? "Yesterday and earlier - nothing pending."
-                          : "Pending or draft, list_date past. Tap to chase."}
+                          : "Past their date, not finished. Tap to chase."}
                       </p>
                     </div>
                   </div>
@@ -345,7 +365,7 @@ function ShoppingTeamPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             {tiles.map((t) => (
               <Link key={t.label} href={withSlug(t.href)}>
-                <Card className={`hover:shadow-lg transition-shadow bg-gradient-to-br ${t.bg}`}>
+                <Card className="border border-slate-200 bg-white shadow-sm transition-colors hover:border-slate-300">
                   <CardContent className="p-5">
                     <div className="flex items-start gap-3">
                       <t.icon className={`w-6 h-6 ${t.iconColor} flex-shrink-0`} />

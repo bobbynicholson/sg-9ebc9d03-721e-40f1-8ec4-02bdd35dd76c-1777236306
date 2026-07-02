@@ -3,7 +3,6 @@ import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import { toLocalISO, tenantToday } from "@/lib/localDate";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
@@ -16,7 +15,7 @@ import { staffOrderHref } from "@/lib/orderUrls";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { PortalShell, PortalHeader,
-  PageWorkbench,
+  PageWorkbench, PortalCard, PortalCardHeader, StatTile,
 } from "@/components/portal/ui";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { useAuth } from "@/contexts/AuthContext";
@@ -725,75 +724,49 @@ function AdminTrackingInner() {
             </div>
           </div>
 
-          {/* Stats Cards */}
-          <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-6">
-            <Card className={operationsScope === "today" && stats.today > 0 ? "border-brand-primary/30 bg-brand-primary/5" : ""}>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-slate-600 flex items-center gap-1">
-                      {operationsScope === "today" ? "Today" : "Shown"} <InfoTooltip content={"Orders in the current Live operations scope before search, driver, and status filters."} />
-                    </p>
-                    <p className={`text-2xl font-bold ${operationsScope === "today" ? "text-brand-primary" : "text-slate-900"}`}>{scopedOrders.length}</p>
-                  </div>
-                  <Clock className={`w-7 h-7 ${operationsScope === "today" ? "text-brand-primary" : "text-slate-500"}`} />
-                </div>
-              </CardContent>
-            </Card>
+          {/* Live KPI strip. StatTile row per the command-centre
+              standard; the at-risk value stays SEMANTIC rose when
+              non-zero. Skeletons render inside the shell during the
+              first load so the rail never disappears. */}
+          {loading && orders.length === 0 ? (
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6" aria-hidden="true">
+              {[0, 1, 2, 3].map((i) => (
+                <div key={i} className="h-28 animate-pulse rounded-xl border border-slate-200/90 bg-white/70 dark:border-slate-800 dark:bg-slate-900/60" />
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+              <StatTile
+                label={operationsScope === "today" ? "Today" : "Shown"}
+                value={scopedOrders.length}
+                hint="In scope before search and filters"
+                icon={Clock}
+              />
+              <StatTile
+                label="At risk"
+                value={<span className={stats.atRisk > 0 ? "text-rose-600" : undefined}>{stats.atRisk}</span>}
+                hint="Predicted late, stale GPS or no pin in motion"
+                icon={AlertCircle}
+              />
+              <StatTile
+                label="In transit"
+                value={stats.active}
+                hint="Driver on the way to the venue"
+                icon={Navigation}
+              />
+              <StatTile
+                label="In kitchen"
+                value={stats.preparing + stats.ready}
+                hint={`${stats.preparing} preparing, ${stats.ready} ready for collection`}
+                icon={Package}
+              />
+            </div>
+          )}
 
-            <Card className={stats.atRisk > 0 ? "border-rose-300 bg-rose-50/40" : ""}>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-slate-600 flex items-center gap-1">At risk <InfoTooltip content={"Orders where the driver's predicted arrival is later than required (event time minus arrival buffer). Needs attention now."} /></p>
-                    <p className={`text-2xl font-bold ${stats.atRisk > 0 ? "text-rose-700" : "text-slate-400"}`}>{stats.atRisk}</p>
-                  </div>
-                  <AlertCircle className={`w-7 h-7 ${stats.atRisk > 0 ? "text-rose-600" : "text-slate-300"}`} />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-slate-600 flex items-center gap-1">In transit <InfoTooltip content={"Orders with a driver right now, on the way to the venue."} /></p>
-                    <p className="text-2xl font-bold text-orange-600">{stats.active}</p>
-                  </div>
-                  <Navigation className="w-7 h-7 text-orange-600" />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-slate-600 flex items-center gap-1">Preparing <InfoTooltip content={"Orders being prepped in the kitchen right now."} /></p>
-                    <p className="text-2xl font-bold text-yellow-600">{stats.preparing}</p>
-                  </div>
-                  <Package className="w-7 h-7 text-yellow-600" />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-slate-600 flex items-center gap-1">Ready <InfoTooltip content={"Prepped, packed, waiting for a driver to collect."} /></p>
-                    <p className="text-2xl font-bold text-slate-600">{stats.ready}</p>
-                  </div>
-                  <TrendingUp className="w-7 h-7 text-slate-600" />
-                </div>
-              </CardContent>
-            </Card>
-
-          </div>
-
-          {/* Filters */}
-          <Card className="mb-6 border-slate-200/90 shadow-sm">
-            <CardContent className="p-4 sm:p-5">
+          {/* Filters: search + selects + refresh/export/print in ONE
+              toolbar card. */}
+          <PortalCard className="mb-6">
+            <div>
               <div className="grid gap-4">
                 <div className="min-w-0">
                   <div className="mb-2 flex items-center justify-between gap-3">
@@ -896,7 +869,9 @@ function AdminTrackingInner() {
                           esc(Number(o.total_amount || 0).toFixed(2)),
                         ].join(","));
                       }
-                      const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+                      // UTF-8 BOM so Excel-ZA opens the export as
+                      // UTF-8 (same fix as calendar / financial).
+                      const blob = new Blob(["﻿" + lines.join("\n")], { type: "text/csv;charset=utf-8" });
                       const url = URL.createObjectURL(blob);
                       const a = document.createElement("a");
                       a.href = url;
@@ -928,8 +903,8 @@ function AdminTrackingInner() {
                   </Button>
                 </div>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </PortalCard>
 
           {/* Main Content */}
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "map" | "list")} className="w-full">
@@ -941,11 +916,9 @@ function AdminTrackingInner() {
             <TabsContent value="map">
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Map */}
-                <Card className="lg:col-span-2">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">Live Tracking Map <InfoTooltip content={"Pins for every active venue and the last known position of each driver.\n\nDriver pins update as their devices report new locations."} /></CardTitle>
-                  </CardHeader>
-                  <CardContent>
+                <PortalCard className="lg:col-span-2">
+                  <PortalCardHeader title={<>Live tracking map <InfoTooltip content={"Pins for every active venue and the last known position of each driver.\n\nDriver pins update as their devices report new locations."} /></>} />
+                  <div>
                     <div className="h-[600px] relative">
                       {/* TIGHTEN I.27: wrap the live map in a
                           WidgetErrorBoundary so a leaflet render
@@ -961,18 +934,18 @@ function AdminTrackingInner() {
                         />
                       </WidgetErrorBoundary>
                     </div>
-                  </CardContent>
-                </Card>
+                  </div>
+                </PortalCard>
 
                 {/* Order Details Sidebar */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <MapPin className="w-5 h-5" />
+                <PortalCard>
+                  <PortalCardHeader
+                    title={<>
+                      <MapPin className="w-4 h-4" />
                       {selectedOrder ? "Order details" : operationsScope === "today" ? "Today's orders" : "Live orders"}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="max-h-[700px] overflow-y-auto">
+                    </>}
+                  />
+                  <div className="max-h-[700px] overflow-y-auto">
                     {selectedOrder ? (
                       <OrderDetailsPanel
                         order={selectedOrder}
@@ -1076,21 +1049,45 @@ function AdminTrackingInner() {
                         )}
                       </div>
                     )}
-                  </CardContent>
-                </Card>
+                  </div>
+                </PortalCard>
               </div>
             </TabsContent>
 
             <TabsContent value="list">
-              <Card>
-                <CardContent className="p-6">
+              <PortalCard>
+                <div>
                   {loading ? (
-                    <div className="text-center py-8">
-                      <p className="text-slate-600">Loading orders...</p>
+                    <div className="space-y-3" aria-label="Loading orders">
+                      {[0, 1, 2].map((i) => (
+                        <div key={i} className="h-24 animate-pulse rounded-lg bg-slate-100 dark:bg-slate-800/60" />
+                      ))}
                     </div>
                   ) : filteredOrders.length === 0 ? (
-                    <div className="text-center py-8">
-                      <p className="text-slate-600">No orders found matching your filters</p>
+                    <div className="text-center py-10">
+                      <Navigation className="mx-auto mb-3 h-10 w-10 text-slate-300" />
+                      <p className="text-slate-600 font-medium mb-1">No live orders match these filters</p>
+                      <p className="text-sm text-slate-500 mb-4">
+                        {statusFilter !== "all" || driverFilter !== "all" || searchTerm
+                          ? "Widen the search, status or driver filter to see more."
+                          : operationsScope === "today"
+                            ? "Nothing is running today yet. Confirmed orders appear here on the day of the event."
+                            : "No confirmed orders from today forward. New confirmed work lands here automatically."}
+                      </p>
+                      <div className="inline-flex flex-wrap justify-center gap-2">
+                        {(statusFilter !== "all" || driverFilter !== "all" || searchTerm) && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => { setStatusFilter("all"); setDriverFilter("all"); setSearchTerm(""); }}
+                          >
+                            Clear filters
+                          </Button>
+                        )}
+                        <Link href={withSlug("/admin/orders")}>
+                          <Button variant="outline" size="sm">Open the order book</Button>
+                        </Link>
+                      </div>
                     </div>
                   ) : (
                     <div className="space-y-4">
@@ -1217,8 +1214,8 @@ function AdminTrackingInner() {
                       })}
                     </div>
                   )}
-                </CardContent>
-              </Card>
+                </div>
+              </PortalCard>
             </TabsContent>
           </Tabs>
         </PortalShell>
@@ -1322,8 +1319,11 @@ function AdminTrackingInner() {
 // the rule stays explicit at the component boundary and matches every
 // other admin page.
 export default function AdminTracking() {
+  // Restructure audit (2026-07-02): OWNER added - the baseline admin
+  // tier is SUPER_ADMIN / OWNER / COMPANY_ADMIN / ADMIN and this page
+  // has no finance gate, so owner was missing for no reason.
   return (
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN]}>
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.OWNER, UserRole.COMPANY_ADMIN, UserRole.ADMIN]}>
       <AdminTrackingInner />
     </ProtectedRoute>
   );

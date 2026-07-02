@@ -1090,6 +1090,23 @@ function AdminQuoteDetailInner() {
                     // (legacy convention).
                     const liveSubtotalEx = isDraft ? computed.subtotal : safeNum((quote as any).subtotal);
                     const liveSubtotalGross = liveTotal;
+                    // Data-consistency rule: every total shown must
+                    // equal the sum of its visible breakdown. Read-only
+                    // quotes built with surge uplift or a quote-level
+                    // percentage discount carry pricing this simpler
+                    // page can't recompute, so the component rows above
+                    // could sum to less (or more) than the persisted
+                    // Total. Surface the gap as its own line instead of
+                    // presenting a breakdown that silently doesn't add up.
+                    const componentsGross =
+                      computed.itemsSubtotal
+                      + computed.equipmentSubtotal
+                      + liveDelivery
+                      + computed.collectionFee
+                      - liveDiscount
+                      + (incVat ? 0 : liveTax);
+                    const adjustmentDelta = isDraft ? 0 : liveTotal - componentsGross;
+                    const showAdjustment = Math.abs(adjustmentDelta) >= 0.01;
                     return (
                       <div className="space-y-2 pt-2">
                         <div className="flex justify-between text-sm">
@@ -1122,6 +1139,16 @@ function AdminQuoteDetailInner() {
                           <div className="flex justify-between text-sm">
                             <span className="text-slate-600">Discount</span>
                             <span className="font-medium text-rose-600">- {fmtMoney(liveDiscount)}</span>
+                          </div>
+                        )}
+                        {showAdjustment && (
+                          <div className="flex justify-between text-sm">
+                            <span className="text-slate-600">Builder adjustments (surge, quote-level discount)</span>
+                            <span className={`font-medium ${adjustmentDelta < 0 ? "text-rose-600" : ""}`}>
+                              {adjustmentDelta < 0
+                                ? `- ${fmtMoney(Math.abs(adjustmentDelta))}`
+                                : fmtMoney(adjustmentDelta)}
+                            </span>
                           </div>
                         )}
                         <div className="flex justify-between text-sm">
@@ -1512,10 +1539,11 @@ function AdminQuoteDetailInner() {
 }
 
 // QTS-A (QTS-8): match the quotes-index + new wrapper. sales_admin
-// is the page's primary user.
+// is the page's primary user. OWNER added per the 2026-07-02
+// command-centre baseline (owner rides the company_admin tier).
 export default function AdminQuoteDetail() {
   return (
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.SALES_ADMIN, UserRole.REGION_ADMIN]}>
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.OWNER, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.SALES_ADMIN, UserRole.REGION_ADMIN]}>
       <AdminQuoteDetailInner />
     </ProtectedRoute>
   );

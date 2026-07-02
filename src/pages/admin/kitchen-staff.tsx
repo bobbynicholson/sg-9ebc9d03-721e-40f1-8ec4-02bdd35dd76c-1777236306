@@ -31,7 +31,7 @@ import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { formatZAR } from "@/lib/formatters";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { PortalShell, PortalHeader,
-  PageWorkbench,
+  PageWorkbench, PortalCard, StatTile,
 } from "@/components/portal/ui";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
@@ -128,6 +128,13 @@ function KitchenStaffPage() {
     const onKey = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement) return;
       if (e.target instanceof HTMLTextAreaElement) return;
+      // Command-centre audit (2026-07-02): widen the typing guards.
+      // "n" pressed while focus sat on a select or inside an open
+      // dialog used to yank the Add-staff dialog over whatever the
+      // operator was doing (e.g. mid-archive confirmation).
+      if (e.target instanceof HTMLSelectElement) return;
+      if (e.target instanceof HTMLElement && e.target.isContentEditable) return;
+      if (typeof document !== "undefined" && document.querySelector('[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]')) return;
       if (e.key === "/" && !e.metaKey && !e.ctrlKey) {
         e.preventDefault();
         searchRef.current?.focus();
@@ -337,10 +344,14 @@ function KitchenStaffPage() {
     const missingRate = active.filter(isStaffRateless).length;
     const archived = staff.filter(s => !s.is_active || !!s.deleted_at).length;
     const ratelessNames = active.filter(isStaffRateless).map(s => s.full_name).slice(0, 5);
+    // Command-centre audit (2026-07-02): portal-login split for the
+    // stat row. Everyone else is clock-in only (manager clocks them).
+    const portalLogins = active.filter(s => !!s.linked_profile_id).length;
     return {
       total: active.length,
       missingRate,
       archived,
+      portalLogins,
       ratelessNames,
       ratelessMore: Math.max(0, active.filter(isStaffRateless).length - 5),
     };
@@ -552,7 +563,10 @@ function KitchenStaffPage() {
     // STA-A (staff audit, STA-2): admin trio per cross-page
     // consistency. COMPANY_ADMIN was missing - same pattern as
     // ORD-6 / LDS-10 pre-fix.
-    <ProtectedRoute allowedRoles={[UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN]}>
+    // Command-centre audit (2026-07-02): OWNER admitted. The owner
+    // persona was the only baseline admin role bounced off their own
+    // staff roster (every sibling admin page already admits OWNER).
+    <ProtectedRoute allowedRoles={[UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.OWNER]}>
       <Head><title>Staff & rates - CateringMS</title></Head>
       <NoIndexMeta />
       <AdminNav />
@@ -596,6 +610,15 @@ function KitchenStaffPage() {
             }
             actions={
             <>
+              {/* Command-centre restructure (2026-07-02): the wage-
+                  dashboard shortcut moved out of the old stat strip
+                  into the hero actions. */}
+              <Link href={withSlug("/admin/wages")}>
+                <Button variant="outline">
+                  <Banknote className="w-4 h-4 mr-2" />
+                  Wage dashboard
+                </Button>
+              </Link>
               {/* Phase 28 #1: manual refresh. The roster loads once
                   on mount; a manager who has just added or
                   archived a staff member from another tab needs
@@ -716,120 +739,130 @@ function KitchenStaffPage() {
             </Alert>
           )}
 
-          {/* Stat strip */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
-            <Card>
-              <CardContent className="p-4">
-                <p className="text-xs uppercase tracking-wider text-slate-500 mb-1">Active staff</p>
-                <p className="text-2xl font-bold text-slate-900 tabular-nums">{stats.total}</p>
-              </CardContent>
-            </Card>
-            <Card className={`${stats.missingRate > 0 ? "bg-amber-50" : ""}`}>
-              <CardContent className="p-4">
-                <p className="text-xs uppercase tracking-wider text-slate-500 mb-1 flex items-center gap-1">
-                  Missing rate
-                  {stats.missingRate > 0 && <AlertTriangle className="w-3 h-3 text-amber-600" />}
-                </p>
-                <p className={`text-2xl font-bold tabular-nums ${stats.missingRate > 0 ? "text-amber-700" : "text-slate-900"}`}>
-                  {stats.missingRate}
-                </p>
-                {stats.missingRate > 0 && (
-                  <p className="text-[11px] text-amber-700 mt-1">Wage dashboard skips staff without rates</p>
-                )}
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4 flex items-center justify-between">
-                <div>
-                  <p className="text-xs uppercase tracking-wider text-slate-500 mb-1">Wage dashboard</p>
-                  <p className="text-sm font-medium text-slate-700">Hours x rates roll-up</p>
-                </div>
-                <Link href={withSlug("/admin/wages")} className="text-brand-primary hover:opacity-80 inline-flex items-center gap-1 text-sm font-medium">
-                  Open <ExternalLink className="w-3 h-3" />
-                </Link>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Department filter chips - 'All' shows the company-wide hub,
-              picking a department narrows to staff who can work it. */}
-          <div className="mb-3 flex flex-wrap items-center gap-2">
-            {([{ id: "all", label: "All staff" }, ...ALL_DEPARTMENTS] as const).map((d) => {
-              const active = filterDept === d.id;
-              const count = d.id === "all"
-                ? staff.filter((s) => s.is_active && !s.deleted_at).length
-                : staff.filter((s) =>
-                    s.is_active && !s.deleted_at &&
-                    Array.isArray(s.departments) &&
-                    s.departments.includes(d.id),
-                  ).length;
-              return (
-                <button
-                  key={d.id}
-                  type="button"
-                  onClick={() => setFilterDept(d.id)}
-                  className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${
-                    active
-                      ? "bg-brand-primary/10 text-brand-primary border-brand-primary/20"
-                      : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
-                  }`}
-                >
-                  {d.label}
-                  <span className={`ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] ${active ? "bg-white/60" : "bg-slate-100 text-slate-600"}`}>
-                    {count}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Search + archived toggle + sort */}
-          <div className="flex flex-col sm:flex-row gap-3 mb-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <Input
-                ref={searchRef}
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search by name, role or phone... (press /)"
-                className="pl-9 pr-9"
+          {/* Command-centre restructure (2026-07-02): the 3-card
+              stat strip is now the standard StatTile row. The wage-
+              dashboard shortcut that lived in the third card moved
+              to the hero actions. A loading skeleton renders inside
+              the shell so zeros never masquerade as real counts. */}
+          {loading ? (
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6" aria-hidden="true">
+              {[0, 1, 2, 3].map((i) => (
+                <div key={i} className="h-28 animate-pulse rounded-xl border border-slate-200/90 bg-white/70 dark:border-slate-800 dark:bg-slate-900/60" />
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+              <StatTile
+                label="Active staff"
+                value={stats.total}
+                icon={Users}
+                hint="Across every department"
               />
-              {/* Phase 25 #4: clear-search affordance. */}
-              {search && (
-                <button
-                  type="button"
-                  onClick={() => setSearch("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
-                  title="Clear search"
-                  aria-label="Clear search"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              )}
+              <StatTile
+                label="Missing rate"
+                value={stats.missingRate > 0
+                  ? <span className="text-amber-700">{stats.missingRate}</span>
+                  : stats.missingRate}
+                icon={AlertTriangle}
+                hint={stats.missingRate > 0
+                  ? <span className="text-amber-700">Wage dashboard skips staff without rates</span>
+                  : "Every active staffer has a rate"}
+              />
+              <StatTile
+                label="Portal logins"
+                value={stats.portalLogins}
+                icon={ExternalLink}
+                hint={`${Math.max(0, stats.total - stats.portalLogins)} clock-in only`}
+              />
+              <StatTile
+                label="Archived"
+                value={stats.archived}
+                icon={Archive}
+                hint="History kept on the wage dashboard"
+              />
             </div>
-            <div className="flex items-center gap-2 px-3 rounded-md border border-slate-200 bg-white">
-              <Switch id="archived" checked={showArchived} onCheckedChange={setShowArchived} />
-              <Label htmlFor="archived" className="text-sm text-slate-700 cursor-pointer select-none">
-                Show archived
-                {stats.archived > 0 && (
-                  <span className="ml-1.5 text-xs text-slate-500">({stats.archived})</span>
+          )}
+
+          {/* Command-centre restructure (2026-07-02): department
+              chips + search + archived toggle + sort grouped into
+              ONE toolbar card instead of three loose rows. */}
+          <PortalCard className="mb-6">
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+              {([{ id: "all", label: "All staff" }, ...ALL_DEPARTMENTS] as const).map((d) => {
+                const active = filterDept === d.id;
+                const count = d.id === "all"
+                  ? staff.filter((s) => s.is_active && !s.deleted_at).length
+                  : staff.filter((s) =>
+                      s.is_active && !s.deleted_at &&
+                      Array.isArray(s.departments) &&
+                      s.departments.includes(d.id),
+                    ).length;
+                return (
+                  <button
+                    key={d.id}
+                    type="button"
+                    onClick={() => setFilterDept(d.id)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${
+                      active
+                        ? "bg-brand-primary/10 text-brand-primary border-brand-primary/20"
+                        : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+                    }`}
+                  >
+                    {d.label}
+                    <span className={`ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] ${active ? "bg-white/60" : "bg-slate-100 text-slate-600"}`}>
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <Input
+                  ref={searchRef}
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search by name, role or phone... (press /)"
+                  className="pl-9 pr-9"
+                />
+                {/* Phase 25 #4: clear-search affordance. */}
+                {search && (
+                  <button
+                    type="button"
+                    onClick={() => setSearch("")}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
+                    title="Clear search"
+                    aria-label="Clear search"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
                 )}
-              </Label>
+              </div>
+              <div className="flex items-center gap-2 px-3 py-2 rounded-md border border-slate-200 bg-white">
+                <Switch id="archived" checked={showArchived} onCheckedChange={setShowArchived} />
+                <Label htmlFor="archived" className="text-sm text-slate-700 cursor-pointer select-none">
+                  Show archived
+                  {stats.archived > 0 && (
+                    <span className="ml-1.5 text-xs text-slate-500">({stats.archived})</span>
+                  )}
+                </Label>
+              </div>
+              <SortMenu
+                activeKey={staffSort.sortKey}
+                activeDir={staffSort.sortDir}
+                onPick={staffSort.setSort}
+                options={[
+                  { key: "name",   dir: "asc",  label: "Name (A to Z)" },
+                  { key: "name",   dir: "desc", label: "Name (Z to A)" },
+                  { key: "role",   dir: "asc",  label: "Role (A to Z)" },
+                  { key: "rate",   dir: "desc", label: "Rate (high to low)" },
+                  { key: "rate",   dir: "asc",  label: "Rate (low to high)" },
+                  { key: "status", dir: "asc",  label: "Active first" },
+                ]}
+              />
             </div>
-            <SortMenu
-              activeKey={staffSort.sortKey}
-              activeDir={staffSort.sortDir}
-              onPick={staffSort.setSort}
-              options={[
-                { key: "name",   dir: "asc",  label: "Name (A to Z)" },
-                { key: "name",   dir: "desc", label: "Name (Z to A)" },
-                { key: "role",   dir: "asc",  label: "Role (A to Z)" },
-                { key: "rate",   dir: "desc", label: "Rate (high to low)" },
-                { key: "rate",   dir: "asc",  label: "Rate (low to high)" },
-                { key: "status", dir: "asc",  label: "Active first" },
-              ]}
-            />
-          </div>
+          </PortalCard>
 
           {/* Staff list */}
           <Card>

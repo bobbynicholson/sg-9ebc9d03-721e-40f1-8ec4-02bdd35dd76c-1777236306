@@ -56,11 +56,11 @@ import { canAccessFinance } from "@/lib/authGuards";
 import { captureException } from "@/lib/observability";
 import { teamBucketsForUser } from "@/lib/teamRoleBuckets";
 import {
-  Truck, ArrowLeft, Users, Clock, ClipboardList, Loader2,
+  Truck, ArrowLeft, Users, Clock, ClipboardList,
   Receipt, Map as MapIcon, Car, AlertTriangle, Banknote, CalendarDays,
   CheckCircle2, ArrowRight, Flame, Wrench, Snowflake,
 } from "lucide-react";
-import { PageWorkbench, PortalHeader, PortalShell } from "@/components/portal/ui";
+import { PageWorkbench, PortalHeader, PortalShell, StatTile } from "@/components/portal/ui";
 
 function startOfWeek(): Date {
   const d = new Date();
@@ -234,11 +234,19 @@ function DriversTeamPage() {
         // 7d. driver_assignments.status enum is assigned / accepted /
         // en_route / picked_up / at_venue / delivered / completed /
         // rejected / cancelled - no 'declined' or 'no_show' value.
-        const issuesQ = supabase.from("driver_assignments")
-          .select("id", { count: "exact", head: true })
+        // Command-centre audit (2026-07-02): region scope via the
+        // joined order when the region filter is active - pre-fix a
+        // regional admin saw the company-wide issues count while every
+        // other number on the page was scoped to their region.
+        let issuesQ = supabase.from("driver_assignments")
+          .select(
+            regionFilterId ? "id, orders!inner(region_id, company_id, deleted_at)" : "id",
+            { count: "exact", head: true },
+          )
           .eq("company_id", companyId)
           .in("status", ["rejected", "cancelled"])
           .gte("created_at", weekAgoISO);
+        if (regionFilterId) issuesQ = issuesQ.eq("orders.region_id", regionFilterId);
 
         // Outstanding driver settlement (finance-gated at render).
         // driver_payouts uses gross_total, not total_amount.
@@ -508,29 +516,56 @@ function DriversTeamPage() {
             </Card>
           )}
 
-          {/* DRV-A: linkified quick-stat badges + clocked-now chip +
-              wage burn (finance-gated) + settlement owed (finance-
-              gated) + unassigned-deliveries red chip (the dispatch
-              manager's biggest worry first thing in the morning). */}
+          {/* Command-centre restructure (2026-07-02): loading skeleton
+              INSIDE the shell. Pre-fix the intel cards rendered their
+              zero-state copy ("No deliveries today") while the first
+              load was still running, which reads as real data. */}
+          {loading && (
+            <div aria-hidden="true">
+              <div className="grid grid-cols-2 gap-4 mb-6 lg:grid-cols-4">
+                {[0, 1, 2, 3].map((i) => (
+                  <div key={i} className="h-28 animate-pulse rounded-xl border border-slate-200/90 bg-white dark:border-slate-800 dark:bg-slate-900/95" />
+                ))}
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-4">
+                {[0, 1, 2, 3].map((i) => (
+                  <div key={i} className="h-24 animate-pulse rounded-lg border border-slate-200 bg-white shadow-sm" />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Command-centre restructure (2026-07-02): the three roster
+              quick-stat badges became the standard StatTile row (real
+              aggregates, same links). Semantic chips (clocked, unassigned,
+              finance) stay as the strip below. */}
+          {!loading && !error && (
+            <div className="grid grid-cols-2 gap-4 mb-6 lg:grid-cols-4">
+              <Link href={withSlug("/admin/driver-management")} className="block">
+                <StatTile label="Active drivers" value={stats.active} icon={Users} hint="Roster, availability, ratings." />
+              </Link>
+              <Link href={withSlug("/admin/driver-settlement")} className="block">
+                <StatTile label="Hours this week" value={`${stats.hoursWeek}h`} icon={Clock} hint="From driver shifts, Monday to now." />
+              </Link>
+              <Link href={withSlug(`/admin/order-assignments?date=${toLocalISO(new Date())}`)} className="block">
+                <StatTile label="Assignments today" value={stats.jobsToday} icon={ClipboardList} hint="Deliveries on today's board." />
+              </Link>
+              <Link href={withSlug("/admin/order-assignments?filter=unassigned")} className="block">
+                <StatTile
+                  label="Unassigned today"
+                  value={stats.unassignedToday}
+                  icon={AlertTriangle}
+                  hint={stats.unassignedToday > 0 ? "Confirmed events with no accepted driver." : "Every event has a driver."}
+                />
+              </Link>
+            </div>
+          )}
+
+          {/* DRV-A: clocked-now chip + wage burn (finance-gated) +
+              settlement owed (finance-gated) + unassigned-deliveries
+              red chip (the dispatch manager's biggest worry first
+              thing in the morning). */}
           <div className="flex flex-wrap gap-2 mb-4">
-            <Link href={withSlug("/admin/driver-management")}>
-              <Badge variant="secondary" className="px-3 py-1.5 text-sm cursor-pointer hover:bg-slate-200">
-                {loading ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Users className="w-3 h-3 mr-1" />}
-                {stats.active} active
-              </Badge>
-            </Link>
-            <Link href={withSlug("/admin/driver-settlement")}>
-              <Badge variant="secondary" className="px-3 py-1.5 text-sm cursor-pointer hover:bg-slate-200">
-                <Clock className="w-3 h-3 mr-1" />
-                {stats.hoursWeek}h this week
-              </Badge>
-            </Link>
-            <Link href={withSlug(`/admin/order-assignments?date=${toLocalISO(new Date())}`)}>
-              <Badge variant="secondary" className="px-3 py-1.5 text-sm cursor-pointer hover:bg-slate-200">
-                <ClipboardList className="w-3 h-3 mr-1" />
-                {stats.jobsToday} assignment{stats.jobsToday === 1 ? "" : "s"} today
-              </Badge>
-            </Link>
             {stats.active > 0 && (
               <Badge
                 variant="outline"
@@ -605,8 +640,10 @@ function DriversTeamPage() {
             </div>
           )}
 
-          {/* DRV-A: 4-card intel grid above the tile shortcuts. */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-4">
+          {/* DRV-A: 4-card intel grid above the tile shortcuts. Hidden
+              while loading (the skeleton above stands in) so the zero-
+              state copy never shows for data that hasn't arrived. */}
+          <div className={`grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-4 ${loading ? "hidden" : ""}`}>
             {/* Today's deliveries pipeline. */}
             <Link href={withSlug("/admin/order-assignments")}>
               <Card className={`border shadow-sm transition-colors hover:border-slate-300 ${stats.asnOverdue > 0 ? "border-rose-200 bg-rose-50" : "border-slate-200 bg-white"}`}>

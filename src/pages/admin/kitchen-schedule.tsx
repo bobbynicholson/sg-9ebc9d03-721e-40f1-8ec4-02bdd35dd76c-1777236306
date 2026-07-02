@@ -28,13 +28,14 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { DynamicNav } from "@/components/DynamicNav";
 import { PortalShell, PortalHeader,
   PageWorkbench,
+  StatTile,
 } from "@/components/portal/ui";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { useAuth } from "@/contexts/AuthContext";
 import { useOrderRefreshSignal } from "@/hooks/useOrderRefreshSignal";
 import { supabase } from "@/integrations/supabase/client";
-import { CalendarClock, ChevronLeft, ChevronRight, Plus, Loader2, Download, RefreshCw, AlertTriangle, Users, ExternalLink, LayoutGrid, Calendar as CalendarIcon } from "lucide-react";
+import { CalendarClock, ChevronLeft, ChevronRight, Plus, Loader2, Download, RefreshCw, AlertTriangle, Users, ExternalLink, LayoutGrid, Calendar as CalendarIcon, Clock } from "lucide-react";
 import Link from "next/link";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { staffOrderHref } from "@/lib/orderUrls";
@@ -419,6 +420,20 @@ function KitchenScheduleGrid() {
   // "Today" follows the tenant's wall clock, not the browser's.
   const todayIso = toLocalISO(tenantToday(tenantTimezone || DEFAULT_TENANT_TIMEZONE));
 
+  // Command-centre stat row: real aggregates over the fetched range
+  // (week or month grid). Missed = flagged by the clock sweep OR a
+  // past scheduled shift never clocked in.
+  const stats = useMemo(() => {
+    let plannedH = 0;
+    let missed = 0;
+    for (const s of shifts) {
+      plannedH += plannedHours(s.planned_start, s.planned_end);
+      const isPast = s.shift_date < todayIso;
+      if (s.status === "missed" || (isPast && !s.actual_start && s.status === "scheduled")) missed += 1;
+    }
+    return { plannedH, missed };
+  }, [shifts, todayIso]);
+
   return (
     <>
       <Head><title>Kitchen schedule - CateringMS</title></Head>
@@ -521,9 +536,15 @@ function KitchenScheduleGrid() {
                     };
                     const headers = ["Chef", "Email", "Day", "Date", "Planned start", "Planned end", "Planned hours", "Actual hours", "Status", "Rate multiplier"];
                     const lines = [headers.join(",")];
+                    // Export what's on screen: the whole fetched range
+                    // (7 days in week view, the full grid in month
+                    // view). Pre-fix the month view exported only the
+                    // last-visited week.
+                    const exportDays: Date[] = [];
+                    for (let d = fetchRange.from; d <= fetchRange.to; d = addDays(d, 1)) exportDays.push(d);
                     for (const p of staff) {
-                      for (let i = 0; i < weekDays.length; i++) {
-                        const day = weekDays[i];
+                      for (let i = 0; i < exportDays.length; i++) {
+                        const day = exportDays[i];
                         const iso = toLocalISO(day);
                         const dayShifts = shiftIndex[`${p.id}|${iso}`] || [];
                         if (dayShifts.length === 0) continue;
@@ -531,7 +552,7 @@ function KitchenScheduleGrid() {
                           lines.push([
                             esc(p.full_name || ""),
                             esc(p.email || ""),
-                            esc(DAY_LABELS[i]),
+                            esc(DAY_LABELS[(day.getDay() + 6) % 7]),
                             esc(iso),
                             esc(fmtTime(s.planned_start)),
                             esc(fmtTime(s.planned_end)),
@@ -548,7 +569,7 @@ function KitchenScheduleGrid() {
                     const url = URL.createObjectURL(blob);
                     const a = document.createElement("a");
                     a.href = url;
-                    a.download = `kitchen-schedule-${toLocalISO(weekStart)}.csv`;
+                    a.download = `kitchen-schedule-${toLocalISO(fetchRange.from)}.csv`;
                     document.body.appendChild(a);
                     a.click();
                     document.body.removeChild(a);
@@ -562,6 +583,34 @@ function KitchenScheduleGrid() {
               }
             />
             <PageWorkbench />
+
+            {/* Stat row: live aggregates for the range in view. */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+              <StatTile
+                label="Chefs on roster"
+                value={loading ? "…" : staff.length}
+                icon={Users}
+                hint="Kitchen-eligible staff"
+              />
+              <StatTile
+                label="Shifts in view"
+                value={loading ? "…" : shifts.length}
+                icon={CalendarClock}
+                hint={viewMode === "week" ? "This week" : "This month"}
+              />
+              <StatTile
+                label="Planned hours"
+                value={loading ? "…" : `${stats.plannedH.toFixed(1)}h`}
+                icon={Clock}
+                hint="Sum of rostered time"
+              />
+              <StatTile
+                label="Events booked"
+                value={loading ? "…" : orders.length}
+                icon={CalendarIcon}
+                hint={stats.missed > 0 ? `${stats.missed} missed shift${stats.missed === 1 ? "" : "s"} in range` : "Demand in this range"}
+              />
+            </div>
 
             {loadError && (
               <Alert variant="destructive">
@@ -704,14 +753,14 @@ function KitchenScheduleGrid() {
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="text-left">
-                          <th className="px-3 py-2 text-xs uppercase tracking-wider text-slate-500 font-semibold sticky left-0 bg-white">
+                          <th className="px-3 py-2 text-[10px] uppercase tracking-wider text-slate-500 font-semibold sticky left-0 bg-white">
                             Chef
                           </th>
                           {weekDays.map((d, i) => {
                             const iso = toLocalISO(d);
                             const isToday = iso === todayIso;
                             return (
-                              <th key={i} className={`px-2 py-2 text-xs uppercase tracking-wider font-semibold text-center min-w-[110px] ${isToday ? "text-brand-primary" : "text-slate-500"}`}>
+                              <th key={i} className={`px-2 py-2 text-[10px] uppercase tracking-wider font-semibold text-center min-w-[110px] ${isToday ? "text-brand-primary" : "text-slate-500"}`}>
                                 <div>{DAY_LABELS[i]}</div>
                                 <div className={`text-[10px] tabular-nums ${isToday ? "text-brand-primary" : "text-slate-400"}`}>
                                   {d.toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}
@@ -719,7 +768,7 @@ function KitchenScheduleGrid() {
                               </th>
                             );
                           })}
-                          <th className="px-3 py-2 text-xs uppercase tracking-wider text-slate-500 font-semibold text-right">Total</th>
+                          <th className="px-3 py-2 text-[10px] uppercase tracking-wider text-slate-500 font-semibold text-right">Total</th>
                         </tr>
                       </thead>
                       {/* Wave 66.2 - events overlay row. Surfaces the
@@ -731,7 +780,7 @@ function KitchenScheduleGrid() {
                           shifts on the same date. */}
                       <tbody className="border-b-2 border-slate-200">
                         <tr className="bg-slate-50/60">
-                          <td className="px-3 py-2 text-xs uppercase tracking-wider text-slate-500 font-semibold sticky left-0 bg-slate-50/60">
+                          <td className="px-3 py-2 text-[10px] uppercase tracking-wider text-slate-500 font-semibold sticky left-0 bg-slate-50/60">
                             Events
                           </td>
                           {weekDays.map((d, i) => {
@@ -780,7 +829,7 @@ function KitchenScheduleGrid() {
                         {staff.map((p) => {
                           let staffTotal = 0;
                           return (
-                            <tr key={p.id} className="hover:bg-slate-50">
+                            <tr key={p.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40">
                               <td className="px-3 py-2 sticky left-0 bg-white">
                                 <div className="font-medium text-slate-900 truncate">{p.full_name || p.email}</div>
                                 <div className="text-[11px] text-slate-500 truncate capitalize">{displayRosterRole(p)}</div>
@@ -870,7 +919,7 @@ function KitchenScheduleGrid() {
                       </tbody>
                       <tfoot>
                         <tr className="border-t-2 border-slate-200">
-                          <td className="px-3 py-2 text-xs uppercase tracking-wider text-slate-500 font-semibold sticky left-0 bg-white">
+                          <td className="px-3 py-2 text-[10px] uppercase tracking-wider text-slate-500 font-semibold sticky left-0 bg-white">
                             Day total
                           </td>
                           {dayTotals.map((h, i) => (
@@ -912,7 +961,7 @@ function KitchenScheduleGrid() {
                       <div>
                         <div className="grid grid-cols-7 gap-px bg-slate-200 border border-slate-200 rounded-md overflow-hidden">
                           {DAY_LABELS.map((lbl) => (
-                            <div key={lbl} className="bg-slate-50 px-1 sm:px-2 py-1.5 text-[10px] sm:text-xs uppercase tracking-wider text-slate-500 font-semibold text-center">
+                            <div key={lbl} className="bg-slate-50 px-1 sm:px-2 py-1.5 text-[10px] sm:text-[10px] uppercase tracking-wider text-slate-500 font-semibold text-center">
                               <span className="hidden sm:inline">{lbl}</span>
                               <span className="sm:hidden">{lbl.slice(0, 1)}</span>
                             </div>
@@ -1057,7 +1106,7 @@ function KitchenScheduleGrid() {
 
 export default function ProtectedKitchenSchedulePage() {
   return (
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.KITCHEN_MANAGER]}>
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.OWNER, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.KITCHEN_MANAGER]}>
       <KitchenScheduleGrid />
     </ProtectedRoute>
   );

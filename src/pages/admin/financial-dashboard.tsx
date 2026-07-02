@@ -13,7 +13,7 @@ import { fixedCostsService } from "@/services/fixedCostsService";
 import { orderService } from "@/services/orderService";
 import { paymentLedgerService } from "@/services/paymentLedgerService";
 import { aiFinancialService } from "@/services/aiFinancialService";
-import * as currencyUtils from "@/lib/currencyUtils";
+import { formatZAR } from "@/lib/formatters";
 import { formatLocalDate } from "@/lib/localFormat";
 import { isPipelineRevenue } from "@/lib/orderRevenueClassification";
 import { DEFAULT_TENANT_TIMEZONE, parseLocalDay, tenantToday, toLocalISO } from "@/lib/localDate";
@@ -167,7 +167,12 @@ function FinancialDashboardInner() {
       // touches the joined client / order_items / driver / chef /
       // vehicle objects. Pull the light shape so we don't haul
       // hundreds of order_items(*) rows we'll never look at.
-      const ordersData = await orderService.getAllOrders(user.company_id, { mode: "light" });
+      // Audit fix (2026-07-02): explicit limit. getAllOrders defaults
+      // to the 500 most recent rows, which silently truncated
+      // cashReceived / pendingPayments once a tenant passed 500
+      // orders. 2000 is the service ceiling; past that this page
+      // needs a server-side aggregate (flagged, not yet built).
+      const ordersData = await orderService.getAllOrders(user.company_id, { mode: "light", limit: 2000 });
 
       // FIN-E (financial dashboard tabs audit): dropped the
       // aiFinancialService.getPredictiveAnalytics call entirely.
@@ -563,17 +568,27 @@ function FinancialDashboardInner() {
     return Math.min(80, score);
   };
 
+  // Audit 2026-07-02: display goes through formatZAR (the platform
+  // money formatter, thousand separators included) so this page reads
+  // "R 12 500.00" like Payables / Fixed costs / every other finance
+  // surface. currencyUtils.formatCurrency produced "R12500.00".
   const formatCurrency = (amount: number) => {
-    return currencyUtils.formatCurrency(amount, (user?.currency as currencyUtils.CurrencyCode) || "ZAR");
+    return formatZAR(amount, { currency: (user?.currency as string) || "ZAR" });
   };
 
   if (!user) {
     return <div>Please log in to view financial dashboard</div>;
   }
 
-  if (loading) {
+  if (loading && !metrics) {
     // Matches the cashflow-dashboard loading shell: nav stays mounted
     // so the operator isn't dropped onto a bare spinner page.
+    // Audit fix (2026-07-02): only take this path on the FIRST load.
+    // Previously `if (loading)` alone meant every Refresh click and
+    // every realtime-triggered reload (orders / payments / invoices
+    // channels fire on any change) unmounted the whole dashboard to a
+    // spinner page. Held metrics keep rendering while a reload runs;
+    // the hero Refresh button's spin state shows progress.
     return (
       <>
         <Head><title>Financial dashboard - CateringMS</title></Head>
@@ -617,11 +632,21 @@ function FinancialDashboardInner() {
   // has no orders + zero cash received + zero projected + zero pending,
   // render a "no financial activity yet" card explaining what'll
   // populate the page. Matches the cashflow-dashboard pattern.
+  // Audit fix (2026-07-02): the guard also checks wages / fixed costs
+  // / supplier payables and requires zero partial failures. Before,
+  // a tenant with no orders yet but R8,600 of fixed costs (or a
+  // broken cost feed) hit the "No financial activity yet" page, which
+  // hid real outflow data and masked the partial-failure banner. Same
+  // guard class the cashflow-dashboard got in CASH-B.
   const isFinancialZero = !loadError
+    && partialFailures.length === 0
     && orders.length === 0
     && (metrics?.cashReceived || 0) === 0
     && (metrics?.projectedRevenue30Days || 0) === 0
-    && (metrics?.pendingPayments || 0) === 0;
+    && (metrics?.pendingPayments || 0) === 0
+    && (metrics?.staffPaymentsOwed || 0) === 0
+    && (metrics?.fixedCostsNext30 || 0) === 0
+    && (metrics?.supplierPayablesNext30 || 0) === 0;
 
   // TIGHTEN I.29 (admin.md section 5): when the tenant is in the
   // zero-data state, return a dedicated empty-state page instead
@@ -748,18 +773,35 @@ function FinancialDashboardInner() {
                         const s = String(v).replace(/"/g, '""');
                         return /[",\n]/.test(s) ? `"${s}"` : s;
                       };
+                      // Audit fix (2026-07-02): the exported "Current
+                      // cash flow" was cashReceived - wages only,
+                      // which contradicted the on-page Current Cash
+                      // Flow tile (full net via the canonical
+                      // helper). The snapshot now exports every
+                      // outflow line the tile shows plus the same
+                      // canonical net, so the CSV ties out with the
+                      // page it came from.
+                      const csvNet = computeCurrentCashPosition({
+                        cashReceived: metrics.cashReceived,
+                        wages: metrics.staffPaymentsOwed,
+                        fixedCostsNext30: metrics.fixedCostsNext30,
+                        supplierPayablesNext30: metrics.supplierPayablesNext30,
+                        inventoryCosts: metrics.inventoryCosts,
+                      }).net;
                       const rows: Array<[string, number | string]> = [
                         ["Metric", "Value"],
                         ["Health score", metrics.healthScore],
-                        ["Current cash flow", metrics.currentCashFlow.toFixed(2)],
                         ["Cash received", metrics.cashReceived.toFixed(2)],
                         ["Projected revenue (30d)", metrics.projectedRevenue30Days.toFixed(2)],
                         ["Projected revenue (90d)", metrics.projectedRevenue90Days.toFixed(2)],
                         ["Pending payments", metrics.pendingPayments.toFixed(2)],
                         ["Staff payments owed", metrics.staffPaymentsOwed.toFixed(2)],
+                        ["Fixed costs (next 30d)", metrics.fixedCostsNext30.toFixed(2)],
+                        ["Supplier payables (next 30d)", metrics.supplierPayablesNext30.toFixed(2)],
                         ["Unpaid sessions count", metrics.unpaidSessionsCount],
                         ["Unpaid staff count", metrics.unpaidStaffCount],
                         ["Inventory costs", metrics.inventoryCosts != null ? metrics.inventoryCosts.toFixed(2) : "not connected"],
+                        ["Net cash flow (30d)", csvNet.toFixed(2)],
                         ["Profit margin", metrics.profitMargin != null ? `${metrics.profitMargin.toFixed(1)}%` : "not connected"],
                       ];
                       const lines = rows.map((r) => r.map(esc).join(","));
@@ -1040,7 +1082,7 @@ function FinancialDashboardInner() {
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-1">
                     Profit Margin
-                    <InfoTooltip content={"(Revenue - menu COGS) / revenue, on PAID delivered orders in the last 90 days.\n\nCOGS sourced from order_items.unit_cost - the per-unit cost snapshot from menu_items.cost_per_unit at quote-accept (PR-B). Orders whose line items have no unit_cost snapshot are excluded from both numerator and denominator (legacy data pre-snapshot); the count is surfaced below the tile so the limitation is visible.\n\nPayroll + supplier invoices + fixed costs are NOT folded in - the figure here is a top-line gross margin, not net. See /admin/financial-dashboard cashflow forecast for the net picture."} />
+                    <InfoTooltip content={"(Revenue - menu COGS) / revenue, on PAID delivered orders in the last 90 days.\n\nCOGS sourced from order_items.unit_cost - the per-unit cost snapshot from menu_items.cost_per_unit at quote-accept (PR-B). Orders whose line items have no unit_cost snapshot are excluded from both numerator and denominator (legacy data pre-snapshot); the count is surfaced below the tile so the limitation is visible.\n\nPayroll + supplier invoices + fixed costs are NOT folded in - the figure here is a top-line gross margin, not net. See the Cashflow dashboard (/admin/cashflow-dashboard) for the net picture."} />
                   </CardTitle>
                   <TrendingUp className={`w-5 h-5 ${metrics?.profitMargin != null ? "text-slate-600" : "text-slate-400"}`} />
                 </div>

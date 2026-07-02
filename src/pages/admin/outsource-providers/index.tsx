@@ -23,6 +23,7 @@ import { AdminNav } from "@/components/admin/AdminNav";
 import { CatalogueOperationsStrip } from "@/components/admin/CatalogueOperationsStrip";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { Card, CardContent } from "@/components/ui/card";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -86,8 +87,11 @@ import {
   Send,
   CheckCircle2,
   AlertTriangle,
+  Calendar,
 } from "lucide-react";
-import { PageWorkbench, PortalHeader, PortalShell } from "@/components/portal/ui";
+import {
+  PageWorkbench, PortalCard, PortalHeader, PortalShell, StatTile,
+} from "@/components/portal/ui";
 
 interface FormState {
   provider_name: string;
@@ -273,6 +277,20 @@ function ProvidersList() {
     const set = new Set<string>(COMMON_ROLES.map((r) => r.value));
     for (const p of providers) for (const r of p.provider_roles || []) set.add(r);
     return Array.from(set).sort();
+  }, [providers]);
+
+  // Page-level aggregates for the hero chips + stat tile row. Real
+  // numbers off the loaded list, never hardcoded.
+  const totals = useMemo(() => {
+    const active = providers.filter((p) => p.is_active).length;
+    const bookings = providers.reduce((s, p) => s + Number(p.assignment_count || 0), 0);
+    const accepted = providers.reduce((s, p) => s + Number(p.accepted_count || 0), 0);
+    const cancelled = providers.reduce((s, p) => s + Number(p.cancelled_count || 0), 0);
+    const responded = accepted + cancelled;
+    const acceptRate = responded > 0 ? Math.round((accepted / responded) * 100) : null;
+    const roles = new Set<string>();
+    for (const p of providers) for (const r of p.provider_roles || []) roles.add(r);
+    return { active, all: providers.length, bookings, acceptRate, rolesCovered: roles.size };
   }, [providers]);
 
   const filtered = useMemo(() => {
@@ -523,17 +541,18 @@ function ProvidersList() {
                 <>
                   <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                    {providers.filter((p) => p.is_active).length} active of {providers.length}
+                    {totals.active} active of {totals.all}
                   </span>
-                  {(() => {
-                    const bookings = providers.reduce((s, p) => s + Number(p.assignment_count || 0), 0);
-                    if (bookings <= 0) return null;
-                    return (
-                      <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
-                        {bookings} booking{bookings === 1 ? "" : "s"} on file
-                      </span>
-                    );
-                  })()}
+                  {totals.bookings > 0 && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                      {totals.bookings} booking{totals.bookings === 1 ? "" : "s"} on file
+                    </span>
+                  )}
+                  {totals.acceptRate != null && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                      {totals.acceptRate}% accept rate
+                    </span>
+                  )}
                 </>
               ) : undefined
             }
@@ -559,69 +578,111 @@ function ProvidersList() {
               emails. */}
           {canRunCronDryRun && <CronDryRunPanel />}
 
-          {/* Filters */}
-          <div className="flex flex-col sm:flex-row gap-2 mb-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <Input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search name, contact, specialty, role..."
-                className="pl-9 bg-white"
-              />
-            </div>
-            <Select value={roleFilter} onValueChange={setRoleFilter}>
-              <SelectTrigger className="w-full sm:w-44 bg-white">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All roles</SelectItem>
-                {availableRoles.map((r) => (
-                  <SelectItem key={r} value={r}>{roleLabel(r)}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {regions.length > 0 && (
-              <Select value={regionFilter} onValueChange={setRegionFilter}>
+          {/* Stat tiles: real aggregates from the loaded list. */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <StatTile
+              label="Active providers"
+              value={`${totals.active} / ${totals.all}`}
+              hint="Active of all on file"
+              icon={HardHat}
+            />
+            <StatTile
+              label="Bookings on file"
+              value={`${totals.bookings}`}
+              hint="Assignments across all providers"
+              icon={Calendar}
+            />
+            <StatTile
+              label="Accept rate"
+              value={totals.acceptRate == null ? "-" : `${totals.acceptRate}%`}
+              hint="Accepted vs cancelled requests"
+              icon={CheckCircle2}
+            />
+            <StatTile
+              label="Roles covered"
+              value={`${totals.rolesCovered}`}
+              hint="Distinct service roles you can book"
+              icon={Star}
+            />
+          </div>
+
+          {/* Toolbar: search + filters in one card */}
+          <PortalCard className="mb-6" padded={false}>
+            <div className="p-3 flex flex-col sm:flex-row gap-2 sm:p-4">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <Input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search name, contact, specialty, role..."
+                  className="pl-9 bg-white"
+                />
+              </div>
+              <Select value={roleFilter} onValueChange={setRoleFilter}>
                 <SelectTrigger className="w-full sm:w-44 bg-white">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All regions</SelectItem>
-                  {regions.map((r) => (
-                    <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
+                  <SelectItem value="all">All roles</SelectItem>
+                  {availableRoles.map((r) => (
+                    <SelectItem key={r} value={r}>{roleLabel(r)}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-            )}
-            <label className="inline-flex items-center gap-1.5 text-xs text-slate-700 px-3 py-2 bg-white border border-slate-200 rounded-md cursor-pointer">
-              <input
-                type="checkbox"
-                checked={activeOnly}
-                onChange={(e) => setActiveOnly(e.target.checked)}
-                className="accent-brand-primary"
-              />
-              Active only
-            </label>
-          </div>
+              {regions.length > 0 && (
+                <Select value={regionFilter} onValueChange={setRegionFilter}>
+                  <SelectTrigger className="w-full sm:w-44 bg-white">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All regions</SelectItem>
+                    {regions.map((r) => (
+                      <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+              <label className="inline-flex items-center gap-1.5 text-xs text-slate-700 px-3 py-2 bg-white border border-slate-200 rounded-md cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={activeOnly}
+                  onChange={(e) => setActiveOnly(e.target.checked)}
+                  className="accent-brand-primary"
+                />
+                Active only
+              </label>
+            </div>
+          </PortalCard>
 
           {/* Surfaced load failure with a retry path - never a silent
               empty list. */}
           {loadError && !loading && (
-            <div className="mb-4 rounded-lg border border-rose-200 bg-white p-5 shadow-sm">
-              <h2 className="text-base font-bold text-rose-900 mb-1">Couldn't load providers</h2>
-              <p className="text-sm text-slate-600 mb-3">{loadError}</p>
-              <Button onClick={() => void load()} size="sm" className="bg-brand-primary text-white hover:bg-brand-primary/90">
-                Retry
-              </Button>
-            </div>
+            <Alert variant="destructive" className="mb-6 bg-white dark:bg-slate-900/95">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertTitle>Couldn't load providers</AlertTitle>
+              <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
+                <span>{loadError}</span>
+                <Button onClick={() => void load()} size="sm" variant="outline">
+                  Retry
+                </Button>
+              </AlertDescription>
+            </Alert>
           )}
 
           {/* List */}
           {loading ? (
-            <Card><CardContent className="p-12 text-center text-slate-500">
-              <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2" /> Loading...
-            </CardContent></Card>
+            // Skeleton keeps the shell + rail mounted while loading.
+            <Card>
+              <CardContent className="p-4 space-y-3" aria-busy="true" aria-label="Loading providers">
+                {[0, 1, 2, 3].map((i) => (
+                  <div key={i} className="flex items-center gap-4 animate-pulse">
+                    <div className="h-4 w-40 rounded bg-slate-200 dark:bg-slate-800" />
+                    <div className="h-4 flex-1 rounded bg-slate-100 dark:bg-slate-800/60" />
+                    <div className="h-4 w-24 rounded bg-slate-100 dark:bg-slate-800/60" />
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
           ) : loadError ? null : providers.length === 0 ? (
             <Card className="border-2 border-dashed">
               <CardContent className="p-12 text-center">
@@ -675,8 +736,10 @@ function ProvidersList() {
                                 {Number(p.rating).toFixed(1)}
                               </span>
                             )}
+                            {/* Role chips are decorative category chrome -
+                                brand tint, not the off-palette blue. */}
                             {(p.provider_roles || []).map((r) => (
-                              <Badge key={r} variant="outline" className="text-[10px] bg-blue-50 text-blue-700 border-blue-200">
+                              <Badge key={r} variant="outline" className="text-[10px] bg-brand-primary/10 text-brand-primary border-brand-primary/20">
                                 {roleLabel(r)}
                               </Badge>
                             ))}

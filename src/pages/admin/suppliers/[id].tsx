@@ -14,6 +14,7 @@ import Head from "next/head";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -24,7 +25,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ArrowLeft, Building2, Mail, Phone, Globe, Send, Copy, ExternalLink, Calendar, TrendingUp, Package, Receipt, Plus, Trash2, Star, Loader2, Search } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Building2, Mail, Phone, Globe, Send, Copy, ExternalLink, Calendar, TrendingUp, Package, Receipt, Plus, Trash2, Star, Loader2, Search } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
@@ -41,9 +42,13 @@ import {
   type SupplierPurchaseSummary, type SupplierReceiptRow,
 } from "@/services/supplierService";
 import { PageWorkbench, PortalHeader, PortalShell } from "@/components/portal/ui";
+import { formatZAR } from "@/lib/formatters";
+import { captureException } from "@/lib/observability";
 
+// Money display goes through formatZAR so this page renders the same
+// "R 15 453.50" shape as every other admin surface.
 const fmtR = (v: number | null | undefined) =>
-  v == null ? "-" : `R ${Number(v).toLocaleString("en-ZA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  v == null ? "-" : formatZAR(v);
 
 const fmtDate = (iso: string | null) =>
   !iso ? "-" : new Date(iso).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" });
@@ -64,6 +69,16 @@ function SupplierDetail() {
   const { profile, user } = useAuth() as any;
   const companyId = profile?.company_id;
   const { toast } = useToast();
+
+  // Finance-vis gate, same rule as the /admin/suppliers list: sales /
+  // region admin may open the page for contact + product context but
+  // rand figures stay hidden. Before this the detail page simply
+  // denied those roles, so every supplier link on the list 403'd for
+  // them while the list itself let them in.
+  const financeRole = String(profile?.active_role || profile?.role || "").toLowerCase();
+  const canSeeFinance =
+    financeRole === "owner" || financeRole === "company_admin" ||
+    financeRole === "admin" || financeRole === "super_admin";
 
   const [supplier, setSupplier] = useState<Supplier | null>(null);
   const [products, setProducts] = useState<SupplierProduct[]>([]);
@@ -114,7 +129,7 @@ function SupplierDetail() {
     const toDate = toIso.slice(0, 10);
     try {
       const [s, prods, sum, rcpts, relRes] = await Promise.all([
-        supplierService.getById(supplierId),
+        supplierService.getById(supplierId, companyId),
         supplierService.listProducts(supplierId),
         supplierService.getPurchaseSummary({ supplierId, companyId, fromIso, toIso }),
         supplierService.listReceipts({ supplierId, companyId, fromIso, toIso }),
@@ -140,6 +155,7 @@ function SupplierDetail() {
       setRelatedOrders(((relRes as any)?.data || []) as any[]);
       setLoadError(null);
     } catch (e: unknown) {
+      captureException(e, { tags: { surface: "admin/suppliers/[id]", area: "load", tenant: companyId } });
       setLoadError(e instanceof Error ? e.message : "Could not load this supplier.");
       toast({
         title: "Could not load supplier",
@@ -185,7 +201,7 @@ function SupplierDetail() {
                   <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
                     {receipts.length} receipt{receipts.length === 1 ? "" : "s"} in window
                   </span>
-                  {summary && Number(summary.total_spend || 0) > 0 && (
+                  {canSeeFinance && summary && Number(summary.total_spend || 0) > 0 && (
                     <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
                       {fmtR(summary.total_spend)} spend in window
                     </span>
@@ -206,19 +222,30 @@ function SupplierDetail() {
           <PageWorkbench />
 
           {loadError && (
-            <div className="mb-5 rounded-lg border border-rose-200 bg-white p-5 shadow-sm">
-              <h2 className="text-base font-bold text-rose-900 mb-1">Couldn't load this supplier</h2>
-              <p className="text-sm text-slate-600 mb-3">{loadError}</p>
-              <Button onClick={reload} size="sm" disabled={loading} className="bg-brand-primary text-white hover:bg-brand-primary/90">
-                Retry
-              </Button>
-            </div>
+            <Alert variant="destructive" className="mb-6 bg-white dark:bg-slate-900/95">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertTitle>Couldn't load this supplier</AlertTitle>
+              <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
+                <span>{loadError}</span>
+                <Button onClick={reload} size="sm" variant="outline" disabled={loading}>
+                  Retry
+                </Button>
+              </AlertDescription>
+            </Alert>
           )}
 
           {loading ? (
-            <Card><CardContent className="py-16 text-center text-slate-500">
-              <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" /> Loading supplier...
-            </CardContent></Card>
+            // Skeleton inside the shell - nav + hero stay mounted.
+            <Card>
+              <CardContent className="py-6 space-y-3" aria-busy="true" aria-label="Loading supplier">
+                {[0, 1, 2, 3].map((i) => (
+                  <div key={i} className="flex items-center gap-4 animate-pulse">
+                    <div className="h-4 w-40 rounded bg-slate-200 dark:bg-slate-800" />
+                    <div className="h-4 flex-1 rounded bg-slate-100 dark:bg-slate-800/60" />
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
           ) : !supplier ? (
             // Distinct not-found state - previously !supplier fell into
             // the loading branch and span forever on a bad or foreign id.
@@ -230,7 +257,7 @@ function SupplierDetail() {
           ) : (
             <>
               {/* Contact + terms (title and primary CTA live in the PortalHeader) */}
-              <Card className="mb-5">
+              <Card className="mb-6">
                 <CardContent className="pt-5 pb-5">
                   <div className="min-w-0">
                     <div className="flex items-center gap-3 flex-wrap text-sm text-slate-600">
@@ -271,7 +298,7 @@ function SupplierDetail() {
               </Card>
 
               {/* Date range + summary tiles */}
-              <Card className="mb-5">
+              <Card className="mb-6">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-base flex items-center gap-2">
                     <TrendingUp className="w-4 h-4 text-brand-primary" />
@@ -313,19 +340,19 @@ function SupplierDetail() {
                     )}
                   </div>
 
-                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                    <SummaryTile label="Total spend" value={fmtR(summary?.total_spend ?? 0)} accent="emerald" icon={TrendingUp} />
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                    <SummaryTile label="Total spend" value={canSeeFinance ? fmtR(summary?.total_spend ?? 0) : "Hidden"} accent="emerald" icon={TrendingUp} />
                     <SummaryTile label="Receipts" value={String(summary?.receipt_count ?? 0)} icon={Receipt} />
                     <SummaryTile label="Unique items" value={String(summary?.unique_items ?? 0)} icon={Package} />
-                    <SummaryTile label="Avg receipt" value={fmtR(summary?.avg_receipt_value ?? 0)} icon={Calendar} />
+                    <SummaryTile label="Avg receipt" value={canSeeFinance ? fmtR(summary?.avg_receipt_value ?? 0) : "Hidden"} icon={Calendar} />
                   </div>
 
-                  {summary && summary.by_item.length > 0 && (
+                  {canSeeFinance && summary && summary.by_item.length > 0 && (
                     <div className="mt-4">
                       <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2">Top spend by item</h3>
                       <div className="rounded-lg border border-slate-200 overflow-hidden">
                         <table className="w-full text-sm">
-                          <thead className="bg-slate-50 text-[11px] uppercase text-slate-500">
+                          <thead className="bg-slate-50 text-[10px] uppercase tracking-wide text-slate-500 dark:bg-slate-900/60">
                             <tr>
                               <th className="text-left py-2 px-3">Item</th>
                               <th className="text-right py-2 px-3">Quantity</th>
@@ -356,7 +383,7 @@ function SupplierDetail() {
                   query). Gives the admin the temporal context
                   for the spend on this page. Tap a row to open the
                   order. */}
-              <Card className="mb-5">
+              <Card className="mb-6">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-base flex items-center gap-2">
                     <Calendar className="w-4 h-4 text-brand-primary" />
@@ -372,18 +399,18 @@ function SupplierDetail() {
                   ) : (
                     <div className="rounded-lg border border-slate-200 overflow-hidden">
                       <table className="w-full text-sm">
-                        <thead className="bg-slate-50 text-[11px] uppercase text-slate-500">
+                        <thead className="bg-slate-50 text-[10px] uppercase tracking-wide text-slate-500 dark:bg-slate-900/60">
                           <tr>
                             <th className="text-left py-2 px-3">Event date</th>
                             <th className="text-left py-2 px-3">Order</th>
                             <th className="text-left py-2 px-3">Status</th>
                             <th className="text-right py-2 px-3">Guests</th>
-                            <th className="text-right py-2 px-3">Value</th>
+                            {canSeeFinance && <th className="text-right py-2 px-3">Value</th>}
                           </tr>
                         </thead>
                         <tbody>
                           {relatedOrders.slice(0, 25).map((o) => (
-                            <tr key={o.id} className="border-t border-slate-100 hover:bg-slate-50">
+                            <tr key={o.id} className="border-t border-slate-100 hover:bg-slate-50/70 dark:border-slate-800 dark:hover:bg-slate-800/40">
                               <td className="py-2 px-3 text-xs tabular-nums text-slate-700">
                                 {new Date(o.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "2-digit" })}
                               </td>
@@ -401,9 +428,11 @@ function SupplierDetail() {
                                 <Badge variant="outline" className="text-[10px] capitalize">{o.status}</Badge>
                               </td>
                               <td className="py-2 px-3 text-right tabular-nums text-slate-700">{o.guest_count ?? "-"}</td>
-                              <td className="py-2 px-3 text-right tabular-nums text-slate-700">
-                                R {Number(o.total_amount || 0).toLocaleString("en-ZA", { maximumFractionDigits: 0 })}
-                              </td>
+                              {canSeeFinance && (
+                                <td className="py-2 px-3 text-right tabular-nums text-slate-700">
+                                  {formatZAR(Number(o.total_amount || 0), { decimals: 0 })}
+                                </td>
+                              )}
                             </tr>
                           ))}
                         </tbody>
@@ -419,7 +448,7 @@ function SupplierDetail() {
               </Card>
 
               {/* Products supplied */}
-              <Card className="mb-5">
+              <Card className="mb-6">
                 <CardHeader className="pb-2 flex flex-row items-center justify-between">
                   <CardTitle className="text-base flex items-center gap-2">
                     <Package className="w-4 h-4 text-slate-600" />
@@ -438,11 +467,11 @@ function SupplierDetail() {
                   ) : (
                     <div className="rounded-lg border border-slate-200 overflow-hidden">
                       <table className="w-full text-sm">
-                        <thead className="bg-slate-50 text-[11px] uppercase text-slate-500">
+                        <thead className="bg-slate-50 text-[10px] uppercase tracking-wide text-slate-500 dark:bg-slate-900/60">
                           <tr>
                             <th className="text-left py-2 px-3">Item</th>
                             <th className="text-left py-2 px-3">Pack size</th>
-                            <th className="text-right py-2 px-3">Unit price</th>
+                            {canSeeFinance && <th className="text-right py-2 px-3">Unit price</th>}
                             <th className="text-right py-2 px-3">Lead time</th>
                             <th className="text-left py-2 px-3">Last buy</th>
                             <th className="text-right py-2 px-3">Actions</th>
@@ -461,7 +490,9 @@ function SupplierDetail() {
                                 )}
                               </td>
                               <td className="py-2 px-3 text-xs text-slate-600">{p.pack_size || "-"}</td>
-                              <td className="py-2 px-3 text-right tabular-nums">{p.unit_price ? fmtR(p.unit_price) : "-"}</td>
+                              {canSeeFinance && (
+                                <td className="py-2 px-3 text-right tabular-nums">{p.unit_price ? fmtR(p.unit_price) : "-"}</td>
+                              )}
                               <td className="py-2 px-3 text-right text-xs text-slate-600">
                                 {p.lead_time_days != null ? `${p.lead_time_days}d` : "-"}
                               </td>
@@ -486,7 +517,7 @@ function SupplierDetail() {
               </Card>
 
               {/* Receipts list for this window */}
-              <Card className="mb-5">
+              <Card className="mb-6">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-base flex items-center gap-2">
                     <Receipt className="w-4 h-4 text-brand-primary" />
@@ -513,7 +544,9 @@ function SupplierDetail() {
                                 {r.notes && ` · ${r.notes.slice(0, 60)}${r.notes.length > 60 ? "..." : ""}`}
                               </p>
                             </div>
-                            <span className="text-sm font-semibold text-brand-primary flex-shrink-0">{fmtR(r.total)}</span>
+                            {canSeeFinance && (
+                              <span className="text-sm font-semibold text-brand-primary flex-shrink-0">{fmtR(r.total)}</span>
+                            )}
                           </div>
                         </Link>
                       ))}
@@ -852,7 +885,12 @@ function LinkProductDialog({
 
 export default function SupplierDetailPage() {
   return (
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN]}>
+    // Role parity with the /admin/suppliers list (SUP-A): OWNER was
+    // missing entirely (the business owner couldn't open a supplier),
+    // and SALES_ADMIN / REGION_ADMIN could see the list but 403'd on
+    // every row link. Rand figures are gated inside the page via
+    // canSeeFinance, same as the list.
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.OWNER, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.SALES_ADMIN, UserRole.REGION_ADMIN]}>
       <SupplierDetail />
     </ProtectedRoute>
   );

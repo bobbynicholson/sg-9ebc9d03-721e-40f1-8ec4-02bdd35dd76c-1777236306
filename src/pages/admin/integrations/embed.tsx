@@ -47,7 +47,6 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { MetricCard } from "@/components/dashboard/MetricCard";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
@@ -57,7 +56,10 @@ import { SnippetDialog } from "@/components/admin/embed/SnippetDialog";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { captureException } from "@/lib/observability";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
-import { PageWorkbench, PortalHeader, PortalShell } from "@/components/portal/ui";
+import { PageWorkbench, PortalCard, PortalHeader, PortalShell, StatTile } from "@/components/portal/ui";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { UserRole } from "@/types/app";
 
 interface EmbedFormRow {
   id: string;
@@ -80,17 +82,16 @@ interface KpiBlock {
 
 const numberFmt = new Intl.NumberFormat("en-ZA");
 
-// LCF-F (task #227, 2026-05-25): rolled back the ProtectedRoute
-// wrap added in LCF-B. Wrapping caused the page to flicker
-// between "Verifying your credentials" and the loaded shell every
-// few seconds - ProtectedRoute kept remounting and re-running
-// its isChecking=true initial state. The middleware at src/
-// middleware.ts (ROUTE_GUARDS["/admin"]) already enforces admin-
-// role access at the route layer, and every /api/admin/embed/*
-// endpoint does its own session check, so the page-level wrap
-// was defence-in-depth, not the only gate. Removing it stops the
-// loop without weakening security.
-export default function AdminEmbedFormsPage() {
+// Restructure audit 2026-07-02: ProtectedRoute wrap restored.
+// LCF-F (2026-05-25) removed it because the page flickered between
+// "Verifying your credentials" and the loaded shell; the flicker was
+// an AuthContext-era loading loop that has since settled (every other
+// /admin page, including the financial-dashboard exemplar, carries
+// the wrap without issue). Restoring it brings this page back in
+// line with the admin-page standard: middleware is the route gate,
+// the wrap is the defence-in-depth layer with a proper unauthorized
+// screen instead of an API error wall.
+function AdminEmbedFormsPage() {
   const { user, company } = useAuth() as any;
   // Wave 27.3: tenant-slug wrapper for internal navigations.
   const { withSlug } = useTenantHref();
@@ -177,7 +178,9 @@ export default function AdminEmbedFormsPage() {
       setForms((prev) => prev.map((f) => f.id === form.id ? { ...f, is_active: next } : f));
       toast({ title: next ? "Form resumed" : "Form paused" });
     } else {
-      toast({ title: "Update failed", variant: "destructive" });
+      // Surface the server's reason instead of a bare "failed".
+      const j = await resp.json().catch(() => ({} as any));
+      toast({ title: "Update failed", description: j.error || `HTTP ${resp.status}`, variant: "destructive" });
     }
   }
 
@@ -220,7 +223,8 @@ export default function AdminEmbedFormsPage() {
       setForms((prev) => prev.filter((f) => f.id !== form.id));
       toast({ title: "Form deleted" });
     } else {
-      toast({ title: "Delete failed", variant: "destructive" });
+      const j = await resp.json().catch(() => ({} as any));
+      toast({ title: "Delete failed", description: j.error || `HTTP ${resp.status}`, variant: "destructive" });
     }
   }
 
@@ -277,60 +281,61 @@ export default function AdminEmbedFormsPage() {
             </div>
           )}
 
-          {/* KPI strip */}
+          {/* KPI strip: StatTile row per the command-centre standard.
+              Skeleton tiles while loading so the row never flashes
+              zeros that read as real figures. */}
           {!isEmpty && !loadError && (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-8">
-              <MetricCard
-                label="Total forms"
-                value={numberFmt.format(kpis.total_forms)}
-                tooltip="Number of embeddable form variants you've created. Includes paused forms."
-                icon={LayoutTemplate}
-                iconColor="text-blue-600"
-                loading={loading}
-              />
-              <MetricCard
-                label="Views"
-                value={numberFmt.format(kpis.total_views)}
-                hint="Across all forms"
-                tooltip="Lifetime page views recorded by the embed loader. One view = one form render on a visitor's screen."
-                icon={Eye}
-                iconColor="text-blue-600"
-                loading={loading}
-              />
-              <MetricCard
-                label="Submissions"
-                value={numberFmt.format(kpis.total_submissions)}
-                hint="Across all forms"
-                tooltip="Lifetime submissions across every form, excluding rows flagged as spam."
-                icon={SendIcon}
-                iconColor="text-brand-primary"
-                loading={loading}
-              />
-              <MetricCard
-                label="Conversion rate"
-                value={`${kpis.conversion_rate}%`}
-                hint="Submissions / views"
-                tooltip="Total submissions divided by total views, expressed as a percentage. Healthy embedded forms sit between 5% and 20%."
-                icon={TrendingUp}
-                iconColor="text-slate-600"
-                loading={loading}
-              />
-            </div>
-          )}
-
-          {/* Search */}
-          {!isEmpty && !loadError && (
-            <div className="mb-4">
-              <div className="relative max-w-md">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <Input
-                  placeholder="Search forms..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="pl-9"
+            loading ? (
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="h-28 animate-pulse rounded-xl border border-slate-200 bg-slate-100 dark:border-slate-800 dark:bg-slate-800/50" />
+                ))}
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                <StatTile
+                  label={<span className="inline-flex items-center gap-1">Total forms<InfoTooltip content="Number of embeddable form variants you've created. Includes paused forms." /></span>}
+                  value={numberFmt.format(kpis.total_forms)}
+                  hint={`${forms.filter((f) => f.is_active).length} active`}
+                  icon={LayoutTemplate}
+                />
+                <StatTile
+                  label={<span className="inline-flex items-center gap-1">Views<InfoTooltip content="Lifetime page views recorded by the embed loader. One view = one form render on a visitor's screen." /></span>}
+                  value={numberFmt.format(kpis.total_views)}
+                  hint="Across all forms"
+                  icon={Eye}
+                />
+                <StatTile
+                  label={<span className="inline-flex items-center gap-1">Submissions<InfoTooltip content="Lifetime submissions across every form, excluding rows flagged as spam." /></span>}
+                  value={numberFmt.format(kpis.total_submissions)}
+                  hint="Across all forms"
+                  icon={SendIcon}
+                />
+                <StatTile
+                  label={<span className="inline-flex items-center gap-1">Conversion rate<InfoTooltip content="Total submissions divided by total views, expressed as a percentage. Healthy embedded forms sit between 5% and 20%." /></span>}
+                  value={`${kpis.conversion_rate}%`}
+                  hint="Submissions / views"
+                  icon={TrendingUp}
                 />
               </div>
-            </div>
+            )
+          )}
+
+          {/* Search toolbar */}
+          {!isEmpty && !loadError && (
+            <PortalCard className="mb-6" padded={false}>
+              <div className="p-3">
+                <div className="relative max-w-md">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <Input
+                    placeholder="Search forms..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="pl-9"
+                  />
+                </div>
+              </div>
+            </PortalCard>
           )}
 
           {/* List or empty state */}
@@ -586,5 +591,20 @@ function FormCard({
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+export default function ProtectedAdminEmbedFormsPage() {
+  // Baseline admin tier. OWNER included alongside COMPANY_ADMIN and
+  // ADMIN, matching the /api/admin/embed/* role gates.
+  return (
+    <ProtectedRoute allowedRoles={[
+      UserRole.SUPER_ADMIN,
+      UserRole.OWNER,
+      UserRole.COMPANY_ADMIN,
+      UserRole.ADMIN,
+    ]}>
+      <AdminEmbedFormsPage />
+    </ProtectedRoute>
   );
 }

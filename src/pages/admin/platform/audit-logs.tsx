@@ -38,7 +38,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { ListSkeleton } from "@/components/ui/loading-skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
-import { ScrollText, RefreshCw, ExternalLink, ChevronLeft, ChevronRight, AlertCircle } from "lucide-react";
+import { ScrollText, RefreshCw, ExternalLink, ChevronLeft, ChevronRight, AlertCircle, AlertTriangle } from "lucide-react";
 import { staffOrderHref } from "@/lib/orderUrls";
 
 interface AuditRow {
@@ -145,12 +145,21 @@ function AuditLogsViewer() {
   const [sinceFilter, setSinceFilter] = useState<string>(
     typeof q.since === "string" ? q.since : "7d",
   );
-  // Phase 5 #2: free-text search across details JSON. Casts the
-  // jsonb to text on the server and ilike-matches so an operator
+  // Phase 5 #2: free-text search across details JSON so an operator
   // can find 'reason: late_arrival' without knowing the column key.
+  // Matched client-side over a capped scan window - see the
+  // detailsScanCapped comment below for why it can't be server-side.
   const [detailsSearch, setDetailsSearch] = useState<string>(
     typeof q.q === "string" ? q.q : "",
   );
+  // Details-search fallback state: PostgREST cannot ilike a jsonb
+  // column (the old `details::text` cast filter always failed with
+  // 42883 "operator does not exist: jsonb ~~*", so the "Details
+  // contains" box has never returned a row). We now scan the newest
+  // DETAILS_SCAN_CAP rows matching the other filters and match the
+  // JSON client-side. This flag tells the operator when the scan
+  // window was clipped.
+  const [detailsScanCapped, setDetailsScanCapped] = useState(false);
   const [page, setPage] = useState<number>(
     typeof q.page === "string" && /^\d+$/.test(q.page) ? Number(q.page) : 0,
   );
@@ -215,36 +224,56 @@ function AuditLogsViewer() {
     }
   };
 
+  // Client-side scan window for the details search (see the
+  // detailsScanCapped comment above for why this is not server-side).
+  const DETAILS_SCAN_CAP = 2000;
+
+  const detailsMatches = (details: any, needle: string): boolean => {
+    if (details == null) return false;
+    try {
+      return JSON.stringify(details).toLowerCase().includes(needle);
+    } catch {
+      return false;
+    }
+  };
+
   const load = async () => {
     setLoading(true);
     setLoadError(null);
     try {
+      const detailsNeedle = detailsSearch.trim().toLowerCase();
       let q = supabase
         .from("audit_logs")
         .select("id, created_at, user_id, company_id, action, entity_type, entity_id, ip_address, details", { count: "exact" })
-        .order("created_at", { ascending: false })
-        .range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1);
+        .order("created_at", { ascending: false });
       if (companyId !== "all") q = q.eq("company_id", companyId);
       if (entityTypeFilter !== "all") q = q.eq("entity_type", entityTypeFilter);
       if (actionFilter.trim()) q = q.ilike("action", `%${actionFilter.trim()}%`);
       if (entityIdFilter.trim()) q = q.eq("entity_id", entityIdFilter.trim());
-      // Phase 5 #2: jsonb-as-text contains-match on the details
-      // payload. Postgres can ILIKE on a jsonb cast-to-text, no
-      // GIN index required for this volume. The same wildcard
-      // wraps the term so an operator types 'gateway_revoked' and
-      // gets every audit row where details mentions it.
-      if (detailsSearch.trim()) {
-        q = q.filter("details::text", "ilike", `%${detailsSearch.trim()}%`);
-      }
       const since = sinceTimestamp();
       if (since) q = q.gte("created_at", since);
 
-      const { data, error, count } = await q;
-      if (error) throw error;
-
-      const list = (data || []) as AuditRow[];
+      let list: AuditRow[];
+      if (detailsNeedle) {
+        // Fetch the newest scan window matching the other filters,
+        // match the details JSON client-side, paginate the matches.
+        // The old server-side `details::text` ilike filter 404ed with
+        // 42883 on every request, so this box never returned a row.
+        const { data, error } = await q.limit(DETAILS_SCAN_CAP);
+        if (error) throw error;
+        const scanned = (data || []) as AuditRow[];
+        const matched = scanned.filter((r) => detailsMatches(r.details, detailsNeedle));
+        setDetailsScanCapped(scanned.length >= DETAILS_SCAN_CAP);
+        setTotalCount(matched.length);
+        list = matched.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
+      } else {
+        const { data, error, count } = await q.range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1);
+        if (error) throw error;
+        setDetailsScanCapped(false);
+        setTotalCount(typeof count === "number" ? count : null);
+        list = (data || []) as AuditRow[];
+      }
       setRows(list);
-      setTotalCount(typeof count === "number" ? count : null);
 
       // Hydrate user labels for the rows we just pulled. Single IN
       // query, cheap. Skip if we already have everyone we need.
@@ -404,6 +433,17 @@ function AuditLogsViewer() {
             </div>
           </PortalCard>
 
+          {detailsScanCapped && !loading && !loadError && (
+            <div className="mb-4 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
+              <AlertTriangle className="w-4 h-4 shrink-0 text-amber-700 dark:text-amber-400" />
+              <p>
+                Details search scanned the newest {DETAILS_SCAN_CAP.toLocaleString()} rows matching your
+                other filters. Older matches may be missing - narrow the time window or add a tenant,
+                action or entity filter for full coverage.
+              </p>
+            </div>
+          )}
+
           {loading ? (
             <ListSkeleton rows={8} />
           ) : loadError ? (
@@ -519,7 +559,7 @@ function AuditLogsViewer() {
                     size="sm"
                     variant="outline"
                     onClick={() => setPage((p) => p + 1)}
-                    disabled={rows.length < PAGE_SIZE || loading}
+                    disabled={(totalPages != null ? page + 1 >= totalPages : rows.length < PAGE_SIZE) || loading}
                     className="h-7 px-2 gap-1"
                   >
                     Next
