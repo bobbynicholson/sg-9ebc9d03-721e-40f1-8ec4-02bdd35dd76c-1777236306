@@ -792,7 +792,7 @@ function ReceiptRow({
                     }
                   }}
                   title={`Show only ${receipt.vendor} slips`}
-                  className="text-sm font-semibold text-slate-900 hover:text-amber-700 hover:underline cursor-pointer"
+                  className="text-sm font-semibold text-slate-900 hover:text-brand-primary hover:underline cursor-pointer"
                 >
                   {receipt.vendor}
                 </span>
@@ -983,7 +983,7 @@ function LineRow({
           <button
             type="button"
             onClick={() => { setNoteDraft(item.notes || ""); setEditingNote(true); }}
-            className="text-[11px] text-slate-500 hover:text-amber-700 hover:underline text-left truncate block w-full"
+            className="text-[11px] text-slate-500 hover:text-brand-primary hover:underline text-left truncate block w-full"
             title="Edit note"
           >
             {item.notes}
@@ -992,7 +992,7 @@ function LineRow({
           <button
             type="button"
             onClick={() => { setNoteDraft(""); setEditingNote(true); }}
-            className="text-[11px] text-slate-400 hover:text-amber-700 hover:underline italic"
+            className="text-[11px] text-slate-400 hover:text-brand-primary hover:underline italic"
             title="Add a note for the accountant"
           >
             + Add note

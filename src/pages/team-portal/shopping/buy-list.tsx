@@ -639,7 +639,7 @@ function ShoppingBuyListPageInner() {
 // one previously had none). Same role set as the shopping dashboard.
 export default function ShoppingBuyListPage() {
   return (
-    <ProtectedRoute allowedRoles={[UserRole.SHOPPING_STAFF, UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.REGION_ADMIN]}>
+    <ProtectedRoute allowedRoles={[UserRole.SHOPPING_STAFF, UserRole.SUPER_ADMIN, UserRole.OWNER, UserRole.COMPANY_ADMIN, UserRole.REGION_ADMIN, UserRole.ADMIN]}>
       <ShoppingBuyListPageInner />
     </ProtectedRoute>
   );

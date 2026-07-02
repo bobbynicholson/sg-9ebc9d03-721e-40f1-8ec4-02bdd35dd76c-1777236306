@@ -626,7 +626,7 @@ function ShoppingDashboardInner() {
                         </p>
                         {items.length === 0 && (
                           <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 mt-2 max-w-md mx-auto">
-                            Head to the <Link href={withSlug("/team-portal/shopping/buy-list")} className="text-amber-700 dark:text-amber-400 underline underline-offset-2">Buy list</Link> to add items based on the next 7 days of demand.
+                            Head to the <Link href={withSlug("/team-portal/shopping/buy-list")} className="text-brand-primary dark:text-brand-primary underline underline-offset-2">Buy list</Link> to add items based on the next 7 days of demand.
                           </p>
                         )}
                       </div>
@@ -1083,7 +1083,7 @@ function ShoppingDashboardInner() {
 // reads regional shops, admin trio supports cross-tenant.
 export default function ShoppingDashboard() {
   return (
-    <ProtectedRoute allowedRoles={[UserRole.SHOPPING_STAFF, UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.REGION_ADMIN]}>
+    <ProtectedRoute allowedRoles={[UserRole.SHOPPING_STAFF, UserRole.SUPER_ADMIN, UserRole.OWNER, UserRole.COMPANY_ADMIN, UserRole.REGION_ADMIN, UserRole.ADMIN]}>
       <ShoppingDashboardInner />
     </ProtectedRoute>
   );

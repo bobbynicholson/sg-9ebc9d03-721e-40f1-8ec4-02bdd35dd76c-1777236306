@@ -1353,7 +1353,17 @@ function KitchenPrepListPageInner() {
 
 export default function KitchenPrepListPage() {
   return (
-    <ProtectedRoute allowedRoles={[UserRole.KITCHEN_MANAGER, UserRole.KITCHEN_STAFF, UserRole.ADMIN]}>
+    <ProtectedRoute
+      allowedRoles={[
+        UserRole.KITCHEN_MANAGER,
+        UserRole.KITCHEN_STAFF,
+        UserRole.SUPER_ADMIN,
+        UserRole.OWNER,
+        UserRole.COMPANY_ADMIN,
+        UserRole.REGION_ADMIN,
+        UserRole.ADMIN,
+      ]}
+    >
       <KitchenPrepListPageInner />
     </ProtectedRoute>
   );

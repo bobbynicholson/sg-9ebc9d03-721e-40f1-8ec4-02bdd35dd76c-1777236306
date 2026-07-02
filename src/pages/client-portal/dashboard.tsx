@@ -1639,7 +1639,7 @@ function ClientPortalDashboardInner() {
 // "view as client" cross-tenant support.
 export default function ClientPortalDashboard() {
   return (
-    <ProtectedRoute allowedRoles={[UserRole.CLIENT, UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN]}>
+    <ProtectedRoute allowedRoles={[UserRole.CLIENT, UserRole.SUPER_ADMIN, UserRole.OWNER, UserRole.COMPANY_ADMIN, UserRole.REGION_ADMIN, UserRole.ADMIN]}>
       <ClientPortalDashboardInner />
     </ProtectedRoute>
   );

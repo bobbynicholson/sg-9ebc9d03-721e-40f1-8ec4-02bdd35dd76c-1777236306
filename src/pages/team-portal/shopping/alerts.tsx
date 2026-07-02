@@ -1,6 +1,4 @@
-import { useEffect } from "react";
-import { useRouter } from "next/router";
-import { useTenantHref } from "@/lib/tenantUrl";
+import type { GetServerSideProps } from "next";
 
 /**
  * /team-portal/shopping/alerts - DEPRECATED.
@@ -20,11 +18,19 @@ import { useTenantHref } from "@/lib/tenantUrl";
  * Slated for deletion in a follow-up once 60 days have passed and
  * the bookmark traffic to /alerts is effectively zero.
  */
+export const getServerSideProps: GetServerSideProps = async (ctx) => {
+  const url = ctx.req.url || "";
+  const qs = url.includes("?") ? url.slice(url.indexOf("?")) : "";
+  const slug = typeof ctx.query.company_slug === "string" ? `/${ctx.query.company_slug}` : "";
+
+  return {
+    redirect: {
+      destination: `${slug}/team-portal/shopping/buy-list${qs}`,
+      permanent: false,
+    },
+  };
+};
+
 export default function ShoppingAlertsRedirect() {
-  const router = useRouter();
-  const { withSlug } = useTenantHref();
-  useEffect(() => {
-    router.replace(withSlug("/team-portal/shopping/buy-list"));
-  }, [router, withSlug]);
   return null;
 }

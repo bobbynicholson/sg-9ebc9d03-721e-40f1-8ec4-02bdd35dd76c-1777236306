@@ -348,7 +348,7 @@ function CleaningEquipmentPageInner() {
                     {i.category && (
                       <Link
                         href={withSlug(`/team-portal/cleaning/workflows?category=${encodeURIComponent(i.category)}`)}
-                        className="inline-flex items-center text-xs text-amber-700 dark:text-amber-400 hover:underline"
+                        className="inline-flex items-center text-xs text-brand-primary dark:text-brand-primary hover:underline"
                         title={`How to clean ${i.category}`}
                       >
                         <BookOpen className="h-4 w-4" />
@@ -428,7 +428,17 @@ function CleaningEquipmentPageInner() {
 
 export default function CleaningEquipmentPage() {
   return (
-    <ProtectedRoute allowedRoles={[UserRole.CLEANING_MANAGER, UserRole.CLEANING_STAFF, UserRole.ADMIN]}>
+    <ProtectedRoute
+      allowedRoles={[
+        UserRole.CLEANING_MANAGER,
+        UserRole.CLEANING_STAFF,
+        UserRole.SUPER_ADMIN,
+        UserRole.OWNER,
+        UserRole.COMPANY_ADMIN,
+        UserRole.REGION_ADMIN,
+        UserRole.ADMIN,
+      ]}
+    >
       <CleaningEquipmentPageInner />
     </ProtectedRoute>
   );

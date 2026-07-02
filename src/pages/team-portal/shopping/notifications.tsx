@@ -405,7 +405,7 @@ function ShoppingNotificationsPageInner() {
                           type="button"
                           onClick={() => void openLink(n)}
                           disabled={pendingIds.has(n.id)}
-                          className="text-[11px] font-medium text-amber-700 dark:text-amber-500 hover:text-amber-800 dark:hover:text-amber-400 transition-colors duration-150 disabled:opacity-60"
+                          className="text-[11px] font-medium text-brand-primary dark:text-brand-primary hover:text-brand-primary/80 dark:hover:text-brand-primary/80 transition-colors duration-150 disabled:opacity-60"
                         >
                           Open
                         </button>
@@ -424,7 +424,7 @@ function ShoppingNotificationsPageInner() {
 
 export default function ShoppingNotificationsPage() {
   return (
-    <ProtectedRoute allowedRoles={[UserRole.SHOPPING_STAFF, UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.REGION_ADMIN]}>
+    <ProtectedRoute allowedRoles={[UserRole.SHOPPING_STAFF, UserRole.SUPER_ADMIN, UserRole.OWNER, UserRole.COMPANY_ADMIN, UserRole.REGION_ADMIN, UserRole.ADMIN]}>
       <ShoppingNotificationsPageInner />
     </ProtectedRoute>
   );

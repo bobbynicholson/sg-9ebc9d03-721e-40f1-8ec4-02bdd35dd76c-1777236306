@@ -210,7 +210,16 @@ function CleaningSettingsPageInner() {
 
 export default function CleaningSettingsPage() {
   return (
-    <ProtectedRoute allowedRoles={[UserRole.CLEANING_MANAGER, UserRole.ADMIN]}>
+    <ProtectedRoute
+      allowedRoles={[
+        UserRole.CLEANING_MANAGER,
+        UserRole.SUPER_ADMIN,
+        UserRole.OWNER,
+        UserRole.COMPANY_ADMIN,
+        UserRole.REGION_ADMIN,
+        UserRole.ADMIN,
+      ]}
+    >
       <CleaningSettingsPageInner />
     </ProtectedRoute>
   );

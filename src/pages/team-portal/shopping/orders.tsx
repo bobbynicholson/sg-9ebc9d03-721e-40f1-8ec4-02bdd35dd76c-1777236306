@@ -530,7 +530,7 @@ function ShoppingOrdersPageInner() {
             ) : (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 {upcomingOrders.map((o) => (
-                  <PortalCard key={o.id} className="transition-colors duration-150 hover:border-amber-300 dark:hover:border-amber-700">
+                  <PortalCard key={o.id} className="transition-colors duration-150 hover:border-brand-primary/50 dark:hover:border-brand-primary/60">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
                         {/* ODOC G.5: tap event title to open the
@@ -539,7 +539,7 @@ function ShoppingOrdersPageInner() {
                             shopping CTA all live there. */}
                         <Link
                           href={withSlug(staffOrderHref(o.id, "shopping_staff"))}
-                          className="font-semibold text-slate-900 dark:text-white truncate hover:text-amber-700 dark:hover:text-amber-400 hover:underline inline-flex items-center gap-1 transition-colors duration-150"
+                          className="font-semibold text-slate-900 dark:text-white truncate hover:text-brand-primary dark:hover:text-brand-primary hover:underline inline-flex items-center gap-1 transition-colors duration-150"
                         >
                           {o.event_name ?? o.order_number ?? "Event"}
                           <ExternalLink className="w-3 h-3 flex-shrink-0" />
@@ -703,5 +703,13 @@ function ShoppingOrdersPageInner() {
         </DialogContent>
       </Dialog>
     </>
+  );
+}
+
+export default function ShoppingOrdersPage() {
+  return (
+    <ProtectedRoute allowedRoles={[UserRole.SHOPPING_STAFF, UserRole.SUPER_ADMIN, UserRole.OWNER, UserRole.COMPANY_ADMIN, UserRole.REGION_ADMIN, UserRole.ADMIN]}>
+      <ShoppingOrdersPageInner />
+    </ProtectedRoute>
   );
 }

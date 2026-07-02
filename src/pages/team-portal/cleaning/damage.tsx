@@ -583,7 +583,17 @@ function CleaningDamagePageInner() {
 
 export default function CleaningDamagePage() {
   return (
-    <ProtectedRoute allowedRoles={[UserRole.CLEANING_MANAGER, UserRole.CLEANING_STAFF, UserRole.ADMIN]}>
+    <ProtectedRoute
+      allowedRoles={[
+        UserRole.CLEANING_MANAGER,
+        UserRole.CLEANING_STAFF,
+        UserRole.SUPER_ADMIN,
+        UserRole.OWNER,
+        UserRole.COMPANY_ADMIN,
+        UserRole.REGION_ADMIN,
+        UserRole.ADMIN,
+      ]}
+    >
       <CleaningDamagePageInner />
     </ProtectedRoute>
   );

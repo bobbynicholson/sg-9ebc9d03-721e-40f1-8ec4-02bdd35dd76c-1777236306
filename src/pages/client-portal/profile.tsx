@@ -36,10 +36,12 @@ import {
 } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { ClientNav } from "@/components/navigation/ClientNav";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { PortalShell, PortalHeader, PortalCard, PortalOverview,
   PageWorkbench,
 } from "@/components/portal/ui";
 import { useAuth } from "@/contexts/AuthContext";
+import { UserRole } from "@/types/app";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -68,7 +70,7 @@ function looksLikeSAMobile(input: string): boolean {
   return /^(?:\+?27|0)?[678][0-9]{8}$/.test(digits);
 }
 
-export default function ClientProfilePage() {
+function ClientProfilePageInner() {
   const router = useRouter();
   const { user, profile, company, refreshProfile } = useAuth() as any;
   const { toast } = useToast();
@@ -633,6 +635,14 @@ export default function ClientProfilePage() {
         </PortalShell>
       </div>
     </>
+  );
+}
+
+export default function ClientProfilePage() {
+  return (
+    <ProtectedRoute allowedRoles={[UserRole.CLIENT, UserRole.SUPER_ADMIN, UserRole.OWNER, UserRole.COMPANY_ADMIN, UserRole.REGION_ADMIN, UserRole.ADMIN]}>
+      <ClientProfilePageInner />
+    </ProtectedRoute>
   );
 }
 

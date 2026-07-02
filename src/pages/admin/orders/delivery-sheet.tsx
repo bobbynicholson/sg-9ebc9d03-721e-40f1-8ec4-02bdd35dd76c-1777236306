@@ -207,7 +207,17 @@ function DeliverySheet() {
 
 export default function ProtectedDeliverySheet() {
   return (
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.KITCHEN_STAFF]}>
+    <ProtectedRoute
+      allowedRoles={[
+        UserRole.KITCHEN_MANAGER,
+        UserRole.KITCHEN_STAFF,
+        UserRole.SUPER_ADMIN,
+        UserRole.OWNER,
+        UserRole.COMPANY_ADMIN,
+        UserRole.REGION_ADMIN,
+        UserRole.ADMIN,
+      ]}
+    >
       <DeliverySheet />
     </ProtectedRoute>
   );

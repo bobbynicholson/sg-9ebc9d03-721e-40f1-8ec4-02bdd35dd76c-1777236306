@@ -287,7 +287,7 @@ function ShoppingInvoicesPageInner() {
                   </div>
                   <div className="shrink-0">
                     {l.receipt_url ? (
-                      <a href={l.receipt_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-sm font-medium text-amber-700 transition-colors duration-150 hover:text-amber-800 dark:text-amber-400 dark:hover:text-amber-300">
+                      <a href={l.receipt_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-sm font-medium text-brand-primary transition-colors duration-150 hover:text-brand-primary/80 dark:text-brand-primary dark:hover:text-brand-primary/80">
                         <ExternalLink className="h-3.5 w-3.5" />View receipt
                       </a>
                     ) : (
@@ -306,7 +306,7 @@ function ShoppingInvoicesPageInner() {
 
 export default function ShoppingInvoicesPage() {
   return (
-    <ProtectedRoute allowedRoles={[UserRole.SHOPPING_STAFF, UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.REGION_ADMIN]}>
+    <ProtectedRoute allowedRoles={[UserRole.SHOPPING_STAFF, UserRole.SUPER_ADMIN, UserRole.OWNER, UserRole.COMPANY_ADMIN, UserRole.REGION_ADMIN, UserRole.ADMIN]}>
       <ShoppingInvoicesPageInner />
     </ProtectedRoute>
   );

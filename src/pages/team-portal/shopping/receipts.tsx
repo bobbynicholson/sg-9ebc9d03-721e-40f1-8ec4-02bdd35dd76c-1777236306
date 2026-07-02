@@ -57,7 +57,7 @@ function ShoppingReceiptsInner() {
 // shopping dashboard.
 export default function ShoppingReceipts() {
   return (
-    <ProtectedRoute allowedRoles={[UserRole.SHOPPING_STAFF, UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.REGION_ADMIN]}>
+    <ProtectedRoute allowedRoles={[UserRole.SHOPPING_STAFF, UserRole.SUPER_ADMIN, UserRole.OWNER, UserRole.COMPANY_ADMIN, UserRole.REGION_ADMIN, UserRole.ADMIN]}>
       <ShoppingReceiptsInner />
     </ProtectedRoute>
   );

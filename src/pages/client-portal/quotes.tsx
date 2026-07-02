@@ -23,6 +23,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { FileText, ExternalLink, Calendar, Clock, X } from "lucide-react";
 import { ClientNav } from "@/components/navigation/ClientNav";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { PortalShell, PortalHeader, PortalCard, PortalOverview,
   PageWorkbench,
 } from "@/components/portal/ui";
@@ -30,6 +31,7 @@ import { RequestEditsDialog } from "@/components/client-portal/RequestEditsDialo
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
+import { UserRole } from "@/types/app";
 // Wave 28.4: Decline button is new on this page (audit found
 // /client-portal/quotes had no decline action - only the magic-link
 // /q/[token] did). Routes through the same wizard the public page
@@ -98,7 +100,7 @@ const STATUS_LABEL: Record<string, string> = {
   draft: "Draft",
 };
 
-export default function ClientQuotesPage() {
+function ClientQuotesPageInner() {
   const { user, company } = useAuth() as any;
   const fmtMoney = fmtMoneyFor((company as any)?.currency || "ZAR");
   const [quotes, setQuotes] = useState<PortalQuote[]>([]);
@@ -335,6 +337,14 @@ export default function ClientQuotesPage() {
         />
       )}
     </>
+  );
+}
+
+export default function ClientQuotesPage() {
+  return (
+    <ProtectedRoute allowedRoles={[UserRole.CLIENT, UserRole.SUPER_ADMIN, UserRole.OWNER, UserRole.COMPANY_ADMIN, UserRole.REGION_ADMIN, UserRole.ADMIN]}>
+      <ClientQuotesPageInner />
+    </ProtectedRoute>
   );
 }
 

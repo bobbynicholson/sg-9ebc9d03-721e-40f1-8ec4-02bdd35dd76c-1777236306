@@ -11,10 +11,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { FileText, Download, Clock, CheckCircle, AlertCircle, Search, Filter, CreditCard, Receipt, Calendar, ArrowUpDown, Wallet } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { ClientNav } from "@/components/navigation/ClientNav";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { PortalShell, PortalHeader, PortalCard, PortalCardHeader, PortalOverview, StatTile,
   PageWorkbench,
 } from "@/components/portal/ui";
 import { useAuth } from "@/contexts/AuthContext";
+import { UserRole } from "@/types/app";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenantClientIds } from "@/hooks/useTenantClientIds";
 import { useToast } from "@/hooks/use-toast";
@@ -68,7 +70,7 @@ function currencySymbolFor(code: string): string {
   }
 }
 
-export default function ClientBillingPage() {
+function ClientBillingPageInner() {
   const { user, company } = useAuth() as any;
   const router = useRouter();
   // CLI-B (client deep audit, CLI-10): unified tenant-scoped client-id
@@ -679,5 +681,13 @@ export default function ClientBillingPage() {
 
       <ChatBot userRole="client" companyId={user?.user_metadata?.company_id} />
     </>
+  );
+}
+
+export default function ClientBillingPage() {
+  return (
+    <ProtectedRoute allowedRoles={[UserRole.CLIENT, UserRole.SUPER_ADMIN, UserRole.OWNER, UserRole.COMPANY_ADMIN, UserRole.REGION_ADMIN, UserRole.ADMIN]}>
+      <ClientBillingPageInner />
+    </ProtectedRoute>
   );
 }

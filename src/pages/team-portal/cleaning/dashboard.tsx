@@ -833,9 +833,11 @@ export default function CleaningDashboard() {
         UserRole.CLEANING_STAFF,
         UserRole.KITCHEN_MANAGER,
         UserRole.KITCHEN_STAFF,
-        UserRole.COMPANY_ADMIN,
-        UserRole.ADMIN,
         UserRole.SUPER_ADMIN,
+        UserRole.OWNER,
+        UserRole.COMPANY_ADMIN,
+        UserRole.REGION_ADMIN,
+        UserRole.ADMIN,
       ]}
     >
       <CleaningDashboardInner />

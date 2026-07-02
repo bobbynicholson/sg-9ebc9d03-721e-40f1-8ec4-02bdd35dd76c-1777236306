@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { ClientNav } from "@/components/navigation/ClientNav";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { PortalShell, PortalHeader, PortalCard, PortalCardHeader, PortalOverview,
   PageWorkbench,
 } from "@/components/portal/ui";
@@ -29,6 +30,7 @@ import { CancellationWizard } from "@/components/cancellation/CancellationWizard
 import { OrderEditDialog } from "@/components/order/OrderEditDialog";
 import Head from "next/head";
 import { useAuth } from "@/contexts/AuthContext";
+import { UserRole } from "@/types/app";
 import { ChatBot } from "@/components/ChatBot";
 import { RebookDialog } from "@/components/client-portal/RebookDialog";
 import { AddToCalendarButton } from "@/components/client-portal/AddToCalendarButton";
@@ -62,7 +64,7 @@ interface Order {
   shopping_completed_at?: string | null;
 }
 
-export default function MyOrders() {
+function MyOrdersInner() {
   const { user, company, profile } = useAuth() as any;
   const router = useRouter();
   // Slug-aware navigation prefix - keeps tenant URL space (/{slug}/...)
@@ -767,5 +769,13 @@ export default function MyOrders() {
         />
       )}
     </>
+  );
+}
+
+export default function MyOrders() {
+  return (
+    <ProtectedRoute allowedRoles={[UserRole.CLIENT, UserRole.SUPER_ADMIN, UserRole.OWNER, UserRole.COMPANY_ADMIN, UserRole.REGION_ADMIN, UserRole.ADMIN]}>
+      <MyOrdersInner />
+    </ProtectedRoute>
   );
 }

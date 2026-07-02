@@ -7,6 +7,8 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { useAuth } from "@/contexts/AuthContext";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { UserRole } from "@/types/app";
 import { ChatBot } from "@/components/ChatBot";
 import { formatLocalTime } from "@/lib/localFormat";
 import dynamic from "next/dynamic";
@@ -61,7 +63,7 @@ interface DriverLocation {
   last_updated: string;
 }
 
-export default function ClientTracking() {
+function ClientTrackingInner() {
   const { user, company } = useAuth() as any;
   const router = useRouter();
   const { withSlug } = useTenantHref();
@@ -787,5 +789,13 @@ export default function ClientTracking() {
 
       <ChatBot userRole="client" />
     </>
+  );
+}
+
+export default function ClientTracking() {
+  return (
+    <ProtectedRoute allowedRoles={[UserRole.CLIENT, UserRole.SUPER_ADMIN, UserRole.OWNER, UserRole.COMPANY_ADMIN, UserRole.REGION_ADMIN, UserRole.ADMIN]}>
+      <ClientTrackingInner />
+    </ProtectedRoute>
   );
 }

@@ -56,7 +56,16 @@ function WaiterDashboardInner() {
 
 export default function WaiterDashboardPage() {
   return (
-    <ProtectedRoute allowedRoles={[UserRole.WAITER, UserRole.ADMIN]}>
+    <ProtectedRoute
+      allowedRoles={[
+        UserRole.WAITER,
+        UserRole.SUPER_ADMIN,
+        UserRole.OWNER,
+        UserRole.COMPANY_ADMIN,
+        UserRole.REGION_ADMIN,
+        UserRole.ADMIN,
+      ]}
+    >
       <WaiterDashboardInner />
     </ProtectedRoute>
   );

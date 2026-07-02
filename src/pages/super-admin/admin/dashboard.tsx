@@ -7,6 +7,8 @@ import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { PageWorkbench, PortalHeader, PortalShell } from "@/components/portal/ui";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { UserRole } from "@/types/app";
 
 interface DashboardStats {
   totalCompanies: number;
@@ -16,7 +18,7 @@ interface DashboardStats {
   loaded: boolean;
 }
 
-export default function SuperAdminManagementDashboard() {
+function SuperAdminManagementDashboard() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const [stats, setStats] = useState<DashboardStats>({
@@ -35,7 +37,8 @@ export default function SuperAdminManagementDashboard() {
       return;
     }
 
-    if (user.active_role !== "super_admin") {
+    const effectiveRole = user.active_role || user.role;
+    if (effectiveRole !== UserRole.SUPER_ADMIN) {
       router.push("/auth/login");
       return;
     }
@@ -279,5 +282,13 @@ export default function SuperAdminManagementDashboard() {
         </Card>
       </div>
     </PortalShell>
+  );
+}
+
+export default function ProtectedSuperAdminManagementDashboard() {
+  return (
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN]}>
+      <SuperAdminManagementDashboard />
+    </ProtectedRoute>
   );
 }

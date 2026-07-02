@@ -6,7 +6,7 @@ import {
   User,
 } from "lucide-react";
 import { PortalSidebar, type PortalSidebarConfig } from "./PortalSidebar";
-import { DRIVER_PORTAL_PALETTE as BRAND_PORTAL_PALETTE, DRIVER_ACCENT as BRAND_ACCENT } from "@/lib/branding/portalPalette";
+import { WAITER_PORTAL_PALETTE as BRAND_PORTAL_PALETTE, WAITER_ACCENT as BRAND_ACCENT } from "@/lib/branding/portalPalette";
 
 const config: PortalSidebarConfig = {
   role: "waiter",

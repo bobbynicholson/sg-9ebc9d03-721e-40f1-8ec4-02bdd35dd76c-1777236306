@@ -6,6 +6,8 @@ import { useRouter } from "next/router";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEffect, useState } from "react";
 import { PageWorkbench, PortalHeader, PortalShell } from "@/components/portal/ui";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { UserRole } from "@/types/app";
 
 interface Portal {
   id: string;
@@ -141,7 +143,8 @@ function SuperAdminDashboard() {
     if (loading) return; // Wait for auth to initialize
 
     console.log("Super Admin - Current user:", user);
-    console.log("Super Admin - User role:", user?.active_role);
+    const effectiveRole = user.active_role || user.role;
+    console.log("Super Admin - User role:", effectiveRole);
     
     if (!user) {
       console.log("No user found, redirecting to login");
@@ -149,8 +152,8 @@ function SuperAdminDashboard() {
       return;
     }
 
-    if (user.active_role !== "super_admin") {
-      console.log("User is not super_admin, role:", user.active_role);
+    if (effectiveRole !== UserRole.SUPER_ADMIN) {
+      console.log("User is not super_admin, role:", effectiveRole);
       router.push("/auth/login");
       return;
     }
@@ -319,4 +322,10 @@ function SuperAdminDashboard() {
   );
 }
 
-export default SuperAdminDashboard;
+export default function ProtectedSuperAdminDashboard() {
+  return (
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN]}>
+      <SuperAdminDashboard />
+    </ProtectedRoute>
+  );
+}

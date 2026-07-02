@@ -512,7 +512,19 @@ function HandoverDetailInner() {
 
 export default function ProtectedHandoverDetailPage() {
   return (
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.CLEANING_MANAGER, UserRole.CLEANING_STAFF, UserRole.KITCHEN_MANAGER, UserRole.KITCHEN_STAFF]}>
+    <ProtectedRoute
+      allowedRoles={[
+        UserRole.CLEANING_MANAGER,
+        UserRole.CLEANING_STAFF,
+        UserRole.KITCHEN_MANAGER,
+        UserRole.KITCHEN_STAFF,
+        UserRole.SUPER_ADMIN,
+        UserRole.OWNER,
+        UserRole.COMPANY_ADMIN,
+        UserRole.REGION_ADMIN,
+        UserRole.ADMIN,
+      ]}
+    >
       <HandoverDetailInner />
     </ProtectedRoute>
   );

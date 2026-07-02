@@ -381,7 +381,7 @@ function ShoppingKitchenDemandPageInner() {
                             <Link
                               key={`${u.order_id}-${ui}`}
                               href={withSlug(staffOrderHref(u.order_id, "shopping_staff"))}
-                              className="text-[10px] px-2 py-0.5 rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:border-amber-300 hover:bg-amber-50 hover:text-amber-900 dark:hover:border-amber-800 dark:hover:bg-amber-950/40 dark:hover:text-amber-300 inline-flex items-center gap-1 transition-colors duration-150 tabular-nums"
+                              className="text-[10px] px-2 py-0.5 rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:border-brand-primary/40 hover:bg-brand-primary/10 hover:text-brand-primary dark:hover:border-brand-primary/50 dark:hover:bg-brand-primary/10 dark:hover:text-brand-primary inline-flex items-center gap-1 transition-colors duration-150 tabular-nums"
                               title="Open this order's shopping shortfalls"
                             >
                               <Calendar className="w-2.5 h-2.5" />
@@ -429,7 +429,7 @@ function ShoppingKitchenDemandPageInner() {
 // shopping dashboard.
 export default function ShoppingKitchenDemandPage() {
   return (
-    <ProtectedRoute allowedRoles={[UserRole.SHOPPING_STAFF, UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.REGION_ADMIN]}>
+    <ProtectedRoute allowedRoles={[UserRole.SHOPPING_STAFF, UserRole.SUPER_ADMIN, UserRole.OWNER, UserRole.COMPANY_ADMIN, UserRole.REGION_ADMIN, UserRole.ADMIN]}>
       <ShoppingKitchenDemandPageInner />
     </ProtectedRoute>
   );

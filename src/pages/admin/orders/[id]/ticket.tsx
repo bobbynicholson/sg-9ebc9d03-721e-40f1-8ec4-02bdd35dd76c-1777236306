@@ -784,7 +784,7 @@ function KitchenTicketPage() {
             )}
 
             <div className="pt-3 border-t-2 border-slate-900 text-[10px] text-slate-400 flex items-center justify-between">
-              <span>Backplan computed live · parallelism cap {PARALLELISM_CAP} · safety buffer {SAFETY_BUFFER_MIN}m</span>
+              <span>Backplan computed live. Parallelism cap {PARALLELISM_CAP}. Safety buffer {SAFETY_BUFFER_MIN}m</span>
               <span>Printed {new Date().toLocaleString("en-ZA")}</span>
             </div>
           </div>
@@ -796,7 +796,17 @@ function KitchenTicketPage() {
 
 export default function ProtectedKitchenTicketPage() {
   return (
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.KITCHEN_STAFF]}>
+    <ProtectedRoute
+      allowedRoles={[
+        UserRole.KITCHEN_MANAGER,
+        UserRole.KITCHEN_STAFF,
+        UserRole.SUPER_ADMIN,
+        UserRole.OWNER,
+        UserRole.COMPANY_ADMIN,
+        UserRole.REGION_ADMIN,
+        UserRole.ADMIN,
+      ]}
+    >
       <KitchenTicketPage />
     </ProtectedRoute>
   );

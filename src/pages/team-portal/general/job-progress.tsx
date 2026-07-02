@@ -1,9 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { Clock, CheckCircle, AlertCircle, Calendar, Users, ChefHat, Truck, Package } from "lucide-react";
+import { Clock, CheckCircle, AlertCircle, Calendar, Users, ChefHat, Truck, Package, RefreshCw } from "lucide-react";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
@@ -12,10 +12,12 @@ import Head from "next/head";
 import { useAuth } from "@/contexts/AuthContext";
 import { ChatBot } from "@/components/ChatBot";
 import { DynamicNav } from "@/components/DynamicNav";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { PortalShell, PortalHeader,
   PageWorkbench,
 } from "@/components/portal/ui";
 import { supabase } from "@/integrations/supabase/client";
+import { UserRole } from "@/types/app";
 
 interface JobProgress {
   id: string;
@@ -52,16 +54,17 @@ function deriveStatuses(orderStatus: string, hasDriver: boolean): {
   }
 }
 
-export default function StaffJobProgress() {
+function StaffJobProgressInner() {
   const { user } = useAuth();
   const [jobs, setJobs] = useState<JobProgress[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const loadJobs = useCallback(async (isCancelled: () => boolean = () => false) => {
     if (!user?.company_id) return;
-    let cancelled = false;
-    (async () => {
-      setLoading(true);
+    setLoading(true);
+    setLoadError(null);
+    try {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       const weekAhead = new Date(today);
@@ -78,29 +81,39 @@ export default function StaffJobProgress() {
         .in("status", ["confirmed", "preparing", "ready", "in_transit", "delivered", "completed"])
         .order("event_date", { ascending: true });
 
-      if (cancelled) return;
-      if (error) {
-        console.error("[job-progress] load failed", error);
-        setJobs([]);
-      } else {
-        setJobs((data || []).map((o: any) => {
-          const hasDriver = !!(o.assigned_driver_id || o.driver_id);
-          const { kitchenStatus, driverStatus, overallProgress } = deriveStatuses(o.status, hasDriver);
-          return {
-            id: o.id,
-            orderName: o.client_name || o.order_number || "Order",
-            eventDate: o.event_date,
-            guestCount: Number(o.guest_count || 0),
-            kitchenStatus,
-            driverStatus,
-            overallProgress,
-          };
-        }));
-      }
+      if (isCancelled()) return;
+      if (error) throw error;
+
+      setJobs((data || []).map((o: any) => {
+        const hasDriver = !!(o.assigned_driver_id || o.driver_id);
+        const { kitchenStatus, driverStatus, overallProgress } = deriveStatuses(o.status, hasDriver);
+        return {
+          id: o.id,
+          orderName: o.client_name || o.order_number || "Order",
+          eventDate: o.event_date,
+          guestCount: Number(o.guest_count || 0),
+          kitchenStatus,
+          driverStatus,
+          overallProgress,
+        };
+      }));
+    } catch (error: any) {
+      if (isCancelled()) return;
+      console.error("[job-progress] load failed", error);
+      setJobs([]);
+      setLoadError(error?.message || "Could not load job progress. Check your connection and retry.");
+    } finally {
+      if (isCancelled()) return;
       setLoading(false);
-    })();
-    return () => { cancelled = true; };
+    }
   }, [user?.company_id]);
+
+  useEffect(() => {
+    if (!user?.company_id) return;
+    let cancelled = false;
+    void loadJobs(() => cancelled);
+    return () => { cancelled = true; };
+  }, [user?.company_id, loadJobs]);
 
   const getStatusColor = (status: string) => {
     const colors = {
@@ -127,7 +140,7 @@ export default function StaffJobProgress() {
         <title>Job progress - CateringMS</title>
       </Head>
 
-      {user && <DynamicNav userRole={user.role} />}
+      {user && <DynamicNav userRole={user.active_role || user.role} />}
 
       <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
@@ -146,6 +159,23 @@ export default function StaffJobProgress() {
           <div className="grid gap-6">
             {loading ? (
               <div className="text-center py-12 text-slate-600 dark:text-slate-400">Loading jobs...</div>
+            ) : loadError ? (
+              <Card className="border border-rose-200 bg-rose-50/80 shadow-sm dark:border-rose-900/60 dark:bg-rose-950/30">
+                <CardContent className="py-10 text-center">
+                  <AlertCircle className="w-12 h-12 mx-auto mb-4 text-rose-500" />
+                  <p className="font-semibold text-rose-900 dark:text-rose-100">Job progress is unavailable</p>
+                  <p className="text-sm text-rose-700 dark:text-rose-200 mt-1 max-w-lg mx-auto">{loadError}</p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => void loadJobs()}
+                    className="mt-4 border-rose-200 bg-white text-rose-700 hover:bg-rose-50 dark:border-rose-900/60 dark:bg-slate-950 dark:text-rose-200 dark:hover:bg-rose-950/40"
+                  >
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Retry
+                  </Button>
+                </CardContent>
+              </Card>
             ) : jobs.length === 0 ? (
               <Card className="border-0 shadow-lg">
                 <CardContent className="py-12 text-center">
@@ -166,7 +196,7 @@ export default function StaffJobProgress() {
                         </CardTitle>
                         <p className="text-sm text-slate-600 mt-1">
                           <Calendar className="w-4 h-4 inline mr-1" />
-                          {new Date(job.eventDate).toLocaleDateString('en-US', {
+                          {new Date(job.eventDate).toLocaleDateString("en-ZA", {
                             weekday: 'long',
                             month: 'long',
                             day: 'numeric',
@@ -276,5 +306,29 @@ export default function StaffJobProgress() {
 
       <ChatBot userRole="staff" companyId={user?.user_metadata?.company_id} />
     </>
+  );
+}
+
+export default function ProtectedStaffJobProgress() {
+  return (
+    <ProtectedRoute
+      allowedRoles={[
+        UserRole.SUPER_ADMIN,
+        UserRole.OWNER,
+        UserRole.COMPANY_ADMIN,
+        UserRole.REGION_ADMIN,
+        UserRole.SALES_ADMIN,
+        UserRole.ADMIN,
+        UserRole.KITCHEN_MANAGER,
+        UserRole.KITCHEN_STAFF,
+        UserRole.DRIVER,
+        UserRole.SHOPPING_STAFF,
+        UserRole.CLEANING_MANAGER,
+        UserRole.CLEANING_STAFF,
+        UserRole.WAITER,
+      ]}
+    >
+      <StaffJobProgressInner />
+    </ProtectedRoute>
   );
 }

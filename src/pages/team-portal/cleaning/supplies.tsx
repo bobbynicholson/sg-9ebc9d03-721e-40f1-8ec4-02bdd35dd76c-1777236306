@@ -325,7 +325,17 @@ function CleaningSuppliesPageInner() {
 
 export default function CleaningSuppliesPage() {
   return (
-    <ProtectedRoute allowedRoles={[UserRole.CLEANING_MANAGER, UserRole.CLEANING_STAFF, UserRole.ADMIN]}>
+    <ProtectedRoute
+      allowedRoles={[
+        UserRole.CLEANING_MANAGER,
+        UserRole.CLEANING_STAFF,
+        UserRole.SUPER_ADMIN,
+        UserRole.OWNER,
+        UserRole.COMPANY_ADMIN,
+        UserRole.REGION_ADMIN,
+        UserRole.ADMIN,
+      ]}
+    >
       <CleaningSuppliesPageInner />
     </ProtectedRoute>
   );

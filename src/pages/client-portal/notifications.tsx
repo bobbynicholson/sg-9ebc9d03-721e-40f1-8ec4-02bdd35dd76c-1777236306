@@ -23,10 +23,12 @@ import {
 import { formatDistanceToNow } from "date-fns";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { ClientNav } from "@/components/navigation/ClientNav";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { PortalShell, PortalHeader, PortalCard, PortalOverview,
   PageWorkbench,
 } from "@/components/portal/ui";
 import { useAuth } from "@/contexts/AuthContext";
+import { UserRole } from "@/types/app";
 import { notificationService, Notification } from "@/services/notificationService";
 import { useToast } from "@/hooks/use-toast";
 
@@ -40,7 +42,7 @@ const PRIORITY_TONE: Record<string, string> = {
   low: "bg-slate-50 text-slate-500 border-slate-200 dark:bg-slate-800/60 dark:text-slate-400 dark:border-slate-700",
 };
 
-export default function ClientNotificationsPage() {
+function ClientNotificationsPageInner() {
   const router = useRouter();
   const { user, activeRole, company } = useAuth() as any;
   const { toast } = useToast();
@@ -336,5 +338,13 @@ export default function ClientNotificationsPage() {
         </PortalShell>
       </div>
     </>
+  );
+}
+
+export default function ClientNotificationsPage() {
+  return (
+    <ProtectedRoute allowedRoles={[UserRole.CLIENT, UserRole.SUPER_ADMIN, UserRole.OWNER, UserRole.COMPANY_ADMIN, UserRole.REGION_ADMIN, UserRole.ADMIN]}>
+      <ClientNotificationsPageInner />
+    </ProtectedRoute>
   );
 }

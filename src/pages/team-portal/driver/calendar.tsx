@@ -760,7 +760,16 @@ function DriverCalendarInner() {
 // for support / cross-tenant troubleshooting.
 export default function DriverCalendarPage() {
   return (
-    <ProtectedRoute allowedRoles={[UserRole.DRIVER, UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN]}>
+    <ProtectedRoute
+      allowedRoles={[
+        UserRole.DRIVER,
+        UserRole.SUPER_ADMIN,
+        UserRole.OWNER,
+        UserRole.COMPANY_ADMIN,
+        UserRole.REGION_ADMIN,
+        UserRole.ADMIN,
+      ]}
+    >
       <DriverCalendarInner />
     </ProtectedRoute>
   );

@@ -339,7 +339,7 @@ function CleaningNotificationsPageInner() {
                         </Button>
                       )}
                       {(n.link || n.action_url) && (
-                        <button type="button" onClick={() => openLink(n)} className="text-[11px] text-amber-700 dark:text-amber-400 hover:underline">Open</button>
+                        <button type="button" onClick={() => openLink(n)} className="text-[11px] text-brand-primary dark:text-brand-primary hover:underline">Open</button>
                       )}
                     </div>
                   </div>
@@ -355,7 +355,17 @@ function CleaningNotificationsPageInner() {
 
 export default function CleaningNotificationsPage() {
   return (
-    <ProtectedRoute allowedRoles={[UserRole.CLEANING_MANAGER, UserRole.CLEANING_STAFF, UserRole.ADMIN]}>
+    <ProtectedRoute
+      allowedRoles={[
+        UserRole.CLEANING_MANAGER,
+        UserRole.CLEANING_STAFF,
+        UserRole.SUPER_ADMIN,
+        UserRole.OWNER,
+        UserRole.COMPANY_ADMIN,
+        UserRole.REGION_ADMIN,
+        UserRole.ADMIN,
+      ]}
+    >
       <CleaningNotificationsPageInner />
     </ProtectedRoute>
   );

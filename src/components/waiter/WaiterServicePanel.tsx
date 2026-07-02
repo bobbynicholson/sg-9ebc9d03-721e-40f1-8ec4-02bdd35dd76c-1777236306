@@ -313,7 +313,7 @@ export function WaiterServicePanel() {
                         dietary, briefing live there. */}
                     <Link
                       href={withSlug(staffOrderHref(o.id, "waiter"))}
-                      className="text-sm font-semibold text-slate-900 truncate hover:text-amber-700 hover:underline inline-flex items-center gap-1"
+                      className="text-sm font-semibold text-slate-900 truncate hover:text-brand-primary hover:underline inline-flex items-center gap-1"
                     >
                       {o.event_name || o.client_name || "Event"}
                       <ExternalLink className="w-3 h-3 flex-shrink-0" />
@@ -366,7 +366,7 @@ export function WaiterServicePanel() {
                       variant="outline"
                       onClick={() => stampPhase(o.id, "equipment_returned_at")}
                       disabled={savingPhase?.orderId === o.id && savingPhase.phase === "equipment_returned_at"}
-                      className="h-7 text-xs border-amber-300 text-amber-800 hover:bg-amber-100"
+                      className="h-7 text-xs border-brand-primary/30 text-brand-primary hover:bg-brand-primary/10"
                     >
                       Equipment returned
                     </Button>
