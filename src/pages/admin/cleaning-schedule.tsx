@@ -18,12 +18,14 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useMemo, useState } from "react";
 import Head from "next/head";
+import Link from "next/link";
 import { useRouter } from "next/router";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { DynamicNav } from "@/components/DynamicNav";
 import { PortalShell, PortalHeader,
   PageWorkbench,
@@ -32,8 +34,9 @@ import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { Sparkles, ChevronLeft, ChevronRight, Plus, Loader2, Download, RefreshCw, AlertTriangle } from "lucide-react";
-import { toLocalISO } from "@/lib/localDate";
+import { Sparkles, ChevronLeft, ChevronRight, Plus, Loader2, Download, RefreshCw, AlertTriangle, Users } from "lucide-react";
+import { DEFAULT_TENANT_TIMEZONE, tenantToday, toLocalISO } from "@/lib/localDate";
+import { useTenantHref } from "@/lib/tenantUrl";
 import { LogKitchenShiftModal } from "@/components/admin/LogKitchenShiftModal";
 import { ShiftTasksChips } from "@/components/admin/ShiftTasksChips";
 import { AddShiftTaskModal } from "@/components/admin/AddShiftTaskModal";
@@ -108,6 +111,7 @@ function CleaningScheduleGrid() {
   const { user } = useAuth() as any;
   const userRole = ((user as any)?.active_role || (user as any)?.role || UserRole.ADMIN).toString();
   const router = useRouter();
+  const { withSlug } = useTenantHref();
   const companyId = user?.company_id;
   const [weekStart, setWeekStart] = useState<Date>(startOfWeek(new Date()));
 
@@ -126,6 +130,12 @@ function CleaningScheduleGrid() {
   const [staff, setStaff] = useState<Staffer[]>([]);
   const [shifts, setShifts] = useState<ShiftRow[]>([]);
   const [loading, setLoading] = useState(true);
+  // Silent-failure audit: a swallowed load error left the grid
+  // reading "no cleaning staff". Keep the failure visible with Retry.
+  const [loadError, setLoadError] = useState<string | null>(null);
+  // Tenant wall clock for the "today" highlight + missed-shift
+  // detection (same pattern as kitchen-schedule / dashboard).
+  const [tenantTimezone, setTenantTimezone] = useState<string | null>(null);
   const [logTarget, setLogTarget] = useState<{ staffId: string; staffName: string; date: string } | null>(null);
   // Wave 41 Phase 3 - per-shift task chips. Cleaning grid defaults
   // new tasks to 'cleaning' but the operator can pick anything.
@@ -137,9 +147,24 @@ function CleaningScheduleGrid() {
     [weekStart],
   );
 
+  useEffect(() => {
+    if (!companyId) return;
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await (supabase as any)
+        .from("companies")
+        .select("timezone")
+        .eq("id", companyId)
+        .maybeSingle();
+      if (!cancelled && !error) setTenantTimezone((data as any)?.timezone || null);
+    })();
+    return () => { cancelled = true; };
+  }, [companyId]);
+
   const load = async () => {
     if (!companyId) return;
     setLoading(true);
+    setLoadError(null);
     try {
       const fromIso = toLocalISO(weekStart);
       const toIso = toLocalISO(addDays(weekStart, 6));
@@ -172,9 +197,10 @@ function CleaningScheduleGrid() {
           .select("user_id, department")
           .in("user_id", staffRows.map((row) => row.id))
           .in("department", rosterDepartmentAliases("cleaning"));
-        if (!departmentRes.error) {
-          departmentRows = (departmentRes.data || []) as RosterDepartmentRow[];
-        }
+        // A failed department fetch silently hid every staffer whose
+        // cleaning eligibility comes via user_departments. Surface it.
+        if (departmentRes.error) throw departmentRes.error;
+        departmentRows = (departmentRes.data || []) as RosterDepartmentRow[];
       }
       setStaff(filterRosterStaff(staffRows, departmentRows, "cleaning"));
       const shiftRows = (shiftsRes.data || []) as ShiftRow[];
@@ -186,7 +212,10 @@ function CleaningScheduleGrid() {
       } else {
         setTasksByShift(new Map());
       }
-    } catch {
+    } catch (e: any) {
+      // Surface the failure instead of quietly rendering an empty
+      // grid that reads as "no staff rostered".
+      setLoadError(e?.message || "Could not load the cleaning roster. Please try again.");
       setStaff([]);
       setShifts([]);
       setTasksByShift(new Map());
@@ -214,11 +243,17 @@ function CleaningScheduleGrid() {
       if (timer) clearTimeout(timer);
       timer = setTimeout(() => void load(), 750);
     };
+    // Random suffix so a second tab / sibling page never collides on
+    // the channel name (recurring realtime bug class). staff_shift_tasks
+    // now carries the company filter like kitchen-schedule does;
+    // user_departments stays unfiltered to match the codebase-wide
+    // convention for that table.
+    const channelSuffix = Math.random().toString(36).slice(2, 10);
     const channel = supabase
-      .channel(`admin-cleaning-schedule-${companyId}`)
+      .channel(`admin-cleaning-schedule-${companyId}-${channelSuffix}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "kitchen_shifts", filter: `company_id=eq.${companyId}` }, refresh)
       .on("postgres_changes", { event: "*", schema: "public", table: "profiles", filter: `company_id=eq.${companyId}` }, refresh)
-      .on("postgres_changes", { event: "*", schema: "public", table: "staff_shift_tasks" }, refresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "staff_shift_tasks", filter: `company_id=eq.${companyId}` }, refresh)
       .on("postgres_changes", { event: "*", schema: "public", table: "user_departments" }, refresh)
       .subscribe();
     return () => {
@@ -251,7 +286,8 @@ function CleaningScheduleGrid() {
   }, [shifts, weekDays]);
 
   const weekLabel = `${weekStart.toLocaleDateString("en-ZA", { day: "numeric", month: "short" })} - ${addDays(weekStart, 6).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}`;
-  const todayIso = toLocalISO(new Date());
+  // "Today" follows the tenant's wall clock, not the browser's.
+  const todayIso = toLocalISO(tenantToday(tenantTimezone || DEFAULT_TENANT_TIMEZONE));
 
   return (
     <>
@@ -262,15 +298,29 @@ function CleaningScheduleGrid() {
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
 
           <PortalHeader
+            variant="hero"
             title="Cleaning shift roster"
             icon={Sparkles}
             subtitle="Manager view for staff shifts, duty coverage, and handover workload."
+            meta={
+              !loading && !loadError ? (
+                <>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                    {staff.length} cleaning team member{staff.length === 1 ? "" : "s"}
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    {shifts.length} shift{shifts.length === 1 ? "" : "s"} this week
+                  </span>
+                </>
+              ) : undefined
+            }
             actions={
             <>
                 <Button variant="outline" size="sm" onClick={() => setWeekStart(addDays(weekStart, -7))}>
                   <ChevronLeft className="w-4 h-4" />
                 </Button>
-                <div className="text-sm font-medium text-slate-700 px-2 tabular-nums whitespace-nowrap">{weekLabel}</div>
+                <div className="text-sm font-medium text-white px-2 tabular-nums whitespace-nowrap">{weekLabel}</div>
                 <Button variant="outline" size="sm" onClick={() => setWeekStart(addDays(weekStart, 7))}>
                   <ChevronRight className="w-4 h-4" />
                 </Button>
@@ -335,6 +385,18 @@ function CleaningScheduleGrid() {
           />
           <PageWorkbench />
 
+            {loadError && (
+              <Alert variant="destructive" className="mb-4">
+                <AlertDescription className="flex flex-wrap items-center gap-3">
+                  <span>{loadError}</span>
+                  <Button variant="outline" size="sm" onClick={load} disabled={loading}>
+                    <RefreshCw className="w-3.5 h-3.5 mr-2" />
+                    Try again
+                  </Button>
+                </AlertDescription>
+              </Alert>
+            )}
+
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-base">
@@ -351,7 +413,13 @@ function CleaningScheduleGrid() {
                   </div>
                 ) : staff.length === 0 ? (
                   <div className="text-center py-12 text-slate-500 text-sm">
-                    No cleaning staff assigned yet. Add a cleaner or assign a cleaning department in Admin Users.
+                    <p>No cleaning staff assigned yet. Add a cleaner or assign a cleaning department.</p>
+                    <Link href={withSlug("/admin/users")}>
+                      <Button variant="outline" size="sm" className="mt-3 gap-1.5">
+                        <Users className="w-3.5 h-3.5" />
+                        Open Users
+                      </Button>
+                    </Link>
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
@@ -408,14 +476,14 @@ function CleaningScheduleGrid() {
                                                   ? "border-rose-200 bg-rose-50"
                                                   : hasActual
                                                     ? "border-brand-primary/20 bg-brand-primary/10"
-                                                    : "border-brand-primary/20 bg-brand-primary/10"
+                                                    : "border-slate-200 bg-slate-50"
                                               }`}
                                             >
                                               <div className="flex items-center justify-between gap-1">
                                                 <span className={`text-xs font-semibold tabular-nums ${
                                                   isMissed ? "text-rose-900" :
                                                   hasActual ? "text-brand-primary" :
-                                                              "text-brand-primary"
+                                                              "text-slate-900"
                                                 }`}>
                                                   {fmtTime(s.planned_start)}-{fmtTime(s.planned_end)}
                                                 </span>
@@ -434,7 +502,10 @@ function CleaningScheduleGrid() {
                                                   <AlertTriangle className="w-2.5 h-2.5" /> Missed
                                                 </div>
                                               ) : (
-                                                <div className="text-[10px] text-brand-primary mt-0.5 tabular-nums">
+                                                // Planned-only cells stay neutral slate so
+                                                // clocked-in (brand tint) reads at a glance,
+                                                // matching the kitchen grid.
+                                                <div className="text-[10px] text-slate-500 mt-0.5 tabular-nums">
                                                   {plannedHours(s.planned_start, s.planned_end).toFixed(1)}h planned
                                                 </div>
                                               )}

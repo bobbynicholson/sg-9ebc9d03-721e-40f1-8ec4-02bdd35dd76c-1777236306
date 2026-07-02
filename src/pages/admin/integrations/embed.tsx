@@ -102,6 +102,7 @@ export default function AdminEmbedFormsPage() {
     total_forms: 0, total_views: 0, total_submissions: 0, conversion_rate: 0,
   });
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [snippetForm, setSnippetForm] = useState<EmbedFormRow | null>(null);
@@ -119,6 +120,7 @@ export default function AdminEmbedFormsPage() {
 
   async function loadForms() {
     setLoading(true);
+    setLoadError(null);
     try {
       const resp = await fetch("/api/admin/embed/forms");
       const json = await resp.json();
@@ -142,6 +144,9 @@ export default function AdminEmbedFormsPage() {
       captureException(err, {
         tags: { route: "/admin/integrations/embed", step: "load-forms", companyId: user?.company_id || "" },
       });
+      // Silent-failure audit: a failed load used to fall through to the
+      // "create your first form" empty state, which is the wrong signal.
+      setLoadError(dbErrorMessage(err, { entity: "form" }));
       toast({ title: "Couldn't load forms", description: dbErrorMessage(err, { entity: "form" }), variant: "destructive" });
     } finally {
       setLoading(false);
@@ -219,7 +224,7 @@ export default function AdminEmbedFormsPage() {
     }
   }
 
-  const isEmpty = !loading && forms.length === 0;
+  const isEmpty = !loading && !loadError && forms.length === 0;
 
   return (
     <>
@@ -230,9 +235,26 @@ export default function AdminEmbedFormsPage() {
       <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <PortalHeader
-            title="Lead Capture Forms"
+            variant="hero"
+            title="Lead capture forms"
             icon={Code2}
             subtitle="Embeddable enquiry forms for your marketing site. Pick a template, customise, paste the snippet."
+            meta={
+              !loading && !loadError && forms.length > 0 ? (
+                <>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                    {numberFmt.format(kpis.total_forms)} form{kpis.total_forms === 1 ? "" : "s"}
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    {numberFmt.format(kpis.total_submissions)} submission{kpis.total_submissions === 1 ? "" : "s"}
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    {kpis.conversion_rate}% conversion
+                  </span>
+                </>
+              ) : undefined
+            }
             actions={!isEmpty && (
               <Button
                 onClick={() => setGalleryOpen(true)}
@@ -245,8 +267,18 @@ export default function AdminEmbedFormsPage() {
           />
           <PageWorkbench />
 
+          {loadError && (
+            <div className="mb-6 rounded-lg border border-rose-200 bg-white p-5 shadow-sm">
+              <h2 className="text-base font-bold text-rose-900 mb-1">Couldn't load your forms</h2>
+              <p className="text-sm text-slate-600 mb-3">{loadError}</p>
+              <Button onClick={loadForms} size="sm" className="bg-brand-primary hover:bg-brand-primary/90">
+                Retry
+              </Button>
+            </div>
+          )}
+
           {/* KPI strip */}
-          {!isEmpty && (
+          {!isEmpty && !loadError && (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-8">
               <MetricCard
                 label="Total forms"
@@ -287,7 +319,7 @@ export default function AdminEmbedFormsPage() {
           )}
 
           {/* Search */}
-          {!isEmpty && (
+          {!isEmpty && !loadError && (
             <div className="mb-4">
               <div className="relative max-w-md">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -302,7 +334,7 @@ export default function AdminEmbedFormsPage() {
           )}
 
           {/* List or empty state */}
-          {isEmpty ? (
+          {loadError ? null : isEmpty ? (
             <Card>
               <CardContent className="py-16 text-center">
                 <div className="mx-auto mb-6 w-16 h-16 rounded-2xl bg-gradient-to-br from-brand-primary to-brand-secondary flex items-center justify-center shadow-lg">

@@ -12,6 +12,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useMemo, useState } from "react";
 import Head from "next/head";
+import Link from "next/link";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -19,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { PortalShell, PortalHeader,
   PageWorkbench,
@@ -28,8 +30,10 @@ import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Wallet, Loader2, Download, RefreshCw, Receipt, FileCheck, CheckCircle2 } from "lucide-react";
+import { Wallet, Loader2, Download, RefreshCw, Receipt, FileCheck, CheckCircle2, AlertTriangle, UserPlus } from "lucide-react";
 import { toLocalISO } from "@/lib/localDate";
+import { formatZAR } from "@/lib/formatters";
+import { useTenantHref } from "@/lib/tenantUrl";
 import {
   summariseStaffPay,
   persistPayslip,
@@ -58,21 +62,21 @@ function defaultPeriodStart(): string {
   return toLocalISO(d);
 }
 
+// Money display routes through the shared formatZAR util so figures
+// here read identically to payslips and the wage dashboard (the old
+// inline Intl formatter rounded to whole rand, hiding cents).
 function fmtCurrency(amount: number, currency = "ZAR"): string {
-  try {
-    return new Intl.NumberFormat("en-ZA", {
-      style: "currency",
-      currency,
-      maximumFractionDigits: 0,
-    }).format(amount || 0);
-  } catch {
-    return `R${(amount || 0).toFixed(0)}`;
-  }
+  return formatZAR(amount || 0, { currency });
 }
+
+// Rand-float to integer cents. PaySummary amounts arrive as 2dp rand
+// floats; all comparisons and sums on this page happen in cents.
+const toCents = (rand: number): number => Math.round((rand || 0) * 100);
 
 function KitchenSettlementPage() {
   const { user } = useAuth() as any;
   const { toast } = useToast();
+  const { withSlug } = useTenantHref();
   const companyId = user?.company_id;
 
   const [periodStart, setPeriodStart] = useState<string>(defaultPeriodStart());
@@ -81,6 +85,12 @@ function KitchenSettlementPage() {
   const [summaries, setSummaries] = useState<Record<string, PaySummary>>({});
   const [existingPayslips, setExistingPayslips] = useState<Record<string, PayslipRow>>({});
   const [loading, setLoading] = useState(true);
+  // Silent-failure audit: the toast disappears; keep the failure on
+  // screen with a Retry so an empty table can't read as "no staff".
+  const [loadError, setLoadError] = useState<string | null>(null);
+  // Per-staff summarise failures (partial Promise failures). Named so
+  // the operator knows exactly whose pay is missing from the totals.
+  const [summariseFailed, setSummariseFailed] = useState<string[]>([]);
   const [persisting, setPersisting] = useState<string | null>(null);
   const [bulkPersisting, setBulkPersisting] = useState(false);
 
@@ -89,6 +99,7 @@ function KitchenSettlementPage() {
   const load = async () => {
     if (!companyId) return;
     setLoading(true);
+    setLoadError(null);
     try {
       // 1) Pull all hourly-eligible staff. Wave 40.4: widened to
       // include cleaning_staff so the same settlement page covers
@@ -118,6 +129,7 @@ function KitchenSettlementPage() {
 
       // 2) Summarise pay for each
       const sumMap: Record<string, PaySummary> = {};
+      const failedNames: string[] = [];
       for (const s of staffRows) {
         // Sequential to avoid hammering the DB. Catering tenants
         // typically have <20 chefs so this is acceptable.
@@ -130,10 +142,14 @@ function KitchenSettlementPage() {
           });
           sumMap[s.id] = sum;
         } catch (e) {
+          // Partial-failure audit: a swallowed summarise made this
+          // person read as R0 in the totals. Track and surface it.
           console.warn("[kitchen-settlement] summarise failed:", s.id, e);
+          failedNames.push(s.full_name || s.email);
         }
       }
       setSummaries(sumMap);
+      setSummariseFailed(failedNames);
 
       // 3) Pull any existing payslips for this exact period so the
       // operator sees what's already been issued / paid.
@@ -156,6 +172,7 @@ function KitchenSettlementPage() {
       }
       setExistingPayslips(psMap);
     } catch (e: any) {
+      setLoadError(e?.message || "Could not load the settlement data. Please try again.");
       toast({ title: "Could not load settlement", description: e?.message || "Try again", variant: "destructive" });
     } finally {
       setLoading(false);
@@ -168,18 +185,59 @@ function KitchenSettlementPage() {
   }, [companyId, periodKey]);
 
   const totals = useMemo(() => {
-    let hours = 0, base = 0, ot = 0, mult = 0, total = 0;
+    // Sum in integer cents so float drift can never make the headline
+    // tiles disagree with the per-row figures below them.
+    let hours = 0, baseC = 0, otC = 0, multC = 0, totalC = 0;
     let chefsWithHours = 0;
     Object.values(summaries).forEach((s) => {
       if (s.totalHours > 0) chefsWithHours += 1;
       hours += s.totalHours;
-      base += s.basePay;
-      ot += s.overtimePay;
-      mult += s.multiplierPay;
-      total += s.totalPay;
+      baseC += toCents(s.basePay);
+      otC += toCents(s.overtimePay);
+      multC += toCents(s.multiplierPay);
+      totalC += toCents(s.totalPay);
     });
-    return { hours, base, ot, mult, total, chefsWithHours };
+    return {
+      hours,
+      base: baseC / 100,
+      ot: otC / 100,
+      mult: multC / 100,
+      total: totalC / 100,
+      chefsWithHours,
+    };
   }, [summaries]);
+
+  // Best-effort staff notification on issue / mark-paid. staff_id in
+  // this settlement flow is a profiles.id, so it's a valid
+  // notifications.recipient_id. Deduped on the payslip row so a
+  // re-click inside the window doesn't double-ping. Never blocks the
+  // payslip write.
+  const notifyPayslip = async (
+    staffId: string,
+    summary: PaySummary,
+    status: "issued" | "paid",
+    payslipId: string | undefined,
+  ) => {
+    if (!companyId) return;
+    try {
+      const { notificationService } = await import("@/services/notificationService");
+      await notificationService.createNotification({
+        company_id: companyId,
+        recipient_id: staffId,
+        user_id: staffId,
+        notification_type: status === "paid" ? "payslip_paid" : "payslip_issued",
+        title: status === "paid" ? "Payslip paid" : "Payslip issued",
+        message: `Your payslip for ${periodStart} to ${periodEnd} (${fmtCurrency(summary.totalPay, summary.currency)}) ${status === "paid" ? "has been marked paid" : "has been issued"}.`,
+        priority: "normal",
+        link: "/team-portal/kitchen/duty",
+        related_entity_type: "kitchen_payslip",
+        related_entity_id: payslipId,
+        dedup: true,
+      });
+    } catch (e) {
+      console.warn("[kitchen-settlement] payslip notify failed (non-fatal):", e);
+    }
+  };
 
   const issuePayslip = async (staffId: string, status: "draft" | "issued" | "paid") => {
     const summary = summaries[staffId];
@@ -193,6 +251,9 @@ function KitchenSettlementPage() {
         status,
       });
       if (!res.ok) throw new Error(res.error || "Persist failed");
+      if (status === "issued" || status === "paid") {
+        await notifyPayslip(staffId, summary, status, res.payslipId);
+      }
       toast({
         title: status === "paid" ? "Marked paid" : status === "issued" ? "Payslip issued" : "Payslip saved",
         description: `${summary.staffName || "Staff"} - ${fmtCurrency(summary.totalPay, summary.currency)}`,
@@ -219,7 +280,10 @@ function KitchenSettlementPage() {
             actorUserId: user?.id || null,
             status: "issued",
           });
-          if (r.ok) issued += 1;
+          if (r.ok) {
+            issued += 1;
+            await notifyPayslip(s.staffId, s, "issued", r.payslipId);
+          }
         } catch { /* swallow per-row, continue */ }
       }
       toast({ title: `Issued ${issued} payslip${issued === 1 ? "" : "s"}`, description: `Period ${periodStart} - ${periodEnd}` });
@@ -304,9 +368,33 @@ function KitchenSettlementPage() {
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
 
           <PortalHeader
+            variant="hero"
             title="Kitchen settlement"
             icon={Wallet}
-            subtitle="Period summary, OT + Sunday multipliers, one-tap payslip issue."
+            subtitle={
+              <>
+                Pay for kitchen and cleaning staff over the selected period, with
+                overtime and Sunday multipliers, ready to issue as payslips.{" "}
+                <span className="font-semibold text-white">{periodStart}</span> to{" "}
+                <span className="font-semibold text-white">{periodEnd}</span>.
+              </>
+            }
+            meta={
+              !loading && !loadError ? (
+                <>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                    {totals.chefsWithHours} staff with hours
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    {fmtCurrency(totals.total)} total pay
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    {Object.keys(existingPayslips).length} payslip{Object.keys(existingPayslips).length === 1 ? "" : "s"} on record
+                  </span>
+                </>
+              ) : undefined
+            }
             actions={
             <>
                 <Button variant="outline" size="sm" onClick={load} disabled={loading}>
@@ -328,6 +416,37 @@ function KitchenSettlementPage() {
             }
           />
           <PageWorkbench />
+
+            {loadError && (
+              <Alert variant="destructive" className="mb-4">
+                <AlertDescription className="flex flex-wrap items-center gap-3">
+                  <span>{loadError}</span>
+                  <Button variant="outline" size="sm" onClick={load} disabled={loading}>
+                    <RefreshCw className="w-3.5 h-3.5 mr-2" />
+                    Try again
+                  </Button>
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {/* Partial-failure surface: totals below EXCLUDE anyone
+                whose pay calc failed, so say so instead of silently
+                under-reporting the wage bill. */}
+            {!loadError && summariseFailed.length > 0 && (
+              <Alert className="mb-4 border-amber-300 bg-amber-50">
+                <AlertTriangle className="h-4 w-4 text-amber-600" />
+                <AlertDescription className="flex flex-wrap items-center gap-3 text-amber-900">
+                  <span>
+                    Pay could not be computed for {summariseFailed.join(", ")}.
+                    The totals below exclude {summariseFailed.length === 1 ? "this person" : "these people"}.
+                  </span>
+                  <Button variant="outline" size="sm" onClick={load} disabled={loading} className="border-amber-300 text-amber-900">
+                    <RefreshCw className="w-3.5 h-3.5 mr-2" />
+                    Retry
+                  </Button>
+                </AlertDescription>
+              </Alert>
+            )}
 
             {/* Period picker */}
             <Card>
@@ -399,7 +518,13 @@ function KitchenSettlementPage() {
                   </div>
                 ) : staff.length === 0 ? (
                   <div className="text-center py-12 text-slate-500 text-sm">
-                    No kitchen staff on the company roster yet.
+                    <p>No kitchen or cleaning staff on the company roster yet.</p>
+                    <Link href={withSlug("/admin/kitchen-staff")}>
+                      <Button variant="outline" size="sm" className="mt-3 gap-1.5">
+                        <UserPlus className="w-3.5 h-3.5" />
+                        Add staff and rates
+                      </Button>
+                    </Link>
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
@@ -422,6 +547,13 @@ function KitchenSettlementPage() {
                           const sum = summaries[s.id];
                           const ps = existingPayslips[s.id];
                           const hasHours = sum && sum.totalHours > 0;
+                          // Money audit: an issued payslip can go stale
+                          // when shifts are edited after issue. Flag any
+                          // cent-level drift between the stored payslip
+                          // and the recomputed figure so the two never
+                          // silently disagree.
+                          const payslipStale =
+                            !!ps && !!sum && toCents(Number(ps.total_pay)) !== toCents(sum.totalPay);
                           return (
                             <tr key={s.id} className={hasHours ? "" : "opacity-50"}>
                               <td className="px-4 py-3">
@@ -438,13 +570,24 @@ function KitchenSettlementPage() {
                               <td className="px-3 py-3 text-right tabular-nums font-bold text-brand-primary">{sum ? fmtCurrency(sum.totalPay, sum.currency) : "-"}</td>
                               <td className="px-3 py-3 text-right">
                                 {ps ? (
-                                  <Badge className={
-                                    ps.status === "paid" ? "bg-brand-primary/15 text-brand-primary border-brand-primary/20" :
-                                    ps.status === "issued" ? "bg-blue-100 text-blue-800 border-blue-200" :
-                                                              "bg-slate-100 text-slate-700 border-slate-200"
-                                  } variant="outline">
-                                    {ps.status}
-                                  </Badge>
+                                  <div className="inline-flex flex-col items-end gap-1">
+                                    <Badge className={
+                                      ps.status === "paid" ? "bg-brand-primary/15 text-brand-primary border-brand-primary/20" :
+                                      ps.status === "issued" ? "bg-blue-100 text-blue-800 border-blue-200" :
+                                                                "bg-slate-100 text-slate-700 border-slate-200"
+                                    } variant="outline">
+                                      {ps.status}
+                                    </Badge>
+                                    {payslipStale && (
+                                      <span
+                                        className="inline-flex items-center gap-0.5 text-[10px] font-medium text-amber-700"
+                                        title={`Payslip shows ${fmtCurrency(Number(ps.total_pay), sum?.currency)}, recomputed pay is ${fmtCurrency(sum?.totalPay ?? 0, sum?.currency)}. Shifts changed after issue; re-issue to update.`}
+                                      >
+                                        <AlertTriangle className="w-2.5 h-2.5" />
+                                        Differs from payslip
+                                      </span>
+                                    )}
+                                  </div>
                                 ) : (
                                   <span className="text-xs text-slate-400">-</span>
                                 )}
@@ -452,7 +595,10 @@ function KitchenSettlementPage() {
                               <td className="px-3 py-3 text-right">
                                 {hasHours && (
                                   <div className="inline-flex gap-1">
-                                    {!ps || ps.status === "draft" ? (
+                                    {/* Stale issued slips get a Re-issue so the
+                                        payslip can catch up with edited shifts.
+                                        Paid slips stay locked. */}
+                                    {!ps || ps.status === "draft" || (payslipStale && ps.status === "issued") ? (
                                       <Button
                                         size="sm"
                                         variant="outline"
@@ -461,7 +607,7 @@ function KitchenSettlementPage() {
                                         onClick={() => issuePayslip(s.id, "issued")}
                                       >
                                         {persisting === s.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Receipt className="w-3 h-3" />}
-                                        Issue
+                                        {ps && payslipStale && ps.status === "issued" ? "Re-issue" : "Issue"}
                                       </Button>
                                     ) : null}
                                     {ps && ps.status !== "paid" && (

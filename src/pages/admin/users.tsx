@@ -83,6 +83,9 @@ function AdminUsersPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [invitations, setInvitations] = useState<PendingInvitation[]>([]);
   const [invitationsLoading, setInvitationsLoading] = useState(false);
+  // Surfaced in the Pending invitations panel; a silent failure here
+  // looked identical to "no pending invitations".
+  const [invitationsError, setInvitationsError] = useState<string | null>(null);
   // USR-C: Invite User dialog state.
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
@@ -330,6 +333,7 @@ function AdminUsersPage() {
   const loadInvitations = async () => {
     if (!user?.company_id) return;
     setInvitationsLoading(true);
+    setInvitationsError(null);
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data, error } = await (supabase as any)
@@ -344,6 +348,7 @@ function AdminUsersPage() {
       setInvitations((data || []) as PendingInvitation[]);
     } catch (err) {
       console.error("Error loading invitations:", err);
+      setInvitationsError(err instanceof Error ? err.message : "Couldn't load pending invitations.");
     } finally {
       setInvitationsLoading(false);
     }
@@ -774,14 +779,37 @@ function AdminUsersPage() {
               via Edit Departments; revoke isn't surfaced yet
               (deferred to #208). Honest framing now. */}
           <PortalHeader
+            variant="hero"
             title="Full team"
             icon={Users}
             subtitle="Everyone with a staff login: owners, admins, kitchen, drivers, waiters, shopping, cleaning. Assign departments here; client portal accounts are managed under /admin/contacts."
+            meta={
+              !error && (
+                <>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                    {activeUserCount} active
+                  </span>
+                  {inactiveUserCount > 0 && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                      {inactiveUserCount} inactive
+                    </span>
+                  )}
+                  {pendingInviteCount > 0 && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                      <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+                      {pendingInviteCount} pending invite{pendingInviteCount === 1 ? "" : "s"}
+                    </span>
+                  )}
+                </>
+              )
+            }
             actions={
             <>
                 <InfoTooltip
                   content={"Refresh the user list to pick up the latest changes and department assignments."}
                   side="left"
+                  className="text-white/70 hover:text-white"
                 />
                 {/* Phase 20 #2: team roster CSV export. HR + payroll
                     regularly want a flat list of every login on the
@@ -856,6 +884,21 @@ function AdminUsersPage() {
             }
           />
           <PageWorkbench />
+
+          {/* Logged-in load failure. Pre-audit `error` only rendered
+              on the logged-out branch, so a failed getAllUsers left
+              the roster showing "No users found" - which reads as an
+              empty tenant, not a broken fetch. */}
+          {error && user && (
+            <div className="mb-5 rounded-lg border border-rose-200 bg-white p-4 shadow-sm">
+              <p className="text-sm font-semibold text-rose-900">Couldn&apos;t load the team list</p>
+              <p className="mt-1 text-sm text-slate-600">{error}</p>
+              <Button size="sm" variant="outline" className="mt-3" onClick={loadUsers} disabled={loading}>
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Retry
+              </Button>
+            </div>
+          )}
 
           <div className="grid gap-5 xl:grid-cols-[320px_minmax(0,1fr)]">
             <aside className="order-2 space-y-4 xl:order-1 xl:sticky xl:top-6 xl:self-start">
@@ -1065,7 +1108,10 @@ function AdminUsersPage() {
                                 {activity.label}
                               </span>
                               <p className="mt-1">
-                                Joined {formatLocalDate(targetUser.created_at || Date.now())}
+                                {/* No fake fallback: showing today's date
+                                    for a missing created_at claimed the
+                                    user joined just now. */}
+                                Joined {targetUser.created_at ? formatLocalDate(targetUser.created_at) : "--"}
                               </p>
                               {targetUser.phone_number && (
                                 <button
@@ -1302,11 +1348,21 @@ function AdminUsersPage() {
                   </Button>
                 </div>
                 <div className="p-4">
-                  <PendingInvitationsList
-                    invitations={invitations}
-                    loading={invitationsLoading}
-                    onCancel={handleCancelInvitation}
-                  />
+                  {invitationsError ? (
+                    <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-6 text-center">
+                      <p className="text-sm font-semibold text-rose-900">Couldn&apos;t load pending invitations</p>
+                      <p className="mt-1 text-sm text-rose-800/80">{invitationsError}</p>
+                      <Button size="sm" variant="outline" className="mt-3" onClick={loadInvitations} disabled={invitationsLoading}>
+                        Retry
+                      </Button>
+                    </div>
+                  ) : (
+                    <PendingInvitationsList
+                      invitations={invitations}
+                      loading={invitationsLoading}
+                      onCancel={handleCancelInvitation}
+                    />
+                  )}
                 </div>
               </section>
             </main>

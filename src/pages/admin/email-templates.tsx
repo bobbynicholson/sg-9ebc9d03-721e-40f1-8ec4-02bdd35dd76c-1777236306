@@ -78,8 +78,13 @@ function LifecycleEmailsPage() {
 
       <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+          {/* Command-centre hero: dark band washed in the tenant's
+              brand colours via the --brand-*-rgb vars. No meta chips
+              here - the counts live inside the tab panels and heroing
+              them would need duplicate queries. */}
           <PortalHeader
-            title="Lifecycle Emails"
+            variant="hero"
+            title="Lifecycle emails"
             icon={Mail}
             subtitle="Templates, sent log, and automation. All your post-sale email touchpoints in one place."
           />

@@ -15,7 +15,7 @@
  * Phase 5 #7: react-hook-form + zod. Every Switch wires through
  * Controller so RHF manages state without cascade re-renders.
  */
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -31,7 +31,7 @@ import { PortalShell, PortalHeader,
 } from "@/components/portal/ui";
 import Head from "next/head";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
-import { useForm, Controller } from "react-hook-form";
+import { useForm, Controller, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
@@ -167,63 +167,90 @@ function NotificationSettingsPage() {
   };
   const companyId = profile?.company_id || user?.company_id || null;
   const [loading, setLoading] = useState(true);
+  // Surfaced load failure. When the DB read errors we STOP instead of
+  // silently rendering DEFAULTS - saving a defaults form over the
+  // user's real preferences is worse than making them retry.
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const { control, handleSubmit, reset, formState: { isSubmitting } } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: DEFAULTS,
   });
 
-  // Hydrate from the DB on mount. If the DB read fails or returns
-  // no row (first-time visitor), fall back to localStorage and then
-  // to DEFAULTS. zod parses every source so a malformed value from
-  // any tier doesn't brick the page.
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setLoading(true);
+  // Live count of enabled toggles for the hero chip. useWatch keeps
+  // it in sync without re-rendering every Switch through useForm.
+  const watched = useWatch({ control });
+  let enabledCount = 0;
+  let totalCount = 0;
+  for (const group of [watched?.email, watched?.push, watched?.sms, watched?.whatsapp]) {
+    if (!group) continue;
+    for (const v of Object.values(group)) {
+      totalCount += 1;
+      if (v) enabledCount += 1;
+    }
+  }
 
-      // 1. Try the DB first.
-      if (user?.id) {
-        try {
-          const { data, error } = await (supabase as any)
-            .from("email_notification_preferences")
-            .select("preferences")
-            .eq("user_id", user.id)
-            .maybeSingle();
-          if (!error && data?.preferences) {
-            const parsed = schema.safeParse(mergePreferenceDefaults(data.preferences));
-            if (parsed.success) {
-              if (!cancelled) {
-                reset(parsed.data);
-                setLoading(false);
-              }
-              return;
-            }
-            console.warn("[notification-settings] DB shape didn't match schema; falling back");
-          }
-        } catch (e) {
-          console.warn("[notification-settings] DB hydrate failed:", e);
-        }
-      }
+  // Hydrate from the DB on mount. If the row is missing (first-time
+  // visitor), fall back to localStorage and then to DEFAULTS. zod
+  // parses every source so a malformed value from any tier doesn't
+  // brick the page. A hard DB error surfaces a Retry state instead.
+  const hydrate = useCallback(async (cancelledRef?: { cancelled: boolean }) => {
+    const isCancelled = () => !!cancelledRef?.cancelled;
+    setLoading(true);
+    setLoadError(null);
 
-      // 2. Fall back to localStorage (offline / no-session cache).
-      if (typeof window !== "undefined") {
-        try {
-          const saved = window.localStorage.getItem(STORAGE_KEY);
-          if (saved) {
-            const parsed = schema.safeParse(mergePreferenceDefaults(JSON.parse(saved)));
-            if (parsed.success && !cancelled) {
+    // 1. Try the DB first.
+    if (user?.id) {
+      try {
+        const { data, error } = await (supabase as any)
+          .from("email_notification_preferences")
+          .select("preferences")
+          .eq("user_id", user.id)
+          .maybeSingle();
+        if (error) throw error;
+        if (data?.preferences) {
+          const parsed = schema.safeParse(mergePreferenceDefaults(data.preferences));
+          if (parsed.success) {
+            if (!isCancelled()) {
               reset(parsed.data);
+              setLoading(false);
             }
+            return;
           }
-        } catch (e) {
-          console.warn("[notification-settings] localStorage hydrate failed:", e);
+          console.warn("[notification-settings] DB shape didn't match schema; falling back");
         }
+      } catch (e: any) {
+        console.warn("[notification-settings] DB hydrate failed:", e);
+        if (!isCancelled()) {
+          setLoadError(e?.message || "Could not load your saved preferences.");
+          setLoading(false);
+        }
+        return;
       }
-      if (!cancelled) setLoading(false);
-    })();
-    return () => { cancelled = true; };
+    }
+
+    // 2. Fall back to localStorage (offline / no-session cache).
+    if (typeof window !== "undefined") {
+      try {
+        const saved = window.localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+          const parsed = schema.safeParse(mergePreferenceDefaults(JSON.parse(saved)));
+          if (parsed.success && !isCancelled()) {
+            reset(parsed.data);
+          }
+        }
+      } catch (e) {
+        console.warn("[notification-settings] localStorage hydrate failed:", e);
+      }
+    }
+    if (!isCancelled()) setLoading(false);
   }, [reset, user?.id]);
+
+  useEffect(() => {
+    const ref = { cancelled: false };
+    hydrate(ref);
+    return () => { ref.cancelled = true; };
+  }, [hydrate]);
 
   const onSubmit = async (values: FormValues) => {
     if (!user?.id) {
@@ -296,10 +323,21 @@ function NotificationSettingsPage() {
 
       <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+          {/* Command-centre hero: brand-washed dark band, live
+              enabled-toggle count from the hydrated form values. */}
           <PortalHeader
+            variant="hero"
             title="Notification settings"
             icon={Bell}
             subtitle="Per-user channels and triggers. Decide which events ping you by email, in-app banner, WhatsApp, push, or SMS. Owners get everything by default. Tune the noise from here."
+            meta={
+              !loading && !loadError ? (
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                  {enabledCount > 0 && <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />}
+                  {enabledCount} of {totalCount} alerts on
+                </span>
+              ) : undefined
+            }
           />
           <PageWorkbench />
 
@@ -308,6 +346,17 @@ function NotificationSettingsPage() {
               <CardContent className="py-12 text-center">
                 <Loader2 className="w-6 h-6 mx-auto text-slate-400 animate-spin" />
                 <p className="text-sm text-slate-500 mt-3">Loading your preferences...</p>
+              </CardContent>
+            </Card>
+          ) : loadError ? (
+            <Card className="border-rose-200 bg-rose-50/60">
+              <CardContent className="py-12 text-center">
+                <AlertCircle className="w-8 h-8 mx-auto text-rose-500" />
+                <p className="font-medium text-slate-900 mt-3">Couldn&apos;t load your saved preferences</p>
+                <p className="text-sm text-slate-600 mt-1">{loadError}</p>
+                <Button variant="outline" className="mt-4" onClick={() => hydrate()}>
+                  Retry
+                </Button>
               </CardContent>
             </Card>
           ) : (
@@ -381,9 +430,9 @@ function NotificationSettingsPage() {
             {/* Save Button */}
             <Card className="bg-gradient-to-r from-blue-50 to-slate-50">
               <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <AlertCircle className="w-5 h-5 text-blue-600" />
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <AlertCircle className="w-5 h-5 text-blue-600 shrink-0" />
                     <p className="text-sm text-slate-700">
                       Saved to your account and used by the notification fan-out service.
                     </p>

@@ -225,6 +225,16 @@ function WageDashboardPage() {
   const [shifts, setShifts] = useState<KitchenShift[]>([]);
   const [holidaySet, setHolidaySet] = useState<Set<string>>(new Set());
   const [loadingKitchen, setLoadingKitchen] = useState(true);
+  // Persistent load failures per leg. A toast alone disappears and
+  // the page then renders the "No shifts in this range" empty state,
+  // which reads as zero wages rather than a failed load.
+  const [kitchenError, setKitchenError] = useState<string | null>(null);
+  const [driverError, setDriverError] = useState<string | null>(null);
+  // Bumping this re-fires the load effects. The old realtime refetch
+  // did setRange((r) => ({ ...r })), but the effects depend on the
+  // fromISO / toISO STRINGS, which a spread doesn't change - so the
+  // realtime channel never actually refreshed anything.
+  const [reloadTick, setReloadTick] = useState(0);
 
   // Drivers data.
   const [driverRows, setDriverRows] = useState<DriverPayRow[]>([]);
@@ -288,6 +298,7 @@ function WageDashboardPage() {
     let cancelled = false;
     (async () => {
       setLoadingKitchen(true);
+      setKitchenError(null);
       try {
         const dept = department === "all" ? undefined : department;
         const [summary, shiftRows, holidayRows] = await Promise.all([
@@ -310,13 +321,13 @@ function WageDashboardPage() {
         }
         setHolidaySet(set);
       } catch (e: any) {
-        if (!cancelled) toast({ title: "Could not load wages", description: e?.message ?? "", variant: "destructive" });
+        if (!cancelled) setKitchenError(e?.message || "Could not load wages.");
       } finally {
         if (!cancelled) setLoadingKitchen(false);
       }
     })();
     return () => { cancelled = true; };
-  }, [companyId, range.fromISO, range.toISO, department, regionFilterId, toast]);
+  }, [companyId, range.fromISO, range.toISO, department, regionFilterId, reloadTick]);
 
   // ── Load drivers data ──────────────────────────────────────────
   useEffect(() => {
@@ -328,17 +339,21 @@ function WageDashboardPage() {
     let cancelled = false;
     (async () => {
       setLoadingDrivers(true);
+      setDriverError(null);
       try {
         // Pull drivers via the profiles table (matches driverService.getAllDrivers).
         // WAGE-A: dropped the legacy `name` column (typed `as any`
         // pre-WAGE-A to bypass schema mismatch; profiles only has
         // full_name + display_name). The driverPayService just
         // needs id, full_name, email for the fallback chain.
-        const { data: drivers } = await supabase
+        const { data: drivers, error: driversError } = await supabase
           .from("profiles")
           .select("id, full_name, email, hourly_rate, distance_rate_per_km, base_callout_fee")
           .eq("company_id", companyId)
           .eq("role", "driver");
+        // Pre-audit the profiles error was silently discarded: a
+        // 400 here rendered "No driver pay yet" instead of failing.
+        if (driversError) throw driversError;
         const driverList = (drivers || []) as Array<{
           id: string;
           full_name: string | null;
@@ -372,13 +387,13 @@ function WageDashboardPage() {
         });
         if (!cancelled) setDriverRows(rows.sort((a, b) => b.total - a.total));
       } catch (e: any) {
-        if (!cancelled) toast({ title: "Could not load driver pay", description: e?.message ?? "", variant: "destructive" });
+        if (!cancelled) setDriverError(e?.message || "Could not load driver pay.");
       } finally {
         if (!cancelled) setLoadingDrivers(false);
       }
     })();
     return () => { cancelled = true; };
-  }, [companyId, range.fromISO, range.toISO, department, toast]);
+  }, [companyId, range.fromISO, range.toISO, department, reloadTick]);
 
   // WAGE-A intel: prior-period roll-up for the trend chip. Shift
   // the range back by the same number of days and repeat the wage
@@ -409,7 +424,7 @@ function WageDashboardPage() {
       }
     })();
     return () => { cancelled = true; };
-  }, [companyId, range.fromISO, range.toISO, department, regionFilterId]);
+  }, [companyId, range.fromISO, range.toISO, department, regionFilterId, reloadTick]);
 
   // WAGE-A intel: owed-to-staff total. Reuses the same source the
   // financial-dashboard uses (paymentLedgerService.getTotalOwed), so
@@ -427,7 +442,7 @@ function WageDashboardPage() {
       }
     })();
     return () => { cancelled = true; };
-  }, [companyId]);
+  }, [companyId, reloadTick]);
 
   // WAGE-A intel: event count in the window for the cost-per-event
   // tile. WAGE-B extends this to also sum total_amount for the
@@ -439,13 +454,18 @@ function WageDashboardPage() {
     (async () => {
       try {
         const fromDate = range.fromISO.slice(0, 10);
-        const toDate = range.toISO.slice(0, 10);
+        // Inclusive last calendar day of the window. toISO is an
+        // exclusive bound (next Monday 00:00 for presets, 23:59:59
+        // of the picked day for custom); slicing it to a date and
+        // using .lt() dropped every event ON the final day of a
+        // custom range. Step back 1ms first, then compare with lte.
+        const lastDay = toLocalISO(new Date(new Date(range.toISO).getTime() - 1));
         const { data, error } = await supabase
           .from("orders")
           .select("total_amount")
           .eq("company_id", companyId)
           .gte("event_date", fromDate)
-          .lt("event_date", toDate)
+          .lte("event_date", lastDay)
           .neq("status", "cancelled");
         if (error) throw error;
         const rows = (data || []) as Array<{ total_amount: number | string | null }>;
@@ -462,7 +482,7 @@ function WageDashboardPage() {
       }
     })();
     return () => { cancelled = true; };
-  }, [companyId, range.fromISO, range.toISO]);
+  }, [companyId, range.fromISO, range.toISO, reloadTick]);
 
   // WAGE-B intel: 4-week weekly-wage roll-up per staff. One bulk
   // query over kitchen_shifts in the trailing 28 days, then bucket
@@ -527,10 +547,10 @@ function WageDashboardPage() {
     const refetch = () => {
       if (timer) clearTimeout(timer);
       timer = setTimeout(() => {
-        // Bump the range state by recreating it - the load effects
-        // re-fire when their dependencies change. Cheap, no extra
-        // refs needed.
-        setRange((r) => ({ ...r }));
+        // Bump the reload tick - the load effects list it as a dep.
+        // (Spreading `range` did nothing: the effects depend on the
+        // fromISO / toISO strings, which a spread leaves unchanged.)
+        setReloadTick((n) => n + 1);
       }, 500);
     };
     const channel = supabase
@@ -545,14 +565,18 @@ function WageDashboardPage() {
   }, [companyId]);
 
   // ── Derived: kitchen-style headlines ───────────────────────────
+  // Wage sums accumulate in integer cents (Math.round(x * 100)) and
+  // convert back once, so float drift can never make the headline
+  // disagree with the by-person table's own total.
   const kitchenTotals = useMemo(() => {
+    const cents = (n: number) => Math.round(Number(n || 0) * 100);
     const standard_min = staffRows.reduce((s, r) => s + r.standard_min, 0);
     const overtime_min = staffRows.reduce((s, r) => s + r.overtime_min, 0);
     const sunday_holiday_min = staffRows.reduce((s, r) => s + r.sunday_holiday_min, 0);
-    const standard_wage = staffRows.reduce((s, r) => s + r.standard_wage, 0);
-    const overtime_wage = staffRows.reduce((s, r) => s + r.overtime_wage, 0);
-    const sunday_holiday_wage = staffRows.reduce((s, r) => s + r.sunday_holiday_wage, 0);
-    const total_wage = staffRows.reduce((s, r) => s + r.total_wage, 0);
+    const standard_wage = staffRows.reduce((s, r) => s + cents(r.standard_wage), 0) / 100;
+    const overtime_wage = staffRows.reduce((s, r) => s + cents(r.overtime_wage), 0) / 100;
+    const sunday_holiday_wage = staffRows.reduce((s, r) => s + cents(r.sunday_holiday_wage), 0) / 100;
+    const total_wage = staffRows.reduce((s, r) => s + cents(r.total_wage), 0) / 100;
     const total_min = standard_min + overtime_min + sunday_holiday_min;
     return {
       standard_min, overtime_min, sunday_holiday_min, total_min,
@@ -592,7 +616,8 @@ function WageDashboardPage() {
   }, [shifts, staffRows, holidaySet]);
 
   const publicHolidayTotalPremium = useMemo(
-    () => publicHolidayLines.reduce((s, p) => s + p.premium, 0),
+    // Premiums are 2dp-rounded per line; sum in cents to stay exact.
+    () => publicHolidayLines.reduce((s, p) => s + Math.round(p.premium * 100), 0) / 100,
     [publicHolidayLines],
   );
 
@@ -646,9 +671,11 @@ function WageDashboardPage() {
 
   // ── Driver derived ─────────────────────────────────────────────
   const driverTotals = useMemo(() => {
-    const hourly = driverRows.reduce((s, r) => s + r.hourly_pay, 0);
-    const distance = driverRows.reduce((s, r) => s + r.distance_pay, 0);
-    const callout = driverRows.reduce((s, r) => s + r.callout_pay, 0);
+    // Same integer-cents rule as kitchenTotals.
+    const cents = (n: number) => Math.round(Number(n || 0) * 100);
+    const hourly = driverRows.reduce((s, r) => s + cents(r.hourly_pay), 0) / 100;
+    const distance = driverRows.reduce((s, r) => s + cents(r.distance_pay), 0) / 100;
+    const callout = driverRows.reduce((s, r) => s + cents(r.callout_pay), 0) / 100;
     return {
       hourly,
       distance,
@@ -737,6 +764,13 @@ function WageDashboardPage() {
   // ── Render ─────────────────────────────────────────────────────
   const isDriversTab = department === "drivers";
   const isLoading = isDriversTab ? loadingDrivers : loadingKitchen;
+  // Failed loads must never fall through to the "No shifts in this
+  // range" empty state - that reads as a zero wage bill.
+  const activeLoadError = isDriversTab
+    ? driverError
+    : department === "all"
+      ? kitchenError || driverError
+      : kitchenError;
   const hasNoData = isDriversTab
     ? driverRows.length === 0 && !loadingDrivers
     : staffRows.length === 0 && !loadingKitchen;
@@ -761,18 +795,43 @@ function WageDashboardPage() {
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
 
           <PortalHeader
+            variant="hero"
             title={
               <span className="flex items-center gap-2 flex-wrap">
-                Wage dashboard
-                <InfoTooltip content="Hours x rates roll-up across every department. Drivers run on the dispatch ledger (hourly + distance + callout); kitchen / shopping / cleaning run on the clocked-shift ledger with a BCEA Sunday + public-holiday split.\n\nThis page is the only place rand values surface, the team tablet shows hours only." />
+                Wages
+                <InfoTooltip
+                  className="text-white/70 hover:text-white"
+                  content="Hours x rates roll-up across every department. Drivers run on the dispatch ledger (hourly + distance + callout); kitchen / shopping / cleaning run on the clocked-shift ledger with a BCEA Sunday + public-holiday split.\n\nThis page is the only place rand values surface, the team tablet shows hours only."
+                />
               </span>
             }
             icon={Banknote}
             subtitle="Hours and wages, owner-only. The kitchen and dispatch tablets never see rates."
+            meta={
+              !isLoading && (
+                <>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                    {fmtZAR(grandTotal)} {range.label === "Custom" ? "in range" : range.label.toLowerCase()}
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    {isDriversTab
+                      ? `${driverRows.length} driver${driverRows.length === 1 ? "" : "s"} in range`
+                      : `${staffRows.length} staff in range`}
+                  </span>
+                  {!isDriversTab && staffRows.some((r) => r.open_shift) && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                      <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+                      {staffRows.filter((r) => r.open_shift).length} on shift now
+                    </span>
+                  )}
+                </>
+              )
+            }
             actions={
             <>
               {activeRegion && (
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-medium text-white">
                   <Building2 className="w-3 h-3" />
                   Filtered by region {activeRegion.name}
                 </span>
@@ -915,9 +974,17 @@ function WageDashboardPage() {
                     );
                     const up = diff > 0;
                     return (
-                      <div className={`text-[10px] mt-1 inline-flex items-center gap-0.5 ${up ? "text-rose-700" : "text-brand-primary"}`}>
+                      <div
+                        className={`text-[10px] mt-1 inline-flex items-center gap-0.5 ${up ? "text-rose-700" : "text-brand-primary"}`}
+                        // The previous-period query only covers the
+                        // clocked-shift ledger, so compare kitchen-
+                        // style vs kitchen-style. On the All tab the
+                        // headline above also includes driver pay -
+                        // flag the narrower basis instead of lying.
+                        title={department === "all" ? "Trend covers clocked-shift departments only; driver pay is excluded." : undefined}
+                      >
                         {up ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />}
-                        {Math.abs(pct)}% vs previous period
+                        {Math.abs(pct)}% vs previous period{department === "all" ? " (excl. drivers)" : ""}
                       </div>
                     );
                   })()}
@@ -1101,6 +1168,8 @@ function WageDashboardPage() {
                     Loading wages...
                   </CardContent>
                 </Card>
+              ) : activeLoadError ? (
+                <WageLoadError message={activeLoadError} onRetry={() => setReloadTick((n) => n + 1)} />
               ) : hasNoData ? (
                 <EmptyState department={department} />
               ) : isDriversTab ? (
@@ -1126,6 +1195,8 @@ function WageDashboardPage() {
                     Loading staff...
                   </CardContent>
                 </Card>
+              ) : activeLoadError ? (
+                <WageLoadError message={activeLoadError} onRetry={() => setReloadTick((n) => n + 1)} />
               ) : hasNoData ? (
                 <EmptyState department={department} />
               ) : isDriversTab ? (
@@ -1149,6 +1220,21 @@ function capitalise(s: string): string {
 }
 
 // ── Sub-components ─────────────────────────────────────────────────
+
+function WageLoadError({ message, onRetry }: { message: string; onRetry: () => void }) {
+  return (
+    <Card className="border-rose-200">
+      <CardContent className="py-12 text-center">
+        <AlertTriangle className="w-10 h-10 text-rose-400 mx-auto mb-3" />
+        <p className="text-slate-900 font-medium">Couldn&apos;t load wages</p>
+        <p className="text-sm text-slate-500 mt-1">{message}</p>
+        <Button variant="outline" size="sm" className="mt-4" onClick={onRetry}>
+          Retry
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
 
 function EmptyState({ department }: { department: DepartmentKey }) {
   return (

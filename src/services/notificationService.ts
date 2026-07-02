@@ -119,6 +119,10 @@ interface NotificationFilters {
   startDate?: string;
   endDate?: string;
   companyId?: string | null;
+  /** Throw on query failure instead of returning []. Lets callers
+   *  (e.g. /admin/notifications) show a real error + Retry state
+   *  rather than a silently empty inbox. */
+  throwOnError?: boolean;
 }
 
 /**
@@ -301,6 +305,7 @@ export const notificationService = {
 
     if (error) {
       console.error("Error fetching notifications:", error);
+      if (filters?.throwOnError) throw error;
       return [];
     }
 

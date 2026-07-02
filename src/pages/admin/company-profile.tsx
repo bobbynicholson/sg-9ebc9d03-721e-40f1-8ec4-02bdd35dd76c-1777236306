@@ -148,6 +148,11 @@ function CompanyProfilePage() {
 
   const [row, setRow] = useState<CompanyRow | null>(null);
   const [loading, setLoading] = useState(true);
+  // Surfaced load failure. Pre-conversion an error toasted once and
+  // then left the page on an eternal spinner (loading=false, row=null
+  // still matched the spinner branch) with no way to retry.
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
   const [saving, setSaving] = useState(false);
   const [hasMapsKey, setHasMapsKey] = useState<boolean | null>(null);
 
@@ -179,17 +184,22 @@ function CompanyProfilePage() {
     let cancelled = false;
     (async () => {
       setLoading(true);
+      setLoadError(null);
       const { data, error } = await supabase
         .from("companies")
         .select("*")
         .eq("id", companyId)
         .maybeSingle();
       if (cancelled) return;
-      if (error) {
-        captureException(error, {
-          tags: { route: "/admin/company-profile", step: "load", companyId },
-        });
-        toast({ title: "Couldn't load profile", description: dbErrorMessage(error, { entity: "company profile" }), variant: "destructive" });
+      if (error || !data) {
+        if (error) {
+          captureException(error, {
+            tags: { route: "/admin/company-profile", step: "load", companyId },
+          });
+        }
+        setLoadError(error
+          ? dbErrorMessage(error, { entity: "company profile" })
+          : "Your company record could not be found.");
       } else {
         const r = data as CompanyRow;
         setRow(r);
@@ -200,7 +210,7 @@ function CompanyProfilePage() {
     })();
     return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [companyId]);
+  }, [companyId, reloadKey]);
 
   const fullAddress = (r: CompanyRow | null) => {
     if (!r) return "";
@@ -330,6 +340,26 @@ function CompanyProfilePage() {
     }
   };
 
+  if (loadError && !row) {
+    return (
+      <>
+        <NoIndexMeta />
+        <Head><title>Company profile - CateringMS</title></Head>
+        <AdminNav />
+        <div className="admin-page-shell admin-page-shell--center">
+          <div className="text-center max-w-md px-4">
+            <AlertTriangle className="w-8 h-8 mx-auto text-rose-500" />
+            <p className="font-medium text-slate-900 mt-3">Couldn&apos;t load your company profile</p>
+            <p className="text-sm text-slate-600 mt-1">{loadError}</p>
+            <Button variant="outline" className="mt-4" onClick={() => setReloadKey((k) => k + 1)}>
+              Retry
+            </Button>
+          </div>
+        </div>
+      </>
+    );
+  }
+
   if (loading || !row) {
     return (
       <>
@@ -343,6 +373,12 @@ function CompanyProfilePage() {
     );
   }
 
+  // Shared with the completeness banner below; derived from the
+  // loaded row so the hero chip always shows real saved-state values.
+  const completenessItems = deriveCompleteness(row);
+  const requiredDoneCount = completenessItems.filter((i) => i.required && i.done).length;
+  const requiredTotalCount = completenessItems.filter((i) => i.required).length;
+
   return (
     <>
       <NoIndexMeta />
@@ -352,30 +388,40 @@ function CompanyProfilePage() {
       <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
 
+          {/* Command-centre hero: dark band washed in this tenant's
+              brand colours. The CP-B dirty/saved chips moved from
+              actions into the meta row and restyle for the dark band. */}
           <PortalHeader
-            title={<span className="flex items-center gap-2">Company profile <InfoTooltip content={"Your business name, contacts, and HQ location all live here.\n\nThis feeds the sidebar header, client-facing pages, route planning, and delivery fees. Brand colours + logo live on the White Label page."} /></span>}
+            variant="hero"
+            title={<span className="flex items-center gap-2">Company profile <InfoTooltip content={"Your business name, contacts, and HQ location all live here.\n\nThis feeds the sidebar header, client-facing pages, route planning, and delivery fees. Brand colours + logo live on the White Label page."} className="text-white/60 hover:text-white" /></span>}
             icon={Building2}
             subtitle="This drives the sidebar branding, client-facing pages, route planning and delivery fees."
+            meta={
+              <>
+                {/* CP-B: last-saved chip + unsaved-changes chip. The
+                    chip text reads from updated_at and re-formats every
+                    render (cheap; the page re-renders on any input edit
+                    anyway). Amber stays semantic for "unsaved". */}
+                {isDirty ? (
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-400/40 bg-amber-400/15 px-2.5 py-1 text-[11px] font-semibold text-amber-200">
+                    <AlertTriangle className="w-3 h-3" /> Unsaved changes
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white/90">
+                    <Clock className="w-3 h-3" /> {formatRelativeSince(row.updated_at)}
+                  </span>
+                )}
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                  {requiredDoneCount === requiredTotalCount && <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />}
+                  Setup {requiredDoneCount}/{requiredTotalCount} required
+                </span>
+              </>
+            }
             actions={
-            <>
-              {/* CP-B: last-saved chip + unsaved-changes chip beside
-                  the primary Save button. The chip text reads from
-                  updated_at and re-formats every render (cheap; the
-                  page re-renders on any input edit anyway). */}
-              {isDirty ? (
-                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-800 border border-amber-200">
-                  <AlertTriangle className="w-3 h-3" /> Unsaved changes
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-50 text-slate-600 border border-slate-200">
-                  <Clock className="w-3 h-3" /> {formatRelativeSince(row.updated_at)}
-                </span>
-              )}
               <Button onClick={save} disabled={saving || !isDirty} className="gap-2">
                 {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                 Save profile
               </Button>
-            </>
             }
           />
           <PageWorkbench />
@@ -387,9 +433,9 @@ function CompanyProfilePage() {
               items show slate. Hidden when 100% complete + no
               optional gaps. */}
           {(() => {
-            const items = deriveCompleteness(row);
-            const requiredDone = items.filter((i) => i.required && i.done).length;
-            const requiredTotal = items.filter((i) => i.required).length;
+            const items = completenessItems;
+            const requiredDone = requiredDoneCount;
+            const requiredTotal = requiredTotalCount;
             const optionalDone = items.filter((i) => !i.required && i.done).length;
             const optionalTotal = items.filter((i) => !i.required).length;
             const allDone = requiredDone === requiredTotal && optionalDone === optionalTotal;
@@ -901,14 +947,23 @@ function CompanyProfilePage() {
                 <Field id="country" label="Country">
                   <Input id="country" value={row.country || ""} onChange={(e) => setRow({ ...row, country: e.target.value })} />
                 </Field>
+                {/* `Number(v) || null` coerced a legitimate 0 to null;
+                    parse explicitly so the equator/prime meridian (and
+                    any partial "0" while typing) survive. */}
                 <Field id="lat" label="Latitude" hint="Auto-filled from address pick. Edit only if you know what you're doing.">
-                  <Input id="lat" type="number" step="0.000001" value={row.headquarters_lat ?? ""} onChange={(e) => setRow({ ...row, headquarters_lat: Number(e.target.value) || null })} />
+                  <Input id="lat" type="number" step="0.000001" value={row.headquarters_lat ?? ""} onChange={(e) => {
+                    const v = e.target.value.trim() === "" ? null : Number(e.target.value);
+                    setRow({ ...row, headquarters_lat: v != null && Number.isFinite(v) ? v : null });
+                  }} />
                 </Field>
                 <Field id="lng" label="Longitude">
-                  <Input id="lng" type="number" step="0.000001" value={row.headquarters_lng ?? ""} onChange={(e) => setRow({ ...row, headquarters_lng: Number(e.target.value) || null })} />
+                  <Input id="lng" type="number" step="0.000001" value={row.headquarters_lng ?? ""} onChange={(e) => {
+                    const v = e.target.value.trim() === "" ? null : Number(e.target.value);
+                    setRow({ ...row, headquarters_lng: v != null && Number.isFinite(v) ? v : null });
+                  }} />
                 </Field>
               </div>
-              {row.headquarters_lat && row.headquarters_lng && (
+              {row.headquarters_lat != null && row.headquarters_lng != null && (
                 <a
                   href={`https://www.google.com/maps?q=${row.headquarters_lat},${row.headquarters_lng}`}
                   target="_blank"

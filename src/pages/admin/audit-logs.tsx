@@ -102,6 +102,7 @@ function CompanyAuditLogsViewer() {
 
   const [rows, setRows] = useState<AuditRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [totalCount, setTotalCount] = useState<number | null>(null);
   const [profileMap, setProfileMap] = useState<Record<string, ProfileOption>>({});
 
@@ -202,6 +203,7 @@ function CompanyAuditLogsViewer() {
   const load = async () => {
     if (!companyId) return;
     setLoading(true);
+    setLoadError(null);
     try {
       let q = supabase
         .from("audit_logs")
@@ -243,7 +245,8 @@ function CompanyAuditLogsViewer() {
       console.error("[audit-logs] load failed:", e);
       // Silent-failure audit: an empty table after a failed load read
       // as "no audit activity", which is exactly the wrong signal on
-      // a compliance surface.
+      // a compliance surface. Persistent error card + toast.
+      setLoadError(e?.message || "The audit trail couldn't be fetched.");
       toast({
         title: "Could not load audit logs",
         description: e?.message || "The audit trail couldn't be fetched. Refresh to try again.",
@@ -302,6 +305,14 @@ function CompanyAuditLogsViewer() {
       if (rows.length === 0) {
         return;
       }
+      // The heads-up the HARD_CAP comment promised: tell the operator
+      // when the filtered set exceeds what landed in the file.
+      if (totalCount != null && totalCount > HARD_CAP) {
+        toast({
+          title: "Export capped at 5000 rows",
+          description: `${totalCount.toLocaleString()} rows match; the newest ${HARD_CAP.toLocaleString()} were exported. Narrow the filters for full coverage.`,
+        });
+      }
       const headers = ["timestamp", "actor", "action", "entity_type", "entity_id", "ip_address", "details"];
       const esc = (v: any) => {
         if (v == null) return "";
@@ -354,9 +365,25 @@ function CompanyAuditLogsViewer() {
       <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <PortalHeader
+            variant="hero"
             title="Audit logs"
             icon={ScrollText}
             subtitle="Append-only trail of meaningful actions across orders, quotes, payments, shifts and more. Read-only - mutations belong on the per-entity pages."
+            meta={
+              <>
+                {!loading && !loadError && totalCount != null && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                    {totalCount.toLocaleString()} matching row{totalCount === 1 ? "" : "s"}
+                  </span>
+                )}
+                {oldestEntryAt && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white/90">
+                    {Math.max(0, Math.floor((Date.now() - new Date(oldestEntryAt).getTime()) / (24 * 60 * 60 * 1000)))} days of history
+                  </span>
+                )}
+              </>
+            }
             actions={
             <>
               <Button
@@ -377,6 +404,15 @@ function CompanyAuditLogsViewer() {
           />
           <PageWorkbench />
           <div className="space-y-6">
+            {loadError && (
+              <div className="rounded-lg border border-rose-200 bg-white p-5 shadow-sm">
+                <h2 className="text-base font-bold text-rose-900 mb-1">Could not load audit logs</h2>
+                <p className="text-sm text-slate-600 mb-3">{loadError}</p>
+                <Button onClick={() => void load()} size="sm" className="bg-brand-primary hover:bg-brand-primary/90">
+                  <RefreshCw className="w-4 h-4 mr-2" /> Retry
+                </Button>
+              </div>
+            )}
             {oldestEntryAt && (() => {
               const days = Math.max(
                 0,
@@ -589,6 +625,10 @@ function CompanyAuditLogsViewer() {
               <CardContent>
                 {loading ? (
                   <div className="text-center py-16 text-slate-500 text-sm">Loading audit rows...</div>
+                ) : loadError ? (
+                  <div className="text-center py-16 text-slate-500 text-sm">
+                    The audit trail could not be fetched. Use Retry above.
+                  </div>
                 ) : rows.length === 0 ? (
                   <div className="text-center py-16 text-slate-500 text-sm">
                     <ScrollText className="w-10 h-10 mx-auto mb-2 text-slate-300" />

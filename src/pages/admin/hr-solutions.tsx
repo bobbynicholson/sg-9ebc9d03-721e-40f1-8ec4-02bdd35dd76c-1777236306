@@ -56,6 +56,7 @@ import { useRegionFilter } from "@/contexts/RegionFilterContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
+import { formatZAR } from "@/lib/formatters";
 import { canAccessFinance } from "@/lib/authGuards";
 import { captureException } from "@/lib/observability";
 import { ChatBot } from "@/components/ChatBot";
@@ -110,6 +111,9 @@ function AdminHRSolutions() {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<HRStats>(initialStats);
   const [refreshTick, setRefreshTick] = useState(0);
+  // Surfaced load failure. captureException alone left the page
+  // showing zeros that read as "no staff", not "load failed".
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // HRS-B: realtime debounce on profiles + invitations. 2s so an
   // admin batch-inviting 8 staffers triggers one redraw, not eight.
@@ -141,6 +145,7 @@ function AdminHRSolutions() {
     const run = async () => {
       if (!companyId) return;
       setLoading(true);
+      setLoadError(null);
       try {
         const weekStartISO = startOfWeek().toISOString();
         const todayISO = new Date().toISOString();
@@ -219,6 +224,17 @@ function AdminHRSolutions() {
           kitchenClockedQ, cleaningClockedQ, driverClockedQ,
         ]);
 
+        // Supabase queries resolve with {data, error} instead of
+        // throwing, so the catch below never saw a failed leg and
+        // the page silently rendered zeros. Promote the first
+        // failure to a real error.
+        const firstError = [
+          staffRes.error, invitesRes.error,
+          kitchenShiftsRes.error, cleaningDutyRes.error, driverShiftsRes.error,
+          kitchenClockedRes.error, cleaningClockedRes.error, driverClockedRes.error,
+        ].find(Boolean);
+        if (firstError) throw firstError;
+
         const activeStaffRows = ((staffRes.data || []) as Array<{
           id: string;
           role: string | null;
@@ -226,12 +242,16 @@ function AdminHRSolutions() {
           is_active?: boolean | null;
         }>).filter((p) => p.is_active !== false);
         const staffProfileIds = activeStaffRows.map((p) => p.id).filter(Boolean);
-        const { data: staffDepartmentRows } = staffProfileIds.length > 0
+        const deptRes = staffProfileIds.length > 0
           ? await supabase
               .from("user_departments")
               .select("user_id, department, is_primary")
               .in("user_id", staffProfileIds)
-          : { data: [] as Array<{ user_id: string | null; department: string | null; is_primary: boolean | null }> };
+          : { data: [] as Array<{ user_id: string | null; department: string | null; is_primary: boolean | null }>, error: null };
+        // A failed departments read silently bucketed everyone into
+        // "other" pre-audit; fail loudly instead.
+        if (deptRes.error) throw deptRes.error;
+        const staffDepartmentRows = deptRes.data;
 
         // Bucket staff by resolved access. Managers and staff stay
         // distinct role labels, but both land in their department.
@@ -249,7 +269,9 @@ function AdminHRSolutions() {
 
         // Hours by department.
         const hoursByDept: DeptCount = { kitchen: 0, cleaning: 0, drivers: 0, other: 0 };
-        let wageBurnWeekZar = 0;
+        // Accumulate the wage estimate in integer cents so per-shift
+        // float products can't drift the weekly figure.
+        let wageBurnWeekCents = 0;
         // Kitchen mins + wage rate.
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         for (const s of ((kitchenShiftsRes.data || []) as any[])) {
@@ -257,7 +279,7 @@ function AdminHRSolutions() {
           if (mins <= 0) continue;
           hoursByDept.kitchen += mins / 60;
           const rate = Number(s.kitchen_staff_members?.hourly_rate || 0);
-          if (rate > 0) wageBurnWeekZar += (mins / 60) * rate;
+          if (rate > 0) wageBurnWeekCents += Math.round((mins / 60) * rate * 100);
         }
         // Cleaning mins via duty window. Region filter via staffIdByRole.cleaning.
         for (const r of ((cleaningDutyRes.data || []) as Array<{
@@ -304,7 +326,7 @@ function AdminHRSolutions() {
             hoursWeek,
             clockedNow,
             pendingInvites: invitesRows.length,
-            wageBurnWeekZar,
+            wageBurnWeekZar: wageBurnWeekCents / 100,
             byDept,
             hoursByDept,
             recentInvites: invitesRows.slice(0, 3),
@@ -312,6 +334,9 @@ function AdminHRSolutions() {
         }
       } catch (e) {
         captureException(e, { tags: { route: "/admin/hr-solutions", step: "load", companyId: companyId || "" } });
+        if (!cancelled) {
+          setLoadError((e as { message?: string })?.message || "Couldn't load the HR overview.");
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -362,7 +387,7 @@ function AdminHRSolutions() {
       link: "/admin/wages",
       status: "active",
       chip: canSeeFinance && !loading && stats.wageBurnWeekZar > 0
-        ? `${tenantCurrency.format(stats.wageBurnWeekZar)} this week`
+        ? `${formatZAR(stats.wageBurnWeekZar, { currency: tenantCurrency.code })} this week`
         : null,
     },
     {
@@ -417,56 +442,56 @@ function AdminHRSolutions() {
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
 
           <PortalHeader
-            title={<span className="flex items-center gap-2">HR <InfoTooltip content={"One landing for every staff-related tool. Active tiles take you straight to the feature; chips show this week's live numbers."} /></span>}
+            variant="hero"
+            title={<span className="flex items-center gap-2">HR <InfoTooltip className="text-white/70 hover:text-white" content={"One landing for every staff-related tool. Active tiles take you straight to the feature; chips show this week's live numbers."} /></span>}
             icon={Users}
             subtitle="Hours, wages, accounts and invites at a glance. Drill into a card for the full surface."
+            meta={
+              /* HRS-B chip row, relocated into the hero band. Same
+                 live numbers, links preserved. */
+              <>
+                <Link href={withSlug("/admin/users")} className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-white/20">
+                  {loading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Users className="w-3 h-3" />}
+                  {stats.staffTotal} active
+                </Link>
+                <Link href={withSlug("/admin/staff-hours")} className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-white/20">
+                  <Clock className="w-3 h-3" />
+                  {stats.hoursWeek}h this week
+                </Link>
+                {stats.staffTotal > 0 && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    <span className={`h-1.5 w-1.5 rounded-full ${stats.clockedNow > 0 ? "bg-emerald-400" : "bg-slate-500"}`} />
+                    <Flame className="w-3 h-3" />
+                    {stats.clockedNow} clocked now
+                  </span>
+                )}
+                {stats.pendingInvites > 0 && (
+                  <Link href={withSlug("/admin/users?tab=invitations")} className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-white/20">
+                    <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+                    <MailPlus className="w-3 h-3" />
+                    {stats.pendingInvites} pending invite{stats.pendingInvites === 1 ? "" : "s"}
+                  </Link>
+                )}
+                {canSeeFinance && stats.wageBurnWeekZar > 0 && (
+                  <Link href={withSlug("/admin/wages")} className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold tabular-nums text-white hover:bg-white/20">
+                    <Banknote className="w-3 h-3" />
+                    {formatZAR(stats.wageBurnWeekZar, { currency: tenantCurrency.code })} burn this week
+                  </Link>
+                )}
+              </>
+            }
           />
           <PageWorkbench />
 
-          {/* HRS-B: top chip row. Same shape as the team landings. */}
-          <div className="flex flex-wrap gap-2 mb-6">
-            <Link href={withSlug("/admin/users")}>
-              <Badge variant="secondary" className="px-3 py-1.5 text-sm cursor-pointer hover:bg-slate-200">
-                {loading ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Users className="w-3 h-3 mr-1" />}
-                {stats.staffTotal} active
-              </Badge>
-            </Link>
-            <Link href={withSlug("/admin/staff-hours")}>
-              <Badge variant="secondary" className="px-3 py-1.5 text-sm cursor-pointer hover:bg-slate-200">
-                <Clock className="w-3 h-3 mr-1" />
-                {stats.hoursWeek}h this week
-              </Badge>
-            </Link>
-            {stats.staffTotal > 0 && (
-              <Badge
-                variant="outline"
-                className={`px-3 py-1.5 text-sm ${
-                  stats.clockedNow === 0
-                    ? "border-slate-200 text-slate-700 bg-slate-50"
-                    : "border-brand-primary/30 text-brand-primary bg-brand-primary/10"
-                }`}
-              >
-                <Flame className="w-3 h-3 mr-1" />
-                {stats.clockedNow} clocked now
-              </Badge>
-            )}
-            {stats.pendingInvites > 0 && (
-              <Link href={withSlug("/admin/users?tab=invitations")}>
-                <Badge variant="outline" className="px-3 py-1.5 text-sm border-amber-300 text-amber-700 bg-amber-50 cursor-pointer hover:bg-amber-100">
-                  <MailPlus className="w-3 h-3 mr-1" />
-                  {stats.pendingInvites} pending invite{stats.pendingInvites === 1 ? "" : "s"}
-                </Badge>
-              </Link>
-            )}
-            {canSeeFinance && stats.wageBurnWeekZar > 0 && (
-              <Link href={withSlug("/admin/wages")}>
-                <Badge variant="outline" className="px-3 py-1.5 text-sm border-brand-primary/30 text-brand-primary bg-brand-primary/10 tabular-nums cursor-pointer hover:bg-brand-primary/15">
-                  <Banknote className="w-3 h-3 mr-1" />
-                  {tenantCurrency.format(stats.wageBurnWeekZar)} burn this week
-                </Badge>
-              </Link>
-            )}
-          </div>
+          {loadError && (
+            <div className="mb-6 rounded-lg border border-rose-200 bg-white p-4 shadow-sm">
+              <p className="text-sm font-semibold text-rose-900">Couldn&apos;t load the HR overview</p>
+              <p className="mt-1 text-sm text-slate-600">{loadError}</p>
+              <Button size="sm" variant="outline" className="mt-3" onClick={() => setRefreshTick((n) => n + 1)} disabled={loading}>
+                Retry
+              </Button>
+            </div>
+          )}
 
           {/* HRS-B: intel grid - department breakdown + hours + invites. */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4 mb-6">

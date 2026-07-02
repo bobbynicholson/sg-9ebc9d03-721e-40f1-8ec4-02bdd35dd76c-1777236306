@@ -105,6 +105,9 @@ export default function EmbedFormCustomiser() {
 
   const [form, setForm] = useState<EmbedFormConfig | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  // Bumped by the Retry button to re-run the load effect.
+  const [loadNonce, setLoadNonce] = useState(0);
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [snippetOpen, setSnippetOpen] = useState(false);
@@ -119,6 +122,7 @@ export default function EmbedFormCustomiser() {
     let cancelled = false;
     (async () => {
       setLoading(true);
+      setLoadError(null);
       try {
         const [formsResp, companyResp] = await Promise.all([
           fetch("/api/admin/embed/forms"),
@@ -126,6 +130,11 @@ export default function EmbedFormCustomiser() {
         ]);
         const formsJson = await formsResp.json();
         const companyJson = await companyResp.json();
+        // A 500 here used to fall through to "Form not found" and bounce
+        // the operator back to the list. Server errors get a Retry
+        // screen instead; only a genuine miss redirects.
+        if (!formsResp.ok) throw new Error(formsJson.error || "Failed to load the form");
+        if (!companyResp.ok) throw new Error(companyJson.error || "Failed to load company settings");
 
         const found = (formsJson.forms || []).find((f: any) => f.id === id);
         if (!found) {
@@ -138,12 +147,19 @@ export default function EmbedFormCustomiser() {
           setCompanyData(companyJson.company);
           setPricingTiers(companyJson.company?.embed_pricing_tiers || []);
         }
+      } catch (err: any) {
+        // Without this catch a network failure left the page on an
+        // infinite spinner (loading false + form null).
+        captureException(err, {
+          tags: { route: "/admin/integrations/embed/[id]", step: "load-form", formId: String(id), companyId: user?.company_id || "" },
+        });
+        if (!cancelled) setLoadError(dbErrorMessage(err, { entity: "form" }));
       } finally {
         if (!cancelled) setLoading(false);
       }
     })();
     return () => { cancelled = true; };
-  }, [id]);  // eslint-disable-line react-hooks/exhaustive-deps
+  }, [id, loadNonce]);  // eslint-disable-line react-hooks/exhaustive-deps
 
   // Push draft into the preview iframe whenever the form mutates.
   // The demo loader listens for postMessage with {type: 'embed-draft', config}.
@@ -324,9 +340,26 @@ export default function EmbedFormCustomiser() {
         <AdminNav />
         <div className="admin-page-shell">
           <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
-            <div className="flex min-h-[50vh] items-center justify-center">
-              <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
-            </div>
+            {loadError ? (
+              <div className="mx-auto mt-16 max-w-md rounded-lg border border-rose-200 bg-white p-5 shadow-sm">
+                <h2 className="text-base font-bold text-rose-900 mb-1">Couldn't load this form</h2>
+                <p className="text-sm text-slate-600 mb-3">{loadError}</p>
+                <div className="flex items-center gap-2">
+                  <Button onClick={() => setLoadNonce((n) => n + 1)} size="sm" className="bg-brand-primary hover:bg-brand-primary/90">
+                    Retry
+                  </Button>
+                  <Button asChild size="sm" variant="outline" className="gap-1.5">
+                    <Link href={withSlug("/admin/integrations/embed")}>
+                      <ArrowLeft className="w-3.5 h-3.5" /> Back to forms
+                    </Link>
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex min-h-[50vh] items-center justify-center">
+                <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
+              </div>
+            )}
           </PortalShell>
         </div>
       </>
@@ -342,6 +375,7 @@ export default function EmbedFormCustomiser() {
       <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <PortalHeader
+            variant="hero"
             icon={Code2}
             title={
               <span className="flex min-w-0 flex-wrap items-center gap-2">
@@ -349,9 +383,9 @@ export default function EmbedFormCustomiser() {
                   value={form.name}
                   onChange={(e) => patchLocal({ name: e.target.value })}
                   onBlur={() => dirty && saveForm({ name: form.name }, { silent: true })}
-                  className="text-xl md:text-2xl font-bold border-0 shadow-none px-0 focus-visible:ring-0 bg-transparent min-w-[260px]"
+                  className="text-xl md:text-2xl font-bold border-0 shadow-none px-0 focus-visible:ring-0 bg-transparent min-w-[260px] text-white placeholder:text-white/40"
                 />
-                {dirty && <span className="text-xs font-normal text-amber-600">Unsaved</span>}
+                {dirty && <span className="text-xs font-normal text-amber-300">Unsaved</span>}
                 {/* LCF-B: persistent readiness chip beside the title.
                     Reads from the same checklist that powers the
                     banner below. */}
@@ -374,6 +408,20 @@ export default function EmbedFormCustomiser() {
               </span>
             }
             subtitle="Customise fields, theme, and after-submit behaviour. Edits auto-save on blur and update the live preview."
+            meta={
+              <>
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                  <span className={`h-1.5 w-1.5 rounded-full ${form.is_active ? "bg-emerald-400" : "bg-slate-400"}`} />
+                  {form.is_active ? "Live" : "Paused"}
+                </span>
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                  {form.fields.length} field{form.fields.length === 1 ? "" : "s"}
+                </span>
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white/90">
+                  <span className="font-mono">/{form.slug}</span>
+                </span>
+              </>
+            }
             actions={
               <>
                 <Button asChild variant="ghost" className="gap-2">
@@ -724,7 +772,7 @@ export default function EmbedFormCustomiser() {
                 <Card id="section-pricing-tiers" className="scroll-mt-20">
                   <CardContent className="p-4 space-y-3">
                     <h3 className="font-bold text-slate-900 flex items-center gap-2">
-                      <Calculator className="w-4 h-4 text-amber-500" /> Pricing tiers
+                      <Calculator className="w-4 h-4 text-brand-primary" /> Pricing tiers
                     </h3>
                     <p className="text-[11px] text-slate-500 -mt-1">
                       Powers the live estimate on this template. Tiers are tenant-wide, shared across all forms that use them.
@@ -783,7 +831,7 @@ export default function EmbedFormCustomiser() {
                       >
                         <Plus className="w-3.5 h-3.5" /> Add tier
                       </Button>
-                      <Button size="sm" onClick={savePricingTiers} className="flex-1 h-8 bg-amber-500 hover:bg-amber-600">
+                      <Button size="sm" onClick={savePricingTiers} className="flex-1 h-8 bg-brand-primary hover:bg-brand-primary/90">
                         Save tiers
                       </Button>
                     </div>

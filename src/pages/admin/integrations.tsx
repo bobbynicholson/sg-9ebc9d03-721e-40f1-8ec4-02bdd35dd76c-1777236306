@@ -230,6 +230,7 @@ function IntegrationsPage() {
   const [keys, setKeys] = useState<ApiKey[]>([]);
   const [subs, setSubs] = useState<WebhookSub[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [newKey, setNewKey] = useState<{ label: string }>({ label: "" });
   const [newKeyResult, setNewKeyResult] = useState<{ rawKey: string; prefix: string } | null>(null);
   const [keyCopied, setKeyCopied] = useState(false);
@@ -246,6 +247,17 @@ function IntegrationsPage() {
       supabase.from("api_keys").select("*").eq("company_id", companyId).order("created_at", { ascending: false }),
       supabase.from("webhook_subscriptions").select("*").eq("company_id", companyId).order("created_at", { ascending: false }),
     ]);
+    // Silent-failure audit: either query dying used to leave an empty
+    // table that read as "no keys / no webhooks yet". Surface it.
+    const failed = keysRes.error || subsRes.error;
+    if (failed) {
+      captureException(failed, {
+        tags: { route: "/admin/integrations", step: "load-keys-and-webhooks", companyId },
+      });
+      setLoadError(dbErrorMessage(failed, { entity: keysRes.error ? "API keys" : "webhooks" }));
+    } else {
+      setLoadError(null);
+    }
     setKeys(keysRes.data || []);
     setSubs(subsRes.data || []);
     setLoading(false);
@@ -286,7 +298,11 @@ function IntegrationsPage() {
 
   const revokeKey = async (id: string) => {
     if (!confirm("Revoke this key? Anything using it will stop working immediately.")) return;
-    await supabase.from("api_keys").update({ is_active: false, revoked_at: new Date().toISOString() }).eq("id", id);
+    const { error } = await supabase.from("api_keys").update({ is_active: false, revoked_at: new Date().toISOString() }).eq("id", id);
+    if (error) {
+      toast({ title: "Couldn't revoke key", description: dbErrorMessage(error, { entity: "API key" }), variant: "destructive" });
+      return;
+    }
     reload();
   };
 
@@ -312,13 +328,21 @@ function IntegrationsPage() {
   };
 
   const toggleSub = async (id: string, is_active: boolean) => {
-    await supabase.from("webhook_subscriptions").update({ is_active }).eq("id", id);
+    const { error } = await supabase.from("webhook_subscriptions").update({ is_active }).eq("id", id);
+    if (error) {
+      toast({ title: "Couldn't update webhook", description: dbErrorMessage(error, { entity: "webhook" }), variant: "destructive" });
+      return;
+    }
     reload();
   };
 
   const deleteSub = async (id: string) => {
     if (!confirm("Delete this webhook subscription?")) return;
-    await supabase.from("webhook_subscriptions").delete().eq("id", id);
+    const { error } = await supabase.from("webhook_subscriptions").delete().eq("id", id);
+    if (error) {
+      toast({ title: "Couldn't delete webhook", description: dbErrorMessage(error, { entity: "webhook" }), variant: "destructive" });
+      return;
+    }
     reload();
   };
 
@@ -361,9 +385,29 @@ function IntegrationsPage() {
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
 
           <PortalHeader
-            title={<span className="flex items-center gap-2 flex-wrap">Integrations & Zapier<InfoTooltip content={"Push data in with API keys, send data out with webhooks.\n\nThis is what hooks CateringMS up to Zapier and the 5,000+ apps it reaches."} /></span>}
+            variant="hero"
+            title={<span className="flex items-center gap-2 flex-wrap">Integrations<InfoTooltip content={"Push data in with API keys, send data out with webhooks.\n\nThis is what hooks CateringMS up to Zapier and the 5,000+ apps it reaches."} /></span>}
             icon={Zap}
             subtitle="API keys for inbound data and webhooks for outbound. Hook CateringMS into Zapier so leads, orders, and payments flow into Google Sheets, Slack, WhatsApp, Mailchimp, or anywhere else you already work."
+            meta={
+              !loading && !loadError ? (
+                <>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                    {keys.filter((k) => k.is_active).length} active key{keys.filter((k) => k.is_active).length === 1 ? "" : "s"}
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    {subs.filter((s) => s.is_active).length} live webhook{subs.filter((s) => s.is_active).length === 1 ? "" : "s"}
+                  </span>
+                  {subs.some((s) => s.failure_count > 0) && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                      <span className="h-1.5 w-1.5 rounded-full bg-rose-400" />
+                      {subs.filter((s) => s.failure_count > 0).length} failing
+                    </span>
+                  )}
+                </>
+              ) : undefined
+            }
             actions={
               <Link href="https://zapier.com/apps/webhook/integrations" target="_blank" rel="noopener">
                 <Button variant="outline" className="gap-2">
@@ -373,6 +417,16 @@ function IntegrationsPage() {
             }
           />
           <PageWorkbench />
+
+          {loadError && (
+            <div className="mb-6 rounded-lg border border-rose-200 bg-white p-5 shadow-sm">
+              <h2 className="text-base font-bold text-rose-900 mb-1">Couldn't load your keys and webhooks</h2>
+              <p className="text-sm text-slate-600 mb-3">{loadError}</p>
+              <Button onClick={() => { setLoading(true); reload(); }} size="sm" className="bg-brand-primary hover:bg-brand-primary/90">
+                Retry
+              </Button>
+            </div>
+          )}
 
           {/* Quickstart */}
           <Card className="mb-6 bg-gradient-to-r from-brand-primary/10 to-brand-secondary/10">

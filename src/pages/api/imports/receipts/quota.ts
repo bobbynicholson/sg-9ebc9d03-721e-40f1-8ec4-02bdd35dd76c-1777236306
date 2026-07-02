@@ -34,7 +34,13 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
     const sb = getServiceSupabase();
     const quota = await getReceiptScanQuota(sb, companyId);
-    return res.status(200).json(quota);
+    return res.status(200).json({
+      ...quota,
+      // Mirrors the gate in receipts/upload.ts so the scanner pages can
+      // warn the operator up front instead of letting a 20-photo batch
+      // 500 on submit when no AI key is configured on the server.
+      ai_configured: !!(process.env.ANTHROPIC_API_KEY || process.env.GROQ_API_KEY),
+    });
   } catch (e: unknown) {
     return res.status(500).json({ error: e instanceof Error ? dbErrorMessage(e) : "quota lookup failed" });
   }

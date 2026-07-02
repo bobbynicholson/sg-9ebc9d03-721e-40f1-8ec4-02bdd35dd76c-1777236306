@@ -31,8 +31,11 @@ import { useTenantHref } from "@/lib/tenantUrl";
 import { useToast } from "@/hooks/use-toast";
 
 export default function ProtectedNotificationsPage() {
+  // The fourth slot was a COMPANY_ADMIN copy-paste duplicate; OWNER is
+  // the role that was actually missing (same admit-OWNER regression
+  // pattern as company-profile / white-label / email-settings).
   return (
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.COMPANY_ADMIN]}>
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.OWNER, UserRole.COMPANY_ADMIN, UserRole.ADMIN]}>
       <NotificationsPage />
     </ProtectedRoute>
   );
@@ -49,6 +52,9 @@ function NotificationsPage() {
   const { withSlug } = useTenantHref();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
+  // Surfaced load failure. The service used to swallow query errors
+  // and hand back [], which rendered as a fake "all caught up" inbox.
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   // Phase 26 #5: "/" or Cmd-F focuses the search input.
   const searchRef = useRef<HTMLInputElement>(null);
@@ -86,14 +92,21 @@ function NotificationsPage() {
     if (!user?.id) return;
 
     setLoading(true);
-    const data = await notificationService.getNotifications(
-      user.id,
-      tab === "unread",
-      activeRole,
-      { limit: 100 }
-    );
-    setNotifications(data);
-    setLoading(false);
+    setLoadError(null);
+    try {
+      const data = await notificationService.getNotifications(
+        user.id,
+        tab === "unread",
+        activeRole,
+        { limit: 100, throwOnError: true }
+      );
+      setNotifications(data);
+    } catch (err: any) {
+      console.error("loadNotifications failed:", err);
+      setLoadError(err?.message || "Could not load your notifications.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleMarkAsRead = async (notificationId: string) => {
@@ -265,15 +278,25 @@ function NotificationsPage() {
       <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
 
+          {/* Command-centre hero: brand-washed dark band with live
+              inbox counts. The unread badge moved from actions into
+              the meta chip row so it reads on the dark band. */}
           <PortalHeader
-            title={<span className="flex items-center gap-2">Notifications<InfoTooltip content={"Your inbox of system alerts: low stock, delivery updates, order changes and other events that need your attention."} /></span>}
+            variant="hero"
+            title={<span className="flex items-center gap-2">Notifications<InfoTooltip content={"Your inbox of system alerts: low stock, delivery updates, order changes and other events that need your attention."} className="text-white/60 hover:text-white" /></span>}
             icon={Bell}
             subtitle="System alerts inbox. Low stock warnings, delivery updates, order changes, payment confirmations, and anything else flagged automatically by the platform. Open a row for details or jump straight to the source page."
-            actions={
-              unreadCount > 0 ? (
-                <Badge variant="destructive" className="text-lg px-4 py-2">
-                  {unreadCount} unread
-                </Badge>
+            meta={
+              !loading && !loadError ? (
+                <>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    {notifications.length} in inbox
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    {unreadCount > 0 && <span className="h-1.5 w-1.5 rounded-full bg-rose-400" />}
+                    {unreadCount} unread
+                  </span>
+                </>
               ) : undefined
             }
           />
@@ -336,13 +359,13 @@ function NotificationsPage() {
 
         {/* Tabs */}
         <Tabs value={tab} onValueChange={(v) => setTab(v as "all" | "unread")} className="mb-6">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
             <TabsList>
               <TabsTrigger value="all">All ({notifications.length})</TabsTrigger>
               <TabsTrigger value="unread">Unread ({unreadCount})</TabsTrigger>
               <InfoTooltip content={"All shows every notification for your role. Unread narrows it down to the ones you have not read yet."} className="ml-2" />
             </TabsList>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               {/* Phase 27 #7: manual refresh. Background subscriptions
                   miss in-flight system events occasionally; one-click
                   reload keeps the operator current. */}
@@ -407,6 +430,16 @@ function NotificationsPage() {
                   {loading ? (
                     <div className="p-8 text-center text-slate-600">
                       Loading notifications...
+                    </div>
+                  ) : loadError ? (
+                    <div className="p-12 text-center">
+                      <AlertCircle className="h-10 w-10 mx-auto mb-3 text-rose-400" />
+                      <p className="text-slate-900 font-medium mb-1">Couldn&apos;t load notifications</p>
+                      <p className="text-sm text-slate-600 mb-4">{loadError}</p>
+                      <Button variant="outline" onClick={loadNotifications}>
+                        <RefreshCw className="h-4 w-4 mr-2" />
+                        Retry
+                      </Button>
                     </div>
                   ) : filteredNotifications.length === 0 ? (
                     <div className="p-12 text-center">
@@ -477,10 +510,12 @@ function NotificationsPage() {
                               <div className="flex items-center gap-3 text-xs text-slate-500 flex-wrap">
                                 <div className="flex items-center gap-1">
                                   <Clock className="h-3 w-3" />
-                                  {formatDistanceToNow(
-                                    new Date(notification.created_at || ""),
-                                    { addSuffix: true }
-                                  )}
+                                  {/* Guard: formatDistanceToNow throws a
+                                      RangeError on an invalid date, which
+                                      would crash the whole list render. */}
+                                  {notification.created_at && Number.isFinite(new Date(notification.created_at).getTime())
+                                    ? formatDistanceToNow(new Date(notification.created_at), { addSuffix: true })
+                                    : "Unknown time"}
                                 </div>
                                 {notification.notification_type && (
                                   <Badge variant="outline" className="text-xs">

@@ -32,6 +32,7 @@ import {
   Receipt, Truck, Banknote, TrendingDown,
 } from "lucide-react";
 import { PageWorkbench, PortalHeader, PortalShell } from "@/components/portal/ui";
+import { teamBucketsForUser } from "@/lib/teamRoleBuckets";
 
 interface ShoppingStats {
   active: number;
@@ -52,6 +53,10 @@ function ShoppingTeamPage() {
   const tenantCurrency = useTenantCurrency(companyId);
 
   const [loading, setLoading] = useState(true);
+  // Command-centre audit (2026-07-02): visible error state + Retry.
+  // captureException alone left the page rendering zeros on failure.
+  const [error, setError] = useState<string | null>(null);
+  const [reloadTick, setReloadTick] = useState(0);
   const [stats, setStats] = useState<ShoppingStats>({
     active: 0, listsToday: 0, overdueLists: 0, receiptsThisWeek: 0,
     spendToday: 0, topVendorThisMonth: null,
@@ -62,6 +67,7 @@ function ShoppingTeamPage() {
     const run = async () => {
       if (!companyId) return;
       setLoading(true);
+      setError(null);
       try {
         const todayISO = toLocalISO(new Date());
         const monthStart = new Date();
@@ -71,8 +77,13 @@ function ShoppingTeamPage() {
         const weekAgoISO = toLocalISO(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000));
 
         const [staffRes, listsTodayRes, overdueRes, receiptsRes, monthReceiptsRes] = await Promise.all([
-          supabase.from("profiles").select("id", { count: "exact", head: true })
-            .eq("company_id", companyId).eq("role", "shopping_staff"),
+          // Command-centre audit (2026-07-02): count the shopping team
+          // through the same role + active_role + user_departments
+          // buckets the hub uses. The old role='shopping_staff' count
+          // missed cross-trained staff and disagreed with /admin/teams.
+          supabase.from("profiles")
+            .select("id, role, active_role, is_active")
+            .eq("company_id", companyId),
           supabase.from("shopping_lists")
             .select("id, actual_total, estimated_total")
             .eq("company_id", companyId)
@@ -98,6 +109,29 @@ function ShoppingTeamPage() {
             .gte("receipt_date", monthStartISO),
         ]);
         if (cancelled) return;
+        // Command-centre audit (2026-07-02): surface partial Promise.all
+        // failures. A single failed query used to read as empty data.
+        for (const res of [staffRes, listsTodayRes, overdueRes, receiptsRes, monthReceiptsRes]) {
+          if (res.error) throw new Error(res.error.message || "Query failed");
+        }
+
+        // Resolve the shopping bucket the same way the hub does.
+        const staffProfileRows = ((staffRes.data || []) as Array<{
+          id: string; role: string | null; active_role: string | null; is_active?: boolean | null;
+        }>).filter((p) => p.is_active !== false);
+        const staffProfileIds = staffProfileRows.map((p) => p.id).filter(Boolean);
+        const departmentsRes = staffProfileIds.length > 0
+          ? await supabase
+              .from("user_departments")
+              .select("user_id, department, is_primary")
+              .in("user_id", staffProfileIds)
+          : { data: [] as Array<{ user_id: string | null; department: string | null; is_primary: boolean | null }>, error: null };
+        if (departmentsRes.error) throw new Error(departmentsRes.error.message || "Query failed");
+        if (cancelled) return;
+        const activeShoppingTeamCount = staffProfileRows.filter((p) =>
+          teamBucketsForUser(p, departmentsRes.data || []).has("shopping"),
+        ).length;
+
         const lists = (listsTodayRes.data || []) as Array<{ actual_total: number | null; estimated_total: number | null }>;
         let spendToday = 0;
         for (const l of lists) {
@@ -111,25 +145,30 @@ function ShoppingTeamPage() {
           const v = (r.vendor || "Unknown").trim() || "Unknown";
           vendorTotals.set(v, (vendorTotals.get(v) || 0) + Number(r.total || 0));
         }
+        // Skip the top-vendor card when nothing has a positive spend -
+        // a "top vendor" at R0 is noise.
         const topVendor = Array.from(vendorTotals.entries())
           .sort(([, a], [, b]) => b - a)[0];
         setStats({
-          active: staffRes.count ?? 0,
+          active: activeShoppingTeamCount,
           listsToday: lists.length,
           overdueLists: overdueRes.count ?? 0,
           receiptsThisWeek: receiptsRes.count ?? 0,
           spendToday,
-          topVendorThisMonth: topVendor ? { vendor: topVendor[0], spend: topVendor[1] } : null,
+          topVendorThisMonth: topVendor && topVendor[1] > 0
+            ? { vendor: topVendor[0], spend: topVendor[1] }
+            : null,
         });
       } catch (e) {
         captureException(e, { tags: { route: "/admin/teams/shopping", step: "load", companyId: companyId || "" } });
+        if (!cancelled) setError(e instanceof Error ? e.message : "Check your connection and retry.");
       } finally {
         if (!cancelled) setLoading(false);
       }
     };
     run();
     return () => { cancelled = true; };
-  }, [companyId]);
+  }, [companyId, reloadTick]);
 
   const tiles = [
     {
@@ -162,7 +201,7 @@ function ShoppingTeamPage() {
       label: "Shopping staff",
       sub: "Roster and rates",
       bg: "from-slate-50 to-slate-50",
-      iconColor: "from-slate-50",
+      iconColor: "text-slate-600",
     },
   ];
 
@@ -175,9 +214,29 @@ function ShoppingTeamPage() {
       <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <PortalHeader
+            variant="hero"
             title="Shopping"
             icon={ShoppingBag}
             subtitle="Procurement, receipts and supplier ops."
+            meta={
+              !loading && !error ? (
+                <>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                    {stats.listsToday} list{stats.listsToday === 1 ? "" : "s"} today
+                  </span>
+                  {stats.overdueLists > 0 && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                      <span className="h-1.5 w-1.5 rounded-full bg-rose-400" />
+                      {stats.overdueLists} overdue
+                    </span>
+                  )}
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    {stats.receiptsThisWeek} slip{stats.receiptsThisWeek === 1 ? "" : "s"} this week
+                  </span>
+                </>
+              ) : undefined
+            }
             actions={
               <Link href={withSlug("/admin/teams")}>
                 <Button variant="outline" size="sm">
@@ -187,6 +246,28 @@ function ShoppingTeamPage() {
             }
           />
           <PageWorkbench />
+
+          {/* Command-centre audit (2026-07-02): visible load-failure
+              state with Retry. captureException alone left the chips
+              rendering zeros. */}
+          {!loading && error && (
+            <Card className="mb-4 border-rose-200 bg-rose-50 shadow-sm">
+              <CardContent className="flex flex-wrap items-center justify-between gap-3 py-3 px-4">
+                <div className="flex items-center gap-2 text-sm text-rose-800">
+                  <AlertTriangle className="w-4 h-4 shrink-0" />
+                  <span>Could not load shopping metrics: {error}</span>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setReloadTick((n) => n + 1)}
+                  className="border-rose-300 text-rose-800 hover:bg-rose-100"
+                >
+                  Retry
+                </Button>
+              </CardContent>
+            </Card>
+          )}
 
           <div className="flex flex-wrap gap-2 mb-6">
             <Badge variant="secondary" className="px-3 py-1.5 text-sm">

@@ -121,6 +121,9 @@ function DriversTeamPage() {
   const tenantCurrency = useTenantCurrency(companyId);
 
   const [loading, setLoading] = useState(true);
+  // Command-centre audit (2026-07-02): visible error state + Retry.
+  // captureException alone left the page rendering zeros on failure.
+  const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState<DriverStats>({
     active: 0, hoursWeek: 0, jobsToday: 0,
     clockedNow: 0,
@@ -162,6 +165,7 @@ function DriversTeamPage() {
     const run = async () => {
       if (!companyId) return;
       setLoading(true);
+      setError(null);
       try {
         const today = new Date();
         const todayISO = toLocalISO(today);
@@ -257,6 +261,14 @@ function DriversTeamPage() {
           staffQ, weekShiftsQ, assnTodayQ, ordersTodayQ,
           tomorrowQ, issuesQ, settlementQ, vehiclesQ,
         ]);
+        // Command-centre audit (2026-07-02): surface partial Promise.all
+        // failures. A single failed query used to read as empty data.
+        for (const res of [
+          staffRes, weekShiftsRes, assnTodayRes, ordersTodayRes,
+          tomorrowRes, issuesRes, settlementRes, vehiclesRes,
+        ]) {
+          if (res.error) throw new Error(res.error.message || "Query failed");
+        }
 
         const staffProfileRows = ((staffRes.data || []) as Array<{
           id: string;
@@ -267,12 +279,14 @@ function DriversTeamPage() {
           is_active?: boolean | null;
         }>).filter((p) => p.is_active !== false);
         const staffProfileIds = staffProfileRows.map((p) => p.id).filter(Boolean);
-        const { data: staffDepartmentRows } = staffProfileIds.length > 0
+        const departmentsRes = staffProfileIds.length > 0
           ? await supabase
               .from("user_departments")
               .select("user_id, department, is_primary")
               .in("user_id", staffProfileIds)
-          : { data: [] as Array<{ user_id: string | null; department: string | null; is_primary: boolean | null }> };
+          : { data: [] as Array<{ user_id: string | null; department: string | null; is_primary: boolean | null }>, error: null };
+        if (departmentsRes.error) throw new Error(departmentsRes.error.message || "Query failed");
+        const staffDepartmentRows = departmentsRes.data;
         const activeDriverRows = staffProfileRows.filter((p) =>
           teamBucketsForUser(p, staffDepartmentRows || []).has("drivers"),
         );
@@ -323,15 +337,21 @@ function DriversTeamPage() {
         const assignedOrderIds = new Set<string>();
         for (const a of assnRows) {
           const st = String(a.status || "").toLowerCase();
-          // Treat declined / cancelled separately from "real" pipeline
-          // so the unassigned-orders calc doesn't think a declined
+          // Treat rejected / cancelled separately from "real" pipeline
+          // so the unassigned-orders calc doesn't think a dead
           // assignment covers an order.
-          if (st === "declined" || st === "cancelled" || st === "no_show") {
+          // Command-centre audit (2026-07-02): the enum value is
+          // 'rejected', not 'declined' - rejected rows were being
+          // counted as pending AND marking their order as covered,
+          // hiding it from the unassigned chip. Also map the real
+          // in-transit statuses (picked_up / at_venue), 'on_site'
+          // never matched anything.
+          if (st === "rejected" || st === "declined" || st === "cancelled" || st === "no_show") {
             asnDeclined += 1;
           } else {
             // Live pipeline state.
             if (st === "completed" || st === "delivered") asnDone += 1;
-            else if (st === "en_route" || st === "on_site" || st === "in_transit") asnInTransit += 1;
+            else if (st === "en_route" || st === "picked_up" || st === "at_venue" || st === "in_transit") asnInTransit += 1;
             else asnPending += 1;
             if (a.orders?.id) assignedOrderIds.add(a.orders.id);
           }
@@ -341,9 +361,11 @@ function DriversTeamPage() {
           burnToday += earned > 0 ? earned : (Number(a.base_fee || 0) + Number(a.distance_fee || 0));
           // Overdue: order event_time has passed and not yet
           // completed/done. event_time is a TIME column so combine
-          // with today.
+          // with today. Same enum fix: picked_up / at_venue are the
+          // live mid-trip statuses, and a still-'assigned' trip past
+          // its event time is just as overdue as an accepted one.
           if (
-            (st === "accepted" || st === "en_route" || st === "on_site")
+            (st === "assigned" || st === "accepted" || st === "en_route" || st === "picked_up" || st === "at_venue")
             && a.orders?.event_time
           ) {
             const [h, m] = String(a.orders.event_time).split(":");
@@ -401,6 +423,7 @@ function DriversTeamPage() {
         }
       } catch (e) {
         captureException(e, { tags: { route: "/admin/teams/drivers", step: "load", companyId: companyId || "" } });
+        if (!cancelled) setError(e instanceof Error ? e.message : "Check your connection and retry.");
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -428,9 +451,31 @@ function DriversTeamPage() {
       <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <PortalHeader
+            variant="hero"
             title="Drivers"
             icon={Truck}
             subtitle="Logistics, deliveries and on-site setup."
+            meta={
+              !loading && !error ? (
+                <>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                    {stats.jobsToday} assignment{stats.jobsToday === 1 ? "" : "s"} today
+                  </span>
+                  {stats.unassignedToday > 0 && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                      <span className="h-1.5 w-1.5 rounded-full bg-rose-400" />
+                      {stats.unassignedToday} unassigned
+                    </span>
+                  )}
+                  {stats.active > 0 && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                      Clocked {stats.clockedNow}/{stats.active}
+                    </span>
+                  )}
+                </>
+              ) : undefined
+            }
             actions={
               <Link href={withSlug("/admin/teams")}>
                 <Button variant="outline" size="sm">
@@ -440,6 +485,28 @@ function DriversTeamPage() {
             }
           />
           <PageWorkbench />
+
+          {/* Command-centre audit (2026-07-02): visible load-failure
+              state with Retry. captureException alone left the cards
+              rendering zeros. */}
+          {!loading && error && (
+            <Card className="mb-4 border-rose-200 bg-rose-50 shadow-sm">
+              <CardContent className="flex flex-wrap items-center justify-between gap-3 py-3 px-4">
+                <div className="flex items-center gap-2 text-sm text-rose-800">
+                  <AlertTriangle className="w-4 h-4 shrink-0" />
+                  <span>Could not load driver metrics: {error}</span>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setRefreshTick((n) => n + 1)}
+                  className="border-rose-300 text-rose-800 hover:bg-rose-100"
+                >
+                  Retry
+                </Button>
+              </CardContent>
+            </Card>
+          )}
 
           {/* DRV-A: linkified quick-stat badges + clocked-now chip +
               wage burn (finance-gated) + settlement owed (finance-

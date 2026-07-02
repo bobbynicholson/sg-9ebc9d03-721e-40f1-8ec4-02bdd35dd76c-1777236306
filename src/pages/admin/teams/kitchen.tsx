@@ -57,7 +57,7 @@ import {
 } from "@/components/ui/dialog";
 import {
   ChefHat, ArrowLeft, Users, Clock, ClipboardList, BookOpen, Loader2,
-  Banknote, CalendarDays, Wrench, Package, Flame,
+  Banknote, CalendarDays, Wrench, Package, Flame, AlertTriangle,
   CheckCircle2, ArrowRight, MessageCircle, Printer, FileText,
   Settings as SettingsIcon, ChevronDown, ChevronUp,
 } from "lucide-react";
@@ -133,6 +133,9 @@ function KitchenTeamPage() {
   const tenantCurrency = useTenantCurrency(companyId);
 
   const [loading, setLoading] = useState(true);
+  // Command-centre audit (2026-07-02): visible error state + Retry.
+  // captureException alone left the page rendering zeros on failure.
+  const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState<KitchenStats>({
     active: 0, hoursWeek: 0, jobsToday: 0,
     clockedNow: 0,
@@ -190,6 +193,7 @@ function KitchenTeamPage() {
     const run = async () => {
       if (!companyId) return;
       setLoading(true);
+      setError(null);
       try {
         const today = new Date();
         const todayISO = toLocalISO(today);
@@ -310,8 +314,14 @@ function KitchenTeamPage() {
         // on a kitchen-side receive. The schema models stage hand-
         // offs (kitchen -> cleaning, prep -> service); we count rows
         // headed into the kitchen that haven't been acknowledged.
+        // Command-centre audit (2026-07-02): equipment_handovers has
+        // no company_id column, so tenant scope goes through the
+        // joined order. Pre-fix this counted every tenant's rows RLS
+        // let through.
         const handoverWaitingQ = supabase.from("equipment_handovers")
-          .select("id", { count: "exact", head: true })
+          .select("id, orders!inner(company_id, deleted_at)", { count: "exact", head: true })
+          .eq("orders.company_id", companyId)
+          .is("orders.deleted_at", null)
           .eq("to_stage", "kitchen")
           .is("received_by_user_id", null);
 
@@ -335,17 +345,28 @@ function KitchenTeamPage() {
           lowStockQ, expiringBatchesQ,
           handoverWaitingQ, kitchenMembersQ,
         ]);
+        // Command-centre audit (2026-07-02): surface partial Promise.all
+        // failures. A single failed query used to read as empty data.
+        for (const res of [
+          staffRes, shiftsWeekRes, jobsTodayRes, tomorrowJobsRes,
+          prepTodayRes, prepTomorrowRes, activeDutyRes, damagesRes,
+          lowStockRes, expiringBatchesRes, handoverWaitingRes, membersRes,
+        ]) {
+          if (res.error) throw new Error(res.error.message || "Query failed");
+        }
 
         const staffProfileRows = ((staffRes.data || []) as Array<{
           id: string; role: string | null; active_role: string | null; is_active?: boolean | null;
         }>).filter((p) => p.is_active !== false);
         const staffProfileIds = staffProfileRows.map((p) => p.id).filter(Boolean);
-        const { data: staffDepartmentRows } = staffProfileIds.length > 0
+        const departmentsRes = staffProfileIds.length > 0
           ? await supabase
               .from("user_departments")
               .select("user_id, department, is_primary")
               .in("user_id", staffProfileIds)
-          : { data: [] as Array<{ user_id: string | null; department: string | null; is_primary: boolean | null }> };
+          : { data: [] as Array<{ user_id: string | null; department: string | null; is_primary: boolean | null }>, error: null };
+        if (departmentsRes.error) throw new Error(departmentsRes.error.message || "Query failed");
+        const staffDepartmentRows = departmentsRes.data;
         const activeKitchenTeamCount = staffProfileRows.filter((p) =>
           teamBucketsForUser(p, staffDepartmentRows || []).has("kitchen"),
         ).length;
@@ -495,6 +516,7 @@ function KitchenTeamPage() {
         }
       } catch (e) {
         captureException(e, { tags: { route: "/admin/teams/kitchen", step: "load", companyId: companyId || "" } });
+        if (!cancelled) setError(e instanceof Error ? e.message : "Check your connection and retry.");
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -527,9 +549,31 @@ function KitchenTeamPage() {
       <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <PortalHeader
+            variant="hero"
+            className="no-print"
             title="Kitchen"
             icon={ChefHat}
             subtitle="Prep, plating and pass-through."
+            meta={
+              !loading && !error ? (
+                <>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                    {stats.jobsToday} job{stats.jobsToday === 1 ? "" : "s"} today
+                  </span>
+                  {totalPrep > 0 && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                      {stats.prepDone}/{totalPrep} prep tasks done
+                    </span>
+                  )}
+                  {stats.active > 0 && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                      Clocked {stats.clockedNow}/{stats.active}
+                    </span>
+                  )}
+                </>
+              ) : undefined
+            }
             actions={
               <>
               <Link href={withSlug(userRole === UserRole.KITCHEN_MANAGER ? "/team-portal/kitchen/today" : "/admin/teams")}>
@@ -561,11 +605,33 @@ function KitchenTeamPage() {
               </>
             }
           />
-          <PageWorkbench />
+          <PageWorkbench className="no-print" />
+
+          {/* Command-centre audit (2026-07-02): visible load-failure
+              state with Retry. captureException alone left the cards
+              rendering zeros. */}
+          {!loading && error && (
+            <Card className="mb-4 border-rose-200 bg-rose-50 shadow-sm no-print">
+              <CardContent className="flex flex-wrap items-center justify-between gap-3 py-3 px-4">
+                <div className="flex items-center gap-2 text-sm text-rose-800">
+                  <AlertTriangle className="w-4 h-4 shrink-0" />
+                  <span>Could not load kitchen metrics: {error}</span>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setRefreshTick((n) => n + 1)}
+                  className="border-rose-300 text-rose-800 hover:bg-rose-100"
+                >
+                  Retry
+                </Button>
+              </CardContent>
+            </Card>
+          )}
 
           {/* KIT-A: linkified quick-stat badges. The hub already lets
               the operator drill in; the landing page should too. */}
-          <div className="flex flex-wrap gap-2 mb-4">
+          <div className="flex flex-wrap gap-2 mb-4 no-print">
             <Link href={withSlug("/admin/kitchen-staff")}>
               <Badge variant="secondary" className="px-3 py-1.5 text-sm cursor-pointer hover:bg-slate-200">
                 {loading ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Users className="w-3 h-3 mr-1" />}
@@ -629,7 +695,7 @@ function KitchenTeamPage() {
               staffer so the manager can drill into the breakdown.
               Hidden when nobody clocked any hours this week. */}
           {stats.topStaffHours.length > 0 && (
-            <div className="mb-4">
+            <div className="mb-4 no-print">
               <p className="text-[10px] uppercase tracking-wide font-semibold text-slate-500 mb-1.5">
                 Hours this week
               </p>
@@ -664,7 +730,7 @@ function KitchenTeamPage() {
           {/* KIT-A: intel grid - 4 cards above the 3 tile shortcuts.
               Mirrors the cleaning landing's pattern (damages + supplies)
               but kitchen-shaped. */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-4 no-print">
             {/* Today's prep pipeline. Bar + status counts + overdue
                 chip. Done-percent caption frames where the kitchen
                 actually is right now. */}
@@ -798,7 +864,7 @@ function KitchenTeamPage() {
           </div>
 
           {/* Tile shortcuts - unchanged routing, slug-wrapped now. */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 no-print">
             {tiles.map((t) => (
               <Link key={t.label} href={withSlug(t.href)}>
                 <Card className="border border-slate-200 bg-white shadow-sm transition-colors hover:border-slate-300">

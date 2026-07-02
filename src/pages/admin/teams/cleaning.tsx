@@ -143,6 +143,9 @@ function CleaningTeamPage() {
   const tenantCurrency = useTenantCurrency(companyId);
 
   const [loading, setLoading] = useState(true);
+  // Command-centre audit (2026-07-02): visible error state + Retry.
+  // captureException alone left the page rendering zeros on failure.
+  const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState<CleaningStats>(initialStats);
   const [refreshTick, setRefreshTick] = useState(0);
 
@@ -179,6 +182,7 @@ function CleaningTeamPage() {
     const run = async () => {
       if (!companyId) return;
       setLoading(true);
+      setError(null);
       try {
         const today = new Date();
         const todayISO = toLocalISO(today);
@@ -302,6 +306,16 @@ function CleaningTeamPage() {
           jobsTodayQ, ordersTodayQ, ordersTomorrowQ,
           damagesQ, suppliesQ, machinesQ,
         ]);
+        // Command-centre audit (2026-07-02): surface partial Promise.all
+        // failures. A single failed query used to read as empty data.
+        for (const res of [
+          staffRes, dutyWeekRes, clockedNowRes,
+          handoversTodayRes, handoversTomorrowRes,
+          jobsTodayRes, ordersTodayRes, ordersTomorrowRes,
+          damagesRes, suppliesRes, machinesRes,
+        ]) {
+          if (res.error) throw new Error(res.error.message || "Query failed");
+        }
 
         const staffProfileRows = ((staffRes.data || []) as Array<{
           id: string;
@@ -311,12 +325,14 @@ function CleaningTeamPage() {
           is_active?: boolean | null;
         }>).filter((p) => p.is_active !== false);
         const staffProfileIds = staffProfileRows.map((p) => p.id).filter(Boolean);
-        const { data: staffDepartmentRows } = staffProfileIds.length > 0
+        const departmentsRes = staffProfileIds.length > 0
           ? await supabase
               .from("user_departments")
               .select("user_id, department, is_primary")
               .in("user_id", staffProfileIds)
-          : { data: [] as Array<{ user_id: string | null; department: string | null; is_primary: boolean | null }> };
+          : { data: [] as Array<{ user_id: string | null; department: string | null; is_primary: boolean | null }>, error: null };
+        if (departmentsRes.error) throw new Error(departmentsRes.error.message || "Query failed");
+        const staffDepartmentRows = departmentsRes.data;
         const activeCleaningTeam = staffProfileRows.filter((p) =>
           teamBucketsForUser(p, staffDepartmentRows || []).has("cleaning"),
         );
@@ -472,6 +488,7 @@ function CleaningTeamPage() {
         }
       } catch (e) {
         captureException(e, { tags: { route: "/admin/teams/cleaning", step: "load", companyId: companyId || "" } });
+        if (!cancelled) setError(e instanceof Error ? e.message : "Check your connection and retry.");
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -495,15 +512,37 @@ function CleaningTeamPage() {
   return (
     <>
       <NoIndexMeta />
-      <Head><title>Cleaning team overview - CateringMS</title></Head>
+      <Head><title>Cleaning team - CateringMS</title></Head>
       <DynamicNav userRole={(userRole || UserRole.ADMIN).toString()} />
 
       <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <PortalHeader
-            title="Cleaning team overview"
+            variant="hero"
+            title="Cleaning"
             icon={Sparkles}
             subtitle="Wash-up, kit return and venue strike."
+            meta={
+              !loading && !error ? (
+                <>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                    {stats.jobsToday} event{stats.jobsToday === 1 ? "" : "s"} today
+                  </span>
+                  {totalHandovers > 0 && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                      {stats.handoversComplete}/{totalHandovers} handovers done
+                    </span>
+                  )}
+                  {stats.handoversOverdue > 0 && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                      <span className="h-1.5 w-1.5 rounded-full bg-rose-400" />
+                      {stats.handoversOverdue} overdue
+                    </span>
+                  )}
+                </>
+              ) : undefined
+            }
             actions={
               <Link href={withSlug(userRole === UserRole.CLEANING_MANAGER ? "/team-portal/cleaning/dashboard" : "/admin/teams")}>
                 <Button variant="outline" size="sm">
@@ -514,6 +553,28 @@ function CleaningTeamPage() {
             }
           />
           <PageWorkbench />
+
+          {/* Command-centre audit (2026-07-02): visible load-failure
+              state with Retry. captureException alone left the cards
+              rendering zeros. */}
+          {!loading && error && (
+            <Card className="mb-4 border-rose-200 bg-rose-50 shadow-sm">
+              <CardContent className="flex flex-wrap items-center justify-between gap-3 py-3 px-4">
+                <div className="flex items-center gap-2 text-sm text-rose-800">
+                  <AlertTriangle className="w-4 h-4 shrink-0" />
+                  <span>Could not load cleaning metrics: {error}</span>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setRefreshTick((n) => n + 1)}
+                  className="border-rose-300 text-rose-800 hover:bg-rose-100"
+                >
+                  Retry
+                </Button>
+              </CardContent>
+            </Card>
+          )}
 
           {/* CLN-A: linkified quick-stat chip row. Same shape as the
               kitchen + drivers landings. Tints communicate health. */}

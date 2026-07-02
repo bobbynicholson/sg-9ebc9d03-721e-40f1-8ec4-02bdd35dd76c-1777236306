@@ -6,7 +6,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import {
   ArrowLeft,
   Palette,
@@ -156,6 +155,11 @@ function WhiteLabelPage() {
 
   const [branding, setBranding] = useState<BrandingRow | null>(null);
   const [loading, setLoading] = useState(true);
+  // Surfaced load failure. Pre-conversion a failed companies read
+  // silently rendered the DEFAULT palette in the form - one Save from
+  // there would clobber the tenant's real branding with defaults.
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
   const [saving, setSaving] = useState(false);
   const [slugCompanyId, setSlugCompanyId] = useState<string | undefined>(undefined);
   const companyId: string | undefined = resolvedSlug ? slugCompanyId : authCompanyId;
@@ -249,6 +253,7 @@ function WhiteLabelPage() {
       return;
     }
     setLoading(true);
+    setLoadError(null);
     (async () => {
       const { data, error } = await supabase
         .from("companies")
@@ -257,6 +262,12 @@ function WhiteLabelPage() {
         .maybeSingle();
       if (cancelled) return;
       if (error || !data) {
+        if (error) {
+          captureException(error, {
+            tags: { route: "/admin/white-label", step: "load", companyId },
+          });
+        }
+        setLoadError(error?.message || "Your company branding record could not be found.");
         setLoading(false);
         return;
       }
@@ -301,7 +312,7 @@ function WhiteLabelPage() {
     return () => {
       cancelled = true;
     };
-  }, [companyId]);
+  }, [companyId, reloadKey]);
 
   const dispatchBrandingUpdated = useCallback((row: BrandingRow | null) => {
     if (typeof window === "undefined") return;
@@ -604,39 +615,68 @@ function WhiteLabelPage() {
             </Button>
           </Link>
 
+          {/* Command-centre hero. This band reads the --brand-*-rgb
+              vars, so it re-paints in the operator's own palette when
+              they save branding changes - the page demos itself. The
+              WL-B status chips moved from actions to the meta row and
+              restyle for the dark band. */}
           <PortalHeader
+            variant="hero"
             title={
               <span className="flex items-center gap-2">
-                White Label Branding
-                <InfoTooltip content={"Set your logo, organisation name, and three brand colours that show up on client portals and emails.\n\nSaved to your tenant. Every admin and client logged into your account sees the same branding."} />
+                White-label branding
+                <InfoTooltip content={"Set your logo, organisation name, and three brand colours that show up on client portals and emails.\n\nSaved to your tenant. Every admin and client logged into your account sees the same branding."} className="text-white/60 hover:text-white" />
               </span>
             }
             icon={Palette}
             subtitle="Logo, organisation name, and three brand colours that show on every client surface: portal, public quote pages, public invoices, and outgoing emails."
-            actions={
-              <div className="flex flex-col items-end gap-2">
-                {isWhiteLabeled && (
-                  <Badge className="bg-brand-primary/15 text-brand-primary border-brand-primary/20">
-                    <Sparkles className="w-3 h-3 mr-1" />
-                    Custom Branding Active
-                  </Badge>
-                )}
-                {/* WL-B: unsaved / last-saved chip mirroring the
-                    company-profile pattern. Hidden while loading. */}
-                {!loading && (isDirty ? (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-800 border border-amber-200">
-                    <AlertTriangle className="w-3 h-3" /> Unsaved changes
+            meta={
+              !loading && !loadError ? (
+                <>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    {isWhiteLabeled && <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />}
+                    {isWhiteLabeled ? "Custom branding active" : "Default CateringMS branding"}
                   </span>
-                ) : lastSavedAt ? (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-50 text-slate-600 border border-slate-200">
-                    <Clock className="w-3 h-3" /> Just saved
-                  </span>
-                ) : null)}
-              </div>
+                  {/* WL-B: unsaved / last-saved chip mirroring the
+                      company-profile pattern. Amber stays semantic. */}
+                  {isDirty ? (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-400/40 bg-amber-400/15 px-2.5 py-1 text-[11px] font-semibold text-amber-200">
+                      <AlertTriangle className="w-3 h-3" /> Unsaved changes
+                    </span>
+                  ) : lastSavedAt ? (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white/90">
+                      <Clock className="w-3 h-3" /> Just saved
+                    </span>
+                  ) : null}
+                </>
+              ) : undefined
             }
           />
           <PageWorkbench />
 
+          {/* Gate the form on load state. Rendering the DEFAULT
+              palette while the fetch is in flight (or after it failed)
+              invites a Save that clobbers the tenant's real branding. */}
+          {loading ? (
+            <Card>
+              <CardContent className="py-16 text-center">
+                <Loader2 className="w-6 h-6 mx-auto text-slate-400 animate-spin" />
+                <p className="text-sm text-slate-500 mt-3">Loading your branding...</p>
+              </CardContent>
+            </Card>
+          ) : loadError ? (
+            <Card className="border-rose-200 bg-rose-50/60">
+              <CardContent className="py-16 text-center">
+                <AlertTriangle className="w-8 h-8 mx-auto text-rose-500" />
+                <p className="font-medium text-slate-900 mt-3">Couldn&apos;t load your branding</p>
+                <p className="text-sm text-slate-600 mt-1">{loadError}</p>
+                <Button variant="outline" className="mt-4" onClick={() => setReloadKey((k) => k + 1)}>
+                  Retry
+                </Button>
+              </CardContent>
+            </Card>
+          ) : (
+          <>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="space-y-6">
               <Card>
@@ -1091,6 +1131,8 @@ function WhiteLabelPage() {
               </div>
             </CardContent>
           </Card>
+          </>
+          )}
         </PortalShell>
 
         <Footer />

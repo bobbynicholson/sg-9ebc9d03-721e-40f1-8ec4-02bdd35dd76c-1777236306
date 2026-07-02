@@ -180,6 +180,9 @@ function SettingsPage() {
   const [saved, setSaved] = useState(false);
   const [savedSnapshot, setSavedSnapshot] = useState("");
   const [settings, setSettings] = useState<AdminSettings>(DEFAULT_SETTINGS);
+  // Set when the DB read fails and we fell back to the local cache.
+  const [loadFailed, setLoadFailed] = useState<string | null>(null);
+  const [reloadNonce, setReloadNonce] = useState(0);
 
   useEffect(() => {
     if (!companyId) {
@@ -190,6 +193,7 @@ function SettingsPage() {
     let cancelled = false;
     (async () => {
       setLoading(true);
+      setLoadFailed(null);
       try {
         const local = readLocalSettings(companyId);
         const { data: company, error } = await (supabase as any)
@@ -219,6 +223,9 @@ function SettingsPage() {
           const fallback = readLocalSettings(companyId);
           setSettings(fallback);
           setSavedSnapshot(JSON.stringify(fallback));
+          // Persistent banner as well as the toast: cached values can
+          // be stale and the operator must know before editing them.
+          setLoadFailed(error?.message || "Could not read company settings from the database.");
           toast({
             title: "Settings loaded from local cache",
             description: error?.message || "Could not read company settings from the database.",
@@ -233,7 +240,7 @@ function SettingsPage() {
     return () => {
       cancelled = true;
     };
-  }, [companyId, toast]);
+  }, [companyId, toast, reloadNonce]);
 
   const hasUnsavedChanges = useMemo(
     () => !!savedSnapshot && savedSnapshot !== JSON.stringify(settings),
@@ -363,6 +370,7 @@ function SettingsPage() {
       <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <PortalHeader
+            variant="hero"
             title={
               <span className="flex items-center gap-2">
                 Settings
@@ -375,11 +383,29 @@ function SettingsPage() {
             }
             icon={Settings}
             subtitle="A clean hub for admin setup plus the shared operational defaults that affect quotes, finance, kitchen capacity, dispatch, and cancellation rules."
+            meta={
+              !loading ? (
+                <>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    {settings.financial.currency} · VAT {settings.financial.taxRate}%
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    Deposit {settings.financial.depositPercent}%
+                  </span>
+                  {hasUnsavedChanges && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                      <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-400" />
+                      Unsaved changes
+                    </span>
+                  )}
+                </>
+              ) : undefined
+            }
             actions={
               <Button
                 onClick={handleSave}
                 disabled={!hasUnsavedChanges || saving || loading}
-                className={hasUnsavedChanges ? "gap-2 bg-amber-600 hover:bg-amber-700" : "gap-2"}
+                className="gap-2 bg-brand-primary hover:bg-brand-primary/90"
                 size="sm"
               >
                 {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
@@ -388,6 +414,20 @@ function SettingsPage() {
             }
           />
           <PageWorkbench />
+
+          {loadFailed && (
+            <Card className="mb-6 border-amber-200 bg-amber-50">
+              <CardContent className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-amber-900">Showing locally cached settings</p>
+                  <p className="text-xs text-amber-800">{loadFailed} Values below may be stale; retry before editing.</p>
+                </div>
+                <Button onClick={() => setReloadNonce((n) => n + 1)} size="sm" variant="outline">
+                  Retry
+                </Button>
+              </CardContent>
+            </Card>
+          )}
 
           {saved && (
             <Card className="mb-6 border-0 bg-brand-primary/10 shadow">
@@ -507,7 +547,7 @@ function SettingsPage() {
               onClick={handleSave}
               disabled={saving}
               size="sm"
-              className="h-8 gap-1.5 bg-amber-500 text-slate-900 hover:bg-amber-400"
+              className="h-8 gap-1.5 bg-brand-primary text-white hover:bg-brand-primary/90"
             >
               <Save className="h-3.5 w-3.5" />
               {saving ? "Saving..." : "Save"}

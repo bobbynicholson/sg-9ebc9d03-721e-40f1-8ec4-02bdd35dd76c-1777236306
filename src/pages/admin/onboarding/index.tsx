@@ -114,6 +114,11 @@ const STEPS = [
 
 type StepId = typeof STEPS[number]["id"];
 
+// Data-bearing sections (Welcome + Done excluded). Shared by the
+// Welcome checklist and the hero completion chip so both always
+// report the same "X of Y" count.
+const SECTION_IDS: StepId[] = ["company", "address", "branding", "banking", "vat", "email", "clients"];
+
 // ONB-B (task #217, 2026-05-25): pure helper - is this step's
 // key data already present on the companies row?  Drives the
 // completion checklist on the Welcome step + the resume-at-last-
@@ -145,6 +150,11 @@ function OnboardingWizard() {
   const [step, setStep] = useState<StepId>("welcome");
   const [form, setForm] = useState<CompanyForm>(EMPTY_FORM);
   const [loading, setLoading] = useState(true);
+  // Silent-failure guard: if the companies fetch errors we must not
+  // present the EMPTY_FORM as if it were the saved state (the operator
+  // would re-type everything and clobber their real row on save).
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loadAttempt, setLoadAttempt] = useState(0);
   const [saving, setSaving] = useState(false);
 
   // ONB-B: ?step=<id> deep-linking. Lets support / Settings link
@@ -172,12 +182,21 @@ function OnboardingWizard() {
     let cancelled = false;
     (async () => {
       setLoading(true);
-      const { data } = await supabase
+      setLoadError(null);
+      const { data, error } = await supabase
         .from("companies")
         .select("*")
         .eq("id", companyId)
         .maybeSingle();
       if (cancelled) return;
+      if (error) {
+        captureException(error, {
+          tags: { route: "/admin/onboarding", step: "load", companyId },
+        });
+        setLoadError(error.message || "Could not load your saved setup.");
+        setLoading(false);
+        return;
+      }
       if (data) {
         const r = data as any;
         setForm({
@@ -213,11 +232,15 @@ function OnboardingWizard() {
       setLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [companyId]);
+  }, [companyId, loadAttempt]);
 
   const stepIndex = useMemo(() => STEPS.findIndex((s) => s.id === step), [step]);
   const totalSteps = STEPS.length;
   const progressPct = Math.round(((stepIndex + 1) / totalSteps) * 100);
+  const sectionsComplete = useMemo(
+    () => SECTION_IDS.filter((id) => isStepComplete(id, form)).length,
+    [form],
+  );
 
   // Each step's "Save & continue" only persists the slice of fields
   // it owns. Keeps the round-trip small and means a partial save can't
@@ -333,11 +356,40 @@ function OnboardingWizard() {
       <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <PortalHeader
+            variant="hero"
             title="Set up your business"
             subtitle="Walk through the essentials so your quotes, invoices and client portal look right from day one. Every step saves as you go."
             icon={Sparkles}
+            meta={
+              !loadError ? (
+                <>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    Step {stepIndex + 1} of {totalSteps}
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                    {sectionsComplete} of {SECTION_IDS.length} sections complete
+                  </span>
+                </>
+              ) : undefined
+            }
           />
           <PageWorkbench />
+          {loadError ? (
+            /* Saved-setup load failed. Editing on top of an empty form
+               would clobber the real row on save, so block the wizard
+               and offer a retry instead. */
+            <Card>
+              <CardContent className="p-6 text-center space-y-3">
+                <p className="text-sm font-semibold text-slate-900">Couldn&apos;t load your saved setup</p>
+                <p className="text-sm text-slate-600 max-w-md mx-auto">{loadError}</p>
+                <Button variant="outline" onClick={() => setLoadAttempt((n) => n + 1)}>
+                  Try again
+                </Button>
+              </CardContent>
+            </Card>
+          ) : (
+          <>
           {/* Progress strip across the top - step pills + filled bar.
               On phones the labels collapse to icons only so the row
               doesn't crush. */}
@@ -372,9 +424,9 @@ function OnboardingWizard() {
                     onClick={() => reachable && setStep(s.id)}
                     className={`flex items-center gap-1 text-[11px] transition ${
                       active
-                        ? "text-orange-600 font-semibold"
+                        ? "text-brand-primary font-semibold"
                         : done
-                          ? "text-brand-primary hover:text-brand-primary"
+                          ? "text-slate-700 hover:text-brand-primary"
                           : "text-slate-400 cursor-not-allowed"
                     }`}
                     title={s.label}
@@ -532,6 +584,8 @@ function OnboardingWizard() {
           <p className="text-center text-xs text-slate-500 mt-4">
             You can change any of this later under <strong>Settings</strong> in the sidebar.
           </p>
+          </>
+          )}
         </PortalShell>
       </div>
     </>
@@ -1079,7 +1133,7 @@ function EmailStep({
           <div className="rounded-md border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
             <p className="font-semibold mb-1">Shared sender</p>
             <p>
-              Outgoing emails will come from <code>noreply@send.cateringms.com</code>. When clients hit reply, the message lands in <strong>{(""+(companyId)).slice(0,0) || "your inbox"}</strong> via the contact email on your company profile.
+              Outgoing emails will come from <code>noreply@send.cateringms.com</code>. When clients hit reply, the message lands in <strong>your inbox</strong> via the contact email on your company profile.
             </p>
           </div>
           <div className="text-xs text-slate-500">
@@ -1257,8 +1311,8 @@ function StepShell({
   return (
     <div className="space-y-5">
       <div className="flex items-start gap-3">
-        <div className="w-10 h-10 rounded-lg bg-orange-100 flex items-center justify-center flex-shrink-0">
-          <Icon className="w-5 h-5 text-orange-700" />
+        <div className="w-10 h-10 rounded-lg bg-brand-primary/10 flex items-center justify-center flex-shrink-0">
+          <Icon className="w-5 h-5 text-brand-primary" />
         </div>
         <div className="min-w-0">
           <h2 className="text-lg sm:text-xl font-bold text-slate-900">{title}</h2>

@@ -126,6 +126,8 @@ function ImportPage() {
       }
     } catch (e: any) {
       toast({ title: "Couldn't save decision", description: e?.message, variant: "destructive" });
+      // Revert the optimistic flip to whatever the server has.
+      await refreshJob(jobId, true);
     }
   };
 
@@ -142,20 +144,31 @@ function ImportPage() {
     setRows((prev) => prev.map((r) => r.dedup_match_id ? { ...r, dedup_decision: decision } : r));
     try {
       const BATCH = 50;
+      let failed = 0;
       for (let i = 0; i < targets.length; i += BATCH) {
         const batch = targets.slice(i, i + BATCH);
-        await Promise.all(batch.map((r) =>
+        const results = await Promise.all(batch.map((r) =>
           fetch(`/api/imports/${jobId}/rows/${r.id}/decision`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ decision }),
-          }),
+          }).catch(() => null),
         ));
+        // Promise.all on fetch never rejects on HTTP errors - count
+        // non-ok responses or the optimistic UI lies about what commit
+        // will actually do to those rows.
+        failed += results.filter((res) => !res || !res.ok).length;
+      }
+      if (failed > 0) {
+        throw new Error(`${failed} of ${targets.length} rows did not save. Reloading the saved decisions.`);
       }
       const label = decision === "skip" ? "Skip all" : decision === "update" ? "Update existing" : "Create new";
       toast({ title: `${label} applied to ${targets.length} duplicates` });
     } catch (e: any) {
       toast({ title: "Bulk update failed", description: e?.message, variant: "destructive" });
+      // Re-sync the table with what the server actually persisted so
+      // the optimistic flip doesn't stand in for saved state.
+      await refreshJob(jobId, true);
     } finally {
       setBulkDedupBusy(false);
     }
@@ -221,16 +234,24 @@ function ImportPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [job?.status]);
 
+  // Persistent banner when the job itself can't be loaded (resume via
+  // ?jobId, or a refresh after a repair). Pre-fix this only toasted,
+  // and a network throw here escaped as an unhandled rejection.
+  const [jobLoadError, setJobLoadError] = useState<string | null>(null);
+
   const refreshJob = async (id: string, withRows = false) => {
-    const res = await fetch(`/api/imports/${id}${withRows ? "?rows=1" : ""}`);
-    const json = await res.json();
-    if (!res.ok) {
-      toast({ title: "Could not load import", description: json?.error || "", variant: "destructive" });
-      return;
+    try {
+      const res = await fetch(`/api/imports/${id}${withRows ? "?rows=1" : ""}`);
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json?.error || `Server returned ${res.status}`);
+      setJobLoadError(null);
+      setJob(json.job);
+      if (json.rows) setRows(json.rows as RowShape[]);
+      if (json.job?.mapping && !editedMapping) setEditedMapping(json.job.mapping);
+    } catch (e: any) {
+      setJobLoadError(e?.message || "Could not load the import job.");
+      toast({ title: "Could not load import", description: e?.message || "", variant: "destructive" });
     }
-    setJob(json.job);
-    if (json.rows) setRows(json.rows as RowShape[]);
-    if (json.job?.mapping && !editedMapping) setEditedMapping(json.job.mapping);
   };
 
   // ── Step 1: Upload ────────────────────────────────────────────────
@@ -403,6 +424,7 @@ function ImportPage() {
       <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <PortalHeader
+            variant="hero"
             title={
               <span className="inline-flex items-center gap-2">
                 AI Import
@@ -411,6 +433,23 @@ function ImportPage() {
             }
             subtitle="Drop a spreadsheet of your existing clients and outstanding orders. We match the columns, normalise the data, show you a preview, then load it."
             icon={Wand2}
+            meta={
+              job ? (
+                <>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    <FileSpreadsheet className="h-3 w-3" />
+                    {job.source_filename || "(no filename)"}
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    {job.source_row_count ?? 0} rows
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold capitalize text-white">
+                    <span className={`h-1.5 w-1.5 rounded-full ${job.status === "failed" ? "bg-rose-400" : job.status === "completed" ? "bg-emerald-400" : "bg-amber-400"}`} />
+                    {job.status.replace(/_/g, " ")}
+                  </span>
+                </>
+              ) : undefined
+            }
           />
           <PageWorkbench />
 
@@ -445,6 +484,31 @@ function ImportPage() {
               );
             })}
           </div>
+
+          {/* Job load failure - shown with a retry so a resumed job that
+              failed to fetch isn't a silent dead end on the upload step. */}
+          {jobLoadError && jobId && (
+            <Card className="mb-4 border-rose-200 bg-rose-50">
+              <CardContent className="p-4 flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-start gap-2 text-sm">
+                  <AlertTriangle className="w-4 h-4 text-rose-600 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <p className="font-medium text-rose-900">Couldn&apos;t load this import job</p>
+                    <p className="text-xs text-rose-800/80 mt-0.5">{jobLoadError}</p>
+                  </div>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => refreshJob(jobId, true)}
+                  disabled={busy}
+                  className="bg-white"
+                >
+                  <RotateCcw className="w-3.5 h-3.5 mr-1.5" /> Retry
+                </Button>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Step 1: Upload */}
           {step === "upload" && (
@@ -1023,8 +1087,10 @@ function ImportPage() {
 }
 
 function Stat({ label, value, tone }: { label: string; value: number; tone?: "emerald" | "amber" | "rose" }) {
+  // Outcome tones stay semantic (emerald good / amber warn / rose bad),
+  // never rebranded to the tenant palette.
   const valueClass =
-    tone === "emerald" ? "text-brand-primary" :
+    tone === "emerald" ? "text-emerald-600" :
     tone === "amber"   ? "text-amber-600"   :
     tone === "rose"    ? "text-rose-600"    : "text-slate-900";
   return (

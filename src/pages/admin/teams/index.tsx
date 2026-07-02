@@ -148,6 +148,20 @@ function shortDate(iso: string | null): string {
   } catch { return ""; }
 }
 
+// Command-centre audit (2026-07-02): PostgREST failures come back as
+// { error } instead of throwing, so a failed query used to read as an
+// empty result and the hub silently rendered zeros. These unwrappers
+// turn a query error into a thrown Error so load()'s catch can surface
+// it with a Retry.
+function unwrapData<T>(res: { data: T | null; error: { message?: string } | null }): T | null {
+  if (res.error) throw new Error(res.error.message || "Query failed");
+  return res.data;
+}
+function unwrapCount(res: { count: number | null; error: { message?: string } | null }): number | null {
+  if (res.error) throw new Error(res.error.message || "Query failed");
+  return res.count;
+}
+
 function TeamsIndexPage() {
   const { user, profile } = useAuth();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -159,11 +173,13 @@ function TeamsIndexPage() {
   // use - owner / company_admin / admin / super_admin only.
   const canSeeFinance = userRole ? canAccessFinance(userRole) : false;
   const { regionFilterId, options: regionOptions } = useRegionFilter();
-  const { toast } = useToast();
   const { withSlug } = useTenantHref();
   const tenantCurrency = useTenantCurrency(companyId);
 
   const [loading, setLoading] = useState(true);
+  // Command-centre audit (2026-07-02): visible error state + Retry
+  // instead of a transient toast that left the tiles rendering zeros.
+  const [error, setError] = useState<string | null>(null);
   const [rows, setRows] = useState<TeamRow[]>([]);
   const [risks, setRisks] = useState<CrossTeamRisk[]>([]);
   // TMS-C: WhatsApp broadcast dialog state. Per-team team-key
@@ -189,6 +205,7 @@ function TeamsIndexPage() {
   const load = async () => {
     if (!companyId) return;
     setLoading(true);
+    setError(null);
     try {
       const todayISO = toLocalISO(new Date());
       const weekStartISO = startOfWeekIso();
@@ -198,20 +215,20 @@ function TeamsIndexPage() {
       // Active staff per team. Counts role + active_role + user_departments
       // so manager roles and cross-trained staff land in the right team
       // bucket without collapsing their role labels elsewhere.
-      const { data: staffRows } = await supabase
+      const staffRows = unwrapData(await supabase
         .from("profiles")
         .select("id, role, active_role, is_active")
-        .eq("company_id", companyId);
+        .eq("company_id", companyId));
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const activeStaffRows = ((staffRows || []) as any[]).filter((s) => s.is_active !== false);
       const staffIds = activeStaffRows.map((s) => s.id).filter(Boolean);
-      const { data: departmentRows } = staffIds.length > 0
-        ? await supabase
+      const departmentRows = staffIds.length > 0
+        ? unwrapData(await supabase
             .from("user_departments")
             .select("user_id, department, is_primary")
-            .in("user_id", staffIds)
-        : { data: [] as Array<{ user_id: string | null; department: string | null; is_primary: boolean | null }> };
+            .in("user_id", staffIds))
+        : [] as Array<{ user_id: string | null; department: string | null; is_primary: boolean | null }>;
       const staffByTeam = countTeamBuckets(activeStaffRows, departmentRows || []);
 
       // Two shift tables, two purposes:
@@ -260,6 +277,9 @@ function TeamsIndexPage() {
           .is("deleted_at", null)
           .gte("shift_start", todayStartISO),
       ]);
+      for (const res of [activeDuty, staffShiftsThisWeek, staffShiftsToday]) {
+        if (res.error) throw new Error(res.error.message || "Query failed");
+      }
 
       let kitchenMissingClockOut = 0;
       let kitchenClockedNow = 0;
@@ -305,7 +325,7 @@ function TeamsIndexPage() {
         .eq("event_date", todayISO)
         .not("status", "in", "(cancelled,completed)");
       if (regionFilterId) kitchenJobsQ = kitchenJobsQ.eq("region_id", regionFilterId);
-      const { count: kitchenJobs } = await kitchenJobsQ;
+      const kitchenJobs = unwrapCount(await kitchenJobsQ);
 
       // TMS-B: comparison vs same weekday last week.
       let kitchenLastWeekQ = supabase
@@ -316,7 +336,7 @@ function TeamsIndexPage() {
         .eq("event_date", lastWeekISO)
         .not("status", "in", "(cancelled,completed)");
       if (regionFilterId) kitchenLastWeekQ = kitchenLastWeekQ.eq("region_id", regionFilterId);
-      const { count: kitchenLastWeekJobs } = await kitchenLastWeekQ;
+      const kitchenLastWeekJobs = unwrapCount(await kitchenLastWeekQ);
 
       // TMS-B: next imminent kitchen job - earliest event start time
       // today, by event_time order.
@@ -330,7 +350,7 @@ function TeamsIndexPage() {
         .order("event_time", { ascending: true, nullsFirst: false })
         .limit(1);
       if (regionFilterId) nextKitchenQ = nextKitchenQ.eq("region_id", regionFilterId);
-      const { data: nextKitchen } = await nextKitchenQ;
+      const nextKitchen = unwrapData(await nextKitchenQ);
       const nextKitchenRow = (nextKitchen?.[0] as
         | { order_number: string | null; event_name: string | null; event_time: string | null }
         | undefined) || null;
@@ -346,7 +366,7 @@ function TeamsIndexPage() {
         .is("orders.deleted_at", null)
         .eq("orders.event_date", todayISO);
       if (regionFilterId) drvAssnQ = drvAssnQ.eq("orders.region_id", regionFilterId);
-      const { data: drvAssn } = await drvAssnQ;
+      const drvAssn = unwrapData(await drvAssnQ);
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const drvRows = (drvAssn || []) as any[];
@@ -388,7 +408,7 @@ function TeamsIndexPage() {
         .is("orders.deleted_at", null)
         .gte("assigned_at", weekStartISO);
       if (regionFilterId) drvWeekQ = drvWeekQ.eq("orders.region_id", regionFilterId);
-      const { data: drvWeek } = await drvWeekQ;
+      const drvWeek = unwrapData(await drvWeekQ);
       let driverHours = 0;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       for (const a of (drvWeek || []) as any[]) {
@@ -410,15 +430,15 @@ function TeamsIndexPage() {
         .eq("event_date", lastWeekISO)
         .not("status", "in", "(cancelled,completed)");
       if (regionFilterId) driverLastWeekQ = driverLastWeekQ.eq("region_id", regionFilterId);
-      const { count: driverLastWeekJobs } = await driverLastWeekQ;
+      const driverLastWeekJobs = unwrapCount(await driverLastWeekQ);
 
       // Shopping lists today + pending overdue
       // TMS-C: pull actual_total + estimated_total for the burn chip.
-      const { data: shoppingToday } = await supabase
+      const shoppingToday = unwrapData(await supabase
         .from("shopping_lists")
         .select("id, status, list_date, actual_total, estimated_total")
         .eq("company_id", companyId)
-        .eq("list_date", todayISO);
+        .eq("list_date", todayISO));
       const shoppingJobs = (shoppingToday || []).length;
       // TMS-C: shopping spend today. actual_total is the post-run
       // truth; estimated_total covers lists that are still pending.
@@ -430,20 +450,20 @@ function TeamsIndexPage() {
         shoppingBurnToday += actual > 0 ? actual : estimated;
       }
 
-      const { data: shoppingOverdue } = await supabase
+      const shoppingOverdue = unwrapData(await supabase
         .from("shopping_lists")
         .select("id")
         .eq("company_id", companyId)
         .lt("list_date", todayISO)
-        .in("status", ["pending", "draft"]);
+        .in("status", ["pending", "draft"]));
       const shoppingAnomalies = (shoppingOverdue || []).length;
 
       // TMS-B: comparison - shopping lists same weekday last week.
-      const { count: shoppingLastWeek } = await supabase
+      const shoppingLastWeek = unwrapCount(await supabase
         .from("shopping_lists")
         .select("id", { count: "exact", head: true })
         .eq("company_id", companyId)
-        .eq("list_date", lastWeekISO);
+        .eq("list_date", lastWeekISO));
 
       // TMS-B: next imminent shopping run - the earliest pending
       // or in_progress list today. shopping_lists has no time
@@ -456,14 +476,14 @@ function TeamsIndexPage() {
       // the scheduled kickoff; status flips to in_progress / completed.
       // We can finally surface real anomalies (overdue, planned_end
       // past with status != completed) and real next-imminent.
-      const { data: cleaningJobsRows } = await supabase
+      const cleaningJobsRows = unwrapData(await supabase
         .from("cleaning_jobs")
         .select("id, status, planned_start, planned_end")
         .eq("company_id", companyId)
         .is("deleted_at", null)
         .gte("planned_start", todayISO + "T00:00:00")
         .lt("planned_start", todayISO + "T23:59:59")
-        .order("planned_start", { ascending: true });
+        .order("planned_start", { ascending: true }));
       const cleaningTodayRows = (cleaningJobsRows || []) as Array<{
         id: string; status: string; planned_start: string | null; planned_end: string | null;
       }>;
@@ -484,24 +504,24 @@ function TeamsIndexPage() {
       ) || null;
 
       // Comparison vs same weekday last week for cleaning.
-      const { count: cleaningLastWeek } = await supabase
+      const cleaningLastWeek = unwrapCount(await supabase
         .from("cleaning_jobs")
         .select("id", { count: "exact", head: true })
         .eq("company_id", companyId)
         .is("deleted_at", null)
         .gte("planned_start", lastWeekISO + "T00:00:00")
-        .lt("planned_start", lastWeekISO + "T23:59:59");
+        .lt("planned_start", lastWeekISO + "T23:59:59"));
 
       // TMS-C (task #205, 2026-05-24): unread handover notes badge.
       // cleaning_event_handovers carries status='expected' (created
       // but not yet reviewed) or 'in_progress'. Either state means
       // the operator should still take a look. status='complete' or
       // 'cancelled' falls out of the badge.
-      const { count: handoverPending } = await supabase
+      const handoverPending = unwrapCount(await supabase
         .from("cleaning_event_handovers")
         .select("id", { count: "exact", head: true })
         .eq("company_id", companyId)
-        .in("status", ["expected", "in_progress"]);
+        .in("status", ["expected", "in_progress"]));
 
       // TMS-D (task #206, 2026-05-24): sales + outsource team
       // metrics. Both are valid profiles.role values; both have
@@ -549,16 +569,22 @@ function TeamsIndexPage() {
           .gte("created_at", lastWeekISO + "T00:00:00")
           .lt("created_at", lastWeekISO + "T23:59:59"),
       ]);
+      for (const res of [
+        leadsTodayRes, quotesTodayRes, outsourceProvidersRes,
+        outsourceAssnTodayRes, outsourceAssnLastWeekRes,
+      ]) {
+        if (res.error) throw new Error(res.error.message || "Query failed");
+      }
 
       // TMS-D: hire-in pipeline (separate "Operational pipelines"
       // section below the team tiles). Counts open hire orders +
       // overdue picks - same shape as the existing HireInPanel
       // overdue logic.
-      const { data: hireInOpenRows } = await supabase
+      const hireInOpenRows = unwrapData(await supabase
         .from("equipment_hire_orders")
         .select("id, status, expected_pickup_date, total_cost")
         .eq("company_id", companyId)
-        .in("status", ["draft", "confirmed", "picked_up"]);
+        .in("status", ["draft", "confirmed", "picked_up"]));
       const hireInOpen = (hireInOpenRows || []) as Array<{
         status: string; expected_pickup_date: string | null; total_cost: number | null;
       }>;
@@ -591,7 +617,7 @@ function TeamsIndexPage() {
         // client-side because postgres time-arithmetic via JS is awkward.
         .order("event_time", { ascending: true });
       if (regionFilterId) riskQ = riskQ.eq("region_id", regionFilterId);
-      const { data: riskRows } = await riskQ;
+      const riskRows = unwrapData(await riskQ);
 
       const nextWindowMs = new Date(next4hISO).getTime();
       const nowFloor = Date.now();
@@ -700,7 +726,7 @@ function TeamsIndexPage() {
           name: "Cleaning",
           icon: Sparkles,
           iconColor: "text-slate-600",
-          bg: "text-slate-600 to-rose-50",
+          bg: "from-slate-50 to-rose-50",
           href: "/admin/teams/cleaning",
           headCount: staffByTeam.cleaning || 0,
           // null - same honesty as shopping.
@@ -776,12 +802,11 @@ function TeamsIndexPage() {
       setRows(teamRows);
     } catch (err: unknown) {
       // TMS-B: Sentry tagging - was silent console.error.
+      // Command-centre audit (2026-07-02): persistent error banner with
+      // Retry replaces the transient toast so a failed load can't
+      // masquerade as an all-zero hub.
       captureException(err, { tags: { route: "/admin/teams", step: "load", companyId: companyId || "" } });
-      toast({
-        title: "Could not load teams",
-        description: err instanceof Error ? err.message : "Check your connection and retry.",
-        variant: "destructive",
-      });
+      setError(err instanceof Error ? err.message : "Check your connection and retry.");
     } finally {
       setLoading(false);
     }
@@ -834,6 +859,9 @@ function TeamsIndexPage() {
   }, [companyId]);
 
   const totalAnomalies = rows.reduce((sum, r) => sum + r.anomalies, 0);
+  // Command-centre hero chips: live totals off the loaded rows.
+  const totalActiveStaff = rows.reduce((sum, r) => sum + r.headCount, 0);
+  const totalJobsToday = rows.reduce((sum, r) => sum + r.jobsToday, 0);
 
   return (
     <>
@@ -844,40 +872,74 @@ function TeamsIndexPage() {
       <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <PortalHeader
+            variant="hero"
             title="Teams"
             icon={Users}
             subtitle={
               <>
                 Cross-team glance for prep, dispatch, cleaning, and shopping.{" "}
-                <span className="inline-flex items-center gap-1">
+                <span className="inline-flex items-center gap-1 text-white/80">
                   <Calendar className="h-3.5 w-3.5" /> {todayLabel}
                 </span>
                 {regionLabel && (
                   <>
                     {" "}
-                    <span className="inline-flex items-center gap-1">
+                    <span className="inline-flex items-center gap-1 text-white/80">
                       <MapPin className="h-3 w-3" /> {regionLabel}
                     </span>
                   </>
                 )}
               </>
             }
+            meta={
+              !loading && !error ? (
+                <>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                    {totalActiveStaff} active staff
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    {totalJobsToday} job{totalJobsToday === 1 ? "" : "s"} today
+                  </span>
+                  {totalAnomalies > 0 && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                      <span className="h-1.5 w-1.5 rounded-full bg-rose-400" />
+                      {totalAnomalies} anomal{totalAnomalies === 1 ? "y" : "ies"}
+                    </span>
+                  )}
+                </>
+              ) : undefined
+            }
             actions={
-              <>
-              {totalAnomalies > 0 && (
-                <Badge variant="destructive">
-                  <AlertTriangle className="w-3 h-3 mr-1" />
-                  {totalAnomalies} anomal{totalAnomalies === 1 ? "y" : "ies"}
-                </Badge>
-              )}
               <Button variant="outline" size="sm" onClick={load} disabled={loading} className="gap-2">
                 {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <TrendingUp className="w-4 h-4" />}
                 Refresh
               </Button>
-              </>
             }
           />
           <PageWorkbench />
+
+          {/* Command-centre audit (2026-07-02): visible load-failure
+              state with Retry. A failed fetch previously left the
+              tiles rendering zeros behind a vanished toast. */}
+          {!loading && error && (
+            <Card className="mb-4 border-rose-200 bg-rose-50 shadow-sm">
+              <CardContent className="flex flex-wrap items-center justify-between gap-3 py-3 px-4">
+                <div className="flex items-center gap-2 text-sm text-rose-800">
+                  <AlertTriangle className="w-4 h-4 shrink-0" />
+                  <span>Could not load team metrics: {error}</span>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={load}
+                  className="border-rose-300 text-rose-800 hover:bg-rose-100"
+                >
+                  Retry
+                </Button>
+              </CardContent>
+            </Card>
+          )}
 
           {/* TMS-B: cross-team risk banner. Confirmed events in the
               next 4 hours that don't have a driver accepted yet.

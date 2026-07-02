@@ -90,6 +90,15 @@ function EmailSettingsPage() {
   const { toast } = useToast();
 
   const [loading, setLoading] = useState(true);
+  // Surfaced load failure for the provider-settings read. Pre-audit a
+  // failed read was silently treated as "no row yet" and the form
+  // seeded profile defaults - one Save from there would overwrite the
+  // tenant's real provider config.
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
+  // Non-blocking: the send-count queries failed, so the quota tile
+  // numbers can't be trusted. Shown as a small note instead of 0s.
+  const [countsUnavailable, setCountsUnavailable] = useState(false);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
   const [todayCount, setTodayCount] = useState(0);
@@ -138,8 +147,14 @@ function EmailSettingsPage() {
     let cancelled = false;
     (async () => {
       setLoading(true);
+      setLoadError(null);
+      setCountsUnavailable(false);
       const todayISO = toLocalISO(new Date());
-      const [{ data }, { count }, { count: queued }] = await Promise.all([
+      const [
+        { data, error: providerErr },
+        { count, error: countErr },
+        { count: queued, error: queuedErr },
+      ] = await Promise.all([
         // TIGHTEN I.47 (2026-06-01): `.maybeSingle()` errors when the
         // company has multiple provider rows (e.g. an old smtp row
         // alongside the current resend row). The error gets silently
@@ -169,6 +184,23 @@ function EmailSettingsPage() {
           .eq("status", "queued"),
       ]);
       if (cancelled) return;
+      // A failed provider read must NOT fall through to the seed-
+      // defaults branch below - that path is only for genuinely new
+      // tenants. Surface it and let the operator retry.
+      if (providerErr) {
+        captureException(providerErr, {
+          tags: { route: "/admin/email-settings", step: "load-provider", companyId },
+        });
+        setLoadError(providerErr.message || "Could not load your email settings.");
+        setLoading(false);
+        return;
+      }
+      if (countErr || queuedErr) {
+        captureException(countErr || queuedErr, {
+          tags: { route: "/admin/email-settings", step: "load-counts", companyId },
+        });
+        setCountsUnavailable(true);
+      }
       setTodayCount(count ?? 0);
       setQueuedCount(queued ?? 0);
       if (data) {
@@ -244,7 +276,7 @@ function EmailSettingsPage() {
     })();
     return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [companyId, tierCap]);
+  }, [companyId, tierCap, reloadKey]);
 
   // Returns true on success, false on failure. The caller can use the
   // return value to decide whether to chain follow-up work (e.g. the
@@ -470,7 +502,17 @@ function EmailSettingsPage() {
     }
   };
 
-  const capPct = Math.min(100, Math.round((todayCount / row.daily_send_cap) * 100));
+  // Guard the divide: a 0/blank cap would render a NaN-width bar.
+  const capPct = row.daily_send_cap > 0
+    ? Math.min(100, Math.round((todayCount / row.daily_send_cap) * 100))
+    : 0;
+
+  const providerLabel =
+    row.provider === "resend" ? "CateringMS default"
+    : row.provider === "gmail_oauth" ? "Gmail"
+    : row.provider === "ms365_oauth" ? "Microsoft 365"
+    : row.provider === "smtp" ? "Custom SMTP"
+    : "No provider";
 
   return (
     <>
@@ -481,18 +523,64 @@ function EmailSettingsPage() {
       <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
 
+          {/* Command-centre hero: brand-washed dark band with live
+              send-volume chips from the queries this page already runs. */}
           <PortalHeader
+            variant="hero"
             title={
               <span className="flex items-center gap-2 flex-wrap">
                 Email settings
-                <InfoTooltip content={"How CateringMS sends mail on your behalf.\n\nOut of the box you're already set up via our shared sender. Verify your own domain below to send from your address.\n\nGmail / Microsoft 365 / SMTP live further down under 'Switch provider'."} />
+                <InfoTooltip content={"How CateringMS sends mail on your behalf.\n\nOut of the box you're already set up via our shared sender. Verify your own domain below to send from your address.\n\nGmail / Microsoft 365 / SMTP live further down under 'Switch provider'."} className="text-white/60 hover:text-white" />
               </span>
             }
             icon={Mail}
             subtitle="You're already set up to send. Verify your own domain below for full branding, or just edit your sender name and address."
+            meta={
+              !loading && !loadError ? (
+                <>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    {providerLabel}
+                  </span>
+                  {!countsUnavailable && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                      <span className={`h-1.5 w-1.5 rounded-full ${capPct > 90 ? "bg-rose-400" : capPct > 70 ? "bg-amber-400" : "bg-emerald-400"}`} />
+                      {todayCount} of {row.daily_send_cap} sent today
+                    </span>
+                  )}
+                  {!countsUnavailable && queuedCount > 0 && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-400/40 bg-amber-400/15 px-2.5 py-1 text-[11px] font-semibold text-amber-200">
+                      {queuedCount} queued
+                    </span>
+                  )}
+                </>
+              ) : undefined
+            }
           />
           <PageWorkbench />
 
+          {/* Gate the form on load state: rendering the seeded default
+              row while the fetch is in flight invites a Save that
+              overwrites the tenant's real provider config. */}
+          {loading ? (
+            <Card>
+              <CardContent className="py-16 text-center">
+                <Loader2 className="w-6 h-6 mx-auto text-slate-400 animate-spin" />
+                <p className="text-sm text-slate-500 mt-3">Loading your email settings...</p>
+              </CardContent>
+            </Card>
+          ) : loadError ? (
+            <Card className="border-rose-200 bg-rose-50/60">
+              <CardContent className="py-16 text-center">
+                <AlertTriangle className="w-8 h-8 mx-auto text-rose-500" />
+                <p className="font-medium text-slate-900 mt-3">Couldn&apos;t load your email settings</p>
+                <p className="text-sm text-slate-600 mt-1">{loadError}</p>
+                <Button variant="outline" className="mt-4" onClick={() => setReloadKey((k) => k + 1)}>
+                  Retry
+                </Button>
+              </CardContent>
+            </Card>
+          ) : (
+          <>
           {/* Daily quota tile */}
           <Card className="mb-6 bg-gradient-to-r from-blue-50 to-blue-50">
             <CardContent className="py-4">
@@ -503,9 +591,18 @@ function EmailSettingsPage() {
                   <InfoTooltip content={"Counts emails sent straight from CateringMS through your provider.\n\nCompose-link clicks are tracked separately and don't count against this cap, since those go out through your own inbox."} />
                 </div>
                 <span className="text-2xl font-bold text-slate-900 tabular-nums">
-                  {todayCount} <span className="text-sm font-normal text-slate-500">/ {row.daily_send_cap}</span>
+                  {countsUnavailable ? "?" : todayCount} <span className="text-sm font-normal text-slate-500">/ {row.daily_send_cap}</span>
                 </span>
               </div>
+              {countsUnavailable && (
+                <div className="mb-2 flex items-center gap-2 text-xs text-amber-800">
+                  <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                  <span>Send counts could not be loaded, the numbers here may be stale.</span>
+                  <button type="button" className="underline font-medium" onClick={() => setReloadKey((k) => k + 1)}>
+                    Retry
+                  </button>
+                </div>
+              )}
               <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
                 <div
                   className={`h-full transition-all ${
@@ -545,10 +642,12 @@ function EmailSettingsPage() {
                         {total7} sent · peak {max}/day
                       </p>
                     </div>
+                    {/* Brand token, not a hard-coded blue: this is
+                        chrome accent, not a semantic status colour. */}
                     <svg width={W} height={H} className="overflow-visible">
                       <polyline
                         fill="none"
-                        stroke="#2563eb"
+                        stroke="rgb(var(--brand-primary-rgb))"
                         strokeWidth="2"
                         strokeLinecap="round"
                         strokeLinejoin="round"
@@ -558,7 +657,7 @@ function EmailSettingsPage() {
                         const x = i * stepX;
                         const y = H - (c.count / max) * (H - 4) - 2;
                         return (
-                          <circle key={c.day} cx={x} cy={y} r={2} fill="#2563eb">
+                          <circle key={c.day} cx={x} cy={y} r={2} fill="rgb(var(--brand-primary-rgb))">
                             <title>{c.day}: {c.count} sent</title>
                           </circle>
                         );
@@ -755,7 +854,7 @@ function EmailSettingsPage() {
                 Switch to a different provider
               </span>
               <span className="text-xs text-slate-500">
-                Currently: {row.provider === "resend" ? "CateringMS default" : row.provider === "gmail_oauth" ? "Gmail" : row.provider === "ms365_oauth" ? "Microsoft 365" : row.provider === "smtp" ? "Custom SMTP" : "None"}
+                Currently: {providerLabel}
               </span>
             </summary>
             <div className="px-6 pb-6 pt-2 space-y-4 border-t border-slate-100">
@@ -896,7 +995,7 @@ function EmailSettingsPage() {
                     min={1}
                     max={tierCap}
                     value={row.daily_send_cap}
-                    onChange={(e) => setRow({ ...row, daily_send_cap: Math.min(Number(e.target.value), tierCap) })}
+                    onChange={(e) => setRow({ ...row, daily_send_cap: Math.max(1, Math.min(Number(e.target.value) || 1, tierCap)) })}
                   />
                 </div>
               </div>
@@ -1033,6 +1132,8 @@ function EmailSettingsPage() {
                 - "Direct send activates once OAuth/SMTP is verified" is
                   already covered by the OAuth section's amber banner
                   and the test-failure error state in Sender identity */}
+          </>
+          )}
         </PortalShell>
       </div>
     </>
@@ -1055,7 +1156,10 @@ function ToggleRow({
           onChange={(e) => onChange(e.target.checked)}
           className="sr-only peer"
         />
-        <span className="w-10 h-6 bg-slate-200 rounded-full peer peer-checked:checked:bg-slate-600 transition-colors" />
+        {/* The old `peer-checked:checked:` variant never matched (the
+            track span is not a checkbox), so ON and OFF rendered the
+            same grey. Brand token for the on-state track. */}
+        <span className="w-10 h-6 bg-slate-200 rounded-full peer peer-checked:bg-brand-primary transition-colors" />
         <span className="absolute left-0.5 top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform peer-checked:translate-x-4" />
       </span>
     </label>
@@ -1105,16 +1209,18 @@ function ProviderOption({
       onClick={onClick}
       className={`relative text-left rounded-xl border-2 p-4 transition-all flex flex-col gap-3 ${
         active
-          ? "border-slate-500 bg-slate-50 shadow-md"
+          ? "border-brand-primary bg-brand-primary/5 shadow-md"
           : "border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm"
       }`}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
-          <span className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${active ? "bg-slate-100" : "bg-slate-100"}`}>
-            <Icon className={`w-5 h-5 ${active ? "bg-slate-100" : "text-slate-600"}`} />
+          <span className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${active ? "bg-brand-primary/10" : "bg-slate-100"}`}>
+            {/* The active branch used to set `bg-slate-100` as the
+                icon's colour class, leaving it with no text colour. */}
+            <Icon className={`w-5 h-5 ${active ? "text-brand-primary" : "text-slate-600"}`} />
           </span>
-          <p className={`font-semibold text-sm truncate ${active ? "text-slate-900" : "text-slate-900"}`}>{title}</p>
+          <p className="font-semibold text-sm truncate text-slate-900">{title}</p>
         </div>
         <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold whitespace-nowrap ${statusColour}`}>
           {status.label}
@@ -1133,7 +1239,7 @@ function ProviderOption({
       </dl>
       {active && (
         <div className="absolute top-2 right-2 sm:hidden">
-          <CheckCircle2 className="w-4 h-4 text-slate-600" />
+          <CheckCircle2 className="w-4 h-4 text-brand-primary" />
         </div>
       )}
     </button>

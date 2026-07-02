@@ -53,7 +53,13 @@ import { UserRole } from "@/types/app";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { toLocalISO } from "@/lib/localDate";
+import { toZonedISO, DEFAULT_TENANT_TIMEZONE } from "@/lib/localDate";
+
+// "Today" on this page follows the tenant wall clock, not the
+// operator's browser. All live tenants run Africa/Johannesburg (see
+// formatters.ts); a travelling bookkeeper west of UTC used to see
+// the today marker and the add-dialog default a day behind.
+const tenantTodayISO = () => toZonedISO(new Date(), DEFAULT_TENANT_TIMEZONE);
 
 interface Holiday {
   id: string;
@@ -124,7 +130,7 @@ function PublicHolidaysAdmin() {
   const [year, setYear] = useState<number>(new Date().getFullYear());
   const [adding, setAdding] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<(Holiday | HolidayOccurrence) | null>(null);
-  const [selectedDate, setSelectedDate] = useState<string | null>(toLocalISO(new Date()));
+  const [selectedDate, setSelectedDate] = useState<string | null>(tenantTodayISO());
 
   const reload = useCallback(async () => {
     if (!companyId) {
@@ -214,9 +220,25 @@ function PublicHolidaysAdmin() {
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
 
           <PortalHeader
+            variant="hero"
             title="Public holidays"
             icon={CalendarIcon}
             subtitle="SA gazetted dates plus any extras you observe. Shifts that land on these dates get paid at 2x per BCEA."
+            meta={
+              !loading && !loadError && (
+                <>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                    {summary.total} holiday{summary.total === 1 ? "" : "s"} in {year}
+                  </span>
+                  {summary.custom > 0 && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                      {summary.custom} company custom{summary.custom === 1 ? "" : "s"}
+                    </span>
+                  )}
+                </>
+              )
+            }
             actions={
             <>
               {/* Phase 28 #7: manual refresh. Year switching already
@@ -313,7 +335,10 @@ function PublicHolidaysAdmin() {
           {loadError && (
             <div className="mb-4 flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">
               <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-              <span>{loadError}</span>
+              <span className="flex-1">{loadError}</span>
+              <Button size="sm" variant="outline" onClick={reload} disabled={loading} className="shrink-0">
+                Retry
+              </Button>
             </div>
           )}
 
@@ -588,7 +613,7 @@ function HolidayMonth({
   const firstDay = new Date(year, monthIndex, 1);
   const leading = (firstDay.getDay() + 6) % 7;
   const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
-  const today = toLocalISO(new Date());
+  const today = tenantTodayISO();
   const cells = [
     ...Array.from({ length: leading }, () => null),
     ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
@@ -659,7 +684,7 @@ function AddHolidayDialog({
   onSaved: () => void;
 }) {
   const { toast } = useToast();
-  const [date, setDate] = useState<string>(toLocalISO(new Date()));
+  const [date, setDate] = useState<string>(tenantTodayISO());
   const [name, setName] = useState("");
   const [notes, setNotes] = useState("");
   const [recurring, setRecurring] = useState(false);
@@ -667,7 +692,7 @@ function AddHolidayDialog({
 
   useEffect(() => {
     if (open) {
-      setDate(toLocalISO(new Date()));
+      setDate(tenantTodayISO());
       setName("");
       setNotes("");
       setRecurring(false);

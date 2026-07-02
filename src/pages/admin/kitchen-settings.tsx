@@ -34,9 +34,10 @@ function KitchenSettingsAdminPage() {
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
 
           <PortalHeader
+            variant="hero"
             title="Kitchen rules"
             icon={Settings}
-            subtitle="Per-tenant policy: prep timing, BCEA shift thresholds, dietary alerts."
+            subtitle="Prep timing, BCEA shift thresholds and dietary alert policy for this kitchen."
           />
           <PageWorkbench />
 

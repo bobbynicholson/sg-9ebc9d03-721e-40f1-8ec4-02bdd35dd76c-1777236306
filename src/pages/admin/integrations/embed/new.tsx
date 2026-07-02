@@ -8,11 +8,18 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/router";
+import { useTenantHref } from "@/lib/tenantUrl";
 
 export default function NewEmbedFormRedirect() {
   const router = useRouter();
+  // The bare path dropped the tenant slug prefix, bouncing deep-linked
+  // users through the slugless URL. Wait for the router so the
+  // company_slug query is hydrated before resolving.
+  const { withSlug } = useTenantHref();
   useEffect(() => {
-    router.replace("/admin/integrations/embed?gallery=1");
-  }, [router]);
+    if (!router.isReady) return;
+    router.replace(withSlug("/admin/integrations/embed?gallery=1"));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router.isReady]);
   return null;
 }

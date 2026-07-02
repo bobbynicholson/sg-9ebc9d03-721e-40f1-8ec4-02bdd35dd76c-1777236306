@@ -24,6 +24,7 @@ import { UserRole } from "@/types/app";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { DynamicNav } from "@/components/DynamicNav";
 import { PortalShell, PortalHeader,
   PageWorkbench,
@@ -37,7 +38,7 @@ import { CalendarClock, ChevronLeft, ChevronRight, Plus, Loader2, Download, Refr
 import Link from "next/link";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { staffOrderHref } from "@/lib/orderUrls";
-import { toLocalISO } from "@/lib/localDate";
+import { DEFAULT_TENANT_TIMEZONE, tenantToday, toLocalISO } from "@/lib/localDate";
 import { LogKitchenShiftModal } from "@/components/admin/LogKitchenShiftModal";
 import { ShiftTasksChips } from "@/components/admin/ShiftTasksChips";
 import { AddShiftTaskModal } from "@/components/admin/AddShiftTaskModal";
@@ -171,6 +172,13 @@ function KitchenScheduleGrid() {
   const [shifts, setShifts] = useState<ShiftRow[]>([]);
   const [orders, setOrders] = useState<OrderForCal[]>([]);
   const [loading, setLoading] = useState(true);
+  // Silent-failure audit: a swallowed load error left the grid
+  // reading "no kitchen staff". Keep the failure visible with Retry.
+  const [loadError, setLoadError] = useState<string | null>(null);
+  // Tenant wall clock for the "today" column highlight + missed-shift
+  // detection, so a travelling operator's browser timezone can't
+  // shift the roster day (same pattern as the admin dashboard).
+  const [tenantTimezone, setTenantTimezone] = useState<string | null>(null);
   const [logTarget, setLogTarget] = useState<{ staffId: string; staffName: string; date: string } | null>(null);
   // Wave 41 Phase 3: per-shift task chips (kitchen / cleaning /
   // delivery / shopping / waitering / setup / breakdown / admin).
@@ -198,9 +206,24 @@ function KitchenScheduleGrid() {
     return { from: weekStart, to: addDays(weekStart, 6) };
   }, [viewMode, monthCursor, weekStart]);
 
+  useEffect(() => {
+    if (!companyId) return;
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await (supabase as any)
+        .from("companies")
+        .select("timezone")
+        .eq("id", companyId)
+        .maybeSingle();
+      if (!cancelled && !error) setTenantTimezone((data as any)?.timezone || null);
+    })();
+    return () => { cancelled = true; };
+  }, [companyId]);
+
   const load = async () => {
     if (!companyId) return;
     setLoading(true);
+    setLoadError(null);
     try {
       const fromIso = toLocalISO(fetchRange.from);
       const toIso = toLocalISO(fetchRange.to);
@@ -251,9 +274,10 @@ function KitchenScheduleGrid() {
           .select("user_id, department")
           .in("user_id", staffRows.map((row) => row.id))
           .in("department", rosterDepartmentAliases("kitchen"));
-        if (!departmentRes.error) {
-          departmentRows = (departmentRes.data || []) as RosterDepartmentRow[];
-        }
+        // A failed department fetch silently hid every staffer whose
+        // kitchen eligibility comes via user_departments. Surface it.
+        if (departmentRes.error) throw departmentRes.error;
+        departmentRows = (departmentRes.data || []) as RosterDepartmentRow[];
       }
       setStaff(filterRosterStaff(staffRows, departmentRows, "kitchen"));
       const shiftRows = (shiftsRes.data || []) as ShiftRow[];
@@ -268,7 +292,10 @@ function KitchenScheduleGrid() {
       } else {
         setTasksByShift(new Map());
       }
-    } catch {
+    } catch (e: any) {
+      // Surface the failure instead of quietly rendering an empty
+      // grid that reads as "no staff rostered".
+      setLoadError(e?.message || "Could not load the kitchen schedule. Please try again.");
       setStaff([]);
       setShifts([]);
       setOrders([]);
@@ -389,7 +416,8 @@ function KitchenScheduleGrid() {
 
   const weekLabel = `${weekStart.toLocaleDateString("en-ZA", { day: "numeric", month: "short" })} - ${addDays(weekStart, 6).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}`;
 
-  const todayIso = toLocalISO(new Date());
+  // "Today" follows the tenant's wall clock, not the browser's.
+  const todayIso = toLocalISO(tenantToday(tenantTimezone || DEFAULT_TENANT_TIMEZONE));
 
   return (
     <>
@@ -400,21 +428,39 @@ function KitchenScheduleGrid() {
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <div className="space-y-4">
             <PortalHeader
+              variant="hero"
               title="Kitchen schedule"
               icon={CalendarClock}
               subtitle="Weekly roster. Click an empty cell to plan a shift; cells flip to actual hours when the chef clocks in."
+              meta={
+                !loading && !loadError ? (
+                  <>
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                      {staff.length} chef{staff.length === 1 ? "" : "s"} on the roster
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                      {shifts.length} shift{shifts.length === 1 ? "" : "s"} in view
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                      {orders.length} event{orders.length === 1 ? "" : "s"} booked
+                    </span>
+                  </>
+                ) : undefined
+              }
               actions={
               <>
                 {/* Wave 66.2 - view-mode toggle. Week stays the
                     daily-ops surface (Mon-Sun grid with per-cell
                     rostering); Month gives the planner a 5-6 week
                     overview showing chef + event load per day, with
-                    click-through to that week. */}
-                <div className="inline-flex rounded-md border border-slate-200 overflow-hidden">
+                    click-through to that week. Glass styling so the
+                    custom toggle sits on the dark hero band. */}
+                <div className="inline-flex rounded-md border border-white/20 overflow-hidden">
                   <button
                     type="button"
                     onClick={() => setViewMode("week")}
-                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition ${viewMode === "week" ? "bg-brand-primary text-white" : "bg-white text-slate-700 hover:bg-slate-50"}`}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition ${viewMode === "week" ? "bg-brand-primary text-white" : "bg-white/10 text-white hover:bg-white/20"}`}
                     title="Daily-ops view - one week, one cell per chef per day"
                   >
                     <LayoutGrid className="w-3.5 h-3.5" />
@@ -423,7 +469,7 @@ function KitchenScheduleGrid() {
                   <button
                     type="button"
                     onClick={() => setViewMode("month")}
-                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border-l border-slate-200 transition ${viewMode === "month" ? "bg-brand-primary text-white" : "bg-white text-slate-700 hover:bg-slate-50"}`}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border-l border-white/20 transition ${viewMode === "month" ? "bg-brand-primary text-white" : "bg-white/10 text-white hover:bg-white/20"}`}
                     title="Planning view - a month at a glance, chef + event load per day"
                   >
                     <CalendarIcon className="w-3.5 h-3.5" />
@@ -435,7 +481,7 @@ function KitchenScheduleGrid() {
                     <Button variant="outline" size="sm" onClick={() => setWeekStart(addDays(weekStart, -7))}>
                       <ChevronLeft className="w-4 h-4" />
                     </Button>
-                    <div className="text-sm font-medium text-slate-700 px-2 tabular-nums whitespace-nowrap">{weekLabel}</div>
+                    <div className="text-sm font-medium text-white px-2 tabular-nums whitespace-nowrap">{weekLabel}</div>
                     <Button variant="outline" size="sm" onClick={() => setWeekStart(addDays(weekStart, 7))}>
                       <ChevronRight className="w-4 h-4" />
                     </Button>
@@ -448,7 +494,7 @@ function KitchenScheduleGrid() {
                     <Button variant="outline" size="sm" onClick={() => setMonthCursor(new Date(monthCursor.getFullYear(), monthCursor.getMonth() - 1, 1))}>
                       <ChevronLeft className="w-4 h-4" />
                     </Button>
-                    <div className="text-sm font-medium text-slate-700 px-2 tabular-nums whitespace-nowrap">
+                    <div className="text-sm font-medium text-white px-2 tabular-nums whitespace-nowrap">
                       {monthCursor.toLocaleDateString("en-ZA", { month: "long", year: "numeric" })}
                     </div>
                     <Button variant="outline" size="sm" onClick={() => setMonthCursor(new Date(monthCursor.getFullYear(), monthCursor.getMonth() + 1, 1))}>
@@ -517,6 +563,18 @@ function KitchenScheduleGrid() {
             />
             <PageWorkbench />
 
+            {loadError && (
+              <Alert variant="destructive">
+                <AlertDescription className="flex flex-wrap items-center gap-3">
+                  <span>{loadError}</span>
+                  <Button variant="outline" size="sm" onClick={load} disabled={loading}>
+                    <RefreshCw className="w-3.5 h-3.5 mr-2" />
+                    Try again
+                  </Button>
+                </AlertDescription>
+              </Alert>
+            )}
+
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-base">
@@ -533,7 +591,13 @@ function KitchenScheduleGrid() {
                   </div>
                 ) : staff.length === 0 ? (
                   <div className="text-center py-12 text-slate-500 text-sm">
-                    No kitchen staff assigned yet. Add a kitchen worker or assign a kitchen department in Admin Users.
+                    <p>No kitchen staff assigned yet. Add a kitchen worker or assign a kitchen department.</p>
+                    <Link href={withSlug("/admin/users")}>
+                      <Button variant="outline" size="sm" className="mt-3 gap-1.5">
+                        <Users className="w-3.5 h-3.5" />
+                        Open Users
+                      </Button>
+                    </Link>
                   </div>
                 ) : viewMode === "week" ? (
                   <>
@@ -943,7 +1007,8 @@ function KitchenScheduleGrid() {
                             No chef rostered
                           </span>
                           <span className="inline-flex items-center gap-1">
-                            <span className="w-2.5 h-2.5 rounded-sm bg-slate-50 border border-slate-200"></span>
+                            {/* Swatch matches the actual today-cell tint. */}
+                            <span className="w-2.5 h-2.5 rounded-sm bg-brand-primary/10 border border-brand-primary/20"></span>
                             Today
                           </span>
                           <span className="hidden sm:inline ml-auto text-slate-400">Click a day to open the week and roster shifts.</span>

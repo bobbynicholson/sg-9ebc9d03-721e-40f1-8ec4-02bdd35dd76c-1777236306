@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
+import { formatZAR } from "@/lib/formatters";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { PortalShell, PortalHeader,
   PageWorkbench,
@@ -112,6 +113,10 @@ function KitchenStaffPage() {
   const { toast } = useToast();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
+  // Silent-failure audit: the load-failure toast disappears; keep the
+  // failure on screen with a Retry so an empty list can't read as
+  // "no staff yet".
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [staff, setStaff] = useState<KitchenStaffMember[]>([]);
   const [showArchived, setShowArchived] = useState(false);
@@ -177,6 +182,7 @@ function KitchenStaffPage() {
   const load = async () => {
     if (!companyId) return;
     setLoading(true);
+    setLoadError(null);
     try {
       const [list, rollup] = await Promise.all([
         kitchenStaffService.listStaffWithRates(companyId, {
@@ -188,6 +194,7 @@ function KitchenStaffPage() {
       setStaff(list);
       setActivity(rollup);
     } catch (e: unknown) {
+      setLoadError(dbErrorMessage(e, { entity: "staff member" }));
       toast({ title: "Could not load staff", description: dbErrorMessage(e, { entity: "staff member" }), variant: "destructive" });
     } finally {
       setLoading(false);
@@ -203,8 +210,11 @@ function KitchenStaffPage() {
   useEffect(() => {
     if (!companyId) return;
     let timer: ReturnType<typeof setTimeout> | null = null;
+    // Random suffix so a second tab never collides on the channel
+    // name (recurring realtime bug class).
+    const channelSuffix = Math.random().toString(36).slice(2, 10);
     const channel = supabase
-      .channel(`kitchen-staff:${companyId}`)
+      .channel(`kitchen-staff:${companyId}:${channelSuffix}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "kitchen_staff_members", filter: `company_id=eq.${companyId}` },
@@ -554,6 +564,7 @@ function KitchenStaffPage() {
               Office, not just the kitchen. The Users icon
               replaces ChefHat for the same reason. */}
           <PortalHeader
+            variant="hero"
             title={
               <span className="flex items-center gap-2">
                 Staff &amp; rates
@@ -562,6 +573,27 @@ function KitchenStaffPage() {
             }
             icon={Users}
             subtitle="Team roster across every department. Add staff, set pay type (hourly, monthly, or per shift), and decide who gets a portal login versus who just gets clocked in by the manager."
+            meta={
+              !loading && !loadError ? (
+                <>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                    {stats.total} active staff
+                  </span>
+                  {stats.missingRate > 0 && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                      <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+                      {stats.missingRate} missing a rate
+                    </span>
+                  )}
+                  {stats.archived > 0 && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                      {stats.archived} archived
+                    </span>
+                  )}
+                </>
+              ) : undefined
+            }
             actions={
             <>
               {/* Phase 28 #1: manual refresh. The roster loads once
@@ -804,6 +836,16 @@ function KitchenStaffPage() {
             <CardContent className="p-0">
               {loading ? (
                 <div className="text-center py-12 text-slate-500 text-sm">Loading staff...</div>
+              ) : loadError ? (
+                <div className="text-center py-12">
+                  <AlertTriangle className="w-10 h-10 text-rose-300 mx-auto mb-3" />
+                  <p className="text-slate-700 font-medium">Could not load staff</p>
+                  <p className="text-sm text-slate-500 mt-1">{loadError}</p>
+                  <Button variant="outline" className="mt-4" onClick={load} disabled={loading}>
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Try again
+                  </Button>
+                </div>
               ) : visible.length === 0 ? (
                 <div className="text-center py-12">
                   <ChefHat className="w-10 h-10 text-slate-300 mx-auto mb-3" />
@@ -1049,13 +1091,13 @@ function KitchenStaffPage() {
                               <div className="text-right">
                                 <div className="text-[10px] uppercase tracking-wider text-slate-500">Standard</div>
                                 <div className="font-semibold text-slate-900 tabular-nums">
-                                  {s.hourly_rate != null ? `R ${Number(s.hourly_rate).toFixed(2)}/h` : <span className="text-rose-600">Not set</span>}
+                                  {s.hourly_rate != null ? `${formatZAR(Number(s.hourly_rate))}/h` : <span className="text-rose-600">Not set</span>}
                                 </div>
                               </div>
                               <div className="text-right">
                                 <div className="text-[10px] uppercase tracking-wider text-slate-500">Overtime</div>
                                 <div className="font-semibold text-slate-900 tabular-nums">
-                                  {otRate != null ? `R ${otRate.toFixed(2)}/h` : "-"}
+                                  {otRate != null ? `${formatZAR(otRate)}/h` : "-"}
                                 </div>
                               </div>
                               <div className="text-right hidden sm:block">
@@ -1071,7 +1113,7 @@ function KitchenStaffPage() {
                             <div className="text-right">
                               <div className="text-[10px] uppercase tracking-wider text-slate-500">Monthly salary</div>
                               <div className="font-semibold text-slate-900 tabular-nums">
-                                {s.monthly_salary != null ? `R ${Number(s.monthly_salary).toLocaleString("en-ZA")}` : <span className="text-rose-600">Not set</span>}
+                                {s.monthly_salary != null ? formatZAR(Number(s.monthly_salary)) : <span className="text-rose-600">Not set</span>}
                               </div>
                             </div>
                           )}
@@ -1079,7 +1121,7 @@ function KitchenStaffPage() {
                             <div className="text-right">
                               <div className="text-[10px] uppercase tracking-wider text-slate-500">Per shift</div>
                               <div className="font-semibold text-slate-900 tabular-nums">
-                                {s.shift_rate != null ? `R ${Number(s.shift_rate).toFixed(2)}` : <span className="text-rose-600">Not set</span>}
+                                {s.shift_rate != null ? formatZAR(Number(s.shift_rate)) : <span className="text-rose-600">Not set</span>}
                               </div>
                             </div>
                           )}

@@ -10,13 +10,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Clock, Users, TrendingUp, CheckCircle, Banknote, Download, AlertTriangle, ExternalLink } from "lucide-react";
+import { Clock, Users, TrendingUp, CheckCircle, Banknote, Download, AlertTriangle, ExternalLink, Loader2 } from "lucide-react";
 import { captureException } from "@/lib/observability";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
+import { formatZAR } from "@/lib/formatters";
 import { timeClockService } from "@/services/timeClockService";
 import { formatLocalDate } from "@/lib/localFormat";
 import { toLocalISO } from "@/lib/localDate";
@@ -83,9 +84,17 @@ interface StaffGroup {
   staff: StaffSession["staff"];
   sessions: StaffSession[];
   totalHours: number;
-  totalEarnings: number;
+  /** Integer cents. Summed in cents so float earnings never drift. */
+  totalEarningsCents: number;
   unpaidSessions: StaffSession[];
 }
+
+// Money rule: the DB stores rand decimals; compare and sum in integer
+// cents so 0.1 + 0.2 float drift can never make the tiles disagree
+// with the per-staff cards.
+const centsOf = (v: number | string | null | undefined) => Math.round(Number(v || 0) * 100);
+const sumEarningsCents = (rows: StaffSession[]) =>
+  rows.reduce((sum, s) => sum + centsOf(s.total_earnings), 0);
 
 function StaffHoursPage() {
   const { user } = useAuth();
@@ -94,10 +103,16 @@ function StaffHoursPage() {
   // Phase 10 #2: tenant currency for the unpaid / paid totals +
   // per-session earnings + per-payment hourly rate strings.
   const tenantCurrency = useTenantCurrency(user?.company_id ?? null);
-  const C = tenantCurrency.symbol;
+  // Display path: formatZAR (thousand separators) with the tenant's
+  // currency code. Takes integer cents so callers never pass floats.
+  const fmtMoney = (cents: number) => formatZAR(cents / 100, { currency: tenantCurrency.code });
   const [sessions, setSessions] = useState<StaffSession[]>([]);
   const [ledger, setLedger] = useState<StaffPayment[]>([]);
   const [loading, setLoading] = useState(false);
+  // Persistent per-leg load failures (the old toasts vanished after
+  // 5s and the page then looked "empty" instead of "broken").
+  const [sessionsError, setSessionsError] = useState<string | null>(null);
+  const [ledgerError, setLedgerError] = useState<string | null>(null);
   const [period, setPeriod] = useState<"week" | "month">("week");
   const [selectedStaff, setSelectedStaff] = useState<string | null>(null);
   const [paymentDialog, setPaymentDialog] = useState(false);
@@ -184,8 +199,16 @@ function StaffHoursPage() {
   };
 
   const loadData = async () => {
-    setLoading(true);
     const { start: startDate, end: now } = resolveRange();
+    // Custom range sanity: from after to returns nothing from every
+    // leg and looks like a data loss. Refuse it up front.
+    if (startDate.getTime() > now.getTime()) {
+      toast({ title: "Invalid range", description: "The from date must be on or before the to date.", variant: "destructive" });
+      return;
+    }
+    setLoading(true);
+    setSessionsError(null);
+    setLedgerError(null);
 
     // STH-D (task #215, 2026-05-25): switched from Promise.all to
     // independent fetches. The page is three orthogonal sub-loads
@@ -206,11 +229,7 @@ function StaffHoursPage() {
           level: "error",
           tags: { companyId: user?.company_id, route: "/admin/staff-hours", step: "load_sessions" },
         });
-        toast({
-          title: "Couldn't load clock-ins",
-          description: dbErrorMessage(error, { entity: "clock-in" }),
-          variant: "destructive",
-        });
+        setSessionsError(dbErrorMessage(error, { entity: "clock-in" }));
       }
     })());
 
@@ -223,11 +242,7 @@ function StaffHoursPage() {
           level: "error",
           tags: { companyId: user?.company_id, route: "/admin/staff-hours", step: "load_ledger" },
         });
-        toast({
-          title: "Couldn't load payment ledger",
-          description: dbErrorMessage(error, { entity: "payment ledger" }),
-          variant: "destructive",
-        });
+        setLedgerError(dbErrorMessage(error, { entity: "payment ledger" }));
       }
     })());
 
@@ -261,13 +276,13 @@ function StaffHoursPage() {
         staff: session.staff,
         sessions: [],
         totalHours: 0,
-        totalEarnings: 0,
+        totalEarningsCents: 0,
         unpaidSessions: [],
       };
     }
     acc[staffId].sessions.push(session);
     acc[staffId].totalHours += Number(session.total_hours || 0);
-    acc[staffId].totalEarnings += Number(session.total_earnings || 0);
+    acc[staffId].totalEarningsCents += centsOf(session.total_earnings);
     if (session.payment_status === "unpaid") {
       acc[staffId].unpaidSessions.push(session);
     }
@@ -308,13 +323,12 @@ function StaffHoursPage() {
   // and the comparator only fires when the user picks a new sort.
   const sortedStaffEntries: Array<[string, StaffGroup]> = Object.entries(groupedSessions).sort(
     ([, a], [, b]) => {
-      const unpaidOf = (x: StaffGroup) =>
-        x.unpaidSessions.reduce((s, t) => s + Number(t.total_earnings || 0), 0);
+      const unpaidOf = (x: StaffGroup) => sumEarningsCents(x.unpaidSessions);
       switch (staffSort) {
         case "hours_desc":
           return Number(b.totalHours || 0) - Number(a.totalHours || 0);
         case "earnings_desc":
-          return Number(b.totalEarnings || 0) - Number(a.totalEarnings || 0);
+          return b.totalEarningsCents - a.totalEarningsCents;
         case "name_asc":
           return String(a.staff?.full_name || "").localeCompare(String(b.staff?.full_name || ""));
         case "unpaid_desc":
@@ -324,13 +338,14 @@ function StaffHoursPage() {
     },
   );
 
+  // Cents throughout so "Unpaid" always equals the sum of the amber
+  // per-staff unpaid boxes below (same rows, same integer maths).
   const summary = {
     totalStaff: Object.keys(groupedSessions).length,
     totalHours: Object.values(groupedSessions).reduce((sum, staff) => sum + staff.totalHours, 0),
-    totalUnpaid: Object.values(groupedSessions).reduce((sum, staff) => {
-      return sum + staff.unpaidSessions.reduce((s, session) => s + Number(session.total_earnings || 0), 0);
-    }, 0),
-    totalPaid: ledger.reduce((sum, payment) => sum + Number(payment.total_amount || 0), 0),
+    totalUnpaidCents: Object.values(groupedSessions).reduce(
+      (sum, staff) => sum + sumEarningsCents(staff.unpaidSessions), 0),
+    totalPaidCents: ledger.reduce((sum, payment) => sum + centsOf(payment.total_amount), 0),
   };
 
   // STH-B intel: open-shift anomalies. Any session with no
@@ -358,16 +373,36 @@ function StaffHoursPage() {
       <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <PortalHeader
-            title="Time Clock Log"
+            variant="hero"
+            title="Staff hours"
             icon={Clock}
             subtitle={
               <>
                 Clock-in / clock-out audit per staff member, with payments processed on this page. For the full wage roll-up (BCEA overtime + Sunday + public-holiday splits) see{" "}
-                <Link href={withSlug("/admin/wages")} className="text-blue-600 hover:underline inline-flex items-center gap-0.5">
+                <Link href={withSlug("/admin/wages")} className="font-semibold text-white underline underline-offset-2 hover:text-white/80 inline-flex items-center gap-0.5">
                   Wages dashboard <ExternalLink className="w-3 h-3" />
                 </Link>
                 .
               </>
+            }
+            meta={
+              !loading && (
+                <>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                    {summary.totalStaff} staff clocked in this period
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    {Number(summary.totalHours || 0).toFixed(1)}h worked
+                  </span>
+                  {summary.totalUnpaidCents > 0 && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                      <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+                      {fmtMoney(summary.totalUnpaidCents)} unpaid
+                    </span>
+                  )}
+                </>
+              )
             }
             actions={
             <>
@@ -427,12 +462,27 @@ function StaffHoursPage() {
               className="gap-2 self-start sm:self-auto"
             >
               <Download className="w-4 h-4" />
-          <PageWorkbench />
               Export CSV
             </Button>
             </>
             }
           />
+          <PageWorkbench />
+
+          {/* Load failures are persistent + retryable. The old
+              toast-only path vanished after a few seconds and left
+              zeroed tiles that read as "no shifts this week". */}
+          {(sessionsError || ledgerError) && (
+            <div className="mb-6 rounded-lg border border-rose-200 bg-white p-4 shadow-sm">
+              <p className="text-sm font-semibold text-rose-900">
+                {sessionsError ? "Couldn't load clock-ins" : "Couldn't load the payment ledger"}
+              </p>
+              <p className="mt-1 text-sm text-slate-600">{sessionsError || ledgerError}</p>
+              <Button size="sm" variant="outline" className="mt-3" onClick={loadData} disabled={loading}>
+                Retry
+              </Button>
+            </div>
+          )}
 
           {/* STH-B intel: open-shift anomaly banner. A session
               still open more than 14 hours after clock-in is
@@ -495,7 +545,7 @@ function StaffHoursPage() {
                 <TrendingUp className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-amber-600">{C} {Number(summary.totalUnpaid || 0).toFixed(2)}</div>
+                <div className="text-2xl font-bold text-amber-600">{fmtMoney(summary.totalUnpaidCents)}</div>
                 <p className="text-xs text-muted-foreground">Pending payment</p>
               </CardContent>
             </Card>
@@ -506,7 +556,7 @@ function StaffHoursPage() {
                 <CheckCircle className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-brand-primary">{C} {Number(summary.totalPaid || 0).toFixed(2)}</div>
+                <div className="text-2xl font-bold text-brand-primary">{fmtMoney(summary.totalPaidCents)}</div>
                 <p className="text-xs text-muted-foreground">This {period}</p>
               </CardContent>
             </Card>
@@ -653,12 +703,20 @@ function StaffHoursPage() {
             </TabsList>
 
             <TabsContent value="hours" className="space-y-4">
+              {loading && sortedStaffEntries.length === 0 && (
+                <Card>
+                  <CardContent className="py-12 text-center text-muted-foreground">
+                    <Loader2 className="w-6 h-6 mx-auto animate-spin mb-2" />
+                    Loading clock-ins...
+                  </CardContent>
+                </Card>
+              )}
               {/* STH-B: explicit empty state. Pre-STH-B if a
                   tenant routes everything through the manager-
                   entered shift flow on /admin/wages, this page
                   showed zero rows under zero tiles with no
                   explanation - looked like a broken surface. */}
-              {sortedStaffEntries.length === 0 && !loading && (
+              {sortedStaffEntries.length === 0 && !loading && !sessionsError && (
                 <Card className="border-dashed border-2">
                   <CardContent className="py-10 text-center">
                     <Clock className="w-10 h-10 text-slate-300 mx-auto mb-2" />
@@ -697,7 +755,7 @@ function StaffHoursPage() {
                       <div className="text-right">
                         <div className="text-2xl font-bold">{Number(data.totalHours || 0).toFixed(1)}h</div>
                         <div className="text-sm text-muted-foreground">
-                          {C} {Number(data.totalEarnings || 0).toFixed(2)} total
+                          {fmtMoney(data.totalEarningsCents)} total
                         </div>
                       </div>
                     </div>
@@ -708,7 +766,7 @@ function StaffHoursPage() {
                         <div className="flex items-center justify-between mb-2">
                           <span className="font-medium">Unpaid Hours</span>
                           <span className="text-lg font-bold text-amber-600">
-                            {C} {Number(data.unpaidSessions.reduce((sum: number, s: any) => sum + Number(s.total_earnings || 0), 0)).toFixed(2)}
+                            {fmtMoney(sumEarningsCents(data.unpaidSessions))}
                           </span>
                         </div>
                         <div className="flex items-center justify-between text-sm text-muted-foreground">
@@ -739,7 +797,7 @@ function StaffHoursPage() {
                                   <div className="flex justify-between">
                                     <span>Total Amount:</span>
                                     <span className="font-bold text-brand-primary">
-                                      {C} {Number(data.unpaidSessions.reduce((sum: number, s: any) => sum + Number(s.total_earnings || 0), 0)).toFixed(2)}
+                                      {fmtMoney(sumEarningsCents(data.unpaidSessions))}
                                     </span>
                                   </div>
                                 </div>
@@ -809,7 +867,7 @@ function StaffHoursPage() {
                           </div>
                           <div className="flex items-center gap-3 flex-wrap justify-end">
                             <span>{Number(session.total_hours || 0).toFixed(1)}h</span>
-                            <span className="font-medium">{C} {Number(session.total_earnings || 0).toFixed(2)}</span>
+                            <span className="font-medium">{fmtMoney(centsOf(session.total_earnings))}</span>
                             {/* STH-C: Manual chip when this row was
                                 backfilled. Title hovers the reason
                                 the manager gave. */}
@@ -902,12 +960,12 @@ function StaffHoursPage() {
                             {formatLocalDate(payment.payment_period_start)} - {formatLocalDate(payment.payment_period_end)}
                           </div>
                           <div className="text-sm text-muted-foreground">
-                            {Number(payment.total_hours).toFixed(1)} hours @ {C}{Number(payment.hourly_rate).toFixed(2)}/hr
+                            {Number(payment.total_hours || 0).toFixed(1)} hours @ {fmtMoney(centsOf(payment.hourly_rate))}/hr
                           </div>
                         </div>
                         <div className="text-right">
                           <div className="text-lg font-bold text-brand-primary">
-                            {C} {Number(payment.total_amount).toFixed(2)}
+                            {fmtMoney(centsOf(payment.total_amount))}
                           </div>
                           <div className="text-sm text-muted-foreground capitalize">
                             {(payment.payment_method || "").replace("_", " ")}
@@ -1042,6 +1100,13 @@ function StaffHoursPage() {
                     }
                     if (!manualDraft.clockIn || !manualDraft.clockOut) {
                       toast({ title: "Set both timestamps", variant: "destructive" });
+                      return;
+                    }
+                    // Guard the obvious backfill typo: a clock-out at
+                    // or before clock-in would store a zero / negative
+                    // session that pollutes the payroll audit.
+                    if (new Date(manualDraft.clockOut).getTime() <= new Date(manualDraft.clockIn).getTime()) {
+                      toast({ title: "Clock-out must be after clock-in", variant: "destructive" });
                       return;
                     }
                     setManualSaving(true);

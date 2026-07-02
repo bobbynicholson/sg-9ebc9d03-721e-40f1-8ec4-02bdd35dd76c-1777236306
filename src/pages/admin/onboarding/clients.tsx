@@ -176,6 +176,11 @@ function ClientImportPage() {
   const [rows, setRows] = useState<PreviewRow[]>([]);
   const [pasted, setPasted] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  // Persistent failure banner. The destructive toast auto-dismisses,
+  // and the staged rows stay on screen after a failed POST, so with
+  // only the toast an operator who looked away had no way to tell the
+  // import never happened.
+  const [importError, setImportError] = useState<string | null>(null);
   const [result, setResult] = useState<null | {
     imported: number; skipped: number; rejected: number; total: number;
   }>(null);
@@ -256,6 +261,7 @@ function ClientImportPage() {
     }
     setSubmitting(true);
     setResult(null);
+    setImportError(null);
     try {
       const r = await fetch("/api/onboarding/clients/bulk", {
         method: "POST",
@@ -279,6 +285,7 @@ function ClientImportPage() {
       });
       setRows([]);
     } catch (e: any) {
+      setImportError(e?.message || "The import did not go through. Your rows are still staged below.");
       toast({ title: "Import failed", description: e?.message || "", variant: "destructive" });
     } finally {
       setSubmitting(false);
@@ -297,15 +304,38 @@ function ClientImportPage() {
       <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <PortalHeader
-            title="Bring your client list across"
+            variant="hero"
+            title="Import clients"
             subtitle={
               <>
-                Drop a spreadsheet or paste rows from Excel / Sheets. We only need <strong>Name</strong>,
-                <strong> Surname</strong>, <strong>Email</strong> and <strong>Phone</strong>.
+                Drop a spreadsheet or paste rows from Excel or Sheets. We only need{" "}
+                <span className="font-semibold text-white">Name</span>,{" "}
+                <span className="font-semibold text-white">Surname</span>,{" "}
+                <span className="font-semibold text-white">Email</span> and{" "}
+                <span className="font-semibold text-white">Phone</span>.
                 Existing clients with the same email are skipped automatically.
               </>
             }
             icon={Users}
+            meta={
+              rows.length > 0 ? (
+                <>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    {rows.length} row{rows.length === 1 ? "" : "s"} staged
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                    {counts.ok} ready
+                  </span>
+                  {counts.bad > 0 && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                      <span className="h-1.5 w-1.5 rounded-full bg-rose-400" />
+                      {counts.bad} need a fix
+                    </span>
+                  )}
+                </>
+              ) : undefined
+            }
             actions={
               <Link href={withSlug("/admin/onboarding/imports")}>
                 <Button variant="outline" size="sm">
@@ -376,6 +406,31 @@ function ClientImportPage() {
               </CardContent>
             </Card>
           </div>
+
+          {/* Failed-import banner. Stays until the next attempt so the
+              outcome is visible even after the toast is gone. */}
+          {importError && (
+            <Card className="mb-6 border-rose-200 bg-rose-50">
+              <CardContent className="p-4 flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-start gap-2 text-sm">
+                  <AlertTriangle className="w-4 h-4 text-rose-600 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <p className="font-medium text-rose-900">Import failed, nothing was saved</p>
+                    <p className="text-xs text-rose-800/80 mt-0.5">{importError}</p>
+                  </div>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={submit}
+                  disabled={submitting || counts.ok === 0}
+                  className="bg-white"
+                >
+                  Retry import
+                </Button>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Preview + import */}
           {rows.length > 0 && (
