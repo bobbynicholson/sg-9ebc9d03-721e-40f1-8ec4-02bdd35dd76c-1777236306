@@ -1,3 +1,4 @@
+import { useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -63,7 +64,11 @@ export const getStaticProps: GetStaticProps = async () => {
   return { props: { posts: merged }, revalidate: 300 };
 };
 
-export default function BlogPage({ posts = blogPosts as BlogPost[] }: { posts?: BlogPost[] }) {
+export default function BlogPage({ posts: allPosts = blogPosts as BlogPost[] }: { posts?: BlogPost[] }) {
+  // Search + category were decorative inputs since launch. Both filter
+  // client-side over the merged post list now.
+  const [searchTerm, setSearchTerm] = useState("");
+  const [activeCategory, setActiveCategory] = useState("All");
 
   const getExcerpt = (post: BlogPost): string => {
     const firstParagraph = post.content.find(block => block.type === "paragraph");
@@ -89,6 +94,14 @@ export default function BlogPage({ posts = blogPosts as BlogPost[] }: { posts?: 
     const minutes = Math.ceil(wordCount / 200);
     return `${minutes} min read`;
   };
+
+  const posts = allPosts.filter((post) => {
+    if (activeCategory !== "All" && getCategory(post.title) !== activeCategory) return false;
+    if (!searchTerm.trim()) return true;
+    const q = searchTerm.toLowerCase();
+    const body = post.content.map((b) => `${b.text || ""} ${b.question || ""} ${b.answer || ""}`).join(" ").toLowerCase();
+    return post.title.toLowerCase().includes(q) || body.includes(q);
+  });
 
   const collectionSchema = {
     "@context": "https://schema.org",
@@ -174,6 +187,8 @@ export default function BlogPage({ posts = blogPosts as BlogPost[] }: { posts?: 
                   <Search className="absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-stone-400" />
                   <Input
                     placeholder="Search articles..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
                     className="h-12 rounded-full border-stone-300 pl-11"
                   />
                 </div>
@@ -185,13 +200,24 @@ export default function BlogPage({ posts = blogPosts as BlogPost[] }: { posts?: 
                     <Button
                       variant="outline"
                       size="sm"
-                      className={`rounded-full border-stone-300 text-stone-700 hover:border-amber-300 hover:bg-amber-50 hover:text-amber-800 ${btnPress}`}
+                      onClick={() => setActiveCategory(category)}
+                      className={`rounded-full ${btnPress} ${
+                        activeCategory === category
+                          ? "border-amber-400 bg-amber-50 text-amber-800"
+                          : "border-stone-300 text-stone-700 hover:border-amber-300 hover:bg-amber-50 hover:text-amber-800"
+                      }`}
                     >
                       {category}
                     </Button>
                   </StaggerItem>
                 ))}
               </Stagger>
+
+              {posts.length === 0 && (
+                <div className="rounded-2xl border border-stone-200 bg-white p-10 text-center text-stone-600">
+                  No articles match &quot;{searchTerm}&quot;{activeCategory !== "All" ? ` in ${activeCategory}` : ""}. Try different keywords or clear the category filter.
+                </div>
+              )}
 
               {/* Featured post: wide editorial lead, not part of the uniform grid. */}
               {featured && (
