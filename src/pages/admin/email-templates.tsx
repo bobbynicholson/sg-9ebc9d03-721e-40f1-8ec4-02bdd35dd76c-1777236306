@@ -78,7 +78,9 @@ async function loadLifecycleStats(companyId: string): Promise<LifecycleStats> {
       .from("outgoing_email_queue")
       .select("id", { count: "exact", head: true })
       .eq("company_id", companyId)
-      .in("status", ["failed", "error"])
+      // "failed" is the only failure value in the status CHECK - there
+      // is no "error" status on outgoing_email_queue.
+      .eq("status", "failed")
       .gte("created_at", since)),
     countOf((supabase as any)
       .from("quote_followup_log")

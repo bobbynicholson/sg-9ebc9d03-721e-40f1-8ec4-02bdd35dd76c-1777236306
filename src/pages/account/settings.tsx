@@ -15,9 +15,6 @@ import { PrivacyTab } from "@/components/account/settings/PrivacyTab";
 import { ProfileTab } from "@/components/account/settings/ProfileTab";
 import { SecurityTab } from "@/components/account/settings/SecurityTab";
 import type {
-  NotificationPreferences,
-  PrivacySettings,
-  AccountPreferences,
   ProfileFormData,
   PasswordFormData,
 } from "@/components/account/settings/types";
@@ -51,30 +48,6 @@ function ProfileSettingsPage() {
     confirmPassword: "",
   });
 
-  const [notificationPrefs, setNotificationPrefs] = useState<NotificationPreferences>({
-    email_notifications: true,
-    sms_notifications: false,
-    push_notifications: true,
-    order_updates: true,
-    delivery_updates: true,
-    marketing_emails: false,
-    weekly_summary: true,
-  });
-
-  const [privacySettings, setPrivacySettings] = useState<PrivacySettings>({
-    profile_visibility: "team",
-    show_email: false,
-    show_phone: false,
-    allow_analytics: true,
-  });
-
-  const [preferences, setPreferences] = useState<AccountPreferences>({
-    language: "en",
-    timezone: "Africa/Johannesburg",
-    date_format: "DD/MM/YYYY",
-    currency_display: "symbol",
-  });
-
   useEffect(() => {
     if (profile) {
       setFormData({
@@ -87,28 +60,8 @@ function ProfileSettingsPage() {
         company_name: company?.company_name || profile.company_name || "",
         avatar_url: profile.avatar_url || "",
       });
-
-      // Load preferences from profile metadata or localStorage
-      loadUserPreferences();
     }
   }, [profile, company]);
-
-  const loadUserPreferences = () => {
-    // Load from localStorage or profile metadata
-    const savedNotificationPrefs = localStorage.getItem("notification_preferences");
-    const savedPrivacySettings = localStorage.getItem("privacy_settings");
-    const savedPreferences = localStorage.getItem("user_preferences");
-
-    if (savedNotificationPrefs) {
-      setNotificationPrefs(JSON.parse(savedNotificationPrefs));
-    }
-    if (savedPrivacySettings) {
-      setPrivacySettings(JSON.parse(savedPrivacySettings));
-    }
-    if (savedPreferences) {
-      setPreferences(JSON.parse(savedPreferences));
-    }
-  };
 
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({
@@ -326,54 +279,6 @@ function ProfileSettingsPage() {
     }
   };
 
-  const handleNotificationPrefsUpdate = async () => {
-    try {
-      localStorage.setItem("notification_preferences", JSON.stringify(notificationPrefs));
-      toast({
-        title: "Preferences Updated",
-        description: "Your notification preferences have been saved.",
-      });
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to save notification preferences.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handlePrivacySettingsUpdate = async () => {
-    try {
-      localStorage.setItem("privacy_settings", JSON.stringify(privacySettings));
-      toast({
-        title: "Privacy Settings Updated",
-        description: "Your privacy settings have been saved.",
-      });
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to save privacy settings.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handlePreferencesUpdate = async () => {
-    try {
-      localStorage.setItem("user_preferences", JSON.stringify(preferences));
-      toast({
-        title: "Preferences Updated",
-        description: "Your preferences have been saved.",
-      });
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to save preferences.",
-        variant: "destructive",
-      });
-    }
-  };
-
   if (!user || !profile) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -448,9 +353,6 @@ function ProfileSettingsPage() {
                 fileInputRef={fileInputRef}
                 onAvatarPick={handleAvatarPick}
                 onAvatarChange={handleAvatarChange}
-                preferences={preferences}
-                onPreferencesChange={setPreferences}
-                onPreferencesSave={handlePreferencesUpdate}
               />
             </TabsContent>
 
@@ -464,22 +366,19 @@ function ProfileSettingsPage() {
               />
             </TabsContent>
 
-            {/* Notifications Tab */}
+            {/* Notifications Tab - self-contained, persists to the
+                email_notification_preferences row the DB mailers read */}
             <TabsContent value="notifications" className="space-y-6">
               <NotificationsTab
-                notificationPrefs={notificationPrefs}
-                setNotificationPrefs={setNotificationPrefs}
-                onSave={handleNotificationPrefsUpdate}
+                userId={user.id}
+                companyId={((profile as any)?.company_id as string | undefined) || null}
               />
             </TabsContent>
 
-            {/* Privacy Tab */}
+            {/* Privacy Tab - self-contained, persists to
+                profiles.notification_preferences jsonb */}
             <TabsContent value="privacy" className="space-y-6">
-              <PrivacyTab
-                privacySettings={privacySettings}
-                setPrivacySettings={setPrivacySettings}
-                onSave={handlePrivacySettingsUpdate}
-              />
+              <PrivacyTab userId={user.id} />
             </TabsContent>
           </Tabs>
         </div>

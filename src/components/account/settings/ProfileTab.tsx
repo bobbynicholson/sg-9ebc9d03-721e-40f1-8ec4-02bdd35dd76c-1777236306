@@ -6,16 +6,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { User, Mail, Phone, Building2, Save, Camera, Briefcase, Globe } from "lucide-react";
+import { User, Mail, Phone, Building2, Save, Camera, Briefcase } from "lucide-react";
 import { ROLE_NAMES } from "@/lib/authGuards";
-import type { AccountPreferences, ProfileFormData } from "./types";
+import type { ProfileFormData } from "./types";
 
 interface Props {
   /** Authed profile row from useAuth(). */
@@ -30,9 +23,6 @@ interface Props {
   fileInputRef: RefObject<HTMLInputElement>;
   onAvatarPick: () => void;
   onAvatarChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  preferences: AccountPreferences;
-  onPreferencesChange: (next: AccountPreferences) => void;
-  onPreferencesSave: () => void | Promise<void>;
 }
 
 function getInitials(name: string) {
@@ -45,17 +35,18 @@ function getInitials(name: string) {
 }
 
 /**
- * Profile tab for /account/settings. Three cards: profile overview
- * (avatar + role + created date), personal information (editable
- * fields), and display / regional preferences.
+ * Profile tab for /account/settings. Two cards: profile overview
+ * (avatar + role + created date) and personal information (editable
+ * fields).
  *
- * Parent retains ownership of formData / preferences / avatar
- * upload state so the parent-level Save bar and the data fetched
- * from useAuth stay the source of truth. The tab is pure
- * presentation.
+ * Parent retains ownership of formData / avatar upload state so the
+ * parent-level Save bar and the data fetched from useAuth stay the
+ * source of truth. The tab is pure presentation.
  *
  * Extracted from inline in src/pages/account/settings.tsx (P2-13
- * account/settings split).
+ * account/settings split). The old "Display & Regional Preferences"
+ * card was removed in the persistence rebuild: its values saved to
+ * localStorage and nothing ever read them.
  */
 export function ProfileTab({
   profile,
@@ -68,9 +59,6 @@ export function ProfileTab({
   fileInputRef,
   onAvatarPick,
   onAvatarChange,
-  preferences,
-  onPreferencesChange,
-  onPreferencesSave,
 }: Props) {
   const role = profile?.role as string | undefined;
   const canEditCompanyName = role === "owner" || role === "admin" || role === "super_admin";
@@ -243,95 +231,6 @@ export function ProfileTab({
         </CardContent>
       </Card>
 
-      <Card className="border-0 shadow-lg dark:bg-slate-800">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 dark:text-white">
-            <Globe className="w-5 h-5" />
-            Display & Regional Preferences
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label className="dark:text-slate-200">Language</Label>
-              <Select
-                value={preferences.language}
-                onValueChange={(value) => onPreferencesChange({ ...preferences, language: value })}
-              >
-                <SelectTrigger className="dark:bg-slate-700 dark:text-white dark:border-slate-600">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="en">English</SelectItem>
-                  <SelectItem value="af">Afrikaans</SelectItem>
-                  <SelectItem value="zu">Zulu</SelectItem>
-                  <SelectItem value="xh">Xhosa</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label className="dark:text-slate-200">Timezone</Label>
-              <Select
-                value={preferences.timezone}
-                onValueChange={(value) => onPreferencesChange({ ...preferences, timezone: value })}
-              >
-                <SelectTrigger className="dark:bg-slate-700 dark:text-white dark:border-slate-600">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Africa/Johannesburg">Johannesburg (CAT)</SelectItem>
-                  <SelectItem value="Africa/Cairo">Cairo (EET)</SelectItem>
-                  <SelectItem value="Europe/London">London (GMT)</SelectItem>
-                  <SelectItem value="America/New_York">New York (EST)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label className="dark:text-slate-200">Date Format</Label>
-              <Select
-                value={preferences.date_format}
-                onValueChange={(value) => onPreferencesChange({ ...preferences, date_format: value })}
-              >
-                <SelectTrigger className="dark:bg-slate-700 dark:text-white dark:border-slate-600">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="DD/MM/YYYY">DD/MM/YYYY</SelectItem>
-                  <SelectItem value="MM/DD/YYYY">MM/DD/YYYY</SelectItem>
-                  <SelectItem value="YYYY-MM-DD">YYYY-MM-DD</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label className="dark:text-slate-200">Currency Display</Label>
-              <Select
-                value={preferences.currency_display}
-                onValueChange={(value) =>
-                  onPreferencesChange({ ...preferences, currency_display: value })
-                }
-              >
-                <SelectTrigger className="dark:bg-slate-700 dark:text-white dark:border-slate-600">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="symbol">Symbol (R, $, £)</SelectItem>
-                  <SelectItem value="code">Code (ZAR, USD, GBP)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="flex justify-end pt-4">
-            <Button onClick={onPreferencesSave} className="bg-orange-600 hover:bg-orange-700">
-              <Save className="w-4 h-4 mr-2" />
-              Save Preferences
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }
